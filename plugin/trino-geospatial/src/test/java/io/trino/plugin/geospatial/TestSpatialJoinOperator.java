@@ -50,7 +50,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.locationtech.jts.geom.Geometry;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -300,13 +299,13 @@ public class TestSpatialJoinOperator
         for (int i = 0; i < 10; i++) {
             probePages.row(stPoint(6 + 0.1 * i, 6 + 0.1 * i), "z" + i);
         }
-        List<Page> probeInput = probePages.build();
+        Page probeInput = probePages.buildPage();
 
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
 
         Operator operator = joinOperatorFactory.createOperator(driverContext);
         assertThat(operator.needsInput()).isTrue();
-        operator.addInput(probeInput.get(0));
+        operator.addInput(probeInput);
         operator.finish();
 
         // we will yield 40 times due to filterFunction
@@ -491,7 +490,8 @@ public class TestSpatialJoinOperator
                 10_000,
                 new TestingFactory(false));
 
-        Driver driver = Driver.createDriver(driverContext,
+        Driver driver = Driver.createDriver(
+                driverContext,
                 valuesOperatorFactory.createOperator(driverContext),
                 buildOperatorFactory.createOperator(driverContext));
 

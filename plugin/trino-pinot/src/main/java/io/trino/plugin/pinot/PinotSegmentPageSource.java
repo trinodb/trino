@@ -94,6 +94,7 @@ public class PinotSegmentPageSource
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to MemoryContext
     public long getMemoryUsage()
     {
         return estimatedMemoryUsageInBytes;
@@ -220,7 +221,9 @@ public class PinotSegmentPageSource
                     PINOT_UNSUPPORTED_COLUMN_TYPE,
                     format(
                             "Failed to write column %s. pinotColumnType %s, javaType %s",
-                            columnHandles.get(columnIdx).getColumnName(), pinotColumnType, javaType));
+                            columnHandles.get(columnIdx).getColumnName(),
+                            pinotColumnType,
+                            javaType));
         }
     }
 

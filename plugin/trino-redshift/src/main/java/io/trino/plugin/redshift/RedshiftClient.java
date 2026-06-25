@@ -186,7 +186,7 @@ public class RedshiftClient
      * other precisions.
      *
      * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Numeric_types201.html#r_Numeric_types201-decimal-or-numeric-type">
-     * Redshift documentation</a>
+     *         Redshift documentation</a>
      */
     private static final int REDSHIFT_DECIMAL_CUTOFF_PRECISION = 19;
 
@@ -203,7 +203,7 @@ public class RedshiftClient
      * Maximum size of a Redshift CHAR column.
      *
      * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Character_types.html">
-     * Redshift documentation</a>
+     *         Redshift documentation</a>
      */
     private static final int REDSHIFT_MAX_CHAR = 4096;
 
@@ -211,7 +211,7 @@ public class RedshiftClient
      * Maximum size of a Redshift VARCHAR column.
      *
      * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Character_types.html">
-     * Redshift documentation</a>
+     *         Redshift documentation</a>
      */
     static final int REDSHIFT_MAX_VARCHAR = 65535;
 
@@ -434,7 +434,8 @@ public class RedshiftClient
     }
 
     @Override
-    public Optional<PreparedQuery> implementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             Map<JdbcColumnHandle, String> leftProjections,
@@ -457,7 +458,8 @@ public class RedshiftClient
     }
 
     @Override
-    public Optional<PreparedQuery> legacyImplementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             PreparedQuery rightSource,
@@ -637,15 +639,12 @@ public class RedshiftClient
             case Types.BIT -> Optional.of(booleanColumnMapping());
 
             // case Types.TINYINT: -- Redshift doesn't support tinyint
-            case Types.SMALLINT ->
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                    Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, smallintWriteFunction(), pushdownDiscreteValues(SMALLINT)));
-            case Types.INTEGER ->
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                    Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), pushdownDiscreteValues(INTEGER)));
-            case Types.BIGINT ->
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                    Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), pushdownDiscreteValues(BIGINT)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.SMALLINT -> Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, smallintWriteFunction(), pushdownDiscreteValues(SMALLINT)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.INTEGER -> Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), pushdownDiscreteValues(INTEGER)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.BIGINT -> Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), pushdownDiscreteValues(BIGINT)));
 
             case Types.REAL -> Optional.of(realColumnMapping());
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
@@ -688,19 +687,19 @@ public class RedshiftClient
             }
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        RedshiftClient::readDate,
-                        RedshiftClient::writeDate));
+                    DATE,
+                    RedshiftClient::readDate,
+                    RedshiftClient::writeDate));
 
             case Types.TIMESTAMP -> Optional.of(ColumnMapping.longMapping(
-                        TIMESTAMP_MICROS,
-                        RedshiftClient::readTimestamp,
-                        RedshiftClient::writeShortTimestamp));
+                    TIMESTAMP_MICROS,
+                    RedshiftClient::readTimestamp,
+                    RedshiftClient::writeShortTimestamp));
 
             case Types.TIMESTAMP_WITH_TIMEZONE -> Optional.of(ColumnMapping.objectMapping(
-                        TIMESTAMP_TZ_MICROS,
-                        longTimestampWithTimeZoneReadFunction(),
-                        longTimestampWithTimeZoneWriteFunction()));
+                    TIMESTAMP_TZ_MICROS,
+                    longTimestampWithTimeZoneReadFunction(),
+                    longTimestampWithTimeZoneWriteFunction()));
             default -> getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(type) : Optional.empty();
         };
     }

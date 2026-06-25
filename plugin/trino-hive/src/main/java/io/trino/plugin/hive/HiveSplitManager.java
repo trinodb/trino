@@ -39,13 +39,13 @@ import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -80,7 +80,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HivePartitionManager.partitionMatches;
-import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
@@ -101,6 +100,7 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -116,7 +116,6 @@ public class HiveSplitManager
     private final DataSize maxOutstandingSplitsSize;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
-    private final int maxInitialSplits;
     private final int splitLoaderConcurrency;
     private final int maxSplitsPerSecond;
     private final boolean recursiveDfsWalkerEnabled;
@@ -124,6 +123,7 @@ public class HiveSplitManager
     private final TypeManager typeManager;
     private final SplitAffinityProvider splitAffinityProvider;
     private final int maxPartitionsPerScan;
+    private final ConnectorExpressionEvaluator evaluator;
 
     @Inject
     public HiveSplitManager(
@@ -134,10 +134,10 @@ public class HiveSplitManager
             @ForHiveSplitManager ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
-            SplitAffinityProvider splitAffinityProvider)
+            SplitAffinityProvider splitAffinityProvider,
+            ConnectorExpressionEvaluator evaluator)
     {
-        this(
-                transactionManager,
+        this(transactionManager,
                 partitionManager,
                 fileSystemFactory,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
@@ -146,13 +146,13 @@ public class HiveSplitManager
                 hiveConfig.getMaxOutstandingSplitsSize(),
                 hiveConfig.getMinPartitionBatchSize(),
                 hiveConfig.getMaxPartitionBatchSize(),
-                hiveConfig.getMaxInitialSplits(),
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
                 hiveConfig.getRecursiveDirWalkerEnabled(),
                 typeManager,
                 splitAffinityProvider,
-                hiveConfig.getMaxPartitionsPerScan());
+                hiveConfig.getMaxPartitionsPerScan(),
+                evaluator);
     }
 
     public HiveSplitManager(
@@ -165,13 +165,13 @@ public class HiveSplitManager
             DataSize maxOutstandingSplitsSize,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
-            int maxInitialSplits,
             int splitLoaderConcurrency,
             @Nullable Integer maxSplitsPerSecond,
             boolean recursiveDfsWalkerEnabled,
             TypeManager typeManager,
             SplitAffinityProvider splitAffinityProvider,
-            int maxPartitionsPerScan)
+            int maxPartitionsPerScan,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -183,13 +183,13 @@ public class HiveSplitManager
         this.maxOutstandingSplitsSize = maxOutstandingSplitsSize;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
-        this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.maxSplitsPerSecond = requireNonNullElse(maxSplitsPerSecond, Integer.MAX_VALUE);
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.maxPartitionsPerScan = maxPartitionsPerScan;
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -197,7 +197,7 @@ public class HiveSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
@@ -234,7 +234,7 @@ public class HiveSplitManager
                         bucketing.tableBucketCount()));
 
         // get partitions
-        Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, hiveTable);
+        Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, hiveTable, session);
 
         // short circuit if we don't have any partitions
         if (!partitions.hasNext()) {
@@ -249,6 +249,8 @@ public class HiveSplitManager
                 .map(columnName -> columnName.toLowerCase(ENGLISH))
                 .collect(toImmutableSet());
 
+        DynamicFilterState dynamicFilterState = new DynamicFilterState();
+
         Iterator<HivePartitionMetadata> hivePartitions = getPartitionMetadata(
                 session,
                 metastore,
@@ -256,7 +258,7 @@ public class HiveSplitManager
                 peekingIterator(partitions),
                 tablePartitioning.map(HiveTablePartitioning::toTableBucketProperty),
                 neededColumnNames,
-                dynamicFilter,
+                dynamicFilterState,
                 hiveTable);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
@@ -264,8 +266,6 @@ public class HiveSplitManager
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
                 constraint,
-                dynamicFilter,
-                getDynamicFilteringWaitTimeout(session),
                 typeManager,
                 createBucketSplitInfo(tablePartitioning, bucketFilter),
                 session,
@@ -278,13 +278,15 @@ public class HiveSplitManager
                 metastore.getValidWriteIds(session, hiveTable)
                         .map(value -> value.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize(),
-                maxPartitionsPerScan);
+                maxPartitionsPerScan,
+                dynamicFilterColumns,
+                dynamicFilterState,
+                evaluator);
 
         HiveSplitSource splitSource = HiveSplitSource.allAtOnce(
                 session,
                 table.getDatabaseName(),
                 table.getTableName(),
-                maxInitialSplits,
                 maxOutstandingSplits,
                 maxOutstandingSplitsSize,
                 maxSplitsPerSecond,
@@ -292,7 +294,8 @@ public class HiveSplitManager
                 executor,
                 highMemorySplitSourceCounter,
                 splitAffinityProvider,
-                hiveTable.isRecordScannedFiles());
+                hiveTable.isRecordScannedFiles(),
+                dynamicFilterState);
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
@@ -312,7 +315,7 @@ public class HiveSplitManager
             PeekingIterator<HivePartition> hivePartitions,
             Optional<HiveBucketProperty> bucketProperty,
             Set<String> neededColumnNames,
-            DynamicFilter dynamicFilter,
+            DynamicFilterState dynamicFilterState,
             HiveTableHandle tableHandle)
     {
         if (!hivePartitions.hasNext()) {
@@ -333,7 +336,7 @@ public class HiveSplitManager
         Iterator<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterator<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
             // Use dynamic filters to reduce the partitions listed by getPartitionsByNames
-            TupleDomain<ColumnHandle> currentDynamicFilter = dynamicFilter.getCurrentPredicate();
+            TupleDomain<ColumnHandle> currentDynamicFilter = dynamicFilterState.get(20, SECONDS).currentPredicate();
             if (!currentDynamicFilter.isAll()) {
                 TupleDomain<ColumnHandle> partitionsFilter = currentDynamicFilter.intersect(tableHandle.getCompactEffectivePredicate());
                 partitionBatch = partitionBatch.stream()
@@ -537,7 +540,8 @@ public class HiveSplitManager
 
     private static TrinoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)
     {
-        return new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+        return new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                "" +
                         "There is a mismatch between the table and partition schemas. " +
                         "The types are incompatible and cannot be coerced. " +
                         "The column '%s' in table '%s' is declared as type '%s', " +

@@ -24,6 +24,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.FilterNode;
@@ -45,7 +46,6 @@ import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
-import static io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
@@ -98,7 +98,8 @@ public class WindowFilterPushDown
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {
-                return new RowNumberNode(idAllocator.getNextId(),
+                return new RowNumberNode(
+                        idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
                         false,
@@ -266,7 +267,8 @@ public class WindowFilterPushDown
 
         private TopNRankingNode convertToTopNRanking(WindowNode windowNode, RankingType rankingType, int limit)
         {
-            return new TopNRankingNode(idAllocator.getNextId(),
+            return new TopNRankingNode(
+                    idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
                     rankingType,

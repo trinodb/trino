@@ -31,7 +31,7 @@ public class FrameBound
         PRECEDING,
         CURRENT_ROW,
         FOLLOWING,
-        UNBOUNDED_FOLLOWING
+        UNBOUNDED_FOLLOWING,
     }
 
     private final Type type;

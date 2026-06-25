@@ -39,9 +39,9 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
@@ -202,7 +202,9 @@ public final class DeltaLakeSchemaSupport
                 boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
                 checkArgument(
                         supportsColumnMappingReader == supportsColumnMappingWriter,
-                        "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
+                        "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s",
+                        supportsColumnMappingReader,
+                        supportsColumnMappingWriter);
                 if (!supportsColumnMappingReader) {
                     return ColumnMappingMode.NONE;
                 }
@@ -581,7 +583,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
     {
-        return getColumnProperties(metadataEntry, node -> JSON_MAPPER.convertValue(node.get("type"), new TypeReference<>(){}));
+        return getColumnProperties(metadataEntry, node -> JSON_MAPPER.convertValue(node.get("type"), new TypeReference<>() {}));
     }
 
     public static Map<String, String> getColumnComments(MetadataEntry metadataEntry)
@@ -686,7 +688,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Map<String, Map<String, Object>> getColumnsMetadata(MetadataEntry metadataEntry)
     {
-        return getColumnProperties(metadataEntry, node -> JSON_MAPPER.convertValue(node.get("metadata"), new TypeReference<>(){}));
+        return getColumnProperties(metadataEntry, node -> JSON_MAPPER.convertValue(node.get("metadata"), new TypeReference<>() {}));
     }
 
     public static <T> Map<String, T> getColumnProperties(MetadataEntry metadataEntry, Function<JsonNode, T> extractor)
@@ -763,7 +765,7 @@ public final class DeltaLakeSchemaSupport
             // For more info, see https://delta-users.slack.com/archives/GKTUWT03T/p1585760533005400
             // and https://cwiki.apache.org/confluence/display/Hive/Different+TIMESTAMP+types
             case "timestamp" -> TIMESTAMP_TZ_MILLIS;
-            case "variant" -> typeManager.getType(new TypeSignature(JSON));
+            case "variant" -> typeManager.getType(new TypeDescriptor(JSON));
             default -> throw new TypeNotFoundException(primitiveType);
         };
     }

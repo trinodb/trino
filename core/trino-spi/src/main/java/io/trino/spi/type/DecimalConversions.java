@@ -47,14 +47,20 @@ public final class DecimalConversions
             1.0e0f, 1.0e1f, 1.0e2f, 1.0e3f, 1.0e4f, 1.0e5f,
             1.0e6f, 1.0e7f, 1.0e8f, 1.0e9f, 1.0e10f,
     };
-    private static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf((1L << 52) - 1);
-    private static final Int128 MAX_EXACT_FLOAT = Int128.valueOf((1L << 22) - 1);
+    // visible for testing
+    static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf(1L << 53);
+    private static final long MAX_EXACT_DOUBLE_LONG = MAX_EXACT_DOUBLE.toLongExact();
+    // visible for testing
+    static final Int128 MAX_EXACT_FLOAT = Int128.valueOf(1L << 24);
 
     private DecimalConversions() {}
 
     public static double shortDecimalToDouble(long decimal, long tenToScale)
     {
-        return ((double) decimal) / tenToScale;
+        if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
+            return ((double) decimal) / tenToScale;
+        }
+        return BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).doubleValue();
     }
 
     public static double longDecimalToDouble(Int128 decimal, long scale)
@@ -70,7 +76,11 @@ public final class DecimalConversions
 
     public static long shortDecimalToReal(long decimal, long tenToScale)
     {
-        return floatToRawIntBits(((float) decimal) / tenToScale);
+        // Divide in double to avoid double-rounding: ((float) decimal) / tenToScale first
+        // rounds the unscaled value to float (losing precision for |decimal| > 2^24),
+        // then divides — the composition can land on a different float than the correctly
+        // rounded mathematical result.
+        return floatToRawIntBits((float) ((double) decimal / tenToScale));
     }
 
     public static long longDecimalToReal(Int128 decimal, long scale)

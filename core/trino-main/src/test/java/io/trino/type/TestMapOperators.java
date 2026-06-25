@@ -123,10 +123,8 @@ public class TestMapOperators
         assertThat(assertions.function("map", "ARRAY[1.0, 383838383838383.12324234234234]", "ARRAY[2.2, 3.3]"))
                 .hasType(mapType(createDecimalType(29, 14), createDecimalType(2, 1)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("000000000000001.00000000000000", createDecimalType(29, 14)),
-                        decimal("2.2", createDecimalType(2, 1)),
-                        decimal("383838383838383.12324234234234", createDecimalType(29, 14)),
-                        decimal("3.3", createDecimalType(2, 1))));
+                        decimal("000000000000001.00000000000000", createDecimalType(29, 14)), decimal("2.2", createDecimalType(2, 1)),
+                        decimal("383838383838383.12324234234234", createDecimalType(29, 14)), decimal("3.3", createDecimalType(2, 1))));
 
         assertThat(assertions.function("map", "ARRAY[1.0E0, 2.0E0]", "ARRAY[ARRAY[BIGINT '1', BIGINT '2'], ARRAY[BIGINT '3' ]]"))
                 .hasType(mapType(DOUBLE, new ArrayType(BIGINT)))
@@ -143,18 +141,14 @@ public class TestMapOperators
         assertThat(assertions.function("map", "ARRAY['1', '100']", "ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01']"))
                 .hasType(mapType(createVarcharType(3), createTimestampType(0)))
                 .isEqualTo(ImmutableMap.of(
-                        "1",
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
-                        "100",
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
+                        "1", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
+                        "100", sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
 
         assertThat(assertions.function("map", "ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01']", "ARRAY[1.0E0, 100.0E0]"))
                 .hasType(mapType(createTimestampType(0), DOUBLE))
                 .isEqualTo(ImmutableMap.of(
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
-                        1.0,
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0),
-                        100.0));
+                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0), 1.0,
+                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0), 100.0));
 
         assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[1]", "ARRAY[2, 4]")::evaluate)
                 .hasMessage("Key and value arrays must be the same length");
@@ -466,19 +460,15 @@ public class TestMapOperators
                 .binding("a", "JSON '{\"123.456\": 5, \"3.14\": 8}'"))
                 .hasType(mapType(createDecimalType(10, 5), BIGINT))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("123.45600", createDecimalType(10, 5)),
-                        5L,
-                        decimal("3.14000", createDecimalType(10, 5)),
-                        8L));
+                        decimal("123.45600", createDecimalType(10, 5)), 5L,
+                        decimal("3.14000", createDecimalType(10, 5)), 8L));
 
         assertThat(assertions.expression("cast(a as MAP(DECIMAL(38, 8), BIGINT))")
                 .binding("a", "JSON '{\"12345678.12345678\": 5, \"3.1415926\": 8}'"))
                 .hasType(mapType(createDecimalType(38, 8), BIGINT))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("12345678.12345678", createDecimalType(38, 8)),
-                        5L,
-                        decimal("3.14159260", createDecimalType(38, 8)),
-                        8L));
+                        decimal("12345678.12345678", createDecimalType(38, 8)), 5L,
+                        decimal("3.14159260", createDecimalType(38, 8)), 8L));
 
         // key type: varchar
         assertThat(assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
@@ -726,19 +716,15 @@ public class TestMapOperators
                 .binding("a", "CAST(MAP(ARRAY[1.0, 383838383838383.12324234234234], ARRAY[2.2, 3.3]) as JSON)"))
                 .hasType(mapType(createDecimalType(29, 14), createDecimalType(2, 1)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("000000000000001.00000000000000", createDecimalType(29, 14)),
-                        decimal("2.2", createDecimalType(2, 1)),
-                        decimal("383838383838383.12324234234234", createDecimalType(29, 14)),
-                        decimal("3.3", createDecimalType(2, 1))));
+                        decimal("000000000000001.00000000000000", createDecimalType(29, 14)), decimal("2.2", createDecimalType(2, 1)),
+                        decimal("383838383838383.12324234234234", createDecimalType(29, 14)), decimal("3.3", createDecimalType(2, 1))));
 
         assertThat(assertions.expression("cast(a AS MAP(DECIMAL(2,1), DECIMAL(29,14)))")
                 .binding("a", "CAST(MAP(ARRAY[2.2, 3.3], ARRAY[1.0, 383838383838383.12324234234234]) as JSON)"))
                 .hasType(mapType(createDecimalType(2, 1), createDecimalType(29, 14)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("2.2", createDecimalType(2, 1)),
-                        decimal("000000000000001.00000000000000", createDecimalType(29, 14)),
-                        decimal("3.3", createDecimalType(2, 1)),
-                        decimal("383838383838383.12324234234234", createDecimalType(29, 14))));
+                        decimal("2.2", createDecimalType(2, 1)), decimal("000000000000001.00000000000000", createDecimalType(29, 14)),
+                        decimal("3.3", createDecimalType(2, 1)), decimal("383838383838383.12324234234234", createDecimalType(29, 14))));
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS MAP(DECIMAL(2,1), DECIMAL(10,5)))")
                 .binding("a", "CAST(MAP(ARRAY[12345.12345], ARRAY[12345.12345]) as JSON)").evaluate())
@@ -1479,51 +1465,39 @@ public class TestMapOperators
         assertThat(assertions.function("map_concat", "map(ARRAY[1.0, 383838383838383.12324234234234], ARRAY[2.2, 3.3])", "map(ARRAY[1.0, 383838383838383.12324234234234], ARRAY[2.1, 3.2])"))
                 .hasType(mapType(createDecimalType(29, 14), createDecimalType(2, 1)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("000000000000001.00000000000000", createDecimalType(29, 14)),
-                        decimal("2.1", createDecimalType(2, 1)),
-                        decimal("383838383838383.12324234234234", createDecimalType(29, 14)),
-                        decimal("3.2", createDecimalType(2, 1))));
+                        decimal("000000000000001.00000000000000", createDecimalType(29, 14)), decimal("2.1", createDecimalType(2, 1)),
+                        decimal("383838383838383.12324234234234", createDecimalType(29, 14)), decimal("3.2", createDecimalType(2, 1))));
 
         assertThat(assertions.function("map_concat", "map(ARRAY[1.0], ARRAY[2.2])", "map(ARRAY[5.1], ARRAY[3.2])"))
                 .hasType(mapType(createDecimalType(2, 1), createDecimalType(2, 1)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("1.0", createDecimalType(2, 1)),
-                        decimal("2.2", createDecimalType(2, 1)),
-                        decimal("5.1", createDecimalType(2, 1)),
-                        decimal("3.2", createDecimalType(2, 1))));
+                        decimal("1.0", createDecimalType(2, 1)), decimal("2.2", createDecimalType(2, 1)),
+                        decimal("5.1", createDecimalType(2, 1)), decimal("3.2", createDecimalType(2, 1))));
 
         // Decimal with type only coercion
         assertThat(assertions.function("map_concat", "map(ARRAY[1.0], ARRAY[2.2])", "map(ARRAY[5.1], ARRAY[33.2])"))
                 .hasType(mapType(createDecimalType(2, 1), createDecimalType(3, 1)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("1.0", createDecimalType(2, 1)),
-                        decimal("2.2", createDecimalType(3, 1)),
-                        decimal("5.1", createDecimalType(2, 1)),
-                        decimal("33.2", createDecimalType(3, 1))));
+                        decimal("1.0", createDecimalType(2, 1)), decimal("2.2", createDecimalType(3, 1)),
+                        decimal("5.1", createDecimalType(2, 1)), decimal("33.2", createDecimalType(3, 1))));
 
         assertThat(assertions.function("map_concat", "map(ARRAY[1.0], ARRAY[2.2])", "map(ARRAY[55.1], ARRAY[33.2])"))
                 .hasType(mapType(createDecimalType(3, 1), createDecimalType(3, 1)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("01.0", createDecimalType(3, 1)),
-                        decimal("2.2", createDecimalType(3, 1)),
-                        decimal("55.1", createDecimalType(3, 1)),
-                        decimal("33.2", createDecimalType(3, 1))));
+                        decimal("01.0", createDecimalType(3, 1)), decimal("2.2", createDecimalType(3, 1)),
+                        decimal("55.1", createDecimalType(3, 1)), decimal("33.2", createDecimalType(3, 1))));
 
         assertThat(assertions.function("map_concat", "map(ARRAY[1.0], ARRAY[2.2])", "map(ARRAY[5.1], ARRAY[33.22])"))
                 .hasType(mapType(createDecimalType(2, 1), createDecimalType(4, 2)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("5.1", createDecimalType(2, 1)),
-                        decimal("33.22", createDecimalType(4, 2)),
-                        decimal("1.0", createDecimalType(2, 1)),
-                        decimal("2.20", createDecimalType(4, 2))));
+                        decimal("5.1", createDecimalType(2, 1)), decimal("33.22", createDecimalType(4, 2)),
+                        decimal("1.0", createDecimalType(2, 1)), decimal("2.20", createDecimalType(4, 2))));
 
         assertThat(assertions.function("map_concat", "map(ARRAY[1.0], ARRAY[2.2])", "map(ARRAY[5.1], ARRAY[00000000000000002.2])"))
                 .hasType(mapType(createDecimalType(2, 1), createDecimalType(2, 1)))
                 .isEqualTo(ImmutableMap.of(
-                        decimal("1.0", createDecimalType(2, 1)),
-                        decimal("2.2", createDecimalType(2, 1)),
-                        decimal("5.1", createDecimalType(2, 1)),
-                        decimal("2.2", createDecimalType(2, 1))));
+                        decimal("1.0", createDecimalType(2, 1)), decimal("2.2", createDecimalType(2, 1)),
+                        decimal("5.1", createDecimalType(2, 1)), decimal("2.2", createDecimalType(2, 1))));
 
         // Compare keys with IS DISTINCT semantics
         assertThat(assertions.function("map_concat", "map(ARRAY[NaN()], ARRAY[1])", "map(ARRAY[NaN()], ARRAY[2])", "map(ARRAY[NaN()], ARRAY[3])"))
@@ -1578,10 +1552,8 @@ public class TestMapOperators
                 .binding("a", "MAP(ARRAY['123', '456'], ARRAY[1.23456E0, 2.34567E0])"))
                 .hasType(mapType(SMALLINT, createDecimalType(6, 5)))
                 .isEqualTo(ImmutableMap.of(
-                        (short) 123,
-                        decimal("1.23456", createDecimalType(6, 5)),
-                        (short) 456,
-                        decimal("2.34567", createDecimalType(6, 5))));
+                        (short) 123, decimal("1.23456", createDecimalType(6, 5)),
+                        (short) 456, decimal("2.34567", createDecimalType(6, 5))));
 
         assertThat(assertions.expression("cast(a as MAP(bigint, bigint))")
                 .binding("a", "MAP(ARRAY[json '1'], ARRAY[1])"))

@@ -135,8 +135,7 @@ public class DropStatsProcedure
                                 .orElseThrow(() -> new TableNotFoundException(schemaTableName)),
                         CLEAR_ALL,
                         ImmutableMap.of(
-                                makePartName(partitionColumns, values),
-                                PartitionStatistics.empty())));
+                                makePartName(partitionColumns, values), PartitionStatistics.empty())));
             }
             else {
                 // no partition specified, so drop stats for the entire table
@@ -157,8 +156,7 @@ public class DropStatsProcedure
                                             .orElseThrow(() -> new TableNotFoundException(schemaTableName)),
                                     CLEAR_ALL,
                                     ImmutableMap.of(
-                                            partitionName,
-                                            PartitionStatistics.empty()))));
+                                            partitionName, PartitionStatistics.empty()))));
                 }
             }
 

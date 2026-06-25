@@ -26,6 +26,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -34,7 +35,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -60,7 +60,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.mapType;
@@ -128,7 +128,8 @@ public class BenchmarkTransformValue
                     name,
                     fromTypes(mapType, new FunctionType(ImmutableList.of(elementType), elementType)));
             ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(elementType, elementType));
-            projectionsBuilder.add(call(resolvedFunction,
+            projectionsBuilder.add(call(
+                    resolvedFunction,
                     new Reference(mapType, "$col_0"),
                     new Lambda(
                             ImmutableList.of(new Symbol(elementType, "x"), new Symbol(elementType, "y")),

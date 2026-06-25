@@ -17,8 +17,6 @@ Trino is developed in IntelliJ. If you run Claude Code with the JetBrains MCP se
 the assistant can drive the IDE directly. Install: https://github.com/JetBrains/mcp-jetbrains.
 
 When available, Claude should prefer these over shell equivalents:
-- `mcp__idea__reformat_file` after Java edits — applies the Airlift formatter; Claude cannot
-  reproduce it by hand.
 - `mcp__idea__get_file_problems` before committing — surfaces IntelliJ inspection results
   (error-prone, unused imports, nullability) without a full Maven build.
 - `mcp__idea__search_symbol` / `mcp__idea__get_symbol_info` for symbol navigation in a codebase
@@ -27,8 +25,10 @@ When available, Claude should prefer these over shell equivalents:
 
 ## Java formatting
 
-Run `mcp__idea__reformat_file` after every Java edit — it applies the Airlift scheme imported into
-IntelliJ. Rules not covered by the formatter:
+Run `mvnd airstyle:format` after Java edits — the `airstyle-maven-plugin` (`io.airlift:airstyle-maven-plugin`)
+applies the canonical Airstyle scheme, which is what CI checks. Scope a single file with
+`mvnd -pl <module> airstyle:format -Dincludes=**/FileName.java`, and use `airstyle:check` to verify
+without rewriting. Rules not covered by the formatter:
 
 - No wildcard imports (e.g. `import io.trino.spi.*`) — checkstyle catches these on build; easier
   to avoid writing them.

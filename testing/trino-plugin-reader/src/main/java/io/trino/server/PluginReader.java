@@ -37,7 +37,9 @@ import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
 
-@Command(name = "modulesToConnectors", mixinStandardHelpOptions = true,
+@Command(
+        name = "modulesToConnectors",
+        mixinStandardHelpOptions = true,
         description = "Maps Trino plugin modules to connectors they provide and filters them using an impacted modules list.")
 public class PluginReader
         implements Callable<Integer>

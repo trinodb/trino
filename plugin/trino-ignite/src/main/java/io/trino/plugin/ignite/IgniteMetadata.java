@@ -180,7 +180,8 @@ public class IgniteMetadata
             ConnectorMergeTableHandle tableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
             Collection<Slice> fragments,
-            Collection<ComputedStatistics> computedStatistics) {}
+            Collection<ComputedStatistics> computedStatistics)
+    {}
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)

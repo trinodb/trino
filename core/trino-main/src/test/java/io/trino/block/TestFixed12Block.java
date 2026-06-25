@@ -79,7 +79,8 @@ public class TestFixed12Block
                 0, 0, 1,
                 0, 0, 2,
                 0, 0, 3,
-                0, 0, 4};
+                0, 0, 4,
+        };
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
         testCompactBlock(new Fixed12Block(0, Optional.empty(), new int[0]));

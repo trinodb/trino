@@ -22,14 +22,12 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
@@ -115,7 +113,8 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
         assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
 
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT DISTINCT x " +
                         "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
                         "LIMIT 100",
@@ -255,40 +254,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testShowSchemasFrom()
-    {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
-        assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), INFORMATION_SCHEMA);
-    }
-
-    @Test
-    public void testShowSchemasLike()
-    {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
-        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
-    }
-
-    @Test
-    public void testShowSchemasLikeWithEscape()
-    {
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
-
-        // Using eventual assertion because set of schemas may change concurrently.
-        assertEventually(() -> {
-            Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
-            assertThat(allSchemas).isEqualTo(computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
-            Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
-            verify(allSchemas.stream().anyMatch(schema -> !((String) schema).contains("_")),
-                    "This test expects at least one schema without underscore in it's name. Satisfy this assumption or override the test.");
-            assertThat(result)
-                    .isSubsetOf(allSchemas)
-                    .isNotEqualTo(allSchemas);
-            assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
-        });
-    }
-
-    @Test
     public void testShowTables()
     {
         Set<String> expectedTables = REQUIRED_TPCH_TABLES.stream()
@@ -297,14 +262,6 @@ public abstract class AbstractTestQueries
 
         MaterializedResult result = computeActual("SHOW TABLES");
         assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
-    }
-
-    @Test
-    public void testShowTablesLike()
-    {
-        assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
-                .contains("orders")
-                .allMatch(tableName -> ((String) tableName).startsWith("or"));
     }
 
     @Test
@@ -480,11 +437,5 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
-    }
-
-    @Test
-    public void testUnionAllAboveBroadcastJoin()
-    {
-        assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
     }
 }

@@ -48,7 +48,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "delta.metadata.cache-size",
         "delta.metadata.live-files.cache-size",
         "delta.metadata.live-files.cache-ttl",
-        "delta.checkpoint-filtering.enabled"
+        "delta.checkpoint-filtering.enabled",
 })
 public class DeltaLakeConfig
 {

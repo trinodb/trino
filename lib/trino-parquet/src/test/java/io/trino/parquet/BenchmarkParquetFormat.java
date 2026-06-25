@@ -15,6 +15,7 @@ package io.trino.parquet;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.trino.parquet.BenchmarkParquetFormatUtils.TestData;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
@@ -53,7 +54,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.MIN_DATA_SIZE;
-import static io.trino.parquet.BenchmarkParquetFormatUtils.TestData;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.createTempDir;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.createTpchDataSet;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.nextRandomBetween;
@@ -80,7 +80,7 @@ public class BenchmarkParquetFormat
     @Param({
             "UNCOMPRESSED",
             "SNAPPY",
-            "ZSTD"
+            "ZSTD",
     })
     public CompressionCodec compression;
 

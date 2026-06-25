@@ -318,7 +318,7 @@ public final class MetastoreUtil
 
     /**
      * @param assumeCanonicalPartitionKeys allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats. If false, non-char types will be replaced
-     * with the wildcard
+     *         with the wildcard
      * @return the domain for each partition key to either the wildcard or an equals check, or empty if {@code TupleDomain.isNone()}
      */
     public static Optional<List<String>> partitionKeyFilterToStringList(List<String> columnNames, TupleDomain<String> partitionKeysFilter, boolean assumeCanonicalPartitionKeys)

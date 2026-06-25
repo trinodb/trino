@@ -20,11 +20,11 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.FunctionResolver;
+import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
@@ -51,8 +51,9 @@ import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
 import static io.trino.sql.planner.iterative.rule.DistinctAggregationStrategyChooser.createDistinctAggregationStrategyChooser;
@@ -104,12 +105,12 @@ public class OptimizeMixedDistinctAggregations
     public static long distinctAggregationsUniqueArgumentCount(AggregationNode aggregationNode)
     {
         return aggregationNode.getAggregations()
-                       .values().stream()
-                       .filter(Aggregation::isDistinct)
-                       .map(Aggregation::getArguments)
-                       .map(HashSet::new)
-                       .distinct()
-                       .count();
+                .values().stream()
+                .filter(Aggregation::isDistinct)
+                .map(Aggregation::getArguments)
+                .map(HashSet::new)
+                .distinct()
+                .count();
     }
 
     private static boolean hasMixedDistinctAndNonDistincts(AggregationNode aggregationNode)
@@ -144,11 +145,13 @@ public class OptimizeMixedDistinctAggregations
                 .noneMatch(aggregation -> aggregation.getMask().isPresent());
     }
 
+    private final Metadata metadata;
     private final FunctionResolver functionResolver;
     private final DistinctAggregationStrategyChooser distinctAggregationStrategyChooser;
 
     public OptimizeMixedDistinctAggregations(PlannerContext plannerContext, TaskCountEstimator taskCountEstimator)
     {
+        this.metadata = plannerContext.getMetadata();
         this.functionResolver = plannerContext.getFunctionResolver();
         this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator, plannerContext.getMetadata());
     }
@@ -202,7 +205,8 @@ public class OptimizeMixedDistinctAggregations
         Assignments.Builder groupIdFilters = Assignments.builder();
         Symbol nonDistinctGroupFilterSymbol = symbolAllocator.newSymbol("non-distinct-gid-filter", BOOLEAN);
         if (hasNonDistinctAggregation) {
-            groupIdFilters.put(nonDistinctGroupFilterSymbol, new Comparison(
+            groupIdFilters.put(nonDistinctGroupFilterSymbol, comparison(
+                    metadata,
                     EQUAL,
                     groupSymbol.toSymbolReference(),
                     new Constant(BIGINT, 0L)));
@@ -220,7 +224,8 @@ public class OptimizeMixedDistinctAggregations
                 Integer groupId = distinctAggregationArgumentToGroupIdMap.get(aggregationInput);
                 Symbol groupIdFilterSymbol = groupIdFilterSymbolByGroupId.computeIfAbsent(groupId, _ -> {
                     Symbol filterSymbol = symbolAllocator.newSymbol("gid-filter-" + groupId, BOOLEAN);
-                    groupIdFilters.put(filterSymbol, new Comparison(
+                    groupIdFilters.put(filterSymbol, comparison(
+                            metadata,
                             EQUAL,
                             groupSymbol.toSymbolReference(),
                             new Constant(BIGINT, (long) groupId)));

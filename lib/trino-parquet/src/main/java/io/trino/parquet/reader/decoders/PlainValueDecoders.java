@@ -20,6 +20,7 @@ import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -31,7 +32,6 @@ import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 public final class PlainValueDecoders
 {

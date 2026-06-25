@@ -279,7 +279,9 @@ public class AdaptivePlanner
     }
 
     private Map<ExchangeSourceId, SubPlan> getUnchangedSubPlans(
-            PlanNode adaptivePlan, Set<PlanNodeId> changedPlanIds, Map<ExchangeSourceId, SubPlan> exchangeSourceIdToSubPlan)
+            PlanNode adaptivePlan,
+            Set<PlanNodeId> changedPlanIds,
+            Map<ExchangeSourceId, SubPlan> exchangeSourceIdToSubPlan)
     {
         Set<PlanNodeId> changedPlanIdsWithDownstream = new HashSet<>();
         for (PlanNodeId changedId : changedPlanIds) {
@@ -448,7 +450,8 @@ public class AdaptivePlanner
 
             if (sourceSubPlans.size() != sourceIds.size()) {
                 throw new IllegalStateException(
-                        String.format("Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
+                        String.format(
+                                "Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
                                 node.getId(),
                                 sourceIds,
                                 sourceSubPlans.stream().map(subPlan -> subPlan.getFragment().getId() + "->" + subPlan.getFragment().getRoot().getId()).collect(toImmutableList()),
@@ -488,8 +491,7 @@ public class AdaptivePlanner
         @Override
         public PlanNode visitAdaptivePlanNode(AdaptivePlanNode node, RewriteContext<List<SubPlan>> context)
         {
-            verify(
-                    !containsAdaptivePlanNode(node.getCurrentPlan()),
+            verify(!containsAdaptivePlanNode(node.getCurrentPlan()),
                     "Adaptive plan node cannot have a nested adaptive plan node");
             return node.getCurrentPlan();
         }
@@ -501,8 +503,7 @@ public class AdaptivePlanner
         @Override
         public PlanNode visitAdaptivePlanNode(AdaptivePlanNode node, RewriteContext<List<SubPlan>> context)
         {
-            verify(
-                    !containsAdaptivePlanNode(node.getInitialPlan()),
+            verify(!containsAdaptivePlanNode(node.getInitialPlan()),
                     "Adaptive plan node cannot have a nested adaptive plan node");
             return node.getInitialPlan();
         }

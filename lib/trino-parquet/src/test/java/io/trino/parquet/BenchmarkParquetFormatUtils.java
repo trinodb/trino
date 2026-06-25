@@ -70,18 +70,12 @@ public final class BenchmarkParquetFormatUtils
                 TpchColumn<E> column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                 switch (column.getType().getBase()) {
-                    case IDENTIFIER ->
-                        BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
-                    case INTEGER ->
-                        INTEGER.writeLong(blockBuilder, column.getInteger(row));
-                    case DATE ->
-                        DATE.writeLong(blockBuilder, column.getDate(row));
-                    case DOUBLE ->
-                        DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
-                    case VARCHAR ->
-                        createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
-                    default ->
-                        throw new IllegalArgumentException("Unsupported type " + column.getType());
+                    case IDENTIFIER -> BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
+                    case INTEGER -> INTEGER.writeLong(blockBuilder, column.getInteger(row));
+                    case DATE -> DATE.writeLong(blockBuilder, column.getDate(row));
+                    case DOUBLE -> DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
+                    case VARCHAR -> createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
+                    default -> throw new IllegalArgumentException("Unsupported type " + column.getType());
                 }
             }
             if (pageBuilder.isFull()) {
@@ -120,7 +114,8 @@ public final class BenchmarkParquetFormatUtils
             double compressionRatio = inputSizeStats.getSum() / outputSizeStats.getSum();
             String compression = result.getParams().getParam("compression");
             String dataSet = result.getParams().getParam("dataSet");
-            System.out.printf("  %-10s  %-30s  %-10s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, α = 99.9%%)\n",
+            System.out.printf(
+                    "  %-10s  %-30s  %-10s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, α = 99.9%%)\n",
                     result.getPrimaryResult().getLabel(),
                     dataSet,
                     compression,

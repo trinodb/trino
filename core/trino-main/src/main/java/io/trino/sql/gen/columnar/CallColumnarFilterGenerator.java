@@ -33,13 +33,13 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.type.FunctionType;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -384,7 +384,7 @@ public class CallColumnarFilterGenerator
         BytecodeBlock block = new BytecodeBlock();
 
         // use LDC for primitives (boolean, short, int, long, float, double)
-        block.comment("constant " + constant.type().getTypeSignature());
+        block.comment("constant " + constant.type().getTypeDescriptor());
         if (javaType == boolean.class) {
             return block.append(loadBoolean((Boolean) value));
         }

@@ -112,9 +112,11 @@ public class KafkaFilterManager
             // push down offset
             if (offsetRanged.isPresent()) {
                 Range range = offsetRanged.get();
-                partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
+                partitionBeginOffsets = overridePartitionBeginOffsets(
+                        partitionBeginOffsets,
                         _ -> (range.begin() != INVALID_KAFKA_RANGE_INDEX) ? Optional.of(range.begin()) : Optional.empty());
-                partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
+                partitionEndOffsets = overridePartitionEndOffsets(
+                        partitionEndOffsets,
                         _ -> (range.end() != INVALID_KAFKA_RANGE_INDEX) ? Optional.of(range.end()) : Optional.empty());
             }
 
@@ -185,7 +187,8 @@ public class KafkaFilterManager
                 .collect(toMap(Map.Entry::getKey, entry -> Optional.ofNullable(entry.getValue()).map(OffsetAndTimestamp::offset)));
     }
 
-    private static Map<TopicPartition, Long> overridePartitionBeginOffsets(Map<TopicPartition, Long> partitionBeginOffsets,
+    private static Map<TopicPartition, Long> overridePartitionBeginOffsets(
+            Map<TopicPartition, Long> partitionBeginOffsets,
             Function<TopicPartition, Optional<Long>> overrideFunction)
     {
         ImmutableMap.Builder<TopicPartition, Long> partitionFilteredBeginOffsetsBuilder = ImmutableMap.builder();
@@ -196,7 +199,8 @@ public class KafkaFilterManager
         return partitionFilteredBeginOffsetsBuilder.buildOrThrow();
     }
 
-    private static Map<TopicPartition, Long> overridePartitionEndOffsets(Map<TopicPartition, Long> partitionEndOffsets,
+    private static Map<TopicPartition, Long> overridePartitionEndOffsets(
+            Map<TopicPartition, Long> partitionEndOffsets,
             Function<TopicPartition, Optional<Long>> overrideFunction)
     {
         ImmutableMap.Builder<TopicPartition, Long> partitionFilteredEndOffsetsBuilder = ImmutableMap.builder();

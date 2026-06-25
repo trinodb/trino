@@ -15,44 +15,46 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.FlociS3AndGlue;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Column;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
 import software.amazon.awssdk.services.glue.model.GetTableRequest;
 import software.amazon.awssdk.services.glue.model.GetTableResponse;
 import software.amazon.awssdk.services.glue.model.SerDeInfo;
 import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
-import java.nio.file.Path;
 import java.util.Map;
 
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Tests metadata operations on a schema which has a mix of Hive and Delta Lake tables.
- * <p>
- * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
- * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  */
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // Tests share a Glue schema and assert exact table listings
 public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         extends BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
 {
-    private Path dataDirectory;
+    private String schemaLocation;
     private GlueHiveMetastore glueMetastore;
+    private FlociS3AndGlue floci;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -65,7 +67,10 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
+        floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-delta-lake-shared-glue-redirections-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        schemaLocation = "s3://%s/%s".formatted(bucketName, schema);
 
         queryRunner.installPlugin(new DeltaLakePlugin());
         queryRunner.createCatalog(
@@ -73,19 +78,27 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "delta_lake",
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
-                        .put("hive.metastore.glue.default-warehouse-dir", dataDirectory.toUri().toString())
+                        .put("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
                         .put("delta.hive-catalog-name", "hive_with_redirections")
-                        .put("fs.hadoop.enabled", "true")
+                        .put("fs.s3.enabled", "true")
+                        .putAll(floci.s3AndGlueProperties())
                         .buildOrThrow());
 
-        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
-        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), glueMetastore));
+        glueMetastore = ((DeltaLakeConnector) queryRunner.getCoordinator().getConnector("delta_with_redirections")).getInjector()
+                .getInstance(GlueHiveMetastore.class);
+        queryRunner.installPlugin(new HivePlugin());
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
-                ImmutableMap.of("hive.delta-lake-catalog-name", "delta_with_redirections", "fs.hadoop.enabled", "true"));
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore", "glue")
+                        .put("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
+                        .put("hive.delta-lake-catalog-name", "delta_with_redirections")
+                        .put("fs.s3.enabled", "true")
+                        .putAll(floci.s3AndGlueProperties())
+                        .buildOrThrow());
 
-        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toUri() + "')");
+        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + schemaLocation + "')");
         queryRunner.execute("CREATE TABLE hive_with_redirections." + schema + ".hive_table (a_integer) WITH (format='PARQUET') AS VALUES 1, 2, 3");
         queryRunner.execute("CREATE TABLE delta_with_redirections." + schema + ".delta_table (a_varchar) AS VALUES 'a', 'b', 'c'");
 
@@ -95,9 +108,9 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     @AfterAll
     public void cleanup()
     {
-        // Data is on the local disk and will be deleted by the deleteOnExit hook
-        glueMetastore.dropDatabase(schema, false);
-        glueMetastore.shutdown();
+        if (glueMetastore != null) {
+            glueMetastore.dropDatabase(schema, false);
+        }
     }
 
     @Override
@@ -108,7 +121,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri());
+        return format(expectedHiveCreateSchema, catalogName, schema, schemaLocation);
     }
 
     @Override
@@ -118,16 +131,16 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri());
+        return format(expectedDeltaLakeCreateSchema, catalogName, schema, schemaLocation);
     }
 
     @Test
     public void testUnsupportedHiveTypeRedirect()
     {
-        String tableName = "unsupported_types";
+        String tableName = "unsupported_types_" + randomNameSuffix();
         // Use another complete table location so `SHOW CREATE TABLE` doesn't fail on reading metadata
         String location;
-        try (GlueClient glueClient = GlueClient.create()) {
+        try (GlueClient glueClient = floci.createGlueClient()) {
             GetTableResponse existingTable = glueClient.getTable(GetTableRequest.builder()
                     .databaseName(schema)
                     .name("delta_table")
@@ -165,24 +178,37 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 .databaseName(schema)
                 .tableInput(tableInput)
                 .build();
-        try (GlueClient glueClient = GlueClient.create()) {
+        try (GlueClient glueClient = floci.createGlueClient()) {
             glueClient.createTable(createTableRequest);
 
-            String tableDefinition = (String) computeScalar("SHOW CREATE TABLE hive_with_redirections." + schema + "." + tableName);
-            String expected =
-            """
-            CREATE TABLE delta_with_redirections.%s.%s (
-               a_varchar varchar
-            )
-            WITH (
-               location = '%s'
-            )""";
-            assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
+            try {
+                String tableDefinition = (String) computeScalar(
+                        "SHOW CREATE TABLE hive_with_redirections." + schema + "." + tableName);
+                String expected =
+                        """
+                        CREATE TABLE delta_with_redirections.%s.%s (
+                           a_varchar varchar
+                        )
+                        WITH (
+                           location = '%s'
+                        )""";
+                assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
+            }
+            finally {
+                deleteTableIfExists(glueClient, tableInput.name());
+            }
+        }
+    }
 
+    private void deleteTableIfExists(GlueClient glueClient, String tableName)
+    {
+        try {
             glueClient.deleteTable(DeleteTableRequest.builder()
                     .databaseName(schema)
-                    .name(tableInput.name())
+                    .name(tableName)
                     .build());
+        }
+        catch (EntityNotFoundException _) {
         }
     }
 }

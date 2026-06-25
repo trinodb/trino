@@ -44,6 +44,7 @@ public class TestHiveCreateExternalTable
     {
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of("hive.non-managed-table-writes-enabled", "true"))
+                .addHiveProperty("fs.hadoop.enabled", "true")
                 .setInitialTables(ImmutableList.of(ORDERS, CUSTOMER))
                 .build();
     }
@@ -52,7 +53,8 @@ public class TestHiveCreateExternalTable
     public void testCreateExternalTableWithData()
     {
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
-        @Language("SQL") String createTableSql = format("" +
+        @Language("SQL") String createTableSql = format(
+                "" +
                         "CREATE TABLE test_create_external " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
@@ -77,7 +79,8 @@ public class TestHiveCreateExternalTable
     {
         Path tempDir = createTempDirectory(null);
 
-        @Language("SQL") String createTableSql = format("" +
+        @Language("SQL") String createTableSql = format(
+                "" +
                         "CREATE TABLE test_create_external_exists " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
@@ -92,7 +95,8 @@ public class TestHiveCreateExternalTable
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
         String tableName = "test_create_external_non_exists_" + randomNameSuffix();
 
-        @Language("SQL") String createTableSql = format("" +
+        @Language("SQL") String createTableSql = format(
+                "" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   col1 varchar,\n" +
                         "   col2 varchar\n" +

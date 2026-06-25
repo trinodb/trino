@@ -90,6 +90,7 @@ public abstract class AbstractIcebergTableOperations
     protected String currentMetadataLocation;
     protected boolean shouldRefresh = true;
     protected OptionalInt version = OptionalInt.empty();
+    protected Optional<MaterializedViewCommitData> materializedViewCommitData = Optional.empty();
 
     protected AbstractIcebergTableOperations(
             FileIO fileIo,
@@ -158,7 +159,7 @@ public abstract class AbstractIcebergTableOperations
         }
 
         if (isMaterializedViewStorage(tableName)) {
-            commitMaterializedViewRefresh(base, metadata);
+            commitMaterializedView(base, metadata);
             return;
         }
 
@@ -187,7 +188,12 @@ public abstract class AbstractIcebergTableOperations
 
     protected abstract void commitToExistingTable(TableMetadata base, TableMetadata metadata);
 
-    protected abstract void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata);
+    protected abstract void commitMaterializedView(TableMetadata base, TableMetadata metadata);
+
+    public void applyMaterializedViewCommitData(Optional<MaterializedViewCommitData> materializedViewCommitData)
+    {
+        this.materializedViewCommitData = requireNonNull(materializedViewCommitData, "materializedViewCommitData is null");
+    }
 
     @Override
     public FileIO io()
@@ -277,7 +283,9 @@ public abstract class AbstractIcebergTableOperations
         String newUUID = newMetadata.uuid();
         if (currentMetadata != null) {
             checkState(newUUID == null || newUUID.equals(currentMetadata.uuid()),
-                    "Table UUID does not match: current=%s != refreshed=%s", currentMetadata.uuid(), newUUID);
+                    "Table UUID does not match: current=%s != refreshed=%s",
+                    currentMetadata.uuid(),
+                    newUUID);
         }
 
         currentMetadata = newMetadata;

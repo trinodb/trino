@@ -30,10 +30,10 @@ import io.trino.operator.table.json.JsonTableValueColumn;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 
 import java.util.Map;
 import java.util.Optional;
@@ -129,8 +129,8 @@ public final class ExecutionPlanner
                 Map<Symbol, Integer> defaultInputLayout = valueColumn.defaultInputLayout().isEmpty()
                         ? Map.of()
                         : IntStream.range(0, valueColumn.defaultInputLayout().size())
-                                .boxed()
-                                .collect(toImmutableMap(valueColumn.defaultInputLayout()::get, i -> i));
+                          .boxed()
+                          .collect(toImmutableMap(valueColumn.defaultInputLayout()::get, i -> i));
                 PageProjection emptyDefaultProjection = valueColumn.emptyDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.emptyDefault(), defaultInputLayout, Optional.empty()).get();
                 PageProjection errorDefaultProjection = valueColumn.errorDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.errorDefault(), defaultInputLayout, Optional.empty()).get();
                 yield new ValueColumn(

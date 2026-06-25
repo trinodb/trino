@@ -21,7 +21,7 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 public class TDigestType
         extends AbstractVariableWidthType
@@ -31,7 +31,7 @@ public class TDigestType
 
     private TDigestType()
     {
-        super(new TypeSignature(NAME), TDigest.class);
+        super(new TypeDescriptor(NAME), TDigest.class);
     }
 
     @Override

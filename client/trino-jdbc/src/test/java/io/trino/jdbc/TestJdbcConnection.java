@@ -638,7 +638,8 @@ public class TestJdbcConnection
         assertThatCode(() -> createConnectionUsingInvalidHost(""))
                 .doesNotThrowAnyException();
 
-        SQLException e = catchThrowableOfType(() -> createConnectionUsingInvalidHost("validateConnection=true"),
+        SQLException e = catchThrowableOfType(
+                () -> createConnectionUsingInvalidHost("validateConnection=true"),
                 SQLException.class);
         assertThat(e.getSQLState().equals("08001")).isTrue();
 
@@ -649,7 +650,8 @@ public class TestJdbcConnection
         assertThatCode(() -> createConnectionUsingInvalidPassword(""))
                 .doesNotThrowAnyException();
 
-        e = catchThrowableOfType(() -> createConnectionUsingInvalidPassword("validateConnection=true"),
+        e = catchThrowableOfType(
+                () -> createConnectionUsingInvalidPassword("validateConnection=true"),
                 SQLException.class);
         assertThat(e.getSQLState().equals("28000")).isTrue();
 

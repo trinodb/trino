@@ -54,7 +54,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.mapType;
@@ -136,7 +136,8 @@ public class BenchmarkMapConcat
 
             projectionsBuilder.add(call(
                     functionResolution.resolveFunction(name, fromTypes(mapType, mapType)),
-                    new Reference(mapType, "$col_0"), new Reference(mapType, "$col_1")));
+                    new Reference(mapType, "$col_0"),
+                    new Reference(mapType, "$col_1")));
 
             List<Expression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(

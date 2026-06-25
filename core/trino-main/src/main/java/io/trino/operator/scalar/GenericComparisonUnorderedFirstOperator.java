@@ -20,12 +20,15 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericComparisonUnorderedFirstOperator
@@ -39,10 +42,10 @@ public class GenericComparisonUnorderedFirstOperator
                 .signature(Signature.builder()
                         .orderableTypeParameter("T")
                         .returnType(INTEGER)
-                        .argumentType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(typeVariable("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
-                .neverFails()
+                .neverFails(boundSignature -> typeOperators.getComparisonUnorderedFirstOperatorHandle(boundSignature.getArgumentType(0), simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)).isNeverFails())
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

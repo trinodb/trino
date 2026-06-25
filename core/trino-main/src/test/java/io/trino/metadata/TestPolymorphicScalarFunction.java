@@ -27,7 +27,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -45,7 +45,9 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
@@ -58,7 +60,7 @@ public class TestPolymorphicScalarFunction
     private static final String FUNCTION_NAME = "foo";
     private static final Signature SIGNATURE = Signature.builder()
             .returnType(BIGINT)
-            .argumentType(new TypeSignature("varchar", typeVariable("x")))
+            .argumentType(type("varchar", numericVariable("x")))
             .build();
     private static final int INPUT_VARCHAR_LENGTH = 10;
     private static final Slice INPUT_SLICE = Slices.allocate(INPUT_VARCHAR_LENGTH);
@@ -68,7 +70,7 @@ public class TestPolymorphicScalarFunction
             BIGINT,
             ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
 
-    private static final TypeSignature DECIMAL_SIGNATURE = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
+    private static final TypeTemplate DECIMAL_SIGNATURE = type("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
 
     private static final DecimalType LONG_DECIMAL_BOUND_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1, 2);
 
@@ -95,9 +97,11 @@ public class TestPolymorphicScalarFunction
                 .choice(choice -> choice
                         .argumentProperties(BLOCK_POSITION, BLOCK_POSITION)
                         .implementation(methodsGroup -> methodsGroup
-                                .methodWithExplicitJavaTypes("blockPositionLongLong",
+                                .methodWithExplicitJavaTypes(
+                                        "blockPositionLongLong",
                                         asList(Optional.of(Int128.class), Optional.of(Int128.class)))
-                                .methodWithExplicitJavaTypes("blockPositionShortShort",
+                                .methodWithExplicitJavaTypes(
+                                        "blockPositionShortShort",
                                         asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
 
@@ -172,8 +176,8 @@ public class TestPolymorphicScalarFunction
             throws Throwable
     {
         Signature signature = Signature.builder()
-                .returnType(new TypeSignature("varchar", typeVariable("x")))
-                .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                .returnType(type("varchar", numericVariable("x")))
+                .argumentType(type("varchar", numericVariable("x")))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
@@ -204,8 +208,8 @@ public class TestPolymorphicScalarFunction
                         .comparableRequired()
                         .rowType()
                         .build())
-                .returnType(new TypeSignature("V"))
-                .argumentType(new TypeSignature("V"))
+                .returnType(typeVariable("V"))
+                .argumentType(typeVariable("V"))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
@@ -231,8 +235,8 @@ public class TestPolymorphicScalarFunction
     public void testSetsHiddenToTrueForOperators()
     {
         Signature signature = Signature.builder()
-                .returnType(new TypeSignature("varchar", typeVariable("x")))
-                .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                .returnType(type("varchar", numericVariable("x")))
+                .argumentType(type("varchar", numericVariable("x")))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(ADD, TestMethods.class)

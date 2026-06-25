@@ -106,6 +106,7 @@ public class UnityCatalogContainer
 
         // QueryRunner used to create tables
         queryRunner = IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                 .build();
     }

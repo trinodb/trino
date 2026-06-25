@@ -172,7 +172,7 @@ public class TestLdapTrinoJdbc
     @Override
     protected void expectQueryToFail(String user, String password, String message)
     {
-        //Changes 'hasMessage' to 'hasMessageContaining' to pass multiple authenticators tests
+        // Changes 'hasMessage' to 'hasMessageContaining' to pass multiple authenticators tests
         assertThatThrownBy(() -> executeLdapQuery(NATION_SELECT_ALL_QUERY, user, password))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining(message);

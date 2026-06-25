@@ -18,12 +18,12 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
+import io.trino.spi.variant.Header.PrimitiveType;
 
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.Supplier;
 
-import static io.trino.spi.variant.Header.PrimitiveType;
 import static io.trino.spi.variant.Header.PrimitiveType.DOUBLE;
 import static io.trino.spi.variant.Header.PrimitiveType.FLOAT;
 import static io.trino.spi.variant.Header.PrimitiveType.INT16;

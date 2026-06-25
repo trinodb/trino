@@ -512,7 +512,8 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(
-                VARBINARY, ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                VARBINARY,
+                ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
@@ -542,7 +543,8 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(
-                UUID, ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                UUID,
+                ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
                         .map(i -> new UUID(i, i))
                         .collect(toList()));
     }

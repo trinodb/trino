@@ -224,6 +224,6 @@ public class PatternRecognitionRelation
         // - if the row is skipped by some previous match, produce output as for unmatched row
         // - if match is found (either empty or non-empty), output a single-row summary
         // - if no match is found, produce output as for unmatched row
-        WINDOW
+        WINDOW,
     }
 }

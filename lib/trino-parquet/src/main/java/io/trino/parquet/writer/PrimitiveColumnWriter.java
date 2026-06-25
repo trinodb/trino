@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetMetadataConverter;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider.RepetitionLevelWriter;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
@@ -57,9 +59,7 @@ import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
 import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
 import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
-import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
 import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.getRootDefinitionLevelWriter;
-import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.RepetitionLevelWriter;
 import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.getRootRepetitionLevelWriter;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.format.Util.writePageHeader;
@@ -229,9 +229,9 @@ public class PrimitiveColumnWriter
             throws IOException
     {
         byte[] pageDataBytes = BytesInput.concat(
-                repetitionLevelWriter.getBytes(),
-                definitionLevelWriter.getBytes(),
-                primitiveValueWriter.getBytes())
+                        repetitionLevelWriter.getBytes(),
+                        definitionLevelWriter.getBytes(),
+                        primitiveValueWriter.getBytes())
                 .toByteArray();
         int uncompressedSize = pageDataBytes.length;
         ParquetDataOutput pageData = (compressor != null)

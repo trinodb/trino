@@ -21,7 +21,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -40,10 +39,11 @@ import java.util.Optional;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -78,9 +78,11 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new Comparison(GREATER_THAN, new Call(MAX_BY_BIGINT_VARCHAR, ImmutableList.of(
-                                        new Call(ADD_BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "match"))),
-                                        new Call(CONCAT, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("x")), new Reference(VARCHAR, "classifier"))))),
+                                comparison(
+                                        GREATER_THAN,
+                                        new Call(MAX_BY_BIGINT_VARCHAR, ImmutableList.of(
+                                                new Call(ADD_BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "match"))),
+                                                new Call(CONCAT, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("x")), new Reference(VARCHAR, "classifier"))))),
                                         new Constant(BIGINT, 5L)),
                                 ImmutableMap.of(
                                         new Symbol(VARCHAR, "classifier"), new ClassifierValuePointer(new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0)),
@@ -97,7 +99,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new Comparison(GREATER_THAN, new Call(MAX_BY, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Constant(BIGINT, 5L)))
+                                comparison(GREATER_THAN, new Call(MAX_BY, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Constant(BIGINT, 5L)))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }
@@ -111,7 +113,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new Comparison(LESS_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
+                                comparison(LESS_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
                                 ImmutableMap.of(new Symbol(BIGINT, "agg"), new AggregationValuePointer(
                                         maxBy,
                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -120,11 +122,12 @@ public class TestPushDownProjectionsFromPatternRecognition
                                         Optional.empty())))
                         .source(p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
                 .matches(
-                        patternRecognition(builder -> builder
+                        patternRecognition(
+                                builder -> builder
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(
                                                 new IrLabel("X"),
-                                                new Comparison(LESS_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
+                                                comparison(LESS_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
                                                 ImmutableMap.of("agg", new AggregationValuePointer(
                                                         maxBy,
                                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),

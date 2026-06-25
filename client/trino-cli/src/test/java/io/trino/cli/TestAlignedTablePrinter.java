@@ -48,11 +48,11 @@ public class TestAlignedTablePrinter
         OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.printRows(rows(
-                row("hello", "world", 123),
-                row("a", null, 4.5),
-                row("b", null, null),
-                row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
-                row("bye", "done", -15)),
+                        row("hello", "world", 123),
+                        row("a", null, 4.5),
+                        row("b", null, null),
+                        row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
+                        row("bye", "done", -15)),
                 true);
         printer.finish();
 
@@ -223,9 +223,9 @@ public class TestAlignedTablePrinter
         OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.printRows(rows(
-                row("hello", bytes("hello"), "world"),
-                row("a", bytes("some long text that is more than 16 bytes"), "b"),
-                row("cat", bytes(""), "dog")),
+                        row("hello", bytes("hello"), "world"),
+                        row("a", bytes("some long text that is more than 16 bytes"), "b"),
+                        row("cat", bytes(""), "dog")),
                 true);
         printer.finish();
 
@@ -255,9 +255,9 @@ public class TestAlignedTablePrinter
         OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.printRows(rows(
-                row("hello", "wide\u7f51", 123),
-                row("some long\ntext \u7f51\ndoes not\u7f51\nfit", "more\ntext", 4567),
-                row("bye", "done", -15)),
+                        row("hello", "wide\u7f51", 123),
+                        row("some long\ntext \u7f51\ndoes not\u7f51\nfit", "more\ntext", 4567),
+                        row("bye", "done", -15)),
                 true);
         printer.finish();
 

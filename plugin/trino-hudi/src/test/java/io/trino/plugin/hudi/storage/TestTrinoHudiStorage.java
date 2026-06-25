@@ -137,9 +137,9 @@ final class TestTrinoHudiStorage
 
         validatePathInfoList(
                 storage.listDirectEntries(ImmutableList.<StoragePath>builder()
-                                .add(new StoragePath(getTempDir(), "w"))
-                                .add(new StoragePath(getTempDir(), "x/z"))
-                                .build()),
+                        .add(new StoragePath(getTempDir(), "w"))
+                        .add(new StoragePath(getTempDir(), "x/z"))
+                        .build()),
                 ImmutableList.<StoragePathInfo>builder()
                         .add(getStoragePathInfo("w/1.file", false))
                         .add(getStoragePathInfo("w/2.file", false))
@@ -246,8 +246,13 @@ final class TestTrinoHudiStorage
 
     private StoragePathInfo getStoragePathInfo(String subPath, boolean isDirectory)
     {
-        return new StoragePathInfo(new StoragePath(getTempDir(), subPath),
-                0, isDirectory, (short) 1, 1000000L, 10L);
+        return new StoragePathInfo(
+                new StoragePath(getTempDir(), subPath),
+                0,
+                isDirectory,
+                (short) 1,
+                1000000L,
+                10L);
     }
 
     private static void validatePathInfo(

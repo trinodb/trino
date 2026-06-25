@@ -328,7 +328,7 @@ export const QuerySplitsTimeline = () => {
                                 <QueryProgressBar queryInfoBase={queryStatus.info} />
                             </Box>
 
-                            {queryStatus.info?.stages.stages ? (
+                            {queryStatus.info?.stages?.stages ? (
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 12 }}>
                                         <Box sx={{ pt: 2 }}>

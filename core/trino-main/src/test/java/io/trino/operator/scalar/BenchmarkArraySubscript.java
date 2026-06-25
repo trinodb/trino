@@ -136,7 +136,8 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < arraySize; i++) {
                 projectionsBuilder.add(call(
                         resolvedFunction,
-                        new Reference(arrayType, "$col_0"), new Constant(BIGINT, (long) i + 1)));
+                        new Reference(arrayType, "$col_0"),
+                        new Constant(BIGINT, (long) i + 1)));
             }
 
             List<Expression> projections = projectionsBuilder.build();

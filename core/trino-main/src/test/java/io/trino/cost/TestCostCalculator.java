@@ -214,7 +214,8 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", new Symbol(BIGINT, "orderkey"));
         TableScanNode ts2 = tableScan("ts2", new Symbol(BIGINT, "orderkey_0"));
-        JoinNode join = join("join",
+        JoinNode join = join(
+                "join",
                 ts1,
                 ts2,
                 JoinNode.DistributionType.PARTITIONED,
@@ -253,7 +254,8 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", new Symbol(BIGINT, "orderkey"));
         TableScanNode ts2 = tableScan("ts2", new Symbol(BIGINT, "orderkey_0"));
-        JoinNode join = join("join",
+        JoinNode join = join(
+                "join",
                 ts1,
                 ts2,
                 JoinNode.DistributionType.REPLICATED,
@@ -416,7 +418,8 @@ public class TestCostCalculator
         ExchangeNode remoteExchange2 = partitionedExchange(new PlanNodeId("re2"), REMOTE, ts2, ImmutableList.of(new Symbol(BIGINT, "orderkey_0")));
         ExchangeNode localExchange = partitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol(BIGINT, "orderkey_0")));
 
-        JoinNode join = join("join",
+        JoinNode join = join(
+                "join",
                 remoteExchange1,
                 localExchange,
                 JoinNode.DistributionType.PARTITIONED,
@@ -443,7 +446,8 @@ public class TestCostCalculator
         ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE, ts2);
         ExchangeNode localExchange = partitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol(BIGINT, "orderkey_0")));
 
-        JoinNode join = join("join",
+        JoinNode join = join(
+                "join",
                 ts1,
                 localExchange,
                 JoinNode.DistributionType.REPLICATED,

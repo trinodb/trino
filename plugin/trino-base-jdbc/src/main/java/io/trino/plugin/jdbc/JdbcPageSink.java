@@ -98,8 +98,7 @@ public class JdbcPageSink
                     .map(type -> {
                         WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
                         WriteFunction writeFunction = writeMapping.getWriteFunction();
-                        verify(
-                                type.getJavaType() == writeFunction.getJavaType(),
+                        verify(type.getJavaType() == writeFunction.getJavaType(),
                                 "Trino type %s is not compatible with write function %s accepting %s",
                                 type,
                                 writeFunction,

@@ -33,6 +33,7 @@ import io.trino.jdbc.QueryStats;
 import io.trino.jdbc.TrinoConnection;
 import io.trino.jdbc.TrinoStatement;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.verifier.QueryResult.State;
 import io.trino.verifier.Validator.ChangedRow.Changed;
 
 import java.math.BigDecimal;
@@ -59,7 +60,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.verifier.QueryResult.State;
 import static java.lang.Double.isFinite;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -789,7 +789,7 @@ public class Validator
         return x instanceof BigDecimal;
     }
 
-    //adapted from http://floating-point-gui.de/errors/comparison/
+    // adapted from http://floating-point-gui.de/errors/comparison/
     private static boolean isClose(double a, double b, double epsilon)
     {
         double absA = Math.abs(a);
@@ -812,7 +812,7 @@ public class Validator
     @VisibleForTesting
     static int precisionCompare(double a, double b, int precision)
     {
-        //we don't care whether a is smaller than b or not when they are not close since we will fail verification anyway
+        // we don't care whether a is smaller than b or not when they are not close since we will fail verification anyway
         return isClose(a, b, Math.pow(10, -1 * (precision - 1))) ? 0 : -1;
     }
 

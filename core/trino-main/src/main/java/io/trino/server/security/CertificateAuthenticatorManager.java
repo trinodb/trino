@@ -60,7 +60,8 @@ public class CertificateAuthenticatorManager
     public void addCertificateAuthenticatorFactory(CertificateAuthenticatorFactory factory)
     {
         checkArgument(factories.putIfAbsent(factory.getName(), factory) == null,
-                "Certificate authenticator '%s' is already registered", factory.getName());
+                "Certificate authenticator '%s' is already registered",
+                factory.getName());
     }
 
     public void loadCertificateAuthenticator()

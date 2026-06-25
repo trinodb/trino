@@ -59,6 +59,7 @@ public class PinotPageSourceProvider
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to non-deprecated createPageSource overload
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
@@ -91,7 +92,8 @@ public class PinotPageSourceProvider
                 PinotQueryInfo pinotQueryInfo;
                 if (pinotTableHandle.query().isPresent()) {
                     DynamicTable dynamicTable = pinotTableHandle.query().get();
-                    pinotQueryInfo = new PinotQueryInfo(dynamicTable.tableName(),
+                    pinotQueryInfo = new PinotQueryInfo(
+                            dynamicTable.tableName(),
                             extractPql(dynamicTable, pinotTableHandle.constraint()),
                             dynamicTable.groupingColumns().size());
                 }

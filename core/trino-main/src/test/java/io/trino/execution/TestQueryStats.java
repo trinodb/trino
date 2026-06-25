@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
@@ -35,7 +36,6 @@ import java.util.OptionalDouble;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,7 +80,6 @@ public class TestQueryStats
                     succinctBytes(125L),
                     succinctBytes(127L),
                     succinctBytes(128L),
-                    succinctBytes(130L),
                     succinctBytes(131L),
                     Optional.empty(),
                     null),
@@ -121,7 +120,6 @@ public class TestQueryStats
                     succinctBytes(225L),
                     succinctBytes(227L),
                     succinctBytes(228L),
-                    succinctBytes(230L),
                     succinctBytes(231L),
                     Optional.empty(),
                     null),
@@ -162,18 +160,19 @@ public class TestQueryStats
                     succinctBytes(325L),
                     succinctBytes(327L),
                     succinctBytes(328L),
-                    succinctBytes(329L),
                     succinctBytes(331L),
                     Optional.empty(),
                     null));
 
     private static final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries = ImmutableList.of(
-            new QueryPlanOptimizerStatistics("io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan",
+            new QueryPlanOptimizerStatistics(
+                    "io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan",
                     10L,
                     1L,
                     4600,
                     0),
-            new QueryPlanOptimizerStatistics("io.trino.sql.planner.iterative.rule.PushTopNThroughUnion",
+            new QueryPlanOptimizerStatistics(
+                    "io.trino.sql.planner.iterative.rule.PushTopNThroughUnion",
                     5L,
                     0L,
                     499,

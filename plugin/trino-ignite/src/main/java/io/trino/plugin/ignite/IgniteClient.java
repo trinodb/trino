@@ -390,7 +390,8 @@ public class IgniteClient
 
         for (String primaryKey : primaryKeys) {
             if (!columnNames.contains(primaryKey)) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY,
+                throw new TrinoException(
+                        INVALID_TABLE_PROPERTY,
                         format("Column '%s' specified in property '%s' doesn't exist in table", primaryKey, PRIMARY_KEY_PROPERTY));
             }
         }

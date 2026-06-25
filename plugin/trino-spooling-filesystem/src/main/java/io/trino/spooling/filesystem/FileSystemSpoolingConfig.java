@@ -204,6 +204,6 @@ public class FileSystemSpoolingConfig
     public enum Layout
     {
         SIMPLE,
-        PARTITIONED
+        PARTITIONED,
     }
 }

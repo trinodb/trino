@@ -32,7 +32,7 @@ public class HyperLogLogType
     @JsonCreator
     public HyperLogLogType()
     {
-        super(new TypeSignature(NAME), Slice.class);
+        super(new TypeDescriptor(NAME), Slice.class);
     }
 
     @Override

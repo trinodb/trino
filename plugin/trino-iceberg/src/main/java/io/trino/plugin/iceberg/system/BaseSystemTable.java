@@ -73,7 +73,8 @@ public abstract class BaseSystemTable
         TableScan tableScan = createMetadataTableInstance(icebergTable, metadataTableType).newScan().planWith(executor);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
-        Map<String, Integer> columnNameToPosition = mapWithIndex(tableScan.schema().columns().stream(),
+        Map<String, Integer> columnNameToPosition = mapWithIndex(
+                tableScan.schema().columns().stream(),
                 (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 

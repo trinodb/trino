@@ -58,7 +58,7 @@ final class TestArrayBlockBuilder
         assertThat(pageBuilder.isFull()).isEqualTo(true);
     }
 
-    //TODO we should systematically test Block::getRetainedSizeInBytes()
+    // TODO we should systematically test Block::getRetainedSizeInBytes()
     @Test
     public void testRetainedSizeInBytes()
     {

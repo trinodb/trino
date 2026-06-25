@@ -349,8 +349,7 @@ public final class MetadataListing
                                     actualTableName.asCatalogSchemaTableName().getCatalogName(),
                                     ImmutableMap.of(
                                             // Use redirected table name for applying column filters, since the source does not know the column metadata
-                                            actualTableName.asSchemaTableName(),
-                                            columns.stream()
+                                            actualTableName.asSchemaTableName(), columns.stream()
                                                     .map(ColumnMetadata::getName)
                                                     .collect(toImmutableSet())))
                             .getOrDefault(actualTableName.asSchemaTableName(), ImmutableSet.of());

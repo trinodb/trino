@@ -129,17 +129,19 @@ public final class RemoveOrphanFiles
             manifestScanFutures.forEach(future -> future.cancel(true));
         }
         ScanAndDeleteResult result = scanAndDeleteInvalidFiles(table, fileSystem, icebergFileDeleteExecutor, schemaTableName, expiration, validFileNames);
-        log.info("remove_orphan_files for table %s processed %d manifest files, found %d active files, scanned %d files, deleted %d files",
+        log.info("remove_orphan_files for table %s processed %d manifest files, found %d active files, scanned %d files, deleted %d files (%d bytes)",
                 schemaTableName,
                 processedManifestFilePaths.size(),
                 validFileNames.size() - 1, // excluding version-hint.text
                 result.scannedFilesCount(),
-                result.deletedFilesCount());
+                result.deletedFilesCount(),
+                result.deletedBytes());
         return ImmutableMap.of(
                 "processed_manifests_count", (long) processedManifestFilePaths.size(),
                 "active_files_count", (long) validFileNames.size() - 1, // excluding version-hint.text
                 "scanned_files_count", result.scannedFilesCount(),
-                "deleted_files_count", result.deletedFilesCount());
+                "deleted_files_count", result.deletedFilesCount(),
+                "deleted_bytes", result.deletedBytes());
     }
 
     private static ScanAndDeleteResult scanAndDeleteInvalidFiles(
@@ -153,6 +155,7 @@ public final class RemoveOrphanFiles
         List<Future<?>> deleteFutures = new ArrayList<>();
         long scannedFilesCount = 0;
         long deletedFilesCount = 0;
+        long deletedBytes = 0;
         try {
             List<Location> filesToDelete = new ArrayList<>(DELETE_BATCH_SIZE);
             FileIterator allFiles = fileSystem.listFiles(Location.of(table.location()));
@@ -162,6 +165,7 @@ public final class RemoveOrphanFiles
                 if (entry.lastModified().isBefore(expiration) && !validFiles.contains(entry.location().fileName())) {
                     filesToDelete.add(entry.location());
                     deletedFilesCount++;
+                    deletedBytes += entry.length();
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         List<Location> finalFilesToDelete = filesToDelete;
                         deleteFutures.add(icebergFileDeleteExecutor.submit(() -> deleteFiles(finalFilesToDelete, schemaTableName, fileSystem)));
@@ -188,7 +192,7 @@ public final class RemoveOrphanFiles
             // Ensure any futures still running are canceled in case of failure
             deleteFutures.forEach(future -> future.cancel(true));
         }
-        return new ScanAndDeleteResult(scannedFilesCount, deletedFilesCount);
+        return new ScanAndDeleteResult(scannedFilesCount, deletedFilesCount, deletedBytes);
     }
 
     private static void deleteFiles(List<Location> files, SchemaTableName schemaTableName, TrinoFileSystem fileSystem)
@@ -202,5 +206,5 @@ public final class RemoveOrphanFiles
         }
     }
 
-    private record ScanAndDeleteResult(long scannedFilesCount, long deletedFilesCount) {}
+    private record ScanAndDeleteResult(long scannedFilesCount, long deletedFilesCount, long deletedBytes) {}
 }

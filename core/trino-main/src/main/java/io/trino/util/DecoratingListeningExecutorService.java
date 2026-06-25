@@ -89,7 +89,8 @@ public class DecoratingListeningExecutorService
                 tasks.stream()
                         .map(decorator::decorate)
                         .collect(toImmutableList()),
-                timeout, unit);
+                timeout,
+                unit);
     }
 
     @Override
@@ -120,7 +121,8 @@ public class DecoratingListeningExecutorService
                 tasks.stream()
                         .map(decorator::decorate)
                         .collect(toImmutableList()),
-                timeout, unit);
+                timeout,
+                unit);
     }
 
     @Override

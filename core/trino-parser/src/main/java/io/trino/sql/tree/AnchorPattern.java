@@ -27,7 +27,7 @@ public class AnchorPattern
     public enum Type
     {
         PARTITION_START,
-        PARTITION_END
+        PARTITION_END,
     }
 
     private final Type type;

@@ -351,11 +351,12 @@ public class MockConnector
                     ConnectorTransactionHandle transaction,
                     ConnectorSession session,
                     ConnectorTableHandle table,
-                    DynamicFilter dynamicFilter,
+                    Set<ColumnHandle> dynamicFilterColumns,
                     Constraint constraint)
             {
                 SchemaTableName tableName = ((MockConnectorTableHandle) table).getTableName();
-                return new FixedSplitSource(MOCK_CONNECTOR_SPLIT) {
+                return new FixedSplitSource(MOCK_CONNECTOR_SPLIT)
+                {
                     @Override
                     public Metrics getMetrics()
                     {
@@ -732,7 +733,8 @@ public class MockConnector
                 ConnectorMaterializedViewDefinition definition,
                 Map<String, Object> properties,
                 boolean replace,
-                boolean ignoreExisting) {}
+                boolean ignoreExisting)
+        {}
 
         @Override
         public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)

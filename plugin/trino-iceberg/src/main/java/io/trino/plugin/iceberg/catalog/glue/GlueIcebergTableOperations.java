@@ -121,12 +121,11 @@ public class GlueIcebergTableOperations
         }
         catch (GlueException e) {
             switch (e) {
+                // clean up metadata files corresponding to the current transaction
                 case AlreadyExistsException _,
                      EntityNotFoundException _,
                      InvalidInputException _,
-                     ResourceNumberLimitExceededException _ ->
-                    // clean up metadata files corresponding to the current transaction
-                        io().deleteFile(newMetadataLocation);
+                     ResourceNumberLimitExceededException _ -> io().deleteFile(newMetadataLocation);
                 default -> {}
             }
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table creation", e);
@@ -153,12 +152,19 @@ public class GlueIcebergTableOperations
     }
 
     @Override
-    protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    protected void commitMaterializedView(TableMetadata base, TableMetadata metadata)
     {
         commitTableUpdate(
                 getTable(database, tableNameFrom(tableName), false),
                 metadata,
                 (table, newMetadataLocation) -> {
+                    if (materializedViewCommitData.isPresent()) {
+                        table = table.toBuilder()
+                                .viewOriginalText(materializedViewCommitData.get().viewOriginalText())
+                                .parameters(materializedViewCommitData.get().parameters())
+                                .build();
+                    }
+
                     Map<String, String> parameters = new HashMap<>(table.parameters());
                     parameters.put(METADATA_LOCATION_PROP, newMetadataLocation);
                     parameters.put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation);

@@ -42,17 +42,18 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureDeserializer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -165,13 +166,14 @@ public final class TestingPlannerContext
             JsonMapper jsonMapper = new JsonMapperProvider()
                     .withJsonDeserializers(ImmutableMap.of(
                             Type.class, new TypeDeserializer(typeManager),
-                            TypeSignature.class, new TypeSignatureDeserializer(),
+                            TypeDescriptor.class, new TypeDescriptorDeserializer(),
                             Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)))
                     .withJsonSerializers(ImmutableMap.of(
                             Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)))
                     .get();
 
-            JsonCodec<IrJsonPath> irJsonPathJsonCodec = new JsonCodecFactory(jsonMapper).jsonCodec(IrJsonPath.class);
+            JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
+            JsonCodec<IrJsonPath> irJsonPathJsonCodec = codecFactory.jsonCodec(IrJsonPath.class);
             typeRegistry.addType(new JsonPath2016Type(irJsonPathJsonCodec));
 
             return new PlannerContext(
@@ -181,7 +183,9 @@ public final class TestingPlannerContext
                     typeManager,
                     functionManager,
                     languageFunctionManager,
-                    noopTracer());
+                    noopTracer(),
+                    codecFactory.jsonCodec(Expression.class),
+                    featuresConfig);
         }
     }
 }

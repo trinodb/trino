@@ -334,12 +334,11 @@ final class S3FileSystem
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
                 .applyMutation(builder ->
-                    key.ifPresentOrElse(
-                            encryption ->
-                                builder.sseCustomerKeyMD5(md5Checksum(encryption))
+                        key.ifPresentOrElse(
+                                encryption -> builder.sseCustomerKeyMD5(md5Checksum(encryption))
                                         .sseCustomerAlgorithm(encryption.algorithm())
                                         .sseCustomerKey(encoded(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext())))
+                                () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         GetObjectPresignRequest preSignRequest = GetObjectPresignRequest.builder()

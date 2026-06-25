@@ -29,16 +29,20 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -1878,6 +1882,90 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
+    public void testCastFromChar()
+    {
+        // round down
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(1) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(2) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.11 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.1111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(5) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.11111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(7) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.1111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(8) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.11111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.1111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.11111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(12) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.111111111111 Asia/Kathmandu'");
+
+        // round up
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:57 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(1) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.6 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(2) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.56 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.5556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(5) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.55556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.555556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(7) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.5555556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(8) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.55555556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.555555556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.5555555556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(12) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.555555555555 Asia/Kathmandu'");
+
+        // 5-digit year
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(1) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(2) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(5) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(7) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(8) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(12) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111111111111 Asia/Kathmandu'");
+
+        // 5-digit year with + sign
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(1) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(2) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(5) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(7) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(8) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.1111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.11111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '+12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(12) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56.111111111111 Asia/Kathmandu'");
+
+        // 5-digit year with - sign
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(1) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(2) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.11 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.1111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(5) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.11111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(7) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.1111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(8) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.11111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.1111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.11111111111 Asia/Kathmandu'");
+        assertThat(assertions.expression("CAST(CHAR '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(12) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56.111111111111 Asia/Kathmandu'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS TIMESTAMP(3) WITH TIME ZONE)")
+                .binding("a", "CHAR 'invalid'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to timestamp: invalid");
+    }
+
+    @Test
     public void testLowerDigitsZeroed()
     {
         // round down
@@ -2751,47 +2839,47 @@ public class TestTimestampWithTimeZone
     {
         // short timestamp
         assertThat(assertions.query("" +
-                                    "SELECT value FROM (VALUES " +
-                                    "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
-                                    "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
-                                    "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
-                                    "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
-                                    "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
-                                    "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
-                                    ") t(value)" +
-                                    "ORDER BY value"))
+                "SELECT value FROM (VALUES " +
+                "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
+                "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
+                "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
+                "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
+                "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
+                "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
+                ") t(value)" +
+                "ORDER BY value"))
                 .ordered()
                 .matches("" +
-                         "SELECT value FROM (VALUES " +
-                         "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
-                         "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
-                         "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
-                         "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
-                         "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
-                         "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
-                         ") t(value)");
+                        "SELECT value FROM (VALUES " +
+                        "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
+                        "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
+                        "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
+                        "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
+                        "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
+                        "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
+                        ") t(value)");
 
         // long timestamp
         assertThat(assertions.query("" +
-                                    "SELECT value FROM (VALUES " +
-                                    "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
-                                    "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
-                                    "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
-                                    "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
-                                    "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
-                                    "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
-                                    ") t(value)" +
-                                    "ORDER BY value"))
+                "SELECT value FROM (VALUES " +
+                "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
+                "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
+                "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
+                "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
+                "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
+                "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
+                ") t(value)" +
+                "ORDER BY value"))
                 .ordered()
                 .matches("" +
-                         "SELECT value FROM (VALUES " +
-                         "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
-                         "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
-                         "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
-                         "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
-                         "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
-                         "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
-                         ") t(value)");
+                        "SELECT value FROM (VALUES " +
+                        "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
+                        "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
+                        "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
+                        "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
+                        "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
+                        "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
+                        ") t(value)");
     }
 
     @Test
@@ -2799,14 +2887,14 @@ public class TestTimestampWithTimeZone
     {
         // short timestamp
         assertThat(assertions.query("" +
-                                    "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00 America/New_York') t(v) " +
-                                    "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles') u(v) USING (v)"))
+                "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00 America/New_York') t(v) " +
+                "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles') u(v) USING (v)"))
                 .matches("VALUES BIGINT '1'");
 
         // long timestamp
         assertThat(assertions.query("" +
-                                    "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00.000000 America/New_York') t(v) " +
-                                    "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles') u(v) USING (v)"))
+                "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00.000000 America/New_York') t(v) " +
+                "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles') u(v) USING (v)"))
                 .matches("VALUES BIGINT '1'");
     }
 
@@ -2869,6 +2957,60 @@ public class TestTimestampWithTimeZone
                 .hasMessageContaining("is not a valid TIMESTAMP literal");
         assertThatThrownBy(() -> assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 asia/tokyo')").evaluate())
                 .hasMessageContaining("is not a valid TIMESTAMP literal");
+    }
+
+    @Test
+    public void testComparisonOperators()
+    {
+        // short (precision <= 3 → ShortTimestampWithTimeZoneType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56 UTC'", "TIMESTAMP '2020-05-01 12:34:56 UTC'"))
+                .neverFails();
+
+        // long (precision > 3 → LongTimestampWithTimeZoneType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'", "TIMESTAMP '2020-05-01 12:34:56.123456789 UTC'"))
+                .neverFails();
     }
 
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)

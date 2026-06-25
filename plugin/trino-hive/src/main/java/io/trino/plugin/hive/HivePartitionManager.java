@@ -22,6 +22,9 @@ import io.trino.metastore.HivePartition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
+import io.trino.spi.connector.ConnectorExpressionEvaluator.EvaluationResult;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SchemaTableName;
@@ -43,31 +46,40 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
+import static java.util.Objects.requireNonNull;
 
 public class HivePartitionManager
 {
     private final int maxPartitionsForEagerLoad;
     private final int domainCompactionThreshold;
+    private final ConnectorExpressionEvaluator evaluator;
 
     @Inject
-    public HivePartitionManager(HiveConfig hiveConfig)
+    public HivePartitionManager(HiveConfig hiveConfig, ConnectorExpressionEvaluator evaluator)
     {
-        this(
-                hiveConfig.getMaxPartitionsForEagerLoad(),
-                hiveConfig.getDomainCompactionThreshold());
+        this(hiveConfig.getMaxPartitionsForEagerLoad(), hiveConfig.getDomainCompactionThreshold(), evaluator);
     }
 
     public HivePartitionManager(
             int maxPartitionsForEagerLoad,
             int domainCompactionThreshold)
     {
+        this(maxPartitionsForEagerLoad, domainCompactionThreshold, ConnectorExpressionEvaluator.NO_OP);
+    }
+
+    public HivePartitionManager(
+            int maxPartitionsForEagerLoad,
+            int domainCompactionThreshold,
+            ConnectorExpressionEvaluator evaluator)
+    {
         checkArgument(maxPartitionsForEagerLoad >= 1, "maxPartitionsForEagerLoad must be at least 1");
         this.maxPartitionsForEagerLoad = maxPartitionsForEagerLoad;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
-    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint constraint)
+    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint constraint, ConnectorSession session)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary()
@@ -76,9 +88,10 @@ public class HivePartitionManager
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Optional<HiveTablePartitioning> tablePartitioning = hiveTableHandle.getTablePartitioning();
         List<HiveColumnHandle> partitionColumns = hiveTableHandle.getPartitionColumns();
+        ConnectorExpressionEvaluator.Prepared prepared = evaluator.prepare(session, constraint.getExpression());
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, Optional.empty(), ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), tablePartitioning, Optional.empty());
+            return new HivePartitionResult(partitionColumns, Optional.empty(), ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), tablePartitioning, Optional.empty(), prepared);
         }
 
         Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(hiveTableHandle, effectivePredicate);
@@ -94,12 +107,27 @@ public class HivePartitionManager
                     effectivePredicate,
                     compactEffectivePredicate,
                     tablePartitioning,
-                    bucketFilter);
+                    bucketFilter,
+                    prepared);
         }
 
         Optional<List<String>> partitionNames = Optional.empty();
         Iterable<HivePartition> partitionsIterable;
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(_ -> true);
+        Map<String, ColumnHandle> assignments = constraint.getAssignments();
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = bindings -> {
+            ImmutableMap.Builder<String, NullableValue> variableBindings = ImmutableMap.builder();
+            for (String argument : prepared.getArguments()) {
+                ColumnHandle columnHandle = assignments.get(argument);
+                NullableValue value = bindings.get(columnHandle);
+                if (value != null) {
+                    variableBindings.put(argument, value);
+                }
+            }
+            return switch (prepared.tryEvaluate(variableBindings.buildOrThrow())) {
+                case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
+                case EvaluationResult.NoResult _ -> true;
+            };
+        };
         if (hiveTableHandle.getPartitions().isPresent()) {
             partitionsIterable = hiveTableHandle.getPartitions().get().stream()
                     .filter(partition -> partitionMatches(partitionColumns, effectivePredicate, predicate, partition))
@@ -117,7 +145,7 @@ public class HivePartitionManager
             partitionNames = Optional.of(partitionNamesList);
         }
 
-        return new HivePartitionResult(partitionColumns, partitionNames, partitionsIterable, effectivePredicate, compactEffectivePredicate, tablePartitioning, bucketFilter);
+        return new HivePartitionResult(partitionColumns, partitionNames, partitionsIterable, effectivePredicate, compactEffectivePredicate, tablePartitioning, bucketFilter, prepared);
     }
 
     public HivePartitionResult getPartitions(ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList)
@@ -137,10 +165,10 @@ public class HivePartitionManager
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
-        return new HivePartitionResult(partitionColumns, Optional.empty(), partitionList, TupleDomain.all(), TupleDomain.all(), tablePartitioning, Optional.empty());
+        return new HivePartitionResult(partitionColumns, Optional.empty(), partitionList, TupleDomain.all(), TupleDomain.all(), tablePartitioning, Optional.empty(), _ -> new EvaluationResult.NoResult());
     }
 
-    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint constraint)
+    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint constraint, ConnectorExpressionEvaluator.Prepared prepared)
     {
         Optional<List<String>> partitionNames = partitions.getPartitionNames();
         TupleDomain<ColumnHandle> enforcedConstraint = handle.getEnforcedConstraint();
@@ -171,7 +199,8 @@ public class HivePartitionManager
                 handle.getAnalyzePartitionValues(),
                 ImmutableSet.<HiveColumnHandle>builder()
                         .addAll(handle.getConstraintColumns())
-                        .addAll(constraint.getPredicateColumns().orElseGet(ImmutableSet::of).stream()
+                        .addAll(prepared.getArguments().stream()
+                                .map(constraint.getAssignments()::get)
                                 .map(HiveColumnHandle.class::cast)
                                 .collect(toImmutableList()))
                         .build(),
@@ -181,14 +210,14 @@ public class HivePartitionManager
                 handle.getMaxScannedFileSize());
     }
 
-    public Iterator<HivePartition> getPartitions(SemiTransactionalHiveMetastore metastore, HiveTableHandle table)
+    public Iterator<HivePartition> getPartitions(SemiTransactionalHiveMetastore metastore, HiveTableHandle table, ConnectorSession session)
     {
         // In case of partitions not being loaded, their permissible values are specified in `HiveTableHandle#getCompactEffectivePredicate,
         // so we do an intersection of getCompactEffectivePredicate and HiveTable's enforced constraint
         TupleDomain<ColumnHandle> summary = table.getEnforcedConstraint().intersect(
                 table.getCompactEffectivePredicate()
                         .transformKeys(ColumnHandle.class::cast));
-        return table.getPartitions().map(List::iterator).orElseGet(() -> getPartitions(metastore, table, new Constraint(summary)).getPartitions());
+        return table.getPartitions().map(List::iterator).orElseGet(() -> getPartitions(metastore, table, new Constraint(summary), session).getPartitions());
     }
 
     public Optional<List<HivePartition>> tryLoadPartitions(HivePartitionResult partitionResult)

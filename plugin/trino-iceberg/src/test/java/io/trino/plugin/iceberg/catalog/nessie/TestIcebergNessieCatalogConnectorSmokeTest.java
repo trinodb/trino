@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.nessie;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileIterator;
@@ -25,7 +26,6 @@ import io.trino.plugin.iceberg.containers.NessieContainer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
@@ -42,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -88,12 +89,14 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
 
         tempDir = Files.createTempDirectory("test_trino_nessie_catalog");
 
-        catalog = (NessieCatalog) buildIcebergCatalog("tpch", ImmutableMap.<String, String>builder()
+        catalog = (NessieCatalog) buildIcebergCatalog(
+                "tpch",
+                ImmutableMap.<String, String>builder()
                         .put(CATALOG_IMPL, NessieCatalog.class.getName())
                         .put(URI, nessieContainer.getRestApiUri())
                         .put(WAREHOUSE_LOCATION, tempDir.toString())
                         .buildOrThrow(),
-                new Configuration(false));
+                null);
 
         return IcebergQueryRunner.builder()
                 .setBaseDataDir(Optional.of(tempDir))
@@ -104,6 +107,7 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
                                 "iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri(),
                                 "iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString(),
                                 "iceberg.writer-sort-buffer-size", "1MB"))
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
@@ -120,6 +124,22 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
             case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected void verifyConcurrentDeleteFailurePermissible(Exception e)
+    {
+        if (!nullToEmpty(e.getMessage()).contains("Failed to commit during write:")) {
+            super.verifyConcurrentDeleteFailurePermissible(e);
+            return;
+        }
+
+        assertThat(e)
+                .hasMessageContaining("Failed to commit during write:");
+        assertThat(Throwables.getCausalChain(e))
+                .anySatisfy(throwable -> assertThat(nullToEmpty(throwable.getMessage())).containsAnyOf(
+                        "Cannot commit: ref hash is out of date",
+                        "Found new conflicting delete files that can apply to records matching"));
     }
 
     @Test

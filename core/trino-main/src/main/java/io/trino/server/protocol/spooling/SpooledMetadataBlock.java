@@ -55,7 +55,8 @@ public sealed interface SpooledMetadataBlock
     record Spooled(@Override DataAttributes attributes, Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
             implements SpooledMetadataBlock
     {
-        public Spooled {
+        public Spooled
+        {
             requireNonNull(attributes, "attributes is null");
             requireNonNull(identifier, "identifier is null");
             requireNonNull(directUri, "directUri is null");
@@ -66,7 +67,8 @@ public sealed interface SpooledMetadataBlock
     record Inlined(@Override DataAttributes attributes, Slice data)
             implements SpooledMetadataBlock
     {
-        public Inlined {
+        public Inlined
+        {
             requireNonNull(attributes, "attributes is null");
             requireNonNull(data, "data is null");
         }

@@ -491,8 +491,10 @@ public final class OpenXJsonDeserializer
                 char lastChar = trimmedText.charAt(pos.getIndex());
                 // Check if the first character of the remaining is a digit, e.g. "2023-08-0800" if yes, then it is a parse error and must throw an exception
                 if (lastChar >= '0' && lastChar <= '9') {
-                    throw new DateTimeParseException("Text '" + trimmedText + "' could not be parsed, unparsed text found at index " + pos.getIndex(), trimmedText,
-                        pos.getIndex());
+                    throw new DateTimeParseException(
+                            "Text '" + trimmedText + "' could not be parsed, unparsed text found at index " + pos.getIndex(),
+                            trimmedText,
+                            pos.getIndex());
                 }
             }
             return LocalDate.of(temporalAccessor.get(YEAR), temporalAccessor.get(MONTH_OF_YEAR), temporalAccessor.get(DAY_OF_MONTH));
@@ -946,17 +948,17 @@ public final class OpenXJsonDeserializer
     {
         // This does not allow for `0x-123`
         return s.length() >= 3 &&
-               s.charAt(0) == '0' &&
-               toLowerCase(s.charAt(1)) == 'x' &&
-               isHexDigit(s.charAt(2));
+                s.charAt(0) == '0' &&
+                toLowerCase(s.charAt(1)) == 'x' &&
+                isHexDigit(s.charAt(2));
     }
 
     private static boolean isOctal(String s)
     {
         // This does not allow for `0-123`
         return s.length() >= 2 &&
-               s.charAt(0) == '0' &&
-               isOctalDigit(s.charAt(1));
+                s.charAt(0) == '0' &&
+                isOctalDigit(s.charAt(1));
     }
 
     private static boolean isOctalDigit(char c)

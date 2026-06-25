@@ -389,3 +389,7 @@ export async function queryApi(): Promise<ApiResponse<QueryInfo[]>> {
 export async function queryStatusApi(queryId: string, pruned: boolean = false): Promise<ApiResponse<QueryStatusInfo>> {
     return await api.get<QueryStatusInfo>(`/ui/api/query/${queryId}${pruned ? '?pruned=true' : ''}`)
 }
+
+export async function killQueryApi(queryId: string): Promise<ApiResponse<void>> {
+    return await api.put<void>(`/ui/api/query/${queryId}/killed`, 'Canceled via web UI')
+}

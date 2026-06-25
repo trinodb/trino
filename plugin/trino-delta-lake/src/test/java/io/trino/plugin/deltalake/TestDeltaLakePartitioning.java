@@ -33,6 +33,7 @@ public class TestDeltaLakePartitioning
             throws Exception
     {
         return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
     }
@@ -192,7 +193,8 @@ public class TestDeltaLakePartitioning
                         "(6, 'with=equal')," +
                         "(7, 'with?question')," +
                         "(8, 'with!exclamation')," +
-                        "(9, 'with%%percent')", 9);
+                        "(9, 'with%%percent')",
+                9);
 
         assertQuery("SELECT * FROM special_chars", "VALUES " +
                 "(1, 'with-hyphen'), " +

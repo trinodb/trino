@@ -201,7 +201,7 @@ final class TestOpaAccessControlFiltering
 
         Set<String> expectedRequests = tables.stream()
                 .map(table ->
-                """
+                        """
                 {
                     "operation": "FilterTables",
                     "resource": {
@@ -306,7 +306,7 @@ final class TestOpaAccessControlFiltering
 
         Set<String> expectedRequests = requestedFunctions.stream()
                 .map(function ->
-                """
+                        """
                 {
                     "operation": "FilterFunctions",
                     "resource": {
@@ -324,7 +324,7 @@ final class TestOpaAccessControlFiltering
 
     private static void assertFilteringAccessControlMethodDoesNotSendRequests(Function<OpaAccessControl, Collection<?>> method)
     {
-        InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
         assertThat(method.apply(createOpaAuthorizer(simpleOpaConfig(), httpClientForEmptyRequest))).isEmpty();
         assertThat(httpClientForEmptyRequest.getRequests()).isEmpty();
     }

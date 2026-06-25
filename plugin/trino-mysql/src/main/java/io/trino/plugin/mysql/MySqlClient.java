@@ -45,6 +45,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -92,8 +93,8 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -270,6 +271,27 @@ public class MySqlClient
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
 
+    private static final PredicatePushdownController MYSQL_VARCHAR_PUSHDOWN = (session, domain) -> {
+        // MySQL's legacy collations compare varchar with PAD SPACE semantics: trailing spaces are not significant, so a
+        // pushed equality or IN predicate can match values that differ only in trailing spaces, returning more rows than
+        // Trino's NO PAD comparison. Push equality / IN down only as a superset pre-filter and keep the engine filter to
+        // re-apply the exact comparison; disable inequality and range, which cannot be expressed as a safe superset.
+        if (domain.isOnlyNull()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        if (!domain.getValues().isDiscreteSet()) {
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Domain#simplify can turn a discrete set into a range predicate
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return new DomainPushdownResult(simplifiedDomain, domain);
+    };
+
     @Inject
     public MySqlClient(
             BaseJdbcConfig config,
@@ -281,7 +303,7 @@ public class MySqlClient
             RemoteQueryModifier queryModifier)
     {
         super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
-        this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+        this.jsonType = typeManager.getType(new TypeDescriptor(StandardTypes.JSON));
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -577,14 +599,13 @@ public class MySqlClient
 
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
-            case Types.REAL ->
-                // Disable pushdown because floating-point values are approximate and not stored as exact values,
-                // attempts to treat them as exact in comparisons may lead to problems
-                Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
+            // Disable pushdown because floating-point values are approximate and not stored as exact values,
+            // attempts to treat them as exact in comparisons may lead to problems
+            case Types.REAL -> Optional.of(ColumnMapping.longMapping(
+                    REAL,
+                    (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                    realWriteFunction(),
+                    DISABLE_PUSHDOWN));
 
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
 
@@ -615,9 +636,9 @@ public class MySqlClient
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        mySqlDateWriteFunctionUsingLocalDate()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    mySqlDateWriteFunctionUsingLocalDate()));
 
             case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
@@ -653,7 +674,7 @@ public class MySqlClient
     private static ColumnMapping mySqlVarcharColumnMapping(VarcharType varcharType, Optional<CaseSensitivity> caseSensitivity)
     {
         PredicatePushdownController pushdownController = caseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE
-                ? MYSQL_CHARACTER_PUSHDOWN
+                ? MYSQL_VARCHAR_PUSHDOWN
                 : CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
         return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), pushdownController);
     }
@@ -1420,7 +1441,7 @@ public class MySqlClient
                             """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
                         boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");
@@ -1455,7 +1476,7 @@ public class MySqlClient
                             """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
+                    .map((rs, _) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }
     }
@@ -1489,20 +1510,20 @@ public class MySqlClient
         private Optional<Long> getDistinctValuesCount()
         {
             if (histogramType.isPresent() && buckets.isPresent()) {
-                switch (histogramType.get()) {
-                    case "singleton":
-                        return Optional.of((long) buckets.get().size());
-
-                    case "equi-height":
+                return switch (histogramType.get()) {
+                    case "singleton" -> Optional.of((long) buckets.get().size());
+                    case "equi-height" -> {
                         long distinctValues = 0;
                         for (List<?> bucket : buckets.get()) {
                             distinctValues += ((Number) bucket.get(3)).longValue();
                         }
-                        return Optional.of(distinctValues);
-
-                    default:
+                        yield Optional.of(distinctValues);
+                    }
+                    default -> {
                         log.debug("Unsupported histogram type: %s", histogramType.get());
-                }
+                        yield Optional.empty();
+                    }
+                };
             }
             else {
                 log.debug("Unsupported histogram: type: %s, bucket count: %s", histogramType, buckets.map(List::size));

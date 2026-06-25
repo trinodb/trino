@@ -216,6 +216,15 @@ public final class GeometryUtils
         return UnaryUnionOp.union(geometries);
     }
 
+    /**
+     * Create a JTS Point from x/y coordinates.
+     */
+    public static Point createPoint(double x, double y)
+    {
+        Coordinate coordinate = new Coordinate(x, y);
+        return GEOMETRY_FACTORY.createPoint(coordinate);
+    }
+
     private static void flattenGeometry(Geometry geometry, List<Geometry> output)
     {
         if (geometry.isEmpty()) {

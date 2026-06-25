@@ -16,6 +16,7 @@ package io.trino.sql.rewrite;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
@@ -50,6 +51,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.identifier;
@@ -58,7 +60,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
 public final class DescribeOutputRewrite
@@ -89,14 +91,15 @@ public final class DescribeOutputRewrite
             extends AstVisitor<Node, Void>
     {
         private static final Query EMPTY_OUTPUT = createDescribeOutputQuery(
-                new Row[] {row(
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(BIGINT)),
-                        new Cast(new NullLiteral(), toSqlType(BOOLEAN)))},
+                new Row[] {
+                        row(new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(BIGINT)),
+                                new Cast(new NullLiteral(), toSqlType(BOOLEAN))),
+                },
                 Optional.of(new Limit(new LongLiteral("0"))));
 
         private final Session session;
@@ -190,12 +193,17 @@ public final class DescribeOutputRewrite
 
             Optional<QualifiedObjectName> originTable = field.getOriginTable();
 
+            String typeName = field.getType().getDisplayName();
+            if (typeName.equals(NUMBER) && !session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString())) {
+                typeName = VARCHAR.getDisplayName();
+            }
+
             return row(
                     new StringLiteral(columnName),
                     new StringLiteral(originTable.map(QualifiedObjectName::catalogName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::schemaName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::objectName).orElse("")),
-                    new StringLiteral(field.getType().getDisplayName()),
+                    new StringLiteral(typeName),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
         }

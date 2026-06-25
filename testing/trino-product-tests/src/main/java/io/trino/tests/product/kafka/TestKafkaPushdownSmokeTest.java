@@ -168,27 +168,36 @@ public class TestKafkaPushdownSmokeTest
     {
         // Ensure a spread of at-least TIMESTAMP_NUM_MESSAGES * 100 milliseconds
         for (int i = 1; i <= TIMESTAMP_NUM_MESSAGES; i++) {
-            onTrino().executeQuery(format("INSERT INTO %s.%s.%s (bigint_key, bigint_value) VALUES (%s, %s)",
-                    KAFKA_CATALOG, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, i, i));
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s.%s.%s (bigint_key, bigint_value) VALUES (%s, %s)",
+                    KAFKA_CATALOG,
+                    SCHEMA_NAME,
+                    PUSHDOWN_CREATE_TIME_TABLE_NAME,
+                    i,
+                    i));
             Thread.sleep(100);
         }
 
         long startKey = 4;
         long endKey = 6;
         List<List<?>> rows = onTrino().executeQuery(format(
-                "SELECT CAST(_timestamp AS VARCHAR) FROM %s.%s.%s WHERE bigint_key IN (%s, %s) ORDER BY bigint_key",
-                KAFKA_CATALOG,
-                SCHEMA_NAME,
-                PUSHDOWN_CREATE_TIME_TABLE_NAME,
-                startKey,
-                endKey))
+                        "SELECT CAST(_timestamp AS VARCHAR) FROM %s.%s.%s WHERE bigint_key IN (%s, %s) ORDER BY bigint_key",
+                        KAFKA_CATALOG,
+                        SCHEMA_NAME,
+                        PUSHDOWN_CREATE_TIME_TABLE_NAME,
+                        startKey,
+                        endKey))
                 .rows();
         String startTime = (String) rows.get(0).get(0);
         String endTime = (String) rows.get(1).get(0);
 
         assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _timestamp >= TIMESTAMP '%s' AND _timestamp < TIMESTAMP '%s'",
-                KAFKA_CATALOG, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, startTime, endTime)))
+                KAFKA_CATALOG,
+                SCHEMA_NAME,
+                PUSHDOWN_CREATE_TIME_TABLE_NAME,
+                startTime,
+                endTime)))
                 .containsExactlyInOrder(row(endKey - startKey));
     }
 }

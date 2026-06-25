@@ -37,13 +37,14 @@ import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.IsNull;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.type.FunctionType;
+import io.trino.spi.type.TypeTemplate;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -71,7 +72,7 @@ import static io.trino.operator.annotations.FunctionsParserHelper.containsLegacy
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.getDeclaredSpecializedTypeParameters;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
-import static io.trino.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseNumericVariableConstraints;
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.checkTypeParameters;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
@@ -88,7 +89,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
@@ -491,7 +492,7 @@ public class ParametricScalarImplementation
 
             SqlType returnType = method.getAnnotation(SqlType.class);
             checkArgument(returnType != null, "Method [%s] is missing @SqlType annotation", method);
-            signatureBuilder.returnType(parseTypeSignature(returnType.value(), literalParameters));
+            signatureBuilder.returnType(parseTypeTemplate(returnType.value(), typeParameterNames, literalParameters));
 
             Class<?> actualReturnType = method.getReturnType();
             this.returnNativeContainerType = Primitives.unwrap(actualReturnType);
@@ -503,14 +504,16 @@ public class ParametricScalarImplementation
                 checkArgument(!nullable, "Method [%s] annotated with @SqlNullable has primitive return type %s", method, actualReturnType.getSimpleName());
             }
 
-            parseLongVariableConstraints(method, signatureBuilder);
+            parseNumericVariableConstraints(method, signatureBuilder);
 
             this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method, typeParameters);
 
             for (TypeParameter typeParameter : typeParameters) {
                 checkArgument(
                         typeParameter.value().matches("[A-Z][A-Z0-9]*"),
-                        "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]", typeParameter.value(), method);
+                        "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]",
+                        typeParameter.value(),
+                        method);
             }
 
             inferSpecialization(method, actualReturnType, returnType.value());
@@ -549,6 +552,7 @@ public class ParametricScalarImplementation
                 // Skip injected parameters
                 if (parameterType == ConnectorSession.class) {
                     checkCondition(!hasConnectorSession, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has more than 1 ConnectorSession in the parameter list", method);
+                    checkArgument(!parameter.isAnnotationPresent(Name.class), "Method [%s] has @Name on a non-@SqlType parameter", method);
                     hasConnectorSession = true;
                     parameterIndex++;
                     continue;
@@ -557,10 +561,11 @@ public class ParametricScalarImplementation
                 Optional<Annotation> implementationDependency = getImplementationDependencyAnnotation(parameter);
                 if (implementationDependency.isPresent()) {
                     checkCondition(!encounteredNonDependencyAnnotation, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has parameters annotated with Dependency annotations that appears after other parameters", method);
+                    checkArgument(!parameter.isAnnotationPresent(Name.class), "Method [%s] has @Name on a non-@SqlType parameter", method);
 
                     // check if only declared typeParameters and literalParameters are used
                     validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
-                    dependencies.add(createDependency(implementationDependency.get(), literalParameters, parameterType));
+                    dependencies.add(createDependency(implementationDependency.get(), typeParameterNames, literalParameters, parameterType));
 
                     parameterIndex++;
                 }
@@ -575,10 +580,20 @@ public class ParametricScalarImplementation
                             .map(SqlType.class::cast)
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
-                    TypeSignature typeSignature = parseTypeSignature(type.value(), literalParameters);
-                    signatureBuilder.argumentType(typeSignature);
+                    TypeTemplate typeTemplate = parseTypeTemplate(type.value(), typeParameterNames, literalParameters);
+                    // @Name is not @Repeatable, so the compiler guarantees at most one.
+                    Optional<Name> nameAnnotation = Stream.of(annotations)
+                            .filter(Name.class::isInstance)
+                            .map(Name.class::cast)
+                            .findFirst();
+                    if (nameAnnotation.isPresent()) {
+                        signatureBuilder.argumentType(typeTemplate, nameAnnotation.get().value());
+                    }
+                    else {
+                        signatureBuilder.argumentType(typeTemplate);
+                    }
 
-                    if (typeSignature.getBase().equals(FunctionType.NAME)) {
+                    if (typeTemplate instanceof TypeTemplate.TypeApplication application && application.base().equals(FunctionType.NAME)) {
                         // function type
                         checkCondition(parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", parameterIndex, methodHandle);
                         argumentConventions.add(FUNCTION);
@@ -679,15 +694,21 @@ public class ParametricScalarImplementation
                     .collect(toImmutableSet());
             checkArgument(constructorTypeParameters.containsAll(typeParameters), "Method [%s] is an instance method and requires a public constructor containing all type parameters: %s", method, typeParameters);
 
+            // Constructor dependencies reference the type variables the constructor declares, which include all of
+            // the method's and may add more; parse them against that set so a type variable becomes a TypeVariable.
+            Set<String> constructorTypeParameterNames = constructorTypeParameters.stream()
+                    .map(TypeParameter::value)
+                    .collect(toImmutableSortedSet(CASE_INSENSITIVE_ORDER));
+
             for (int i = 0; i < constructor.getParameterCount(); i++) {
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
                 checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have meta parameters [%s]", constructor);
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter typeParameter) {
-                    checkTypeParameters(parseTypeSignature(typeParameter.value(), ImmutableSet.of()), typeParameterNames, method);
+                    checkTypeParameters(parseTypeTemplate(typeParameter.value(), constructorTypeParameterNames, literalParameters), constructorTypeParameterNames, method);
                 }
-                constructorDependencies.add(createDependency(annotation, literalParameters, constructor.getParameterTypes()[i]));
+                constructorDependencies.add(createDependency(annotation, constructorTypeParameterNames, literalParameters, constructor.getParameterTypes()[i]));
             }
             MethodHandle result = constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor);
             // Change type of return value to Object to make sure callers won't have classloader issues

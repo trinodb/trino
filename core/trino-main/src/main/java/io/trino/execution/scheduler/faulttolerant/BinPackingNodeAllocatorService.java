@@ -429,7 +429,8 @@ public class BinPackingNodeAllocatorService
     @Override
     public NodeAllocator getNodeAllocator(Session session)
     {
-        return new NodeAllocator() {
+        return new NodeAllocator()
+        {
             @Override
             public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
             {
@@ -979,7 +980,7 @@ public class BinPackingNodeAllocatorService
             UNKNOWN,
             NONE_MATCHING,
             NOT_ENOUGH_RESOURCES_NOW,
-            RESERVED
+            RESERVED,
         }
 
         public static class ReserveResult

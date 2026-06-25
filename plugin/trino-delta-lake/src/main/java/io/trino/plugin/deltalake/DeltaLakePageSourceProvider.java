@@ -57,10 +57,10 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -112,6 +112,7 @@ import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPr
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.PARQUET_ROW_INDEX_COLUMN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -155,7 +156,8 @@ public class DeltaLakePageSourceProvider
             ConnectorTableHandle connectorTable,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         DeltaLakeSplit split = (DeltaLakeSplit) connectorSplit;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) connectorTable;
@@ -224,7 +226,7 @@ public class DeltaLakePageSourceProvider
         }
 
         Location location = Location.of(split.path());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials.map(DeltaLakeTableCredentials.class::cast));
         TrinoInputFile inputFile = fileSystem.newInputFile(location, split.fileSize());
         ParquetReaderOptions options = ParquetReaderOptions.builder(parquetReaderOptions)
                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
@@ -269,7 +271,8 @@ public class DeltaLakePageSourceProvider
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(split.fileSize()));
+                OptionalLong.of(split.fileSize()),
+                memoryContext);
 
         if (split.deletionVector().isPresent()) {
             var pageFilterSupplier = Suppliers.memoize(() -> {
@@ -312,21 +315,21 @@ public class DeltaLakePageSourceProvider
         for (DeltaLakeColumnHandle column : deltaLakeColumns) {
             if (column.isBaseColumn() && partitionKeys.containsKey(column.basePhysicalColumnName())) {
                 Object prefilledValue = deserializePartitionValue(column, partitionKeys.get(column.basePhysicalColumnName()));
-                transform.constantValue(Utils.nativeValueToBlock(column.baseType(), prefilledValue));
+                transform.constantValue(writeNativeValue(column.baseType(), prefilledValue));
             }
             else if (column.baseColumnName().equals(PATH_COLUMN_NAME)) {
-                transform.constantValue(Utils.nativeValueToBlock(PATH_TYPE, utf8Slice(path)));
+                transform.constantValue(writeNativeValue(PATH_TYPE, utf8Slice(path)));
             }
             else if (column.baseColumnName().equals(FILE_SIZE_COLUMN_NAME)) {
-                transform.constantValue(Utils.nativeValueToBlock(FILE_SIZE_TYPE, fileSize));
+                transform.constantValue(writeNativeValue(FILE_SIZE_TYPE, fileSize));
             }
             else if (column.baseColumnName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
                 long packedTimestamp = packDateTimeWithZone(fileModifiedTime, UTC_KEY);
-                transform.constantValue(Utils.nativeValueToBlock(FILE_MODIFIED_TIME_TYPE, packedTimestamp));
+                transform.constantValue(writeNativeValue(FILE_MODIFIED_TIME_TYPE, packedTimestamp));
             }
             else if (column.baseColumnName().equals(ROW_ID_COLUMN_NAME)) {
-                Block pathBlock = Utils.nativeValueToBlock(VARCHAR, utf8Slice(path));
-                Block partitionsBlock = Utils.nativeValueToBlock(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues.orElseThrow(() -> new IllegalStateException("partitionValues not provided")))));
+                Block pathBlock = writeNativeValue(VARCHAR, utf8Slice(path));
+                Block partitionsBlock = writeNativeValue(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues.orElseThrow(() -> new IllegalStateException("partitionValues not provided")))));
                 transform.transform(delegateIndex, new CreateRowIdBlock(pathBlock, partitionsBlock));
                 delegateIndex++;
             }

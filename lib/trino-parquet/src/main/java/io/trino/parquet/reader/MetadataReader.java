@@ -23,6 +23,8 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.cache.ParquetFooterCache;
+import io.trino.parquet.cache.ParquetFooterCacheKey;
 import io.trino.parquet.crypto.AesCipherUtils;
 import io.trino.parquet.crypto.AesGcmEncryptor;
 import io.trino.parquet.crypto.FileDecryptionContext;
@@ -79,7 +81,58 @@ public final class MetadataReader
         return readFooter(dataSource, options.getFooterReadSize(), Optional.of(options.getMaxFooterReadSize()), parquetWriteValidation, fileDecryptionProperties);
     }
 
+    public static ParquetMetadata readFooter(
+            ParquetDataSource dataSource,
+            ParquetReaderOptions options,
+            Optional<ParquetWriteValidation> parquetWriteValidation,
+            Optional<FileDecryptionProperties> fileDecryptionProperties,
+            ParquetFooterCache parquetFooterCache,
+            ParquetFooterCacheKey cacheKey)
+            throws IOException
+    {
+        requireNonNull(parquetFooterCache, "parquetFooterCache is null");
+        requireNonNull(cacheKey, "cacheKey is null");
+
+        try {
+            Optional<Slice> footerBytes = parquetFooterCache.get(cacheKey);
+            if (footerBytes.isPresent()) {
+                try {
+                    return parseFooter(dataSource.getId(), dataSource.getEstimatedSize(), footerBytes.get(), parquetWriteValidation, fileDecryptionProperties);
+                }
+                catch (IOException | RuntimeException _) {
+                    invalidateParquetFooterCache(parquetFooterCache, cacheKey);
+                }
+            }
+        }
+        catch (IOException | RuntimeException _) {
+            invalidateParquetFooterCache(parquetFooterCache, cacheKey);
+        }
+
+        Slice footerBytes = readFooterBytes(dataSource, options);
+        ParquetMetadata parquetMetadata = parseFooter(dataSource.getId(), dataSource.getEstimatedSize(), footerBytes, parquetWriteValidation, fileDecryptionProperties);
+        try {
+            parquetFooterCache.put(cacheKey, footerBytes);
+        }
+        catch (RuntimeException _) {
+            // Footer cache failures should not affect reads.
+        }
+        return parquetMetadata;
+    }
+
     public static ParquetMetadata readFooter(ParquetDataSource dataSource, DataSize footerReadSize, Optional<DataSize> maxFooterReadSize, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<FileDecryptionProperties> fileDecryptionProperties)
+            throws IOException
+    {
+        return parseFooter(dataSource.getId(), dataSource.getEstimatedSize(), readFooterBytes(dataSource, footerReadSize, maxFooterReadSize), parquetWriteValidation, fileDecryptionProperties);
+    }
+
+    public static Slice readFooterBytes(ParquetDataSource dataSource, ParquetReaderOptions options)
+            throws IOException
+    {
+        requireNonNull(options, "options is null");
+        return readFooterBytes(dataSource, options.getFooterReadSize(), Optional.of(options.getMaxFooterReadSize()));
+    }
+
+    private static Slice readFooterBytes(ParquetDataSource dataSource, DataSize footerReadSize, Optional<DataSize> maxFooterReadSize)
             throws IOException
     {
         // Parquet File Layout:
@@ -102,7 +155,6 @@ public final class MetadataReader
         Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());
         validateParquet(MAGIC.equals(magic) || EMAGIC.equals(magic), dataSource.getId(), "Expected magic number: %s or %s got: %s", MAGIC.toStringUtf8(), EMAGIC.toStringUtf8(), magic.toStringUtf8());
 
-        boolean encryptedFooterMode = EMAGIC.equals(magic);
         int metadataLength = buffer.getInt(buffer.length() - POST_SCRIPT_SIZE);
         long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
         validateParquet(
@@ -123,17 +175,57 @@ public final class MetadataReader
             // initial read was not large enough, so just read again with the correct size
             buffer = dataSource.readTail(completeFooterSize);
         }
-        SliceInput metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
+        return buffer.slice(buffer.length() - completeFooterSize, completeFooterSize);
+    }
+
+    private static void invalidateParquetFooterCache(ParquetFooterCache parquetFooterCache, ParquetFooterCacheKey cacheKey)
+    {
+        try {
+            parquetFooterCache.invalidate(cacheKey);
+        }
+        catch (RuntimeException _) {
+            // Footer cache failures should not affect reads.
+        }
+    }
+
+    public static ParquetMetadata parseFooter(
+            ParquetDataSourceId dataSourceId,
+            long estimatedFileSize,
+            Slice footerBytes,
+            Optional<ParquetWriteValidation> parquetWriteValidation,
+            Optional<FileDecryptionProperties> fileDecryptionProperties)
+            throws IOException
+    {
+        requireNonNull(dataSourceId, "dataSourceId is null");
+        requireNonNull(footerBytes, "footerBytes is null");
+        validateParquet(estimatedFileSize >= MAGIC.length() + POST_SCRIPT_SIZE, dataSourceId, "%s is not a valid Parquet File", dataSourceId);
+        validateParquet(footerBytes.length() >= POST_SCRIPT_SIZE, dataSourceId, "Footer is too small");
+
+        Slice magic = footerBytes.slice(footerBytes.length() - MAGIC.length(), MAGIC.length());
+        validateParquet(MAGIC.equals(magic) || EMAGIC.equals(magic), dataSourceId, "Expected magic number: %s or %s got: %s", MAGIC.toStringUtf8(), EMAGIC.toStringUtf8(), magic.toStringUtf8());
+
+        int metadataLength = footerBytes.getInt(footerBytes.length() - POST_SCRIPT_SIZE);
+        long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
+        validateParquet(
+                metadataIndex >= MAGIC.length() && metadataIndex < estimatedFileSize - POST_SCRIPT_SIZE,
+                dataSourceId,
+                "Metadata index: %s out of range",
+                metadataIndex);
+
+        int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
+        validateParquet(completeFooterSize <= footerBytes.length(), dataSourceId, "Footer bytes do not contain complete footer");
+        SliceInput metadataStream = footerBytes.slice(footerBytes.length() - completeFooterSize, metadataLength).getInput();
 
         Optional<FileDecryptionContext> decryptionContext = Optional.empty();
         Decryptor footerDecryptor = null;
         byte[] aad = null;
 
+        boolean encryptedFooterMode = EMAGIC.equals(magic);
         if (encryptedFooterMode) {
-            validateParquetCrypto(fileDecryptionProperties.isPresent(), dataSource.getId(), "fileDecryptionProperties cannot be null when encryptedFooterMode is true");
+            validateParquetCrypto(fileDecryptionProperties.isPresent(), dataSourceId, "fileDecryptionProperties cannot be null when encryptedFooterMode is true");
             FileCryptoMetaData fileCryptoMetaData = readFileCryptoMetaData(metadataStream);
-            validateParquetCrypto(fileCryptoMetaData != null, dataSource.getId(), "FileCryptoMetaData cannot be null when encryptedFooterMode is true");
-            decryptionContext = Optional.of(new FileDecryptionContext(dataSource.getId(), fileDecryptionProperties.get(), fileCryptoMetaData.getEncryption_algorithm(), Optional.ofNullable(fileCryptoMetaData.getKey_metadata())));
+            validateParquetCrypto(fileCryptoMetaData != null, dataSourceId, "FileCryptoMetaData cannot be null when encryptedFooterMode is true");
+            decryptionContext = Optional.of(new FileDecryptionContext(dataSourceId, fileDecryptionProperties.get(), fileCryptoMetaData.getEncryption_algorithm(), Optional.ofNullable(fileCryptoMetaData.getKey_metadata())));
             footerDecryptor = decryptionContext.get().getFooterDecryptor();
             aad = AesCipherUtils.createFooterAAD(decryptionContext.get().getFileAad());
         }
@@ -141,15 +233,15 @@ public final class MetadataReader
         FileMetaData fileMetaData = readFileMetaData(metadataStream, footerDecryptor, aad);
         if (!encryptedFooterMode && fileDecryptionProperties.isPresent() && fileMetaData.isSetEncryption_algorithm()) {
             // footer is not encrypted, but some columns might be encrypted
-            decryptionContext = Optional.of(new FileDecryptionContext(dataSource.getId(), fileDecryptionProperties.get(), fileMetaData.getEncryption_algorithm(), Optional.ofNullable(fileMetaData.getFooter_signing_key_metadata())));
+            decryptionContext = Optional.of(new FileDecryptionContext(dataSourceId, fileDecryptionProperties.get(), fileMetaData.getEncryption_algorithm(), Optional.ofNullable(fileMetaData.getFooter_signing_key_metadata())));
             if (fileDecryptionProperties.get().isCheckFooterIntegrity()) {
                 // verify footer integrity
-                verifyFooterIntegrity(dataSource, metadataStream, decryptionContext.get(), metadataLength);
+                verifyFooterIntegrity(dataSourceId, metadataStream, decryptionContext.get(), metadataLength);
             }
         }
 
-        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId(), decryptionContext);
-        validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSourceId, decryptionContext);
+        validateFileMetadata(dataSourceId, parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
     }
 
@@ -228,10 +320,10 @@ public final class MetadataReader
 
         return org.apache.parquet.column.statistics.Statistics
                 .getBuilderForReading(columnStatistics.type())
-                       .withMin(min)
-                       .withMax(max)
-                       .withNumNulls(!columnStatistics.isNumNullsSet() && statistics.isSetNull_count() ? statistics.getNull_count() : columnStatistics.getNumNulls())
-                       .build();
+                .withMin(min)
+                .withMax(max)
+                .withNumNulls(!columnStatistics.isNumNullsSet() && statistics.isSetNull_count() ? statistics.getNull_count() : columnStatistics.getNumNulls())
+                .build();
     }
 
     private static boolean isAscii(byte b)
@@ -261,7 +353,7 @@ public final class MetadataReader
         writeValidation.validateColumns(dataSourceId, fileMetaData.getSchema());
     }
 
-    private static void verifyFooterIntegrity(ParquetDataSource dataSource, SliceInput metadataStream, FileDecryptionContext decryptionContext, int metadataLength)
+    private static void verifyFooterIntegrity(ParquetDataSourceId dataSourceId, SliceInput metadataStream, FileDecryptionContext decryptionContext, int metadataLength)
     {
         byte[] nonce = new byte[NONCE_LENGTH];
         metadataStream.read(nonce);
@@ -280,6 +372,6 @@ public final class MetadataReader
         byte[] encryptedFooterBytes = footerSigner.encrypt(false, footer, nonce, signedFooterAAD);
         byte[] calculatedTag = new byte[GCM_TAG_LENGTH];
         arraycopy(encryptedFooterBytes, encryptedFooterBytes.length - GCM_TAG_LENGTH, calculatedTag, 0, GCM_TAG_LENGTH);
-        validateParquetCrypto(Arrays.equals(gcmTag, calculatedTag), dataSource.getId(), "Signature mismatch in plaintext footer");
+        validateParquetCrypto(Arrays.equals(gcmTag, calculatedTag), dataSourceId, "Signature mismatch in plaintext footer");
     }
 }

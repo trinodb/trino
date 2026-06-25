@@ -222,7 +222,8 @@ public class TestAllDatatypesFromHiveConnector
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
 
-        onHive().executeQuery(format("INSERT INTO %s VALUES(" +
+        onHive().executeQuery(format(
+                "INSERT INTO %s VALUES(" +
                         "2147483647," +
                         "9223372036854775807," +
                         "123.345," +

@@ -69,15 +69,15 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createIntsBlock;
-import static io.trino.block.BlockAssertions.toValues;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -125,6 +125,7 @@ public class TestScanFilterAndProjectOperator
 
     @Test
     public void testPageSource()
+            throws Exception
     {
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
@@ -132,14 +133,13 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
+                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -149,18 +149,20 @@ public class TestScanFilterAndProjectOperator
                 DataSize.ofBytes(0),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
-        operator.noMoreSplits();
+        try (SourceOperator operator = factory.createOperator(driverContext)) {
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.noMoreSplits();
 
-        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
+            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
+            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
 
-        assertThat(actual).containsExactlyElementsOf(expected);
+            assertThat(actual).containsExactlyElementsOf(expected);
+        }
     }
 
     @Test
     public void testPageSourceMergeOutput()
+            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 0)
@@ -173,16 +175,16 @@ public class TestScanFilterAndProjectOperator
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
         Expression filter = call(
                 new TestingFunctionResolution(runner).resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                col0, new Constant(BIGINT, 10L));
+                col0,
+                new Constant(BIGINT, 10L));
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new FixedPageSource(input),
+                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(input),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -192,25 +194,27 @@ public class TestScanFilterAndProjectOperator
                 DataSize.of(64, KILOBYTE),
                 2);
 
-        SourceOperator operator = factory.createOperator(newDriverContext());
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
-        operator.noMoreSplits();
+        try (SourceOperator operator = factory.createOperator(newDriverContext())) {
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.noMoreSplits();
 
-        List<Page> actual = toPages(operator);
-        assertThat(actual).hasSize(1);
+            List<Page> actual = toPages(operator);
+            assertThat(actual).hasSize(1);
 
-        List<Page> expected = rowPagesBuilder(BIGINT)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .build();
+            Page expected = rowPagesBuilder(BIGINT)
+                    .row(10L)
+                    .row(10L)
+                    .row(10L)
+                    .row(10L)
+                    .buildPage();
 
-        assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected.get(0));
+            assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected);
+        }
     }
 
     @Test
     public void testPageSourceLazyLoad()
+            throws Exception
     {
         Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
         // If column 1 is loaded, test will fail
@@ -223,7 +227,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new SinglePagePageSource(input),
+                _ -> (_, _, _, _, _, _, _) -> new SinglePagePageSource(input),
                 _ -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -233,18 +237,20 @@ public class TestScanFilterAndProjectOperator
                 DataSize.ofBytes(0),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
-        operator.noMoreSplits();
+        try (SourceOperator operator = factory.createOperator(driverContext)) {
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.noMoreSplits();
 
-        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), toPages(operator));
+            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
+            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), toPages(operator));
 
-        assertThat(actual).containsExactlyElementsOf(expected);
+            assertThat(actual).containsExactlyElementsOf(expected);
+        }
     }
 
     @Test
     public void testRecordCursorSource()
+            throws Exception
     {
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
@@ -252,14 +258,13 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                _ -> (_, _, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -269,18 +274,20 @@ public class TestScanFilterAndProjectOperator
                 DataSize.ofBytes(0),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
-        operator.noMoreSplits();
+        try (SourceOperator operator = factory.createOperator(driverContext)) {
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.noMoreSplits();
 
-        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
+            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
+            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
 
-        assertThat(actual).containsExactlyElementsOf(expected);
+            assertThat(actual).containsExactlyElementsOf(expected);
+        }
     }
 
     @Test
     public void testPageYield()
+            throws Exception
     {
         int totalRows = 1000;
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), totalRows, 1);
@@ -315,7 +322,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
+                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -325,29 +332,30 @@ public class TestScanFilterAndProjectOperator
                 DataSize.ofBytes(0),
                 0);
 
-        SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
-        operator.noMoreSplits();
+        try (SourceOperator operator = factory.createOperator(driverContext)) {
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.noMoreSplits();
 
-        // In the below loop we yield for every cell: 20 X 1000 times
-        // Currently we don't check for the yield signal in the generated projection loop, we only check for the yield signal
-        // in the PageProcessor.PositionsPageProcessorIterator::computeNext() method. Therefore, after 20 calls we will have
-        // exactly 20 blocks (one for each column) and the PageProcessor will be able to create a Page out of it.
-        for (int i = 1; i <= totalRows * totalColumns; i++) {
-            driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
-            Page page = operator.getOutput();
-            if (i == totalColumns) {
-                assertThat(page).isNotNull();
-                assertThat(page.getPositionCount()).isEqualTo(totalRows);
-                assertThat(page.getChannelCount()).isEqualTo(totalColumns);
-                for (int j = 0; j < totalColumns; j++) {
-                    assertThat(toValues(BIGINT, page.getBlock(j))).isEqualTo(toValues(BIGINT, input.getBlock(0)));
+            // In the below loop we yield for every cell: 20 X 1000 times
+            // Currently we don't check for the yield signal in the generated projection loop, we only check for the yield signal
+            // in the PageProcessor.PositionsPageProcessorIterator::computeNext() method. Therefore, after 20 calls we will have
+            // exactly 20 blocks (one for each column) and the PageProcessor will be able to create a Page out of it.
+            for (int i = 1; i <= totalRows * totalColumns; i++) {
+                driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
+                Page page = operator.getOutput();
+                if (i == totalColumns) {
+                    assertThat(page).isNotNull();
+                    assertThat(page.getPositionCount()).isEqualTo(totalRows);
+                    assertThat(page.getChannelCount()).isEqualTo(totalColumns);
+                    for (int j = 0; j < totalColumns; j++) {
+                        assertBlockEquals(BIGINT, page.getBlock(j), input.getBlock(0));
+                    }
                 }
+                else {
+                    assertThat(page).isNull();
+                }
+                driverContext.getYieldSignal().reset();
             }
-            else {
-                assertThat(page).isNull();
-            }
-            driverContext.getYieldSignal().reset();
         }
     }
 
@@ -432,12 +440,6 @@ public class TestScanFilterAndProjectOperator
 
         @Override
         public long getReadTimeNanos()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getMemoryUsage()
         {
             return 0;
         }

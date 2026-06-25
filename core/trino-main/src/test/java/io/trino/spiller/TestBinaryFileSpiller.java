@@ -44,7 +44,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.execution.buffer.PagesSerdes.createSpillingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -169,11 +169,7 @@ public class TestBinaryFileSpiller
         for (int i = 0; i < actualSpills.size(); i++) {
             List<Page> actualSpill = ImmutableList.copyOf(actualSpills.get(i));
             List<Page> expectedSpill = spills[i];
-
-            assertThat(actualSpill).hasSize(expectedSpill.size());
-            for (int j = 0; j < actualSpill.size(); j++) {
-                assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
-            }
+            assertPagesEqual(types, actualSpill, expectedSpill);
         }
         spiller.close();
         assertThat(memoryContext.getBytes()).isEqualTo(0);

@@ -376,14 +376,13 @@ public class MariaDbClient
             case Types.SMALLINT -> Optional.of(smallintColumnMapping());
             case Types.INTEGER -> Optional.of(integerColumnMapping());
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
-            case Types.REAL ->
-                // Disable pushdown because floating-point values are approximate and not stored as exact values,
-                // attempts to treat them as exact in comparisons may lead to problems
-                Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
+            // Disable pushdown because floating-point values are approximate and not stored as exact values,
+            // attempts to treat them as exact in comparisons may lead to problems
+            case Types.REAL -> Optional.of(ColumnMapping.longMapping(
+                    REAL,
+                    (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                    realWriteFunction(),
+                    DISABLE_PUSHDOWN));
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
             case Types.NUMERIC, Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
@@ -406,9 +405,9 @@ public class MariaDbClient
             case Types.VARCHAR, Types.LONGVARCHAR -> Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        dateWriteFunction()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    dateWriteFunction()));
             case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 yield Optional.of(timeColumnMapping(timeType));
@@ -944,7 +943,7 @@ public class MariaDbClient
                             """)
                     .bind("database", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("column_name");
                         double nullsRatio = rs.getDouble("nulls_ratio");
                         return entry(columnName, new AnalyzeColumnStatistics(nullsRatio));
@@ -971,7 +970,7 @@ public class MariaDbClient
                             """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
                         boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");

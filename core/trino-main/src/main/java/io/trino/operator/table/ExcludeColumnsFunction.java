@@ -59,8 +59,7 @@ public class ExcludeColumnsFunction
 
     public ExcludeColumnsFunction()
     {
-        super(
-                BUILTIN_SCHEMA,
+        super(BUILTIN_SCHEMA,
                 NAME,
                 ImmutableList.of(
                         TableArgumentSpecification.builder()
@@ -70,7 +69,8 @@ public class ExcludeColumnsFunction
                         DescriptorArgumentSpecification.builder()
                                 .name(DESCRIPTOR_ARGUMENT_NAME)
                                 .build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "");
     }
 
     @Override

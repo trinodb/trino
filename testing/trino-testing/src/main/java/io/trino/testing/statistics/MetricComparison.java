@@ -38,8 +38,11 @@ public class MetricComparison
     @Override
     public String toString()
     {
-        return format("Metric [%s] - estimated: [%s], real: [%s]",
-                metric, print(estimatedValue), print(actualValue));
+        return format(
+                "Metric [%s] - estimated: [%s], real: [%s]",
+                metric,
+                print(estimatedValue),
+                print(actualValue));
     }
 
     public Result result(MetricComparisonStrategy metricComparisonStrategy)
@@ -68,6 +71,6 @@ public class MetricComparison
     {
         NO_ESTIMATE,
         DIFFER,
-        MATCH
+        MATCH,
     }
 }

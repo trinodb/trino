@@ -472,8 +472,7 @@ public class SemiTransactionalHiveMetastore
         String queryId = session.getQueryId();
 
         // Ensure the database has queryId set. This is relied on for exception handling
-        verify(
-                getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+        verify(getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
                 "Database '%s' does not have correct query id set",
                 database.getDatabaseName());
 
@@ -686,8 +685,7 @@ public class SemiTransactionalHiveMetastore
 
         switch (oldTableAction.type()) {
             case DROP -> throw new TableNotFoundException(schemaTableName);
-            case ADD, ALTER, INSERT_EXISTING, MERGE ->
-                    throw new UnsupportedOperationException("Inserting into an unpartitioned table that were added, altered, or inserted into in the same transaction is not supported");
+            case ADD, ALTER, INSERT_EXISTING, MERGE -> throw new UnsupportedOperationException("Inserting into an unpartitioned table that were added, altered, or inserted into in the same transaction is not supported");
             case DROP_PRESERVE_DATA -> throw new IllegalStateException("Unsupported action type: " + oldTableAction.type());
         }
     }
@@ -761,8 +759,7 @@ public class SemiTransactionalHiveMetastore
 
         switch (oldTableAction.type()) {
             case DROP -> throw new TableNotFoundException(schemaTableName);
-            case ADD, ALTER, INSERT_EXISTING, MERGE ->
-                    throw new UnsupportedOperationException("Inserting, updating or deleting in a table that was added, altered, inserted into, updated or deleted from in the same transaction is not supported");
+            case ADD, ALTER, INSERT_EXISTING, MERGE -> throw new UnsupportedOperationException("Inserting, updating or deleting in a table that was added, altered, inserted into, updated or deleted from in the same transaction is not supported");
             case DROP_PRESERVE_DATA -> throw new IllegalStateException("Unsupported action type: " + oldTableAction.type());
         }
     }
@@ -925,8 +922,7 @@ public class SemiTransactionalHiveMetastore
                         partition.getValues(),
                         new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, SHOULD_MERGE_STATISTICS, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
             }
-            case ADD, ALTER, INSERT_EXISTING, MERGE ->
-                    throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
+            case ADD, ALTER, INSERT_EXISTING, MERGE -> throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
         }
     }
 
@@ -946,9 +942,8 @@ public class SemiTransactionalHiveMetastore
         }
         switch (oldPartitionAction.type()) {
             case DROP, DROP_PRESERVE_DATA -> throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
-            case ADD, ALTER, INSERT_EXISTING, MERGE ->
-                    throw new TrinoException(NOT_SUPPORTED, "dropping a partition added in the same transaction is not supported: %s %s %s"
-                            .formatted(databaseName, tableName, partitionValues));
+            case ADD, ALTER, INSERT_EXISTING, MERGE -> throw new TrinoException(NOT_SUPPORTED, "dropping a partition added in the same transaction is not supported: %s %s %s"
+                    .formatted(databaseName, tableName, partitionValues));
         }
     }
 
@@ -2148,7 +2143,8 @@ public class SemiTransactionalHiveMetastore
             for (PartitionAdder partitionAdder : partitionAdders.values()) {
                 List<List<String>> partitionsFailedToRollback = partitionAdder.rollback();
                 if (!partitionsFailedToRollback.isEmpty()) {
-                    logCleanupFailure("Failed to rollback: add_partition for partitions %s.%s %s",
+                    logCleanupFailure(
+                            "Failed to rollback: add_partition for partitions %s.%s %s",
                             partitionAdder.getSchemaName(),
                             partitionAdder.getTableName(),
                             partitionsFailedToRollback);
@@ -2305,10 +2301,10 @@ public class SemiTransactionalHiveMetastore
                                     .map(Column::getName)
                                     .collect(toImmutableList());
                             List<String> partitionNames = getOptionalPartitions(
-                                            schemaTableName.getSchemaName(),
-                                            schemaTableName.getTableName(),
-                                            partitionColumnNames,
-                                            TupleDomain.all())
+                                    schemaTableName.getSchemaName(),
+                                    schemaTableName.getTableName(),
+                                    partitionColumnNames,
+                                    TupleDomain.all())
                                     .orElse(ImmutableList.of());
                             for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
                                 Collection<Optional<Partition>> partitions = getOptionalPartitions(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();

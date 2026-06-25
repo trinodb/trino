@@ -23,9 +23,10 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -80,7 +81,7 @@ public class TestBroadcastOutputBuffer
 {
     private static final long TASK_INSTANCE_ID = 0x1337;
 
-    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
     private static final OutputBufferId THIRD = new OutputBufferId(2);
@@ -164,7 +165,9 @@ public class TestBroadcastOutputBuffer
         outputBuffers = outputBuffers.withBuffer(SECOND, BROADCAST_PARTITION_ID);
         buffer.setOutputBuffers(outputBuffers);
         assertQueueState(buffer, SECOND, 11, 0);
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0),
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(
+                0,
+                createPage(0),
                 createPage(1),
                 createPage(2),
                 createPage(3),
@@ -225,7 +228,9 @@ public class TestBroadcastOutputBuffer
 
         // remove all remaining pages from first queue, should not be finished
         BufferResult x = getBufferResult(buffer, FIRST, 6, sizeOfPages(10), NO_WAIT);
-        assertBufferResultEquals(TYPES, x, bufferResult(6, createPage(6),
+        assertBufferResultEquals(TYPES, x, bufferResult(
+                6,
+                createPage(6),
                 createPage(7),
                 createPage(8),
                 createPage(9),
@@ -243,7 +248,9 @@ public class TestBroadcastOutputBuffer
         assertThat(buffer.getState()).isEqualTo(FLUSHING);
 
         // remove all remaining pages from second queue, should be finished
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 10, sizeOfPages(10), NO_WAIT), bufferResult(10, createPage(10),
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 10, sizeOfPages(10), NO_WAIT), bufferResult(
+                10,
+                createPage(10),
                 createPage(11),
                 createPage(12),
                 createPage(13)));
@@ -776,7 +783,9 @@ public class TestBroadcastOutputBuffer
         assertFutureIsDone(secondEnqueuePage);
 
         // get and acknowledge the last 6 pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
+        assertBufferResultEquals(
+                TYPES,
+                getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 
@@ -1158,7 +1167,7 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
-                () -> memoryContext.newLocalMemoryContext("test"),
+                Lazy.from(() -> memoryContext.newLocalMemoryContext("test")),
                 notificationExecutor,
                 () -> {});
         buffer.setOutputBuffers(outputBuffers);
@@ -1224,7 +1233,7 @@ public class TestBroadcastOutputBuffer
                 TASK_INSTANCE_ID,
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                 stateNotificationExecutor,
                 notifyStatusChanged);
         buffer.setOutputBuffers(outputBuffers);

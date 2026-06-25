@@ -267,11 +267,11 @@ public class TestAccessControl
                 .withFunctions(ImmutableList.<FunctionMetadata>builder()
                         .add(FunctionMetadata.scalarBuilder("my_function")
                                 .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())
-                                .noDescription()
+                                .description("")
                                 .build())
                         .add(FunctionMetadata.scalarBuilder("other_function")
                                 .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())
-                                .noDescription()
+                                .description("")
                                 .build())
                         .build())
                 .withFunctionProvider(Optional.of(new FunctionProvider()
@@ -512,7 +512,8 @@ public class TestAccessControl
                 .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
 
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession,
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                viewOwnerSession,
                 "SELECT * FROM " + viewName))
                 .hasMessageMatching("Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders");
 

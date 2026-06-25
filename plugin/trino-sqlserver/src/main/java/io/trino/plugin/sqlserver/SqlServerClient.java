@@ -52,6 +52,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -96,8 +97,8 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import microsoft.sql.DateTimeOffset;
@@ -274,6 +275,27 @@ public class SqlServerClient
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
 
+    private static final PredicatePushdownController SQLSERVER_VARCHAR_PUSHDOWN = (session, domain) -> {
+        // SQL Server compares varchar with PAD SPACE semantics: trailing spaces are not significant, so a pushed
+        // equality or IN predicate can match values that differ only in trailing spaces, returning more rows than
+        // Trino's NO PAD comparison. Push equality / IN down only as a superset pre-filter and keep the engine filter
+        // to re-apply the exact comparison; disable inequality and range, which cannot be expressed as a safe superset.
+        if (domain.isOnlyNull()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        if (!domain.getValues().isDiscreteSet()) {
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Domain#simplify can turn a discrete set into a range predicate
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return new DomainPushdownResult(simplifiedDomain, domain);
+    };
+
     // Dates prior to the Gregorian calendar switch in 1582 can cause incorrect results when pushed down,
     // so we disable predicate push down when the domain contains values prior to 1583
     private static final Instant GREGORIAN_SWITCH_INSTANT = Instant.parse("1583-01-01T00:00:00Z");
@@ -314,7 +336,7 @@ public class SqlServerClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
         requireNonNull(typeManager, "typeManager is null");
-        jsonType = typeManager.getType(new TypeSignature(JSON));
+        jsonType = typeManager.getType(new TypeDescriptor(JSON));
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -571,15 +593,17 @@ public class SqlServerClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        return Jdbi.open(connection).createQuery("""
-                                                 SELECT c.name AS column_name, c.collation_name FROM sys.columns c
-                                                 INNER JOIN sys.tables t ON c.object_id = t.object_id
-                                                 INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
-                                                 WHERE s.name = :schema_name AND t.name = :table_name
-                                                 """)
+        return Jdbi.open(connection).createQuery(
+                        """
+                        SELECT c.name AS column_name, c.collation_name FROM sys.columns c
+                        INNER JOIN sys.tables t ON c.object_id = t.object_id
+                        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+                        WHERE s.name = :schema_name AND t.name = :table_name
+                        """)
                 .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
                 .bind("table_name", remoteTableName.getTableName())
-                .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),
+                .collectRows(toImmutableMap(
+                        rowView -> rowView.getColumn("column_name", String.class),
                         rowView -> toCaseSensitivity(rowView.getColumn("collation_name", String.class))));
     }
 
@@ -653,9 +677,9 @@ public class SqlServerClient
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        sqlServerDateWriteFunction()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    sqlServerDateWriteFunction()));
 
             case Types.TIME -> {
                 TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());
@@ -1322,7 +1346,7 @@ public class SqlServerClient
                 varcharType,
                 varcharReadFunction(varcharType),
                 varcharWriteFunction(),
-                isCaseSensitive ? SQLSERVER_CHARACTER_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+                isCaseSensitive ? SQLSERVER_VARCHAR_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
     }
 
     private ColumnMapping jsonColumnMapping()
@@ -1369,8 +1393,7 @@ public class SqlServerClient
         int maxAttemptCount = 3;
         RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
                 .withMaxAttempts(maxAttemptCount)
-                .handleIf(throwable ->
-                {
+                .handleIf(throwable -> {
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException sqlServerException &&
                             sqlServerException.getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;

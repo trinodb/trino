@@ -13,7 +13,6 @@
  */
 package io.trino.faulttolerant.iceberg;
 
-import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.BaseIcebergParquetConnectorTest;
@@ -25,7 +24,6 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
-import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -95,11 +93,9 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     }
 
     @Override
-    protected Session withTableChangesRowGroups(Session session)
+    protected String getTableChangesParquetRowGroupSize()
     {
-        return Session.builder(withSmallRowGroups(session))
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "16kB")
-                .build();
+        return "16kB";
     }
 
     @Override

@@ -18,18 +18,19 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
+import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.type.FunctionType;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -41,24 +42,27 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
+import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeDescriptor.rowType;
 import static io.trino.spi.type.TypeParameter.anonymousField;
-import static io.trino.spi.type.TypeParameter.numericParameter;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
-import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeSignature.rowType;
+import static io.trino.spi.type.TypeTemplates.argument;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Fail.fail;
 
 public class TestSignatureBinder
 {
@@ -67,8 +71,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForDecimal()
     {
-        TypeSignature leftType = new TypeSignature("decimal", TypeParameter.typeVariable("p1"), TypeParameter.typeVariable("s1"));
-        TypeSignature rightType = new TypeSignature("decimal", TypeParameter.typeVariable("p2"), TypeParameter.typeVariable("s2"));
+        TypeTemplate leftType = type("decimal", numericVariable("p1"), numericVariable("s1"));
+        TypeTemplate rightType = type("decimal", numericVariable("p2"), numericVariable("s2"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -79,10 +83,10 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createDecimalType(2, 1), createDecimalType(1, 0))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p1", 2L)
-                        .setLongVariable("s1", 1L)
-                        .setLongVariable("p2", 1L)
-                        .setLongVariable("s2", 0L)
+                        .setNumericVariable("p1", 2L)
+                        .setNumericVariable("s1", 1L)
+                        .setNumericVariable("p2", 1L)
+                        .setNumericVariable("s2", 0L)
                         .build());
     }
 
@@ -91,47 +95,47 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("decimal", numericParameter(4), TypeParameter.typeVariable("s")))
+                .argumentType(type("decimal", new NumericExpression.Literal(4), numericVariable("s")))
                 .build();
 
         assertThat(function)
                 .boundTo(createDecimalType(2, 1))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("s", 1L)
+                        .setNumericVariable("s", 1L)
                         .build());
 
         function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("decimal", TypeParameter.typeVariable("p"), numericParameter(1)))
+                .argumentType(type("decimal", numericVariable("p"), new NumericExpression.Literal(1)))
                 .build();
 
         assertThat(function)
                 .boundTo(createDecimalType(2, 0))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 3L)
+                        .setNumericVariable("p", 3L)
                         .build());
 
         assertThat(function)
                 .boundTo(createDecimalType(2, 1))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 2L)
+                        .setNumericVariable("p", 2L)
                         .build());
 
         assertThat(function)
                 .boundTo(BIGINT)
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 20L)
+                        .setNumericVariable("p", 20L)
                         .build());
     }
 
     @Test
     public void testBindLiteralForVarchar()
     {
-        TypeSignature leftType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
-        TypeSignature rightType = new TypeSignature("varchar", TypeParameter.typeVariable("y"));
+        TypeTemplate leftType = type("varchar", numericVariable("x"));
+        TypeTemplate rightType = type("varchar", numericVariable("y"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -142,24 +146,24 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createVarcharType(42), createVarcharType(44))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 42L)
-                        .setLongVariable("y", 44L)
+                        .setNumericVariable("x", 42L)
+                        .setNumericVariable("y", 44L)
                         .build());
 
         assertThat(function)
                 .boundTo(UNKNOWN, createVarcharType(44))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 0L)
-                        .setLongVariable("y", 44L)
+                        .setNumericVariable("x", 0L)
+                        .setNumericVariable("y", 44L)
                         .build());
     }
 
     @Test
     public void testBindLiteralForRepeatedVarcharWithReturn()
     {
-        TypeSignature leftType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
-        TypeSignature rightType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
+        TypeTemplate leftType = type("varchar", numericVariable("x"));
+        TypeTemplate rightType = type("varchar", numericVariable("x"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -170,33 +174,33 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createVarcharType(44), createVarcharType(44))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
         assertThat(function)
                 .boundTo(createVarcharType(44), createVarcharType(42))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
         assertThat(function)
                 .boundTo(createVarcharType(42), createVarcharType(44))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
         assertThat(function)
                 .boundTo(UNKNOWN, createVarcharType(44))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 44L)
+                        .setNumericVariable("x", 44L)
                         .build());
     }
 
     @Test
     public void testBindLiteralForRepeatedDecimal()
     {
-        TypeSignature leftType = new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"));
-        TypeSignature rightType = new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"));
+        TypeTemplate leftType = type("decimal", numericVariable("p"), numericVariable("s"));
+        TypeTemplate rightType = type("decimal", numericVariable("p"), numericVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -207,38 +211,38 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createDecimalType(10, 5), createDecimalType(10, 5))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 10L)
-                        .setLongVariable("s", 5L)
+                        .setNumericVariable("p", 10L)
+                        .setNumericVariable("s", 5L)
                         .build());
         assertThat(function)
                 .boundTo(createDecimalType(10, 8), createDecimalType(9, 8))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 10L)
-                        .setLongVariable("s", 8L)
+                        .setNumericVariable("p", 10L)
+                        .setNumericVariable("s", 8L)
                         .build());
         assertThat(function)
                 .boundTo(createDecimalType(10, 2), createDecimalType(10, 8))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 16L)
-                        .setLongVariable("s", 8L)
+                        .setNumericVariable("p", 16L)
+                        .setNumericVariable("s", 8L)
                         .build());
         assertThat(function)
                 .boundTo(UNKNOWN, createDecimalType(10, 5))
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 10L)
-                        .setLongVariable("s", 5L)
+                        .setNumericVariable("p", 10L)
+                        .setNumericVariable("s", 5L)
                         .build());
     }
 
     @Test
     public void testBindLiteralForRepeatedVarchar()
     {
-        TypeSignature leftType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
-        TypeSignature rightType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
-        TypeSignature returnType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
+        TypeTemplate leftType = type("varchar", numericVariable("x"));
+        TypeTemplate rightType = type("varchar", numericVariable("x"));
+        TypeTemplate returnType = type("varchar", numericVariable("x"));
 
         Signature function = functionSignature()
                 .returnType(returnType)
@@ -250,14 +254,14 @@ public class TestSignatureBinder
                 .withCoercion()
                 .boundTo(ImmutableList.of(createVarcharType(3), createVarcharType(5)), createVarcharType(5))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 5L)
+                        .setNumericVariable("x", 5L)
                         .build());
 
         assertThat(function)
                 .withCoercion()
                 .boundTo(ImmutableList.of(createVarcharType(3), createVarcharType(5)), createVarcharType(6))
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", 6L)
+                        .setNumericVariable("x", 6L)
                         .build());
     }
 
@@ -266,7 +270,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("varchar", TypeParameter.typeVariable("x")))
+                .argumentType(type("varchar", numericVariable("x")))
                 .build();
 
         assertThat(function)
@@ -285,8 +289,8 @@ public class TestSignatureBinder
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
                 .typeVariable("T")
-                .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(arrayType(new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"))))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(TypeTemplates.arrayType(type("decimal", numericVariable("p"), numericVariable("s"))))
                 .build();
 
         assertThat(function)
@@ -294,15 +298,15 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", createDecimalType(2, 1))
-                        .setLongVariable("p", 3L)
-                        .setLongVariable("s", 1L)
+                        .setNumericVariable("p", 3L)
+                        .setNumericVariable("s", 1L)
                         .build());
     }
 
     @Test
     public void testBindDifferentLiteralParameters()
     {
-        TypeSignature argType = new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"));
+        TypeTemplate argType = type("decimal", numericVariable("p"), numericVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -318,8 +322,8 @@ public class TestSignatureBinder
     @Test
     public void testNoVariableReuseAcrossTypes()
     {
-        TypeSignature leftType = new TypeSignature("decimal", TypeParameter.typeVariable("p1"), TypeParameter.typeVariable("s"));
-        TypeSignature rightType = new TypeSignature("decimal", TypeParameter.typeVariable("p2"), TypeParameter.typeVariable("s"));
+        TypeTemplate leftType = type("decimal", numericVariable("p1"), numericVariable("s"));
+        TypeTemplate rightType = type("decimal", numericVariable("p2"), numericVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -339,15 +343,15 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s")))
+                .argumentType(type("decimal", numericVariable("p"), numericVariable("s")))
                 .build();
 
         assertThat(function)
                 .boundTo(UNKNOWN)
                 .withCoercion()
                 .produces(new BindingsBuilder()
-                        .setLongVariable("p", 1L)
-                        .setLongVariable("s", 0L)
+                        .setNumericVariable("p", 1L)
+                        .setNumericVariable("s", 0L)
                         .build());
     }
 
@@ -356,7 +360,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(BOOLEAN.getTypeSignature()))
+                .argumentType(arrayType(BOOLEAN.getTypeDescriptor()))
                 .build();
 
         assertThat(function)
@@ -369,9 +373,9 @@ public class TestSignatureBinder
     public void testBindTypeVariablesBasedOnTheSecondArgument()
     {
         Signature function = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(typeVariable("T"))
                 .typeVariable("T")
                 .build();
 
@@ -387,8 +391,8 @@ public class TestSignatureBinder
     public void testBindParametricTypeParameterToUnknown()
     {
         Signature function = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
+                .returnType(typeVariable("T"))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
                 .typeVariable("T")
                 .build();
 
@@ -406,8 +410,8 @@ public class TestSignatureBinder
     public void testBindUnknownToTypeParameter()
     {
         Signature function = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .typeVariable("T")
                 .build();
 
@@ -438,8 +442,8 @@ public class TestSignatureBinder
     public void testBindVarcharTemplateStyle()
     {
         Signature function = functionSignature()
-                .returnType(new TypeSignature("T2"))
-                .argumentType(new TypeSignature("T1"))
+                .returnType(typeVariable("T2"))
+                .argumentType(typeVariable("T1"))
                 .comparableTypeParameter("T1")
                 .comparableTypeParameter("T2")
                 .build();
@@ -456,8 +460,8 @@ public class TestSignatureBinder
     public void testBindVarchar()
     {
         Signature function = functionSignature()
-                .returnType(createVarcharType(42).getTypeSignature())
-                .argumentType(createVarcharType(42).getTypeSignature())
+                .returnType(createVarcharType(42).getTypeDescriptor())
+                .argumentType(createVarcharType(42).getTypeDescriptor())
                 .build();
 
         assertThat(function)
@@ -485,13 +489,13 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("varchar", TypeParameter.typeVariable("x")))
+                .argumentType(type("varchar", numericVariable("x")))
                 .build();
 
         assertThat(function)
                 .boundTo(VARCHAR)
                 .produces(new BindingsBuilder()
-                        .setLongVariable("x", (long) Integer.MAX_VALUE)
+                        .setNumericVariable("x", (long) Integer.MAX_VALUE)
                         .build());
     }
 
@@ -520,9 +524,9 @@ public class TestSignatureBinder
         // This forces SignatureBinder to evaluate EXPLICIT_COERCION_TO via canCast(actualType, variant).
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
-                        .castableTo(new TypeSignature("variant"))
+                        .castableTo(TypeTemplates.fromTypeDescriptor(new TypeDescriptor("variant")))
                         .build())
                 .build();
 
@@ -537,8 +541,8 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .build();
 
         assertThat(function)
@@ -614,8 +618,8 @@ public class TestSignatureBinder
     public void testArray()
     {
         Signature getFunction = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
+                .returnType(typeVariable("T"))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
                 .typeVariable("T")
                 .build();
 
@@ -636,9 +640,9 @@ public class TestSignatureBinder
                 .fails();
 
         Signature containsFunction = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(new TypeSignature("T"))
+                .returnType(typeVariable("T"))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(typeVariable("T"))
                 .comparableTypeParameter("T")
                 .build();
 
@@ -659,9 +663,9 @@ public class TestSignatureBinder
                 .fails();
 
         Signature castFunction = functionSignature()
-                .returnType(arrayType(new TypeSignature("T2")))
-                .argumentType(arrayType(new TypeSignature("T1")))
-                .argumentType(arrayType(new TypeSignature("T2")))
+                .returnType(TypeTemplates.arrayType(typeVariable("T2")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T1")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T2")))
                 .typeVariable("T1")
                 .typeVariable("T2")
                 .build();
@@ -675,9 +679,9 @@ public class TestSignatureBinder
                         .build());
 
         Signature fooFunction = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(arrayType(new TypeSignature("T")))
+                .returnType(typeVariable("T"))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
                 .typeVariable("T")
                 .build();
 
@@ -697,22 +701,22 @@ public class TestSignatureBinder
     public void testMap()
     {
         Signature getValueFunction = functionSignature()
-                .returnType(new TypeSignature("V"))
-                .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                .argumentType(new TypeSignature("K"))
+                .returnType(typeVariable("V"))
+                .argumentType(TypeTemplates.mapType(typeVariable("K"), typeVariable("V")))
+                .argumentType(typeVariable("K"))
                 .typeVariable("K")
                 .typeVariable("V")
                 .build();
 
         assertThat(getValueFunction)
-                .boundTo(type(mapType(BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())), BIGINT)
+                .boundTo(resolveType(mapType(BIGINT.getTypeDescriptor(), VARCHAR.getTypeDescriptor())), BIGINT)
                 .produces(new BindingsBuilder()
                         .setTypeVariable("K", BIGINT)
                         .setTypeVariable("V", VARCHAR)
                         .build());
 
         assertThat(getValueFunction)
-                .boundTo(type(mapType(BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())), VARCHAR)
+                .boundTo(resolveType(mapType(BIGINT.getTypeDescriptor(), VARCHAR.getTypeDescriptor())), VARCHAR)
                 .withCoercion()
                 .fails();
     }
@@ -722,7 +726,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(rowType(List.of(anonymousField(INTEGER.getTypeSignature()))))
+                .argumentType(rowType(List.of(anonymousField(INTEGER.getTypeDescriptor()))))
                 .build();
 
         assertThat(function)
@@ -740,8 +744,8 @@ public class TestSignatureBinder
 
         Signature biFunction = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(rowType(List.of(anonymousField(new TypeSignature("T")))))
-                .argumentType(rowType(List.of(anonymousField(new TypeSignature("T")))))
+                .argumentType(TypeTemplates.rowType(typeVariable("T")))
+                .argumentType(TypeTemplates.rowType(typeVariable("T")))
                 .typeVariable("T")
                 .build();
 
@@ -764,7 +768,7 @@ public class TestSignatureBinder
     {
         Signature rowVariadicBoundFunction = functionSignature()
                 .returnType(BIGINT)
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
                 .rowTypeParameter("T")
                 .build();
 
@@ -789,8 +793,8 @@ public class TestSignatureBinder
     {
         Signature rowFunction = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .rowTypeParameter("T")
                 .build();
 
@@ -807,7 +811,7 @@ public class TestSignatureBinder
     {
         Signature variableArityFunction = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
                 .typeVariable("T")
                 .variableArity()
                 .build();
@@ -841,7 +845,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
                 .argumentType(DOUBLE)
                 .typeVariable("T")
                 .build();
@@ -878,8 +882,8 @@ public class TestSignatureBinder
     {
         Signature foo = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .typeVariable("T")
                 .build();
 
@@ -903,8 +907,8 @@ public class TestSignatureBinder
 
         Signature bar = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
                 .comparableTypeParameter("T")
                 .build();
 
@@ -931,7 +935,7 @@ public class TestSignatureBinder
     {
         Signature simple = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(functionType(INTEGER.getTypeSignature(), INTEGER.getTypeSignature()))
+                .argumentType(functionType(INTEGER.getTypeDescriptor(), INTEGER.getTypeDescriptor()))
                 .build();
 
         assertThat(simple)
@@ -951,10 +955,10 @@ public class TestSignatureBinder
                 .fails();
 
         Signature applyTwice = functionSignature()
-                .returnType(new TypeSignature("V"))
-                .argumentType(new TypeSignature("T"))
-                .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
-                .argumentType(functionType(new TypeSignature("U"), new TypeSignature("V")))
+                .returnType(typeVariable("V"))
+                .argumentType(typeVariable("T"))
+                .argumentType(TypeTemplates.functionType(typeVariable("T"), typeVariable("U")))
+                .argumentType(TypeTemplates.functionType(typeVariable("U"), typeVariable("V")))
                 .typeVariable("T")
                 .typeVariable("U")
                 .typeVariable("V")
@@ -972,8 +976,8 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         INTEGER,
-                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeDescriptor()))
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("U", VARCHAR)
@@ -982,22 +986,22 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         // pass function argument to non-function position of a function
-                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeDescriptor()))
                 .fails();
         assertThat(applyTwice)
                 .boundTo(
-                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
                         // pass non-function argument to function position of a function
                         INTEGER,
-                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeDescriptor()))
                 .fails();
 
         Signature flatMap = functionSignature()
-                .returnType(arrayType(new TypeSignature("T")))
-                .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(functionType(new TypeSignature("T"), arrayType(new TypeSignature("T"))))
+                .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(TypeTemplates.functionType(typeVariable("T"), TypeTemplates.arrayType(typeVariable("T"))))
                 .typeVariable("T")
                 .build();
         assertThat(flatMap)
@@ -1007,9 +1011,9 @@ public class TestSignatureBinder
                         .build());
 
         Signature varargApply = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
-                .argumentType(functionType(new TypeSignature("T"), new TypeSignature("T")))
+                .returnType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
+                .argumentType(TypeTemplates.functionType(typeVariable("T"), typeVariable("T")))
                 .typeVariable("T")
                 .variableArity()
                 .build();
@@ -1023,16 +1027,16 @@ public class TestSignatureBinder
                 .fails();
 
         Signature loop = functionSignature()
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
-                .argumentType(functionType(new TypeSignature("T"), new TypeSignature("T")))
+                .returnType(typeVariable("T"))
+                .argumentType(typeVariable("T"))
+                .argumentType(TypeTemplates.functionType(typeVariable("T"), typeVariable("T")))
                 .typeVariable("T")
                 .build();
         assertThat(loop)
-                .boundTo(INTEGER, new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeDescriptor()))
                 .fails();
         assertThat(loop)
-                .boundTo(INTEGER, new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeDescriptor()))
                 .withCoercion()
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", BIGINT)
@@ -1040,7 +1044,7 @@ public class TestSignatureBinder
         // TODO: Support coercion of return type of lambda
         assertThat(loop)
                 .withCoercion()
-                .boundTo(INTEGER, new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
+                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeDescriptor()))
                 .fails();
 
         // TODO: Support coercion of return type of lambda
@@ -1048,22 +1052,22 @@ public class TestSignatureBinder
         Signature varcharApply = functionSignature()
                 .returnType(VARCHAR)
                 .argumentType(VARCHAR)
-                .argumentType(functionType(VARCHAR.getTypeSignature(), new TypeSignature("varchar", TypeParameter.typeVariable("x"))))
+                .argumentType(TypeTemplates.functionType(TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeDescriptor()), type("varchar", numericVariable("x"))))
                 .build();
         assertThat(varcharApply)
                 .withCoercion()
-                .boundTo(createVarcharType(10), new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, createVarcharType(1)).getTypeSignature()))
+                .boundTo(createVarcharType(10), new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, createVarcharType(1)).getTypeDescriptor()))
                 .succeeds();
 
         Signature sortByKey = functionSignature()
-                .returnType(arrayType(new TypeSignature("T")))
-                 .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(functionType(new TypeSignature("T"), new TypeSignature("E")))
+                .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(TypeTemplates.functionType(typeVariable("T"), typeVariable("E")))
                 .typeVariable("T")
                 .orderableTypeParameter("E")
                 .build();
         assertThat(sortByKey)
-                .boundTo(new ArrayType(INTEGER), new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, VARCHAR).getTypeSignature()))
+                .boundTo(new ArrayType(INTEGER), new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, VARCHAR).getTypeDescriptor()))
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("E", VARCHAR)
@@ -1075,8 +1079,8 @@ public class TestSignatureBinder
     {
         Signature arrayJoin = functionSignature()
                 .returnType(VARCHAR)
-                .argumentType(arrayType(new TypeSignature("E")))
-                .castableToTypeParameter("E", VARCHAR.getTypeSignature())
+                .argumentType(TypeTemplates.arrayType(typeVariable("E")))
+                .castableToTypeParameter("E", VARCHAR.getTypeDescriptor())
                 .build();
         assertThat(arrayJoin)
                 .boundTo(new ArrayType(INTEGER))
@@ -1088,10 +1092,10 @@ public class TestSignatureBinder
                 .fails();
 
         Signature castArray = functionSignature()
-                .returnType(arrayType(new TypeSignature("T")))
-                .argumentType(arrayType(new TypeSignature("F")))
+                .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("F")))
                 .typeVariable("T")
-                .castableToTypeParameter("F", new TypeSignature("T"))
+                .castableToTypeParameter("F", typeVariable("T"))
                 .build();
         assertThat(castArray)
                 .boundTo(ImmutableList.of(new ArrayType(INTEGER)), new ArrayType(VARCHAR))
@@ -1105,7 +1109,7 @@ public class TestSignatureBinder
 
         Signature multiCast = functionSignature()
                 .returnType(VARCHAR)
-                .argumentType(arrayType(new TypeSignature("E")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("E")))
                 .typeVariableConstraint(TypeVariableConstraint.builder("E")
                         .castableTo(VARCHAR)
                         .castableTo(INTEGER)
@@ -1126,9 +1130,9 @@ public class TestSignatureBinder
     {
         Signature arrayJoin = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(new TypeSignature("E")))
-                .argumentType(JSON.getTypeSignature())
-                .castableFromTypeParameter("E", JSON.getTypeSignature())
+                .argumentType(TypeTemplates.arrayType(typeVariable("E")))
+                .argumentType(JSON.getTypeDescriptor())
+                .castableFromTypeParameter("E", JSON.getTypeDescriptor())
                 .build();
         assertThat(arrayJoin)
                 .boundTo(new ArrayType(INTEGER), JSON)
@@ -1141,7 +1145,7 @@ public class TestSignatureBinder
 
         Signature multiCast = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(new TypeSignature("E")))
+                .argumentType(TypeTemplates.arrayType(typeVariable("E")))
                 .argumentType(JSON)
                 .typeVariableConstraint(TypeVariableConstraint.builder("E")
                         .castableFrom(VARCHAR)
@@ -1163,10 +1167,10 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(parseTypeSignature("variant", Set.of()))
+                        .castableTo(TypeTemplates.fromTypeDescriptor(parseTypeDescriptor("variant")))
                         .build())
                 .build();
 
@@ -1181,11 +1185,11 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
-                    .rowType()
-                    .castableTo(TIMESTAMP_MILLIS.getTypeSignature())
-                    .build())
+                        .rowType()
+                        .castableTo(TypeTemplates.fromTypeDescriptor(TIMESTAMP_MILLIS.getTypeDescriptor()))
+                        .build())
                 .build();
 
         assertThat(function)
@@ -1199,10 +1203,10 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("T"))
+                .argumentType(typeVariable("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableFrom(parseTypeSignature("json", Set.of()))
+                        .castableFrom(TypeTemplates.fromTypeDescriptor(parseTypeDescriptor("json")))
                         .build())
                 .build();
 
@@ -1219,8 +1223,8 @@ public class TestSignatureBinder
                 .setTypeVariable("T1", DOUBLE)
                 .setTypeVariable("T2", BIGINT)
                 .setTypeVariable("T3", createDecimalType(5, 3))
-                .setLongVariable("p", 1L)
-                .setLongVariable("s", 2L)
+                .setNumericVariable("p", 1L)
+                .setNumericVariable("s", 2L)
                 .build();
 
         assertThat("bigint", boundVariables, "bigint");
@@ -1234,24 +1238,12 @@ public class TestSignatureBinder
         assertThat("char(p)", boundVariables, "char(1)");
         assertThat("decimal(p,s)", boundVariables, "decimal(1,2)");
         assertThat("array(decimal(p,s))", boundVariables, "array(decimal(1,2))");
-
-        assertBindVariablesFails("T1(bigint)", boundVariables, "Unbounded parameters cannot have parameters");
-    }
-
-    private static void assertBindVariablesFails(String typeSignature, VariableBindings typeVariables, String reason)
-    {
-        try {
-            applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables);
-            fail(reason);
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
     }
 
     private static void assertThat(String typeSignature, VariableBindings typeVariables, String expectedTypeSignature)
     {
-        Assertions.assertThat(applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables).toString()).isEqualTo(expectedTypeSignature);
+        TypeTemplate template = parseTypeTemplate(typeSignature, typeVariables.getTypeVariables().keySet(), ImmutableSet.of("p", "s"));
+        Assertions.assertThat(applyBoundVariables(template, typeVariables).toString()).isEqualTo(expectedTypeSignature);
     }
 
     private static Signature.Builder functionSignature()
@@ -1259,7 +1251,7 @@ public class TestSignatureBinder
         return Signature.builder();
     }
 
-    private Type type(TypeSignature signature)
+    private Type resolveType(TypeDescriptor signature)
     {
         return requireNonNull(PLANNER_CONTEXT.getTypeManager().getType(signature));
     }
@@ -1272,7 +1264,7 @@ public class TestSignatureBinder
     private static class BindSignatureAssertion
     {
         private final Signature function;
-        private List<TypeSignatureProvider> argumentTypes;
+        private List<TypeDescriptorProvider> argumentTypes;
         private Type returnType;
         private boolean allowCoercion;
 
@@ -1289,17 +1281,17 @@ public class TestSignatureBinder
 
         public BindSignatureAssertion boundTo(Object... arguments)
         {
-            ImmutableList.Builder<TypeSignatureProvider> builder = ImmutableList.builder();
+            ImmutableList.Builder<TypeDescriptorProvider> builder = ImmutableList.builder();
             for (Object argument : arguments) {
                 if (argument instanceof Type type) {
-                    builder.add(new TypeSignatureProvider(type.getTypeSignature()));
+                    builder.add(new TypeDescriptorProvider(type.getTypeDescriptor()));
                     continue;
                 }
-                if (argument instanceof TypeSignatureProvider typeSignatureProvider) {
+                if (argument instanceof TypeDescriptorProvider typeSignatureProvider) {
                     builder.add(typeSignatureProvider);
                     continue;
                 }
-                throw new IllegalArgumentException(format("argument is of type %s. It should be Type or TypeSignatureProvider", argument.getClass()));
+                throw new IllegalArgumentException(format("argument is of type %s. It should be Type or TypeDescriptorProvider", argument.getClass()));
             }
             this.argumentTypes = builder.build();
             return this;
@@ -1335,11 +1327,11 @@ public class TestSignatureBinder
         private Optional<VariableBindings> bindVariables()
         {
             Assertions.assertThat(argumentTypes).isNotNull();
-            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion);
+            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, PLANNER_CONTEXT.isLegacyVarcharToCharCoercion());
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }
-            return signatureBinder.bindVariables(argumentTypes, returnType.getTypeSignature());
+            return signatureBinder.bindVariables(argumentTypes, returnType.getTypeDescriptor());
         }
     }
 }

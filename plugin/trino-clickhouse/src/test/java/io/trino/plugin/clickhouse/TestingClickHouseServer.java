@@ -48,8 +48,8 @@ public class TestingClickHouseServer
      * On Mac/arm 23.3.13.7.altinitystable, 23.8.8.21.altinitystable and 22.8.15.25.altinitystable and later versions available on ARM.
      */
     private static final DockerImageName ALTINITY_IMAGE = DockerImageName.parse("altinity/clickhouse-server").asCompatibleSubstituteFor("clickhouse/clickhouse-server");
-    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("25.3.8.10042.altinitystable");
-    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("22.8.20.12.altinitystable"); // EOL is 13 Feb 2026
+    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("25.8.16.10002.altinitystable");
+    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("23.3.19.33.altinitystable");
 
     private final ClickHouseContainer dockerContainer;
 

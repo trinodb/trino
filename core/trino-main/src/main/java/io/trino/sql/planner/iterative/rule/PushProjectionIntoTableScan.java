@@ -103,8 +103,7 @@ public class PushProjectionIntoTableScan
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
-                                session
-                        ).entrySet().stream())
+                                session).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
                 .filter(entry -> !(entry.getValue() instanceof Constant))
                 // Avoid duplicates
@@ -144,10 +143,11 @@ public class PushProjectionIntoTableScan
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
                 .map(expression -> {
-                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, context.getSymbolAllocator());
+                    translated = LambdaCaptureDesugaringRewriter.rewrite(translated, context.getSymbolAllocator());
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    return plannerContext.getExpressionOptimizer().process(translated, session, ImmutableMap.of()).orElse(translated);
+                    return plannerContext.getExpressionOptimizer().process(translated, session, context.getSymbolAllocator(), ImmutableMap.of()).orElse(translated);
                 })
                 .collect(toImmutableList());
 
@@ -175,7 +175,7 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = variable.getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings);
+                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings, context.getSymbolAllocator());
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session);
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }

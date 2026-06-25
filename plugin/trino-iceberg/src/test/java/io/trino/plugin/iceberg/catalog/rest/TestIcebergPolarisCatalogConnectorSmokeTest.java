@@ -42,8 +42,8 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -78,6 +78,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
         polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.toString()));
 
         return IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
@@ -193,9 +194,14 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     @Test
     @Override
     public void testDropTableWithMissingDataFile()
+            throws Exception
     {
-        assertThatThrownBy(super::testDropTableWithMissingDataFile)
-                .hasMessageContaining("Expecting value to be false but was true");
+        try {
+            super.testDropTableWithMissingDataFile();
+        }
+        catch (AssertionError e) {
+            assertThat(e).hasMessageContaining("Table location should not exist");
+        }
     }
 
     @Test
@@ -219,7 +225,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageMatching(".* Table '.*' does not exist");
+                .hasMessageMatching("Failed to load table: (.*)");
     }
 
     @Test
@@ -243,14 +249,14 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageMatching(".* Table '.*' does not exist");
+                .hasMessageMatching("Failed to load table: (.*)");
     }
 
     @Test
     @Override
     public void testDeleteRowsConcurrently()
     {
-        //TODO: Fix https://github.com/trinodb/trino/issues/23941
+        // TODO: Fix https://github.com/trinodb/trino/issues/23941
         abort("Skipped for now due to #23941");
     }
 }

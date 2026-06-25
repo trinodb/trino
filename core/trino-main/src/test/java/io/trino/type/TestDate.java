@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
@@ -323,6 +324,30 @@ public class TestDate
     }
 
     @Test
+    public void testCastToTimestampOverflow()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '5881580-07-11' AS timestamp(0))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: 2147483647");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '5881580-07-11' AS timestamp(6))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: 2147483647");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '5881580-07-11' AS timestamp(12))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: 2147483647");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '-5877641-06-23' AS timestamp(0))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: -2147483648");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '-5877641-06-23' AS timestamp(6))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: -2147483648");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '-5877641-06-23' AS timestamp(12))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: -2147483648");
+    }
+
+    @Test
     public void testCastToTimestampWithTimeZone()
     {
         Session session = testSessionBuilder()
@@ -493,6 +518,135 @@ public class TestDate
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
                 .binding("a", "' - 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date:  - 2013-02-02");
+    }
+
+    @Test
+    public void testCastFromChar()
+    {
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2001-1-22'"))
+                .matches("DATE '2001-01-22'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '\n\t 2001-1-22'"))
+                .matches("DATE '2001-01-22'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2001-1-22 \t\n'"))
+                .matches("DATE '2001-01-22'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '\n\t 2001-1-22 \t\n'"))
+                .matches("DATE '2001-01-22'");
+
+        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        // one digit for month or day
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013-2-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013-02-2'"))
+                .matches("DATE '2013-02-02'");
+
+        // three digit for month or day
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013-02-002'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013-02-002");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013-002-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013-002-02");
+
+        // zero-padded year
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '02013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '0013-02-02'"))
+                .matches("DATE '13-02-02'");
+
+        // invalid date
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013-02-29'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013-02-29");
+
+        // surrounding whitespace
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '  2013-02-02  '"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR ' \t\n\u000B\f\r\u001C\u001D\u001E\u001F 2013-02-02 \t\n\u000B\f\n\u001C\u001D\u001E\u001F '"))
+                .matches("DATE '2013-02-02'");
+
+        // intra whitespace
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013 -02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013 -02-02");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '2013- 2-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013- 2-02");
+
+        // large year
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '5881580-07-12'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 5881580-07-12");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '392251590-07-12'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 392251590-07-12");
+
+        // signed
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '+2013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '-2013-02-02'"))
+                .matches("DATE '-2013-02-02'");
+
+        // signed with whitespace
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR ' +2013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '+ 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: + 2013-02-02");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR ' + 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date:  + 2013-02-02");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "CHAR ' -2013-02-02'"))
+                .matches("DATE '-2013-02-02'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR '- 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: - 2013-02-02");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "CHAR ' - 2013-02-02'").evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Value cannot be cast to date:  - 2013-02-02");
     }

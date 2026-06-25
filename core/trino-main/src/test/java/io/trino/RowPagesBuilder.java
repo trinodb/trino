@@ -20,9 +20,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPageBuilder.rowPageBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -38,30 +38,13 @@ public class RowPagesBuilder
         return new RowPagesBuilder(types);
     }
 
-    public static RowPagesBuilder rowPagesBuilder(List<Integer> hashChannels, Type... types)
-    {
-        return rowPagesBuilder(hashChannels, ImmutableList.copyOf(types));
-    }
-
-    public static RowPagesBuilder rowPagesBuilder(List<Integer> hashChannels, Iterable<Type> types)
-    {
-        return new RowPagesBuilder(Optional.of(hashChannels), types);
-    }
-
     private final ImmutableList.Builder<Page> pages = ImmutableList.builder();
     private final List<Type> types;
     private RowPageBuilder builder;
-    private final Optional<List<Integer>> hashChannels;
 
-    RowPagesBuilder(Iterable<Type> types)
-    {
-        this(Optional.empty(), types);
-    }
-
-    RowPagesBuilder(Optional<List<Integer>> hashChannels, Iterable<Type> types)
+    private RowPagesBuilder(Iterable<Type> types)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.hashChannels = hashChannels.map(ImmutableList::copyOf);
         builder = rowPageBuilder(types);
     }
 
@@ -117,13 +100,13 @@ public class RowPagesBuilder
         return pages.build();
     }
 
+    public Page buildPage()
+    {
+        return getOnlyElement(build());
+    }
+
     public List<Type> getTypes()
     {
         return types;
-    }
-
-    public Optional<List<Integer>> getHashChannels()
-    {
-        return hashChannels;
     }
 }

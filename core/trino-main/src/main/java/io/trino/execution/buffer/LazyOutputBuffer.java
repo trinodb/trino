@@ -25,6 +25,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
@@ -36,7 +37,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -52,7 +52,7 @@ public class LazyOutputBuffer
     private final long taskInstanceId;
     private final DataSize maxBufferSize;
     private final DataSize maxBroadcastBufferSize;
-    private final Supplier<LocalMemoryContext> memoryContextSupplier;
+    private final Lazy<LocalMemoryContext> memoryContextSupplier;
     private final Executor executor;
     private final Runnable notifyStatusChanged;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -73,7 +73,7 @@ public class LazyOutputBuffer
             Executor executor,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
-            Supplier<LocalMemoryContext> memoryContextSupplier,
+            Lazy<LocalMemoryContext> memoryContextSupplier,
             Runnable notifyStatusChanged,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {

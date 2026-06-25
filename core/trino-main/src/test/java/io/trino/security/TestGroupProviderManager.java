@@ -70,7 +70,8 @@ public class TestGroupProviderManager
     }
 
     @Test
-    void setTestGroupProviderUpperCase() throws Exception
+    void setTestGroupProviderUpperCase()
+            throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
             Files.writeString(tempFile.path(),
@@ -89,7 +90,8 @@ public class TestGroupProviderManager
     }
 
     @Test
-    void setTestGroupProviderLowerCase() throws Exception
+    void setTestGroupProviderLowerCase()
+            throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
             Files.writeString(tempFile.path(),
@@ -108,7 +110,8 @@ public class TestGroupProviderManager
     }
 
     @Test
-    void setTestGroupProviderInvalidCase() throws Exception
+    void setTestGroupProviderInvalidCase()
+            throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
             Files.writeString(tempFile.path(),
@@ -121,10 +124,10 @@ public class TestGroupProviderManager
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
 
             assertThatThrownBy(() -> groupProviderManager.loadConfiguredGroupProvider(tempFile.file()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(format(
-                    "Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]",
-                    tempFile.path().toAbsolutePath()));
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(format(
+                            "Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]",
+                            tempFile.path().toAbsolutePath()));
         }
     }
 }

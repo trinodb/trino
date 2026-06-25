@@ -32,6 +32,8 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
+import io.trino.spi.connector.ConnectorExpressionEvaluator.EvaluationResult;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -128,6 +130,7 @@ public class TpchMetadata
     private final boolean partitioningEnabled;
     private final Optional<String> destinationCatalog;
     private final Optional<String> destinationSchema;
+    private final ConnectorExpressionEvaluator evaluator;
 
     private final Set<NullableValue> orderStatusNullableValues;
     private final Set<NullableValue> partTypeNullableValues;
@@ -135,13 +138,13 @@ public class TpchMetadata
 
     public TpchMetadata()
     {
-        this(new JsonMapperProvider().get(), ColumnNaming.SIMPLIFIED, DecimalTypeMapping.DOUBLE, true, true, Optional.empty(), Optional.empty());
+        this(new JsonMapperProvider().get(), ColumnNaming.SIMPLIFIED, DecimalTypeMapping.DOUBLE, true, true, Optional.empty(), Optional.empty(), ConnectorExpressionEvaluator.NO_OP);
     }
 
     @Inject
-    public TpchMetadata(TpchConfig config, JsonMapper mapper)
+    public TpchMetadata(TpchConfig config, JsonMapper mapper, ConnectorExpressionEvaluator evaluator)
     {
-        this(mapper, config.getColumnNaming(), config.getDecimalTypeMapping(), config.isPredicatePushdownEnabled(), config.isPartitioningEnabled(), Optional.ofNullable(config.getTableScanRedirectionCatalog()), Optional.ofNullable(config.getTableScanRedirectionSchema()));
+        this(mapper, config.getColumnNaming(), config.getDecimalTypeMapping(), config.isPredicatePushdownEnabled(), config.isPartitioningEnabled(), Optional.ofNullable(config.getTableScanRedirectionCatalog()), Optional.ofNullable(config.getTableScanRedirectionSchema()), evaluator);
     }
 
     public TpchMetadata(
@@ -151,7 +154,8 @@ public class TpchMetadata
             boolean predicatePushdownEnabled,
             boolean partitioningEnabled,
             Optional<String> destinationCatalog,
-            Optional<String> destinationSchema)
+            Optional<String> destinationSchema,
+            ConnectorExpressionEvaluator evaluator)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
@@ -165,6 +169,7 @@ public class TpchMetadata
         this.statisticsEstimator = createStatisticsEstimator(jsonMapper);
         this.destinationCatalog = destinationCatalog;
         this.destinationSchema = destinationSchema;
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
 
         partContainerNullableValues = PART_CONTAINER_VALUES.stream()
                 .map(value -> new NullableValue(getTrinoType(PartColumn.CONTAINER, decimalTypeMapping), value))
@@ -216,11 +221,15 @@ public class TpchMetadata
         return new TpchTableHandle(tableName.getSchemaName(), tableName.getTableName(), scaleFactor);
     }
 
-    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint constraint)
+    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint constraint, ConnectorExpressionEvaluator.Prepared prepared)
     {
+        TpchColumnHandle columnHandle = toColumnHandle(column);
         return nullableValues.stream()
-                .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
-                .filter(value -> constraint.predicate().isEmpty() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
+                .filter(convertToPredicate(constraint.getSummary(), columnHandle))
+                .filter(value -> switch (prepared.tryEvaluate(ImmutableMap.of(columnHandle.columnName(), value))) {
+                    case EvaluationResult.Value(var result) -> Boolean.TRUE.equals(result);
+                    case EvaluationResult.NoResult _ -> true;
+                })
                 .collect(toSet());
     }
 
@@ -469,10 +478,8 @@ public class TpchMetadata
             }
             else if (tableHandle.tableName().equals(TpchTable.PART.getTableName())) {
                 constraint = toTupleDomain(ImmutableMap.of(
-                        toColumnHandle(PartColumn.CONTAINER),
-                        partContainerNullableValues,
-                        toColumnHandle(PartColumn.TYPE),
-                        partTypeNullableValues));
+                        toColumnHandle(PartColumn.CONTAINER), partContainerNullableValues,
+                        toColumnHandle(PartColumn.TYPE), partTypeNullableValues));
             }
         }
 
@@ -496,20 +503,19 @@ public class TpchMetadata
 
         TupleDomain<ColumnHandle> oldDomain = handle.constraint();
 
+        ConnectorExpressionEvaluator.Prepared prepared = evaluator.prepare(
+                session, constraint.getExpression());
         TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
         if (predicatePushdownEnabled && handle.tableName().equals(TpchTable.ORDERS.getTableName())) {
             predicate = toTupleDomain(ImmutableMap.of(
-                    toColumnHandle(OrderColumn.ORDER_STATUS),
-                    filterValues(orderStatusNullableValues, OrderColumn.ORDER_STATUS, constraint)));
+                    toColumnHandle(OrderColumn.ORDER_STATUS), filterValues(orderStatusNullableValues, OrderColumn.ORDER_STATUS, constraint, prepared)));
             unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(OrderColumn.ORDER_STATUS));
         }
         else if (predicatePushdownEnabled && handle.tableName().equals(TpchTable.PART.getTableName())) {
             predicate = toTupleDomain(ImmutableMap.of(
-                    toColumnHandle(PartColumn.CONTAINER),
-                    filterValues(partContainerNullableValues, PartColumn.CONTAINER, constraint),
-                    toColumnHandle(PartColumn.TYPE),
-                    filterValues(partTypeNullableValues, PartColumn.TYPE, constraint)));
+                    toColumnHandle(PartColumn.CONTAINER), filterValues(partContainerNullableValues, PartColumn.CONTAINER, constraint, prepared),
+                    toColumnHandle(PartColumn.TYPE), filterValues(partTypeNullableValues, PartColumn.TYPE, constraint, prepared)));
             unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(PartColumn.CONTAINER));
             unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, toColumnHandle(PartColumn.TYPE));
         }

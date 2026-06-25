@@ -70,7 +70,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -616,24 +615,19 @@ public class TestPinotConnectorSmokeTest
             SegmentGeneratorConfig segmentGeneratorConfig = new SegmentGeneratorConfig(tableConfig, pinotSchema);
             segmentGeneratorConfig.setTableName(tableName);
             segmentGeneratorConfig.setOutDir(segmentTempLocation);
-            if (timeColumnName != null) {
-                DateTimeFormatSpec formatSpec = new DateTimeFormatSpec(pinotSchema.getDateTimeSpec(timeColumnName).getFormat());
-                segmentGeneratorConfig.setSegmentNameGenerator(new NormalizedDateSegmentNameGenerator(
-                        tableName,
-                        null,
-                        false,
-                        "APPEND",
-                        "daily",
-                        formatSpec,
-                        null));
-            }
-            else {
-                checkState(tableConfig.isDimTable(), "Null time column only allowed for dimension tables");
-            }
+            DateTimeFormatSpec formatSpec = new DateTimeFormatSpec(pinotSchema.getDateTimeSpec(timeColumnName).getFormat());
+            segmentGeneratorConfig.setSegmentNameGenerator(new NormalizedDateSegmentNameGenerator(
+                    tableName,
+                    null,
+                    false,
+                    "APPEND",
+                    "daily",
+                    formatSpec,
+                    null));
             segmentGeneratorConfig.setSequenceId(sequenceId);
             SegmentCreationDataSource dataSource = new RecordReaderSegmentCreationDataSource(recordReader);
             SegmentIndexCreationDriverImpl driver = new SegmentIndexCreationDriverImpl();
-            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(tableConfig, pinotSchema));
+            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(tableConfig, pinotSchema), null);
             driver.build();
             File segmentOutputDirectory = driver.getOutputDirectory();
             File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));
@@ -925,7 +919,8 @@ public class TestPinotConnectorSmokeTest
     public void testTopN()
     {
         // TODO https://github.com/trinodb/trino/issues/14045 Fix ORDER BY ... LIMIT query
-        assertQueryFails("SELECT regionkey FROM nation ORDER BY name LIMIT 3",
+        assertQueryFails(
+                "SELECT regionkey FROM nation ORDER BY name LIMIT 3",
                 format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
@@ -934,7 +929,8 @@ public class TestPinotConnectorSmokeTest
     public void testJoin()
     {
         // TODO https://github.com/trinodb/trino/issues/14046 Fix JOIN query
-        assertQueryFails("SELECT n.name, r.name FROM nation n JOIN region r on n.regionkey = r.regionkey",
+        assertQueryFails(
+                "SELECT n.name, r.name FROM nation n JOIN region r on n.regionkey = r.regionkey",
                 format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
@@ -990,12 +986,14 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testBrokerColumnMappingsForArrays()
     {
-        assertQuery("SELECT ARRAY_MIN(unlucky_numbers), ARRAY_MAX(long_numbers), ELEMENT_AT(neighbors, 2), ARRAY_MIN(lucky_numbers), ARRAY_MAX(prices)" +
+        assertQuery(
+                "SELECT ARRAY_MIN(unlucky_numbers), ARRAY_MAX(long_numbers), ELEMENT_AT(neighbors, 2), ARRAY_MIN(lucky_numbers), ARRAY_MAX(prices)" +
                         "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
                         "  FROM " + JSON_TABLE +
                         "  WHERE vendor = 'vendor1'\"",
                 "VALUES (-3.7, 20000000, 'bar1', 5, 5.5)");
-        assertQuery("SELECT CARDINALITY(unlucky_numbers), CARDINALITY(long_numbers), CARDINALITY(neighbors), CARDINALITY(lucky_numbers), CARDINALITY(prices)" +
+        assertQuery(
+                "SELECT CARDINALITY(unlucky_numbers), CARDINALITY(long_numbers), CARDINALITY(neighbors), CARDINALITY(lucky_numbers), CARDINALITY(prices)" +
                         "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
                         "  FROM " + JSON_TABLE +
                         "  WHERE vendor = 'vendor1'\"",
@@ -1034,12 +1032,14 @@ public class TestPinotConnectorSmokeTest
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
         // Test segment query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
                 mixedCaseColumnNamesTableValues);
 
@@ -1086,12 +1086,14 @@ public class TestPinotConnectorSmokeTest
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
         // Test segment query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM " + MIXED_CASE_TABLE_NAME,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME + "\"",
                 mixedCaseColumnNamesTableValues);
 
@@ -1213,7 +1215,8 @@ public class TestPinotConnectorSmokeTest
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
         // The limit is greater than the result size returned.
-        assertQuery("SELECT string_col, updated_at_seconds" +
+        assertQuery(
+                "SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 2) + "\"",
                 tooManyRowsTableValues.stream().collect(joining(",", "VALUES ", "")));
@@ -1222,7 +1225,8 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testMaxLimitForPassthroughQueries()
     {
-        assertQueryFails("SELECT string_col, updated_at_seconds" +
+        assertQueryFails(
+                "SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1) + "\"",
                 "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"SELECT \"updated_at_seconds\", \"string_col\" FROM too_many_broker_rows LIMIT 13\"");
@@ -1242,7 +1246,8 @@ public class TestPinotConnectorSmokeTest
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
-        assertQuery("SELECT string_col, updated_at_seconds" +
+        assertQuery(
+                "SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  WHERE string_col != 'string_12'" +
                         "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + "\"",
@@ -2088,23 +2093,58 @@ public class TestPinotConnectorSmokeTest
         // Aggregation is not pushed down for queries with count distinct and other aggregations
         countDistinctAndNonDistinctNotPushedDown(
                 withMarkDistinct,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                MarkDistinctNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         countDistinctAndNonDistinctNotPushedDown(
                 withSingleStep,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         countDistinctAndNonDistinctNotPushedDown(
                 withPreAggregate,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, GroupIdNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                ProjectNode.class,
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                GroupIdNode.class);
         // Test queries with no grouping columns
         globalCountDistinctAndNonDistinctNotPushedDown(
                 withMarkDistinct,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                MarkDistinctNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         globalCountDistinctAndNonDistinctNotPushedDown(
                 withSingleStep,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         globalCountDistinctAndNonDistinctNotPushedDown(
                 withPreAggregate,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, FilterNode.class, GroupIdNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                ProjectNode.class,
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                FilterNode.class,
+                GroupIdNode.class);
 
         Session countDistinctPushdownDisabledSession = Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty("pinot", "count_distinct_pushdown_enabled", "false")

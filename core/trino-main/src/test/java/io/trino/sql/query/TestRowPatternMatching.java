@@ -146,7 +146,7 @@ public class TestRowPatternMatching
                         "     (3, 3, 70, 'B'), " +
                         "     (4, 4, 70, 'C') ");
 
-        //pattern permutation: when multiple permutations match, the first in lexicographical order is preferred
+        // pattern permutation: when multiple permutations match, the first in lexicographical order is preferred
         assertThat(assertions.query(format(query, "PATTERN (PERMUTE(B, C)) " +
                 "                  DEFINE " +
                 "                          B AS B.value < PREV (B.value), " +
@@ -1570,7 +1570,6 @@ public class TestRowPatternMatching
                 "                                  FIRST(CLASSIFIER(), 5) = 'B' AND " +
                 "                                  FIRST(CLASSIFIER(), 6) = 'B' AND " +
                 "                                  FIRST(CLASSIFIER(), 7) = 'B' " +
-
                 "                ) AS m"))
                 .matches("VALUES (VARCHAR 'B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('LAST') ");
     }

@@ -49,7 +49,8 @@ public class TestDictionaryAwareColumnarFilter
     @Test
     public void testGetInputChannels()
     {
-        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(new ColumnarFilter() {
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(new ColumnarFilter()
+        {
             @Override
             public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, SourcePage loadedPage)
             {

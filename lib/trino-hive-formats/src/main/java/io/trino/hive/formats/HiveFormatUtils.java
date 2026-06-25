@@ -271,12 +271,14 @@ public final class HiveFormatUtils
             if (c == TIMESTAMP_FORMATS_ESCAPE) {
                 // the next character must be an escape or separator
                 if (position + 1 >= property.length()) {
-                    throw new TrinoException(HIVE_INVALID_METADATA,
+                    throw new TrinoException(
+                            HIVE_INVALID_METADATA,
                             "Invalid '%s' property value '%s': unterminated escape at end of value".formatted(TIMESTAMP_FORMATS_KEY, property));
                 }
                 char nextCharacter = property.charAt(position + 1);
                 if (nextCharacter != TIMESTAMP_FORMATS_SEPARATOR && nextCharacter != TIMESTAMP_FORMATS_ESCAPE) {
-                    throw new TrinoException(HIVE_INVALID_METADATA,
+                    throw new TrinoException(
+                            HIVE_INVALID_METADATA,
                             "Invalid '%s' property value '%s': Illegal escaped character at %s".formatted(TIMESTAMP_FORMATS_KEY, property, position));
                 }
 

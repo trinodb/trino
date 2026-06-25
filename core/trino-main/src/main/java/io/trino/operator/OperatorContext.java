@@ -31,6 +31,7 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.operator.ResourceUsageTimeSeriesRecorder.ResourceUsageTimeSeriesSnapshot;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.plugin.base.util.UncheckedCloser;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.metrics.Metrics;
@@ -106,7 +107,6 @@ public class OperatorContext
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakRevocableMemoryReservation = new AtomicLong();
-    private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
 
     @GuardedBy("this")
     private boolean memoryRevokingRequested;
@@ -116,6 +116,10 @@ public class OperatorContext
     private Runnable memoryRevocationRequestListener;
 
     private final MemoryTrackingContext operatorMemoryContext;
+    private final AggregatedMemoryContext aggregateUserMemoryContext;
+    private final AggregatedMemoryContext aggregateRevocableMemoryContext;
+    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext localRevocableMemoryContext;
 
     public OperatorContext(
             int operatorId,
@@ -139,7 +143,10 @@ public class OperatorContext
         this.revocableMemoryFuture = new AtomicReference<>(SettableFuture.create());
         this.revocableMemoryFuture.get().set(null);
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
-        operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
+        this.aggregateUserMemoryContext = new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+        this.aggregateRevocableMemoryContext = new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
+        this.localUserMemoryContext = new InternalLocalMemoryContext(operatorMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(operatorType), memoryFuture, this::updatePeakMemoryReservations, false);
+        this.localRevocableMemoryContext = new InternalLocalMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext().newLocalMemoryContext(operatorType), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     public int getOperatorId()
@@ -304,43 +311,37 @@ public class OperatorContext
     // caller should close this context as it's a new context
     public LocalMemoryContext newLocalUserMemoryContext(String allocationTag)
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.newUserMemoryContext(allocationTag), memoryFuture, this::updatePeakMemoryReservations, true);
+        return aggregateUserMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localUserMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+        return localUserMemoryContext;
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
+        return localRevocableMemoryContext;
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+        return aggregateUserMemoryContext;
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
     public AggregatedMemoryContext aggregateRevocableMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
+        return aggregateRevocableMemoryContext;
     }
 
     // caller should close this context as it's a new context
     public AggregatedMemoryContext newAggregateUserMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
-    }
-
-    // caller should close this context as it's a new context
-    public AggregatedMemoryContext newAggregateRevocableMemoryContext()
-    {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, true);
+        return aggregateUserMemoryContext.newAggregatedMemoryContext();
     }
 
     // listen to all memory allocations and update the peak memory reservations accordingly
@@ -348,18 +349,11 @@ public class OperatorContext
     {
         long userMemory = operatorMemoryContext.getUserMemory();
         long revocableMemory = operatorMemoryContext.getRevocableMemory();
-        // TODO on cluster level, "total memory" means "user memory + revocable", and used to include the system memory.
-        //   Here, the total memory used to be user+system, and sans revocable. This apparent inconsistency should be removed.
-        //   Perhaps, we don't need to track "total memory" here.
-        long totalMemory = userMemory;
         if (userMemory > peakUserMemoryReservation.get()) {
             peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
         }
         if (revocableMemory > peakRevocableMemoryReservation.get()) {
             peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
-        }
-        if (totalMemory > peakTotalMemoryReservation.get()) {
-            peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
         }
     }
 
@@ -402,7 +396,10 @@ public class OperatorContext
             this.infoSupplier.set(info == null ? null : Suppliers.ofInstance(info));
         }
 
-        operatorMemoryContext.close();
+        try (var closer = UncheckedCloser.create()) {
+            closer.register(operatorMemoryContext.aggregateUserMemoryContext()::close);
+            closer.register(operatorMemoryContext.aggregateRevocableMemoryContext()::close);
+        }
 
         if (operatorMemoryContext.getUserMemory() != 0) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero user memory (%d bytes) after destroy()", this, operatorMemoryContext.getUserMemory()));
@@ -580,7 +577,6 @@ public class OperatorContext
 
                 DataSize.ofBytes(peakUserMemoryReservation.get()),
                 DataSize.ofBytes(peakRevocableMemoryReservation.get()),
-                DataSize.ofBytes(peakTotalMemoryReservation.get()),
 
                 DataSize.ofBytes(spillContext.getSpilledBytes()),
 

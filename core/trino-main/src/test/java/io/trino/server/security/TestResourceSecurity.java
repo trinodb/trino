@@ -1326,7 +1326,8 @@ public class TestResourceSecurity
         assertResponseCode(client, url, expectedCode, null, null);
     }
 
-    private static void assertResponseCode(OkHttpClient client,
+    private static void assertResponseCode(
+            OkHttpClient client,
             String url,
             int expectedCode,
             String userName,
@@ -1336,7 +1337,8 @@ public class TestResourceSecurity
         assertResponseCode(client, url, expectedCode, Headers.of("Authorization", Credentials.basic(requireNonNullElse(userName, ""), requireNonNullElse(password, ""))));
     }
 
-    private static void assertResponseCode(OkHttpClient client,
+    private static void assertResponseCode(
+            OkHttpClient client,
             String url,
             int expectedCode,
             Headers headers)

@@ -22,6 +22,7 @@ import com.mongodb.client.MongoCollection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
+import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.mongodb.MongoIndex.MongodbIndexKey;
 import io.trino.plugin.mongodb.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
@@ -98,7 +99,6 @@ import static com.mongodb.client.model.Aggregates.project;
 import static com.mongodb.client.model.Filters.ne;
 import static com.mongodb.client.model.Projections.exclude;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
-import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
@@ -534,10 +534,10 @@ public class MongoMetadata
 
             MongoCollection<Document> temporaryCollection = mongoSession.getCollection(temporaryTable);
             temporaryCollection.aggregate(ImmutableList.of(
-                    lookup(pageSinkIdsTable.collectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
-                    match(ne("page_sink_id", ImmutableList.of())),
-                    project(exclude("page_sink_id")),
-                    merge(targetTable.collectionName())))
+                            lookup(pageSinkIdsTable.collectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
+                            match(ne("page_sink_id", ImmutableList.of())),
+                            project(exclude("page_sink_id")),
+                            merge(targetTable.collectionName())))
                     .toCollection();
         }
         finally {
@@ -823,7 +823,7 @@ public class MongoMetadata
                 && fields.get(1).getName().orElseThrow().equals(COLLECTION_NAME)
                 && fields.get(1).getType().equals(VARCHAR)
                 && fields.get(2).getName().orElseThrow().equals(ID);
-               // Id type can be of any type
+        // Id type can be of any type
     }
 
     @Override

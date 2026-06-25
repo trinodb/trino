@@ -319,9 +319,7 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     @Test
     @Override
     @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed bumped in Trino")
-    public void testDropTableWithMissingMetadataFile()
-    {
-    }
+    public void testDropTableWithMissingMetadataFile() {}
 
     @Test
     @Override

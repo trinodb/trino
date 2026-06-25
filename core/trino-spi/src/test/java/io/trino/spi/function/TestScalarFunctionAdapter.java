@@ -682,9 +682,12 @@ class TestScalarFunctionAdapter
 
         @SuppressWarnings("unused")
         public boolean nullFlag(
-                double doubleValue, boolean doubleNull,
-                Slice sliceValue, boolean sliceNull,
-                Block blockValue, boolean blockNull)
+                double doubleValue,
+                boolean doubleNull,
+                Slice sliceValue,
+                boolean sliceNull,
+                Block blockValue,
+                boolean blockNull)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -718,10 +721,14 @@ class TestScalarFunctionAdapter
 
         @SuppressWarnings("unused")
         public boolean nullFlagObjects(
-                Slice sliceValue, boolean sliceNull,
-                Block blockValue, boolean blockNull,
-                Object objectCharValue, boolean objectCharNull,
-                Object objectTimestampValue, boolean objectTimestampNull)
+                Slice sliceValue,
+                boolean sliceNull,
+                Block blockValue,
+                boolean blockNull,
+                Object objectCharValue,
+                boolean objectCharNull,
+                Object objectTimestampValue,
+                boolean objectTimestampNull)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -763,9 +770,12 @@ class TestScalarFunctionAdapter
 
         @SuppressWarnings("unused")
         public boolean blockPosition(
-                Block doubleBlock, int doublePosition,
-                Block sliceBlock, int slicePosition,
-                Block blockBlock, int blockPosition)
+                Block doubleBlock,
+                int doublePosition,
+                Block sliceBlock,
+                int slicePosition,
+                Block blockBlock,
+                int blockPosition)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -796,10 +806,14 @@ class TestScalarFunctionAdapter
 
         @SuppressWarnings("unused")
         public boolean blockPositionObjects(
-                Block sliceBlock, int slicePosition,
-                Block blockBlock, int blockPosition,
-                Block objectCharBlock, int objectCharPosition,
-                Block objectTimestampBlock, int objectTimestampPosition)
+                Block sliceBlock,
+                int slicePosition,
+                Block blockBlock,
+                int blockPosition,
+                Block objectCharBlock,
+                int objectCharPosition,
+                Block objectTimestampBlock,
+                int objectTimestampPosition)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -837,9 +851,12 @@ class TestScalarFunctionAdapter
 
         @SuppressWarnings("unused")
         public boolean valueBlockPosition(
-                LongArrayBlock doubleBlock, int doublePosition,
-                VariableWidthBlock sliceBlock, int slicePosition,
-                ArrayBlock blockBlock, int blockPosition)
+                LongArrayBlock doubleBlock,
+                int doublePosition,
+                VariableWidthBlock sliceBlock,
+                int slicePosition,
+                ArrayBlock blockBlock,
+                int blockPosition)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -870,10 +887,14 @@ class TestScalarFunctionAdapter
 
         @SuppressWarnings("unused")
         public boolean valueBlockPositionObjects(
-                VariableWidthBlock sliceBlock, int slicePosition,
-                ArrayBlock blockBlock, int blockPosition,
-                VariableWidthBlock objectCharBlock, int objectCharPosition,
-                Fixed12Block objectTimestampBlock, int objectTimestampPosition)
+                VariableWidthBlock sliceBlock,
+                int slicePosition,
+                ArrayBlock blockBlock,
+                int blockPosition,
+                VariableWidthBlock objectCharBlock,
+                int objectCharPosition,
+                Fixed12Block objectTimestampBlock,
+                int objectTimestampPosition)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;

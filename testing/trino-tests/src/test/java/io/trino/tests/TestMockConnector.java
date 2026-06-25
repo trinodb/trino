@@ -81,8 +81,7 @@ public class TestMockConnector
                                     return new MockConnectorTableHandle(tableName);
                                 })
                                 .withGetViews((_, _) -> ImmutableMap.of(
-                                        new SchemaTableName("default", "test_view"),
-                                        new ConnectorViewDefinition(
+                                        new SchemaTableName("default", "test_view"), new ConnectorViewDefinition(
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
@@ -98,8 +97,7 @@ public class TestMockConnector
                                                 null,
                                                 false)))
                                 .withGetMaterializedViews((_, _) -> ImmutableMap.of(
-                                        new SchemaTableName("default", "test_materialized_view"),
-                                        new ConnectorMaterializedViewDefinition(
+                                        new SchemaTableName("default", "test_materialized_view"), new ConnectorMaterializedViewDefinition(
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),

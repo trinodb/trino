@@ -155,18 +155,15 @@ public class TestCheckpointEntryIterator
                                         "{\"name\":\"name\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                         "{\"name\":\"age\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
                                         "{\"name\":\"married\",\"type\":\"boolean\",\"nullable\":true,\"metadata\":{}}," +
-
                                         "{\"name\":\"phones\",\"type\":{\"type\":\"array\",\"elementType\":{\"type\":\"struct\",\"fields\":[" +
                                         "{\"name\":\"number\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                         "{\"name\":\"label\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}," +
                                         "\"containsNull\":true},\"nullable\":true,\"metadata\":{}}," +
-
                                         "{\"name\":\"address\",\"type\":{\"type\":\"struct\",\"fields\":[" +
                                         "{\"name\":\"street\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                         "{\"name\":\"city\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                         "{\"name\":\"state\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                         "{\"name\":\"zip\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}," +
-
                                         "{\"name\":\"income\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}]}",
                                 List.of("age"),
                                 Map.of(),
@@ -216,18 +213,15 @@ public class TestCheckpointEntryIterator
                                 "{\"name\":\"name\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                 "{\"name\":\"age\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
                                 "{\"name\":\"married\",\"type\":\"boolean\",\"nullable\":true,\"metadata\":{}}," +
-
                                 "{\"name\":\"phones\",\"type\":{\"type\":\"array\",\"elementType\":{\"type\":\"struct\",\"fields\":[" +
                                 "{\"name\":\"number\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                 "{\"name\":\"label\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}," +
                                 "\"containsNull\":true},\"nullable\":true,\"metadata\":{}}," +
-
                                 "{\"name\":\"address\",\"type\":{\"type\":\"struct\",\"fields\":[" +
                                 "{\"name\":\"street\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                 "{\"name\":\"city\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                 "{\"name\":\"state\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                                 "{\"name\":\"zip\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}," +
-
                                 "{\"name\":\"income\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}]}",
                         List.of("age"),
                         Map.of(),
@@ -468,15 +462,15 @@ public class TestCheckpointEntryIterator
 
         int countAddEntries = 30;
         Set<AddFileEntry> addFileEntries = IntStream.rangeClosed(1, countAddEntries).mapToObj(fileIndex -> new AddFileEntry(
-                "addFilePathParquetStats" + fileIndex,
-                ImmutableMap.of(),
-                1000,
-                1001,
-                true,
-                Optional.empty(),
-                Optional.of(createDeltaLakeParquetFileStatistics(countIntegerColumns, countStringColumns)),
-                ImmutableMap.of(),
-                Optional.empty()))
+                        "addFilePathParquetStats" + fileIndex,
+                        ImmutableMap.of(),
+                        1000,
+                        1001,
+                        true,
+                        Optional.empty(),
+                        Optional.of(createDeltaLakeParquetFileStatistics(countIntegerColumns, countStringColumns)),
+                        ImmutableMap.of(),
+                        Optional.empty()))
                 .collect(toImmutableSet());
 
         CheckpointEntries entries = new CheckpointEntries(
@@ -531,7 +525,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, _ -> random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> "A".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> utf8Slice("A".repeat(random.nextInt(1, 10)) + UUID.randomUUID()))))
                 .buildOrThrow();
         Map<String, Object> maxValues = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
@@ -539,7 +533,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, _ -> 1000L + random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> "Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> utf8Slice("Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID()))))
                 .buildOrThrow();
         Map<String, Object> nullCount = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
@@ -719,8 +713,7 @@ public class TestCheckpointEntryIterator
                 Optional.of(metadataEntry),
                 Optional.of(protocolEntry),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        partitionKeyField,
-                        Domain.create(ValueSet.ofRanges(range(INTEGER, 9L, true, 11L, true)), false))),
+                        partitionKeyField, Domain.create(ValueSet.ofRanges(range(INTEGER, 9L, true, 11L, true)), false))),
                 Optional.of(alwaysTrue()));
 
         assertThat(Iterators.size(metadataAndProtocolEntryIterator)).isEqualTo(2);

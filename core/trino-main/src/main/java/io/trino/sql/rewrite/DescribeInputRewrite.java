@@ -54,7 +54,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -86,9 +86,10 @@ public final class DescribeInputRewrite
             extends AstVisitor<Node, Void>
     {
         private static final Query EMPTY_INPUT = createDescribeInputQuery(
-                new Row[] {row(
-                        new Cast(new NullLiteral(), toSqlType(BIGINT)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)))},
+                new Row[] {
+                        row(new Cast(new NullLiteral(), toSqlType(BIGINT)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR))),
+                },
                 Optional.of(new Limit(new LongLiteral("0"))));
 
         private final Session session;

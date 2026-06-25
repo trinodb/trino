@@ -27,8 +27,7 @@ public class IcebergGcsRestCatalogBackendContainer
             String accessToken,
             long accessTokenExpiresAt)
     {
-        super(
-                "apache/iceberg-rest-fixture:1.10.1",
+        super("apache/iceberg-rest-fixture:1.10.1",
                 "iceberg-rest",
                 ImmutableSet.of(8181),
                 ImmutableMap.of(),

@@ -18,13 +18,14 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +55,7 @@ public class SimplifyRedundantCase
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof Case(List<WhenClause> whenClauses, Expression defaultValue))) {
             return Optional.empty();
@@ -100,12 +101,12 @@ public class SimplifyRedundantCase
         }
 
         List<Expression> falseTerms = clauses.subList(start, end).stream()
-                .map(clause -> IrExpressions.not(metadata, new Comparison(Comparison.Operator.IDENTICAL, clause.getOperand(), TRUE)))
+                .map(clause -> IrExpressions.not(metadata, IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
                 .toList();
 
         if (end < clauses.size()) {
             List<Expression> terms = new ArrayList<>();
-            terms.add(new Comparison(Comparison.Operator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
+            terms.add(IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
             transformRecursive(end + 1, clauses, defaultExpression).ifPresent(terms::add);
 
             return Optional.of(IrUtils.and(

@@ -279,6 +279,28 @@ public class TestParquetReader
         assertThat(dataSource.getTailReadLengths()).startsWith(128);
     }
 
+    @Test
+    void testParseFooterFromSuppliedFooterBytes()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columna", "columnb");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+        Slice parquetFile = writeParquetFile(
+                ParquetWriterOptions.builder()
+                        .setMaxBlockSize(DataSize.ofBytes(10))
+                        .build(),
+                types,
+                columnNames,
+                generateInputPages(types, 10, 50));
+
+        RecordingParquetDataSource source = new RecordingParquetDataSource(parquetFile);
+        Slice footerBytes = MetadataReader.readFooterBytes(source, ParquetReaderOptions.defaultOptions());
+
+        ParquetMetadata metadata = MetadataReader.parseFooter(new ParquetDataSourceId("test"), parquetFile.length(), footerBytes, Optional.empty(), Optional.empty());
+
+        assertThat(metadata.getBlocks().stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(500);
+    }
+
     private void testReadingOldParquetFiles(File file, List<String> columnNames, Type columnType, List<?> expectedValues)
             throws IOException
     {

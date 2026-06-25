@@ -132,6 +132,11 @@ implementation is used:
   - Whether schema locations are deleted when Trino can't determine whether
     they contain external files.
   - `false`
+* - `iceberg.max-split-size`
+  - Target maximum size of a split. When not set, the split size defined by the 
+    Iceberg table properties is used. The configured value is a target rather than 
+    a hard limit, and some splits may exceed it.
+  -
 * - `iceberg.minimum-assigned-split-weight`
   - A decimal value in the range `(0, 1]` used as a minimum for weights assigned
     to each split. A low value may improve performance on tables with small
@@ -204,6 +209,13 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
+* - `iceberg.parquet-footer-cache.type`
+  - Type of cache to use for Parquet file footers. Set to `memory` to enable a
+    bounded, in-memory cache.
+  - `none`
+* - `iceberg.parquet-footer-cache.memory.max-size`
+  - Maximum size of the in-memory Parquet footer cache.
+  - `10MB`
 * - `iceberg.object-store-layout.enabled`
   - Set to `true` to enable Iceberg's [object store file layout](https://iceberg.apache.org/docs/latest/aws/#object-store-file-layout). 
     Enabling the object store file layout appends a deterministic hash directly 
@@ -985,6 +997,7 @@ ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d');
  active_files_count         |           98
  scanned_files_count        |           97
  deleted_files_count        |            0
+ deleted_bytes              |            0
 ```
 
 The value for `retention_threshold` must be higher than or equal to
@@ -1009,6 +1022,8 @@ The output of the query has the following metrics:
   - The count of files scanned from the file system.
 * - `deleted_files_count`
   - The count of files deleted by remove_orphan_files.
+* - `deleted_bytes`
+  - The total size in bytes of files deleted by remove_orphan_files.
 :::
 
 (drop-extended-stats)=
@@ -1058,7 +1073,7 @@ The current values of a table's properties can be shown using {doc}`SHOW CREATE
 TABLE </sql/show-create-table>`.
 
 (iceberg-table-properties)=
-##### Table properties
+#### Table properties
 
 Table properties supply or set metadata for the underlying tables. This is key
 for {doc}`/sql/create-table-as` statements. Table properties are passed to the
@@ -1127,6 +1142,16 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     Defaults to `false`. 
 * - `data_location`
   - Optionally specifies the file system location URI for the table's data files
+* - `target_max_file_size`
+  - Target maximum [](prop-type-data-size) of written files; the actual size may
+    be larger.
+    Defaults to the value of the `iceberg.target-max-file-size` catalog
+    configuration property.
+* - `parquet_writer_row_group_size`
+  - Target maximum [](prop-type-data-size) of a Parquet row group for files
+    written by this table.
+    Defaults to the value of the `parquet.writer.row-group-size` Parquet
+    writer configuration property.
 * - `extra_properties`
   - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.
@@ -1548,13 +1573,13 @@ The output of the query has the following columns:
   - Mapping between the Iceberg column ID and its corresponding count of 
     non-numerical values in the file.
 * - `lower_bounds`
-  - `map(INTEGER, BIGINT)`
+  - `row(...)`
   - Mapping between the Iceberg column ID and its corresponding lower bound in
-    the file.
+    the file (i.e. - `ROW("1" DATE, "2" BIGINT, ...)`).
 * - `upper_bounds`
-  - `map(INTEGER, BIGINT)`
+  - `row(...)`
   - Mapping between the Iceberg column ID and its corresponding upper bound in
-    the file.
+    the file (i.e. - `ROW("1" DATE, "2" BIGINT, ...)`).
 * - `key_metadata`
   - `VARBINARY`
   - Metadata about the encryption key used to encrypt this file, if applicable.

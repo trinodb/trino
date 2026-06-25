@@ -100,6 +100,6 @@ public class SimpleTypePattern
 
     private static Property<Type, ?, TypeParameter> parameter(int i)
     {
-        return Property.property(format("parameter(%s)", i), type -> type.getTypeSignature().getParameters().get(i));
+        return Property.property(format("parameter(%s)", i), type -> type.getTypeDescriptor().getParameters().get(i));
     }
 }

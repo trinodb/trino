@@ -265,7 +265,8 @@ public final class ViewReaderUtil
                         ImmutableList.of());
             }
             catch (Throwable e) {
-                throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
+                throw new TrinoException(
+                        HIVE_VIEW_TRANSLATION_ERROR,
                         format("Failed to translate Hive view '%s': %s",
                                 table.getSchemaTableName(),
                                 e.getMessage()),

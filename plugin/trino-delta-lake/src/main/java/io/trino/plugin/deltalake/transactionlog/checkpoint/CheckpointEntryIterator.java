@@ -46,6 +46,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -220,7 +221,8 @@ public class CheckpointEntryIterator
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(fileSize));
+                OptionalLong.of(fileSize),
+                MemoryContext.NO_LIMIT);
 
         try {
             this.nextEntries = new ArrayDeque<>();
@@ -260,13 +262,13 @@ public class CheckpointEntryIterator
     {
         return fields.contains(ADD) ?
                 columns.stream()
-                        .filter(column -> column.getName().equals(ADD.getColumnName()) &&
-                                column.getType() instanceof RowType rowType &&
-                                rowType.getFields().stream().map(RowType.Field::getName).filter(Optional::isPresent).flatMap(Optional::stream).anyMatch(fieldName::equals))
+                .filter(column -> column.getName().equals(ADD.getColumnName()) &&
+                                  column.getType() instanceof RowType rowType &&
+                        rowType.getFields().stream().map(RowType.Field::getName).filter(Optional::isPresent).flatMap(Optional::stream).anyMatch(fieldName::equals))
                         // The field even if it was requested might not exist in Parquet file
-                        .collect(toOptional())
-                        .map(HiveColumnHandle::getType)
-                        .map(RowType.class::cast)
+                .collect(toOptional())
+                .map(HiveColumnHandle::getType)
+                .map(RowType.class::cast)
                 : Optional.empty();
     }
 
@@ -396,7 +398,8 @@ public class CheckpointEntryIterator
         int fieldCount = protocolEntryRow.getFieldCount();
         log.debug("Block %s has %s fields", block, fieldCount);
         if (fieldCount < minProtocolFields || fieldCount > maxProtocolFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
+            throw new TrinoException(
+                    DELTA_LAKE_INVALID_SCHEMA,
                     format("Expected block %s to have between %d and %d children, but found %s", block, minProtocolFields, maxProtocolFields, fieldCount));
         }
 
@@ -423,12 +426,14 @@ public class CheckpointEntryIterator
         CheckpointFieldReader metadata = new CheckpointFieldReader(metadataEntryRow, type);
         log.debug("Block %s has %s fields", block, metadataEntryRow.getFieldCount());
         if (metadataEntryRow.getFieldCount() != metadataFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
+            throw new TrinoException(
+                    DELTA_LAKE_INVALID_SCHEMA,
                     format("Expected block %s to have %d children, but found %s", block, metadataFields, metadataEntryRow.getFieldCount()));
         }
         SqlRow formatRow = metadata.getRow("format");
         if (formatRow.getFieldCount() != formatFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
+            throw new TrinoException(
+                    DELTA_LAKE_INVALID_SCHEMA,
                     format("Expected block %s to have %d children, but found %s", formatRow, formatFields, formatRow.getFieldCount()));
         }
 
@@ -460,7 +465,8 @@ public class CheckpointEntryIterator
         SqlRow removeEntryRow = getRow(block, pagePosition);
         log.debug("Block %s has %s fields", block, removeEntryRow.getFieldCount());
         if (removeEntryRow.getFieldCount() != removeFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
+            throw new TrinoException(
+                    DELTA_LAKE_INVALID_SCHEMA,
                     format("Expected block %s to have %d children, but found %s", block, removeFields, removeEntryRow.getFieldCount()));
         }
         CheckpointFieldReader remove = new CheckpointFieldReader(removeEntryRow, type);
@@ -673,7 +679,8 @@ public class CheckpointEntryIterator
         SqlRow txnEntryRow = getRow(block, pagePosition);
         log.debug("Block %s has %s fields", block, txnEntryRow.getFieldCount());
         if (txnEntryRow.getFieldCount() != txnFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
+            throw new TrinoException(
+                    DELTA_LAKE_INVALID_SCHEMA,
                     format("Expected block %s to have %d children, but found %s", block, txnFields, txnEntryRow.getFieldCount()));
         }
         CheckpointFieldReader txn = new CheckpointFieldReader(txnEntryRow, type);
@@ -726,7 +733,9 @@ public class CheckpointEntryIterator
             if (page.getChannelCount() != requiredExtractorChannels) {
                 throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
                         format("Expected page in %s to contain %d channels, but found %d",
-                                checkpointPath, requiredExtractorChannels, page.getChannelCount()));
+                                checkpointPath,
+                                requiredExtractorChannels,
+                                page.getChannelCount()));
             }
         }
         pagePosition = 0;

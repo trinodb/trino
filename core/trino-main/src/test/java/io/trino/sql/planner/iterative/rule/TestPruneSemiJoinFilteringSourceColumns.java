@@ -41,7 +41,9 @@ public class TestPruneSemiJoinFilteringSourceColumns
         tester().assertThat(new PruneSemiJoinFilteringSourceColumns())
                 .on(p -> buildSemiJoin(p, _ -> true))
                 .matches(
-                        semiJoin("leftKey", "rightKey", "match",
+                        semiJoin("leftKey",
+                                "rightKey",
+                                "match",
                                 values("leftKey"),
                                 strictProject(
                                         ImmutableMap.of(

@@ -100,7 +100,7 @@ public interface ConnectorMetadata
      * or is not a table (e.g. is a view, or a materialized view).
      *
      * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
-     * cannot be queried.
+     *         cannot be queried.
      * @see #getView(ConnectorSession, SchemaTableName)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
@@ -1421,10 +1421,6 @@ public interface ConnectorMetadata
      * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
      * to loop indefinitely.
      * </p>
-     * <p>
-     * <b>Note</b>: Implementation must not maintain reference to {@code constraint}'s {@link Constraint#predicate()} after the
-     * call returns.
-     * </p>
      *
      * @param constraint constraint to be applied to the table. {@link Constraint#getSummary()} is guaranteed not to be {@link TupleDomain#isNone() none}.
      */
@@ -1827,7 +1823,7 @@ public interface ConnectorMetadata
 
     /**
      * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
-     * performance as reading this table.
+     *         performance as reading this table.
      */
     default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

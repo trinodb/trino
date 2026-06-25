@@ -536,7 +536,7 @@ class PathEvaluationVisitor
         }
         if (type.equals(DOUBLE)) {
             try {
-                return DoubleOperators.castToLong(value.getDoubleValue());
+                return DoubleOperators.castToBigint(value.getDoubleValue());
             }
             catch (Exception e) {
                 throw new PathEvaluationException(e);
@@ -544,7 +544,7 @@ class PathEvaluationVisitor
         }
         if (type.equals(REAL)) {
             try {
-                return RealOperators.castToLong(value.getLongValue());
+                return RealOperators.castToBigint(value.getLongValue());
             }
             catch (Exception e) {
                 throw new PathEvaluationException(e);

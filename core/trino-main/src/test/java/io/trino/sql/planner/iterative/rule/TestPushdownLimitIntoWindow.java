@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -67,7 +67,8 @@ public class TestPushdownLimitIntoWindow
                                                 ImmutableList.of("a"),
                                                 ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
                                         .maxRankingPerPartition(3)
-                                        .partial(false), values("a"))));
+                                        .partial(false),
+                                values("a"))));
     }
 
     @Test
@@ -187,10 +188,8 @@ public class TestPushdownLimitIntoWindow
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                                     ImmutableMap.of(
-                                            rowNumberSymbol,
-                                            newWindowNodeFunction(rowNumberFunction, a),
-                                            rankSymbol,
-                                            newWindowNodeFunction(rankFunction, a)),
+                                            rowNumberSymbol, newWindowNodeFunction(rowNumberFunction, a),
+                                            rankSymbol, newWindowNodeFunction(rankFunction, a)),
                                     p.values(a)));
                 })
                 .doesNotFire();

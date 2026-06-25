@@ -88,8 +88,11 @@ public class IcebergNessieTableOperations
         super.refreshFromMetadataLocation(
                 newLocation,
                 location -> NessieUtil.updateTableMetadataWithNessieSpecificProperties(
-                    TableMetadataParser.read(io(), location),
-                    location, table, getSchemaTableName().toString(), nessieClient.getReference()));
+                        TableMetadataParser.read(io(), location),
+                        location,
+                        table,
+                        getSchemaTableName().toString(),
+                        nessieClient.getReference()));
     }
 
     @Override
@@ -153,7 +156,7 @@ public class IcebergNessieTableOperations
     }
 
     @Override
-    protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    protected void commitMaterializedView(TableMetadata base, TableMetadata metadata)
     {
         throw new UnsupportedOperationException();
     }

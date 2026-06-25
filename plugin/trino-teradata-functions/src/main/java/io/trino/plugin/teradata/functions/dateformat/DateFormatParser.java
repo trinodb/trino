@@ -34,32 +34,21 @@ public final class DateFormatParser
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
         for (Token token : tokenize(format)) {
             switch (token.getType()) {
-                case DateFormat.TEXT ->
-                    builder.appendLiteral(token.getText());
-                case DateFormat.DD ->
-                    builder.appendDayOfMonth(2);
-                case DateFormat.HH24 ->
-                    builder.appendHourOfDay(2);
-                case DateFormat.HH ->
-                    builder.appendHourOfHalfday(2);
-                case DateFormat.MI ->
-                    builder.appendMinuteOfHour(2);
-                case DateFormat.MM ->
-                    builder.appendMonthOfYear(2);
-                case DateFormat.SS ->
-                    builder.appendSecondOfMinute(2);
-                case DateFormat.YY ->
-                    builder.appendTwoDigitYear(2050);
-                case DateFormat.YYYY ->
-                    builder.appendYear(4, 4);
-                case DateFormat.UNRECOGNIZED ->
-                    throw new TrinoException(
-                            StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
-                            format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
-                default ->
-                    throw new TrinoException(
-                            StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
-                            format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
+                case DateFormat.TEXT -> builder.appendLiteral(token.getText());
+                case DateFormat.DD -> builder.appendDayOfMonth(2);
+                case DateFormat.HH24 -> builder.appendHourOfDay(2);
+                case DateFormat.HH -> builder.appendHourOfHalfday(2);
+                case DateFormat.MI -> builder.appendMinuteOfHour(2);
+                case DateFormat.MM -> builder.appendMonthOfYear(2);
+                case DateFormat.SS -> builder.appendSecondOfMinute(2);
+                case DateFormat.YY -> builder.appendTwoDigitYear(2050);
+                case DateFormat.YYYY -> builder.appendYear(4, 4);
+                case DateFormat.UNRECOGNIZED -> throw new TrinoException(
+                        StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
+                        format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
+                default -> throw new TrinoException(
+                        StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
+                        format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
             }
         }
 

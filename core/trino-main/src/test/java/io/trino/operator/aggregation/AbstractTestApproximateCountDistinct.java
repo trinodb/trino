@@ -34,7 +34,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestApproximateCountDistinct
@@ -173,7 +173,8 @@ public abstract class AbstractTestApproximateCountDistinct
         if (values.isEmpty()) {
             return new Page(0);
         }
-        return new Page(values.size(),
+        return new Page(
+                values.size(),
                 createBlock(getValueType(), values),
                 createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), maxStandardError))));
     }

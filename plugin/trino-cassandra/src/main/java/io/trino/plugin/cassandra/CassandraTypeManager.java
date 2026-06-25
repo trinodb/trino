@@ -51,8 +51,8 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -113,7 +113,7 @@ public class CassandraTypeManager
     public CassandraTypeManager(TypeManager typeManager)
     {
         requireNonNull(typeManager, "typeManager is null");
-        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
+        this.ipAddressType = typeManager.getType(new TypeDescriptor(StandardTypes.IPADDRESS));
     }
 
     public Optional<CassandraType> toCassandraType(DataType dataType)
@@ -425,14 +425,12 @@ public class CassandraTypeManager
                 }
             }
             case INT, SMALLINT, TINYINT -> ((Long) trinoNativeValue).intValue();
-            case FLOAT ->
-                // conversion can result in precision lost
-                    intBitsToFloat(((Long) trinoNativeValue).intValue());
-            case DECIMAL ->
-                // conversion can result in precision lost
-                // Trino uses double for decimal, so to keep the floating point precision, convert it to string.
-                // Otherwise partition id doesn't match
-                    new BigDecimal(trinoNativeValue.toString());
+            // conversion can result in precision lost
+            case FLOAT -> intBitsToFloat(((Long) trinoNativeValue).intValue());
+            // conversion can result in precision lost
+            // Trino uses double for decimal, so to keep the floating point precision, convert it to string.
+            // Otherwise partition id doesn't match
+            case DECIMAL -> new BigDecimal(trinoNativeValue.toString());
             case TIME -> LocalTime.ofNanoOfDay(roundDiv((long) trinoNativeValue, PICOSECONDS_PER_NANOSECOND));
             case TIMESTAMP -> Instant.ofEpochMilli(unpackMillisUtc((Long) trinoNativeValue));
             case DATE -> LocalDate.ofEpochDay((Long) trinoNativeValue);

@@ -572,8 +572,19 @@ Let `<path>` return a sequence of three JSON arrays:
 
 ### Limitations
 
-The SQL standard describes the `datetime()` JSON path item method and the
-`like_regex()` JSON path predicate. Trino does not support them.
+The SQL standard describes the `datetime()` JSON path item method. Trino does
+not support it.
+
+### Trino-specific behavior
+
+`like_regex()` accepts the standard SQL/XQuery flags (`i`, `m`, `s`, `x`).
+
+#### Limitations
+
+- `\s`, `\d`, and `\w` match only ASCII characters, not the full Unicode
+  character classes defined by XQuery.
+- The XML name-class escapes `\i`, `\I`, `\c`, and `\C` are not supported.
+- The `x` extended-mode flag may not be supported in all configurations.
 
 (json-path-modes)=
 ### JSON path modes

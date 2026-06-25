@@ -699,10 +699,8 @@ public final class Environment
                         Map.of("databases",
                                 Map.of("trino",
                                         Map.of(
-                                                "configured_connectors",
-                                                configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
-                                                "configured_password_authenticators",
-                                                configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))));
+                                                "configured_connectors", configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
+                                                "configured_password_authenticators", configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))));
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

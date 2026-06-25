@@ -15,10 +15,10 @@ package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.DriverContext;
-import io.trino.operator.LocalPlannerAware;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.ReferenceCount;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -26,26 +26,35 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class LocalExchangeSinkOperator
         implements Operator
 {
     public static class LocalExchangeSinkOperatorFactory
-            implements OperatorFactory, LocalPlannerAware
+            implements OperatorFactory
     {
         private final int operatorId;
         private final LocalExchangeSinkFactory sinkFactory;
         private final PlanNodeId planNodeId;
         private final Function<Page, Page> pagePreprocessor;
+        private final ReferenceCount factoryReferenceCount;
         private boolean closed;
 
         public LocalExchangeSinkOperatorFactory(LocalExchangeSinkFactory sinkFactory, int operatorId, PlanNodeId planNodeId, Function<Page, Page> pagePreprocessor)
+        {
+            this(sinkFactory, operatorId, planNodeId, pagePreprocessor, new ReferenceCount(1));
+            factoryReferenceCount.getFreeFuture().addListener(sinkFactory::noMoreSinkFactories, directExecutor());
+        }
+
+        private LocalExchangeSinkOperatorFactory(LocalExchangeSinkFactory sinkFactory, int operatorId, PlanNodeId planNodeId, Function<Page, Page> pagePreprocessor, ReferenceCount factoryReferenceCount)
         {
             this.sinkFactory = requireNonNull(sinkFactory, "sinkFactory is null");
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+            this.factoryReferenceCount = requireNonNull(factoryReferenceCount, "factoryReferenceCount is null");
         }
 
         @Override
@@ -60,22 +69,17 @@ public class LocalExchangeSinkOperator
         @Override
         public void noMoreOperators()
         {
-            if (!closed) {
-                closed = true;
-                sinkFactory.close();
-            }
+            checkState(!closed, "Already closed");
+            closed = true;
+            sinkFactory.close();
+            factoryReferenceCount.release();
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new LocalExchangeSinkOperatorFactory(sinkFactory.duplicate(), operatorId, planNodeId, pagePreprocessor);
-        }
-
-        @Override
-        public void localPlannerComplete()
-        {
-            sinkFactory.noMoreSinkFactories();
+            factoryReferenceCount.retain();
+            return new LocalExchangeSinkOperatorFactory(sinkFactory.duplicate(), operatorId, planNodeId, pagePreprocessor, factoryReferenceCount);
         }
     }
 

@@ -63,8 +63,8 @@ public final class JsonTable
      * @param outer the parent-child relationship between the input relation and the processingPlan result
      * @param errorOnError the error behavior: true for ERROR ON ERROR, false for EMPTY ON ERROR
      * @param parametersType type of the row containing JSON path parameters for the root JSON path. The function expects the parameters row in the channel 1.
-     * Other channels in the input page correspond to JSON context item (channel 0), and default values for the value columns. Each value column in the processingPlan
-     * knows the indexes of its default channels.
+     *         Other channels in the input page correspond to JSON context item (channel 0), and default values for the value columns. Each value column in the processingPlan
+     *         knows the indexes of its default channels.
      * @param outputTypes types of the proper columns produced by the function
      */
     public record JsonTableFunctionHandle(JsonTablePlanNode processingPlan, boolean outer, boolean errorOnError, Type parametersType, Type[] outputTypes)

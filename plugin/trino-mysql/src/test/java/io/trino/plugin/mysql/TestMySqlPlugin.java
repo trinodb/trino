@@ -31,7 +31,8 @@ public class TestMySqlPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
         factory.create(
-                "test", ImmutableMap.of(
+                "test",
+                ImmutableMap.of(
                         "connection-url", "jdbc:mysql://test",
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()).shutdown();

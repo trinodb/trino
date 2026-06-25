@@ -82,17 +82,20 @@ public class ValidateScaledWritersUsage
                 WriterScalingOptions scalingOptions = target.getWriterScalingOptions(plannerContext.getMetadata(), session);
                 if (exchangeNode.getScope() == ExchangeNode.Scope.LOCAL) {
                     checkState(scalingOptions.isPerTaskWriterScalingEnabled(),
-                            "The scaled writer per task partitioning scheme is set but writer target %s doesn't support it", target);
+                            "The scaled writer per task partitioning scheme is set but writer target %s doesn't support it",
+                            target);
                 }
 
                 if (exchangeNode.getScope() == ExchangeNode.Scope.REMOTE) {
                     checkState(scalingOptions.isWriterTasksScalingEnabled(),
-                            "The scaled writer across tasks partitioning scheme is set but writer target %s doesn't support it", target);
+                            "The scaled writer across tasks partitioning scheme is set but writer target %s doesn't support it",
+                            target);
                 }
 
                 if (isScaledWriterHashDistribution(handle)) {
                     checkState(target.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session),
-                            "The hash scaled writer partitioning scheme is set for the partitioned write but writer target %s doesn't support multiple writers per partition", target);
+                            "The hash scaled writer partitioning scheme is set for the partitioned write but writer target %s doesn't support multiple writers per partition",
+                            target);
                 }
             });
             return scaleWriterExchanges;

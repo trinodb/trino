@@ -58,7 +58,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.StructuralTestUtil.mapType;
@@ -122,7 +122,8 @@ public class TestHistogram
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                "histogram", fromTypes(DOUBLE),
+                "histogram",
+                fromTypes(DOUBLE),
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 

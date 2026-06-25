@@ -27,7 +27,8 @@ final class NameValidationUtils
         for (int i = 1; i < name.length(); i++) {
             char ch = name.charAt(i);
             checkArgument('a' <= ch && ch <= 'z' || '0' <= ch && ch <= '9' || ch == '_',
-                    "name must contain only lowercase latin letters, digits or underscores: '%s'", name);
+                    "name must contain only lowercase latin letters, digits or underscores: '%s'",
+                    name);
         }
         return name;
     }

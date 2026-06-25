@@ -20,6 +20,7 @@ import com.google.inject.Inject;
 import io.trino.metastore.Database;
 import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnSchema;
@@ -47,7 +48,6 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.Database.DEFAULT_DATABASE_NAME;
-import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -604,7 +604,8 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context,
+    public void checkCanGrantRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -620,7 +621,8 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context,
+    public void checkCanRevokeRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -848,7 +850,8 @@ public class SqlStandardAccessControl
         return listTablePrivileges(context, databaseName, tableName, principals);
     }
 
-    private Stream<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context,
+    private Stream<HivePrivilegeInfo> listTablePrivileges(
+            ConnectorSecurityContext context,
             String databaseName,
             String tableName,
             Stream<HivePrincipal> principals)

@@ -27,24 +27,17 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
-import io.trino.metadata.TableFunctionHandle;
-import io.trino.metadata.TableHandle;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.ConnectorTableCredentialsVisitor;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
-import io.trino.sql.planner.plan.TableExecuteNode;
-import io.trino.sql.planner.plan.TableFunctionProcessorNode;
-import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -56,9 +49,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static java.util.Objects.requireNonNull;
@@ -77,7 +72,7 @@ public final class SqlStage
 {
     private final Session session;
     private final StageStateMachine stateMachine;
-    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
+    private final Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -135,7 +130,7 @@ public final class SqlStage
                 nodeTaskMap,
                 summarizeTaskInfo,
                 bucketCountProvider,
-                extractTableCredentials(session, metadata, fragment));
+                memoize(() -> extractTableCredentials(session, metadata, fragment)));
         sqlStage.initialize();
         return sqlStage;
     }
@@ -147,7 +142,7 @@ public final class SqlStage
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
             LocalExchangeBucketCountProvider bucketCountProvider,
-            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+            Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -157,7 +152,7 @@ public final class SqlStage
         this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
 
         this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
-        this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     private static Map<PlanNodeId, ConnectorTableCredentials> extractTableCredentials(Session session, Metadata metadata, PlanFragment fragment)
@@ -308,7 +303,7 @@ public final class SqlStage
                 node,
                 speculative,
                 fragment,
-                tableCredentials,
+                tableCredentialsProvider.get(),
                 splits,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
@@ -447,77 +442,6 @@ public final class SqlStage
                     node.getSources(),
                     node.getInputs(),
                     node.getOrderingScheme());
-        }
-    }
-
-    private static final class ConnectorTableCredentialsVisitor
-            extends SimplePlanVisitor<Void>
-    {
-        private final Metadata metadata;
-        private final Session session;
-        private final ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder;
-
-        public ConnectorTableCredentialsVisitor(Session session, Metadata metadata, ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder)
-        {
-            this.session = requireNonNull(session, "session is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.builder = requireNonNull(builder, "builder is null");
-        }
-
-        @Override
-        public Void visitMergeWriter(MergeWriterNode node, Void context)
-        {
-            TableWriterNode.MergeTarget target = node.getTarget();
-            extract(builder, node, metadata.getTableCredentials(session, target.getHandle().catalogHandle(), target.getHandle().connectorHandle()));
-            return null;
-        }
-
-        @Override
-        public Void visitTableExecute(TableExecuteNode node, Void context)
-        {
-            TableWriterNode.TableExecuteTarget target = node.getTarget();
-            extract(builder, node, metadata.getTableCredentials(session, target.getExecuteHandle().catalogHandle(), target.getExecuteHandle().connectorHandle()));
-            return null;
-        }
-
-        @Override
-        public Void visitTableWriter(TableWriterNode node, Void context)
-        {
-            switch (node.getTarget()) {
-                case TableWriterNode.MergeTarget mergeTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, mergeTarget.getHandle().catalogHandle(), mergeTarget.getHandle().connectorHandle()));
-                case TableWriterNode.RefreshMaterializedViewTarget materializedViewTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, materializedViewTarget.getTableHandle().catalogHandle(), materializedViewTarget.getTableHandle().connectorHandle()));
-                case TableWriterNode.TableExecuteTarget tableExecuteTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, tableExecuteTarget.getExecuteHandle().catalogHandle(), tableExecuteTarget.getExecuteHandle().connectorHandle()));
-                case TableWriterNode.CreateTarget createTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, createTarget.getHandle().catalogHandle(), createTarget.getHandle().connectorHandle()));
-                case TableWriterNode.InsertTarget insertTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle()));
-                default -> throw new IllegalArgumentException("Unsupported table writer node: " + node.getClass().getSimpleName());
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitTableScan(TableScanNode node, Void context)
-        {
-            TableHandle table = node.getTable();
-            extract(builder, node, metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle()));
-            return null;
-        }
-
-        @Override
-        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
-        {
-            TableFunctionHandle handle = node.getHandle();
-            extract(builder, node, metadata.getTableCredentials(session, handle.catalogHandle(), handle.functionHandle()));
-            return null;
-        }
-
-        private static void extract(ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder, PlanNode node, Optional<ConnectorTableCredentials> credentials)
-        {
-            credentials.ifPresent(connectorTableCredentials -> builder.put(node.getId(), connectorTableCredentials));
         }
     }
 }

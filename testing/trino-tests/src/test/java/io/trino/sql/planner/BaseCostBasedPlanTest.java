@@ -16,10 +16,12 @@ package io.trino.sql.planner;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.Session.SessionBuilder;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.sql.DynamicFilters;
@@ -45,8 +47,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -54,7 +58,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
-import static io.trino.Session.SessionBuilder;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -84,8 +87,17 @@ public abstract class BaseCostBasedPlanTest
             .map(queryId -> format("/sql/trino/tpch/%s.sql", queryId))
             .collect(toImmutableList());
 
+    // Queries whose template defines two query parts, generated as separate "a" and "b" files.
+    private static final Set<Integer> TPCDS_QUERIES_WITH_TWO_PARTS = ImmutableSet.of(14, 23, 24, 39);
+
     protected static final List<String> TPCDS_SQL_FILES = IntStream.range(1, 100)
-            .mapToObj(i -> format("q%02d", i))
+            .boxed()
+            .flatMap(queryNumber -> {
+                if (TPCDS_QUERIES_WITH_TWO_PARTS.contains(queryNumber)) {
+                    return Stream.of(format("q%02da", queryNumber), format("q%02db", queryNumber));
+                }
+                return Stream.of(format("q%02d", queryNumber));
+            })
             .map(queryId -> format("/sql/trino/tpcds/%s.sql", queryId))
             .collect(toImmutableList());
 
@@ -308,15 +320,13 @@ public abstract class BaseCostBasedPlanTest
         public Void visitExchange(ExchangeNode node, Integer indent)
         {
             Partitioning partitioning = node.getPartitioningScheme().getPartitioning();
-            output(
-                    indent,
+            output(indent,
                     "%s exchange (%s, %s, %s)",
                     node.getScope().name().toLowerCase(ENGLISH),
                     node.getType(),
                     partitioning.getHandle(),
                     partitioning.getArguments().stream()
                             .map(BaseCostBasedPlanTest::argumentBindingToString)
-                            .sorted() // Currently, order of hash columns is not deterministic
                             .collect(joining(", ", "[", "]")));
 
             return visitPlan(node, indent + 1);
@@ -325,13 +335,11 @@ public abstract class BaseCostBasedPlanTest
         @Override
         public Void visitAggregation(AggregationNode node, Integer indent)
         {
-            output(
-                    indent,
+            output(indent,
                     "%s aggregation over (%s)",
                     node.getStep().name().toLowerCase(ENGLISH),
                     node.getGroupingKeys().stream()
                             .map(Symbol::name)
-                            .sorted()
                             .collect(joining(", ")));
 
             return visitPlan(node, indent + 1);
@@ -343,7 +351,6 @@ public abstract class BaseCostBasedPlanTest
             DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
             String inputs = filters.getDynamicConjuncts().stream()
                     .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
-                    .sorted()
                     .collect(joining(", "));
 
             if (!inputs.isEmpty()) {

@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
@@ -64,10 +65,10 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.F
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -98,11 +99,11 @@ public class TestingTableFunctions
     {
         private static final String FUNCTION_NAME = "simple_table_function";
         private static final String TABLE_NAME = "simple_table";
+        private static final String DESCRIPTION = "simple description";
 
         public SimpleTableFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     List.of(ScalarArgumentSpecification.builder()
                                     .name("COLUMN")
@@ -114,7 +115,8 @@ public class TestingTableFunctions
                                     .type(BIGINT)
                                     .defaultValue(0L)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    DESCRIPTION);
         }
 
         @Override
@@ -192,8 +194,7 @@ public class TestingTableFunctions
     {
         public TwoScalarArgumentsFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "two_arguments_function",
                     ImmutableList.of(
                             ScalarArgumentSpecification.builder()
@@ -205,7 +206,8 @@ public class TestingTableFunctions
                                     .type(BIGINT)
                                     .defaultValue(null)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -226,15 +228,15 @@ public class TestingTableFunctions
 
         public TableArgumentFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -259,15 +261,15 @@ public class TestingTableFunctions
 
         public TableArgumentRowSemanticsFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
                                     .rowSemantics()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -290,15 +292,15 @@ public class TestingTableFunctions
     {
         public DescriptorArgumentFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "descriptor_argument_function",
                     ImmutableList.of(
                             DescriptorArgumentSpecification.builder()
                                     .name("SCHEMA")
                                     .defaultValue(null)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -319,8 +321,7 @@ public class TestingTableFunctions
 
         public TwoTableArgumentsFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
@@ -331,7 +332,8 @@ public class TestingTableFunctions
                                     .name("INPUT2")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -355,8 +357,7 @@ public class TestingTableFunctions
     {
         public OnlyPassThroughFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "only_pass_through_function",
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
@@ -364,7 +365,8 @@ public class TestingTableFunctions
                                     .passThroughColumns()
                                     .keepWhenEmpty()
                                     .build()),
-                    ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH,
+                    "");
         }
 
         @Override
@@ -383,13 +385,13 @@ public class TestingTableFunctions
     {
         public MonomorphicStaticReturnTypeFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "monomorphic_static_return_type_function",
                     ImmutableList.of(),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
-                            ImmutableList.of(BOOLEAN, INTEGER))));
+                            ImmutableList.of(BOOLEAN, INTEGER))),
+                    "");
         }
 
         @Override
@@ -410,8 +412,7 @@ public class TestingTableFunctions
     {
         public PolymorphicStaticReturnTypeFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "polymorphic_static_return_type_function",
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
@@ -419,7 +420,8 @@ public class TestingTableFunctions
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
-                            ImmutableList.of(BOOLEAN, INTEGER))));
+                            ImmutableList.of(BOOLEAN, INTEGER))),
+                    "");
         }
 
         @Override
@@ -438,8 +440,7 @@ public class TestingTableFunctions
     {
         public PassThroughFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "pass_through_function",
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
@@ -448,7 +449,8 @@ public class TestingTableFunctions
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("x"),
-                            ImmutableList.of(BOOLEAN))));
+                            ImmutableList.of(BOOLEAN))),
+                    "");
         }
 
         @Override
@@ -469,8 +471,7 @@ public class TestingTableFunctions
 
         public DifferentArgumentTypesFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
@@ -494,7 +495,8 @@ public class TestingTableFunctions
                                     .name("INPUT_3")
                                     .pruneWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -521,15 +523,15 @@ public class TestingTableFunctions
 
         public RequiredColumnsFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -575,15 +577,15 @@ public class TestingTableFunctions
 
         public IdentityFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -628,8 +630,7 @@ public class TestingTableFunctions
 
         public IdentityPassThroughFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
@@ -637,7 +638,8 @@ public class TestingTableFunctions
                                     .passThroughColumns()
                                     .keepWhenEmpty()
                                     .build()),
-                    ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH,
+                    "");
         }
 
         @Override
@@ -692,8 +694,7 @@ public class TestingTableFunctions
     {
         public RepeatFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "repeat",
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
@@ -706,7 +707,8 @@ public class TestingTableFunctions
                                     .type(INTEGER)
                                     .defaultValue(2L)
                                     .build()),
-                    ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH,
+                    "");
         }
 
         @Override
@@ -804,14 +806,14 @@ public class TestingTableFunctions
 
         public EmptyOutputFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .keepWhenEmpty()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -861,15 +863,15 @@ public class TestingTableFunctions
 
         public EmptyOutputWithPassThroughFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .keepWhenEmpty()
                             .passThroughColumns()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -922,8 +924,7 @@ public class TestingTableFunctions
 
         public TestInputsFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
@@ -942,7 +943,8 @@ public class TestingTableFunctions
                                     .name("INPUT_4")
                                     .keepWhenEmpty()
                                     .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -989,8 +991,7 @@ public class TestingTableFunctions
 
         public PassThroughInputFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
@@ -1005,7 +1006,8 @@ public class TestingTableFunctions
                                     .build()),
                     new DescribedTable(new Descriptor(ImmutableList.of(
                             new Descriptor.Field("input_1_present", Optional.of(BOOLEAN)),
-                            new Descriptor.Field("input_2_present", Optional.of(BOOLEAN))))));
+                            new Descriptor.Field("input_2_present", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -1098,14 +1100,14 @@ public class TestingTableFunctions
 
         public TestInputFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .keepWhenEmpty()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("got_input", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("got_input", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -1162,14 +1164,14 @@ public class TestingTableFunctions
 
         public TestSingleInputRowSemanticsFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .rowSemantics()
                             .name("INPUT")
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -1210,8 +1212,7 @@ public class TestingTableFunctions
     {
         public ConstantFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     "constant",
                     ImmutableList.of(
                             ScalarArgumentSpecification.builder()
@@ -1225,7 +1226,8 @@ public class TestingTableFunctions
                                     .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("constant_column"),
-                            ImmutableList.of(INTEGER))));
+                            ImmutableList.of(INTEGER))),
+                    "");
         }
 
         @Override
@@ -1251,7 +1253,11 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+            public TableFunctionSplitProcessor getSplitProcessor(
+                    ConnectorSession session,
+                    ConnectorTableFunctionHandle handle,
+                    Optional<ConnectorTableCredentials> tableCredentials,
+                    ConnectorSplit split)
             {
                 return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).value(), (ConstantFunctionSplit) split);
             }
@@ -1269,7 +1275,7 @@ public class TestingTableFunctions
 
             public ConstantFunctionProcessor(Long value, ConstantFunctionSplit split)
             {
-                this.value = nativeValueToBlock(INTEGER, value);
+                this.value = writeNativeValue(INTEGER, value);
                 long count = split.count();
                 this.fullPagesCount = count / PAGE_SIZE;
                 this.reminder = toIntExact(count % PAGE_SIZE);
@@ -1329,11 +1335,11 @@ public class TestingTableFunctions
 
         public EmptySourceFunction()
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -1352,7 +1358,11 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+            public TableFunctionSplitProcessor getSplitProcessor(
+                    ConnectorSession session,
+                    ConnectorTableFunctionHandle handle,
+                    Optional<ConnectorTableCredentials> tableCredentials,
+                    ConnectorSplit split)
             {
                 return new EmptySourceFunctionProcessor();
             }

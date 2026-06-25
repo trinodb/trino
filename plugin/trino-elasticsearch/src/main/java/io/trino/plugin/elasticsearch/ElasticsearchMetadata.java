@@ -81,8 +81,8 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.elasticsearch.client.ResponseException;
 
@@ -143,8 +143,7 @@ public class ElasticsearchMetadata
             .build();
 
     private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
-            PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
-            new ElasticsearchColumnHandle(
+            PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, new ElasticsearchColumnHandle(
                     ImmutableList.of(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
                     VARCHAR,
                     new IndexMetadata.PrimitiveType("text"),
@@ -163,7 +162,7 @@ public class ElasticsearchMetadata
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
-        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
+        this.ipAddressType = typeManager.getType(new TypeDescriptor(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
     }
@@ -559,8 +558,8 @@ public class ElasticsearchMetadata
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.index());
                         if (metadata.schema()
-                                    .fields().stream()
-                                    .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
+                                .fields().stream()
+                                .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
                             newRegexes.put(columnName, likeToRegexp(slice, escape));
                             continue;
                         }
@@ -633,8 +632,7 @@ public class ElasticsearchMetadata
                         regex.append(escaped ? "_" : ".");
                         escaped = false;
                     }
-                    case '\\' ->
-                        regex.append("\\\\");
+                    case '\\' -> regex.append("\\\\");
                     default -> {
                         // escape special regex characters
                         if (REGEXP_RESERVED_CHARACTERS.contains(currentChar)) {

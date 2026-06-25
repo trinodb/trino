@@ -14,23 +14,35 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import io.airlift.units.Duration;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Function;
 
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraTable
         implements AutoCloseable
 {
+    private static final RetryPolicy<Object> DROP_TABLE_RETRY_POLICY = RetryPolicy.builder()
+            .handleIf(TestCassandraTable::isRetryableDropFailure)
+            .withDelay(java.time.Duration.ofMillis(250))
+            .withMaxAttempts(3)
+            .build();
+
     private final SqlExecutor sqlExecutor;
     private final String keyspace;
     private final String tableName;
@@ -65,8 +77,11 @@ public class TestCassandraTable
             }
 
             // Ensure that the currently created table is visible to Trino
-            assertEventually(() -> assertThat(queryRunner.execute("SELECT * FROM %s.%s".formatted(keyspace, tableName)).getRowCount())
-                    .isEqualTo(rowsToInsert.size()));
+            assertEventually(
+                    new Duration(1, MINUTES),
+                    () -> assertThat(queryRunner.execute("SELECT * FROM %s.%s".formatted(keyspace, tableName))
+                            .getRowCount())
+                            .isEqualTo(rowsToInsert.size()));
         }
         catch (Exception e) {
             try (TestCassandraTable ignored = this) {
@@ -110,7 +125,22 @@ public class TestCassandraTable
     @Override
     public void close()
     {
-        sqlExecutor.execute("DROP TABLE " + getTableName());
+        dropTableWithRetry(sqlExecutor, getTableName());
+    }
+
+    static void dropTableWithRetry(SqlExecutor sqlExecutor, String tableName)
+    {
+        Failsafe.with(DROP_TABLE_RETRY_POLICY)
+                .run(() -> sqlExecutor.execute("DROP TABLE IF EXISTS " + tableName));
+    }
+
+    private static boolean isRetryableDropFailure(Throwable throwable)
+    {
+        return getCausalChain(throwable).stream()
+                .map(Throwable::getMessage)
+                .filter(message -> message != null)
+                .map(message -> message.toLowerCase(Locale.ENGLISH))
+                .anyMatch(message -> message.contains("timed out") || message.contains("timeout"));
     }
 
     public static ColumnDefinition partitionColumn(String name, String type)

@@ -52,7 +52,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
@@ -106,7 +106,8 @@ public class BenchmarkArraysOverlap
             ArrayType arrayType = new ArrayType(elementType);
             List<Expression> projections = ImmutableList.of(call(
                     functionResolution.resolveFunction(name, fromTypes(arrayType, arrayType)),
-                    new Reference(arrayType, "$col_0"), new Reference(arrayType, "$col_1")));
+                    new Reference(arrayType, "$col_0"),
+                    new Reference(arrayType, "$col_1")));
 
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(

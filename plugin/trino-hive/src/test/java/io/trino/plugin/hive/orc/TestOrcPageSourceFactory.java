@@ -27,6 +27,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.Schema;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -247,19 +248,20 @@ public class TestOrcPageSourceFactory
                 new HiveConfig());
 
         ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
-                SESSION,
-                location,
-                0,
-                fileSize,
-                fileSize,
-                12345,
-                createSchema(),
-                columnHandles,
-                tupleDomain,
-                acidInfo,
-                OptionalInt.empty(),
-                false,
-                NO_ACID_TRANSACTION)
+                        SESSION,
+                        location,
+                        0,
+                        fileSize,
+                        fileSize,
+                        12345,
+                        createSchema(),
+                        columnHandles,
+                        tupleDomain,
+                        acidInfo,
+                        OptionalInt.empty(),
+                        false,
+                        NO_ACID_TRANSACTION,
+                        MemoryContext.NO_LIMIT)
                 .orElseThrow();
 
         int nationKeyColumn = columnNames.indexOf("n_nationkey");

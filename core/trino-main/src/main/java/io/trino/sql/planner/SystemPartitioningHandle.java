@@ -41,7 +41,7 @@ public final class SystemPartitioningHandle
         FIXED,
         SOURCE,
         COORDINATOR_ONLY,
-        ARBITRARY
+        ARBITRARY,
     }
 
     public static final PartitioningHandle SINGLE_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SINGLE, SystemPartitionFunction.SINGLE);
@@ -183,7 +183,8 @@ public final class SystemPartitioningHandle
             }
         };
 
-        public abstract BucketFunction createBucketFunction(List<Type> partitionChannelTypes,
+        public abstract BucketFunction createBucketFunction(
+                List<Type> partitionChannelTypes,
                 int bucketCount,
                 NullSafeHashCompiler hashCompiler);
 

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -73,7 +73,8 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
+                                        ImmutableMap.of(
+                                                "partition_count", expression(new Constant(INTEGER, 100L)),
                                                 "envelope", expression(new Call(ST_ENVELOPE, ImmutableList.of(new Reference(GEOMETRY, "geometry"))))),
                                         values("geometry"))));
 
@@ -87,7 +88,8 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
+                                        ImmutableMap.of(
+                                                "partition_count", expression(new Constant(INTEGER, 100L)),
                                                 "envelope", expression(new Call(ST_ENVELOPE, ImmutableList.of(new Reference(GEOMETRY, "geometry"))))),
                                         values("geometry"))));
     }

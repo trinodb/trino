@@ -50,23 +50,28 @@ public final class ArrayHistogramFunction
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER)) MethodHandle readFlat,
+                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
+            MethodHandle readFlat,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle writeFlat,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+            MethodHandle writeFlat,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = FLAT, result = FAIL_ON_NULL)) MethodHandle hashFlat,
+                    convention = @Convention(arguments = FLAT, result = FAIL_ON_NULL))
+            MethodHandle hashFlat,
             @OperatorDependency(
                     operator = OperatorType.IDENTICAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle identicalFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+            MethodHandle identicalFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle hashBlock,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL))
+            MethodHandle hashBlock,
             @TypeParameter("map(T, bigint)") MapType mapType,
             @SqlType("array(T)") Block arrayBlock)
     {

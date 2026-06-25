@@ -474,7 +474,7 @@ public class OpenSearchClient
 
                 JsonNode metaProperties = nullSafeNode(metaNode, "trino");
 
-                //stay backwards compatible with _meta.presto namespace for meta properties for some releases
+                // stay backwards compatible with _meta.presto namespace for meta properties for some releases
                 if (metaProperties.isNull()) {
                     metaProperties = nullSafeNode(metaNode, "presto");
                 }
@@ -494,7 +494,7 @@ public class OpenSearchClient
             String name = field.getKey();
             JsonNode value = field.getValue();
 
-            //default type is object
+            // default type is object
             String type = "object";
             if (value.has("type")) {
                 type = value.get("type").asText();
@@ -507,7 +507,8 @@ public class OpenSearchClient
             // this route, as it will likely lead to confusion in dealing with array syntax in Trino and potentially nested array and other
             // syntax when parsing the raw json.
             if (isArray && asRawJson) {
-                throw new TrinoException(OPENSEARCH_INVALID_METADATA,
+                throw new TrinoException(
+                        OPENSEARCH_INVALID_METADATA,
                         format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
             }
 
@@ -519,8 +520,7 @@ public class OpenSearchClient
                     }
                     result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.DateTimeType(formats)));
                 }
-                case "scaled_float" ->
-                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.ScaledFloatType(value.get("scaling_factor").asDouble())));
+                case "scaled_float" -> result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.ScaledFloatType(value.get("scaling_factor").asDouble())));
                 case "nested", "object" -> {
                     if (value.has("properties")) {
                         result.add(new IndexMetadata.Field(asRawJson, isArray, name, parseType(value.get("properties"), metaNode)));
@@ -529,8 +529,7 @@ public class OpenSearchClient
                         LOG.debug("Ignoring empty object field: %s", name);
                     }
                 }
-                default ->
-                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.PrimitiveType(type)));
+                default -> result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.PrimitiveType(type)));
             }
         }
 

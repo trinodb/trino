@@ -29,6 +29,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffers;
@@ -62,7 +63,6 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.execution.TaskStatus.STARTING_VERSION;
 import static io.trino.execution.TaskTestUtils.DYNAMIC_FILTER_SOURCE_ID;
@@ -136,7 +136,8 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
                 Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableMap.of(),
@@ -152,7 +153,8 @@ public class TestSqlTask
         assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
         assertThat(taskInfo.taskStatus().version()).isEqualTo(STARTING_VERSION);
 
-        taskInfo = sqlTask.updateTask(TEST_SESSION,
+        taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
                 Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableMap.of(),
@@ -176,7 +178,8 @@ public class TestSqlTask
 
         assertThat(sqlTask.getTaskStatus().state()).isEqualTo(TaskState.RUNNING);
         assertThat(sqlTask.getTaskStatus().version()).isEqualTo(STARTING_VERSION);
-        sqlTask.updateTask(TEST_SESSION,
+        sqlTask.updateTask(
+                TEST_SESSION,
                 Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableMap.of(),
@@ -221,7 +224,8 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
                 Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableMap.of(),
@@ -266,7 +270,8 @@ public class TestSqlTask
 
         assertThat(sqlTask.getTaskStatus().state()).isEqualTo(TaskState.RUNNING);
         assertThat(sqlTask.getTaskStatus().version()).isEqualTo(STARTING_VERSION);
-        sqlTask.updateTask(TEST_SESSION,
+        sqlTask.updateTask(
+                TEST_SESSION,
                 Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableMap.of(),
@@ -439,7 +444,8 @@ public class TestSqlTask
         TaskId taskId = new TaskId(new StageId("query", 0), nextTaskId.incrementAndGet(), 0);
         URI location = URI.create("fake://task/" + taskId);
 
-        QueryContext queryContext = new QueryContext(new QueryId("query"),
+        QueryContext queryContext = new QueryContext(
+                new QueryId("query"),
                 DataSize.of(1, MEGABYTE),
                 new MemoryPool(DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),

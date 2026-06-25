@@ -42,7 +42,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -70,8 +69,9 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.functionType;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -92,9 +92,9 @@ public final class MapTransformValuesFunction
                         .typeVariable("K")
                         .typeVariable("V1")
                         .typeVariable("V2")
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V2")))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V1")))
-                        .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2")))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V2")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V1")))
+                        .argumentType(functionType(typeVariable("K"), typeVariable("V1"), typeVariable("V2")))
                         .build())
                 .description("Apply lambda to each entry of the map and transform the value")
                 .build());

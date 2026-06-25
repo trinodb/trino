@@ -181,14 +181,16 @@ public class GenericPartitioningSpiller
             }
         }
 
-        return Futures.transform(Futures.allAsList(futures.build()),
+        return Futures.transform(
+                Futures.allAsList(futures.build()),
                 result -> {
                     long totalBytes = 0;
                     for (DataSize size : result) {
                         totalBytes += size.toBytes();
                     }
                     return DataSize.ofBytes(totalBytes);
-                }, directExecutor());
+                },
+                directExecutor());
     }
 
     private synchronized ListenableFuture<DataSize> flush(int partition)

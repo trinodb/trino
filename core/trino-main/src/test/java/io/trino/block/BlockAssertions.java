@@ -13,6 +13,7 @@
  */
 package io.trino.block;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -48,24 +49,27 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.forEachPair;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.Decimals.bigIntegerTenToNth;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -97,34 +101,27 @@ public final class BlockAssertions
         return type.getObjectValue(block, 0);
     }
 
-    public static List<Object> toValues(Type type, Iterable<Block> blocks)
-    {
-        List<Object> values = new ArrayList<>();
-        for (Block block : blocks) {
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add(type.getObjectValue(block, position));
-            }
-        }
-        return unmodifiableList(values);
-    }
-
-    public static List<Object> toValues(Type type, Block block)
-    {
-        List<Object> values = new ArrayList<>();
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            values.add(type.getObjectValue(block, position));
-        }
-        return unmodifiableList(values);
-    }
-
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
         assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertThat(type.getObjectValue(actual, position))
-                    .describedAs("position " + position)
-                    .isEqualTo(type.getObjectValue(expected, position));
+            assertValueEquals(type, actual, position, expected, position);
         }
+    }
+
+    public static void assertSameDataInOrder(Type type, List<Block> actual, ImmutableList<Block> expected)
+    {
+        assertThat(actual.stream().mapToInt(Block::getPositionCount).sum()).as("actual position count (sum)")
+                .isEqualTo(expected.stream().mapToInt(Block::getPositionCount).sum());
+        forEachPair(positions(actual), positions(expected), (actualValue, expectedValue) ->
+                assertValueEquals(type, actualValue.block, actualValue.position, expectedValue.block, expectedValue.position));
+    }
+
+    private static void assertValueEquals(Type type, Block actual, int actualPosition, Block expected, int expectedPosition)
+    {
+        assertThat(type.getObjectValue(actual, actualPosition))
+                .describedAs("position " + actualPosition)
+                .isEqualTo(type.getObjectValue(expected, expectedPosition));
     }
 
     public static Block createRandomDictionaryBlock(Block dictionary, int positionCount)
@@ -162,9 +159,9 @@ public final class BlockAssertions
         }
         if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
-                return createRandomLongsBlock(positionCount, nullRate);
+                return createRandomShortDecimalsBlock(decimalType, positionCount, nullRate);
             }
-            return createRandomLongDecimalsBlock(positionCount, nullRate);
+            return createRandomLongDecimalsBlock(decimalType, positionCount, nullRate);
         }
         if (type == VARCHAR) {
             return createRandomStringBlock(positionCount, nullRate, MAX_STRING_SIZE);
@@ -241,7 +238,24 @@ public final class BlockAssertions
             Block[] fieldBlocks = new Block[rowType.getFields().size()];
 
             for (int i = 0; i < fieldBlocks.length; i++) {
-                fieldBlocks[i] = createRandomBlockForType(rowType.getFields().get(i).getType(), positionCount, nullRate);
+                Type fieldType = rowType.getFields().get(i).getType();
+                ValueBlock fieldBlock = createRandomBlockForType(fieldType, positionCount, nullRate);
+                if (isNull == null) {
+                    fieldBlocks[i] = fieldBlock;
+                }
+                else {
+                    // Mask ROW nulls in the field block
+                    BlockBuilder builder = fieldType.createBlockBuilder(null, positionCount);
+                    for (int position = 0; position < positionCount; position++) {
+                        if (isNull[position] || fieldBlock.isNull(position)) {
+                            builder.appendNull();
+                        }
+                        else {
+                            builder.append(fieldBlock, position);
+                        }
+                    }
+                    fieldBlocks[i] = builder.build();
+                }
             }
 
             return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
@@ -262,13 +276,37 @@ public final class BlockAssertions
         return createIntsBlock(generateListWithNulls(positionCount, nullRate, random::nextInt));
     }
 
-    public static ValueBlock createRandomLongDecimalsBlock(int positionCount, float nullRate)
+    public static ValueBlock createRandomShortDecimalsBlock(DecimalType type, int positionCount, float nullRate)
     {
+        long bound = longTenToNth(type.getPrecision());
         Random random = random();
-        return createLongDecimalsBlock(generateListWithNulls(
-                positionCount,
-                nullRate,
-                () -> String.valueOf(random.nextLong())));
+        BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            if (nullRate > 0 && random.nextFloat() < nullRate) {
+                blockBuilder.appendNull();
+            }
+            else {
+                type.writeLong(blockBuilder, random.nextLong() % bound);
+            }
+        }
+        return blockBuilder.buildValueBlock();
+    }
+
+    public static ValueBlock createRandomLongDecimalsBlock(DecimalType type, int positionCount, float nullRate)
+    {
+        BigInteger bound = bigIntegerTenToNth(type.getPrecision());
+        Random random = random();
+        BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            if (nullRate > 0 && random.nextFloat() < nullRate) {
+                blockBuilder.appendNull();
+            }
+            else {
+                BigInteger magnitude = new BigInteger(128, random).mod(bound);
+                type.writeObject(blockBuilder, Int128.valueOf(random.nextBoolean() ? magnitude : magnitude.negate()));
+            }
+        }
+        return blockBuilder.buildValueBlock();
     }
 
     public static ValueBlock createRandomShortTimestampBlock(TimestampType type, int positionCount, float nullRate)
@@ -726,15 +764,6 @@ public final class BlockAssertions
         return builder.buildValueBlock();
     }
 
-    public static ValueBlock createTimestampsWithTimeZoneMillisBlock(Long... values)
-    {
-        BlockBuilder builder = TIMESTAMP_TZ_MILLIS.createFixedSizeBlockBuilder(values.length);
-        for (long value : values) {
-            TIMESTAMP_TZ_MILLIS.writeLong(builder, value);
-        }
-        return builder.buildValueBlock();
-    }
-
     public static ValueBlock createBooleanSequenceBlock(int start, int end)
     {
         BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(end - start);
@@ -954,4 +983,13 @@ public final class BlockAssertions
     {
         return new Random(RANDOM_SEED);
     }
+
+    private static Stream<BlockPosition> positions(List<Block> blocks)
+    {
+        return blocks.stream()
+                .flatMap(block -> IntStream.range(0, block.getPositionCount())
+                        .mapToObj(position -> new BlockPosition(block, position)));
+    }
+
+    private record BlockPosition(Block block, int position) {}
 }

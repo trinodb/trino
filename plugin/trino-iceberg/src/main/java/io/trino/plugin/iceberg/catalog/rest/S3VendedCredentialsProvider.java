@@ -35,8 +35,7 @@ final class S3VendedCredentialsProvider
             Map<String, String> catalogProperties,
             Map<String, String> fileIoProperties)
     {
-        super(
-                catalogProperties,
+        super(catalogProperties,
                 fileIoProperties,
                 parseBoolean(fileIoProperties, REFRESH_CREDENTIALS_ENABLED, true),
                 Optional.ofNullable(fileIoProperties.get(REFRESH_CREDENTIALS_ENDPOINT)),

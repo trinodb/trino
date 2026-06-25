@@ -30,6 +30,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -44,7 +45,9 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // to prevent exceeding BigLake requests quota
 final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
@@ -244,8 +247,8 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         String tableLocationWithTrailingSpace = tableLocationWithoutTrailingSpace + " ";
 
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
-                .hasMessageStartingWith("Failed to commit the transaction during insert")
-                .hasMessageContaining("Malformed request: Table location is immutable");
+                .hasMessage("Failed to create transaction")
+                .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
     @Test
@@ -263,7 +266,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     {
         assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
                 .hasMessageMatching("Expected query .* to succeed: CREATE TABLE.*")
-                .hasStackTraceContaining("Malformed request: Table location is immutable");
+                .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
     @Test

@@ -17,5 +17,4 @@ public enum OpenLineageTransport
 {
     CONSOLE,
     HTTP,
-    /**/
 }

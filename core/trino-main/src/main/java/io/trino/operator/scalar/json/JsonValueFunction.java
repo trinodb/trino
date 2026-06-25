@@ -40,13 +40,12 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 
 import java.lang.invoke.MethodHandle;
@@ -67,7 +66,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -96,16 +97,16 @@ public class JsonValueFunction
                         .typeVariable("T")
                         .typeVariable("E")
                         .typeVariable("D")
-                        .returnType(new TypeSignature("R"))
-                        .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
-                                new TypeSignature(JsonPath2016Type.NAME),
-                                new TypeSignature("T"),
-                                new TypeSignature("R"),
-                                new TypeSignature(TINYINT),
-                                functionType(new TypeSignature("E")),
-                                new TypeSignature(TINYINT),
-                                functionType(new TypeSignature("D"))))
+                        .returnType(typeVariable("R"))
+                        .argumentTypes(
+                                type(JSON_2016),
+                                type(JsonPath2016Type.NAME),
+                                typeVariable("T"),
+                                typeVariable("R"),
+                                type(TINYINT),
+                                functionType(typeVariable("E")),
+                                type(TINYINT),
+                                functionType(typeVariable("D")))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, true, false, false, false, false)
@@ -412,8 +413,8 @@ public class JsonValueFunction
         }
         ResolvedFunction coercion = metadata.getCoercion(defaultType, returnType);
         MethodHandle coercionHandle = functionManager.getScalarFunctionImplementation(
-                coercion,
-                new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))
+                        coercion,
+                        new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))
                 .getMethodHandle();
         if (!coercionHandle.type().parameterType(0).equals(ConnectorSession.class)) {
             coercionHandle = dropArguments(coercionHandle, 0, ConnectorSession.class);

@@ -522,7 +522,8 @@ final class TestFakerQueries
         assertUpdate("CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 50, dictionary_detection_enabled = false) AS " +
                 "SELECT * FROM (VALUES -1, 3, 5) t(id)", 3);
 
-        assertQuery("SELECT count(id) FROM (SELECT id FROM limited_range) a",
+        assertQuery(
+                "SELECT count(id) FROM (SELECT id FROM limited_range) a",
                 "VALUES (50)");
 
         assertQueryFails("INSERT INTO faker.default.limited_range(id) VALUES (10)", "This connector does not support inserts");

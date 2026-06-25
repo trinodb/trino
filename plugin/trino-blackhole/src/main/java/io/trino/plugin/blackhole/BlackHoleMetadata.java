@@ -378,8 +378,11 @@ public class BlackHoleMetadata
 
         if (((splitCount > 0) || (pagesPerSplit > 0) || (rowsPerPage > 0)) &&
                 ((splitCount == 0) || (pagesPerSplit == 0) || (rowsPerPage == 0))) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("All properties [%s, %s, %s] must be set if any are set",
-                    SPLIT_COUNT_PROPERTY, PAGES_PER_SPLIT_PROPERTY, ROWS_PER_PAGE_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format(
+                    "All properties [%s, %s, %s] must be set if any are set",
+                    SPLIT_COUNT_PROPERTY,
+                    PAGES_PER_SPLIT_PROPERTY,
+                    ROWS_PER_PAGE_PROPERTY));
         }
 
         Duration pageProcessingDelay = (Duration) tableMetadata.getProperties().get(PAGE_PROCESSING_DELAY);

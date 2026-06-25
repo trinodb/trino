@@ -108,8 +108,7 @@ public class TestAccessControlManager
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
         QualifiedObjectName tableName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table");
 
-        assertAccessControl(new ReadOnlySystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new ReadOnlySystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
             accessControlManager.checkCanSetSystemSessionProperty(identity, queryId, "property");
             accessControlManager.checkCanSetCatalogSessionProperty(securityContext, TEST_CATALOG_NAME, "property");
@@ -272,8 +271,7 @@ public class TestAccessControlManager
     public void testDenyExecuteFunctionBySystemAccessControl()
     {
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
-        assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isFalse();
             assertThat(accessControlManager.canCreateViewWithExecuteFunction(securityContext, functionName)).isFalse();
         });
@@ -283,8 +281,7 @@ public class TestAccessControlManager
     public void testAllowExecuteFunction()
     {
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
-        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isTrue();
             assertThat(accessControlManager.canCreateViewWithExecuteFunction(securityContext, functionName)).isTrue();
         });
@@ -294,8 +291,7 @@ public class TestAccessControlManager
     public void testAllowExecuteTableFunction()
     {
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
-        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isTrue();
             assertThat(accessControlManager.canCreateViewWithExecuteFunction(securityContext, functionName)).isTrue();
         });

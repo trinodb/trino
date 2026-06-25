@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>481-SNAPSHOT</version>
+        <version>482-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,7 @@
     <description>Trino - Apache Ranger access control</description>
 
     <properties>
+        <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
         <dep.graalvm.version>25.0.3</dep.graalvm.version>
         <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
         <dep.jetty11.version>11.0.26</dep.jetty11.version>
@@ -127,18 +128,18 @@
             <artifactId>aws-java-sdk-logs</artifactId>
             <version>${dep.aws-sdk.version}</version>
             <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>com.carrotsearch</groupId>
             <artifactId>hppc</artifactId>
             <version>0.10.0</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -353,6 +354,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration-testing</artifactId>
             <scope>test</scope>
@@ -397,7 +404,7 @@
                     <rules>
                         <bannedDependencies>
                             <includes combine.children="append">
-                                <!-- Ranger still relies on the deprecated S3 SDK v1 -->
+                                <!-- Ranger CloudWatch audit destination uses AWS SDK v1 -->
                                 <include>com.amazonaws:*:*</include>
                             </includes>
                         </bannedDependencies>

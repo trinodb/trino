@@ -32,7 +32,6 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Logical;
@@ -55,8 +54,9 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -186,7 +186,7 @@ public class TestIcebergProjectionPushdownPlans
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Reference(BIGINT, "y"), new Constant(BIGINT, 2L)), new Comparison(EQUAL, new Reference(BIGINT, "x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
+                                new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(BIGINT, "y"), new Constant(BIGINT, 2L)), comparison(EQUAL, new Reference(BIGINT, "x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
                                 tableScan(
                                         table -> {
                                             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
@@ -202,7 +202,7 @@ public class TestIcebergProjectionPushdownPlans
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 5L)),
+                                comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 5L)),
                                 tableScan(
                                         table -> {
                                             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
@@ -233,7 +233,7 @@ public class TestIcebergProjectionPushdownPlans
                                         .right(
                                                 anyTree(
                                                         filter(
-                                                                new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 2L)),
+                                                                comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
                                                                         table -> {
                                                                             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
@@ -246,5 +246,42 @@ public class TestIcebergProjectionPushdownPlans
                                                                         },
                                                                         TupleDomain.all(),
                                                                         ImmutableMap.of("x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))))))));
+    }
+
+    @Test
+    public void testProjectionPushdownInsideLambda()
+    {
+        String testTable = "test_lambda_projection_pushdown" + randomNameSuffix();
+        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s AS " +
+                        "SELECT ARRAY[1, 2, 3] items, " +
+                        "CAST(row(10, 20) AS row(captured bigint, skipped bigint)) payload " +
+                        "WHERE false",
+                testTable));
+
+        Session session = getPlanTester().getDefaultSession();
+
+        Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
+        assertThat(tableHandle).as("expected the table handle to be present").isPresent();
+
+        Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
+
+        IcebergColumnHandle items = (IcebergColumnHandle) columns.get("items");
+        IcebergColumnHandle payload = (IcebergColumnHandle) columns.get("payload");
+
+        IcebergColumnHandle captured = IcebergColumnHandle.optional(payload.getColumnIdentity())
+                .fieldType(payload.getType(), BIGINT)
+                .path(payload.getColumnIdentity().getChildren().get(0).getId())
+                .build();
+
+        assertPlan(
+                "SELECT transform(items, x -> x + payload.captured) result FROM " + testTable,
+                anyTree(
+                        tableScan(
+                                table -> ((IcebergTableHandle) table).getProjectedColumns().equals(ImmutableSet.of(items, captured)),
+                                TupleDomain.all(),
+                                ImmutableMap.of("items", equalTo(items), "payload_captured", equalTo(captured)))));
     }
 }

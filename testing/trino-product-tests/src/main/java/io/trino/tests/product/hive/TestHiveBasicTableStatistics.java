@@ -67,7 +67,8 @@ public class TestHiveBasicTableStatistics
 
         try {
             String location = getTableLocation("nation");
-            onTrino().executeQuery(format("" +
+            onTrino().executeQuery(format(
+                    "" +
                             "CREATE TABLE %s (" +
                             "   n_nationkey bigint, " +
                             "   n_regionkey bigint, " +

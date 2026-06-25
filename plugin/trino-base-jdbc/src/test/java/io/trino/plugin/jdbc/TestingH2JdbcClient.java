@@ -244,7 +244,6 @@ class TestingH2JdbcClient
 
     @Override
     public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
-
     {
         try (Connection connection = connectionFactory.openConnection(session);
                 CallableStatement statement = queryBuilder.callProcedure(this, session, connection, procedureQuery);

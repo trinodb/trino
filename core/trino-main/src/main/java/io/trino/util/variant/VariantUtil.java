@@ -98,6 +98,10 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -106,12 +110,8 @@ import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.spi.variant.Header.BasicType.PRIMITIVE;
 import static io.trino.spi.variant.Header.PrimitiveType.BINARY;
 import static io.trino.type.BooleanOperators.castToVarchar;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
-import static io.trino.type.DateTimes.round;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.Float.floatToRawIntBits;
@@ -379,8 +379,8 @@ public final class VariantUtil
                         throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + decimalValue, e);
                     }
                 }
-                case FLOAT -> DoubleOperators.castToLong(variant.getFloat());
-                case DOUBLE -> DoubleOperators.castToLong(variant.getDouble());
+                case FLOAT -> DoubleOperators.castToBigint(variant.getFloat());
+                case DOUBLE -> DoubleOperators.castToBigint(variant.getDouble());
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to BIGINT: " + variant.primitiveType());
             };
             case SHORT_STRING -> VarcharOperators.castToBigint(variant.getString());
@@ -395,7 +395,7 @@ public final class VariantUtil
                 case NULL -> null;
                 case BOOLEAN_TRUE -> BooleanOperators.castToReal(true);
                 case BOOLEAN_FALSE -> BooleanOperators.castToReal(false);
-                case STRING -> VarcharOperators.castToFloat(variant.getString());
+                case STRING -> VarcharOperators.castToReal(variant.getString());
                 case INT8 -> TinyintOperators.castToReal(variant.getByte());
                 case INT16 -> SmallintOperators.castToReal(variant.getShort());
                 case INT32 -> IntegerOperators.castToReal(variant.getInt());
@@ -405,7 +405,7 @@ public final class VariantUtil
                 case DOUBLE -> DoubleOperators.castToReal(variant.getDouble());
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to REAL: " + variant.primitiveType());
             };
-            case SHORT_STRING -> VarcharOperators.castToFloat(variant.getString());
+            case SHORT_STRING -> VarcharOperators.castToReal(variant.getString());
             default -> throw new VariantCastException("Unsupported VARIANT type for cast to REAL: " + variant.basicType());
         };
     }

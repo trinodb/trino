@@ -298,7 +298,8 @@ final class TestBlackHoleSmoke
                         "TIMESTAMP '2014-01-02 12:12', " +
                         "cast('bar' as varbinary), " +
                         "DECIMAL '3.14', " +
-                        "DECIMAL '1234567890.123456789')", 1);
+                        "DECIMAL '1234567890.123456789')",
+                1);
         dropBlackholeAllTypesTable();
     }
 

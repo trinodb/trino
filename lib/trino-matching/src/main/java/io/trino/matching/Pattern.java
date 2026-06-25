@@ -28,7 +28,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public abstract sealed class Pattern<T>
-        permits CapturePattern, CustomPattern, EqualsPattern, FilterPattern, OrPattern, TypeOfPattern, WithPattern
+        permits CapturePattern,
+                CustomPattern,
+                EqualsPattern,
+                FilterPattern,
+                OrPattern,
+                TypeOfPattern,
+                WithPattern
 {
     private final Optional<Pattern<?>> previous;
 
@@ -52,7 +58,7 @@ public abstract sealed class Pattern<T>
         this.previous = requireNonNull(previous, "previous is null");
     }
 
-    //FIXME make sure there's a proper toString,
+    // FIXME make sure there's a proper toString,
     // like with(propName)\n\tfilter(isEmpty)
     // or with(propName) map(isEmpty) equalTo(true)
     public static <F, C, T extends Iterable<S>, S> PropertyPattern<F, C, T> empty(Property<F, C, T> property)

@@ -61,8 +61,7 @@ public class ParametricAggregation
             List<AccumulatorStateDetails<?>> stateDetails,
             ParametricImplementationsGroup<ParametricAggregationImplementation> implementations)
     {
-        super(
-                createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
+        super(createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
                 createAggregationFunctionMetadata(details, stateDetails));
         this.stateDetails = ImmutableList.copyOf(requireNonNull(stateDetails, "stateDetails is null"));
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
@@ -72,16 +71,10 @@ public class ParametricAggregation
     private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability)
     {
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.aggregateBuilder(details.name())
-                .signature(signature);
+                .signature(signature)
+                .description(details.description().orElse(""));
 
         details.aliases().forEach(functionMetadata::alias);
-
-        if (details.description().isPresent()) {
-            functionMetadata.description(details.description().get());
-        }
-        else {
-            functionMetadata.noDescription();
-        }
 
         if (details.hidden()) {
             functionMetadata.hidden();

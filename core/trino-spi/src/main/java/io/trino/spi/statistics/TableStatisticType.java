@@ -15,5 +15,5 @@ package io.trino.spi.statistics;
 
 public enum TableStatisticType
 {
-    ROW_COUNT,
+    ROW_COUNT
 }

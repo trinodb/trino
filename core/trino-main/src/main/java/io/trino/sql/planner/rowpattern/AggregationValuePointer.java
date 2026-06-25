@@ -83,7 +83,7 @@ public final class AggregationValuePointer
                 .map(SymbolsExtractor::extractAll)
                 .flatMap(Collection::stream)
                 .filter(symbol -> (classifierSymbol.isEmpty() || !classifierSymbol.get().equals(symbol)) &&
-                    (matchNumberSymbol.isEmpty() || !matchNumberSymbol.get().equals(symbol)))
+                        (matchNumberSymbol.isEmpty() || !matchNumberSymbol.get().equals(symbol)))
                 .collect(toImmutableList());
     }
 

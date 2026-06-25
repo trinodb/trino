@@ -323,7 +323,7 @@ public class CoordinatorModule
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
 
-        //exchanges metrics
+        // exchanges metrics
         binder.bind(ExchangeMetricsCollector.class).in(Scopes.SINGLETON);
 
         // statistics calculator
@@ -459,7 +459,8 @@ public class CoordinatorModule
         ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
                 queryManagerConfig.getQueryExecutorPoolSize(),
                 queryManagerConfig.getQueryExecutorPoolSize(),
-                60, SECONDS,
+                60,
+                SECONDS,
                 new LinkedBlockingQueue<>(1000),
                 threadsNamed("query-execution-%s"));
         queryExecutor.allowCoreThreadTimeOut(true);

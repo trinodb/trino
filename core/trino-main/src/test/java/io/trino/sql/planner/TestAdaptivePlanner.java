@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableLongArray;
 import io.trino.Session;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -36,7 +37,6 @@ import org.junit.jupiter.api.Test;
 import java.util.HashSet;
 import java.util.Set;
 
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.adaptivePlan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
@@ -113,26 +113,27 @@ public class TestAdaptivePlanner
                                                         remoteSource(ImmutableList.of(new PlanFragmentId("6"))))))))
                 .children(
                         spb -> spb.fragmentMatcher(fm -> fm
-                                // This fragment id should change since it has adaptive plan
-                                .fragmentId(6)
-                                .planPattern(node(AggregationNode.class,
-                                        adaptivePlan(
-                                                join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
-                                                        .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
-                                                        .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
-                                                join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
-                                                        .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
-                                                        .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3"))))))))))
+                                        // This fragment id should change since it has adaptive plan
+                                        .fragmentId(6)
+                                        .planPattern(node(AggregationNode.class,
+                                                adaptivePlan(
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
+                                                                .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
+                                                                .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
+                                                                .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
+                                                                .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3"))))))))))
                                 .children(
-                                        spb2 -> spb2.fragmentMatcher(fm -> fm
-                                                // This fragment id should not change
-                                                .fragmentId(3)
-                                                .planPattern(
-                                                        node(AggregationNode.class,
-                                                                exchange(
-                                                                        remoteSource(ImmutableList.of(new PlanFragmentId("4")))))))
+                                        spb2 -> spb2
+                                                .fragmentMatcher(fm -> fm
+                                                        // This fragment id should not change
+                                                        .fragmentId(3)
+                                                        .planPattern(
+                                                                node(AggregationNode.class,
+                                                                        exchange(
+                                                                                remoteSource(ImmutableList.of(new PlanFragmentId("4")))))))
                                                 .children(spb3 -> spb3.fragmentMatcher(fm -> fm
                                                         // This fragment id should not change
                                                         .fragmentId(4)
@@ -144,11 +145,11 @@ public class TestAdaptivePlanner
 
         assertAdaptivePlan(
                 """
-                    WITH t AS (SELECT regionkey, count(*) as some_count FROM nation group by regionkey)
-                    SELECT max(s.nationkey), sum(t.regionkey)
-                    FROM supplier AS s
-                    JOIN t
-                    ON s.nationkey = t.some_count
+                WITH t AS (SELECT regionkey, count(*) as some_count FROM nation group by regionkey)
+                SELECT max(s.nationkey), sum(t.regionkey)
+                FROM supplier AS s
+                JOIN t
+                ON s.nationkey = t.some_count
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
@@ -192,15 +193,16 @@ public class TestAdaptivePlanner
                                         .planPattern(
                                                 adaptivePlan(
                                                         join(INNER, builder -> builder
-                                                                .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
+                                                                .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
                                                                 .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                                 .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
                                                         join(INNER, builder -> builder
-                                                                .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
+                                                                .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
                                                                 .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                                 .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))))))
                                 .children(
-                                        spb2 -> spb2.fragmentMatcher(fm -> fm
+                                        spb2 -> spb2
+                                                .fragmentMatcher(fm -> fm
                                                         // This fragment id should not change
                                                         .fragmentId(3)
                                                         .planPattern(
@@ -251,7 +253,7 @@ public class TestAdaptivePlanner
                         .fragmentId(0)
                         .planPattern(
                                 any(join(INNER, builder -> builder
-                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "nationkey_1"))))
+                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "nationkey_1"))))
                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("1"))))
                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("2")))))))))
                 .children(
@@ -302,14 +304,15 @@ public class TestAdaptivePlanner
                                         .fragmentId(1)
                                         .planPattern(node(AggregationNode.class,
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
+                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
                                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))))))
                                 .children(
                                         spb2 -> spb2.fragmentMatcher(fm -> fm
                                                 // This fragment id should not change
                                                 .fragmentId(2).planPattern(any(node(TableScanNode.class)))),
-                                        spb2 -> spb2.fragmentMatcher(fm -> fm
+                                        spb2 -> spb2
+                                                .fragmentMatcher(fm -> fm
                                                         // This fragment id should not change
                                                         .fragmentId(3)
                                                         .planPattern(
@@ -360,25 +363,25 @@ public class TestAdaptivePlanner
                 .build();
 
         assertAdaptivePlan(
-                    """
-                        SELECT
-                            sum(sales),
-                            sum(another_sales),
-                            sum(acctbal)
-                        FROM (
-                        SELECT
-                            CAST(0 AS DECIMAL(7,2)) "sales",
-                            CAST(0 AS DECIMAL(7,2)) "another_sales",
-                            cast("acctbal" as DECIMAL(7,2)) "acctbal"
-                        FROM customer
-                        UNION ALL
-                        SELECT
-                            cast("acctbal" as DECIMAL(7,2)) "sales",
-                            CAST(0 AS DECIMAL(7,2)) "another_sales",
-                            CAST(0 AS DECIMAL(7,2)) "acctbal"
-                        FROM customer
-                        ) test_table
-                    """,
+                """
+                SELECT
+                    sum(sales),
+                    sum(another_sales),
+                    sum(acctbal)
+                FROM (
+                SELECT
+                    CAST(0 AS DECIMAL(7,2)) "sales",
+                    CAST(0 AS DECIMAL(7,2)) "another_sales",
+                    cast("acctbal" as DECIMAL(7,2)) "acctbal"
+                FROM customer
+                UNION ALL
+                SELECT
+                    cast("acctbal" as DECIMAL(7,2)) "sales",
+                    CAST(0 AS DECIMAL(7,2)) "another_sales",
+                    CAST(0 AS DECIMAL(7,2)) "acctbal"
+                FROM customer
+                ) test_table
+                """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
                         "TestJoinOrderSwitch",

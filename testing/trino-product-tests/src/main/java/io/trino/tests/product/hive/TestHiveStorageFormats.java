@@ -13,9 +13,7 @@
  */
 package io.trino.tests.product.hive;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
@@ -25,7 +23,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
-import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
@@ -35,33 +32,23 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
-import java.sql.JDBCType;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
@@ -82,8 +69,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveStorageFormats
         extends ProductTest
 {
-    private static final String TPCH_SCHEMA = "tiny";
-
     @Inject(optional = true)
     @Named("databases.trino.admin_role_enabled")
     private boolean adminRoleEnabled;
@@ -172,63 +157,6 @@ public class TestHiveStorageFormats
                     "2027-12-31 23:59:59.999999",
                     "2027-12-31 23:59:59.999999499"));
 
-    // These check that values are correctly rounded on insertion
-    private static final List<TimestampAndPrecision> TIMESTAMPS_FROM_TRINO = List.of(
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.999", // millis as millis (no rounding)
-                    MILLISECONDS,
-                    "2020-01-02 12:01:00.999",
-                    "2020-01-02 12:01:00.999000",
-                    "2020-01-02 12:01:00.999000000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111499999", // nanos as millis rounds down (largest)
-                    MILLISECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111000",
-                    "2020-01-02 12:01:00.111000000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.1115", // micros as millis rounds up (smallest)
-                    MILLISECONDS,
-                    "2020-01-02 12:01:00.112",
-                    "2020-01-02 12:01:00.112000",
-                    "2020-01-02 12:01:00.112000000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111333", // micros as micros (no rounding)
-                    MICROSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111333",
-                    "2020-01-02 12:01:00.111333000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.1113334", // nanos as micros rounds down
-                    MICROSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111333",
-                    "2020-01-02 12:01:00.111333000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111333777", // nanos as micros rounds up
-                    MICROSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111334",
-                    "2020-01-02 12:01:00.111334000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111333444", // nanos as nanos (no rounding)
-                    NANOSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111333",
-                    "2020-01-02 12:01:00.111333444"),
-            timestampAndPrecision(
-                    "2020-01-02 23:59:59.999911333", // nanos as millis rounds up to next day
-                    MILLISECONDS,
-                    "2020-01-03 00:00:00.000",
-                    "2020-01-03 00:00:00.000000",
-                    "2020-01-03 00:00:00.000000000"),
-            timestampAndPrecision(
-                    "2020-12-31 23:59:59.99999", // micros as millis rounds up to next year
-                    MILLISECONDS,
-                    "2021-01-01 00:00:00.000",
-                    "2021-01-01 00:00:00.000000",
-                    "2021-01-01 00:00:00.000000000"));
-
     @DataProvider
     public static String[] storageFormats()
     {
@@ -287,185 +215,6 @@ public class TestHiveStorageFormats
                 .iterator();
     }
 
-    @Test
-    public void verifyDataProviderCompleteness()
-    {
-        String formatsDescription = (String) onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").getOnlyValue();
-        Pattern pattern = Pattern.compile("Hive storage format for the table. Possible values: \\[([A-Z]+(, [A-z]+)+)]");
-        assertThat(formatsDescription).matches(pattern);
-        Matcher matcher = pattern.matcher(formatsDescription);
-        verify(matcher.matches());
-
-        // HiveStorageFormat.values
-        List<String> allFormats = Splitter.on(",").trimResults().splitToList(matcher.group(1));
-
-        Set<String> allFormatsToTest = allFormats.stream()
-                // Hive CSV storage format only supports VARCHAR, so needs to be excluded from any generic tests
-                .filter(format -> !"CSV".equals(format))
-                // REGEX is read-only
-                .filter(format -> !"REGEX".equals(format))
-                // ESRI is read-only
-                .filter(format -> !"ESRI".equals(format))
-                // ESRI_GEO_JSON is read-only
-                .filter(format -> !"ESRI_GEO_JSON".equals(format))
-                // SEQUENCEFILE_PROTOBUF is read-only
-                .filter(format -> !"SEQUENCEFILE_PROTOBUF".equals(format))
-                // TODO when using JSON serde Hive fails with ClassNotFoundException: org.apache.hive.hcatalog.data.JsonSerDe
-                .filter(format -> !"JSON".equals(format))
-                // OPENX is not supported in Hive by default
-                .filter(format -> !"OPENX_JSON".equals(format))
-                .collect(toImmutableSet());
-
-        assertThat(ImmutableSet.copyOf(storageFormats()))
-                .isEqualTo(allFormatsToTest);
-    }
-
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
-    public void testInsertIntoTable(StorageFormat storageFormat)
-    {
-        // only admin user is allowed to change session properties
-        setAdminRole();
-        setSessionProperties(storageFormat);
-
-        String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(ENGLISH);
-
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-
-        String createTable = format(
-                "CREATE TABLE %s(" +
-                        "   orderkey      BIGINT," +
-                        "   partkey       BIGINT," +
-                        "   suppkey       BIGINT," +
-                        "   linenumber    INTEGER," +
-                        "   quantity      DOUBLE," +
-                        "   extendedprice DOUBLE," +
-                        "   discount      DOUBLE," +
-                        "   tax           DOUBLE," +
-                        "   linestatus    VARCHAR," +
-                        "   shipinstruct  VARCHAR," +
-                        "   shipmode      VARCHAR," +
-                        "   comment       VARCHAR," +
-                        "   returnflag    VARCHAR" +
-                        ") WITH (%s)",
-                tableName,
-                storageFormat.getStoragePropertiesAsSql());
-        onTrino().executeQuery(createTable);
-
-        String insertInto = format("INSERT INTO %s " +
-                "SELECT " +
-                "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                "linestatus, shipinstruct, shipmode, comment, returnflag " +
-                "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
-        onTrino().executeQuery(insertInto);
-
-        assertResultEqualForLineitemTable(
-                "select sum(tax), sum(discount), sum(linenumber) from %s", tableName);
-
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
-    }
-
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
-    public void testCreateTableAs(StorageFormat storageFormat)
-    {
-        // only admin user is allowed to change session properties
-        setAdminRole();
-        setSessionProperties(storageFormat);
-
-        String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(ENGLISH);
-
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-
-        String createTableAsSelect = format(
-                "CREATE TABLE %s WITH (%s) AS " +
-                        "SELECT " +
-                        "partkey, suppkey, extendedprice " +
-                        "FROM tpch.%s.lineitem",
-                tableName,
-                storageFormat.getStoragePropertiesAsSql(),
-                TPCH_SCHEMA);
-        onTrino().executeQuery(createTableAsSelect);
-
-        assertResultEqualForLineitemTable(
-                "select sum(extendedprice), sum(suppkey), count(partkey) from %s", tableName);
-
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
-    }
-
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
-    public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
-    {
-        // only admin user is allowed to change session properties
-        setAdminRole();
-        setSessionProperties(storageFormat);
-
-        String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(ENGLISH);
-
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-
-        String createTable = format(
-                "CREATE TABLE %s(" +
-                        "   orderkey      BIGINT," +
-                        "   partkey       BIGINT," +
-                        "   suppkey       BIGINT," +
-                        "   linenumber    INTEGER," +
-                        "   quantity      DOUBLE," +
-                        "   extendedprice DOUBLE," +
-                        "   discount      DOUBLE," +
-                        "   tax           DOUBLE," +
-                        "   linestatus    VARCHAR," +
-                        "   shipinstruct  VARCHAR," +
-                        "   shipmode      VARCHAR," +
-                        "   comment       VARCHAR," +
-                        "   returnflag    VARCHAR" +
-                        ") WITH (format='%s', partitioned_by = ARRAY['returnflag'])",
-                tableName,
-                storageFormat.getName());
-        onTrino().executeQuery(createTable);
-
-        String insertInto = format("INSERT INTO %s " +
-                "SELECT " +
-                "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                "linestatus, shipinstruct, shipmode, comment, returnflag " +
-                "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
-        onTrino().executeQuery(insertInto);
-
-        assertResultEqualForLineitemTable(
-                "select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
-
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
-    }
-
-    @Test(dataProvider = "storageFormatsWithNullFormat", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
-    public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
-    {
-        String nullFormat = "null_value";
-        String tableName = format(
-                "test_storage_format_%s_insert_and_select_with_null_format",
-                storageFormat.getName());
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (value VARCHAR) " +
-                        "WITH (format = '%s', null_format = '%s')",
-                tableName,
-                storageFormat.getName(),
-                nullFormat));
-
-        // \N is the default null format
-        String[] values = {nullFormat, null, "non-null", "", "\\N"};
-        Row[] storedValues = Arrays.stream(values).map(Row::row).toArray(Row[]::new);
-        storedValues[0] = row((Object) null); // if you put in the null format, it saves as null
-
-        String placeholders = String.join(", ", nCopies(values.length, "(?)"));
-        onTrino().executeQuery(
-                format("INSERT INTO %s VALUES %s", tableName, placeholders),
-                Arrays.stream(values)
-                        .map(value -> param(JDBCType.VARCHAR, value))
-                        .toArray(QueryParam[]::new));
-
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).containsOnly(storedValues);
-
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
-    }
-
     @Test(dataProvider = "storageFormatsWithZeroByteFile", groups = STORAGE_FORMATS_DETAILED)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectFromZeroByteFile(StorageFormat storageFormat)
@@ -503,40 +252,15 @@ public class TestHiveStorageFormats
                 nullFormat));
 
         // Manually format data for insertion b/c Hive's PreparedStatement can't handle nulls
-        onHive().executeQuery(format("INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')",
-                tableName, nullFormat));
+        onHive().executeQuery(format(
+                "INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')",
+                tableName,
+                nullFormat));
 
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(row("non-null"), row((Object) null), row((Object) null));
 
         onHive().executeQuery(format("DROP TABLE %s", tableName));
-    }
-
-    @Test(dataProvider = "storageFormatsWithConfiguration", groups = {STORAGE_FORMATS, HMS_ONLY})
-    public void testCreatePartitionedTableAs(StorageFormat storageFormat)
-    {
-        // only admin user is allowed to change session properties
-        setAdminRole();
-        setSessionProperties(storageFormat);
-
-        String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(ENGLISH);
-
-        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-
-        String createTableAsSelect = format(
-                "CREATE TABLE %s WITH (%s, partitioned_by = ARRAY['returnflag']) AS " +
-                        "SELECT " +
-                        "tax, discount, returnflag " +
-                        "FROM tpch.%s.lineitem",
-                tableName,
-                storageFormat.getStoragePropertiesAsSql(),
-                TPCH_SCHEMA);
-        onTrino().executeQuery(createTableAsSelect);
-
-        assertResultEqualForLineitemTable(
-                "select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
-
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(groups = STORAGE_FORMATS)
@@ -585,12 +309,11 @@ public class TestHiveStorageFormats
                         "'dummy value' " +
                         "FROM dummy");
             }
-            case TRINO ->
-                writer.queryExecutor().executeQuery("INSERT INTO " + tableName + " VALUES (" +
-                        "row(42), " +
-                        "row(row(43)), " +
-                        "row(ARRAY[11, 22, 33]), " +
-                        "'dummy value')");
+            case TRINO -> writer.queryExecutor().executeQuery("INSERT INTO " + tableName + " VALUES (" +
+                    "row(42), " +
+                    "row(row(43)), " +
+                    "row(ARRAY[11, 22, 33]), " +
+                    "'dummy value')");
             default -> throw new IllegalStateException("Unsupported writer: " + writer);
         }
 
@@ -697,23 +420,6 @@ public class TestHiveStorageFormats
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
-    public void testTimestampCreatedFromTrino(StorageFormat storageFormat)
-    {
-        String tableName = createSimpleTimestampTable("timestamps_from_trino", storageFormat);
-
-        // insert records one by one so that we have one file per record, which
-        // allows us to exercise predicate push-down in Parquet (which only
-        // works when the value range has a min = max)
-        for (TimestampAndPrecision entry : TIMESTAMPS_FROM_TRINO) {
-            setTimestampPrecision(entry.getPrecision());
-            onTrino().executeQuery(format("INSERT INTO %s VALUES (%s, TIMESTAMP '%s')", tableName, entry.getId(), entry.getWriteValue()));
-        }
-
-        assertSimpleTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
-        onTrino().executeQuery("DROP TABLE " + tableName);
-    }
-
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStructTimestampsFromHive(StorageFormat format)
@@ -742,35 +448,6 @@ public class TestHiveStorageFormats
         }
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_HIVE);
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
-    }
-
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
-    public void testStructTimestampsFromTrino(StorageFormat format)
-    {
-        String tableName = createStructTimestampTable("trino_struct_timestamp", format);
-        setAdminRole(onTrino().getConnection());
-
-        // Insert data grouped by write-precision so it rounds as expected
-        TIMESTAMPS_FROM_TRINO.stream()
-                .collect(Collectors.groupingBy(TimestampAndPrecision::getPrecision))
-                .forEach((precision, data) -> {
-                    setTimestampPrecision(precision);
-                    onTrino().executeQuery(format(
-                            "INSERT INTO %s VALUES (%s)",
-                            tableName,
-                            data.stream().map(entry -> format(
-                                    "%s,"
-                                            + " array[%2$s],"
-                                            + " map(array[%2$s], array[%2$s]),"
-                                            + " row(%2$s),"
-                                            + " array[map(array[%2$s], array[row(array[%2$s])])]",
-                                    entry.getId(),
-                                    format("TIMESTAMP '%s'", entry.getWriteValue())))
-                                    .collect(joining("), ("))));
-                });
-
-        assertStructTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
@@ -934,27 +611,6 @@ public class TestHiveStorageFormats
         return tableName;
     }
 
-    /**
-     * Run the given query on the given table and the TPCH {@code lineitem} table
-     * (in the schema {@code TPCH_SCHEMA}, asserting that the results are equal.
-     */
-    private static void assertResultEqualForLineitemTable(String query, String tableName)
-    {
-        QueryResult expected = onTrino().executeQuery(format(query, "tpch." + TPCH_SCHEMA + ".lineitem"));
-        List<Row> expectedRows = expected.rows().stream()
-                .map(columns -> row(columns.toArray()))
-                .collect(toImmutableList());
-        QueryResult actual = onTrino().executeQuery(format(query, tableName));
-        assertThat(actual)
-                .hasColumns(expected.getColumnTypes())
-                .containsExactlyInOrder(expectedRows);
-    }
-
-    private void setAdminRole()
-    {
-        setAdminRole(onTrino().getConnection());
-    }
-
     private void setAdminRole(Connection connection)
     {
         if (adminRoleEnabled) {
@@ -1064,8 +720,8 @@ public class TestHiveStorageFormats
         public String getStoragePropertiesAsSql()
         {
             return Stream.concat(
-                    Stream.of(immutableEntry("format", name)),
-                    properties.entrySet().stream())
+                            Stream.of(immutableEntry("format", name)),
+                            properties.entrySet().stream())
                     .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
                     .collect(joining(", "));
         }

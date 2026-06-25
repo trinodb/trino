@@ -30,7 +30,8 @@ public final class Completion
     public static Completer commandCompleter()
     {
         // This is not an exhaustive list of commands, but it covers the most common ones.
-        return new AggregateCompleter(buildArgumentCompleter("ALTER", asList("SCHEMA", "TABLE")),
+        return new AggregateCompleter(
+                buildArgumentCompleter("ALTER", asList("SCHEMA", "TABLE")),
                 buildArgumentCompleter("CREATE", asList("CATALOG", "SCHEMA", "TABLE", "VIEW", "MATERIALIZED VIEW", "FUNCTION", "BRANCH", "ROLE")),
                 buildArgumentCompleter("DESCRIBE", asList("INPUT", "OUTPUT")),
                 buildArgumentCompleter("DROP", asList("CATALOG", "SCHEMA", "TABLE", "VIEW", "MATERIALIZED VIEW", "FUNCTION", "BRANCH", "ROLE")),

@@ -13,29 +13,41 @@
  */
 package io.trino.spi.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.StringJoiner;
-import java.util.function.Predicate;
 
+import static io.trino.spi.connector.Preconditions.checkArgument;
 import static io.trino.spi.expression.Constant.TRUE;
 import static java.util.Objects.requireNonNull;
 
 public class Constraint
 {
     private static final Constraint ALWAYS_TRUE = new Constraint(TupleDomain.all());
-    private static final Constraint ALWAYS_FALSE = new Constraint(TupleDomain.none(), _ -> false, Set.of());
+    private static final Constraint ALWAYS_FALSE = new Constraint(TupleDomain.none());
 
     private final TupleDomain<ColumnHandle> summary;
     private final ConnectorExpression expression;
     private final Map<String, ColumnHandle> assignments;
-    private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
-    private final Optional<Set<ColumnHandle>> predicateColumns;
+
+    @JsonCreator
+    public Constraint(
+            @JsonProperty("summary") TupleDomain<ColumnHandle> summary,
+            @JsonProperty("expression") ConnectorExpression expression,
+            @JsonProperty("assignments") Map<String, ColumnHandle> assignments)
+    {
+        this.summary = requireNonNull(summary, "summary is null");
+        this.expression = requireNonNull(expression, "expression is null");
+        this.assignments = Map.copyOf(requireNonNull(assignments, "assignments is null"));
+        checkArgument(allVariablesCovered(expression, this.assignments), "assignments must cover all variables in expression");
+    }
 
     public static Constraint alwaysTrue()
     {
@@ -49,94 +61,37 @@ public class Constraint
 
     public Constraint(TupleDomain<ColumnHandle> summary)
     {
-        this(summary, TRUE, Map.of(), Optional.empty(), Optional.empty());
-    }
-
-    public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
-    {
-        this(summary, TRUE, Map.of(), Optional.of(predicate), Optional.of(predicateColumns));
-    }
-
-    public Constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
-    {
-        this(summary, expression, assignments, Optional.empty(), Optional.empty());
-    }
-
-    public Constraint(
-            TupleDomain<ColumnHandle> summary,
-            ConnectorExpression expression,
-            Map<String, ColumnHandle> assignments,
-            Predicate<Map<ColumnHandle, NullableValue>> predicate,
-            Set<ColumnHandle> predicateColumns)
-    {
-        this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns));
-    }
-
-    private Constraint(
-            TupleDomain<ColumnHandle> summary,
-            ConnectorExpression expression,
-            Map<String, ColumnHandle> assignments,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
-            Optional<Set<ColumnHandle>> predicateColumns)
-    {
-        this.summary = requireNonNull(summary, "summary is null");
-        this.expression = requireNonNull(expression, "expression is null");
-        this.assignments = Map.copyOf(requireNonNull(assignments, "assignments is null"));
-        this.predicate = requireNonNull(predicate, "predicate is null");
-        this.predicateColumns = predicateColumns.map(Set::copyOf);
-
-        if (predicateColumns.isPresent() && predicate.isEmpty()) {
-            throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");
-        }
-        if (predicateColumns.isEmpty() && predicate.isPresent()) {
-            throw new IllegalArgumentException("predicate cannot be present without predicateColumns");
-        }
+        this(summary, TRUE, Map.of());
     }
 
     /**
-     * @return a predicate which is equivalent to, or looser than {@link #predicate} (if present), and should be AND-ed with, {@link #getExpression}.
+     * @return a predicate which is equivalent to, or looser than {@link #getExpression}, and should be AND-ed with, {@link #getExpression}.
      */
+    @JsonProperty("summary")
     public TupleDomain<ColumnHandle> getSummary()
     {
         return summary;
     }
 
     /**
-     * @return an expression predicate which is different from, and should be AND-ed with, {@link #getSummary} or {@link #predicate} (if present).
+     * May include an engine-internal {@code $engine_expression} conjunct that connectors should treat as opaque.
+     *
+     * @return an expression predicate which is different from, and should be AND-ed with, {@link #getSummary}.
      */
+    @JsonProperty("expression")
     public ConnectorExpression getExpression()
     {
         return expression;
     }
 
     /**
-     * @return mappings from variable names to table column handles
-     * It is guaranteed that all the required mappings for {@link #getExpression} will be provided but not necessarily *all* the column handles of the table
+     * @return mappings from variable names to column handles for all conjuncts of {@link #getExpression},
+     *         including variables appearing in any {@code $engine_expression} conjunct.
      */
+    @JsonProperty("assignments")
     public Map<String, ColumnHandle> getAssignments()
     {
         return assignments;
-    }
-
-    /**
-     * A predicate that can be used to filter data. If present, it is equivalent to, or stricter than, {@link #getSummary()} and different from, and should be AND-ed with, {@link #getExpression()}.
-     * <p>
-     * For Constraint provided in {@link ConnectorMetadata#applyFilter(ConnectorSession, ConnectorTableHandle, Constraint)},
-     * the predicate cannot be held on to after the call returns.
-     *
-     * @see #getPredicateColumns()
-     */
-    public Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate()
-    {
-        return predicate;
-    }
-
-    /**
-     * Set of columns the {@link #predicate()} result depends on. It's present if and only if {@link #predicate()} is present.
-     */
-    public Optional<Set<ColumnHandle>> getPredicateColumns()
-    {
-        return predicateColumns;
     }
 
     @Override
@@ -145,8 +100,20 @@ public class Constraint
         StringJoiner stringJoiner = new StringJoiner(", ", Constraint.class.getSimpleName() + "[", "]");
         stringJoiner.add("summary=" + summary);
         stringJoiner.add("expression=" + expression);
-        predicate.ifPresent(predicate -> stringJoiner.add("predicate=" + predicate));
-        predicateColumns.ifPresent(predicateColumns -> stringJoiner.add("predicateColumns=" + predicateColumns));
         return stringJoiner.toString();
+    }
+
+    private static boolean allVariablesCovered(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        Deque<ConnectorExpression> stack = new ArrayDeque<>();
+        stack.push(expression);
+        while (!stack.isEmpty()) {
+            ConnectorExpression current = stack.pop();
+            if (current instanceof Variable variable && !assignments.containsKey(variable.getName())) {
+                return false;
+            }
+            stack.addAll(current.getChildren());
+        }
+        return true;
     }
 }

@@ -147,7 +147,8 @@ public class TestSqlServerTableStatistics
     {
         String tableName = "test_stats_table_with_nulls";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " AS " +
                         "SELECT " +
                         "    orderkey, " +

@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledLocation.CoordinatorLocation;
+import io.trino.spi.spool.SpooledLocation.DirectLocation;
 import io.trino.spi.spool.SpooledSegmentHandle;
 import io.trino.spi.spool.SpoolingContext;
 import io.trino.spi.spool.SpoolingManager;
@@ -37,8 +39,6 @@ import java.util.Optional;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static io.trino.spi.spool.SpooledLocation.CoordinatorLocation;
-import static io.trino.spi.spool.SpooledLocation.DirectLocation;
 import static io.trino.spi.spool.SpooledLocation.coordinatorLocation;
 import static java.util.Base64.getUrlDecoder;
 import static java.util.Base64.getUrlEncoder;
@@ -98,8 +98,7 @@ public class SpoolingManagerBridge
                     .orElseThrow(() -> new ServiceUnavailableException("Retrieval mode is DIRECT but cannot generate pre-signed URI")));
             case COORDINATOR_STORAGE_REDIRECT, WORKER_PROXY, COORDINATOR_PROXY -> switch (delegate().location(handle)) {
                 case DirectLocation _ -> throw new IllegalStateException("Expected coordinator location but got direct one");
-                case CoordinatorLocation coordinatorLocation ->
-                        coordinatorLocation(toUri(secretKey, coordinatorLocation.identifier()), coordinatorLocation.headers());
+                case CoordinatorLocation coordinatorLocation -> coordinatorLocation(toUri(secretKey, coordinatorLocation.identifier()), coordinatorLocation.headers());
             };
         };
     }

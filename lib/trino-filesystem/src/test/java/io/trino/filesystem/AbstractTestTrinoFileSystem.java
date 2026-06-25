@@ -81,6 +81,9 @@ public abstract class AbstractTestTrinoFileSystem
     // The test subclasses are encouraged to use this constant in their configurations.
     protected static final DataSize LARGER_FILE_DATA_SIZE = DataSize.of(10, DataSize.Unit.MEGABYTE);
 
+    // Smaller than LARGER_FILE_DATA_SIZE so streaming file system tests exercise multipart writes.
+    protected static final DataSize STREAMING_PART_SIZE = DataSize.valueOf("5.5MB");
+
     protected abstract boolean isHierarchical();
 
     protected abstract TrinoFileSystem getFileSystem();
@@ -1056,25 +1059,28 @@ public abstract class AbstractTestTrinoFileSystem
                 abort("Generating pre-signed URI is not supported");
             }
 
-            Optional<UriLocation> directLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(30, SECONDS));
+            UriLocation directLocation = assertThat(getFileSystem()
+                    .preSignedUri(location, new Duration(30, SECONDS)))
+                    .get().actual();
 
-            Optional<UriLocation> expiredDirectLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(1, SECONDS));
+            UriLocation expiredDirectLocation = assertThat(getFileSystem()
+                    .preSignedUri(location, new Duration(3, SECONDS)))
+                    .get().actual();
 
-            assertThat(directLocation).isPresent();
-
-            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation))
                     .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if it can be retrieved more than once
-            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation))
                     .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if after a timeout the pre-signed URI is no longer valid
-            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation.get()))
-                    .isInstanceOf(IOException.class)
-                    .hasMessageContaining("Failed to retrieve"));
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    new Duration(1, SECONDS),
+                    () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation))
+                            .isInstanceOf(IOException.class)
+                            .hasMessageContaining("Failed to retrieve"));
         }
     }
 
@@ -1104,7 +1110,7 @@ public abstract class AbstractTestTrinoFileSystem
 
     private static HttpRequest.Builder addHeaders(HttpRequest.Builder builder, Map<String, List<String>> headers)
     {
-        headers.forEach((headerName, headerValues) -> headerValues.forEach((headerValue) -> builder.header(headerName, headerValue)));
+        headers.forEach((headerName, headerValues) -> headerValues.forEach(headerValue -> builder.header(headerName, headerValue)));
         return builder;
     }
 

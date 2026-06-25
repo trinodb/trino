@@ -25,23 +25,27 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionAnalysisException;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
@@ -50,11 +54,13 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.Analysis.OperandAndPredicate;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
 import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
@@ -71,13 +77,16 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
@@ -89,6 +98,7 @@ import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DistinctFromPredicate;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -106,7 +116,6 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalQualifier;
-import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
@@ -127,17 +136,22 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicate;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
@@ -148,18 +162,19 @@ import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -189,6 +204,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION_NAME;
+import static io.trino.operator.scalar.StringFunctions.OVERLAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
@@ -272,8 +289,8 @@ import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.
 import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -305,6 +322,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Locale.ENGLISH;
@@ -327,8 +345,11 @@ public class ExpressionAnalyzer
     private final Cache<String, Type> varcharCastableTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
     private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
+    private final Set<NodeRef<UniquePredicate>> uniquePredicates = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
 
     // Coercions needed for window function frame of type RANGE.
@@ -341,11 +362,13 @@ public class ExpressionAnalyzer
     // Functions for calculating frame bounds for frame of type RANGE, identified by frame range offset expression.
     private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
 
-    private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
-    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
+    private final List<OperandAndPredicate> subqueryInPredicates = new ArrayList<>();
+    private final Map<NodeRef<Predicate>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
-    private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons = new LinkedHashSet<>();
+    private final Map<NodeRef<NullIfExpression>, Type> nullIfComparisonTypes = new LinkedHashMap<>();
+    private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
+    private final List<OperandAndPredicate> matchPredicates = new ArrayList<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
@@ -390,8 +413,7 @@ public class ExpressionAnalyzer
             Session session,
             WarningCollector warningCollector)
     {
-        this(
-                plannerContext,
+        this(plannerContext,
                 accessControl,
                 (_, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
                         analysis,
@@ -425,7 +447,7 @@ public class ExpressionAnalyzer
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
         this.getPreanalyzedType = requireNonNull(getPreanalyzedType, "getPreanalyzedType is null");
         this.getResolvedWindow = requireNonNull(getResolvedWindow, "getResolvedWindow is null");
         this.functionResolver = plannerContext.getFunctionResolver(warningCollector);
@@ -434,6 +456,16 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Node>, ResolvedFunction> getResolvedFunctions()
     {
         return unmodifiableMap(resolvedFunctions);
+    }
+
+    public Map<NodeRef<FunctionCall>, Identifier> getMethodCallReceivers()
+    {
+        return unmodifiableMap(methodCallReceivers);
+    }
+
+    public Map<NodeRef<Expression>, List<Integer>> getArgumentBindings()
+    {
+        return unmodifiableMap(argumentBindings);
     }
 
     public Map<NodeRef<Expression>, Type> getExpressionTypes()
@@ -465,6 +497,11 @@ public class ExpressionAnalyzer
         return unmodifiableMap(expressionCoercions);
     }
 
+    public Map<NodeRef<NullIfExpression>, Type> getNullIfComparisonTypes()
+    {
+        return unmodifiableMap(nullIfComparisonTypes);
+    }
+
     public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundCalculation()
     {
         return unmodifiableMap(sortKeyCoercionsForFrameBoundCalculation);
@@ -480,12 +517,12 @@ public class ExpressionAnalyzer
         return unmodifiableMap(frameBoundCalculations);
     }
 
-    public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
+    public List<OperandAndPredicate> getSubqueryInPredicates()
     {
-        return unmodifiableSet(subqueryInPredicates);
+        return unmodifiableList(subqueryInPredicates);
     }
 
-    public Map<NodeRef<Expression>, PredicateCoercions> getPredicateCoercions()
+    public Map<NodeRef<Predicate>, PredicateCoercions> getPredicateCoercions()
     {
         return unmodifiableMap(predicateCoercions);
     }
@@ -547,7 +584,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonValueExpression(ValueColumn column, JsonPathAnalysis pathAnalysis, Scope scope, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonValueExpression(
                 "JSON_TABLE",
                 column,
@@ -564,7 +601,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonQueryExpression(QueryColumn column, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonQueryExpression(
                 column,
                 column.getWrapperBehavior(),
@@ -590,9 +627,19 @@ public class ExpressionAnalyzer
         return unmodifiableSet(existsSubqueries);
     }
 
-    public Set<NodeRef<QuantifiedComparisonExpression>> getQuantifiedComparisons()
+    public Set<NodeRef<UniquePredicate>> getUniquePredicates()
     {
-        return unmodifiableSet(quantifiedComparisons);
+        return unmodifiableSet(uniquePredicates);
+    }
+
+    public List<OperandAndPredicate> getQuantifiedComparisons()
+    {
+        return unmodifiableList(quantifiedComparisons);
+    }
+
+    public List<OperandAndPredicate> getMatchPredicates()
+    {
+        return ImmutableList.copyOf(matchPredicates);
     }
 
     public Set<NodeRef<FunctionCall>> getWindowFunctions()
@@ -903,32 +950,75 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitComparisonExpression(ComparisonExpression node, Context context)
+        protected Type visitPredicated(Predicated node, Context context)
         {
-            OperatorType operatorType = switch (node.getOperator()) {
+            return switch (node.getPredicate()) {
+                case BetweenPredicate predicate -> analyzeBetween(node.getValue(), predicate, node, context);
+                case BooleanTestPredicate _ -> analyzeBooleanTest(node.getValue(), node, context);
+                case ComparisonPredicate predicate -> analyzeComparison(node.getValue(), predicate, node, context);
+                case DistinctFromPredicate predicate -> analyzeDistinctFrom(node.getValue(), predicate, node, context);
+                case InPredicate predicate -> analyzeIn(node.getValue(), predicate, node, context);
+                case IsNullPredicate _ -> analyzeIsNull(node.getValue(), node, context);
+                case LikePredicate predicate -> analyzeLike(node.getValue(), predicate, node, context);
+                case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
+                case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
+            };
+        }
+
+        private Type analyzeBetween(Expression value, BetweenPredicate predicate, Expression anchor, Context context)
+        {
+            Type valueType = process(value, context);
+            Type minType = process(predicate.getMin(), context);
+            Type maxType = process(predicate.getMax(), context);
+
+            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueType, minType)
+                    .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
+
+            if (commonType.isEmpty()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            if (!commonType.get().isOrderable()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            if (!valueType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(value, commonType.get());
+            }
+            if (!minType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(predicate.getMin(), commonType.get());
+            }
+            if (!maxType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(predicate.getMax(), commonType.get());
+            }
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type analyzeComparison(Expression value, ComparisonPredicate predicate, Expression anchor, Context context)
+        {
+            OperatorType operatorType = switch (predicate.getOperator()) {
                 case EQUAL, NOT_EQUAL -> OperatorType.EQUAL;
                 case LESS_THAN, GREATER_THAN -> OperatorType.LESS_THAN;
                 case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> OperatorType.LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM -> OperatorType.IDENTICAL;
             };
-
-            return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+            return getOperator(context, anchor, operatorType, value, predicate.getRight());
         }
 
-        @Override
-        protected Type visitIsNullPredicate(IsNullPredicate node, Context context)
+        private Type analyzeDistinctFrom(Expression value, DistinctFromPredicate predicate, Expression anchor, Context context)
         {
-            process(node.getValue(), context);
-
-            return setExpressionType(node, BOOLEAN);
+            return getOperator(context, anchor, OperatorType.IDENTICAL, value, predicate.getRight());
         }
 
-        @Override
-        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, Context context)
+        private Type analyzeIsNull(Expression value, Expression anchor, Context context)
         {
-            process(node.getValue(), context);
+            process(value, context);
+            return setExpressionType(anchor, BOOLEAN);
+        }
 
-            return setExpressionType(node, BOOLEAN);
+        private Type analyzeBooleanTest(Expression value, Expression anchor, Context context)
+        {
+            coerceType(context, value, BOOLEAN, "Boolean test value");
+            return setExpressionType(anchor, BOOLEAN);
         }
 
         @Override
@@ -937,9 +1027,9 @@ public class ExpressionAnalyzer
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
 
-            if (typeCoercion.getCommonSuperType(firstType, secondType).isEmpty()) {
-                throw semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
-            }
+            Type comparisonType = typeCoercion.getCommonSuperType(firstType, secondType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType));
+            nullIfComparisonTypes.put(NodeRef.of(node), comparisonType);
 
             return setExpressionType(node, firstType);
         }
@@ -964,10 +1054,14 @@ public class ExpressionAnalyzer
         protected Type visitSearchedCaseExpression(SearchedCaseExpression node, Context context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                coerceType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
+                switch (whenClause.getMatch()) {
+                    case WhenClause.Operand operand -> coerceType(context, operand.expression(), BOOLEAN, "CASE WHEN clause");
+                    case WhenClause.Partial _ -> throw new IllegalStateException("WHEN with a predicate fragment is not allowed in searched CASE; should have been rejected by the parser");
+                }
             }
 
-            Type type = coerceToSingleType(context,
+            Type type = coerceToSingleType(
+                    context,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -983,9 +1077,10 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSimpleCaseExpression(SimpleCaseExpression node, Context context)
         {
-            coerceCaseOperandToToSingleType(node, context);
+            coerceCaseOperandToSingleType(node, context);
 
-            Type type = coerceToSingleType(context,
+            Type type = coerceToSingleType(
+                    context,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -998,34 +1093,82 @@ public class ExpressionAnalyzer
             return type;
         }
 
-        private void coerceCaseOperandToToSingleType(SimpleCaseExpression node, Context context)
+        private void coerceCaseOperandToSingleType(SimpleCaseExpression node, Context context)
         {
-            Type operandType = process(node.getOperand(), context);
+            Expression operand = node.getOperand();
+            Type operandType = process(operand, context);
 
             List<WhenClause> whenClauses = node.getWhenClauses();
-            List<Type> whenOperandTypes = new ArrayList<>(whenClauses.size());
 
-            Type commonType = operandType;
+            // Type-check each F262 predicate-fragment WHEN through the shared predicate analysis
+            // methods, passing the case operand as the implicit LHS and the WHEN clause as the
+            // node anchoring types, errors, and subquery registration. This validates operator
+            // resolution, coerces LIKE patterns, and registers subqueries.
             for (WhenClause whenClause : whenClauses) {
-                Expression whenOperand = whenClause.getOperand();
-                Type whenOperandType = process(whenOperand, context);
-                whenOperandTypes.add(whenOperandType);
+                if (whenClause.getMatch() instanceof WhenClause.Partial(Predicate predicate)) {
+                    switch (predicate) {
+                        case BetweenPredicate fragment -> analyzeBetween(operand, fragment, whenClause, context);
+                        case BooleanTestPredicate _ -> analyzeBooleanTest(operand, whenClause, context);
+                        case ComparisonPredicate fragment -> analyzeComparison(operand, fragment, whenClause, context);
+                        case DistinctFromPredicate fragment -> analyzeDistinctFrom(operand, fragment, whenClause, context);
+                        case InPredicate fragment -> analyzeIn(operand, fragment, whenClause, context);
+                        case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
+                        case LikePredicate fragment -> analyzeLike(operand, fragment, whenClause, context);
+                        case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
+                        case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
+                    }
+                }
+            }
 
-                commonType = typeCoercion.getCommonSuperType(commonType, whenOperandType)
-                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType));
+            // The case operand is evaluated once and shared by every clause, so all clauses must
+            // agree on a single operand type. Reconcile the operand with every value it is
+            // directly compared against — equality WHEN values and the value parts of
+            // comparison / BETWEEN / IN-list / IS DISTINCT FROM fragments — into one common
+            // supertype, then coerce the operand and those values to it. This overrides the
+            // narrower per-clause coercions applied above, which each saw only their own clause.
+            List<Expression> comparedValues = new ArrayList<>();
+            for (WhenClause whenClause : whenClauses) {
+                switch (whenClause.getMatch()) {
+                    case WhenClause.Operand match -> comparedValues.add(match.expression());
+                    case WhenClause.Partial(Predicate predicate) -> comparedValues.addAll(operandComparedValues(predicate));
+                }
+            }
+            if (comparedValues.isEmpty()) {
+                return;
+            }
+
+            List<Type> valueTypes = new ArrayList<>(comparedValues.size());
+            Type commonType = operandType;
+            for (Expression value : comparedValues) {
+                Type valueType = process(value, context);
+                valueTypes.add(valueType);
+                commonType = typeCoercion.getCommonSuperType(commonType, valueType)
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, value, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, valueType));
             }
 
             if (commonType != operandType) {
-                addOrReplaceExpressionCoercion(node.getOperand(), commonType);
+                addOrReplaceExpressionCoercion(operand, commonType);
             }
-
-            for (int i = 0; i < whenOperandTypes.size(); i++) {
-                Type whenOperandType = whenOperandTypes.get(i);
-                if (!whenOperandType.equals(commonType)) {
-                    Expression whenOperand = whenClauses.get(i).getOperand();
-                    addOrReplaceExpressionCoercion(whenOperand, commonType);
+            for (int i = 0; i < valueTypes.size(); i++) {
+                if (!valueTypes.get(i).equals(commonType)) {
+                    addOrReplaceExpressionCoercion(comparedValues.get(i), commonType);
                 }
             }
+        }
+
+        /// The values inside a F262 predicate fragment that are directly compared against the case
+        /// operand and must therefore reconcile to a common type with it. LIKE and IS NULL impose
+        /// no such value; subquery-bearing IN and quantified-comparison fragments reconcile through
+        /// the regular predicate analysis path instead.
+        private static List<Expression> operandComparedValues(Predicate predicate)
+        {
+            return switch (predicate) {
+                case ComparisonPredicate comparison -> ImmutableList.of(comparison.getRight());
+                case BetweenPredicate between -> ImmutableList.of(between.getMin(), between.getMax());
+                case DistinctFromPredicate distinct -> ImmutableList.of(distinct.getRight());
+                case InPredicate in when in.getValueList() instanceof InListExpression list -> list.getValues();
+                default -> ImmutableList.of();
+            };
         }
 
         private List<Expression> getCaseResultExpressions(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
@@ -1070,21 +1213,20 @@ public class ExpressionAnalyzer
             return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
 
-        @Override
-        protected Type visitLikePredicate(LikePredicate node, Context context)
+        private Type analyzeLike(Expression value, LikePredicate predicate, Expression anchor, Context context)
         {
-            Type valueType = process(node.getValue(), context);
+            Type valueType = process(value, context);
             if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
-                coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
+                coerceType(context, value, VARCHAR, "Left side of LIKE expression");
             }
 
-            Type patternType = process(node.getPattern(), context);
+            Type patternType = process(predicate.getPattern(), context);
             if (!(patternType instanceof VarcharType)) {
                 // TODO can pattern be of char type?
-                coerceType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
+                coerceType(context, predicate.getPattern(), VARCHAR, "Pattern for LIKE expression");
             }
-            if (node.getEscape().isPresent()) {
-                Expression escape = node.getEscape().get();
+            if (predicate.getEscape().isPresent()) {
+                Expression escape = predicate.getEscape().get();
                 Type escapeType = process(escape, context);
                 if (!(escapeType instanceof VarcharType)) {
                     // TODO can escape be of char type?
@@ -1092,7 +1234,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(anchor, BOOLEAN);
         }
 
         @Override
@@ -1127,7 +1269,7 @@ public class ExpressionAnalyzer
         protected Type visitArray(Array node, Context context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
-            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
+            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
             return setExpressionType(node, arrayType);
         }
 
@@ -1306,12 +1448,20 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, Context context)
         {
+            // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
+            // of the form A.B(args) is treated as a method invocation if it satisfies
+            // the rules for one; otherwise it is a routine invocation.
+            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context);
+            if (asMethod.isPresent()) {
+                return asMethod.get();
+            }
+
             boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
             boolean isRowPatternCount = context.isPatternRecognition() &&
                     isAggregation &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
             // argument of the form `label.*` is only allowed for row pattern count function
-            node.getArguments().stream()
+            node.argumentValues().stream()
                     .filter(DereferenceExpression::isQualifiedAllFieldsReference)
                     .findAny()
                     .ifPresent(allRowsReference -> {
@@ -1319,6 +1469,10 @@ public class ExpressionAnalyzer
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, allRowsReference, "label.* syntax is only supported as the only argument of row pattern count function");
                         }
                     });
+
+            if (node.hasNamedArguments() && isPatternRecognitionFunction(node)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "Named arguments are not supported for pattern recognition function %s", node.getName());
+            }
 
             if (context.isPatternRecognition()) {
                 if (isPatternRecognitionFunction(node)) {
@@ -1378,14 +1532,24 @@ public class ExpressionAnalyzer
                 coerceType(expression, type, BOOLEAN, "Filter expression");
             }
 
-            List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
+            List<Expression> argumentValues = node.argumentValues();
+            List<TypeDescriptorProvider> rawTypes = getCallArgumentTypes(argumentValues, context);
+            // rawTypes may be shorter than the AST argument count when a `label.*`
+            // entry is consumed by getCallArgumentTypes; bind to rawTypes.size() so
+            // identity-binding of positional calls still indexes safely.
+            boolean hasNamedArguments = node.hasNamedArguments();
+            List<Integer> argumentBinding = hasNamedArguments
+                    ? computeArgumentBinding(node)
+                    : identityBinding(rawTypes.size());
+            List<TypeDescriptorProvider> argumentTypes = argumentBinding.stream()
+                    .map(rawTypes::get)
+                    .collect(toImmutableList());
 
             if (QualifiedName.of("LISTAGG").equals(node.getName())) {
                 // Due to fact that the LISTAGG function is transformed out of pragmatic reasons
                 // in a synthetic function call, the type expression of this function call is evaluated
                 // explicitly here in order to make sure that it is a varchar.
-                List<Expression> arguments = node.getArguments();
-                Expression expression = arguments.getFirst();
+                Expression expression = argumentValues.getFirst();
                 Type expressionType = process(expression, context);
                 if (!(expressionType instanceof VarcharType)) {
                     throw semanticException(TYPE_MISMATCH, node, "Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName());
@@ -1429,7 +1593,7 @@ public class ExpressionAnalyzer
 
             BoundSignature signature = function.signature();
             for (int i = 0; i < argumentTypes.size(); i++) {
-                Expression expression = node.getArguments().get(i);
+                Expression expression = node.getArguments().get(argumentBinding.get(i)).getValue();
                 Type expectedType = signature.getArgumentTypes().get(i);
                 if (expectedType == null) {
                     throw new NullPointerException(format("Type '%s' not found", signature.getArgumentTypes().get(i)));
@@ -1442,11 +1606,12 @@ public class ExpressionAnalyzer
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
+            argumentBindings.put(NodeRef.<Expression>of(node), argumentBinding);
 
             // must run after arguments are processed and labels are recorded
             if (context.isPatternRecognition() && isAggregation) {
@@ -1455,6 +1620,437 @@ public class ExpressionAnalyzer
 
             Type type = signature.getReturnType();
             return setExpressionType(node, type);
+        }
+
+        /// Computes the binding from signature-position to AST argument index. Returns the
+        /// identity binding for a call without named arguments; otherwise pairs each named
+        /// argument with the position where its name appears in the function's declared
+        /// parameter names, leaving positional arguments at their written positions.
+        ///
+        // TODO: name-to-position resolution properly belongs in the function binder / type
+        //  inference engine. Doing it here means we walk the function search path twice —
+        //  once for the binding, once for the type-based resolution. Lifting it into the
+        //  binder is a much bigger change.
+        private List<Integer> computeArgumentBinding(FunctionCall node)
+        {
+            // SQL name resolution picks the first path entry that has any candidate;
+            // we stop iterating the path after that. Registration enforces that
+            // overloads of the same name at the same arity place each named parameter
+            // at the same position (see InternalFunctionBundle), so the first
+            // arity-matching overload that fits is enough to build the binding.
+            return computeArgumentBinding(node.getArguments(), findCandidates(node.getName()), 0, node, "function " + node.getName());
+        }
+
+        /// Computes the binding from declared-argument position to AST argument index for
+        /// a call with named arguments. `candidates` are the overloads in scope for the
+        /// callee; `receiverSlots` is the number of leading signature slots not visible to
+        /// the caller (1 for an instance method's `self`, 0 otherwise). `subject` names the
+        /// callee for diagnostics (for example `function foo` or `method bar`).
+        private List<Integer> computeArgumentBinding(List<CallArgument> arguments, List<FunctionMetadata> candidates, int receiverSlots, Node errorNode, String subject)
+        {
+            int arity = arguments.size();
+            int firstNamedArgument = findFirstNamedArgument(arguments);
+            verifyNoDuplicateNames(arguments);
+
+            Optional<FunctionMetadata> chosen = Optional.empty();
+            for (FunctionMetadata candidate : candidates) {
+                if (candidate.getSignature().isVariableArity()) {
+                    // Variadic + named args is intentionally unsupported.
+                    continue;
+                }
+                List<Signature.Argument> declared = callerVisibleArguments(candidate, receiverSlots);
+                if (declared.size() == arity && satisfiesNamedArguments(arguments, firstNamedArgument, declared)) {
+                    chosen = Optional.of(candidate);
+                    break;
+                }
+            }
+
+            if (chosen.isEmpty()) {
+                Set<String> knownNames = new LinkedHashSet<>();
+                for (FunctionMetadata candidate : candidates) {
+                    if (candidate.getSignature().isVariableArity()) {
+                        continue;
+                    }
+                    callerVisibleArguments(candidate, receiverSlots).forEach(argument -> argument.name().ifPresent(knownNames::add));
+                }
+                for (int i = firstNamedArgument; i < arity; i++) {
+                    Identifier name = arguments.get(i).getName().orElseThrow();
+                    if (!knownNames.contains(name.getValue())) {
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, name, "No argument named %s for %s", name.getValue(), subject);
+                    }
+                }
+                // Names are known but no overload accepts them — typically because a
+                // name maps to a slot already supplied positionally. Surface that
+                // specifically; otherwise fall through to a generic message.
+                for (FunctionMetadata candidate : candidates) {
+                    for (int i = firstNamedArgument; i < arity; i++) {
+                        Identifier name = arguments.get(i).getName().orElseThrow();
+                        OptionalInt declaredPosition = findArgumentPosition(callerVisibleArguments(candidate, receiverSlots), name.getValue());
+                        if (declaredPosition.isPresent() && declaredPosition.getAsInt() < firstNamedArgument) {
+                            throw semanticException(
+                                    INVALID_FUNCTION_ARGUMENT,
+                                    name,
+                                    "Named argument %s for %s refers to parameter position %s, which is already supplied positionally",
+                                    name.getValue(),
+                                    subject,
+                                    declaredPosition.getAsInt());
+                        }
+                    }
+                }
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, errorNode, "No overload of %s accepts the given named arguments", subject);
+            }
+
+            List<Signature.Argument> chosenArguments = callerVisibleArguments(chosen.get(), receiverSlots);
+            List<Integer> binding = new ArrayList<>(identityBinding(arity));
+            for (int i = firstNamedArgument; i < arity; i++) {
+                Identifier name = arguments.get(i).getName().orElseThrow();
+                int signaturePosition = findArgumentPosition(chosenArguments, name.getValue()).orElseThrow();
+                binding.set(signaturePosition, i);
+            }
+            return List.copyOf(binding);
+        }
+
+        /// Returns the declared arguments visible to the caller, dropping the leading
+        /// `receiverSlots` entries that the call syntax supplies implicitly (an instance
+        /// method's `self`).
+        private static List<Signature.Argument> callerVisibleArguments(FunctionMetadata candidate, int receiverSlots)
+        {
+            List<Signature.Argument> arguments = candidate.getSignature().getArguments();
+            return arguments.subList(receiverSlots, arguments.size());
+        }
+
+        private List<FunctionMetadata> findInstanceMethodCandidates(String methodName, Type receiverType)
+        {
+            String receiverBase = receiverType.getTypeDescriptor().getBase();
+            return findMethodCandidates(methodName, candidate -> candidate.isInstanceMethod()
+                    && candidate.getReceiverType().map(TypeTemplate::baseName).equals(Optional.of(receiverBase)));
+        }
+
+        private List<FunctionMetadata> findStaticMethodCandidates(String methodName, String receiverBase)
+        {
+            return findMethodCandidates(methodName, candidate -> !candidate.isInstanceMethod()
+                    && candidate.getReceiverType().map(TypeTemplate::baseName).equals(Optional.of(receiverBase)));
+        }
+
+        /// Returns the method overloads named `methodName` from the first function-path
+        /// entry that declares one matching `filter` (instance vs static and receiver
+        /// type). This follows the same first-path-entry strategy as [#findCandidates]
+        /// — and inherits the same approximation of [FunctionResolver]'s binding, which
+        /// aggregates across the path: name binding only reads parameter names, and
+        /// registration keeps each name at a stable position per name+arity, so the
+        /// first matching entry's overloads are enough to build the binding.
+        private List<FunctionMetadata> findMethodCandidates(String methodName, java.util.function.Predicate<FunctionMetadata> filter)
+        {
+            for (CatalogSchemaFunctionName candidateName : FunctionResolver.toPath(session, QualifiedName.of(methodName), accessControl)) {
+                List<FunctionMetadata> matching = plannerContext.getMetadata().getFunctions(session, candidateName).stream()
+                        .map(CatalogFunctionMetadata::functionMetadata)
+                        .filter(filter)
+                        .collect(toImmutableList());
+                if (!matching.isEmpty()) {
+                    return matching;
+                }
+            }
+            return List.of();
+        }
+
+        /// Returns the index of the first named argument (or `arguments.size()` for
+        /// a purely positional call). Throws if any positional argument appears after
+        /// a named one, enforcing the SQL-spec "positional before named" rule.
+        private static int findFirstNamedArgument(List<CallArgument> arguments)
+        {
+            int position = 0;
+            while (position < arguments.size() && arguments.get(position).getName().isEmpty()) {
+                position++;
+            }
+            for (int i = position; i < arguments.size(); i++) {
+                if (arguments.get(i).getName().isEmpty()) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, arguments.get(i), "Positional arguments cannot follow named arguments");
+                }
+            }
+            return position;
+        }
+
+        private static void verifyNoDuplicateNames(List<CallArgument> arguments)
+        {
+            Set<String> seen = new HashSet<>();
+            for (int i = 0; i < arguments.size(); i++) {
+                if (arguments.get(i).getName().isEmpty()) {
+                    continue;
+                }
+                Identifier name = arguments.get(i).getName().orElseThrow();
+                if (!seen.add(name.getValue())) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, name, "Duplicate named argument: %s", name.getValue());
+                }
+            }
+        }
+
+        private static boolean satisfiesNamedArguments(List<CallArgument> actualArguments, int firstNamedArgument, List<Signature.Argument> formalArguments)
+        {
+            for (int i = firstNamedArgument; i < actualArguments.size(); i++) {
+                String name = actualArguments.get(i).getName().orElseThrow().getValue();
+                OptionalInt declaredPosition = findArgumentPosition(formalArguments, name);
+                if (declaredPosition.isEmpty() || declaredPosition.getAsInt() < firstNamedArgument) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private List<FunctionMetadata> findCandidates(QualifiedName name)
+        {
+            for (CatalogSchemaFunctionName candidateName : FunctionResolver.toPath(session, name, accessControl)) {
+                Collection<CatalogFunctionMetadata> candidates = plannerContext.getMetadata().getFunctions(session, candidateName);
+                if (!candidates.isEmpty()) {
+                    return candidates.stream()
+                            .map(CatalogFunctionMetadata::functionMetadata)
+                            .collect(toImmutableList());
+                }
+            }
+            return List.of();
+        }
+
+        private static OptionalInt findArgumentPosition(List<Signature.Argument> arguments, String name)
+        {
+            for (int i = 0; i < arguments.size(); i++) {
+                if (arguments.get(i).name().equals(Optional.of(name))) {
+                    return OptionalInt.of(i);
+                }
+            }
+            return OptionalInt.empty();
+        }
+
+        private static List<Integer> identityBinding(int arity)
+        {
+            ImmutableList.Builder<Integer> result = ImmutableList.builderWithExpectedSize(arity);
+            for (int i = 0; i < arity; i++) {
+                result.add(i);
+            }
+            return result.build();
+        }
+
+        /// Returns the argument values reordered into declared-signature order, as given
+        /// by `binding` (the identity for a purely positional call).
+        private static List<Expression> orderedArgumentValues(List<CallArgument> arguments, List<Integer> binding)
+        {
+            return binding.stream()
+                    .map(arguments::get)
+                    .map(CallArgument::getValue)
+                    .collect(toImmutableList());
+        }
+
+        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
+        {
+            QualifiedName name = node.getName();
+            if (name.getParts().size() != 2) {
+                return Optional.empty();
+            }
+            if (node.isDistinct()
+                    || node.getFilter().isPresent()
+                    || node.getOrderBy().isPresent()
+                    || node.getWindow().isPresent()
+                    || node.getProcessingMode().isPresent()
+                    || node.getNullTreatment().isPresent()) {
+                return Optional.empty();
+            }
+            if (context.isPatternRecognition() || context.isInWindow()) {
+                return Optional.empty();
+            }
+
+            Identifier receiver = name.getOriginalParts().get(0);
+            Identifier method = name.getOriginalParts().get(1);
+
+            // Method-call interpretation only applies when the receiver resolves
+            // as a field in the current scope. tryResolveField has no side effects
+            // so a non-match leaves the analyzer state untouched.
+            Optional<ResolvedField> resolvedReceiver = context.getScope()
+                    .tryResolveField(receiver, QualifiedName.of(receiver.getValue()));
+            if (resolvedReceiver.isEmpty()) {
+                return Optional.empty();
+            }
+            Type receiverType = resolvedReceiver.get().getField().getType();
+
+            List<CallArgument> arguments = node.getArguments();
+            List<Integer> binding;
+            if (node.hasNamedArguments()) {
+                List<FunctionMetadata> candidates = findInstanceMethodCandidates(method.getValue(), receiverType);
+                if (candidates.isEmpty()) {
+                    // No instance method of this name on the receiver type; let ordinary
+                    // function resolution handle (and reject) the call.
+                    return Optional.empty();
+                }
+                binding = computeArgumentBinding(arguments, candidates, 1, node, "method " + method.getValue());
+            }
+            else {
+                binding = identityBinding(arguments.size());
+            }
+            List<Expression> argumentValues = orderedArgumentValues(arguments, binding);
+
+            MethodResolution resolution;
+            try {
+                resolution = resolveInstanceMethodCall(receiverType, method.getValue(), argumentValues, context);
+            }
+            catch (TrinoException e) {
+                return Optional.empty();
+            }
+
+            // Commit to method-call interpretation: record the receiver field reference.
+            process(receiver, context);
+
+            Type result = analyzeInstanceMethodInvocation(node, receiver, receiverType, method.getValue(), argumentValues, resolution, context);
+            methodCallReceivers.put(NodeRef.of(node), receiver);
+            argumentBindings.put(NodeRef.<Expression>of(node), binding);
+            return Optional.of(result);
+        }
+
+        @Override
+        protected Type visitMethodCall(MethodCall node, Context context)
+        {
+            Type receiverType = process(node.getReceiver(), context);
+            String methodName = node.getMethod().getValue();
+
+            List<CallArgument> arguments = node.getArguments();
+            List<Integer> binding;
+            if (node.hasNamedArguments()) {
+                List<FunctionMetadata> candidates = findInstanceMethodCandidates(methodName, receiverType);
+                // With no instance method of this name on the receiver type, bind positionally so
+                // resolution reports method-not-found rather than a misleading "No argument named ...".
+                binding = candidates.isEmpty()
+                        ? identityBinding(arguments.size())
+                        : computeArgumentBinding(arguments, candidates, 1, node, "method " + methodName);
+            }
+            else {
+                binding = identityBinding(arguments.size());
+            }
+            List<Expression> argumentValues = orderedArgumentValues(arguments, binding);
+
+            MethodResolution resolution;
+            try {
+                resolution = resolveInstanceMethodCall(receiverType, methodName, argumentValues, context);
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+
+            argumentBindings.put(NodeRef.<Expression>of(node), binding);
+            return analyzeInstanceMethodInvocation(node, node.getReceiver(), receiverType, methodName, argumentValues, resolution, context);
+        }
+
+        private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
+        {
+            List<TypeDescriptorProvider> argumentTypes = ImmutableList.<TypeDescriptorProvider>builder()
+                    .add(new TypeDescriptorProvider(receiverType.getTypeDescriptor()))
+                    .addAll(getCallArgumentTypes(arguments, context))
+                    .build();
+            ResolvedFunction function = functionResolver.resolveInstanceMethod(
+                    session,
+                    receiverType.getTypeDescriptor(),
+                    QualifiedName.of(methodName),
+                    argumentTypes,
+                    accessControl);
+            return new MethodResolution(function, argumentTypes);
+        }
+
+        private Type analyzeInstanceMethodInvocation(
+                Expression node,
+                Expression receiver,
+                Type receiverType,
+                String methodName,
+                List<Expression> arguments,
+                MethodResolution resolution,
+                Context context)
+        {
+            if (arguments.size() + 1 > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for method call .%s()", methodName);
+            }
+
+            BoundSignature signature = resolution.function().signature();
+            Type expectedReceiverType = signature.getArgumentTypes().getFirst();
+            coerceType(receiver, receiverType, expectedReceiverType, format("Method .%s receiver", methodName));
+            // Slot 0 of the signature is the receiver (self), so user-visible argument i maps to signature slot i + 1.
+            for (int i = 0; i < arguments.size(); i++) {
+                Expression expression = arguments.get(i);
+                Type expectedType = signature.getArgumentTypes().get(i + 1);
+                if (resolution.argumentTypes().get(i + 1).hasDependency()) {
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
+                }
+                else {
+                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeDescriptor());
+                    coerceType(expression, actualType, expectedType, format("Method .%s argument %d", methodName, i));
+                }
+            }
+            resolvedFunctions.put(NodeRef.of(node), resolution.function());
+            return setExpressionType(node, signature.getReturnType());
+        }
+
+        private record MethodResolution(ResolvedFunction function, List<TypeDescriptorProvider> argumentTypes) {}
+
+        @Override
+        protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
+        {
+            QualifiedName receiver = node.getType();
+            if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
+            }
+            TypeDescriptor receiverSignature = new TypeDescriptor(receiver.getSuffix());
+            String methodName = node.getMethod().getValue();
+
+            List<CallArgument> arguments = node.getArguments();
+            List<Integer> binding;
+            if (node.hasNamedArguments()) {
+                List<FunctionMetadata> candidates = findStaticMethodCandidates(methodName, receiverSignature.getBase());
+                // With no static method of this name on the receiver type, bind positionally so
+                // resolution reports method-not-found rather than a misleading "No argument named ...".
+                binding = candidates.isEmpty()
+                        ? identityBinding(arguments.size())
+                        : computeArgumentBinding(arguments, candidates, 0, node, "static method " + receiver + "::" + methodName);
+            }
+            else {
+                binding = identityBinding(arguments.size());
+            }
+            List<Expression> argumentValues = orderedArgumentValues(arguments, binding);
+
+            List<TypeDescriptorProvider> argumentTypes = getCallArgumentTypes(argumentValues, context);
+
+            ResolvedFunction function;
+            try {
+                function = functionResolver.resolveStaticMethod(
+                        session,
+                        receiverSignature,
+                        QualifiedName.of(methodName),
+                        argumentTypes,
+                        accessControl);
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+
+            if (argumentValues.size() > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for static method call %s::%s()", receiver, methodName);
+            }
+
+            BoundSignature signature = function.signature();
+            for (int i = 0; i < argumentTypes.size(); i++) {
+                Expression expression = argumentValues.get(i);
+                Type expectedType = signature.getArgumentTypes().get(i);
+                if (argumentTypes.get(i).hasDependency()) {
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
+                }
+                else {
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor());
+                    coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, methodName, i));
+                }
+            }
+            resolvedFunctions.put(NodeRef.of(node), function);
+            argumentBindings.put(NodeRef.<Expression>of(node), binding);
+            return setExpressionType(node, signature.getReturnType());
         }
 
         private void analyzeWindow(ResolvedWindow window, Context context, Node originalNode)
@@ -1753,12 +2349,12 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
+        public List<TypeDescriptorProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
         {
-            ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<TypeDescriptorProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression argument : arguments) {
                 if (argument instanceof LambdaExpression) {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(
+                    argumentTypesBuilder.add(new TypeDescriptorProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         plannerContext,
@@ -1775,7 +2371,7 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(lambdaArgument, getExpressionType(lambdaArgument));
                                     }
                                 }
-                                return innerExpressionAnalyzer.analyze(argument, baseScope, context.expectingLambda(types)).getTypeSignature();
+                                return innerExpressionAnalyzer.analyze(argument, baseScope, context.expectingLambda(types)).getTypeDescriptor();
                             }));
                 }
                 else {
@@ -1790,7 +2386,7 @@ public class ExpressionAnalyzer
                         labels.put(NodeRef.of(allRowsDereference), Optional.of(label));
                     }
                     else {
-                        argumentTypesBuilder.add(new TypeSignatureProvider(process(argument, context).getTypeSignature()));
+                        argumentTypesBuilder.add(new TypeDescriptorProvider(process(argument, context).getTypeDescriptor()));
                     }
                 }
             }
@@ -1821,7 +2417,7 @@ public class ExpressionAnalyzer
 
             Optional<String> label = Optional.empty();
             if (node.getArguments().size() == 1) {
-                Node argument = node.getArguments().getFirst();
+                Expression argument = node.getArguments().getFirst().getValue();
                 if (!(argument instanceof Identifier identifier)) {
                     throw semanticException(TYPE_MISMATCH, argument, "CLASSIFIER function argument should be primary pattern variable or subset name. Actual: %s", argument.getClass().getSimpleName());
                 }
@@ -1853,7 +2449,7 @@ public class ExpressionAnalyzer
 
             Navigation navigation = context.getPatternRecognitionContext().navigation();
             Type type = process(
-                    node.getArguments().getFirst(),
+                    node.getArguments().getFirst().getValue(),
                     context.withNavigation(new Navigation(
                             navigation.anchor(),
                             navigation.mode(),
@@ -1885,7 +2481,7 @@ public class ExpressionAnalyzer
             };
 
             Type type = process(
-                    node.getArguments().getFirst(),
+                    node.getArguments().getFirst().getValue(),
                     context.withNavigation(new Navigation(
                             anchor,
                             mapProcessingMode(node.getProcessingMode()),
@@ -1905,17 +2501,17 @@ public class ExpressionAnalyzer
         private static NavigationMode mapProcessingMode(Optional<ProcessingMode> processingMode)
         {
             return processingMode.map(mode -> switch (mode.getMode()) {
-                case FINAL -> NavigationMode.FINAL;
-                case RUNNING -> NavigationMode.RUNNING;
-            })
-            .orElse(NavigationMode.RUNNING);
+                        case FINAL -> NavigationMode.FINAL;
+                        case RUNNING -> NavigationMode.RUNNING;
+                    })
+                    .orElse(NavigationMode.RUNNING);
         }
 
         private static int getNavigationOffset(FunctionCall node, int defaultOffset)
         {
             int offset = defaultOffset;
             if (node.getArguments().size() == 2) {
-                offset = (int) ((LongLiteral) node.getArguments().get(1)).getParsedValue();
+                offset = (int) ((LongLiteral) node.getArguments().get(1).getValue()).getParsedValue();
             }
             return offset;
         }
@@ -1950,10 +2546,10 @@ public class ExpressionAnalyzer
             }
             if (node.getArguments().size() == 2) {
                 // TODO the offset argument must be effectively constant, not necessarily a number. This could be extended with the use of ConstantAnalyzer.
-                if (!(node.getArguments().get(1) instanceof LongLiteral)) {
+                if (!(node.getArguments().get(1).getValue() instanceof LongLiteral)) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "%s pattern recognition navigation function requires a number as the second argument", node.getName());
                 }
-                long offset = ((LongLiteral) node.getArguments().get(1)).getParsedValue();
+                long offset = ((LongLiteral) node.getArguments().get(1).getValue()).getParsedValue();
                 if (offset < 0) {
                     throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "%s pattern recognition navigation function requires a non-negative number as the second argument (actual: %s)", node.getName(), offset);
                 }
@@ -1969,7 +2565,7 @@ public class ExpressionAnalyzer
             String name = node.getName().getSuffix();
 
             // It is allowed to nest FIRST and LAST functions within PREV and NEXT functions. Only immediate nesting is supported
-            List<FunctionCall> nestedNavigationFunctions = extractExpressions(ImmutableList.of(node.getArguments().getFirst()), FunctionCall.class).stream()
+            List<FunctionCall> nestedNavigationFunctions = extractExpressions(ImmutableList.of(node.getArguments().getFirst().getValue()), FunctionCall.class).stream()
                     .filter(this::isPatternNavigationFunction)
                     .collect(toImmutableList());
             if (!nestedNavigationFunctions.isEmpty()) {
@@ -1977,13 +2573,16 @@ public class ExpressionAnalyzer
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nestedNavigationFunctions.getFirst(),
-                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedNavigationFunctions.getFirst().getName(), name);
+                            "Cannot nest %s pattern navigation function inside %s pattern navigation function",
+                            nestedNavigationFunctions.getFirst().getName(),
+                            name);
                 }
                 if (nestedNavigationFunctions.size() > 1) {
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nestedNavigationFunctions.get(1),
-                            "Cannot nest multiple pattern navigation functions inside %s pattern navigation function", name);
+                            "Cannot nest multiple pattern navigation functions inside %s pattern navigation function",
+                            name);
                 }
                 FunctionCall nested = getOnlyElement(nestedNavigationFunctions);
                 String nestedName = nested.getName().getSuffix();
@@ -1991,9 +2590,11 @@ public class ExpressionAnalyzer
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nested,
-                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedName, name);
+                            "Cannot nest %s pattern navigation function inside %s pattern navigation function",
+                            nestedName,
+                            name);
                 }
-                if (nested != node.getArguments().getFirst()) {
+                if (nested != node.getArguments().getFirst().getValue()) {
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nested,
@@ -2027,16 +2628,17 @@ public class ExpressionAnalyzer
 
         private ArgumentLabel validateLabelConsistency(FunctionCall node, int argumentIndex)
         {
-            Set<Optional<String>> referenceLabels = extractExpressions(node.getArguments(), Expression.class).stream()
+            List<Expression> argumentValues = node.argumentValues();
+            Set<Optional<String>> referenceLabels = extractExpressions(argumentValues, Expression.class).stream()
                     .map(child -> labels.get(NodeRef.of(child)))
                     .filter(Objects::nonNull)
                     .collect(toImmutableSet());
 
-            Set<Optional<String>> classifierLabels = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), FunctionCall.class).stream()
+            Set<Optional<String>> classifierLabels = extractExpressions(ImmutableList.of(argumentValues.get(argumentIndex)), FunctionCall.class).stream()
                     .filter(this::isClassifierFunction)
-                    .map(functionCall -> functionCall.getArguments().stream()
+                    .map(functionCall -> functionCall.argumentValues().stream()
                             .findFirst()
-                            .map(argument -> label((Identifier) argument)))
+                            .map(value -> label((Identifier) value)))
                     .collect(toImmutableSet());
 
             Set<Optional<String>> allLabels = ImmutableSet.<Optional<String>>builder()
@@ -2053,7 +2655,8 @@ public class ExpressionAnalyzer
                 throw semanticException(
                         INVALID_ARGUMENTS,
                         node,
-                        "All labels and classifiers inside the call to '%s' must match", name);
+                        "All labels and classifiers inside the call to '%s' must match",
+                        name);
             }
 
             Optional<String> label = Iterables.getOnlyElement(allLabels);
@@ -2100,11 +2703,13 @@ public class ExpressionAnalyzer
             checkNoNestedNavigations(node);
             Set<String> labels = analyzeAggregationLabels(node);
 
-            List<FunctionCall> matchNumberCalls = extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            List<Expression> argumentValues = node.argumentValues();
+
+            List<FunctionCall> matchNumberCalls = extractExpressions(argumentValues, FunctionCall.class).stream()
                     .filter(this::isMatchNumberFunction)
                     .collect(toImmutableList());
 
-            List<FunctionCall> classifierCalls = extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            List<FunctionCall> classifierCalls = extractExpressions(argumentValues, FunctionCall.class).stream()
                     .filter(this::isClassifierFunction)
                     .collect(toImmutableList());
 
@@ -2112,7 +2717,7 @@ public class ExpressionAnalyzer
                     node,
                     new AggregationDescriptor(
                             function,
-                            node.getArguments(),
+                            argumentValues,
                             mapProcessingMode(node.getProcessingMode()),
                             labels,
                             matchNumberCalls,
@@ -2121,7 +2726,7 @@ public class ExpressionAnalyzer
 
         private void checkNoNestedAggregations(FunctionCall node)
         {
-            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            extractExpressions(node.argumentValues(), FunctionCall.class).stream()
                     .filter(function -> functionResolver.isAggregationFunction(session, function.getName(), accessControl))
                     .findFirst()
                     .ifPresent(aggregation -> {
@@ -2136,7 +2741,7 @@ public class ExpressionAnalyzer
 
         private void checkNoNestedNavigations(FunctionCall node)
         {
-            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            extractExpressions(node.argumentValues(), FunctionCall.class).stream()
                     .filter(this::isPatternNavigationFunction)
                     .findFirst()
                     .ifPresent(navigation -> {
@@ -2154,16 +2759,26 @@ public class ExpressionAnalyzer
         {
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
-            if (!(valueType instanceof TimeWithTimeZoneType) && !(valueType instanceof TimestampWithTimeZoneType) && !(valueType instanceof TimeType) && !(valueType instanceof TimestampType)) {
-                throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
-            }
-            Type resultType = valueType;
-            if (valueType instanceof TimeType timeType) {
-                resultType = createTimeWithTimeZoneType(timeType.getPrecision());
-            }
-            else if (valueType instanceof TimestampType timestampType) {
-                resultType = createTimestampWithTimeZoneType(timestampType.getPrecision());
-            }
+            Type resultType = switch (valueType) {
+                case TimeType type -> createTimeWithTimeZoneType(type.getPrecision());
+                case TimestampType type -> createTimestampWithTimeZoneType(type.getPrecision());
+                case TimeWithTimeZoneType _, TimestampWithTimeZoneType _ -> valueType;
+                default -> throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
+            };
+
+            return setExpressionType(node, resultType);
+        }
+
+        @Override
+        protected Type visitAtLocal(AtLocal node, Context context)
+        {
+            Type valueType = process(node.getValue(), context);
+            Type resultType = switch (valueType) {
+                case TimeType type -> createTimeWithTimeZoneType(type.getPrecision());
+                case TimestampType type -> createTimestampWithTimeZoneType(type.getPrecision());
+                case TimeWithTimeZoneType _, TimestampWithTimeZoneType _ -> valueType;
+                default -> throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
+            };
 
             return setExpressionType(node, resultType);
         }
@@ -2222,6 +2837,33 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitOverlay(Overlay node, Context context)
+        {
+            ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+            argumentTypes.add(process(node.getValue(), context));
+            argumentTypes.add(process(node.getReplacement(), context));
+            argumentTypes.add(process(node.getStart(), context));
+            node.getLength().ifPresent(length -> argumentTypes.add(process(length, context)));
+            List<Type> actualTypes = argumentTypes.build();
+
+            ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(OVERLAY_FUNCTION_NAME, fromTypes(actualTypes));
+
+            List<Type> expectedTypes = function.signature().getArgumentTypes();
+            checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
+
+            coerceType(node.getValue(), actualTypes.get(0), expectedTypes.get(0), "value argument of overlay function");
+            coerceType(node.getReplacement(), actualTypes.get(1), expectedTypes.get(1), "replacement argument of overlay function");
+            coerceType(node.getStart(), actualTypes.get(2), expectedTypes.get(2), "start argument of overlay function");
+            if (node.getLength().isPresent()) {
+                coerceType(node.getLength().get(), actualTypes.get(3), expectedTypes.get(3), "length argument of overlay function");
+            }
+
+            resolvedFunctions.put(NodeRef.of(node), function);
+
+            return setExpressionType(node, function.signature().getReturnType());
+        }
+
+        @Override
         protected Type visitFormat(Format node, Context context)
         {
             List<Type> arguments = node.getArguments().stream()
@@ -2234,7 +2876,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    plannerContext.getMetadata().resolveBuiltinFunction(FormatFunction.NAME, fromTypes(arguments.getFirst(), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    plannerContext.getMetadata().resolveBuiltinFunction(FORMAT_FUNCTION_NAME, fromTypes(arguments.getFirst(), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
@@ -2331,37 +2973,6 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitBetweenPredicate(BetweenPredicate node, Context context)
-        {
-            Type valueType = process(node.getValue(), context);
-            Type minType = process(node.getMin(), context);
-            Type maxType = process(node.getMax(), context);
-
-            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueType, minType)
-                    .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
-
-            if (commonType.isEmpty()) {
-                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
-            }
-
-            if (!commonType.get().isOrderable()) {
-                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
-            }
-
-            if (!valueType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getValue(), commonType.get());
-            }
-            if (!minType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMin(), commonType.get());
-            }
-            if (!maxType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMax(), commonType.get());
-            }
-
-            return setExpressionType(node, BOOLEAN);
-        }
-
-        @Override
         public Type visitTryExpression(TryExpression node, Context context)
         {
             // TRY is rewritten to lambda, and lambda is not supported in pattern recognition
@@ -2378,7 +2989,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
+                type = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getType()));
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getType());
@@ -2401,11 +3012,9 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitInPredicate(InPredicate node, Context context)
+        private Type analyzeIn(Expression value, InPredicate predicate, Expression anchor, Context context)
         {
-            Expression value = node.getValue();
-            Expression valueList = node.getValueList();
+            Expression valueList = predicate.getValueList();
 
             // When an IN-predicate containing a subquery: `x IN (SELECT ...)` is planned, both `value` and `valueList` are pre-planned.
             // In the row pattern matching context, expressions can contain labeled column references, navigations, CALSSIFIER(), and MATCH_NUMBER() calls.
@@ -2437,25 +3046,26 @@ public class ExpressionAnalyzer
                         });
 
                 patternRecognitionInputs.add(new PatternInputAnalysis(
-                        node,
+                        anchor,
                         new ScalarInputDescriptor(Optional.empty(), context.getPatternRecognitionContext().navigation())));
             }
 
             if (valueList instanceof InListExpression inListExpression) {
-                Type type = coerceToSingleType(context,
+                Type type = coerceToSingleType(
+                        context,
                         "IN value and list items",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
                 setExpressionType(inListExpression, type);
             }
             else if (valueList instanceof SubqueryExpression subqueryExpression) {
-                subqueryInPredicates.add(NodeRef.of(node));
-                analyzePredicateWithSubquery(node, process(value, context), subqueryExpression, context);
+                subqueryInPredicates.add(new OperandAndPredicate(value, predicate));
+                analyzePredicateWithSubquery(predicate, process(value, context), subqueryExpression, context);
             }
             else {
-                throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + node.getValueList().getClass().getName());
+                throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + valueList.getClass().getName());
             }
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(anchor, BOOLEAN);
         }
 
         @Override
@@ -2483,7 +3093,7 @@ public class ExpressionAnalyzer
         /**
          * @return the common supertype between the value type and subquery type
          */
-        private Type analyzePredicateWithSubquery(Expression node, Type declaredValueType, SubqueryExpression subquery, Context context)
+        private Type analyzePredicateWithSubquery(Predicate predicate, Type declaredValueType, SubqueryExpression subquery, Context context)
         {
             Type valueRowType = declaredValueType;
             if (!(declaredValueType instanceof RowType) && !(declaredValueType instanceof UnknownType)) {
@@ -2496,7 +3106,7 @@ public class ExpressionAnalyzer
             Optional<Type> commonType = typeCoercion.getCommonSuperType(valueRowType, subqueryType);
 
             if (commonType.isEmpty()) {
-                throw semanticException(TYPE_MISMATCH, node, "Value expression and result of subquery must be of the same type: %s vs %s", valueRowType, subqueryType);
+                throw semanticException(TYPE_MISMATCH, predicate, "Value expression and result of subquery must be of the same type: %s vs %s", valueRowType, subqueryType);
             }
 
             Optional<Type> valueCoercion = Optional.empty();
@@ -2509,7 +3119,7 @@ public class ExpressionAnalyzer
                 subQueryCoercion = commonType;
             }
 
-            predicateCoercions.put(NodeRef.of(node), new PredicateCoercions(valueRowType, valueCoercion, subQueryCoercion));
+            predicateCoercions.put(NodeRef.of(predicate), new PredicateCoercions(valueRowType, valueCoercion, subQueryCoercion));
 
             return commonType.get();
         }
@@ -2577,28 +3187,69 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Context context)
+        protected Type visitUniquePredicate(UniquePredicate node, Context context)
         {
-            quantifiedComparisons.add(NodeRef.of(node));
+            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getCorrelationSupport());
+            Scope subqueryScope = Scope.builder()
+                    .withParent(context.getScope())
+                    .build();
 
-            Type declaredValueType = process(node.getValue(), context);
-            Type comparisonType = analyzePredicateWithSubquery(node, declaredValueType, (SubqueryExpression) node.getSubquery(), context);
+            List<RowType.Field> fields = analyzer.analyze(node.getSubquery(), subqueryScope)
+                    .getRelationType()
+                    .getAllFields().stream()
+                    .map(field -> field.getName()
+                            .map(name -> RowType.field(name, field.getType()))
+                            .orElseGet(() -> RowType.field(field.getType())))
+                    .collect(toImmutableList());
 
-            switch (node.getOperator()) {
+            for (RowType.Field field : fields) {
+                if (!field.getType().isComparable()) {
+                    throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in UNIQUE predicate", field.getType());
+                }
+            }
+
+            setExpressionType(node.getSubquery(), RowType.from(fields));
+
+            uniquePredicates.add(NodeRef.of(node));
+
+            return setExpressionType(node, BOOLEAN);
+        }
+
+        private Type analyzeQuantifiedComparison(Expression value, QuantifiedComparisonPredicate predicate, Expression anchor, Context context)
+        {
+            quantifiedComparisons.add(new OperandAndPredicate(value, predicate));
+
+            Type declaredValueType = process(value, context);
+            Type comparisonType = analyzePredicateWithSubquery(predicate, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
+
+            switch (predicate.getOperator()) {
                 case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                     if (!comparisonType.isOrderable()) {
-                        throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
+                        throw semanticException(TYPE_MISMATCH, anchor, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
                     }
                 }
                 case EQUAL, NOT_EQUAL -> {
                     if (!comparisonType.isComparable()) {
-                        throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
+                        throw semanticException(TYPE_MISMATCH, anchor, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
                     }
                 }
-                default -> throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
             }
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type analyzeMatchPredicate(Expression value, MatchPredicate predicate, Expression anchor, Context context)
+        {
+            matchPredicates.add(new OperandAndPredicate(value, predicate));
+
+            Type declaredValueType = process(value, context);
+            Type comparisonType = analyzePredicateWithSubquery(predicate, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
+
+            if (!comparisonType.isComparable()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Type [%s] must be comparable in order to be used in MATCH predicate", comparisonType);
+            }
+
+            return setExpressionType(anchor, BOOLEAN);
         }
 
         @Override
@@ -2624,8 +3275,12 @@ public class ExpressionAnalyzer
             List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
 
             if (types.size() != lambdaArguments.size()) {
-                throw semanticException(INVALID_PARAMETER_USAGE, node,
-                        "Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size());
+                throw semanticException(
+                        INVALID_PARAMETER_USAGE,
+                        node,
+                        "Expected a lambda that takes %s argument(s) but got %s",
+                        types.size(),
+                        lambdaArguments.size());
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -2746,7 +3401,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
@@ -2898,11 +3553,21 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
+            }
+
+            // SQL:2023 §6.35 SR 3: if the effective returned type is JSON, the quotes behavior shall be KEEP.
+            // OMIT QUOTES would require emitting a bare unquoted scalar, which is not valid JSON; the spec
+            // closes the hole at analysis time, not at runtime (§9.44, which handles the JSON target, has no
+            // QUOTES parameter). On trunk the only reachable JSON-effective return type is an explicit
+            // RETURNING JSON — analyzeJsonPathInvocation's getInputFunction rejects JSON-typed inputs, so
+            // the SR 1 "JSON-typed input with no RETURNING" branch can't be exercised today.
+            if (quotesBehavior.filter(behavior -> behavior == JsonQuery.QuotesBehavior.OMIT).isPresent() && JSON.equals(returnedType)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
             }
             JsonFormat outputFormat = declaredOutputFormat.orElse(JsonFormat.JSON); // default
 
@@ -3035,7 +3700,7 @@ public class ExpressionAnalyzer
 
             return ImmutableList.of(
                     JSON_2016, // input expression
-                    plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), // parsed JSON path representation
+                    plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), // parsed JSON path representation
                     parametersRowType); // passed parameters
         }
 
@@ -3204,7 +3869,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (node.getReturnedType().isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getReturnedType().get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
@@ -3314,7 +3979,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (node.getReturnedType().isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getReturnedType().get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
@@ -3428,7 +4093,9 @@ public class ExpressionAnalyzer
             for (Type type : types) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, type);
                 if (newSuperType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(),
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            Iterables.get(typeExpressions.get(type), 0).getNode(),
                             "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                             description,
                             superType,
@@ -3444,7 +4111,9 @@ public class ExpressionAnalyzer
 
                 if (!type.equals(superType)) {
                     if (!typeCoercion.canCoerce(type, superType)) {
-                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(),
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                Iterables.get(coercionCandidates, 0).getNode(),
                                 "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                                 description,
                                 superType,
@@ -3475,11 +4144,11 @@ public class ExpressionAnalyzer
             boolean valid = (composite.getFrom() instanceof IntervalField.Year() && composite.getTo() instanceof IntervalField.Month()) ||
                     (composite.getFrom() instanceof IntervalField.Day() && (
                             composite.getTo() instanceof IntervalField.Hour() ||
-                            composite.getTo() instanceof IntervalField.Minute() ||
-                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                                    composite.getTo() instanceof IntervalField.Minute() ||
+                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
                     (composite.getFrom() instanceof IntervalField.Hour() && (
                             composite.getTo() instanceof IntervalField.Minute() ||
-                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
                     (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second(OptionalInt _));
 
             if (!valid) {
@@ -3675,6 +4344,8 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -3706,6 +4377,8 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -3734,6 +4407,8 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -3761,6 +4436,8 @@ public class ExpressionAnalyzer
                         analyzer.getExistsSubqueries(),
                         analyzer.getColumnReferences(),
                         analyzer.getQuantifiedComparisons(),
+                        analyzer.getMatchPredicates(),
+                        analyzer.getUniquePredicates(),
                         analyzer.getWindowFunctions()));
     }
 
@@ -3789,6 +4466,8 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions()));
     }
 
@@ -3863,6 +4542,8 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -3873,8 +4554,11 @@ public class ExpressionAnalyzer
                 analyzer.getExpressionCoercions(),
                 analyzer.getSortKeyCoercionsForFrameBoundCalculation(),
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
+        analysis.addNullIfComparisonTypes(analyzer.getNullIfComparisonTypes());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
+        analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));
+        analyzer.getArgumentBindings().forEach((key, value) -> analysis.setArgumentBinding(key.getNode(), value));
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());

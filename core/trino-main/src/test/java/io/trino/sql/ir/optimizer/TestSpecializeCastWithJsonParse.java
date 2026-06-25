@@ -25,6 +25,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -36,7 +37,7 @@ import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NA
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -81,6 +82,6 @@ public class TestSpecializeCastWithJsonParse
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SpecializeCastWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new SpecializeCastWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

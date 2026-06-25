@@ -188,17 +188,17 @@ public final class DistributedQueryRunner
             extraCloseables.forEach(closeable -> closer.register(() -> closeUnchecked(closeable)));
 
             createNewWorker = additionalWorkerProperties -> createServer(
-                        false,
-                        ImmutableMap.<String, String>builder()
-                                .putAll(extraProperties)
-                                .putAll(additionalWorkerProperties)
-                                .buildOrThrow(),
-                        environment,
-                        additionalModule,
-                        baseDataDir,
-                        Optional.empty(),
-                        Optional.of(ImmutableList.of()),
-                        ImmutableList.of());
+                    false,
+                    ImmutableMap.<String, String>builder()
+                            .putAll(extraProperties)
+                            .putAll(additionalWorkerProperties)
+                            .buildOrThrow(),
+                    environment,
+                    additionalModule,
+                    baseDataDir,
+                    Optional.empty(),
+                    Optional.of(ImmutableList.of()),
+                    ImmutableList.of());
 
             for (int i = 0; i < workerCount; i++) {
                 createNewWorker.accept(Map.of());
@@ -732,7 +732,7 @@ public final class DistributedQueryRunner
         }
     }
 
-    public static class Builder<SELF extends Builder<?>>
+    public static class Builder<SELF extends Builder<SELF>>
     {
         private Session defaultSession;
         private boolean withTracing;
@@ -1050,7 +1050,8 @@ public final class DistributedQueryRunner
 
     private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encoding)
     {
-        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory() {
+        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory()
+        {
             @Override
             public StatementClient create(OkHttpClient httpClient, Session session, ClientSession clientSession, String query)
             {

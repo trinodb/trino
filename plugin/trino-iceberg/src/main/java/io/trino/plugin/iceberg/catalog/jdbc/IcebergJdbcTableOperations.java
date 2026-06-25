@@ -69,7 +69,7 @@ public class IcebergJdbcTableOperations
     }
 
     @Override
-    protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    protected void commitMaterializedView(TableMetadata base, TableMetadata metadata)
     {
         throw new UnsupportedOperationException();
     }

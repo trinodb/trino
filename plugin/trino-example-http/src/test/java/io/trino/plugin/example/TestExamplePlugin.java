@@ -29,7 +29,7 @@ final class TestExamplePlugin
         ExamplePlugin plugin = new ExamplePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
-                "test",
+                        "test",
                         Map.of("metadata-uri", "/tmp"),
                         new TestingConnectorContext())
                 .shutdown();

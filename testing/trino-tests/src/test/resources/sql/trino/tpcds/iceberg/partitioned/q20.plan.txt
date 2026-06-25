@@ -4,10 +4,10 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [i_class])
-                        final aggregation over (i_category, i_class, i_current_price, i_item_desc, i_item_id)
+                        final aggregation over (i_item_id, i_item_desc, i_category, i_class, i_current_price)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [i_category, i_class, i_current_price, i_item_desc, i_item_id])
-                                    intermediate aggregation over (i_category, i_class, i_current_price, i_item_desc, i_item_id)
+                                remote exchange (REPARTITION, HASH, [i_item_id, i_item_desc, i_category, i_class, i_current_price])
+                                    intermediate aggregation over (i_item_id, i_item_desc, i_category, i_class, i_current_price)
                                         join (INNER, REPLICATED):
                                             partial aggregation over (cs_item_sk)
                                                 join (INNER, REPLICATED):

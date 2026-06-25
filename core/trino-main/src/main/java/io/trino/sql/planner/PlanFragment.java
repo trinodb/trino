@@ -129,7 +129,9 @@ public class PlanFragment
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
-                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), outputPartitioningScheme.getOutputLayout());
+                "Root node outputs (%s) does not include all fragment outputs (%s)",
+                root.getOutputSymbols(),
+                outputPartitioningScheme.getOutputLayout());
 
         this.partitionedSourceNodes = findSources(root, partitionedSources);
 

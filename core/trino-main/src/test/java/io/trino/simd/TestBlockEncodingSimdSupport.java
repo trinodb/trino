@@ -15,9 +15,17 @@ package io.trino.simd;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 import static io.trino.simd.BlockEncodingSimdSupport.determineSimdSupport;
+import static io.trino.simd.SimdCapability.COMPRESS_BYTE;
+import static io.trino.simd.SimdCapability.COMPRESS_INT;
+import static io.trino.simd.SimdCapability.COMPRESS_LONG;
+import static io.trino.simd.SimdCapability.COMPRESS_SHORT;
+import static io.trino.simd.SimdCapability.EXPAND_INT;
+import static io.trino.simd.SimdCapability.EXPAND_LONG;
+import static io.trino.simd.SimdCapability.NULL_BIT_PACKING;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestBlockEncodingSimdSupport
@@ -29,16 +37,12 @@ final class TestBlockEncodingSimdSupport
         int vectorBitsPreferred = 256;
         // Only compress and expand int and long, no byte or short support with only avx512f
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, Set.of("avx512f")))
-                .isEqualTo(new BlockEncodingSimdSupport.SimdSupport(
-                        true, // vectorizeNullBitPacking
-                        false, // compressByte
-                        false, // expandByte
-                        false, // compressShort
-                        false, // expandShort
-                        true, // compressInt
-                        true, // expandInt
-                        true, // compressLong
-                        true));
+                .isEqualTo(new BlockEncodingSimdSupport.SimdSupport(EnumSet.of(
+                        NULL_BIT_PACKING,
+                        COMPRESS_INT,
+                        EXPAND_INT,
+                        COMPRESS_LONG,
+                        EXPAND_LONG)));
         // Support compress / expand for all types with avx512vbmi2
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, Set.of("avx512f", "avx512vbmi2")))
                 .isEqualTo(BlockEncodingSimdSupport.SimdSupport.ALL);
@@ -50,16 +54,13 @@ final class TestBlockEncodingSimdSupport
         String osArch = "aarch64";
         int vectorBitsPreferred = 256;
         Set<String> flags = Set.of("sve");
-        BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(
-                true, // vectorizeNullBitPacking
-                true, // compressByte
-                false, // expandByte - no intrinsic support in JDK 25
-                true, // compressShort
-                false, // expandShort - not intrinsic support in JDK 25
-                true, // compressInt
-                false, // expandInt - no intrinsic for SVE 1 in JDK 25
-                true, // compressLong
-                false); // expandLong - no intrinsic for SVE1 in JDK 25
+        // SVE 1 supports compress for all primitive types, but no expand intrinsics in JDK 25
+        BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(EnumSet.of(
+                NULL_BIT_PACKING,
+                COMPRESS_BYTE,
+                COMPRESS_SHORT,
+                COMPRESS_INT,
+                COMPRESS_LONG));
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, flags)).isEqualTo(expected);
     }
 
@@ -69,16 +70,13 @@ final class TestBlockEncodingSimdSupport
         String osArch = "aarch64";
         int vectorBitsPreferred = 128;
         Set<String> flags = Set.of("sve", "sve2");
-        BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(
-                true, // vectorizeNullBitPacking
-                true, // compressByte
-                false, // expandByte - no intrinsic support in JDK 25
-                true, // compressShort
-                false, // expandShort - no intrinsic support in JDK 25
-                true, // compressInt
-                true, // expandInt
-                false, // compressLong - not worthwhile on 128 bit vectors
-                false); // expandLong - not worthwhile on 128 bit vectors
+        // SVE 2 adds expand for int; long compress/expand stay off because they are not worthwhile on 128 bit vectors
+        BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(EnumSet.of(
+                NULL_BIT_PACKING,
+                COMPRESS_BYTE,
+                COMPRESS_SHORT,
+                COMPRESS_INT,
+                EXPAND_INT));
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, flags)).isEqualTo(expected);
     }
 }

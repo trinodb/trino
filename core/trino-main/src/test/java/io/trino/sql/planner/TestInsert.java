@@ -117,7 +117,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))))));
     }
 
@@ -130,7 +133,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -149,7 +155,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))
                                                 .with(exchangeWithoutSystemPartitioning()))
                                         .with(exchangeWithoutSystemPartitioning()))));
@@ -164,7 +173,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))))));
     }
 
@@ -178,7 +190,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column2")))));
     }
 
@@ -191,7 +206,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -210,7 +228,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                ImmutableList.of(),
+                                                ImmutableSet.of("column1"),
                                                 values("column1", "column2"))
                                                 .with(exchangeWithoutSystemPartitioning()))
                                         .with(exchangeWithoutSystemPartitioning()))));
@@ -225,7 +246,10 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE,
+                                        REPARTITION,
+                                        ImmutableList.of(),
+                                        ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 

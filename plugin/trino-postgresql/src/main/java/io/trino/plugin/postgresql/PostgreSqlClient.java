@@ -112,13 +112,15 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 import org.postgresql.core.TypeInfo;
+import org.postgresql.geometric.PGpoint;
 import org.postgresql.jdbc.PgConnection;
 
 import java.io.IOException;
@@ -159,8 +161,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
-import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
+import static io.trino.geospatial.GeometryUtils.createPoint;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -316,10 +317,10 @@ public class PostgreSqlClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
-        this.jsonType = typeManager.getType(new TypeSignature(JSON));
-        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
+        this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
+        this.uuidType = typeManager.getType(new TypeDescriptor(StandardTypes.UUID));
         this.varcharMapType = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
-        this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
+        this.geometryType = typeManager.getType(new TypeDescriptor(StandardTypes.GEOMETRY));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
         tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
@@ -344,6 +345,7 @@ public class PostgreSqlClient
                 .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
                 .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
                 .map("$greater_than_or_equal(left: numeric_type, right: numeric_type)").to("left >= right")
+                .map("$between(value: numeric_type, min: numeric_type, max: numeric_type)").to("value BETWEEN min AND max")
                 .map("$add(left: integer_type, right: integer_type)").to("left + right")
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
@@ -361,6 +363,7 @@ public class PostgreSqlClient
                 .when(pushdownWithCollateEnabled).map("$less_than_or_equal(left: collatable_type, right: collatable_type)").to("left <= right COLLATE \"C\"")
                 .when(pushdownWithCollateEnabled).map("$greater_than(left: collatable_type, right: collatable_type)").to("left > right COLLATE \"C\"")
                 .when(pushdownWithCollateEnabled).map("$greater_than_or_equal(left: collatable_type, right: collatable_type)").to("left >= right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$between(value: collatable_type, min: collatable_type, max: collatable_type)").to("value COLLATE \"C\" BETWEEN min AND max")
                 .build();
 
         this.projectFunctionRewriter = new ProjectFunctionRewriter<>(
@@ -512,8 +515,7 @@ public class PostgreSqlClient
                     }
                     if (columnMapping.isEmpty()) {
                         UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
-                        verify(
-                                unsupportedTypeHandling == IGNORE,
+                        verify(unsupportedTypeHandling == IGNORE,
                                 "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
                                 unsupportedTypeHandling,
                                 typeHandle);
@@ -593,6 +595,7 @@ public class PostgreSqlClient
             case "hstore" -> Optional.of(hstoreColumnMapping());
             case "vector" -> Optional.of(vectorColumnMapping());
             case "geometry" -> Optional.of(geometryColumnMapping());
+            case "point" -> Optional.of(pointColumnMapping());
             default -> Optional.empty();
         };
         if (typeNameMapping.isPresent()) {
@@ -864,6 +867,9 @@ public class PostgreSqlClient
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
         }
+        if (type.equals(geometryType)) {
+            return WriteMapping.objectMapping("geometry", geometryWriteFunction());
+        }
         if (type instanceof ArrayType arrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = arrayType.getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
@@ -1043,19 +1049,19 @@ public class PostgreSqlClient
                 .collect(joining(", "));
 
         String insertSql =
-        """
-        INSERT INTO %s (%s)
-        SELECT %s FROM %s temp_table
-        WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)
-        """
-                .formatted(
-                        quoted(handle.getRemoteTableName()),
-                        columns,
-                        columns,
-                        quoted(temporaryTable),
-                        quoted(pageSinkTable),
-                        pageSinkIdName,
-                        pageSinkIdName);
+                """
+                INSERT INTO %s (%s)
+                SELECT %s FROM %s temp_table
+                WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)
+                """
+                        .formatted(
+                                quoted(handle.getRemoteTableName()),
+                                columns,
+                                columns,
+                                quoted(temporaryTable),
+                                quoted(pageSinkTable),
+                                pageSinkIdName,
+                                pageSinkIdName);
 
         execute(session, connection, insertSql);
     }
@@ -1096,20 +1102,20 @@ public class PostgreSqlClient
                 .collect(joining(", "));
 
         String updateSql =
-        """
-        UPDATE %s SET %s FROM
-          %s AS temp_table
-            JOIN
-          %s AS page_sink_table
-            ON page_sink_table.%s = temp_table.%s
-        """
-                .formatted(
-                        targetTableName,
-                        updateAssigns,
-                        sourceTableName,
-                        quoted(pageSinkTable),
-                        pageSinkIdName,
-                        pageSinkIdName);
+                """
+                UPDATE %s SET %s FROM
+                  %s AS temp_table
+                    JOIN
+                  %s AS page_sink_table
+                    ON page_sink_table.%s = temp_table.%s
+                """
+                        .formatted(
+                                targetTableName,
+                                updateAssigns,
+                                sourceTableName,
+                                quoted(pageSinkTable),
+                                pageSinkIdName,
+                                pageSinkIdName);
 
         ImmutableList.Builder<String> conditions = ImmutableList.builder();
         for (int i = 0; i < keyNamesSize; i++) {
@@ -1141,16 +1147,16 @@ public class PostgreSqlClient
         String pageSinkIdName = handle.getPageSinkIdColumnName().orElseThrow();
 
         String deleteSql =
-        """
-        DELETE FROM %s USING %s AS temp_table
-        JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s
-        """
-                .formatted(
-                        targetTableName,
-                        sourceTableName,
-                        quoted(pageSinkTable),
-                        pageSinkIdName,
-                        pageSinkIdName);
+                """
+                DELETE FROM %s USING %s AS temp_table
+                JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s
+                """
+                        .formatted(
+                                targetTableName,
+                                sourceTableName,
+                                quoted(pageSinkTable),
+                                pageSinkIdName,
+                                pageSinkIdName);
 
         String condition = handle.getColumnNames().stream()
                 .map(this::quoted)
@@ -1721,7 +1727,7 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 arrayAsJsonReadFunction(baseElementMapping),
-                (statement, index, block) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); },
+                (_, _, _) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); },
                 DISABLE_PUSHDOWN);
     }
 
@@ -1855,7 +1861,7 @@ public class PostgreSqlClient
                         return utf8Slice(resultSet.getString(columnIndex));
                     }
                 },
-                (statement, index, value) -> { throw new TrinoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
+                (_, _, _) -> { throw new TrinoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
                 DISABLE_PUSHDOWN);
     }
 
@@ -1912,23 +1918,39 @@ public class PostgreSqlClient
     {
         return ColumnMapping.objectMapping(
                 geometryType,
-                ObjectReadFunction.of(Geometry.class, (resultSet, columnIndex) -> {
-                    String hexWkb = resultSet.getString(columnIndex);
-                    byte[] wkb = HexFormat.of().parseHex(hexWkb);
-                    return deserialize(wrappedBuffer(wkb));
-                }),
+                new ObjectReadFunction()
+                {
+                    @Override
+                    public Class<?> getJavaType()
+                    {
+                        return geometryType.getJavaType();
+                    }
+
+                    @Override
+                    public Object readObject(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        String hexWkb = resultSet.getString(columnIndex);
+                        byte[] wkb = HexFormat.of().parseHex(hexWkb);
+                        Slice slice = wrappedBuffer(wkb);
+
+                        BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                        geometryType.writeSlice(blockBuilder, slice);
+                        return geometryType.getObject(blockBuilder.build(), 0);
+                    }
+                },
                 geometryWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
-    private static ObjectWriteFunction geometryWriteFunction()
+    private ObjectWriteFunction geometryWriteFunction()
     {
         return new ObjectWriteFunction()
         {
             @Override
             public Class<?> getJavaType()
             {
-                return Geometry.class;
+                return geometryType.getJavaType();
             }
 
             @Override
@@ -1941,10 +1963,60 @@ public class PostgreSqlClient
             public void set(PreparedStatement statement, int index, Object value)
                     throws SQLException
             {
-                Geometry geometry = (Geometry) value;
-                statement.setBytes(index, serialize(geometry).getBytes());
+                BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                geometryType.writeObject(blockBuilder, value);
+                Slice slice = geometryType.getSlice(blockBuilder.build(), 0);
+                statement.setBytes(index, slice.getBytes());
             }
         };
+    }
+
+    private ColumnMapping pointColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                geometryType,
+                new ObjectReadFunction()
+                {
+                    @Override
+                    public Class<?> getJavaType()
+                    {
+                        return geometryType.getJavaType();
+                    }
+
+                    @Override
+                    public Object readObject(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        PGpoint pgPoint = (PGpoint) resultSet.getObject(columnIndex);
+                        BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                        geometryType.writeObject(blockBuilder, createPoint(pgPoint.x, pgPoint.y));
+                        return geometryType.getObject(blockBuilder.build(), 0);
+                    }
+                },
+                new ObjectWriteFunction()
+                {
+                    @Override
+                    public Class<?> getJavaType()
+                    {
+                        return geometryType.getJavaType();
+                    }
+
+                    @Override
+                    public void set(PreparedStatement statement, int index, Object value)
+                            throws SQLException
+                    {
+                        Geometry geometry = (Geometry) value;
+                        if (!(geometry instanceof Point point)) {
+                            throw new TrinoException(JDBC_ERROR, format(
+                                    "Expected Point geometry when writing to PostgreSQL point column, but got %s (%s)",
+                                    geometry.getGeometryType(),
+                                    geometry.getClass().getName()));
+                        }
+                        PGpoint pgPoint = new PGpoint(point.getCoordinate().x, point.getCoordinate().y);
+                        statement.setObject(index, pgPoint);
+                    }
+                },
+                DISABLE_PUSHDOWN);
     }
 
     private static class StatisticsDao
@@ -2014,7 +2086,7 @@ public class PostgreSqlClient
             return handle.createQuery("SELECT attname, null_frac, n_distinct, avg_width FROM pg_stats WHERE schemaname = :schema AND tablename = :table_name")
                     .bind("schema", schema)
                     .bind("table_name", tableName)
-                    .map((rs, ctx) -> new ColumnStatisticsResult(
+                    .map((rs, _) -> new ColumnStatisticsResult(
                             requireNonNull(rs.getString("attname"), "attname is null"),
                             Optional.ofNullable(rs.getObject("null_frac", Float.class)),
                             Optional.ofNullable(rs.getObject("n_distinct", Float.class)),

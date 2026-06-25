@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
 import io.trino.Session;
+import io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -33,7 +34,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import static io.trino.plugin.deltalake.DeltaLakeAlluxioCacheTestUtils.getCacheOperations;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
@@ -56,6 +56,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .put("fs.cache.enabled", "true")
                         .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                         .put("fs.cache.max-sizes", "100MB")
+                        .put("fs.hadoop.enabled", "true")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("delta.register-table-procedure.enabled", "true")
                         .buildOrThrow())
@@ -97,12 +98,12 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.json", 0, 658))
                         .add(new CacheOperation("InputFile.length", "00000000000000000003.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 229))
-                        .add(new CacheOperation("Input.readFully", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Input.readFully", "key=p2/", 0, 229))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 229))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 230))
+                        .add(new CacheOperation("Input.readFully", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Input.readFully", "key=p2/", 0, 230))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 230))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
@@ -116,8 +117,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("InputFile.length", "00000000000000000002.crc"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000003.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 229))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 230))
                         .build());
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('p3', '3-xyz')", 1);
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('p4', '4-xyz')", 1);
@@ -143,17 +144,17 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("InputFile.length", "00000000000000000005.crc"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000006.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 229))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 229))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 229))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 229))
-                        .add(new CacheOperation("Input.readFully", "key=p3/", 0, 229))
-                        .add(new CacheOperation("Input.readFully", "key=p4/", 0, 229))
-                        .add(new CacheOperation("Input.readFully", "key=p5/", 0, 229))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 229))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 229))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 229))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 230))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 230))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 230))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 230))
+                        .add(new CacheOperation("Input.readFully", "key=p3/", 0, 230))
+                        .add(new CacheOperation("Input.readFully", "key=p4/", 0, 230))
+                        .add(new CacheOperation("Input.readFully", "key=p5/", 0, 230))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 230))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 230))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 230))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
@@ -173,11 +174,11 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("InputFile.length", "00000000000000000005.crc"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000006.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 229), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 229), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 229), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 229), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 229), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 230), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 230), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 230), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 230), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 230), 1)
                         .build());
     }
 
@@ -708,12 +709,12 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.json", 0, 658))
                         .add(new CacheOperation("InputFile.length", "00000000000000000003.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 229))
-                        .add(new CacheOperation("Input.readFully", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Input.readFully", "key=p2/", 0, 229))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 229))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 229))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 230))
+                        .add(new CacheOperation("Input.readFully", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Input.readFully", "key=p2/", 0, 230))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 230))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 230))
                         .build());
     }
 

@@ -23,6 +23,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.QueryId;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +51,7 @@ public class TestLazyOutputBuffer
                 directExecutor(),
                 DataSize.of(1, MEGABYTE),
                 DataSize.of(1, MEGABYTE),
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), TestLazyOutputBuffer.class.getSimpleName()),
+                Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), TestLazyOutputBuffer.class.getSimpleName())),
                 () -> {},
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
     }

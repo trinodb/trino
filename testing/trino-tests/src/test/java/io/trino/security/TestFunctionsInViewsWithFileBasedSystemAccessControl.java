@@ -79,7 +79,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
                 .withFunctions(ImmutableList.<FunctionMetadata>builder()
                         .add(FunctionMetadata.scalarBuilder("my_function")
                                 .signature(Signature.builder().returnType(BIGINT).build())
-                                .noDescription()
+                                .description("")
                                 .build())
                         .build())
                 .withFunctionProvider(Optional.of(new FunctionProvider()

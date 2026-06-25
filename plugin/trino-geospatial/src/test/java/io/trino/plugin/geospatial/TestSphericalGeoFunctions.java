@@ -35,7 +35,6 @@ import java.util.stream.Stream;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
-import static io.trino.plugin.geospatial.GeoTestUtils.spatiallyEquals;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -91,11 +90,7 @@ public class TestSphericalGeoFunctions
         }
         Block block = builder.build();
         for (int i = 0; i < wktList.size(); i++) {
-            String expected = wktList.get(i);
-            String actual = (String) SPHERICAL_GEOGRAPHY.getObjectValue(block, i);
-            assertThat(spatiallyEquals(expected, actual))
-                    .withFailMessage("Geometry mismatch at index %d!\nExpected: %s\nActual:   %s", i, expected, actual)
-                    .isTrue();
+            assertThat(wktList.get(i)).isEqualTo(SPHERICAL_GEOGRAPHY.getObjectValue(block, i));
         }
     }
 
@@ -232,7 +227,7 @@ public class TestSphericalGeoFunctions
         assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))")::evaluate)
                 .hasMessage("When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
 
-        //Invalid Polygon (duplicated point)
+        // Invalid Polygon (duplicated point)
         assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')))")::evaluate)
                 .hasMessage("Polygon is not valid: it has two identical consecutive vertices");
 
@@ -254,7 +249,7 @@ public class TestSphericalGeoFunctions
         assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90, 90 0))")))
                 .satisfies(approximatelyEqualTo(637.58e11, 0.00001));
 
-        //A Polygon with a large hole
+        // A Polygon with a large hole
         assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90, 90 0), (89 1, 1 1, 1 89, 89 1))")))
                 .satisfies(approximatelyEqualTo(348.04e10, 0.00001));
 

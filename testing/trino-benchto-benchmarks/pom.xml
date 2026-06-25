@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>481-SNAPSHOT</version>
+        <version>482-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -17,13 +17,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <!-- TODO document why we have explicit dependency on Guava -->
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
         <dependency>
             <!-- benchmark queries referenced from benchmark definition files -->
             <groupId>io.trino</groupId>

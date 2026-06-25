@@ -15,8 +15,8 @@ package io.trino.operator.join.spilling;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.HashGenerator;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorInfo;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
@@ -61,14 +61,14 @@ public class LookupJoinOperator
             OptionalInt lookupJoinsCount,
             HashGenerator hashGenerator,
             PartitioningSpillerFactory partitioningSpillerFactory,
-            ProcessorContext processorContext,
+            OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
         PageJoinerFactory pageJoinerFactory = (lookupSourceProvider, joinerPartitioningSpillerFactory, savedRows) ->
                 new DefaultPageJoiner(
-                        processorContext,
+                        operatorContext,
                         probeTypes,
                         buildOutputTypes,
                         joinType,

@@ -29,6 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 
 import java.io.FileNotFoundException;
 import java.util.List;
@@ -50,14 +51,16 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
-import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
+import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.CLOSED;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.FAILED;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.INITIAL;
 import static io.trino.plugin.hive.HiveSplitSource.StateKind.NO_MORE_SPLITS;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.isParquetSerde;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -74,9 +77,7 @@ class HiveSplitSource
     private final long maxOutstandingSplitsBytes;
 
     private final DataSize maxSplitSize;
-    private final DataSize maxInitialSplitSize;
-    private final boolean deterministicSplits;
-    private final AtomicInteger remainingInitialSplits;
+    private final DataSize parquetMaxSplitSize;
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
@@ -90,19 +91,21 @@ class HiveSplitSource
 
     private final boolean recordScannedFiles;
     private final ImmutableList.Builder<Object> scannedFilePaths = ImmutableList.builder();
+    private final DynamicFilterState dynamicFilterState;
+    private final long dynamicFilterWaitTimeoutMillis;
 
     private HiveSplitSource(
             ConnectorSession session,
             String databaseName,
             String tableName,
             PerBucket queues,
-            int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
             CounterStat highMemorySplitSourceCounter,
             SplitAffinityProvider splitAffinityProvider,
-            boolean recordScannedFiles)
+            boolean recordScannedFiles,
+            DynamicFilterState dynamicFilterState)
     {
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -115,19 +118,18 @@ class HiveSplitSource
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
 
         this.maxSplitSize = getMaxSplitSize(session);
-        this.maxInitialSplitSize = getMaxInitialSplitSize(session);
-        this.deterministicSplits = maxInitialSplits == 0 || maxInitialSplitSize.equals(maxSplitSize);
-        this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
+        this.parquetMaxSplitSize = getParquetMaxSplitSize(session);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.recordScannedFiles = recordScannedFiles;
+        this.dynamicFilterState = requireNonNull(dynamicFilterState, "dynamicFilterState is null");
+        this.dynamicFilterWaitTimeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
     }
 
     public static HiveSplitSource allAtOnce(
             ConnectorSession session,
             String databaseName,
             String tableName,
-            int maxInitialSplits,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
             int maxSplitsPerSecond,
@@ -135,7 +137,8 @@ class HiveSplitSource
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
             SplitAffinityProvider splitAffinityProvider,
-            boolean recordScannedFiles)
+            boolean recordScannedFiles,
+            DynamicFilterState dynamicFilterState)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
@@ -170,13 +173,13 @@ class HiveSplitSource
                         return queue.isFinished();
                     }
                 },
-                maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
                 stateReference,
                 highMemorySplitSourceCounter,
                 splitAffinityProvider,
-                recordScannedFiles);
+                recordScannedFiles,
+                dynamicFilterState);
     }
 
     /**
@@ -210,11 +213,18 @@ class HiveSplitSource
             if (loggedHighMemoryWarning.compareAndSet(false, true)) {
                 highMemorySplitSourceCounter.update(1);
                 log.warn("Split buffering for %s.%s in query %s exceeded memory limit (%s). %s splits are buffered.",
-                        databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount());
+                        databaseName,
+                        tableName,
+                        queryId,
+                        succinctBytes(maxOutstandingSplitsBytes),
+                        getBufferedInternalSplitCount());
             }
             throw new TrinoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, format(
                     "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
-                    databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount()));
+                    databaseName,
+                    tableName,
+                    succinctBytes(maxOutstandingSplitsBytes),
+                    getBufferedInternalSplitCount()));
         }
         bufferedInternalSplitCount.incrementAndGet();
         return queues.offer(split);
@@ -246,17 +256,18 @@ class HiveSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public long getRequestedDynamicFilterWaitTimeoutMillis()
     {
-        boolean noMoreSplits;
+        return dynamicFilterWaitTimeoutMillis;
+    }
+
+    @Override
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
+    {
+        dynamicFilterState.update(dynamicFilterSnapshot);
         State state = stateReference.get();
         switch (state.getKind()) {
-            case INITIAL -> {
-                noMoreSplits = false;
-            }
-            case NO_MORE_SPLITS -> {
-                noMoreSplits = true;
-            }
+            case INITIAL, NO_MORE_SPLITS -> {}
             case FAILED -> {
                 return failedFuture(state.getThrowable());
             }
@@ -283,10 +294,8 @@ class HiveSplitSource
                 }
 
                 long maxSplitBytes = maxSplitSize.toBytes();
-                if (remainingInitialSplits.get() > 0) {
-                    if (remainingInitialSplits.getAndDecrement() > 0) {
-                        maxSplitBytes = maxInitialSplitSize.toBytes();
-                    }
+                if (isParquetSerde(internalSplit.getSchema().serializationLibraryName())) {
+                    maxSplitBytes = parquetMaxSplitSize.toBytes();
                 }
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
@@ -308,14 +317,10 @@ class HiveSplitSource
                 }
 
                 // Force-local splits are pinned to specific addresses by the scheduler; affinity keys are only
-                // meaningful for remotely accessible splits. When it is not guaranteed that the splits from a file
-                // will have the same size across different queries, use a file-wide key so all splits of the same
-                // file land on the same worker and reuse the cached content.
+                // meaningful for remotely accessible splits.
                 Optional<String> affinityKey = internalSplit.isForceLocalScheduling()
                         ? Optional.empty()
-                        : deterministicSplits
-                                ? splitAffinityProvider.getKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes)
-                                : splitAffinityProvider.getKey(internalSplit.getPath(), 0, internalSplit.getEstimatedFileSize());
+                        : splitAffinityProvider.getKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes);
                 resultBuilder.add(new HiveSplit(
                         internalSplit.getPartitionName(),
                         internalSplit.getPath(),
@@ -362,21 +367,7 @@ class HiveSplitSource
             }
             // This won't actually initiate a copy since hiveSplits is already an ImmutableList, but it will
             // let us convert from List<HiveSplit> to List<ConnectorSplit> without casting
-            List<ConnectorSplit> splits = ImmutableList.copyOf(hiveSplits);
-            if (noMoreSplits) {
-                // Checking splits.isEmpty() here is required for thread safety.
-                // Let's say there are 10 splits left, and max number of splits per batch is 5.
-                // The futures constructed in two getNextBatch calls could each fetch 5, resulting in zero splits left.
-                // After fetching the splits, both futures reach this line at the same time.
-                // Without the isEmpty check, both will claim they are the last.
-                // Side note 1: In such a case, it doesn't actually matter which one gets to claim it's the last.
-                //              But having both claim they are the last would be a surprising behavior.
-                // Side note 2: One could argue that the isEmpty check is overly conservative.
-                //              The caller of getNextBatch will likely need to make an extra invocation.
-                //              But an extra invocation likely doesn't matter.
-                return new ConnectorSplitBatch(splits, splits.isEmpty() && queues.isFinished());
-            }
-            return new ConnectorSplitBatch(splits, false);
+            return ImmutableList.copyOf(hiveSplits);
         });
     }
 

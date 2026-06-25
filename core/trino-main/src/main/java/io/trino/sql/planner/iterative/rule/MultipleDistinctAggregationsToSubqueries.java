@@ -90,9 +90,9 @@ public class MultipleDistinctAggregationsToSubqueries
     {
         // TODO: we could support non-distinct aggregations if SingleDistinctAggregationToGroupBy supports it
         return SingleDistinctAggregationToGroupBy.allDistinctAggregates(aggregationNode) &&
-               OptimizeMixedDistinctAggregations.hasMultipleDistincts(aggregationNode) &&
-               // if we have more than one grouping set, we can have duplicated grouping sets and handling this is complex
-               aggregationNode.getGroupingSetCount() == 1;
+                OptimizeMixedDistinctAggregations.hasMultipleDistincts(aggregationNode) &&
+                // if we have more than one grouping set, we can have duplicated grouping sets and handling this is complex
+                aggregationNode.getGroupingSetCount() == 1;
     }
 
     private final DistinctAggregationStrategyChooser distinctAggregationStrategyChooser;
