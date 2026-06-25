@@ -23,6 +23,7 @@ public class CompilerConfig
 {
     private int expressionCacheSize = 10_000;
     private boolean specializeAggregationLoops = true;
+    private boolean conditionalPredicationEnabled;
 
     @Min(0)
     public int getExpressionCacheSize()
@@ -47,6 +48,19 @@ public class CompilerConfig
     public CompilerConfig setSpecializeAggregationLoops(boolean specializeAggregationLoops)
     {
         this.specializeAggregationLoops = specializeAggregationLoops;
+        return this;
+    }
+
+    public boolean isConditionalPredicationEnabled()
+    {
+        return conditionalPredicationEnabled;
+    }
+
+    @Config("compiler.conditional-predication-enabled")
+    @ConfigDescription("Compile infallible, deterministic conditionals (e.g. AND) to branchless predicated form")
+    public CompilerConfig setConditionalPredicationEnabled(boolean conditionalPredicationEnabled)
+    {
+        this.conditionalPredicationEnabled = conditionalPredicationEnabled;
         return this;
     }
 }

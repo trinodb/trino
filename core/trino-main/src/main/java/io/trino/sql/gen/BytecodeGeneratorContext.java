@@ -51,6 +51,7 @@ public class BytecodeGeneratorContext
     private final ClassDefinition classDefinition;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods to be able to resolve underlying references, session, etc.
     private final Map<String, LetBinding> lets;
+    private final boolean conditionalPredicationEnabled;
 
     public BytecodeGeneratorContext(
             ExpressionBytecodeCompiler expressionCompiler,
@@ -62,7 +63,7 @@ public class BytecodeGeneratorContext
             ClassDefinition classDefinition,
             List<Parameter> contextArguments)
     {
-        this(expressionCompiler, scope, callSiteBinder, cachedInstanceBinder, functionManager, metadata, classDefinition, contextArguments, Map.of());
+        this(expressionCompiler, scope, callSiteBinder, cachedInstanceBinder, functionManager, metadata, classDefinition, contextArguments, Map.of(), false);
     }
 
     public BytecodeGeneratorContext(
@@ -74,7 +75,8 @@ public class BytecodeGeneratorContext
             Metadata metadata,
             ClassDefinition classDefinition,
             List<Parameter> contextArguments,
-            Map<String, LetBinding> lets)
+            Map<String, LetBinding> lets,
+            boolean conditionalPredicationEnabled)
     {
         requireNonNull(expressionCompiler, "expressionCompiler is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
@@ -94,6 +96,12 @@ public class BytecodeGeneratorContext
         this.classDefinition = classDefinition;
         this.contextArguments = ImmutableList.copyOf(contextArguments);
         this.lets = ImmutableMap.copyOf(lets);
+        this.conditionalPredicationEnabled = conditionalPredicationEnabled;
+    }
+
+    public boolean isConditionalPredicationEnabled()
+    {
+        return conditionalPredicationEnabled;
     }
 
     public Scope getScope()

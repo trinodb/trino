@@ -78,6 +78,7 @@ public class ExpressionBytecodeCompiler
     private final TypeCoercion typeCoercion;
     private final Map<Lambda, CompiledLambda> compiledLambdaMap;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods
+    private boolean conditionalPredicationEnabled;
 
     public ExpressionBytecodeCompiler(
             ClassDefinition classDefinition,
@@ -99,6 +100,12 @@ public class ExpressionBytecodeCompiler
         this.typeCoercion = new TypeCoercion(requireNonNull(typeManager, "typeManager is null")::getType);
         this.compiledLambdaMap = requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
         this.contextArguments = ImmutableList.copyOf(requireNonNull(contextArguments, "contextArguments is null"));
+    }
+
+    public ExpressionBytecodeCompiler enableConditionalPredication(boolean enabled)
+    {
+        this.conditionalPredicationEnabled = enabled;
+        return this;
     }
 
     public BytecodeNode compile(Expression expression, Scope scope)
@@ -127,7 +134,8 @@ public class ExpressionBytecodeCompiler
                 metadata,
                 classDefinition,
                 contextArguments,
-                lets);
+                lets,
+                conditionalPredicationEnabled);
     }
 
     private static final String TEMP_PREFIX = "$$TEMP$$";

@@ -29,7 +29,8 @@ public class TestCompilerConfig
     {
         assertRecordedDefaults(recordDefaults(CompilerConfig.class)
                 .setExpressionCacheSize(10_000)
-                .setSpecializeAggregationLoops(true));
+                .setSpecializeAggregationLoops(true)
+                .setConditionalPredicationEnabled(false));
     }
 
     @Test
@@ -38,11 +39,13 @@ public class TestCompilerConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("compiler.expression-cache-size", "52")
                 .put("compiler.specialized-aggregation-loops", "false")
+                .put("compiler.conditional-predication-enabled", "true")
                 .buildOrThrow();
 
         CompilerConfig expected = new CompilerConfig()
                 .setExpressionCacheSize(52)
-                .setSpecializeAggregationLoops(false);
+                .setSpecializeAggregationLoops(false)
+                .setConditionalPredicationEnabled(true);
 
         assertFullMapping(properties, expected);
     }
