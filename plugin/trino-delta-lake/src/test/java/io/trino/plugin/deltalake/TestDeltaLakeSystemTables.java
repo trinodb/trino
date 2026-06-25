@@ -41,6 +41,7 @@ public class TestDeltaLakeSystemTables
         return DeltaLakeQueryRunner.builder()
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .build();
     }
 
@@ -134,12 +135,14 @@ public class TestDeltaLakeSystemTables
         String tableName = "test_simple_properties_table";
         try {
             assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT) WITH (change_data_feed_enabled = true, checkpoint_interval = 5)");
-            assertQuery("SELECT * FROM \"" + tableName + "$properties\"", "VALUES " +
+            assertQuery("SELECT * FROM \"" + tableName + "$properties\" WHERE key LIKE 'delta%'", "VALUES " +
                     "('delta.enableChangeDataFeed', 'true')," +
                     "('delta.enableDeletionVectors', 'false')," +
                     "('delta.checkpointInterval', '5')," +
                     "('delta.minReaderVersion', '1')," +
                     "('delta.minWriterVersion', '4')");
+            assertThat((String) computeScalar("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'location'"))
+                    .matches("local:///delta/tpch/test_simple_properties_table.*");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);

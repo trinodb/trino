@@ -17,13 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.hive.containers.HiveFlociDataLake;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -35,9 +37,9 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -55,8 +57,8 @@ public class TestSharedHiveThriftMetastore
             throws Exception
     {
         bucketName = "test-iceberg-shared-metastore" + randomNameSuffix();
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        HiveFlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
         Session icebergSession = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
@@ -81,13 +83,13 @@ public class TestSharedHiveThriftMetastore
                 "iceberg",
                 ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
-                        .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
+                        .put("hive.metastore.uri", hiveFlociDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .put("fs.s3.enabled", "true")
-                        .put("s3.aws-access-key", MINIO_ROOT_USER)
-                        .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                        .put("s3.region", MINIO_REGION)
-                        .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                        .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                        .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                        .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                        .put("s3.region", FLOCI_REGION)
                         .put("s3.path-style-access", "true")
                         .put("s3.streaming.part-size", "5MB") // minimize memory usage
                         .put("s3.max-connections", "2") // verify no leaks
@@ -99,13 +101,13 @@ public class TestSharedHiveThriftMetastore
                 "iceberg",
                 ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
-                        .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
+                        .put("hive.metastore.uri", hiveFlociDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .put("fs.s3.enabled", "true")
-                        .put("s3.aws-access-key", MINIO_ROOT_USER)
-                        .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                        .put("s3.region", MINIO_REGION)
-                        .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                        .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                        .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                        .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                        .put("s3.region", FLOCI_REGION)
                         .put("s3.path-style-access", "true")
                         .put("s3.streaming.part-size", "5MB") // minimize memory usage
                         .put("s3.max-connections", "2") // verify no leaks
@@ -117,12 +119,12 @@ public class TestSharedHiveThriftMetastore
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "thrift")
-                .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
+                .put("hive.metastore.uri", hiveFlociDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                 .put("fs.s3.enabled", "true")
-                .put("s3.aws-access-key", MINIO_ROOT_USER)
-                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                .put("s3.region", MINIO_REGION)
-                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                .put("s3.region", FLOCI_REGION)
                 .put("s3.path-style-access", "true")
                 .put("s3.streaming.part-size", "5MB")
                 .put("hive.max-partitions-per-scan", "1000")
@@ -175,4 +177,9 @@ public class TestSharedHiveThriftMetastore
                 ")";
         return format(expectedIcebergCreateSchema, catalogName, tpchSchema, bucketName, tpchSchema);
     }
+
+    @Override
+    @Test
+    @Disabled("view names with $ are not supported")
+    public void testRedirectedIcebergViewWithTableSuffix() {}
 }

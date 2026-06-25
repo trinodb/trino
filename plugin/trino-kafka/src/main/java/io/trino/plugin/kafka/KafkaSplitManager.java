@@ -18,13 +18,13 @@ import com.google.inject.Inject;
 import io.trino.plugin.kafka.schema.ContentSchemaProvider;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.PartitionInfo;
@@ -33,6 +33,7 @@ import org.apache.kafka.common.TopicPartition;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
@@ -61,7 +62,7 @@ public class KafkaSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) table;
@@ -74,8 +75,12 @@ public class KafkaSplitManager
 
             Map<TopicPartition, Long> partitionBeginOffsets = kafkaConsumer.beginningOffsets(topicPartitions);
             Map<TopicPartition, Long> partitionEndOffsets = kafkaConsumer.endOffsets(topicPartitions);
-            KafkaFilteringResult kafkaFilteringResult = kafkaFilterManager.getKafkaFilterResult(session, kafkaTableHandle,
-                    partitionInfos, partitionBeginOffsets, partitionEndOffsets);
+            KafkaFilteringResult kafkaFilteringResult = kafkaFilterManager.getKafkaFilterResult(
+                    session,
+                    kafkaTableHandle,
+                    partitionInfos,
+                    partitionBeginOffsets,
+                    partitionEndOffsets);
             partitionInfos = kafkaFilteringResult.partitionInfos();
             partitionBeginOffsets = kafkaFilteringResult.partitionBeginOffsets();
             partitionEndOffsets = kafkaFilteringResult.partitionEndOffsets();

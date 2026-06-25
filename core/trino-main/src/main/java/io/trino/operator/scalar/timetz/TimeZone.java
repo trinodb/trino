@@ -24,7 +24,7 @@ import io.trino.spi.type.StandardTypes;
 import static com.google.common.base.Strings.padStart;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
-import static io.trino.type.DateTimes.MINUTES_PER_HOUR;
+import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
 
 @Description("Time zone of the given time")
 @ScalarFunction("timezone")
@@ -39,9 +39,9 @@ public final class TimeZone
      * <p>
      *
      * @param timeWithTimeZone the packed long
-     * representing a `time(p) with time zone`
+     *         representing a `time(p) with time zone`
      * @return the time zone offset in the format
-     * "+HH:mm" or "-HH:mm" as a VARCHAR
+     *         "+HH:mm" or "-HH:mm" as a VARCHAR
      */
     @LiteralParameters("p")
     @SqlType(StandardTypes.VARCHAR)
@@ -67,7 +67,7 @@ public final class TimeZone
      *
      * @param timeWithTimeZone the LongTimeWithTimeZone object
      * @return the time zone offset in the format
-     * "+HH:mm" or "-HH:mm" as a VARCHAR
+     *         "+HH:mm" or "-HH:mm" as a VARCHAR
      */
     @LiteralParameters("p")
     @SqlType(StandardTypes.VARCHAR)

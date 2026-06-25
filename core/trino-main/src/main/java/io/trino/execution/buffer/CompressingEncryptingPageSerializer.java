@@ -172,7 +172,7 @@ public class CompressingEncryptingPageSerializer
 
         public void startPage(int positionCount, int sizeInBytes)
         {
-            WriteBuffer buffer = new WriteBuffer(round(sizeInBytes * 1.2F) + SERIALIZED_PAGE_HEADER_SIZE);
+            WriteBuffer buffer = new WriteBuffer(round(sizeInBytes * 1.2f) + SERIALIZED_PAGE_HEADER_SIZE);
             buffer.writeInt(positionCount);
             // leave space for uncompressed and compressed sizes
             buffer.skip(Integer.BYTES * 2);
@@ -503,8 +503,8 @@ public class CompressingEncryptingPageSerializer
             long size = INSTANCE_SIZE;
             size += sizeOf(compressor, compressor -> instanceSize(compressor.getClass())
                     + compressor.getRetainedSizeInBytes(uncompressedSize));
-            size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
-            size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
+            size += sizeOf(encryptionKey, _ -> ENCRYPTION_KEY_RETAINED_SIZE);
+            size += sizeOf(cipher, _ -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (WriteBuffer buffer : buffers) {
                 if (buffer != null) {
                     size += buffer.getRetainedSizeInBytes();

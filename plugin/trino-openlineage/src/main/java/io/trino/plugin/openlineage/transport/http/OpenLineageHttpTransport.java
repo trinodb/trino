@@ -19,11 +19,11 @@ import io.openlineage.client.transports.HttpSslContextConfig;
 import io.openlineage.client.transports.HttpTransport;
 import io.openlineage.client.transports.TokenProvider;
 import io.trino.plugin.openlineage.transport.OpenLineageTransportCreator;
+import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig.Compression;
 
 import java.net.URI;
 import java.util.Map;
 
-import static io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig.Compression;
 import static java.lang.Math.toIntExact;
 
 public class OpenLineageHttpTransport

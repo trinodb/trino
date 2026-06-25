@@ -22,13 +22,13 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolKeyDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
@@ -56,7 +56,7 @@ public class TestWindowNode
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
         jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
                         Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
                 .get();

@@ -57,7 +57,8 @@ public final class MinioNotificationsAssertions
 
     public static void recordNotification(String tableName, Event event)
     {
-        String insertQuery = format("INSERT INTO %s " +
+        String insertQuery = format(
+                "INSERT INTO %s " +
                         "(name, time, request, response, user_agent, bucket, object_key, object_size, object_version, object_etag, sequencer) " +
                         "VALUES (%s, from_iso8601_timestamp(%s), %s, %s, %s, %s, url_decode(%s), %d, %s, %s, %s)",
                 schemaTableName(tableName),
@@ -104,7 +105,8 @@ public final class MinioNotificationsAssertions
 
     public static void assertNotificationsCount(String tableName, EventType eventType, String objectName, int expectedCalls)
     {
-        List<List<?>> rows = onTrino().executeQuery(format("SELECT name, request, time " +
+        List<List<?>> rows = onTrino().executeQuery(format(
+                "SELECT name, request, time " +
                         "FROM %s " +
                         "WHERE name = %s AND object_key = %s " +
                         "ORDER BY sequencer ASC", // sequencer specifies order of the notifications
@@ -113,7 +115,8 @@ public final class MinioNotificationsAssertions
                 quote(objectName))).rows();
 
         if (rows.size() != expectedCalls) {
-            throw new AssertionError(format("Expected notification %s for '%s' %d time(s) but got %d: %s",
+            throw new AssertionError(format(
+                    "Expected notification %s for '%s' %d time(s) but got %d: %s",
                     eventType,
                     objectName,
                     expectedCalls,

@@ -131,10 +131,10 @@ public class Identity
         }
         Identity identity = (Identity) o;
         return Objects.equals(user, identity.user) &&
-               Objects.equals(groups, identity.groups) &&
-               Objects.equals(principal, identity.principal) &&
-               Objects.equals(enabledRoles, identity.enabledRoles) &&
-               Objects.equals(catalogRoles, identity.catalogRoles);
+                Objects.equals(groups, identity.groups) &&
+                Objects.equals(principal, identity.principal) &&
+                Objects.equals(enabledRoles, identity.enabledRoles) &&
+                Objects.equals(catalogRoles, identity.catalogRoles);
     }
 
     @Override

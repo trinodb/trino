@@ -22,6 +22,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -104,6 +105,89 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as DECIMAL(30, 20))")
                 .binding("a", "false"))
                 .isEqualTo(decimal("0000000000.00000000000000000000", createDecimalType(30, 20)));
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as DECIMAL(2, 2))")
+                .binding("a", "true")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Cannot cast BOOLEAN 'true' to DECIMAL(2, 2)");
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as DECIMAL(38, 38))")
+                .binding("a", "true")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Cannot cast BOOLEAN 'true' to DECIMAL(38, 38)");
+    }
+
+    @Test
+    public void testCastToDecimalNeverFailsBoundaries()
+    {
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 1))").binding("a", "true"))
+                .neverFails()
+                .isEqualTo(decimal("1.0", createDecimalType(2, 1)));
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as DECIMAL(2, 2))")
+                .binding("a", "true")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 2))").binding("a", "false"))
+                .couldFail()
+                .isEqualTo(decimal(".00", createDecimalType(2, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 1))").binding("a", "TINYINT '12'"))
+                .neverFails()
+                .isEqualTo(decimal("012.0", createDecimalType(4, 1)));
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 1))").binding("a", "TINYINT '12'"))
+                .couldFail()
+                .isEqualTo(decimal("12.0", createDecimalType(3, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(6, 1))").binding("a", "SMALLINT '12'"))
+                .neverFails()
+                .isEqualTo(decimal("00012.0", createDecimalType(6, 1)));
+        assertThat(assertions.expression("cast(a as DECIMAL(5, 1))").binding("a", "SMALLINT '12'"))
+                .couldFail()
+                .isEqualTo(decimal("0012.0", createDecimalType(5, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(11, 1))").binding("a", "INTEGER '12'"))
+                .neverFails()
+                .isEqualTo(decimal("0000000012.0", createDecimalType(11, 1)));
+        assertThat(assertions.expression("cast(a as DECIMAL(10, 1))").binding("a", "INTEGER '12'"))
+                .couldFail()
+                .isEqualTo(decimal("000000012.0", createDecimalType(10, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(22, 1))").binding("a", "BIGINT '234'"))
+                .neverFails()
+                .isEqualTo(decimal("000000000000000000234.0", createDecimalType(22, 1)));
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 1))").binding("a", "BIGINT '234'"))
+                .couldFail()
+                .isEqualTo(decimal("234.0", createDecimalType(4, 1)));
+    }
+
+    @Test
+    public void testCastFromDecimalNeverFailsBoundaries()
+    {
+        assertThat(assertions.expression("cast(a as TINYINT)").binding("a", "DECIMAL '99'"))
+                .neverFails()
+                .isEqualTo((byte) 99);
+        assertThat(assertions.expression("cast(a as TINYINT)").binding("a", "DECIMAL '100'"))
+                .couldFail()
+                .isEqualTo((byte) 100);
+
+        assertThat(assertions.expression("cast(a as SMALLINT)").binding("a", "DECIMAL '1234'"))
+                .neverFails()
+                .isEqualTo((short) 1234);
+        assertThat(assertions.expression("cast(a as SMALLINT)").binding("a", "DECIMAL '12345'"))
+                .couldFail()
+                .isEqualTo((short) 12345);
+
+        assertThat(assertions.expression("cast(a as INTEGER)").binding("a", "DECIMAL '123456789'"))
+                .neverFails()
+                .isEqualTo(123456789);
+        assertThat(assertions.expression("cast(a as INTEGER)").binding("a", "DECIMAL '1234567890'"))
+                .couldFail()
+                .isEqualTo(1234567890);
+
+        assertThat(assertions.expression("cast(a as BIGINT)").binding("a", "DECIMAL '123456789012345678'"))
+                .neverFails()
+                .isEqualTo(123456789012345678L);
+        assertThat(assertions.expression("cast(a as BIGINT)").binding("a", "DECIMAL '1234567890123456789'"))
+                .couldFail()
+                .isEqualTo(1234567890123456789L);
     }
 
     @Test
@@ -111,6 +195,7 @@ public class TestDecimalCasts
     {
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "DECIMAL '1.1'"))
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as BOOLEAN)")
@@ -204,32 +289,32 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "BIGINT '10'").evaluate())
                 .hasMessage("Cannot cast BIGINT '10' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,10))")
                 .binding("a", "BIGINT '1234567890'").evaluate())
                 .hasMessage("Cannot cast BIGINT '1234567890' to DECIMAL(17, 10)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "BIGINT '123'").evaluate())
                 .hasMessage("Cannot cast BIGINT '123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "BIGINT '-123'").evaluate())
                 .hasMessage("Cannot cast BIGINT '-123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,1))")
                 .binding("a", "BIGINT '123456789012345678'").evaluate())
                 .hasMessage("Cannot cast BIGINT '123456789012345678' to DECIMAL(17, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20, 10))")
                 .binding("a", "BIGINT '12345678901'").evaluate())
                 .hasMessage("Cannot cast BIGINT '12345678901' to DECIMAL(20, 10)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -278,22 +363,22 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "INTEGER '10'").evaluate())
                 .hasMessage("Cannot cast INTEGER '10' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,10))")
                 .binding("a", "INTEGER '1234567890'").evaluate())
                 .hasMessage("Cannot cast INTEGER '1234567890' to DECIMAL(17, 10)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "INTEGER '123'").evaluate())
                 .hasMessage("Cannot cast INTEGER '123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "INTEGER '-123'").evaluate())
                 .hasMessage("Cannot cast INTEGER '-123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -342,22 +427,22 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "SMALLINT '10'").evaluate())
                 .hasMessage("Cannot cast SMALLINT '10' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,14))")
                 .binding("a", "SMALLINT '1234'").evaluate())
                 .hasMessage("Cannot cast SMALLINT '1234' to DECIMAL(17, 14)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "SMALLINT '123'").evaluate())
                 .hasMessage("Cannot cast SMALLINT '123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "SMALLINT '-123'").evaluate())
                 .hasMessage("Cannot cast SMALLINT '-123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -406,22 +491,22 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "TINYINT '10'").evaluate())
                 .hasMessage("Cannot cast TINYINT '10' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,15))")
                 .binding("a", "TINYINT '123'").evaluate())
                 .hasMessage("Cannot cast TINYINT '123' to DECIMAL(17, 15)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "TINYINT '123'").evaluate())
                 .hasMessage("Cannot cast TINYINT '123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,1))")
                 .binding("a", "TINYINT '-123'").evaluate())
                 .hasMessage("Cannot cast TINYINT '-123' to DECIMAL(2, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -502,7 +587,7 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
                 .binding("a", "DECIMAL '12345678901234567890'").evaluate())
                 .hasMessage("Cannot cast '12345678901234567890' to BIGINT")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -579,7 +664,7 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as INTEGER)")
                 .binding("a", "DECIMAL '12345678901234567890'").evaluate())
                 .hasMessage("Cannot cast '12345678901234567890' to INTEGER")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -656,7 +741,7 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as SMALLINT)")
                 .binding("a", "DECIMAL '12345678901234567890'").evaluate())
                 .hasMessage("Cannot cast '12345678901234567890' to SMALLINT")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -733,7 +818,7 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TINYINT)")
                 .binding("a", "DECIMAL '12345678901234567890'").evaluate())
                 .hasMessage("Cannot cast '12345678901234567890' to TINYINT")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -831,27 +916,27 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,16))")
                 .binding("a", "DOUBLE '100.02'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '100.02' to DECIMAL(17, 16)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
                 .binding("a", "DOUBLE '234.0'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '234.0' to DECIMAL(2, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(5,2))")
                 .binding("a", "DOUBLE '1000.01'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '1000.01' to DECIMAL(5, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
                 .binding("a", "DOUBLE '-234.0'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '-234.0' to DECIMAL(2, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,16))")
                 .binding("a", "infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE 'Infinity' to DECIMAL(17, 16)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(10,5))")
                 .binding("a", "nan()").evaluate())
@@ -861,12 +946,12 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(10,1))")
                 .binding("a", "infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE 'Infinity' to DECIMAL(10, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(1,1))")
                 .binding("a", "-infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE '-Infinity' to DECIMAL(1, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -983,32 +1068,32 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "DOUBLE '100.02'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '100.02' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
                 .binding("a", "DOUBLE '234000000000000000000.0'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '2.34E20' to DECIMAL(20, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,2))")
                 .binding("a", "DOUBLE '1000000000000000000.01'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '1.0E18' to DECIMAL(20, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
                 .binding("a", "DOUBLE '-234000000000000000000.0'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '-2.34E20' to DECIMAL(20, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20, 10))")
                 .binding("a", "DOUBLE '12345678901.1'").evaluate())
                 .hasMessage("Cannot cast DOUBLE '1.23456789011E10' to DECIMAL(20, 10)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE 'Infinity' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,10))")
                 .binding("a", "nan()").evaluate())
@@ -1018,12 +1103,12 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,2))")
                 .binding("a", "infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE 'Infinity' to DECIMAL(38, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,1))")
                 .binding("a", "-infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE '-Infinity' to DECIMAL(38, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(10,5))")
                 .binding("a", "nan()").evaluate())
@@ -1033,12 +1118,12 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(10,1))")
                 .binding("a", "infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE 'Infinity' to DECIMAL(10, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(1,1))")
                 .binding("a", "-infinity()").evaluate())
                 .hasMessage("Cannot cast DOUBLE '-Infinity' to DECIMAL(1, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -1094,11 +1179,29 @@ public class TestDecimalCasts
 
         assertThat(assertions.expression("cast(a as DOUBLE)")
                 .binding("a", "DECIMAL '-1234567890123456789012345678'"))
-                .isEqualTo(-1.2345678901234569E27);
+                .isEqualTo(-1.2345678901234569e27);
 
         assertThat(assertions.expression("cast(a as DOUBLE)")
                 .binding("a", "DECIMAL '99999999999999999999999999999999999999'"))
-                .isEqualTo(1.0E38);
+                .isEqualTo(1.0e38);
+
+        // unscaled value does not fit in double lossless, but represented number does
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '912057769880088.000'"))
+                .isEqualTo(912057769880088.0);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '-912057769880088.000'"))
+                .isEqualTo(-912057769880088.0);
+
+        // unscaled value does not fit in double lossless, but represented number does
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '5764607523034800.00'"))
+                .isEqualTo(5764607523034800.0);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "DECIMAL '-5764607523034800.00'"))
+                .isEqualTo(-5764607523034800.0);
     }
 
     @Test
@@ -1198,32 +1301,32 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "REAL '100.02'").evaluate())
                 .hasMessage("Cannot cast REAL '100.02' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,16))")
                 .binding("a", "REAL '100.02'").evaluate())
                 .hasMessage("Cannot cast REAL '100.02' to DECIMAL(17, 16)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
                 .binding("a", "REAL '234.0'").evaluate())
                 .hasMessage("Cannot cast REAL '234.0' to DECIMAL(2, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(5,2))")
                 .binding("a", "REAL '1000.01'").evaluate())
                 .hasMessage("Cannot cast REAL '1000.01' to DECIMAL(5, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
                 .binding("a", "REAL '-234.0'").evaluate())
                 .hasMessage("Cannot cast REAL '-234.0' to DECIMAL(2, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20, 10))")
                 .binding("a", "REAL '98765430784.0'").evaluate())
                 .hasMessage("Cannot cast REAL '9.876543E10' to DECIMAL(20, 10)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS DECIMAL(10,5))")
                 .binding("a", "CAST(nan() as REAL)").evaluate())
@@ -1233,12 +1336,12 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS DECIMAL(10,1))")
                 .binding("a", "CAST(infinity() as REAL)").evaluate())
                 .hasMessage("Cannot cast REAL 'Infinity' to DECIMAL(10, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS DECIMAL(1,1))")
                 .binding("a", "CAST(-infinity() as REAL)").evaluate())
                 .hasMessage("Cannot cast REAL '-Infinity' to DECIMAL(1, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS DECIMAL(38,10))")
                 .binding("a", "CAST(nan() as REAL)").evaluate())
@@ -1248,12 +1351,12 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS DECIMAL(38,2))")
                 .binding("a", "CAST(infinity() as REAL)").evaluate())
                 .hasMessage("Cannot cast REAL 'Infinity' to DECIMAL(38, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a AS DECIMAL(38,1))")
                 .binding("a", "CAST(-infinity() as REAL)").evaluate())
                 .hasMessage("Cannot cast REAL '-Infinity' to DECIMAL(38, 1)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -1313,11 +1416,35 @@ public class TestDecimalCasts
 
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "DECIMAL '-1234567890123456789012345678'"))
-                .isEqualTo(-1.2345678901234569E27f);
+                .isEqualTo(-1.2345678901234569e27f);
 
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "DECIMAL '99999999999999999999999999999999999999'"))
-                .isEqualTo(1.0E38f);
+                .isEqualTo(1.0e38f);
+    }
+
+    @Test
+    public void testShortDecimalToRealDoubleRounding()
+    {
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '999999.00'"))
+                .isEqualTo(999999.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '-999999.00'"))
+                .isEqualTo(-999999.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "CAST(1000001.00 AS DECIMAL(13,2))"))
+                .isEqualTo(1000001.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "CAST(16777217.0 AS DECIMAL(13,1))"))
+                .isEqualTo(16777217.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "CAST(-16777217.0 AS DECIMAL(13,1))"))
+                .isEqualTo(-16777217.0f);
     }
 
     @Test
@@ -1415,22 +1542,22 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,16))")
                 .binding("a", "NUMBER '100.02'").evaluate())
                 .hasMessage("Cannot cast NUMBER '100.02' to DECIMAL(17, 16)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
                 .binding("a", "NUMBER '234.0'").evaluate())
                 .hasMessage("Cannot cast NUMBER '234' to DECIMAL(2, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(5,2))")
                 .binding("a", "NUMBER '1000.01'").evaluate())
                 .hasMessage("Cannot cast NUMBER '1000.01' to DECIMAL(5, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
                 .binding("a", "NUMBER '-234.0'").evaluate())
                 .hasMessage("Cannot cast NUMBER '-234' to DECIMAL(2, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -1547,27 +1674,27 @@ public class TestDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
                 .binding("a", "NUMBER '100.02'").evaluate())
                 .hasMessage("Cannot cast NUMBER '100.02' to DECIMAL(38, 37)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
                 .binding("a", "NUMBER '234000000000000000000.0'").evaluate())
                 .hasMessage("Cannot cast NUMBER '2.34E+20' to DECIMAL(20, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,2))")
                 .binding("a", "NUMBER '1000000000000000000.01'").evaluate())
                 .hasMessage("Cannot cast NUMBER '1000000000000000000.01' to DECIMAL(20, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
                 .binding("a", "NUMBER '-234000000000000000000.0'").evaluate())
                 .hasMessage("Cannot cast NUMBER '-2.34E+20' to DECIMAL(20, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20, 10))")
                 .binding("a", "NUMBER '12345678901.1'").evaluate())
                 .hasMessage("Cannot cast NUMBER '12345678901.1' to DECIMAL(20, 10)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test

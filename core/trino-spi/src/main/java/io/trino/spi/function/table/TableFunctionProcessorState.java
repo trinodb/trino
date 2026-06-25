@@ -33,7 +33,9 @@ import static java.util.Objects.requireNonNull;
  * reasons, the validation of indexes is skipped, and all pass-through columns are filled with nulls.
  */
 public sealed interface TableFunctionProcessorState
-        permits TableFunctionProcessorState.Blocked, TableFunctionProcessorState.Finished, TableFunctionProcessorState.Processed
+        permits TableFunctionProcessorState.Blocked,
+                TableFunctionProcessorState.Finished,
+                TableFunctionProcessorState.Processed
 {
     final class Blocked
             implements TableFunctionProcessorState

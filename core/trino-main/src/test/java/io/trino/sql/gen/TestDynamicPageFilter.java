@@ -38,6 +38,7 @@ import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
+import io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -55,7 +56,6 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRowBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTypedLongsBlock;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.onlyNull;
@@ -68,14 +68,13 @@ import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
 import static io.trino.util.DynamicFiltersTestUtil.createDynamicFilterEvaluator;
 import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicPageFilter
 {
-    private static final ColumnarFilterCompiler COMPILER = new ColumnarFilterCompiler(createTestingFunctionManager(), PLANNER_CONTEXT.getMetadata(), new CompilerConfig());
+    private static final ColumnarFilterCompiler COMPILER = new ColumnarFilterCompiler(PLANNER_CONTEXT, new CompilerConfig());
     private static final Session SESSION = testSessionBuilder().build();
     private static final FullConnectorSession FULL_CONNECTOR_SESSION = new FullConnectorSession(
             testSessionBuilder().build(),
@@ -115,15 +114,13 @@ public class TestDynamicPageFilter
 
         filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        multipleValues(VARCHAR, ImmutableList.of("bc", "cd")))),
+                        column, multipleValues(VARCHAR, ImmutableList.of(utf8Slice("bc"), utf8Slice("cd"))))),
                 ImmutableMap.of(column, 0));
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {1, 3});
 
         filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.of(VARCHAR, utf8Slice("ab")), true))),
+                        column, Domain.create(ValueSet.of(VARCHAR, utf8Slice("ab")), true))),
                 ImmutableMap.of(column, 0));
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {0, 2, 4});
     }
@@ -142,15 +139,13 @@ public class TestDynamicPageFilter
 
         filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        multipleValues(INTEGER, ImmutableList.of(2L, 3L, 4L, 5L)))),
+                        column, multipleValues(INTEGER, ImmutableList.of(2L, 3L, 4L, 5L)))),
                 ImmutableMap.of(column, 0));
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {1, 3});
 
         filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.of(INTEGER, 1L), true))),
+                        column, Domain.create(ValueSet.of(INTEGER, 1L), true))),
                 ImmutableMap.of(column, 0));
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {0, 2, 4});
 
@@ -168,12 +163,13 @@ public class TestDynamicPageFilter
         Type rowType = rowType(new RowType.Field(Optional.of("a"), INTEGER), new RowType.Field(Optional.of("b"), DOUBLE));
         RowBlock rowBlock = createRowBlock(
                 ImmutableList.of(INTEGER, DOUBLE),
-                new Object[] {5, 3.14159265358979}, new Object[] {6, 3.14159265358979}, new Object[] {7, 3.14159265358979});
+                new Object[] {5, 3.14159265358979},
+                new Object[] {6, 3.14159265358979},
+                new Object[] {7, 3.14159265358979});
         Block[] filterBlocks = rowBlock.getFieldBlocks().toArray(new Block[0]);
         FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        multipleValues(rowType, ImmutableList.of(new SqlRow(0, filterBlocks), new SqlRow(1, filterBlocks))))),
+                        column, multipleValues(rowType, ImmutableList.of(new SqlRow(0, filterBlocks), new SqlRow(1, filterBlocks))))),
                 ImmutableMap.of(column, 0));
         SourcePage page = SourcePage.create(new Page(rowBlock));
         // Columnar filter evaluation does not support IN on structural types, therefore this is a no-op filter
@@ -280,7 +276,8 @@ public class TestDynamicPageFilter
                 SESSION,
                 ImmutableMap.of(symbolA, columnA, symbolB, columnB, symbolC, columnC),
                 ImmutableMap.of(symbolA, 0, symbolB, 1, symbolC, 2),
-                1);
+                1,
+                true);
         SourcePage page = SourcePage.create(new Page(
                 createLongSequenceBlock(0, 101),
                 createLongSequenceBlock(100, 201),
@@ -323,7 +320,8 @@ public class TestDynamicPageFilter
                 SESSION,
                 ImmutableMap.of(symbolA, columnA, symbolB, columnB, symbolC, columnC),
                 ImmutableMap.of(symbolA, 0, symbolB, 1, symbolC, 2),
-                1);
+                1,
+                true);
         SourcePage page = SourcePage.create(new Page(
                 createLongSequenceBlock(0, 101),
                 createLongSequenceBlock(100, 201),

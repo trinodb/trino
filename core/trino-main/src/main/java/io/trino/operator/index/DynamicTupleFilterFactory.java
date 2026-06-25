@@ -113,6 +113,7 @@ public class DynamicTupleFilterFactory
                 Optional.empty(),
                 outputProjections.stream()
                         .map(Supplier::get)
-                        .collect(toImmutableList()), initialBatchSize);
+                        .collect(toImmutableList()),
+                initialBatchSize);
     }
 }

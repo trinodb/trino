@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.json.XQueryRegex;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
 import io.trino.json.ir.IrArithmeticUnary;
@@ -33,6 +34,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -51,7 +53,7 @@ import java.util.Optional;
 
 import static io.trino.json.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.DIVIDE;
-import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULUS;
+import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULO;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.MULTIPLY;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.SUBTRACT;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.MINUS;
@@ -100,9 +102,9 @@ public class PathNodes
         return new IrArithmeticBinary(DIVIDE, left, right, Optional.empty());
     }
 
-    public static IrPathNode modulus(IrPathNode left, IrPathNode right)
+    public static IrPathNode modulo(IrPathNode left, IrPathNode right)
     {
-        return new IrArithmeticBinary(MODULUS, left, right, Optional.empty());
+        return new IrArithmeticBinary(MODULO, left, right, Optional.empty());
     }
 
     public static IrPathNode plus(IrPathNode base)
@@ -269,6 +271,16 @@ public class PathNodes
     public static IrPredicate isUnknown(IrPredicate predicate)
     {
         return new IrIsUnknownPredicate(predicate);
+    }
+
+    public static IrPredicate likeRegex(IrPathNode path, String pattern)
+    {
+        return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags("")));
+    }
+
+    public static IrPredicate likeRegex(IrPathNode path, String pattern, String flag)
+    {
+        return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags(flag)));
     }
 
     public static IrPredicate negation(IrPredicate predicate)

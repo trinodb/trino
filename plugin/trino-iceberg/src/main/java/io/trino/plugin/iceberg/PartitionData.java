@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -125,6 +126,14 @@ public class PartitionData
         return new PartitionData(values);
     }
 
+    public static PartitionData fromJson(String partitionDataAsJson, PartitionSpec partitionSpec)
+    {
+        Type[] types = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(partitionSpec.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+        return fromJson(partitionDataAsJson, types);
+    }
+
     public static PartitionData fromJson(String partitionDataAsJson, Type[] types)
     {
         if (partitionDataAsJson == null) {
@@ -157,54 +166,40 @@ public class PartitionData
         if (partitionValue.isNull()) {
             return null;
         }
-        switch (type.typeId()) {
-            case BOOLEAN:
-                return partitionValue.asBoolean();
-            case INTEGER:
-            case DATE:
-                return partitionValue.asInt();
-            case LONG:
-            case TIME:
-            case TIMESTAMP:
-            case TIMESTAMP_NANO:
-                return partitionValue.asLong();
-            case FLOAT:
+        return switch (type.typeId()) {
+            case BOOLEAN -> partitionValue.asBoolean();
+            case INTEGER, DATE -> partitionValue.asInt();
+            case LONG, TIME, TIMESTAMP, TIMESTAMP_NANO -> partitionValue.asLong();
+            case FLOAT -> {
                 if (partitionValue.asText().equalsIgnoreCase("NaN")) {
-                    return Float.NaN;
+                    yield Float.NaN;
                 }
-                return partitionValue.floatValue();
-            case DOUBLE:
+                yield partitionValue.floatValue();
+            }
+            case DOUBLE -> {
                 if (partitionValue.asText().equalsIgnoreCase("NaN")) {
-                    return Double.NaN;
+                    yield Double.NaN;
                 }
-                return partitionValue.doubleValue();
-            case STRING:
-                return partitionValue.asText();
-            case UUID:
-                return UUID.fromString(partitionValue.asText());
-            case FIXED:
-            case BINARY:
+                yield partitionValue.doubleValue();
+            }
+            case STRING -> partitionValue.asText();
+            case UUID -> UUID.fromString(partitionValue.asText());
+            case FIXED, BINARY -> {
                 try {
-                    return partitionValue.binaryValue();
+                    yield partitionValue.binaryValue();
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException("Failed during JSON conversion of " + partitionValue, e);
                 }
-            case DECIMAL:
+            }
+            case DECIMAL -> {
                 Types.DecimalType decimalType = (Types.DecimalType) type;
-                return rescale(
+                yield rescale(
                         partitionValue.decimalValue(),
                         createDecimalType(decimalType.precision(), decimalType.scale()));
+            }
             // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
-            case VARIANT:
-            case GEOMETRY:
-            case GEOGRAPHY:
-            case UNKNOWN:
-            case LIST:
-            case MAP:
-            case STRUCT:
-                // unsupported
-        }
-        throw new UnsupportedOperationException("Type not supported as partition column: " + type);
+            case VARIANT, GEOMETRY, GEOGRAPHY, UNKNOWN, LIST, MAP, STRUCT -> throw new UnsupportedOperationException("Type not supported as partition column: " + type);
+        };
     }
 }

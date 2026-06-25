@@ -20,7 +20,7 @@ import io.airlift.json.JsonMapperProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +42,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private RestClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -176,39 +176,39 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "properties": {
-                          "col1Row": {
-                              "properties": {
-                                  "a": {
-                                      "type": "long"
-                                  },
-                                  "b": {
-                                      "type": "long"
-                                  },
-                                  "c": {
-                                      "properties": {
-                                          "c1": {
-                                              "type": "long"
-                                          },
-                                          "c2": {
-                                              "properties": {
-                                                  "c21": {
-                                                      "type": "long"
-                                                  },
-                                                  "c22": {
-                                                      "type": "long"
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "properties": {
+                        "col1Row": {
+                            "properties": {
+                                "a": {
+                                    "type": "long"
+                                },
+                                "b": {
+                                    "type": "long"
+                                },
+                                "c": {
+                                    "properties": {
+                                        "c1": {
+                                            "type": "long"
+                                        },
+                                        "c2": {
+                                            "properties": {
+                                                "c21": {
+                                                    "type": "long"
+                                                },
+                                                "c22": {
+                                                    "type": "long"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                """;
 
         int a = 2;
         int b = 100;
@@ -291,22 +291,22 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "_meta": {
-                          "trino": {
-                              "colArray": {
-                                  "isArray": true
-                              }
-                          }
-                      },
-                      "properties": {
-                          "colArray": {
-                              "type": "long"
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "_meta": {
+                        "trino": {
+                            "colArray": {
+                                "isArray": true
+                            }
+                        }
+                    },
+                    "properties": {
+                        "colArray": {
+                            "type": "long"
+                        }
+                    }
+                }
+                """;
 
         StringBuilder payload = new StringBuilder();
         for (int i = 0; i < 10000; i++) {
@@ -348,7 +348,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String mappings = indexMapping(properties);
         Request request = new Request("PUT", "/" + indexName);
         request.setJsonEntity(mappings);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String indexMapping(@Language("JSON") String properties)
@@ -362,7 +362,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String endpoint = format("%s?refresh", bulkEndpoint(index));
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(payload);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String bulkEndpoint(String index)
@@ -374,6 +374,6 @@ final class TestElasticsearchComplexTypePredicatePushDown
             throws IOException
     {
         Request request = new Request("DELETE", "/" + indexName);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 }

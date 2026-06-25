@@ -79,14 +79,16 @@ public final class JoinTestUtils
     public static OperatorFactory innerJoinOperatorFactory(
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
+            List<Integer> hashChannels,
             PartitioningSpillerFactory partitioningSpillerFactory)
     {
-        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, partitioningSpillerFactory, false);
+        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, hashChannels, partitioningSpillerFactory, false);
     }
 
     public static OperatorFactory innerJoinOperatorFactory(
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
+            List<Integer> hashChannels,
             PartitioningSpillerFactory partitioningSpillerFactory,
             boolean outputSingleMatch)
     {
@@ -96,7 +98,7 @@ public final class JoinTestUtils
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 probePages.getTypes(),
-                probePages.getHashChannels().orElseThrow(),
+                hashChannels,
                 Optional.empty(),
                 OptionalInt.of(1),
                 partitioningSpillerFactory,
@@ -127,15 +129,15 @@ public final class JoinTestUtils
             boolean parallelBuild,
             TaskContext taskContext,
             RowPagesBuilder buildPages,
+            List<Integer> hashChannels,
             Optional<InternalJoinFilterFunction> filterFunction,
             boolean spillEnabled,
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
-                .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
+                .map(function -> (_, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
-        List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
         List<Type> types = buildPages.getTypes();
         List<Type> hashChannelTypes = hashChannels.stream()
                 .map(types::get)
@@ -157,12 +159,12 @@ public final class JoinTestUtils
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         ValuesOperator.ValuesOperatorFactory valuesOperatorFactory = new ValuesOperator.ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.build());
         LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory(localExchange.createSinkFactory(), 1, new PlanNodeId("sink"), Function.identity());
-        Driver sourceDriver = Driver.createDriver(collectDriverContext,
+        Driver sourceDriver = Driver.createDriver(
+                collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
         valuesOperatorFactory.noMoreOperators();
         sinkOperatorFactory.noMoreOperators();
-        sinkOperatorFactory.localPlannerComplete();
 
         while (!sourceDriver.isFinished()) {
             sourceDriver.processUntilBlocked();

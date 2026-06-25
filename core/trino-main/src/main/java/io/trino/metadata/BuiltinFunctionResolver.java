@@ -19,14 +19,14 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.cache.NonEvictableCache;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionBinder.CatalogFunctionBinding;
+import io.trino.metadata.SignatureBinder.GroundSignature;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 
 import java.util.Collection;
 import java.util.List;
@@ -59,26 +59,26 @@ class BuiltinFunctionResolver
     private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
     private final NonEvictableCache<FunctionCacheKey, ResolvedFunction> functionCache;
 
-    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog)
+    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog, boolean legacyVarcharToCharCoercion)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        this.functionBinder = new FunctionBinder(metadata, typeManager);
+        this.functionBinder = new FunctionBinder(metadata, typeManager, legacyVarcharToCharCoercion);
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         coercionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         functionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
             return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
-                () -> {
-                    CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
-                    return resolveBuiltin(functionBinding);
-                });
+                    () -> {
+                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
+                        return resolveBuiltin(functionBinding);
+                    });
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -96,8 +96,8 @@ class BuiltinFunctionResolver
                     () -> resolveBuiltinFunction(
                             mangleOperatorName(operatorType),
                             argumentTypes.stream()
-                                    .map(Type::getTypeSignature)
-                                    .map(TypeSignatureProvider::new)
+                                    .map(Type::getTypeDescriptor)
+                                    .map(TypeDescriptorProvider::new)
                                     .collect(toImmutableList())));
         }
         catch (UncheckedExecutionException e) {
@@ -115,7 +115,9 @@ class BuiltinFunctionResolver
     {
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
-            return uncheckedCacheGet(coercionCache, new CoercionCacheKey(operatorType, fromType, toType),
+            return uncheckedCacheGet(
+                    coercionCache,
+                    new CoercionCacheKey(operatorType, fromType, toType),
                     () -> resolveCoercion(mangleOperatorName(operatorType), fromType, toType));
         }
         catch (UncheckedExecutionException e) {
@@ -132,10 +134,7 @@ class BuiltinFunctionResolver
     ResolvedFunction resolveCoercion(String functionName, Type fromType, Type toType)
     {
         CatalogFunctionBinding functionBinding = functionBinder.bindCoercion(
-                Signature.builder()
-                        .returnType(toType)
-                        .argumentType(fromType)
-                        .build(),
+                new GroundSignature(toType.getTypeDescriptor(), ImmutableList.of(fromType.getTypeDescriptor())),
                 getBuiltinFunctions(functionName));
         return resolveBuiltin(functionBinding);
     }
@@ -168,6 +167,7 @@ class BuiltinFunctionResolver
     private Collection<CatalogFunctionMetadata> getBuiltinFunctions(String functionName)
     {
         return globalFunctionCatalog.getBuiltInFunctions(functionName).stream()
+                .filter(function -> !function.isMethod())
                 .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
     }
@@ -191,7 +191,7 @@ class BuiltinFunctionResolver
         }
     }
 
-    private record FunctionCacheKey(String name, List<? extends TypeSignature> types)
+    private record FunctionCacheKey(String name, List<? extends TypeDescriptor> types)
     {
         private FunctionCacheKey
         {
@@ -199,10 +199,10 @@ class BuiltinFunctionResolver
             requireNonNull(types, "types is null");
         }
 
-        public static FunctionCacheKey from(String name, List<TypeSignatureProvider> parameterTypes)
+        public static FunctionCacheKey from(String name, List<TypeDescriptorProvider> parameterTypes)
         {
             return new FunctionCacheKey(name, parameterTypes.stream()
-                    .map(TypeSignatureProvider::getTypeSignature)
+                    .map(TypeDescriptorProvider::getTypeDescriptor)
                     .collect(toImmutableList()));
         }
     }

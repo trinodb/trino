@@ -32,7 +32,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 
-@ScalarFunction(value = "array_intersect", neverFails = true)
+@ScalarFunction(value = "array_intersect")
 @Description("Intersects elements of the two given arrays")
 public final class ArrayIntersectFunction
 {
@@ -50,11 +50,13 @@ public final class ArrayIntersectFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical elementIdentical,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            BlockPositionIsIdentical elementIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode elementHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {

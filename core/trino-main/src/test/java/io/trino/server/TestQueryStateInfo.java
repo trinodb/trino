@@ -23,6 +23,7 @@ import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.resourcegroups.InternalResourceGroup;
 import io.trino.operator.RetryPolicy;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
@@ -39,7 +40,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -51,7 +51,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);

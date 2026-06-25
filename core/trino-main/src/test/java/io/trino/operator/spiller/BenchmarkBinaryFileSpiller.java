@@ -120,7 +120,7 @@ public class BenchmarkBinaryFileSpiller
                     encryptionEnabled);
             spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
             pages = createInputPages();
-            readSpiller = spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
+            readSpiller = spillerFactory.create(TYPES, _ -> {}, newSimpleAggregatedMemoryContext());
             readSpiller.spill(pages.iterator()).get();
         }
 
@@ -168,7 +168,7 @@ public class BenchmarkBinaryFileSpiller
 
         public Spiller createSpiller()
         {
-            return spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
+            return spillerFactory.create(TYPES, _ -> {}, newSimpleAggregatedMemoryContext());
         }
     }
 }

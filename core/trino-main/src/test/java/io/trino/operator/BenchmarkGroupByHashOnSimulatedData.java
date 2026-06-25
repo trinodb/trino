@@ -346,7 +346,8 @@ public class BenchmarkGroupByHashOnSimulatedData
         TWO_SMALL_VARCHAR_DICTIONARIES(
                 new ChannelDefinition(ColumnType.CHAR_1, 30, 10),
                 new ChannelDefinition(ColumnType.CHAR_1, 30, 10)),
-        TWO_SMALL_VARCHAR_DICTIONARIES_WITH_SMALL_PAGE_SIZE(// low cardinality optimisation will not kick in here
+        TWO_SMALL_VARCHAR_DICTIONARIES_WITH_SMALL_PAGE_SIZE(
+                // low cardinality optimisation will not kick in here
                 1000,
                 new ChannelDefinition(ColumnType.CHAR_1, 30, 10),
                 new ChannelDefinition(ColumnType.CHAR_1, 30, 10)),

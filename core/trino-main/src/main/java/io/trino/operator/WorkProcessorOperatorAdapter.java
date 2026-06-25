@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
@@ -85,12 +84,6 @@ public class WorkProcessorOperatorAdapter
 
             return lookupJoin.createOuterOperatorFactory();
         }
-
-        @VisibleForTesting
-        public WorkProcessorOperatorFactory getWorkProcessorOperatorFactory()
-        {
-            return operatorFactory;
-        }
     }
 
     private final OperatorContext operatorContext;
@@ -101,11 +94,7 @@ public class WorkProcessorOperatorAdapter
     public WorkProcessorOperatorAdapter(OperatorContext operatorContext, WorkProcessorOperatorFactory workProcessorOperatorFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        MemoryTrackingContext memoryTrackingContext = new MemoryTrackingContext(
-                operatorContext.aggregateUserMemoryContext(),
-                operatorContext.aggregateRevocableMemoryContext());
-        memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
-        this.workProcessorOperator = workProcessorOperatorFactory.create(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext), pageBuffer.pages());
+        this.workProcessorOperator = workProcessorOperatorFactory.create(operatorContext, pageBuffer.pages());
         this.pages = workProcessorOperator.getOutputPages();
         operatorContext.setInfoSupplier(createInfoSupplier(workProcessorOperator));
     }

@@ -22,6 +22,7 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.TaskContext;
@@ -93,8 +94,7 @@ public class QueryContext
             DataSize maxSpill,
             SpillSpaceTracker spillSpaceTracker)
     {
-        this(
-                queryId,
+        this(queryId,
                 maxUserMemory,
                 memoryPool,
                 GUARANTEED_MEMORY,
@@ -176,7 +176,7 @@ public class QueryContext
         return NOT_BLOCKED;
     }
 
-    //TODO Add tagging support for revocable memory reservations if needed
+    // TODO Add tagging support for revocable memory reservations if needed
     private synchronized ListenableFuture<Void> updateRevocableMemory(TaskId taskId, long delta)
     {
         if (delta >= 0) {
@@ -191,7 +191,7 @@ public class QueryContext
         return NOT_BLOCKED;
     }
 
-    //TODO move spill tracking to the new memory tracking framework
+    // TODO move spill tracking to the new memory tracking framework
     public synchronized ListenableFuture<Void> reserveSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -247,17 +247,19 @@ public class QueryContext
     {
         TaskId taskId = taskStateMachine.getTaskId();
 
-        MemoryTrackingContext taskMemoryContext = new MemoryTrackingContext(
-                newRootAggregatedMemoryContext(
-                        new QueryMemoryReservationHandler(
-                                (tag, delta) -> updateUserMemory(taskId, tag, delta),
-                                (tag, delta) -> tryUpdateUserMemory(taskId, tag, delta)),
-                        guaranteedMemory),
-                newRootAggregatedMemoryContext(
-                        new QueryMemoryReservationHandler(
-                                (tag, delta) -> updateRevocableMemory(taskId, delta),
-                                (tag, delta) -> tryReserveMemoryNotSupported()),
-                        0L));
+        // Note that task user memory cannot be closed even when TaskStateMachine reaches a terminal state.
+        // Task output buffers may be still live and waiting for consumer to release them.
+        AggregatedMemoryContext taskUserMemory = newRootAggregatedMemoryContext(
+                new QueryMemoryReservationHandler(
+                        (tag, delta) -> updateUserMemory(taskId, tag, delta),
+                        (tag, delta) -> tryUpdateUserMemory(taskId, tag, delta)),
+                guaranteedMemory);
+        AggregatedMemoryContext taskRevocableMemory = newRootAggregatedMemoryContext(
+                new QueryMemoryReservationHandler(
+                        (_, delta) -> updateRevocableMemory(taskId, delta),
+                        (_, _) -> tryReserveMemoryNotSupported()),
+                0L);
+        MemoryTrackingContext taskMemoryContext = new MemoryTrackingContext(taskUserMemory, taskRevocableMemory);
 
         TaskContext taskContext = createTaskContext(
                 this,
@@ -338,13 +340,13 @@ public class QueryContext
     @GuardedBy("this")
     private String getAdditionalFailureInfo(long allocated, long delta)
     {
-        Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations().get(queryId);
+        Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 
         String additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
 
         // It's possible that a query tries allocating more than the available memory
         // failing immediately before any allocation of that query is tagged
-        if (queryAllocations == null) {
+        if (queryAllocations.isEmpty()) {
             return additionalInfo;
         }
 

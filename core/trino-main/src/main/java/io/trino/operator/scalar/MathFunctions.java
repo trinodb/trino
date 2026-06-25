@@ -34,6 +34,9 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
+import io.trino.spi.type.TrinoNumber.BigDecimalValue;
+import io.trino.spi.type.TrinoNumber.Infinity;
+import io.trino.spi.type.TrinoNumber.NotANumber;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import io.trino.type.NumberOperators;
@@ -62,10 +65,7 @@ import static io.trino.spi.type.Int128Math.negate;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.rescaleTruncate;
 import static io.trino.spi.type.Int128Math.subtract;
-import static io.trino.spi.type.TrinoNumber.BigDecimalValue;
-import static io.trino.spi.type.TrinoNumber.Infinity;
-import static io.trino.spi.type.TrinoNumber.NotANumber;
-import static io.trino.type.DecimalOperators.modulusScalarFunction;
+import static io.trino.type.DecimalOperators.moduloScalarFunction;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
@@ -79,7 +79,7 @@ import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class MathFunctions
 {
-    public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = modulusScalarFunction();
+    public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = moduloScalarFunction();
 
     private static final Int128[] DECIMAL_HALF_UNSCALED_FOR_SCALE;
     private static final Int128[] DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE;
@@ -599,7 +599,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber mod(@SqlType(StandardTypes.NUMBER) TrinoNumber num1, @SqlType(StandardTypes.NUMBER) TrinoNumber num2)
     {
-        return NumberOperators.modulus(num1, num2);
+        return NumberOperators.modulo(num1, num2);
     }
 
     @Description("The constant Pi")
@@ -901,6 +901,13 @@ public final class MathFunctions
 
         double factor = Math.pow(10, decimals);
         int sign = (num < 0) ? -1 : 1;
+        if (factor == 0) {
+            // decimals so negative that 10^decimals underflows to 0; the rounding place value
+            // is larger than any finite magnitude, so any finite num rounds to 0. The sign is
+            // preserved (yielding -0.0 for negative num), consistent with the general path below.
+            return sign * 0.0;
+        }
+
         double rescaled = sign * num * factor;
         long rescaledRound = Math.round(rescaled);
         if (rescaledRound != Long.MAX_VALUE) {
@@ -928,6 +935,13 @@ public final class MathFunctions
 
         double factor = Math.pow(10, decimals);
         int sign = (numInFloat < 0) ? -1 : 1;
+        if (factor == 0) {
+            // decimals so negative that 10^decimals underflows to 0; the rounding place value
+            // is larger than any finite magnitude, so any finite num rounds to 0. The sign is
+            // preserved (yielding -0.0 for negative num), consistent with the general path below.
+            return floatToRawIntBits(sign * 0.0f);
+        }
+
         double result;
         double rescaled = sign * numInFloat * factor;
         long rescaledRound = Math.round(rescaled);
@@ -1504,7 +1518,10 @@ public final class MathFunctions
     private static void checkRadix(long radix)
     {
         checkCondition(radix >= MIN_RADIX && radix <= MAX_RADIX,
-                INVALID_FUNCTION_ARGUMENT, "Radix must be between %d and %d", MIN_RADIX, MAX_RADIX);
+                INVALID_FUNCTION_ARGUMENT,
+                "Radix must be between %d and %d",
+                MIN_RADIX,
+                MAX_RADIX);
     }
 
     @Description("The bucket number of a value given a lower and upper bound and the number of buckets")
@@ -1592,11 +1609,13 @@ public final class MathFunctions
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"varchar", "varchar"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsIdentical varcharIdentical,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
+            BlockPositionIsIdentical varcharIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "varchar",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode varcharHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode varcharHashCode,
             @SqlType("map(varchar,double)") SqlMap leftMap,
             @SqlType("map(varchar,double)") SqlMap rightMap)
     {
@@ -1620,11 +1639,13 @@ public final class MathFunctions
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"varchar", "varchar"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsIdentical varcharIdentical,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
+            BlockPositionIsIdentical varcharIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "varchar",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode varcharHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode varcharHashCode,
             @SqlType("map(varchar,double)") SqlMap leftMap,
             @SqlType("map(varchar,double)") SqlMap rightMap)
     {

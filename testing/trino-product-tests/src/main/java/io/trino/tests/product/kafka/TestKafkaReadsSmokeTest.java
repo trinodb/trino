@@ -110,18 +110,18 @@ public class TestKafkaReadsSmokeTest
                                             .appendBytes(0x1)
                                             .appendBytes(0x2, 0x3)
                                             .appendBytes(0x4, 0x5, 0x6, 0x7)
-                                            .appendBytes(0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf)
+                                            .appendBytes(0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF)
                                             .appendBytes(0x10)
                                             .appendBytes(0x11, 0x12)
                                             .appendBytes(0x13, 0x14, 0x15, 0x16)
                                             .appendBytes(0x17)
                                             .appendBytes(0x18, 0x19)
-                                            .appendBytes(0x1a)
+                                            .appendBytes(0x1A)
                                             .appendIntBigEndian(floatToIntBits(0.13f))
                                             .appendLongBigEndian(doubleToRawLongBits(0.45))
-                                            .appendBytes(0x1b)
-                                            .appendBytes(0x1c, 0x1d)
-                                            .appendBytes(0x1e, 0x1f, 0x20, 0x21)
+                                            .appendBytes(0x1B)
+                                            .appendBytes(0x1C, 0x1D)
+                                            .appendBytes(0x1E, 0x1F, 0x20, 0x21)
                                             .appendBytes(0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29)
                                             .build()))),
                     1,
@@ -137,8 +137,7 @@ public class TestKafkaReadsSmokeTest
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
-                ALL_DATATYPES_RAW_TABLE_NAME
-        ))).containsOnly(
+                ALL_DATATYPES_RAW_TABLE_NAME))).containsOnly(
                 row("c_varchar", "varchar"),
                 row("c_byte_bigint", "bigint"),
                 row("c_short_bigint", "bigint"),
@@ -162,13 +161,13 @@ public class TestKafkaReadsSmokeTest
                 0x01,
                 0x0203,
                 0x04050607,
-                0x08090a0b0c0d0e0fL,
+                0x08090A0B0C0D0E0FL,
                 0x10,
                 0x1112,
                 0x13141516,
                 0x17,
                 0x1819,
-                0x1a,
+                0x1A,
                 0.13f,
                 0.45,
                 true,
@@ -208,8 +207,7 @@ public class TestKafkaReadsSmokeTest
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
-                ALL_DATATYPES_CSV_TABLE_NAME
-        ))).containsOnly(
+                ALL_DATATYPES_CSV_TABLE_NAME))).containsOnly(
                 row("c_varchar", "varchar"),
                 row("c_bigint", "bigint"),
                 row("c_integer", "integer"),
@@ -280,8 +278,7 @@ public class TestKafkaReadsSmokeTest
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
-                ALL_DATATYPES_JSON_TABLE_NAME
-        ))).containsOnly(
+                ALL_DATATYPES_JSON_TABLE_NAME))).containsOnly(
                 row("c_varchar", "varchar"),
                 row("c_bigint", "bigint"),
                 row("c_integer", "integer"),

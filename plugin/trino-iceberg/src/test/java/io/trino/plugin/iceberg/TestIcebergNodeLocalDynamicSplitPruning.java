@@ -23,23 +23,28 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.orc.OrcWriteValidation;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
+import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -48,6 +53,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -151,7 +157,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
-                    0,
+                    Optional.empty(),
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -182,16 +189,14 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            keyColumnHandle,
-                            Domain.singleValue(INTEGER, 1L)));
+                            keyColumnHandle, Domain.singleValue(INTEGER, 1L)));
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
                 assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             TupleDomain<ColumnHandle> nonSelectivePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            keyColumnHandle,
-                            Domain.singleValue(INTEGER, (long) keyColumnValue)));
+                            keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue)));
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
                 SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
@@ -213,7 +218,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
-                    0,
+                    Optional.empty(),
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             tableHandle = new TableHandle(
@@ -323,7 +329,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
-                    0,
+                    Optional.empty(),
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -357,12 +364,10 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> differentDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
+                            dateColumnHandle, Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
             TupleDomain<ColumnHandle> nonOverlappingDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
+                            dateColumnHandle, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(differentDatePredicate, nonOverlappingDatePredicate)) {
                 try (ConnectorPageSource emptyPageSource = createTestingPageSource(
                         transaction,
@@ -377,12 +382,10 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> sameDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.singleValue(DATE, dateColumnValue)));
+                            dateColumnHandle, Domain.singleValue(DATE, dateColumnValue)));
             TupleDomain<ColumnHandle> overlappingDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
+                            dateColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(sameDatePredicate, overlappingDatePredicate)) {
                 try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(
                         transaction,
@@ -476,7 +479,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
-                    0,
+                    Optional.empty(),
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -496,12 +500,10 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             2,
                             TupleDomain.withColumnDomains(
                                     ImmutableMap.of(
-                                            yearColumnHandle,
-                                            Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 2023L, true, 2024L, true)), true))),
+                                            yearColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 2023L, true, 2024L, true)), true))),
                             TupleDomain.withColumnDomains(
                                     ImmutableMap.of(
-                                            monthColumnHandle,
-                                            Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 12L, true)), true))),
+                                            monthColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 12L, true)), true))),
                             OptionalLong.empty(),
                             ImmutableSet.of(yearColumnHandle, monthColumnHandle, receiptColumnHandle, amountColumnHandle),
                             Optional.empty(),
@@ -518,14 +520,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             // the amount of data to be processed from the current table
             TupleDomain<ColumnHandle> differentYearPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2024L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2024L)));
             TupleDomain<ColumnHandle> sameYearAndDifferentMonthPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2023L),
-                            monthColumnHandle,
-                            Domain.singleValue(INTEGER, 2L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2023L),
+                            monthColumnHandle, Domain.singleValue(INTEGER, 2L)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(differentYearPredicate, sameYearAndDifferentMonthPredicate)) {
                 try (ConnectorPageSource emptyPageSource = createTestingPageSource(
                         transaction,
@@ -540,14 +539,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> sameYearPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2023L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2023L)));
             TupleDomain<ColumnHandle> sameYearAndMonthPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2023L),
-                            monthColumnHandle,
-                            Domain.singleValue(INTEGER, 1L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2023L),
+                            monthColumnHandle, Domain.singleValue(INTEGER, 1L)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(sameYearPredicate, sameYearAndMonthPredicate)) {
                 try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(
                         transaction,
@@ -577,21 +573,26 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        BlocksHashFactory blocksHashFactory = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())).createBlocksHashFactory();
         IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 FILE_IO_FACTORY,
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                ParquetFooterCache.noop(),
+                blocksHashFactory,
+                icebergConfig);
         return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),
                 split,
                 tableHandle.connectorHandle(),
-                Optional.empty(),
+                Optional.of(new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of())),
                 columns,
-                dynamicFilter);
+                dynamicFilter,
+                MemoryContext.NO_LIMIT);
     }
 
     private static TestingConnectorSession getSession(IcebergConfig icebergConfig)

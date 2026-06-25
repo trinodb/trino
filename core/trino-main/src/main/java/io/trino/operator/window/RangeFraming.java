@@ -172,7 +172,7 @@ public class RangeFraming
                 -1,
                 ordering == DESCENDING,
                 0,
-                p -> false);
+                _ -> false);
     }
 
     private int getFrameStartFollowing(int currentPosition)
@@ -248,7 +248,7 @@ public class RangeFraming
                 1,
                 ordering == ASCENDING,
                 partitionEnd - 1 - partitionStart,
-                p -> false);
+                _ -> false);
     }
 
     // This method assumes that `sortKeyChannel` is not null at `position`

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionCodecs;
 import io.trino.plugin.hive.HiveCompressionOption;
@@ -35,6 +36,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
+import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_ROW_GROUP_SIZE;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
@@ -53,7 +56,9 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.RESERVED_PROPERTIES;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 
 public class IcebergTableProperties
 {
@@ -69,6 +74,8 @@ public class IcebergTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
+    public static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    public static final String PARQUET_WRITER_ROW_GROUP_SIZE = "parquet_writer_row_group_size";
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
@@ -89,6 +96,8 @@ public class IcebergTableProperties
             .add(DATA_LOCATION_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
+            .add(TARGET_MAX_FILE_SIZE)
+            .add(PARQUET_WRITER_ROW_GROUP_SIZE)
             .build();
 
     // These properties are used by Trino or Iceberg internally and cannot be set directly by users through extra_properties
@@ -98,6 +107,8 @@ public class IcebergTableProperties
             .add(ORC_BLOOM_FILTER_FPP)
             .add(DEFAULT_FILE_FORMAT)
             .add(FORMAT_VERSION)
+            .add(WRITE_TARGET_FILE_SIZE_BYTES)
+            .add(PARQUET_ROW_GROUP_SIZE_BYTES)
             .build();
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -205,6 +216,18 @@ public class IcebergTableProperties
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value))
+                .add(dataSizeProperty(
+                        TARGET_MAX_FILE_SIZE,
+                        "Target maximum size of written files; the actual size may be larger",
+                        null,
+                        value -> validateMaxDataSize(TARGET_MAX_FILE_SIZE, value, DataSize.ofBytes(Long.MAX_VALUE)),
+                        false))
+                .add(dataSizeProperty(
+                        PARQUET_WRITER_ROW_GROUP_SIZE,
+                        "Parquet writer row group size",
+                        null,
+                        value -> validateMaxDataSize(PARQUET_WRITER_ROW_GROUP_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_ROW_GROUP_SIZE)),
+                        false))
                 .add(new PropertyMetadata<>(
                         EXTRA_PROPERTIES_PROPERTY,
                         "Extra table properties",
@@ -240,7 +263,8 @@ public class IcebergTableProperties
         checkState(SUPPORTED_PROPERTIES.containsAll(tableProperties.stream()
                         .map(PropertyMetadata::getName)
                         .collect(toImmutableList())),
-                "%s does not contain all supported properties", SUPPORTED_PROPERTIES);
+                "%s does not contain all supported properties",
+                SUPPORTED_PROPERTIES);
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -286,7 +310,8 @@ public class IcebergTableProperties
     private static void validateFormatVersion(int version)
     {
         if (version < FORMAT_VERSION_SUPPORT_MIN || version > FORMAT_VERSION_SUPPORT_MAX) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY,
+            throw new TrinoException(
+                    INVALID_TABLE_PROPERTY,
                     format("format_version must be between %d and %d", FORMAT_VERSION_SUPPORT_MIN, FORMAT_VERSION_SUPPORT_MAX));
         }
     }
@@ -342,6 +367,13 @@ public class IcebergTableProperties
         }
     }
 
+    private static void validateMaxDataSize(String name, DataSize value, DataSize max)
+    {
+        if (value.compareTo(max) > 0) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "%s must be at most %s: %s".formatted(name, max, value));
+        }
+    }
+
     public static List<String> getParquetBloomFilterColumns(Map<String, Object> tableProperties)
     {
         List<String> parquetBloomFilterColumns = (List<String>) tableProperties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
@@ -351,6 +383,16 @@ public class IcebergTableProperties
     public static boolean getObjectStoreLayoutEnabled(Map<String, Object> tableProperties)
     {
         return (boolean) tableProperties.getOrDefault(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, false);
+    }
+
+    public static Optional<DataSize> getTargetMaxFileSize(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((DataSize) tableProperties.get(TARGET_MAX_FILE_SIZE));
+    }
+
+    public static Optional<DataSize> getParquetWriterRowGroupSize(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((DataSize) tableProperties.get(PARQUET_WRITER_ROW_GROUP_SIZE));
     }
 
     public static Optional<String> getDataLocation(Map<String, Object> tableProperties)

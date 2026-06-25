@@ -44,6 +44,7 @@ import io.trino.operator.OperatorStats;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.NodeVersion;
@@ -112,9 +113,9 @@ import static io.trino.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_COMMITED;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.connector.StandardWarningCode.SPOOLING_NOT_SUPPORTED;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
@@ -431,7 +432,8 @@ public class QueryStateMachine
             // the transaction can be committed or aborted concurrently, after the check is done.
         }
         catch (RuntimeException e) {
-            if (!(e instanceof TrinoException trinoException && TRANSACTION_ALREADY_ABORTED.toErrorCode().equals(trinoException.getErrorCode()))) {
+            if (!(e instanceof TrinoException trinoException && (TRANSACTION_ALREADY_ABORTED.toErrorCode().equals(trinoException.getErrorCode()) ||
+                    TRANSACTION_ALREADY_COMMITED.toErrorCode().equals(trinoException.getErrorCode())))) {
                 QUERY_STATE_LOG.error(e, "Error collecting query catalog metadata metrics: %s", queryId);
             }
         }
@@ -589,7 +591,7 @@ public class QueryStateMachine
         boolean finalInfo = state.isDone() && allStages.stream().allMatch(BasicStageInfo::isFinalStageInfo);
 
         BasicStageStats stageStats = stagesInfo
-                .map(stage -> allStages.stream().map(BasicStageInfo::getStageStats).toList())
+                .map(_ -> allStages.stream().map(BasicStageInfo::getStageStats).toList())
                 .map(BasicStageStats::aggregateBasicStageStats)
                 .orElse(EMPTY_STAGE_STATS);
 
@@ -905,7 +907,7 @@ public class QueryStateMachine
                     StageInfo stage = queue.poll();
                     StageStats stageStats = stage.stageStats();
                     totalStages++;
-                    if (stage.state().isScheduled()) {
+                    if (stage.state().isScheduled() && stageStats.getTotalDrivers() != 0) {
                         completedPercentageSum += 100.0 * stageStats.getCompletedDrivers() / stageStats.getTotalDrivers();
                         runningPercentageSum += 100.0 * stageStats.getRunningDrivers() / stageStats.getTotalDrivers();
                     }

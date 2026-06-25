@@ -14,6 +14,8 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider.ValuesCount;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
@@ -29,8 +31,6 @@ import static io.trino.parquet.ParquetTestUtils.createArrayBlock;
 import static io.trino.parquet.ParquetTestUtils.createMapBlock;
 import static io.trino.parquet.ParquetTestUtils.createRowBlock;
 import static io.trino.parquet.ParquetTestUtils.generateGroupSizes;
-import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
-import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.ValuesCount;
 import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.getRootDefinitionLevelWriter;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;

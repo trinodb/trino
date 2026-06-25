@@ -27,6 +27,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -98,7 +99,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '12345678901234567890.0'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '1e-324'"))
@@ -106,7 +107,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '1e309'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON 'true'"))
@@ -179,7 +180,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as INTEGER)")
                 .binding("a", "JSON '12345678901.0'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as INTEGER)")
                 .binding("a", "JSON '1e-324'"))
@@ -187,7 +188,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as INTEGER)")
                 .binding("a", "JSON '1e309'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as INTEGER)")
                 .binding("a", "JSON 'true'"))
@@ -252,7 +253,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as SMALLINT)")
                 .binding("a", "JSON '123456.0'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as SMALLINT)")
                 .binding("a", "JSON '1e-324'"))
@@ -260,7 +261,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as SMALLINT)")
                 .binding("a", "JSON '1e309'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as SMALLINT)")
                 .binding("a", "JSON 'true'"))
@@ -325,7 +326,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TINYINT)")
                 .binding("a", "JSON '1234.0'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as TINYINT)")
                 .binding("a", "JSON '1e-324'"))
@@ -333,7 +334,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TINYINT)")
                 .binding("a", "JSON '1e309'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as TINYINT)")
                 .binding("a", "JSON 'true'"))
@@ -462,6 +463,22 @@ public class TestJsonOperators
                 .binding("a", "TINYINT '127'"))
                 .hasType(JSON)
                 .isEqualTo("127");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "128"))
+                .neverFails();
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "BIGINT '128'"))
+                .neverFails();
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "SMALLINT '128'"))
+                .neverFails();
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TINYINT '127'"))
+                .neverFails();
     }
 
     @Test
@@ -574,6 +591,10 @@ public class TestJsonOperators
                 .binding("a", "-infinity()"))
                 .hasType(JSON)
                 .isEqualTo("\"-Infinity\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "3.14E0"))
+                .neverFails();
     }
 
     @Test
@@ -602,6 +623,10 @@ public class TestJsonOperators
                 .binding("a", "cast(-infinity() as REAL)"))
                 .hasType(JSON)
                 .isEqualTo("\"-Infinity\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "REAL '3.14'"))
+                .neverFails();
     }
 
     @Test
@@ -733,7 +758,7 @@ public class TestJsonOperators
                 .binding("a", "JSON '1234567890123456'")
                 .evaluate())
                 .hasMessage("Cannot cast input json to DECIMAL(10,3)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(10,3))")
                 .binding("a", "JSON '{ \"x\" : 123}'")
@@ -857,6 +882,10 @@ public class TestJsonOperators
                 .binding("a", "FALSE"))
                 .hasType(JSON)
                 .isEqualTo("false");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TRUE"))
+                .neverFails();
     }
 
     @Test
@@ -1106,6 +1135,10 @@ public class TestJsonOperators
                 .binding("a", "'\"a\":2'"))
                 .hasType(JSON)
                 .isEqualTo("\"\\\"a\\\":2\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "'abc'"))
+                .neverFails();
     }
 
     @Test
@@ -1119,6 +1152,10 @@ public class TestJsonOperators
                 .binding("a", "TIMESTAMP '1970-01-01 00:00:01'"))
                 .hasType(JSON)
                 .isEqualTo(format("\"%s\"", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIMESTAMP '1970-01-01 00:00:01'"))
+                .neverFails();
     }
 
     @Test
@@ -1363,5 +1400,26 @@ public class TestJsonOperators
                 .binding("a", "NUMBER '-Infinity'"))
                 .hasType(JSON)
                 .isEqualTo("\"-Infinity\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "NUMBER '3.14'"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastFromDate()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as date)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "DATE '2024-01-01'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-01\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "DATE '2024-01-01'"))
+                .neverFails();
     }
 }

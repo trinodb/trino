@@ -13,6 +13,9 @@
  */
 package io.trino.metadata;
 
+import io.trino.metadata.VariableBindings.Binding;
+import io.trino.metadata.VariableBindings.NumericBinding;
+import io.trino.metadata.VariableBindings.TypeBinding;
 import io.trino.spi.type.Type;
 
 import java.util.Map;
@@ -21,79 +24,78 @@ import java.util.TreeMap;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
+import static java.util.Objects.requireNonNull;
 
 class BindingsBuilder
 {
-    private final Map<String, Type> typeVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
-    private final Map<String, Long> longVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
+    private final Map<String, Binding> bindings = new TreeMap<>(CASE_INSENSITIVE_ORDER);
 
     public VariableBindings build()
     {
-        return new VariableBindings(typeVariables, longVariables);
+        return new VariableBindings(bindings);
     }
 
     public Type getTypeVariable(String variableName)
     {
-        return getValue(typeVariables, variableName);
+        requireNonNull(variableName, "variableName is null");
+        checkState(bindings.get(variableName) instanceof TypeBinding, "variable '%s' is not bound to a type", variableName);
+        return ((TypeBinding) bindings.get(variableName)).type();
     }
 
     public BindingsBuilder setTypeVariable(String variableName, Type variableValue)
     {
-        setValue(typeVariables, variableName, variableValue);
+        set(variableName, new TypeBinding(requireNonNull(variableValue, "variableValue is null")));
         return this;
     }
 
     public boolean containsTypeVariable(String variableName)
     {
-        return containsValue(typeVariables, variableName);
+        requireNonNull(variableName, "variableName is null");
+        return bindings.get(variableName) instanceof TypeBinding;
     }
 
     public Map<String, Type> getTypeVariables()
     {
-        return typeVariables;
+        return bindings.entrySet().stream()
+                .filter(entry -> entry.getValue() instanceof TypeBinding)
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> ((TypeBinding) entry.getValue()).type()));
     }
 
-    public Long getLongVariable(String variableName)
+    public long getNumericVariable(String variableName)
     {
-        return getValue(longVariables, variableName);
+        requireNonNull(variableName, "variableName is null");
+        checkState(bindings.get(variableName) instanceof NumericBinding, "variable '%s' is not bound to a numeric value", variableName);
+        return ((NumericBinding) bindings.get(variableName)).value();
     }
 
-    public BindingsBuilder setLongVariable(String variableName, Long variableValue)
+    public BindingsBuilder setNumericVariable(String variableName, long variableValue)
     {
-        setValue(longVariables, variableName, variableValue);
+        set(variableName, new NumericBinding(variableValue));
         return this;
     }
 
-    public boolean containsLongVariable(String variableName)
+    public boolean containsNumericVariable(String variableName)
     {
-        return containsValue(longVariables, variableName);
+        requireNonNull(variableName, "variableName is null");
+        return bindings.get(variableName) instanceof NumericBinding;
     }
 
-    public Map<String, Long> getLongVariables()
+    public Map<String, Long> getNumericVariables()
     {
-        return longVariables;
+        return bindings.entrySet().stream()
+                .filter(entry -> entry.getValue() instanceof NumericBinding)
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> ((NumericBinding) entry.getValue()).value()));
     }
 
-    private static <T> T getValue(Map<String, T> map, String variableName)
+    private void set(String variableName, Binding binding)
     {
-        checkState(variableName != null, "variableName is null");
-        T value = map.get(variableName);
-        checkState(value != null, "value for variable '%s' is null", variableName);
-        return value;
-    }
-
-    private static boolean containsValue(Map<String, ?> map, String variableName)
-    {
-        checkState(variableName != null, "variableName is null");
-        return map.containsKey(variableName);
-    }
-
-    private static <T> void setValue(Map<String, T> map, String variableName, T value)
-    {
-        checkState(variableName != null, "variableName is null");
-        checkState(value != null, "value for variable '%s' is null", variableName);
-        map.put(variableName, value);
+        requireNonNull(variableName, "variableName is null");
+        Binding existing = bindings.get(variableName);
+        // A solver may refine a binding across iterations, but the kind of a variable never changes
+        checkState(existing == null || existing.getClass() == binding.getClass(), "variable '%s' is already bound as a %s", variableName, existing == null ? null : existing.getClass().getSimpleName());
+        bindings.put(variableName, binding);
     }
 
     @Override
@@ -106,22 +108,20 @@ class BindingsBuilder
             return false;
         }
         BindingsBuilder that = (BindingsBuilder) o;
-        return Objects.equals(typeVariables, that.typeVariables) &&
-                Objects.equals(longVariables, that.longVariables);
+        return Objects.equals(bindings, that.bindings);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(typeVariables, longVariables);
+        return Objects.hash(bindings);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("typeVariables", typeVariables)
-                .add("longVariables", longVariables)
+                .add("bindings", bindings)
                 .toString();
     }
 }

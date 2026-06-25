@@ -53,8 +53,7 @@ public class HiveOutputTableHandle
             @JsonProperty("external") boolean external,
             @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
-        super(
-                schemaName,
+        super(schemaName,
                 tableName,
                 inputColumns,
                 pageSinkMetadata,

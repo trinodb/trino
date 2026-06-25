@@ -91,7 +91,7 @@ public class EnvironmentDescribe
                 "network alias",
                 "env",
                 "ports",
-                "run command"
+                "run command",
         };
 
         private static final String[] MOUNTS_LIST_HEADER = {
@@ -100,7 +100,7 @@ public class EnvironmentDescribe
                 "from",
                 "to",
                 "type",
-                "size"
+                "size",
         };
 
         private static final Joiner JOINER = Joiner.on('\n').skipNulls();

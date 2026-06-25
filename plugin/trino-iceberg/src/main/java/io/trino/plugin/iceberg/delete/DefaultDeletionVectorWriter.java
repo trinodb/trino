@@ -25,6 +25,7 @@ import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
@@ -61,6 +62,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_DATA_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
@@ -119,7 +121,7 @@ public class DefaultDeletionVectorWriter
         ExistingDeletes existingDeletes = getExistingDeletesByMetadataOnly(icebergTable, snapshotId, deletionVectorBuilders.keySet());
 
         // merge existing deletion vectors into the new ones
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(icebergTable.io()));
         existingDeletes.deletionVectors().forEach((dataFilePath, deleteFile) -> {
             try (TrinoInput input = fileSystem.newInputFile(Location.of(deleteFile.location()), deleteFile.fileSizeInBytes()).newInput()) {
                 Slice data = input.readFully(deleteFile.contentOffset(), toIntExact(deleteFile.contentSizeInBytes()));
@@ -308,6 +310,7 @@ public class DefaultDeletionVectorWriter
         }
     }
 
+    // TODO (https://github.com/trinodb/trino/issues/29957) memory usage reporting
     private ConnectorPageSource openDeleteFilePageSource(ConnectorSession session, DeleteFile deleteFile, TrinoFileSystem fileSystem)
     {
         return pageSourceProviderFactory.createPageSourceProvider().openDeleteFile(
@@ -315,7 +318,8 @@ public class DefaultDeletionVectorWriter
                 fileSystem,
                 io.trino.plugin.iceberg.delete.DeleteFile.fromIceberg(deleteFile),
                 List.of(deleteFilePathColumnHandle, deleteFilePositionColumnHandle),
-                TupleDomain.all());
+                TupleDomain.all(),
+                newSimpleAggregatedMemoryContext());
     }
 
     private static boolean isDeletionVector(DeleteFile deleteFile)

@@ -630,7 +630,7 @@ public final class Environment
                 }
             }
 
-            containers.forEach((name, container) -> {
+            containers.forEach((_, container) -> {
                 container
                         .addContainerListener(listener)
                         .withCreateContainerCmdModifier(createContainerCmd -> {
@@ -680,7 +680,7 @@ public final class Environment
         private static Consumer<OutputFrame> discardContainerLogs(DockerContainer container)
         {
             // Discard log frames
-            return outputFrame -> {};
+            return _ -> {};
         }
 
         private void addConfiguredFeaturesConfig()
@@ -699,10 +699,8 @@ public final class Environment
                         Map.of("databases",
                                 Map.of("trino",
                                         Map.of(
-                                                "configured_connectors",
-                                                configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
-                                                "configured_password_authenticators",
-                                                configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))));
+                                                "configured_connectors", configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
+                                                "configured_password_authenticators", configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))));
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

@@ -60,7 +60,7 @@ import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -68,7 +68,6 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTableColumnDefinition;
@@ -77,11 +76,12 @@ import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
@@ -93,6 +93,7 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
@@ -159,8 +160,8 @@ public class Analysis
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
 
-    // a map of users to the columns per table that they access
-    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+    // a map of users to the columns per table (and branch) that they access
+    private final Map<AccessControlInfo, Map<TableAndBranch, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
     // Record fields prefixed with labels in row pattern recognition context
     private final Map<NodeRef<Expression>, Optional<String>> labels = new LinkedHashMap<>();
@@ -213,18 +214,22 @@ public class Analysis
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, SubqueryAnalysis> subqueries = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
+    private final Map<NodeRef<Predicate>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
+    private final Map<NodeRef<NullIfExpression>, Type> nullIfComparisonTypes = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
+
+    private final Map<NodeRef<Expression>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -299,9 +304,9 @@ public class Analysis
                 .map(field -> new ColumnLineageInfo(
                         field.getName().orElse(""),
                         getSourceColumns(field)
-                            .stream()
-                            .map(SourceColumn::getColumnDetail)
-                            .collect(toImmutableSet())))
+                                .stream()
+                                .map(SourceColumn::getColumnDetail)
+                                .collect(toImmutableSet())))
                 .collect(toImmutableList());
         return lineageInfo.isEmpty() ? Optional.empty() : Optional.of(lineageInfo);
     }
@@ -537,11 +542,13 @@ public class Analysis
 
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
-        subqueries.addInPredicates(dereference(expressionAnalysis.getSubqueryInPredicates()));
+        SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), _ -> new SubqueryAnalysis());
+        subqueries.addInPredicates(expressionAnalysis.getSubqueryInPredicates());
         subqueries.addSubqueries(dereference(expressionAnalysis.getSubqueries()));
         subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
-        subqueries.addQuantifiedComparisons(dereference(expressionAnalysis.getQuantifiedComparisons()));
+        subqueries.addQuantifiedComparisons(expressionAnalysis.getQuantifiedComparisons());
+        subqueries.addMatchPredicates(expressionAnalysis.getMatchPredicates());
+        subqueries.addUniquePredicates(dereference(expressionAnalysis.getUniquePredicates()));
     }
 
     private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
@@ -553,12 +560,12 @@ public class Analysis
 
     public SubqueryAnalysis getSubqueries(Node node)
     {
-        return subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
+        return subqueries.computeIfAbsent(NodeRef.of(node), _ -> new SubqueryAnalysis());
     }
 
     public void addWindowDefinition(QuerySpecification query, CanonicalizationAware<Identifier> name, ResolvedWindow window)
     {
-        windowDefinitions.computeIfAbsent(NodeRef.of(query), key -> new LinkedHashMap<>())
+        windowDefinitions.computeIfAbsent(NodeRef.of(query), _ -> new LinkedHashMap<>())
                 .put(name, window);
     }
 
@@ -682,6 +689,7 @@ public class Analysis
             Table table,
             Optional<TableHandle> handle,
             QualifiedObjectName name,
+            Optional<String> branch,
             String authorization,
             Scope accessControlScope,
             Optional<String> viewText)
@@ -691,6 +699,7 @@ public class Analysis
                 new TableEntry(
                         handle,
                         name,
+                        branch,
                         authorization,
                         accessControlScope,
                         tablesForView.isEmpty() &&
@@ -716,6 +725,36 @@ public class Analysis
     public void addResolvedFunction(Node node, ResolvedFunction function, String authorization)
     {
         resolvedFunctions.put(NodeRef.of(node), new RoutineEntry(function, authorization));
+    }
+
+    public void addMethodCallReceiver(FunctionCall node, Identifier receiver)
+    {
+        methodCallReceivers.put(NodeRef.of(node), receiver);
+    }
+
+    public Optional<Identifier> getMethodCallReceiver(FunctionCall node)
+    {
+        return Optional.ofNullable(methodCallReceivers.get(NodeRef.of(node)));
+    }
+
+    /// Records the mapping from signature position to AST argument index for a
+    /// function call. Position `i` of the binding list holds the AST index whose
+    /// value supplies signature parameter `i`. For a call written entirely
+    /// positionally this is the identity binding `[0, 1, ..., N-1]`; for a call
+    /// with named arguments it reorders so the named values land at their declared
+    /// positions.
+    public void setArgumentBinding(Expression node, List<Integer> binding)
+    {
+        argumentBindings.put(NodeRef.of(node), List.copyOf(binding));
+    }
+
+    public List<Integer> getArgumentBinding(Expression node)
+    {
+        List<Integer> binding = argumentBindings.get(NodeRef.of(node));
+        if (binding == null) {
+            throw new IllegalStateException("argument binding not recorded for: " + node);
+        }
+        return binding;
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()
@@ -763,6 +802,21 @@ public class Analysis
         this.coercions.putAll(coercions);
         this.sortKeyCoercionsForFrameBoundCalculation.putAll(sortKeyCoercionsForFrameBoundCalculation);
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public void addNullIfComparisonType(NullIfExpression expression, Type type)
+    {
+        this.nullIfComparisonTypes.put(NodeRef.of(expression), type);
+    }
+
+    public void addNullIfComparisonTypes(Map<NodeRef<NullIfExpression>, Type> types)
+    {
+        this.nullIfComparisonTypes.putAll(types);
+    }
+
+    public Type getNullIfComparisonType(NullIfExpression expression)
+    {
+        return nullIfComparisonTypes.get(NodeRef.of(expression));
     }
 
     public Type getSortKeyCoercionForFrameBoundCalculation(Expression frameOffset)
@@ -1014,18 +1068,18 @@ public class Analysis
         return nearestAnalysis.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<TableAndBranch, String> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        Map<TableAndBranch, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, _ -> new LinkedHashMap<>());
         tableColumnMap.asMap()
-                .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
+                .forEach((tableAndBranch, columns) -> references.computeIfAbsent(tableAndBranch, _ -> new HashSet<>()).addAll(columns));
     }
 
-    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
+    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table, Optional<String> branch)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+        tableColumnReferences.computeIfAbsent(accessControlInfo, _ -> new LinkedHashMap<>()).computeIfAbsent(new TableAndBranch(table, branch), _ -> new HashSet<>());
     }
 
     public void addLabels(Map<NodeRef<Expression>, Optional<String>> labels)
@@ -1145,7 +1199,7 @@ public class Analysis
         return jsonTableAnalyses.get(NodeRef.of(jsonTable));
     }
 
-    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
+    public Map<AccessControlInfo, Map<TableAndBranch, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
     }
@@ -1179,13 +1233,13 @@ public class Analysis
 
     public void addRowFilter(Table table, Expression filter)
     {
-        rowFilters.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+        rowFilters.computeIfAbsent(NodeRef.of(table), _ -> new ArrayList<>())
                 .add(filter);
     }
 
     public void addCheckConstraints(Table table, Expression constraint)
     {
-        checkConstraints.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+        checkConstraints.computeIfAbsent(NodeRef.of(table), _ -> new ArrayList<>())
                 .add(constraint);
     }
 
@@ -1249,9 +1303,9 @@ public class Analysis
                 .map(entry -> {
                     NodeRef<Table> table = entry.getKey();
 
-                    QualifiedObjectName tableName = entry.getValue().getName();
+                    TableAndBranch tableAndBranch = new TableAndBranch(entry.getValue().getName(), entry.getValue().getBranch());
                     List<ColumnInfo> columns = tableColumnReferences.values().stream()
-                            .map(tablesToColumns -> tablesToColumns.get(tableName))
+                            .map(tablesToColumns -> tablesToColumns.get(tableAndBranch))
                             .filter(Objects::nonNull)
                             .flatMap(Collection::stream)
                             .distinct()
@@ -1349,14 +1403,14 @@ public class Analysis
         return implicitFromScopes.get(NodeRef.of(node));
     }
 
-    public void addPredicateCoercions(Map<NodeRef<Expression>, PredicateCoercions> coercions)
+    public void addPredicateCoercions(Map<NodeRef<Predicate>, PredicateCoercions> coercions)
     {
         predicateCoercions.putAll(coercions);
     }
 
-    public PredicateCoercions getPredicateCoercions(Expression expression)
+    public PredicateCoercions getPredicateCoercions(Predicate predicate)
     {
-        return predicateCoercions.get(NodeRef.of(expression));
+        return predicateCoercions.get(NodeRef.of(predicate));
     }
 
     public void setTableExecuteHandle(TableExecuteHandle tableExecuteHandle)
@@ -1728,15 +1782,15 @@ public class Analysis
         public Set<FieldId> getAllFields()
         {
             return Streams.concat(
-                    cubes.stream()
-                            .flatMap(Collection::stream)
-                            .flatMap(Collection::stream),
-                    rollups.stream()
-                            .flatMap(Collection::stream)
-                            .flatMap(Collection::stream),
-                    ordinarySets.stream()
-                            .flatMap(Collection::stream)
-                            .flatMap(Collection::stream))
+                            cubes.stream()
+                                    .flatMap(Collection::stream)
+                                    .flatMap(Collection::stream),
+                            rollups.stream()
+                                    .flatMap(Collection::stream)
+                                    .flatMap(Collection::stream),
+                            ordinarySets.stream()
+                                    .flatMap(Collection::stream)
+                                    .flatMap(Collection::stream))
                     .collect(toImmutableSet());
         }
     }
@@ -1768,14 +1822,16 @@ public class Analysis
 
     public static class SubqueryAnalysis
     {
-        private final List<InPredicate> inPredicatesSubqueries = new ArrayList<>();
+        private final List<OperandAndPredicate> inPredicates = new ArrayList<>();
         private final List<SubqueryExpression> subqueries = new ArrayList<>();
         private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
-        private final List<QuantifiedComparisonExpression> quantifiedComparisonSubqueries = new ArrayList<>();
+        private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
+        private final List<OperandAndPredicate> matchPredicates = new ArrayList<>();
+        private final List<UniquePredicate> uniquePredicates = new ArrayList<>();
 
-        public void addInPredicates(List<InPredicate> expressions)
+        public void addInPredicates(List<OperandAndPredicate> predicates)
         {
-            inPredicatesSubqueries.addAll(expressions);
+            inPredicates.addAll(predicates);
         }
 
         public void addSubqueries(List<SubqueryExpression> expressions)
@@ -1788,14 +1844,24 @@ public class Analysis
             existsSubqueries.addAll(expressions);
         }
 
-        public void addQuantifiedComparisons(List<QuantifiedComparisonExpression> expressions)
+        public void addQuantifiedComparisons(List<OperandAndPredicate> predicates)
         {
-            quantifiedComparisonSubqueries.addAll(expressions);
+            quantifiedComparisons.addAll(predicates);
         }
 
-        public List<InPredicate> getInPredicatesSubqueries()
+        public void addMatchPredicates(List<OperandAndPredicate> predicates)
         {
-            return unmodifiableList(inPredicatesSubqueries);
+            matchPredicates.addAll(predicates);
+        }
+
+        public void addUniquePredicates(List<UniquePredicate> expressions)
+        {
+            uniquePredicates.addAll(expressions);
+        }
+
+        public List<OperandAndPredicate> getInPredicates()
+        {
+            return unmodifiableList(inPredicates);
         }
 
         public List<SubqueryExpression> getSubqueries()
@@ -1808,9 +1874,32 @@ public class Analysis
             return unmodifiableList(existsSubqueries);
         }
 
-        public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
+        public List<OperandAndPredicate> getQuantifiedComparisons()
         {
-            return unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisons);
+        }
+
+        public List<OperandAndPredicate> getMatchPredicates()
+        {
+            return unmodifiableList(matchPredicates);
+        }
+
+        public List<UniquePredicate> getUniquePredicates()
+        {
+            return unmodifiableList(uniquePredicates);
+        }
+    }
+
+    /// A relational subquery predicate (`InPredicate` or `QuantifiedComparisonPredicate`) paired
+    /// with its operand. Unifies the regular `Predicated(value, predicate)` case and the F262
+    /// extended-CASE case (operand from the surrounding CASE expression, predicate from the
+    /// WHEN clause). The same shape covers both — planning consumes them uniformly.
+    public record OperandAndPredicate(Expression operand, Predicate predicate)
+    {
+        public OperandAndPredicate
+        {
+            requireNonNull(operand, "operand is null");
+            requireNonNull(predicate, "predicate is null");
         }
     }
 
@@ -2098,6 +2187,8 @@ public class Analysis
         }
     }
 
+    public record TableAndBranch(QualifiedObjectName tableName, Optional<String> branch) {}
+
     private static class RowFilterScopeEntry
     {
         private final QualifiedObjectName table;
@@ -2169,6 +2260,7 @@ public class Analysis
     {
         private final Optional<TableHandle> handle;
         private final QualifiedObjectName name;
+        private final Optional<String> branch;
         private final String authorization;
         private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
         private final boolean directlyReferenced;
@@ -2178,6 +2270,7 @@ public class Analysis
         public TableEntry(
                 Optional<TableHandle> handle,
                 QualifiedObjectName name,
+                Optional<String> branch,
                 String authorization,
                 Scope accessControlScope,
                 boolean directlyReferenced,
@@ -2186,6 +2279,7 @@ public class Analysis
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
+            this.branch = requireNonNull(branch, "branch is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
             this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
             this.directlyReferenced = directlyReferenced;
@@ -2201,6 +2295,11 @@ public class Analysis
         public QualifiedObjectName getName()
         {
             return name;
+        }
+
+        public Optional<String> getBranch()
+        {
+            return branch;
         }
 
         public String getAuthorization()
@@ -2623,7 +2722,7 @@ public class Analysis
     }
 
     public record NearestAnalysis(
-            ComparisonExpression.Operator operator,
+            ComparisonPredicate.Operator operator,
             Expression candidateExpression)
     {
         public NearestAnalysis

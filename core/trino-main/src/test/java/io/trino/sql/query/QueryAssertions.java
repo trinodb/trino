@@ -23,6 +23,7 @@ import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Plugin;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
@@ -30,11 +31,14 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.MaterializedResult;
@@ -44,6 +48,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.assertions.TrinoExceptionAssert;
+import jakarta.annotation.Nullable;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AbstractCollectionAssert;
 import org.assertj.core.api.AbstractIntegerAssert;
@@ -79,6 +84,7 @@ import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
@@ -200,43 +206,14 @@ public class QueryAssertions
 
     private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        MaterializedResult actualResults = null;
-        try {
-            actualResults = execute(session, actual);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
-        }
-
-        MaterializedResult expectedResults = null;
-        try {
-            expectedResults = execute(expected);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'expected' query failed: " + expected, ex);
-        }
-
-        assertThat(actualResults.getTypes())
-                .as("Types mismatch for query: \n " + actual + "\n:")
-                .isEqualTo(expectedResults.getTypes());
-
-        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
-
-        assertThat(actualRows).as("For query: \n " + actual).containsExactlyInAnyOrderElementsOf(expectedRows);
+        assertThat(query(session, actual))
+                .matches(expected);
     }
 
     public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)
     {
-        MaterializedResult actualResults = null;
-        try {
-            actualResults = execute(actual);
-        }
-        catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
-        }
-        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        assertThat(actualRows).isEmpty();
+        assertThat(query(actual))
+                .returnsEmptyResult();
     }
 
     public MaterializedResult execute(@Language("SQL") String query)
@@ -330,7 +307,7 @@ public class QueryAssertions
 
         public QueryAssert succeeds()
         {
-            MaterializedResult ignored = result.get();
+            var _ = result.get();
             return this;
         }
 
@@ -355,7 +332,13 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert matches(@Language("SQL") String query)
         {
-            result().matches(query);
+            return matches(session, query);
+        }
+
+        @CanIgnoreReturnValue
+        public QueryAssert matches(Session session, @Language("SQL") String query)
+        {
+            result().matches(session, query);
             return this;
         }
 
@@ -402,7 +385,7 @@ public class QueryAssertions
         }
 
         /**
-         * Escape hatch for failures which are (incorrectly) not {@link io.trino.spi.TrinoException} and therefore {@link #failure()} cannot be used.
+         * Escape hatch for failures which are (incorrectly) not {@link TrinoException} and therefore {@link #failure()} cannot be used.
          *
          * @deprecated Any need to use this method indicates a bug in the code under test (wrong error reporting). There is no intention to remove this method.
          */
@@ -414,7 +397,7 @@ public class QueryAssertions
             return assertThatThrownBy(result::get)
                     .satisfies(throwable -> {
                         try {
-                            var ignored = assertThatTrinoException(throwable);
+                            var _ = assertThatTrinoException(throwable);
                         }
                         catch (AssertionError expected) {
                             if (!nullToEmpty(expected.getMessage()).startsWith("Expected TrinoException or wrapper, but got: ")) {
@@ -567,7 +550,7 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert hasPlan(PlanMatchPattern expectedPlan)
         {
-            return hasPlan(expectedPlan, plan -> {});
+            return hasPlan(expectedPlan, _ -> {});
         }
 
         private QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
@@ -599,8 +582,7 @@ public class QueryAssertions
             Session withoutPushdown = Session.builder(session)
                     .setSystemProperty("allow_pushdown_into_connectors", "false")
                     .build();
-            result().matches(runner.execute(withoutPushdown, query()));
-            return this;
+            return matches(withoutPushdown, query());
         }
 
         private String query()
@@ -710,6 +692,12 @@ public class QueryAssertions
 
         @CanIgnoreReturnValue
         public ResultAssert matches(@Language("SQL") String query)
+        {
+            return matches(session, query);
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert matches(Session session, @Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
             return matches(expected);
@@ -881,24 +869,34 @@ public class QueryAssertions
                 fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(full.value(), withConstantFolding.value()));
             }
 
-            return new Result(full.type(), full.value);
+            return full;
         }
 
         private Result run(String query)
         {
             MaterializedResultWithPlan result = runner.executeWithPlan(session, query);
-            return new Result(getOnlyElement(result.result().getTypes()), result.result().getOnlyColumnAsSet().iterator().next());
+            return new Result(
+                    getOnlyElement(result.result().getTypes()),
+                    result.result().getOnlyColumnAsSet().iterator().next(),
+                    result.queryPlan());
         }
 
         @Override
         public ExpressionAssert assertThat()
         {
             Result result = evaluate();
-            return new ExpressionAssert(runner, session, result.value(), result.type())
+            return new ExpressionAssert(runner, session, result.value(), result.type(), result.sourcePlan())
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        public record Result(Type type, Object value) {}
+        public record Result(Type type, @Nullable Object value, Optional<Plan> sourcePlan)
+        {
+            public Result
+            {
+                requireNonNull(type, "type is null");
+                requireNonNull(sourcePlan, "sourcePlan is null");
+            }
+        }
     }
 
     public static class ExpressionAssert
@@ -944,13 +942,15 @@ public class QueryAssertions
         private final QueryRunner runner;
         private final Session session;
         private final Type actualType;
+        private final Optional<Plan> plan;
 
-        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType)
+        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType, Optional<Plan> plan)
         {
             super(actual, Object.class);
-            this.runner = runner;
-            this.session = session;
-            this.actualType = actualType;
+            this.runner = requireNonNull(runner, "runner is null");
+            this.session = requireNonNull(session, "session is null");
+            this.actualType = requireNonNull(actualType, "actualType is null");
+            this.plan = requireNonNull(plan, "plan is null");
         }
 
         public ExpressionAssert isEqualTo(BiFunction<Session, QueryRunner, Object> evaluator)
@@ -992,6 +992,43 @@ public class QueryAssertions
         {
             objects.assertEqual(info, actualType, type);
             return this;
+        }
+
+        /**
+         * Asserts that the expression is known to the planner as infallible.
+         */
+        @CanIgnoreReturnValue
+        public ExpressionAssert neverFails()
+        {
+            Expression expression = outermostExpression();
+            assertThat(mayFail(runner.getPlannerContext(), expression))
+                    .as("Expression %s may fail", expression)
+                    .isFalse();
+            return this;
+        }
+
+        /**
+         * Asserts that the expression is known to the planner as fallible.
+         */
+        @CanIgnoreReturnValue
+        public ExpressionAssert couldFail()
+        {
+            Expression expression = outermostExpression();
+            assertThat(mayFail(runner.getPlannerContext(), expression))
+                    .as("Expression %s may fail", expression)
+                    .isTrue();
+            return this;
+        }
+
+        private Expression outermostExpression()
+        {
+            Plan planValue = plan.orElseThrow(() -> new AssertionError("No plan was captured for this expression"));
+            OutputNode outputNode = (OutputNode) planValue.getRoot();
+            PlanNode planRoot = outputNode.getSource();
+            if (!(planRoot instanceof ProjectNode projectNode)) {
+                throw new IllegalStateException("Expected ProjectNode but got different plan root, the expression may have been constant-folded — use binding() to preserve it: " + planRoot);
+            }
+            return getOnlyElement(projectNode.getAssignments().expressions());
         }
     }
 }

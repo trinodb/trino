@@ -216,7 +216,7 @@ this table:
 * - `ARRAY`
   - Disabled, `ARRAY`, or `JSON`
   - See [](postgresql-array-type-handling) for more information.
-* - `GEOMETRY`, `GEOMETRY(GEOMETRY TYPE, SRID)`
+* - `GEOMETRY`, `GEOMETRY(GEOMETRY TYPE, SRID)`, `POINT`
   - `GEOMETRY`
   -
 :::

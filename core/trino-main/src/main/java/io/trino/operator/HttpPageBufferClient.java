@@ -30,6 +30,7 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -68,7 +69,6 @@ import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
-import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES_TYPE;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
@@ -178,8 +178,7 @@ public final class HttpPageBufferClient
             ScheduledExecutorService scheduledExecutor,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(
-                selfAddress,
+        this(selfAddress,
                 httpClient,
                 dataIntegrityVerification,
                 maxResponseSize,
@@ -386,7 +385,8 @@ public final class HttpPageBufferClient
                         }
 
                         if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            throw new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                            throw new TrinoException(REMOTE_TASK_MISMATCH, format(
+                                    "%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
                                     REMOTE_TASK_MISMATCH_ERROR,
                                     fromUri(uri),
                                     taskInstanceId,
@@ -480,23 +480,22 @@ public final class HttpPageBufferClient
 
                 if (t instanceof ChecksumVerificationException) {
                     switch (dataIntegrityVerification) {
-                        case NONE:
+                        case NONE -> {
                             // In case of NONE, failure is possible in case of inconsistent cluster configuration, so we should not retry.
-                        case ABORT:
+                        }
+                        case ABORT -> {
                             // TrinoException will not be retried
                             t = new TrinoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
-                            break;
-                        case RETRY:
-                            log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
-                            break;
-                        default:
-                            throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
+                        }
+                        case RETRY -> log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
+                        default -> throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
                     }
                 }
 
                 t = rewriteException(t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
+                    String message = format(
+                            "%s (%s - %s failures, failure duration %s, total failed request time %s)",
                             WORKER_NODE_ERROR,
                             uri,
                             backoff.getFailureCount(),
@@ -555,7 +554,8 @@ public final class HttpPageBufferClient
 
                 log.error("Request to delete %s failed %s", location, t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
+                    String message = format(
+                            "Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
                             location,
                             backoff.getFailureCount(),
                             backoff.getFailureDuration().convertTo(SECONDS),

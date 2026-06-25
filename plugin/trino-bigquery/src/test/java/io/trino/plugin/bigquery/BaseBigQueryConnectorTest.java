@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
+import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -52,9 +53,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -83,6 +84,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
 {
+    private static final RetryPolicy<Object> BIGQUERY_TRANSIENT_FAILURE_RETRY_POLICY = RetryPolicy.builder()
+            .handleIf(BaseBigQueryConnectorTest::isTransientBigQueryFailure)
+            .withDelay(java.time.Duration.ofSeconds(10))
+            .withMaxAttempts(3)
+            .build();
+
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
     private String bigQueryConnectionId;
@@ -102,20 +109,20 @@ public abstract class BaseBigQueryConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DEFAULT_COLUMN_VALUE,
-                    SUPPORTS_LIMIT_PUSHDOWN,
-                    SUPPORTS_MAP_TYPE,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -376,6 +383,11 @@ public abstract class BaseBigQueryConnectorTest
         }
         return Optional.of(dataMappingTestSetup);
     }
+
+    @Test
+    @Disabled // Type mapping is tested by BaseBigQueryTypeMapping. Disable this test to avoid the API rate limit.
+    @Override
+    public void testDataMappingSmokeTest() {}
 
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
@@ -857,8 +869,8 @@ public abstract class BaseBigQueryConnectorTest
 
         try {
             onBigQuery("CREATE EXTERNAL TABLE test." + objectExternalTable +
-                       " WITH CONNECTION `" + bigQueryConnectionId + "`" +
-                       " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+                    " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                    " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
             assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + objectExternalTable + "'", "VALUES 'BASE TABLE'");
 
             assertThat(query("SELECT uri FROM test." + objectExternalTable)).succeeds();
@@ -876,11 +888,11 @@ public abstract class BaseBigQueryConnectorTest
     private long getTableReferenceCountInJob(String tableName)
     {
         return bigQuerySqlExecutor.executeQuery(
-                """
-                 SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
-                     SELECT * FROM UNNEST(referenced_tables) AS referenced_table
-                         WHERE referenced_table.table_id = '%s')
-                """.formatted(tableName)).streamValues()
+                        """
+                        SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                            SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                                WHERE referenced_table.table_id = '%s')
+                        """.formatted(tableName)).streamValues()
                 .map(List::getFirst)
                 .map(FieldValue::getLongValue)
                 .collect(onlyElement());
@@ -1457,14 +1469,16 @@ public abstract class BaseBigQueryConnectorTest
         return anyNot(
                 LimitNode.class,
                 node(
-                        AggregationNode.class, anyTree(node(
+                        AggregationNode.class,
+                        anyTree(node(
                                 AggregationNode.class,
-                                tableScan(table -> {
-                                    BigQueryTableHandle actualTableHandle = (BigQueryTableHandle) table;
-                                    return actualTableHandle.limit().equals(limit);
-                                },
-                                TupleDomain.all(),
-                                ImmutableMap.of())))));
+                                tableScan(
+                                        table -> {
+                                            BigQueryTableHandle actualTableHandle = (BigQueryTableHandle) table;
+                                            return actualTableHandle.limit().equals(limit);
+                                        },
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())))));
     }
 
     private void assertLimitPushdownReadsLessData(Session session, String tableName)
@@ -1571,6 +1585,13 @@ public abstract class BaseBigQueryConnectorTest
 
     private void onBigQuery(@Language("SQL") String sql)
     {
-        bigQuerySqlExecutor.execute(sql);
+        Failsafe.with(BIGQUERY_TRANSIENT_FAILURE_RETRY_POLICY)
+                .run(() -> bigQuerySqlExecutor.execute(sql));
+    }
+
+    private static boolean isTransientBigQueryFailure(Throwable throwable)
+    {
+        return getCausalChain(throwable).stream().anyMatch(cause ->
+                nullToEmpty(cause.getMessage()).contains("Visibility check was unavailable"));
     }
 }

@@ -326,7 +326,8 @@ public class TestDeltaLakeCloneTableCompatibility
                       WHEN MATCHED AND s.v = 'zzz' THEN DELETE
                       WHEN MATCHED THEN UPDATE SET v = s.v
                       WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
-                      """, "delta.default." + clonedTable);
+                    """,
+                    "delta.default." + clonedTable);
             onTrino().executeQuery(mergeSql);
 
             List<Row> expectedRowsAfterMerge = ImmutableList.of(
@@ -532,16 +533,16 @@ public class TestDeltaLakeCloneTableCompatibility
     private static String getDeletionVectorType(String tableName)
     {
         return (String) onTrino().executeQuery(
-                """
-                SELECT json_extract_scalar(elem, '$.add.deletionVector.storageType') AS storage_type
-                FROM (
-                    SELECT CAST(transaction AS JSON) AS json_arr
-                    FROM default."%s$transactions"
-                    ORDER BY version
-                ) t, UNNEST(CAST(t.json_arr AS ARRAY(JSON))) AS u(elem)
-                WHERE json_extract_scalar(elem, '$.add.deletionVector.storageType') IS NOT NULL
-                LIMIT 1
-                """.formatted(tableName))
+                        """
+                        SELECT json_extract_scalar(elem, '$.add.deletionVector.storageType') AS storage_type
+                        FROM (
+                            SELECT CAST(transaction AS JSON) AS json_arr
+                            FROM default."%s$transactions"
+                            ORDER BY version
+                        ) t, UNNEST(CAST(t.json_arr AS ARRAY(JSON))) AS u(elem)
+                        WHERE json_extract_scalar(elem, '$.add.deletionVector.storageType') IS NOT NULL
+                        LIMIT 1
+                        """.formatted(tableName))
                 .getOnlyValue();
     }
 

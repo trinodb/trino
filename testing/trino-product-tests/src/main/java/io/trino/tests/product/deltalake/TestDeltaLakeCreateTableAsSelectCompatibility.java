@@ -136,13 +136,13 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
         try {
             assertThatThrownBy(() -> onTrino().executeQuery("" +
                     "CREATE TABLE delta.default." + tableName + " WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "') AS SELECT 1 a, array[1] part"))
-                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+                    .hasMessageContaining("Unsupported partition column type: array");
             assertThatThrownBy(() -> onTrino().executeQuery("" +
                     "CREATE TABLE delta.default." + tableName + " WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "') AS SELECT 1 a, map() part"))
-                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+                    .hasMessageContaining("Unsupported partition column type: map");
             assertThatThrownBy(() -> onTrino().executeQuery("" +
                     "CREATE TABLE delta.default." + tableName + " WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "') AS SELECT 1 a, row(1) part"))
-                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+                    .hasMessageContaining("Unsupported partition column type: row");
 
             assertThatThrownBy(() -> onDelta().executeQuery(
                     "CREATE TABLE default." + tableName + " USING DELTA PARTITIONED BY (part) LOCATION '" + tableLocation + "' AS SELECT 1 a, array(1) part"))

@@ -34,7 +34,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -46,6 +46,7 @@ import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.FLOOR;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 
 public final class RealOperators
@@ -59,48 +60,49 @@ public final class RealOperators
 
     private RealOperators() {}
 
-    @ScalarOperator(ADD)
+    @ScalarOperator(value = ADD, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long add(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) + intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(SUBTRACT)
+    @ScalarOperator(value = SUBTRACT, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long subtract(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) - intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(MULTIPLY)
+    @ScalarOperator(value = MULTIPLY, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long multiply(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) * intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(DIVIDE)
+    @ScalarOperator(value = DIVIDE, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long divide(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) / intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(MODULUS)
+    @ScalarOperator(value = MODULO, neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long modulus(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
+    public static long modulo(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) % intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(NEGATION)
+    @ScalarOperator(value = NEGATION, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long negate(@SqlType(StandardTypes.REAL) long value)
     {
         return floatToRawIntBits(-intBitsToFloat((int) value));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -138,17 +140,24 @@ public final class RealOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", floatValue, stringValue, x));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
-    public static long castToLong(@SqlType(StandardTypes.REAL) long value)
+    public static long castToBigint(@SqlType(StandardTypes.REAL) long value)
     {
         float floatValue = intBitsToFloat((int) value);
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to bigint");
         }
-        return (long) MathFunctions.round(floatValue);
+        try {
+            return DoubleMath.roundToLong(floatValue, HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + floatValue, e);
+        }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.REAL) long value)
@@ -164,6 +173,7 @@ public final class RealOperators
         return (int) rounded;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.REAL) long value)
@@ -179,6 +189,7 @@ public final class RealOperators
         return (short) rounded;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.REAL) long value)
@@ -194,14 +205,14 @@ public final class RealOperators
         return (byte) rounded;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.REAL) long value)
     {
         return intBitsToFloat((int) value);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.REAL) long value)
     {
@@ -215,7 +226,7 @@ public final class RealOperators
         return TrinoNumber.from(new BigDecimal(Float.toString(floatValue)));
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.REAL) long value)
     {

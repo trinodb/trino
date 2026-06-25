@@ -66,7 +66,8 @@ public class TestDeltaLakeTransactionLogCache
         String tableName = "test_dl_cached_table_files_accuracy_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s', checkpoint_interval = 10)",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s', checkpoint_interval = 10)",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -100,7 +101,7 @@ public class TestDeltaLakeTransactionLogCache
                 tableDirectory + "/_delta_log/00000000000000000002.json",
                 tableDirectory + "/_delta_log/00000000000000000003.json",
                 tableDirectory + "/_delta_log/00000000000000000004.json",
-                tableDirectory + "/_delta_log/00000000000000000005.json"
+                tableDirectory + "/_delta_log/00000000000000000005.json",
         };
         List<ObjectIdentifier> keys = Stream.of(transactionLogFilesToRemove)
                 .map(key -> ObjectIdentifier.builder().key(key).build())

@@ -383,7 +383,7 @@ public class IoPlanPrinter
         {
             return toStringHelper(this)
                     .add("columnName", columnName)
-                    .add("typeSignature", type)
+                    .add("typeDescriptor", type)
                     .add("domain", domain)
                     .toString();
         }
@@ -596,7 +596,7 @@ public class IoPlanPrinter
         {
             BELOW,   // lower than the value, but infinitesimally close to the value
             EXACTLY, // exactly the value
-            ABOVE    // higher than the value, but infinitesimally close to the value
+            ABOVE,    // higher than the value, but infinitesimally close to the value
         }
 
         private final Optional<String> value;
@@ -787,7 +787,7 @@ public class IoPlanPrinter
                                     .map(value -> new FormattedMarker(Optional.of(value), Bound.EXACTLY))
                                     .map(marker -> new FormattedRange(marker, marker))
                                     .collect(toImmutableSet())),
-                    allOrNone -> {
+                    _ -> {
                         throw new IllegalStateException("Unreachable AllOrNone consumer");
                     });
 

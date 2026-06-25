@@ -26,6 +26,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class ParquetWriterOptions
 {
     private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.of(128, MEGABYTE);
+    public static final int DEFAULT_MAX_ROW_GROUP_ROW_COUNT = Integer.MAX_VALUE;
     private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE);
     // org.apache.parquet.column.DEFAULT_PAGE_ROW_COUNT_LIMIT is 20_000 to improve selectivity of page indexes
     // This value should be revisited when TODO https://github.com/trinodb/trino/issues/9359 is implemented
@@ -33,6 +34,7 @@ public class ParquetWriterOptions
     public static final int DEFAULT_BATCH_SIZE = 10_000;
     public static final DataSize DEFAULT_MAX_BLOOM_FILTER_SIZE = DataSize.of(1, MEGABYTE);
     public static final double DEFAULT_BLOOM_FILTER_FPP = 0.05;
+    public static final boolean DEFAULT_USE_DELTA_LENGTH_BYTE_ARRAY_ENCODING = true;
 
     public static ParquetWriterOptions.Builder builder()
     {
@@ -40,6 +42,7 @@ public class ParquetWriterOptions
     }
 
     private final int maxRowGroupSize;
+    private final int maxRowGroupRowCount;
     private final int maxPageSize;
     private final int maxPageValueCount;
     private final int batchSize;
@@ -47,29 +50,40 @@ public class ParquetWriterOptions
     private final double bloomFilterFpp;
     // Set of column dot paths to columns with bloom filters
     private final Set<String> bloomFilterColumns;
+    private final boolean useDeltaLengthByteArrayEncoding;
 
     private ParquetWriterOptions(
             DataSize maxBlockSize,
+            int maxRowGroupRowCount,
             DataSize maxPageSize,
             int maxPageValueCount,
             int batchSize,
             DataSize maxBloomFilterSize,
             double bloomFilterFpp,
-            Set<String> bloomFilterColumns)
+            Set<String> bloomFilterColumns,
+            boolean useDeltaLengthByteArrayEncoding)
     {
         this.maxRowGroupSize = Ints.saturatedCast(maxBlockSize.toBytes());
+        this.maxRowGroupRowCount = maxRowGroupRowCount;
         this.maxPageSize = Ints.saturatedCast(maxPageSize.toBytes());
         this.maxPageValueCount = maxPageValueCount;
         this.batchSize = batchSize;
         this.maxBloomFilterSize = Ints.saturatedCast(maxBloomFilterSize.toBytes());
         this.bloomFilterFpp = bloomFilterFpp;
         this.bloomFilterColumns = ImmutableSet.copyOf(bloomFilterColumns);
+        this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
+        checkArgument(this.maxRowGroupRowCount >= 1, "maxRowGroupRowCount must be at least 1");
         checkArgument(this.bloomFilterFpp > 0.0 && this.bloomFilterFpp < 1.0, "bloomFilterFpp should be > 0.0 & < 1.0");
     }
 
     public int getMaxRowGroupSize()
     {
         return maxRowGroupSize;
+    }
+
+    public int getMaxRowGroupRowCount()
+    {
+        return maxRowGroupRowCount;
     }
 
     public int getMaxPageSize()
@@ -102,19 +116,32 @@ public class ParquetWriterOptions
         return bloomFilterFpp;
     }
 
+    public boolean isUseDeltaLengthByteArrayEncoding()
+    {
+        return useDeltaLengthByteArrayEncoding;
+    }
+
     public static class Builder
     {
         private DataSize maxBlockSize = DEFAULT_MAX_ROW_GROUP_SIZE;
+        private int maxRowGroupRowCount = DEFAULT_MAX_ROW_GROUP_ROW_COUNT;
         private DataSize maxPageSize = DEFAULT_MAX_PAGE_SIZE;
         private int maxPageValueCount = DEFAULT_MAX_PAGE_VALUE_COUNT;
         private int batchSize = DEFAULT_BATCH_SIZE;
         private DataSize maxBloomFilterSize = DEFAULT_MAX_BLOOM_FILTER_SIZE;
         private Set<String> bloomFilterColumns = ImmutableSet.of();
         private double bloomFilterFpp = DEFAULT_BLOOM_FILTER_FPP;
+        private boolean useDeltaLengthByteArrayEncoding = DEFAULT_USE_DELTA_LENGTH_BYTE_ARRAY_ENCODING;
 
         public Builder setMaxBlockSize(DataSize maxBlockSize)
         {
             this.maxBlockSize = maxBlockSize;
+            return this;
+        }
+
+        public Builder setMaxRowGroupRowCount(int maxRowGroupRowCount)
+        {
+            this.maxRowGroupRowCount = maxRowGroupRowCount;
             return this;
         }
 
@@ -154,16 +181,24 @@ public class ParquetWriterOptions
             return this;
         }
 
+        public Builder setUseDeltaLengthByteArrayEncoding(boolean useDeltaLengthByteArrayEncoding)
+        {
+            this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
+            return this;
+        }
+
         public ParquetWriterOptions build()
         {
             return new ParquetWriterOptions(
                     maxBlockSize,
+                    maxRowGroupRowCount,
                     maxPageSize,
                     maxPageValueCount,
                     batchSize,
                     maxBloomFilterSize,
                     bloomFilterFpp,
-                    bloomFilterColumns);
+                    bloomFilterColumns,
+                    useDeltaLengthByteArrayEncoding);
         }
     }
 }

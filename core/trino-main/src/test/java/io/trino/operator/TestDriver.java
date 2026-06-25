@@ -168,9 +168,10 @@ public class TestDriver
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
-        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
+        TableScanOperator source = new TableScanOperator(
+                driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
@@ -248,9 +249,10 @@ public class TestDriver
     public void testMemoryRevocationRace()
     {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
-        TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
+        TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(
+                driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
@@ -270,7 +272,7 @@ public class TestDriver
         TableScanOperator source = new AlwaysBlockedTableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
@@ -338,9 +340,10 @@ public class TestDriver
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
-        TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
+        TableScanOperator source = new NotBlockedTableScanOperator(
+                driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,

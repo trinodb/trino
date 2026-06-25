@@ -267,7 +267,8 @@ public class PinotMetadata
         Optional<DynamicTable> dynamicTable = handle.query();
         if (dynamicTable.isPresent() &&
                 (dynamicTable.get().limit().isEmpty() || dynamicTable.get().limit().getAsLong() > limit)) {
-            dynamicTable = Optional.of(new DynamicTable(dynamicTable.get().tableName(),
+            dynamicTable = Optional.of(new DynamicTable(
+                    dynamicTable.get().tableName(),
                     dynamicTable.get().suffix(),
                     dynamicTable.get().projections(),
                     dynamicTable.get().filter(),
@@ -525,12 +526,14 @@ public class PinotMetadata
         checkState(aggregateColumn.isAggregate() && aggregateColumn.getPushedDownAggregateFunctionName().isPresent() && aggregateColumn.getPushedDownAggregateFunctionArgument().isPresent(), "Column is not a pushed down aggregate column");
         PinotColumnHandle selection = projectionsMap.get(aggregateColumn.getPushedDownAggregateFunctionArgument().get());
         if (selection != null && selection.isAliased()) {
-            AggregateExpression pushedDownAggregateExpression = new AggregateExpression(aggregateColumn.getPushedDownAggregateFunctionName().get(),
+            AggregateExpression pushedDownAggregateExpression = new AggregateExpression(
+                    aggregateColumn.getPushedDownAggregateFunctionName().get(),
                     aggregateColumn.getPushedDownAggregateFunctionArgument().get(),
                     aggregateColumn.isReturnNullOnEmptyGroup());
             AggregateExpression newPushedDownAggregateExpression = replaceIdentifier(pushedDownAggregateExpression, selection);
 
-            return new PinotColumnHandle(pushedDownAggregateExpression.fieldName(),
+            return new PinotColumnHandle(
+                    pushedDownAggregateExpression.fieldName(),
                     aggregateColumn.getDataType(),
                     newPushedDownAggregateExpression.expression(),
                     true,

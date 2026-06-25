@@ -180,39 +180,39 @@ final class TestOpenSearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "properties": {
-                          "col1Row": {
-                              "properties": {
-                                  "a": {
-                                      "type": "long"
-                                  },
-                                  "b": {
-                                      "type": "long"
-                                  },
-                                  "c": {
-                                      "properties": {
-                                          "c1": {
-                                              "type": "long"
-                                          },
-                                          "c2": {
-                                              "properties": {
-                                                  "c21": {
-                                                      "type": "long"
-                                                  },
-                                                  "c22": {
-                                                      "type": "long"
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "properties": {
+                        "col1Row": {
+                            "properties": {
+                                "a": {
+                                    "type": "long"
+                                },
+                                "b": {
+                                    "type": "long"
+                                },
+                                "c": {
+                                    "properties": {
+                                        "c1": {
+                                            "type": "long"
+                                        },
+                                        "c2": {
+                                            "properties": {
+                                                "c21": {
+                                                    "type": "long"
+                                                },
+                                                "c22": {
+                                                    "type": "long"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                """;
 
         int a = 2;
         int b = 100;
@@ -295,22 +295,22 @@ final class TestOpenSearchComplexTypePredicatePushDown
         String tableName = "test_nested_column_pruning_" + randomNameSuffix();
         @Language("JSON")
         String properties =
-                  """
-                  {
-                      "_meta": {
-                          "trino": {
-                              "colArray": {
-                                  "isArray": true
-                              }
-                          }
-                      },
-                      "properties": {
-                          "colArray": {
-                              "type": "long"
-                          }
-                      }
-                  }
-                  """;
+                """
+                {
+                    "_meta": {
+                        "trino": {
+                            "colArray": {
+                                "isArray": true
+                            }
+                        }
+                    },
+                    "properties": {
+                        "colArray": {
+                            "type": "long"
+                        }
+                    }
+                }
+                """;
 
         StringBuilder payload = new StringBuilder();
         for (int i = 0; i < 10000; i++) {

@@ -59,102 +59,102 @@ public class TestFormatUtils
     @Test
     public void testFormatCountRate()
     {
-        assertThat(formatCountRate(0.0000000001D, Duration.valueOf("1ns"), false))
+        assertThat(formatCountRate(0.0000000001d, Duration.valueOf("1ns"), false))
                 .isEqualTo("0");
-        assertThat(formatCountRate(0.0000000001D, Duration.valueOf("1ns"), true))
+        assertThat(formatCountRate(0.0000000001d, Duration.valueOf("1ns"), true))
                 .isEqualTo("0/s");
-        assertThat(formatCountRate(0.000000001D, Duration.valueOf("1ns"), false))
+        assertThat(formatCountRate(0.000000001d, Duration.valueOf("1ns"), false))
                 .isEqualTo("1");
-        assertThat(formatCountRate(0.000000001D, Duration.valueOf("1ns"), true))
+        assertThat(formatCountRate(0.000000001d, Duration.valueOf("1ns"), true))
                 .isEqualTo("1/s");
-        assertThat(formatCountRate(0.0000000015D, Duration.valueOf("1ns"), false))
+        assertThat(formatCountRate(0.0000000015d, Duration.valueOf("1ns"), false))
                 .isEqualTo("1");
-        assertThat(formatCountRate(0.0000000015D, Duration.valueOf("1ns"), true))
+        assertThat(formatCountRate(0.0000000015d, Duration.valueOf("1ns"), true))
                 .isEqualTo("1/s");
-        assertThat(formatCountRate(1D, Duration.valueOf("1ns"), false)).isEqualTo("1000M");
-        assertThat(formatCountRate(1D, Duration.valueOf("1ns"), true)).isEqualTo("1000M/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1ns"), false)).isEqualTo("10B");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1ns"), true)).isEqualTo("10B/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10ns"), false)).isEqualTo("1000M");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10ns"), true)).isEqualTo("1000M/s");
+        assertThat(formatCountRate(1d, Duration.valueOf("1ns"), false)).isEqualTo("1000M");
+        assertThat(formatCountRate(1d, Duration.valueOf("1ns"), true)).isEqualTo("1000M/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1ns"), false)).isEqualTo("10B");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1ns"), true)).isEqualTo("10B/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10ns"), false)).isEqualTo("1000M");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10ns"), true)).isEqualTo("1000M/s");
 
-        assertThat(formatCountRate(0.0000001D, Duration.valueOf("1us"), false)).isEqualTo("0");
-        assertThat(formatCountRate(0.0000001D, Duration.valueOf("1us"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(0.000001D, Duration.valueOf("1us"), false)).isEqualTo("1");
-        assertThat(formatCountRate(0.000001D, Duration.valueOf("1us"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(0.0000015D, Duration.valueOf("1us"), false)).isEqualTo("1");
-        assertThat(formatCountRate(0.0000015D, Duration.valueOf("1us"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(1D, Duration.valueOf("1us"), false)).isEqualTo("1000K");
-        assertThat(formatCountRate(1D, Duration.valueOf("1us"), true)).isEqualTo("1000K/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1us"), false)).isEqualTo("10M");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1us"), true)).isEqualTo("10M/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10us"), false)).isEqualTo("1000K");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10us"), true)).isEqualTo("1000K/s");
+        assertThat(formatCountRate(0.0000001d, Duration.valueOf("1us"), false)).isEqualTo("0");
+        assertThat(formatCountRate(0.0000001d, Duration.valueOf("1us"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(0.000001d, Duration.valueOf("1us"), false)).isEqualTo("1");
+        assertThat(formatCountRate(0.000001d, Duration.valueOf("1us"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(0.0000015d, Duration.valueOf("1us"), false)).isEqualTo("1");
+        assertThat(formatCountRate(0.0000015d, Duration.valueOf("1us"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(1d, Duration.valueOf("1us"), false)).isEqualTo("1000K");
+        assertThat(formatCountRate(1d, Duration.valueOf("1us"), true)).isEqualTo("1000K/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1us"), false)).isEqualTo("10M");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1us"), true)).isEqualTo("10M/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10us"), false)).isEqualTo("1000K");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10us"), true)).isEqualTo("1000K/s");
 
-        assertThat(formatCountRate(0.0001D, Duration.valueOf("1ms"), false)).isEqualTo("0");
-        assertThat(formatCountRate(0.0001D, Duration.valueOf("1ms"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(0.001D, Duration.valueOf("1ms"), false)).isEqualTo("1");
-        assertThat(formatCountRate(0.001D, Duration.valueOf("1ms"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(0.0015D, Duration.valueOf("1ms"), false)).isEqualTo("1");
-        assertThat(formatCountRate(0.0015D, Duration.valueOf("1ms"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(1D, Duration.valueOf("1ms"), false)).isEqualTo("1000");
-        assertThat(formatCountRate(1D, Duration.valueOf("1ms"), true)).isEqualTo("1000/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1ms"), false)).isEqualTo("10K");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1ms"), true)).isEqualTo("10K/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10ms"), false)).isEqualTo("1000");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10ms"), true)).isEqualTo("1000/s");
+        assertThat(formatCountRate(0.0001d, Duration.valueOf("1ms"), false)).isEqualTo("0");
+        assertThat(formatCountRate(0.0001d, Duration.valueOf("1ms"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(0.001d, Duration.valueOf("1ms"), false)).isEqualTo("1");
+        assertThat(formatCountRate(0.001d, Duration.valueOf("1ms"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(0.0015d, Duration.valueOf("1ms"), false)).isEqualTo("1");
+        assertThat(formatCountRate(0.0015d, Duration.valueOf("1ms"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(1d, Duration.valueOf("1ms"), false)).isEqualTo("1000");
+        assertThat(formatCountRate(1d, Duration.valueOf("1ms"), true)).isEqualTo("1000/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1ms"), false)).isEqualTo("10K");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1ms"), true)).isEqualTo("10K/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10ms"), false)).isEqualTo("1000");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10ms"), true)).isEqualTo("1000/s");
 
-        assertThat(formatCountRate(0.1D, Duration.valueOf("1s"), false)).isEqualTo("0");
-        assertThat(formatCountRate(0.1D, Duration.valueOf("1s"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1s"), false)).isEqualTo("1");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1s"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("10s"), false)).isEqualTo("0");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("10s"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(1.5D, Duration.valueOf("1s"), false)).isEqualTo("1");
-        assertThat(formatCountRate(1.5D, Duration.valueOf("1s"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1s"), false)).isEqualTo("10");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("1s"), true)).isEqualTo("10/s");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10s"), false)).isEqualTo("1");
-        assertThat(formatCountRate(10.0D, Duration.valueOf("10s"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(0.1d, Duration.valueOf("1s"), false)).isEqualTo("0");
+        assertThat(formatCountRate(0.1d, Duration.valueOf("1s"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1s"), false)).isEqualTo("1");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1s"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("10s"), false)).isEqualTo("0");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("10s"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(1.5d, Duration.valueOf("1s"), false)).isEqualTo("1");
+        assertThat(formatCountRate(1.5d, Duration.valueOf("1s"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1s"), false)).isEqualTo("10");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("1s"), true)).isEqualTo("10/s");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10s"), false)).isEqualTo("1");
+        assertThat(formatCountRate(10.0d, Duration.valueOf("10s"), true)).isEqualTo("1/s");
 
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1m"), false)).isEqualTo("0");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1m"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(60.0D, Duration.valueOf("1m"), false)).isEqualTo("1");
-        assertThat(formatCountRate(60.0D, Duration.valueOf("1m"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(600.0D, Duration.valueOf("1m"), false)).isEqualTo("10");
-        assertThat(formatCountRate(600.0D, Duration.valueOf("1m"), true)).isEqualTo("10/s");
-        assertThat(formatCountRate(100.0D, Duration.valueOf("10m"), false)).isEqualTo("0");
-        assertThat(formatCountRate(100.0D, Duration.valueOf("10m"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(600.0D, Duration.valueOf("10m"), false)).isEqualTo("1");
-        assertThat(formatCountRate(600.0D, Duration.valueOf("10m"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(6000.0D, Duration.valueOf("10m"), false)).isEqualTo("10");
-        assertThat(formatCountRate(6000.0D, Duration.valueOf("10m"), true)).isEqualTo("10/s");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1m"), false)).isEqualTo("0");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1m"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(60.0d, Duration.valueOf("1m"), false)).isEqualTo("1");
+        assertThat(formatCountRate(60.0d, Duration.valueOf("1m"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(600.0d, Duration.valueOf("1m"), false)).isEqualTo("10");
+        assertThat(formatCountRate(600.0d, Duration.valueOf("1m"), true)).isEqualTo("10/s");
+        assertThat(formatCountRate(100.0d, Duration.valueOf("10m"), false)).isEqualTo("0");
+        assertThat(formatCountRate(100.0d, Duration.valueOf("10m"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(600.0d, Duration.valueOf("10m"), false)).isEqualTo("1");
+        assertThat(formatCountRate(600.0d, Duration.valueOf("10m"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(6000.0d, Duration.valueOf("10m"), false)).isEqualTo("10");
+        assertThat(formatCountRate(6000.0d, Duration.valueOf("10m"), true)).isEqualTo("10/s");
 
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1h"), false)).isEqualTo("0");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1h"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(3600.0D, Duration.valueOf("1h"), false)).isEqualTo("1");
-        assertThat(formatCountRate(3600.0D, Duration.valueOf("1h"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(36000.0D, Duration.valueOf("1h"), false)).isEqualTo("10");
-        assertThat(formatCountRate(36000.0D, Duration.valueOf("1h"), true)).isEqualTo("10/s");
-        assertThat(formatCountRate(100.0D, Duration.valueOf("10h"), false)).isEqualTo("0");
-        assertThat(formatCountRate(100.0D, Duration.valueOf("10h"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(36000.0D, Duration.valueOf("10h"), false)).isEqualTo("1");
-        assertThat(formatCountRate(36000.0D, Duration.valueOf("10h"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(360000.0D, Duration.valueOf("10h"), false)).isEqualTo("10");
-        assertThat(formatCountRate(360000.0D, Duration.valueOf("10h"), true)).isEqualTo("10/s");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1h"), false)).isEqualTo("0");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1h"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(3600.0d, Duration.valueOf("1h"), false)).isEqualTo("1");
+        assertThat(formatCountRate(3600.0d, Duration.valueOf("1h"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(36000.0d, Duration.valueOf("1h"), false)).isEqualTo("10");
+        assertThat(formatCountRate(36000.0d, Duration.valueOf("1h"), true)).isEqualTo("10/s");
+        assertThat(formatCountRate(100.0d, Duration.valueOf("10h"), false)).isEqualTo("0");
+        assertThat(formatCountRate(100.0d, Duration.valueOf("10h"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(36000.0d, Duration.valueOf("10h"), false)).isEqualTo("1");
+        assertThat(formatCountRate(36000.0d, Duration.valueOf("10h"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(360000.0d, Duration.valueOf("10h"), false)).isEqualTo("10");
+        assertThat(formatCountRate(360000.0d, Duration.valueOf("10h"), true)).isEqualTo("10/s");
 
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1d"), false)).isEqualTo("0");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("1d"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(86400.0D, Duration.valueOf("1d"), false)).isEqualTo("1");
-        assertThat(formatCountRate(86400.0D, Duration.valueOf("1d"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(864000.0D, Duration.valueOf("1d"), false)).isEqualTo("10");
-        assertThat(formatCountRate(864000.0D, Duration.valueOf("1d"), true)).isEqualTo("10/s");
-        assertThat(formatCountRate(86400.0D, Duration.valueOf("10d"), false)).isEqualTo("0");
-        assertThat(formatCountRate(86400.0D, Duration.valueOf("10d"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(864000.0D, Duration.valueOf("10d"), false)).isEqualTo("1");
-        assertThat(formatCountRate(864000.0D, Duration.valueOf("10d"), true)).isEqualTo("1/s");
-        assertThat(formatCountRate(8640000.0D, Duration.valueOf("10d"), false)).isEqualTo("10");
-        assertThat(formatCountRate(8640000.0D, Duration.valueOf("10d"), true)).isEqualTo("10/s");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1d"), false)).isEqualTo("0");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("1d"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(86400.0d, Duration.valueOf("1d"), false)).isEqualTo("1");
+        assertThat(formatCountRate(86400.0d, Duration.valueOf("1d"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(864000.0d, Duration.valueOf("1d"), false)).isEqualTo("10");
+        assertThat(formatCountRate(864000.0d, Duration.valueOf("1d"), true)).isEqualTo("10/s");
+        assertThat(formatCountRate(86400.0d, Duration.valueOf("10d"), false)).isEqualTo("0");
+        assertThat(formatCountRate(86400.0d, Duration.valueOf("10d"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(864000.0d, Duration.valueOf("10d"), false)).isEqualTo("1");
+        assertThat(formatCountRate(864000.0d, Duration.valueOf("10d"), true)).isEqualTo("1/s");
+        assertThat(formatCountRate(8640000.0d, Duration.valueOf("10d"), false)).isEqualTo("10");
+        assertThat(formatCountRate(8640000.0d, Duration.valueOf("10d"), true)).isEqualTo("10/s");
 
         assertThat(formatCountRate(NaN, Duration.valueOf("1s"), false)).isEqualTo("0");
         assertThat(formatCountRate(NaN, Duration.valueOf("1s"), true)).isEqualTo("0/s");
@@ -162,10 +162,10 @@ public class TestFormatUtils
         assertThat(formatCountRate(POSITIVE_INFINITY, Duration.valueOf("1s"), true)).isEqualTo("0/s");
         assertThat(formatCountRate(NEGATIVE_INFINITY, Duration.valueOf("1s"), false)).isEqualTo("0");
         assertThat(formatCountRate(NEGATIVE_INFINITY, Duration.valueOf("1s"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("0s"), false)).isEqualTo("0");
-        assertThat(formatCountRate(1.0D, Duration.valueOf("0s"), true)).isEqualTo("0/s");
-        assertThat(formatCountRate(-1.0D, Duration.valueOf("0s"), false)).isEqualTo("0");
-        assertThat(formatCountRate(-1.0D, Duration.valueOf("0s"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("0s"), false)).isEqualTo("0");
+        assertThat(formatCountRate(1.0d, Duration.valueOf("0s"), true)).isEqualTo("0/s");
+        assertThat(formatCountRate(-1.0d, Duration.valueOf("0s"), false)).isEqualTo("0");
+        assertThat(formatCountRate(-1.0d, Duration.valueOf("0s"), true)).isEqualTo("0/s");
     }
 
     @Test

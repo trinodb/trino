@@ -28,9 +28,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -46,13 +44,15 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.between;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.BuiltinFunctionCallBuilder.resolve;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -61,8 +61,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULO_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULO_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(INTEGER, INTEGER));
 
     private RemoveRedundantPredicateAboveTableScan removeRedundantPredicateAboveTableScan;
     private TableHandle nationTableHandle;
@@ -100,7 +100,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
+                        comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -120,8 +120,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
                         new Logical(OR, ImmutableList.of(
-                                new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
-                                new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L)))),
+                                comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
+                                comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -140,7 +140,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)), new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L)), new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 47L)))),
+                        new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)), comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L)), comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 47L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -148,7 +148,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L)))))))
                 .matches(
                         filter(
-                                new Between(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L), new Constant(BIGINT, 45L)),
+                                between(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L), new Constant(BIGINT, 45L)),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L))),
@@ -164,19 +164,19 @@ public class TestRemoveRedundantPredicateAboveTableScan
                         new Logical(
                                 AND,
                                 ImmutableList.of(
-                                        new Comparison(
+                                        comparison(
                                                 EQUAL,
                                                 resolve(tester().getMetadata())
                                                         .setName("rand")
                                                         .build(),
                                                 new Constant(DOUBLE, 42.0)),
-                                        new Comparison(
+                                        comparison(
                                                 EQUAL,
-                                                new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
+                                                new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
                                                 new Constant(BIGINT, 44L)),
                                         Logical.or(
-                                                new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
-                                                new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L))))),
+                                                comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
+                                                comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -186,15 +186,15 @@ public class TestRemoveRedundantPredicateAboveTableScan
                 .matches(
                         filter(
                                 Logical.and(
-                                        new Comparison(
+                                        comparison(
                                                 EQUAL,
                                                 resolve(tester().getMetadata())
                                                         .setName("rand")
                                                         .build(),
                                                 new Constant(DOUBLE, 42.0)),
-                                        new Comparison(
+                                        comparison(
                                                 EQUAL,
-                                                new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
+                                                new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
                                                 new Constant(BIGINT, 44L))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
@@ -208,7 +208,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Comparison(
+                        comparison(
                                 EQUAL,
                                 resolve(tester().getMetadata())
                                         .setName("rand")
@@ -227,7 +227,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 17L))), new Constant(INTEGER, 44L)), new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 15L))), new Constant(INTEGER, 43L)))),
+                        new Logical(AND, ImmutableList.of(comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 17L))), new Constant(INTEGER, 44L)), comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 15L))), new Constant(INTEGER, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -241,7 +241,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Comparison(EQUAL, new Reference(VARCHAR, "orderstatus"), new Constant(VARCHAR, Slices.utf8Slice("F"))),
+                        comparison(EQUAL, new Reference(VARCHAR, "orderstatus"), new Constant(VARCHAR, Slices.utf8Slice("F"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -255,7 +255,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 3L)), new Comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 0L)))), new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 3L)), new Comparison(LESS_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 1L)))))),
+                        new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 3L)), comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 0L)))), new Logical(OR, ImmutableList.of(comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 3L)), comparison(LESS_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 1L)))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -272,8 +272,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
                         new Logical(AND, ImmutableList.of(
-                                ifExpression(new Comparison(EQUAL, new Reference(VARCHAR, "name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE, FALSE),
-                                new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)))),
+                                ifExpression(comparison(EQUAL, new Reference(VARCHAR, "name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE, FALSE),
+                                comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(
@@ -287,7 +287,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                         nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                new Comparison(IDENTICAL, new Comparison(EQUAL, new Reference(VARCHAR, "name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE),
+                                comparison(IDENTICAL, comparison(EQUAL, new Reference(VARCHAR, "name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of(

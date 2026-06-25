@@ -22,7 +22,6 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -57,11 +56,13 @@ public final class GlueExpressionUtil
      *
      * @see <a href="https://sourceforge.net/p/jsqlparser/code/HEAD/tree/trunk/src/main/javacc/JSqlParserCC.jj">JSqlParser Grammar</a>
      */
-    private static final Set<String> JSQL_PARSER_RESERVED_KEYWORDS = ImmutableSet.of(
-            "AS", "BY", "DO", "IS", "IN", "OR", "ON", "ALL", "AND", "ANY", "KEY", "NOT", "SET", "ASC", "TOP", "END", "DESC", "INTO", "NULL", "LIKE", "DROP", "JOIN",
-            "LEFT", "FROM", "OPEN", "CASE", "WHEN", "THEN", "ELSE", "SOME", "FULL", "WITH", "TABLE", "WHERE", "USING", "UNION", "GROUP", "BEGIN", "INDEX", "INNER",
-            "LIMIT", "OUTER", "ORDER", "RIGHT", "DELETE", "CREATE", "SELECT", "OFFSET", "EXISTS", "HAVING", "INSERT", "UPDATE", "VALUES", "ESCAPE", "PRIMARY",
-            "NATURAL", "REPLACE", "BETWEEN", "TRUNCATE", "DISTINCT", "INTERSECT");
+    private static final Set<String> JSQL_PARSER_RESERVED_KEYWORDS = ImmutableSet.copyOf(
+            """
+            AS BY DO IS IN OR ON ALL AND ANY KEY NOT SET ASC TOP END DESC INTO NULL LIKE DROP JOIN
+            LEFT FROM OPEN CASE WHEN THEN ELSE SOME FULL WITH TABLE WHERE USING UNION GROUP BEGIN INDEX INNER
+            LIMIT OUTER ORDER RIGHT DELETE CREATE SELECT OFFSET EXISTS HAVING INSERT UPDATE VALUES ESCAPE PRIMARY
+            NATURAL REPLACE BETWEEN TRUNCATE DISTINCT INTERSECT
+            """.strip().split("\\s+"));
 
     private GlueExpressionUtil() {}
 
@@ -79,12 +80,12 @@ public final class GlueExpressionUtil
 
     private static boolean canConvertSqlTypeToStringForGlue(Type type, boolean assumeCanonicalPartitionKeys)
     {
-        return !(type instanceof TimestampType) && !(type instanceof DateType) && (type instanceof CharType || type instanceof VarcharType || assumeCanonicalPartitionKeys);
+        return !(type instanceof TimestampType) && (type instanceof CharType || type instanceof VarcharType || assumeCanonicalPartitionKeys);
     }
 
     /**
      * @return a valid glue expression &lt;= {@link  GlueExpressionUtil#GLUE_EXPRESSION_CHAR_LIMIT}. A return value of "" means a valid glue expression could not be created, or
-     * {@link TupleDomain#all()} was passed in as an argument
+     *         {@link TupleDomain#all()} was passed in as an argument
      */
     public static String buildGlueExpression(List<String> columnNames, TupleDomain<String> partitionKeysFilter, boolean assumeCanonicalPartitionKeys)
     {

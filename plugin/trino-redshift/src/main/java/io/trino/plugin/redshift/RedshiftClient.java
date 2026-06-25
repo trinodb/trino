@@ -186,7 +186,7 @@ public class RedshiftClient
      * other precisions.
      *
      * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Numeric_types201.html#r_Numeric_types201-decimal-or-numeric-type">
-     * Redshift documentation</a>
+     *         Redshift documentation</a>
      */
     private static final int REDSHIFT_DECIMAL_CUTOFF_PRECISION = 19;
 
@@ -203,7 +203,7 @@ public class RedshiftClient
      * Maximum size of a Redshift CHAR column.
      *
      * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Character_types.html">
-     * Redshift documentation</a>
+     *         Redshift documentation</a>
      */
     private static final int REDSHIFT_MAX_CHAR = 4096;
 
@@ -211,7 +211,7 @@ public class RedshiftClient
      * Maximum size of a Redshift VARCHAR column.
      *
      * @see <a href="https://docs.aws.amazon.com/redshift/latest/dg/r_Character_types.html">
-     * Redshift documentation</a>
+     *         Redshift documentation</a>
      */
     static final int REDSHIFT_MAX_VARCHAR = 65535;
 
@@ -434,7 +434,8 @@ public class RedshiftClient
     }
 
     @Override
-    public Optional<PreparedQuery> implementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             Map<JdbcColumnHandle, String> leftProjections,
@@ -457,7 +458,8 @@ public class RedshiftClient
     }
 
     @Override
-    public Optional<PreparedQuery> legacyImplementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             PreparedQuery rightSource,
@@ -632,47 +634,43 @@ public class RedshiftClient
                     varbinaryWriteFunction()));
         }
 
-        switch (type.jdbcType()) {
-            case Types.BIT: // Redshift uses this for booleans
-                return Optional.of(booleanColumnMapping());
+        return switch (type.jdbcType()) {
+            // Redshift uses this for booleans
+            case Types.BIT -> Optional.of(booleanColumnMapping());
 
             // case Types.TINYINT: -- Redshift doesn't support tinyint
-            case Types.SMALLINT:
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                return Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, smallintWriteFunction(), pushdownDiscreteValues(SMALLINT)));
-            case Types.INTEGER:
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                return Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), pushdownDiscreteValues(INTEGER)));
-            case Types.BIGINT:
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                return Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), pushdownDiscreteValues(BIGINT)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.SMALLINT -> Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, smallintWriteFunction(), pushdownDiscreteValues(SMALLINT)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.INTEGER -> Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), pushdownDiscreteValues(INTEGER)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.BIGINT -> Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), pushdownDiscreteValues(BIGINT)));
 
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
+            case Types.REAL -> Optional.of(realColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
 
-            case Types.NUMERIC: {
+            case Types.NUMERIC -> {
                 int precision = type.requiredColumnSize();
                 int scale = type.requiredDecimalDigits();
                 DecimalType decimalType = createDecimalType(precision, scale);
                 if (precision == REDSHIFT_DECIMAL_CUTOFF_PRECISION) {
-                    return Optional.of(ColumnMapping.objectMapping(
+                    yield Optional.of(ColumnMapping.objectMapping(
                             decimalType,
                             longDecimalReadFunction(decimalType),
                             writeDecimalAtRedshiftCutoff(scale)));
                 }
-                return Optional.of(decimalColumnMapping(decimalType, UNNECESSARY));
+                yield Optional.of(decimalColumnMapping(decimalType, UNNECESSARY));
             }
 
-            case Types.CHAR:
+            case Types.CHAR -> {
                 CharType charType = createCharType(type.requiredColumnSize());
-                return Optional.of(ColumnMapping.sliceMapping(
+                yield Optional.of(ColumnMapping.sliceMapping(
                         charType,
                         charReadFunction(charType),
                         RedshiftClient::writeChar));
+            }
 
-            case Types.VARCHAR: {
+            case Types.VARCHAR -> {
                 if (type.columnSize().isEmpty()) {
                     throw new TrinoException(REDSHIFT_INVALID_TYPE, "column size not present");
                 }
@@ -681,36 +679,29 @@ public class RedshiftClient
                     // CHARACTER VARYING returns -1. Treat the type as varchar(0) for the empty string.
                     length = 0;
                 }
-                return Optional.of(varcharColumnMapping(
+                yield Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)
                                 : createUnboundedVarcharType(),
                         true));
             }
 
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        RedshiftClient::readDate,
-                        RedshiftClient::writeDate));
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
+                    DATE,
+                    RedshiftClient::readDate,
+                    RedshiftClient::writeDate));
 
-            case Types.TIMESTAMP:
-                return Optional.of(ColumnMapping.longMapping(
-                        TIMESTAMP_MICROS,
-                        RedshiftClient::readTimestamp,
-                        RedshiftClient::writeShortTimestamp));
+            case Types.TIMESTAMP -> Optional.of(ColumnMapping.longMapping(
+                    TIMESTAMP_MICROS,
+                    RedshiftClient::readTimestamp,
+                    RedshiftClient::writeShortTimestamp));
 
-            case Types.TIMESTAMP_WITH_TIMEZONE:
-                return Optional.of(ColumnMapping.objectMapping(
-                        TIMESTAMP_TZ_MICROS,
-                        longTimestampWithTimeZoneReadFunction(),
-                        longTimestampWithTimeZoneWriteFunction()));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(type);
-        }
-        return Optional.empty();
+            case Types.TIMESTAMP_WITH_TIMEZONE -> Optional.of(ColumnMapping.objectMapping(
+                    TIMESTAMP_TZ_MICROS,
+                    longTimestampWithTimeZoneReadFunction(),
+                    longTimestampWithTimeZoneWriteFunction()));
+            default -> getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(type) : Optional.empty();
+        };
     }
 
     @Override

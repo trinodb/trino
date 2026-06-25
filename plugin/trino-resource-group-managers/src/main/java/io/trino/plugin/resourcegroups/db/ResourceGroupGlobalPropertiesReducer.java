@@ -36,14 +36,15 @@ public class ResourceGroupGlobalPropertiesReducer
         Optional<Duration> value = Optional.ofNullable(rowView.getColumn("value", String.class)).map(Duration::valueOf);
 
         switch (name) {
-            case "cpu_quota_period":
+            case "cpu_quota_period" -> {
                 container.setCpuQuotaPeriod(value);
-                break;
-            case "physical_data_scan_quota_period":
+            }
+            case "physical_data_scan_quota_period" -> {
                 container.setPhysicalDataScanQuotaPeriod(value);
-                break;
-            default:
+            }
+            default -> {
                 throw new IllegalArgumentException("Unrecognized resource group global property: " + name);
+            }
         }
     }
 

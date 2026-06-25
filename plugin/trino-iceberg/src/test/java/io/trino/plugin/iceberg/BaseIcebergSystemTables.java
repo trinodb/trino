@@ -25,7 +25,10 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.intellij.lang.annotations.Language;
@@ -34,6 +37,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -179,19 +183,23 @@ public abstract class BaseIcebergSystemTables
         assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(1)).isEqualTo(3L);
 
         // Test if min/max values, null value count and nan value count are computed correctly.
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 1L, 1L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 1.1d, 1.1d, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 1.2f, 1.2f, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 2L, 2L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L)),
                 new MaterializedRow(DEFAULT_PRECISION, 2.2f, 2.2f, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 3L, 3L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 3.3, 3.3d, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L))));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 4L, 6L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L)),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L))));
@@ -220,7 +228,8 @@ public abstract class BaseIcebergSystemTables
         assertThat(resultAfterDrop.getRowCount()).isEqualTo(3);
         Map<LocalDate, MaterializedRow> rowsByPartitionAfterDrop = resultAfterDrop.getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
-        assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(
+                DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
     }
 
@@ -527,13 +536,14 @@ public abstract class BaseIcebergSystemTables
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
                         "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                        "('lower_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
+                        "('upper_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')," +
                         "('sort_order_id', 'integer', '', '')," +
                         "('readable_metrics', 'json', '', '')," +
+                        "('added_snapshot_id', 'bigint', '', '')," +
                         "('file_sequence_number', 'bigint', '', '')," +
                         "('data_sequence_number', 'bigint', '', '')," +
                         "('referenced_data_file', 'varchar', '', '')," +
@@ -552,6 +562,18 @@ public abstract class BaseIcebergSystemTables
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .build());
+    }
+
+    @Test
+    public void testFilesTableAddedSnapshotId()
+    {
+        assertThat(query("SELECT count(*) FROM test_schema.\"test_table$files\" WHERE added_snapshot_id IS NOT NULL"))
+                .matches("VALUES BIGINT '4'");
+        assertThat(query("SELECT count(DISTINCT added_snapshot_id) FROM test_schema.\"test_table$files\""))
+                .matches("VALUES BIGINT '2'");
+        assertThat(query("SELECT count(*) FROM test_schema.\"test_table$files\" f " +
+                "WHERE f.added_snapshot_id IN (SELECT snapshot_id FROM test_schema.\"test_table$snapshots\")"))
+                .matches("VALUES BIGINT '4'");
     }
 
     @Test
@@ -600,7 +622,7 @@ public abstract class BaseIcebergSystemTables
         testFilesTableReadableMetrics(
                 "varchar",
                 "VALUES 'alice', 'bob'",
-                "{\"x\":{\"column_size\":" + columnSize(48) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"alice\",\"upper_bound\":\"bob\"}}");
+                "{\"x\":{\"column_size\":" + columnSize(50) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"alice\",\"upper_bound\":\"bob\"}}");
         testFilesTableReadableMetrics(
                 "uuid",
                 "VALUES UUID '09e1efb9-9e87-465e-abaf-0c67f4841114', UUID '0f2ef2b3-3c5a-4834-ba91-61be53ff8fbb'",
@@ -608,7 +630,7 @@ public abstract class BaseIcebergSystemTables
         testFilesTableReadableMetrics(
                 "varbinary",
                 "VALUES x'12', x'34'",
-                "{\"x\":{\"column_size\":" + columnSize(42) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":" + value("\"12\"", null) + ",\"upper_bound\":" + value("\"34\"", null) + "}}");
+                "{\"x\":{\"column_size\":" + columnSize(44) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":" + value("\"12\"", null) + ",\"upper_bound\":" + value("\"34\"", null) + "}}");
         testFilesTableReadableMetrics(
                 "row(y int)",
                 "SELECT (CAST(ROW(123) AS ROW(y int)))",
@@ -880,6 +902,45 @@ public abstract class BaseIcebergSystemTables
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
                             "id":{"column_size":51,"value_count":1,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":1}\
                             }""");
+        }
+    }
+
+    @Test
+    void testEntriesTableWithNullSortOrderId()
+            throws Exception
+    {
+        // Iceberg spec (table spec v1/v2/v3) marks data_file.sort_order_id as optional: a null value
+        // is a valid on-disk state meaning "unsorted", and readers must tolerate it. Writers such as
+        // PyIceberg emit null here on default appends. Trino's own writer populates 0, which is why
+        // reaching the code path from SQL is impossible — commit a DataFile directly through the
+        // Iceberg Java API to produce a manifest entry with sort_order_id unset.
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries_null_sort_order", "AS SELECT 1 id")) {
+            Table icebergTable = loadTable(table.getName());
+            DataFile dataFile = DataFiles.builder(icebergTable.spec())
+                    .withPath(icebergTable.location() + "/data/synthetic-no-sort-order." + format.name().toLowerCase(ENGLISH))
+                    .withFormat(FileFormat.fromString(format.name()))
+                    .withFileSizeInBytes(1234)
+                    .withRecordCount(1)
+                    .build();
+            // DataFiles.Builder defaults sort_order_id to SortOrder.unsorted().orderId() (== 0).
+            // The spec-valid null state is what PyIceberg emits; reach it by clearing the inherited
+            // BaseFile.sortOrderId field so the manifest row is written with the column unset.
+            Field sortOrderIdField = dataFile.getClass().getSuperclass().getDeclaredField("sortOrderId");
+            sortOrderIdField.setAccessible(true);
+            sortOrderIdField.set(dataFile, null);
+            assertThat(dataFile.sortOrderId()).isNull();
+
+            icebergTable.newAppend().appendFile(dataFile).commit();
+            long appendedSnapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            // Reading $entries must not throw and must surface the null as SQL NULL.
+            assertThat(computeScalar("SELECT data_file.sort_order_id FROM \"" + table.getName() + "$entries\"" +
+                    " WHERE snapshot_id = " + appendedSnapshotId))
+                    .isNull();
+            // $all_entries shares the same code path and must also tolerate the null.
+            assertThat(computeScalar("SELECT data_file.sort_order_id FROM \"" + table.getName() + "$all_entries\"" +
+                    " WHERE snapshot_id = " + appendedSnapshotId))
+                    .isNull();
         }
     }
 

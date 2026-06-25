@@ -397,9 +397,11 @@ public class ConnectorServices
     {
         try {
             clazz.getMethod(name, parameterTypes);
-            throw new IllegalArgumentException(format("Access control %s must not implement removed method %s(%s)",
+            throw new IllegalArgumentException(format(
+                    "Access control %s must not implement removed method %s(%s)",
                     clazz.getName(),
-                    name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
+                    name,
+                    Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
         }
         catch (ReflectiveOperationException _) {
         }

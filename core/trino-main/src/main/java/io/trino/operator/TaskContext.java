@@ -31,11 +31,9 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStateMachine;
-import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.Domain;
@@ -171,9 +169,6 @@ public class TaskContext
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-
-        // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
-        this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -310,14 +305,14 @@ public class TaskContext
         queryContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localMemoryContext()
+    public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return taskMemoryContext.localUserMemoryContext();
+        return taskMemoryContext.aggregateUserMemoryContext();
     }
 
     public AggregatedMemoryContext newAggregateMemoryContext()
     {
-        return taskMemoryContext.newAggregateUserMemoryContext();
+        return aggregateUserMemoryContext().newAggregatedMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()

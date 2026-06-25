@@ -97,7 +97,7 @@ public class JdbcConnectorExpressionRewriterBuilder
     private class GenericRewriteBuilder
             implements ExpectSourceExpression, ExpectRewriteTarget
     {
-        private Predicate<ConnectorSession> condition = session -> true;
+        private Predicate<ConnectorSession> condition = _ -> true;
         private String expressionPattern;
 
         GenericRewriteBuilder when(Predicate<ConnectorSession> condition)

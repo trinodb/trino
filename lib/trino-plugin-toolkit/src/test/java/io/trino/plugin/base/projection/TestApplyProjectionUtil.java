@@ -14,15 +14,25 @@
 package io.trino.plugin.base.projection;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.Lambda;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
+
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
-import static io.trino.plugin.base.projection.ApplyProjectionUtil.isPushdownSupported;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
@@ -66,19 +76,20 @@ public class TestApplyProjectionUtil
 
     private static final ConnectorExpression INT_VARIABLE = new Variable("a", INTEGER);
     private static final ConnectorExpression CONSTANT = new Constant(5, INTEGER);
+    private static final Type INTEGER_TO_INTEGER = new FunctionType(List.of(INTEGER), INTEGER);
 
     @Test
     public void testIsProjectionSupported()
     {
-        assertThat(isPushdownSupported(ONE_LEVEL_DEREFERENCE, connectorExpression -> true)).isTrue();
-        assertThat(isPushdownSupported(TWO_LEVEL_DEREFERENCE, connectorExpression -> true)).isTrue();
-        assertThat(isPushdownSupported(INT_VARIABLE, connectorExpression -> true)).isTrue();
-        assertThat(isPushdownSupported(CONSTANT, connectorExpression -> true)).isFalse();
+        assertThat(isPushdownSupported(ONE_LEVEL_DEREFERENCE, _ -> true)).isTrue();
+        assertThat(isPushdownSupported(TWO_LEVEL_DEREFERENCE, _ -> true)).isTrue();
+        assertThat(isPushdownSupported(INT_VARIABLE, _ -> true)).isTrue();
+        assertThat(isPushdownSupported(CONSTANT, _ -> true)).isFalse();
 
-        assertThat(isPushdownSupported(ONE_LEVEL_DEREFERENCE, connectorExpression -> false)).isFalse();
-        assertThat(isPushdownSupported(TWO_LEVEL_DEREFERENCE, connectorExpression -> false)).isFalse();
-        assertThat(isPushdownSupported(INT_VARIABLE, connectorExpression -> false)).isFalse();
-        assertThat(isPushdownSupported(CONSTANT, connectorExpression -> false)).isFalse();
+        assertThat(isPushdownSupported(ONE_LEVEL_DEREFERENCE, _ -> false)).isFalse();
+        assertThat(isPushdownSupported(TWO_LEVEL_DEREFERENCE, _ -> false)).isFalse();
+        assertThat(isPushdownSupported(INT_VARIABLE, _ -> false)).isFalse();
+        assertThat(isPushdownSupported(CONSTANT, _ -> false)).isFalse();
 
         assertThat(isPushdownSupported(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isTrue();
         assertThat(isPushdownSupported(LEAF_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isFalse();
@@ -94,16 +105,49 @@ public class TestApplyProjectionUtil
         assertThat(extractSupportedProjectedColumns(INT_VARIABLE)).isEqualTo(ImmutableList.of(INT_VARIABLE));
         assertThat(extractSupportedProjectedColumns(CONSTANT)).isEqualTo(ImmutableList.of());
 
-        assertThat(extractSupportedProjectedColumns(ONE_LEVEL_DEREFERENCE, connectorExpression -> false)).isEqualTo(ImmutableList.of());
-        assertThat(extractSupportedProjectedColumns(TWO_LEVEL_DEREFERENCE, connectorExpression -> false)).isEqualTo(ImmutableList.of());
-        assertThat(extractSupportedProjectedColumns(INT_VARIABLE, connectorExpression -> false)).isEqualTo(ImmutableList.of());
-        assertThat(extractSupportedProjectedColumns(CONSTANT, connectorExpression -> false)).isEqualTo(ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(ONE_LEVEL_DEREFERENCE, _ -> false)).isEqualTo(ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(TWO_LEVEL_DEREFERENCE, _ -> false)).isEqualTo(ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(INT_VARIABLE, _ -> false)).isEqualTo(ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(CONSTANT, _ -> false)).isEqualTo(ImmutableList.of());
 
         // Partial supported projection
         assertThat(extractSupportedProjectedColumns(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE));
         assertThat(extractSupportedProjectedColumns(LEAF_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE));
         assertThat(extractSupportedProjectedColumns(MID_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(MID_DOTTED_ROW_OF_ROW_VARIABLE));
         assertThat(extractSupportedProjectedColumns(MID_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(MID_DOTTED_ROW_OF_ROW_VARIABLE));
+    }
+
+    @Test
+    public void testExtractSupportedProjectionColumnsFromLambda()
+    {
+        Variable lambdaArgument = new Variable("x", INTEGER);
+        Variable capture = new Variable("capture", INTEGER);
+        ConnectorExpression expression = new Lambda(
+                INTEGER_TO_INTEGER,
+                ImmutableList.of(lambdaArgument),
+                new Call(INTEGER, ADD_FUNCTION_NAME, ImmutableList.of(lambdaArgument, capture)));
+
+        assertThat(extractSupportedProjectedColumns(expression)).containsExactly(capture);
+    }
+
+    @Test
+    public void testReplaceWithNewVariablesInLambda()
+    {
+        Variable lambdaArgument = new Variable("x", INTEGER);
+        Variable capture = new Variable("capture", INTEGER);
+        Variable newCapture = new Variable("projected_capture", INTEGER);
+        ConnectorExpression expression = new Lambda(
+                INTEGER_TO_INTEGER,
+                ImmutableList.of(lambdaArgument),
+                new Call(INTEGER, ADD_FUNCTION_NAME, ImmutableList.of(lambdaArgument, capture)));
+
+        assertThat(replaceWithNewVariables(expression, Map.of(
+                lambdaArgument, new Variable("wrong", INTEGER),
+                capture, newCapture)))
+                .isEqualTo(new Lambda(
+                        INTEGER_TO_INTEGER,
+                        ImmutableList.of(lambdaArgument),
+                        new Call(INTEGER, ADD_FUNCTION_NAME, ImmutableList.of(lambdaArgument, newCapture))));
     }
 
     /**
@@ -120,5 +164,10 @@ public class TestApplyProjectionUtil
             }
         }
         return true;
+    }
+
+    private static boolean isPushdownSupported(ConnectorExpression expression, Predicate<ConnectorExpression> expressionPredicate)
+    {
+        return ApplyProjectionUtil.isPushdownSupported(expression, expressionPredicate, Set.of());
     }
 }

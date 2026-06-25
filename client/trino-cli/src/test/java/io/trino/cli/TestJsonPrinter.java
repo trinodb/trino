@@ -36,10 +36,10 @@ public class TestJsonPrinter
         OutputPrinter printer = new JsonPrinter(fieldNames, writer);
 
         printer.printRows(rows(
-                row("hello", "world", 123),
-                row("a", null, 4.5),
-                row("some long\ntext\tdone", "more\ntext", 4567),
-                row("bye", "done", -15)),
+                        row("hello", "world", 123),
+                        row("a", null, 4.5),
+                        row("some long\ntext\tdone", "more\ntext", 4567),
+                        row("bye", "done", -15)),
                 true);
         printer.finish();
 

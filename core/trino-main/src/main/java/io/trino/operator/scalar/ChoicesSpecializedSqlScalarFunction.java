@@ -105,7 +105,8 @@ public final class ChoicesSpecializedSqlScalarFunction
             }
         }
         if (choices.isEmpty()) {
-            throw new TrinoException(FUNCTION_NOT_FOUND,
+            throw new TrinoException(
+                    FUNCTION_NOT_FOUND,
                     format("Function implementation for (%s) cannot be adapted to convention (%s)", boundSignature, invocationConvention));
         }
 
@@ -116,11 +117,11 @@ public final class ChoicesSpecializedSqlScalarFunction
                 boundSignature.getArgumentTypes(),
                 bestChoice.getInvocationConvention(),
                 invocationConvention);
-        ScalarFunctionImplementation.Builder builder = ScalarFunctionImplementation.builder()
-                .methodHandle(methodHandle);
-        bestChoice.getInstanceFactory().ifPresent(builder::instanceFactory);
-        builder.lambdaInterfaces(bestChoice.getLambdaInterfaces());
-        return builder.build();
+        return ScalarFunctionImplementation.builder()
+                .methodHandle(methodHandle)
+                .instanceFactory(bestChoice.getInstanceFactory())
+                .lambdaInterfaces(bestChoice.getLambdaInterfaces())
+                .build();
     }
 
     public static class ScalarImplementationChoice
@@ -201,22 +202,11 @@ public final class ChoicesSpecializedSqlScalarFunction
             int score = 0;
             for (InvocationArgumentConvention argument : callingConvention.getArgumentConventions()) {
                 switch (argument) {
-                    case NULL_FLAG:
-                        score += 1;
-                        break;
-                    case BLOCK_POSITION_NOT_NULL:
-                    case BLOCK_POSITION:
-                        score += 1000;
-                        break;
-                    case VALUE_BLOCK_POSITION_NOT_NULL:
-                    case VALUE_BLOCK_POSITION:
-                        score += 2000;
-                        break;
-                    case IN_OUT:
-                        score += 10_000;
-                        break;
-                    default:
-                        break;
+                    case NULL_FLAG -> score += 1;
+                    case BLOCK_POSITION_NOT_NULL, BLOCK_POSITION -> score += 1000;
+                    case VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION -> score += 2000;
+                    case IN_OUT -> score += 10_000;
+                    default -> {}
                 }
             }
             return score;

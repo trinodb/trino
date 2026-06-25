@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
+import io.trino.json.XQueryRegex;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
 import io.trino.json.ir.IrArithmeticBinary.Operator;
@@ -35,6 +36,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -91,7 +93,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.DIVIDE;
-import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULUS;
+import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULO;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.MULTIPLY;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.SUBTRACT;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.MINUS;
@@ -176,7 +178,7 @@ class JsonPathTranslator
                 case SUBTRACT -> SUBTRACT;
                 case MULTIPLY -> MULTIPLY;
                 case DIVIDE -> DIVIDE;
-                case MODULUS -> MODULUS;
+                case MODULO -> MODULO;
             };
         }
 
@@ -386,8 +388,12 @@ class JsonPathTranslator
         {
             checkArgument(BOOLEAN.equals(types.get(PathNodeRef.of(node))), "Wrong predicate type. Expected BOOLEAN");
 
-            // TODO
-            throw new IllegalStateException("like_regex predicate is not yet supported. The query should have failed in JsonPathAnalyzer.");
+            IrPathNode path = process(node.getPath());
+            // Translate XQuery→Java regex syntax once at planning time. The translated pattern
+            // rides in the IR; JsonPathAnalyzer has already validated both the flag set and the
+            // regex syntax, so reaching here means the pattern is well-formed.
+            String translated = XQueryRegex.patternWithFlags(node.getPattern(), XQueryRegex.parseFlags(node.getFlag().orElse("")));
+            return new IrLikeRegexPredicate(path, translated);
         }
 
         @Override

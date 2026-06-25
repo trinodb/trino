@@ -328,7 +328,7 @@ public class TestLocalDynamicFilterConsumer
         assertThat(collector.isCollectionComplete()).isFalse();
 
         Domain domain3 = Domain.singleValue(VARCHAR, utf8Slice(IntStream.range(0, 800)
-                .mapToObj(i -> "x")
+                .mapToObj(_ -> "x")
                 .collect(joining())));
 
         assertThat(domain1.union(domain2).union(domain3).simplify(1).getRetainedSizeInBytes())

@@ -48,6 +48,12 @@ system support:
     Azure from every node. Defaults to double the number of processors on the
     node. Minimum `1`. Use this property to reduce the number of requests when
     you encounter rate limiting issues.
+* - `azure.connection-pool-max-idle-time`
+  - [Duration](prop-type-duration) that a connection can remain idle in the
+    connection pool before it is closed. Defaults to `5m`.
+* - `azure.http-request-timeout`
+  - [Duration](prop-type-duration) for HTTP request timeouts, including the
+    time taken by the Azure SDK to retry a request. Defaults to `10m`.
 * - `azure.application-id`
   - Specify the application identifier appended to the `User-Agent` header
     for all requests sent to Azure Storage. Defaults to `Trino`. 

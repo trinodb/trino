@@ -105,7 +105,7 @@ public final class DomainCoercer
             }
             ValueSet saturatedValueSet = domain.getValues().getValuesProcessor().transform(
                     this::applySaturatedCasts,
-                    discreteValues -> ValueSet.all(coercedValueType),
+                    _ -> ValueSet.all(coercedValueType),
                     allOrNone -> new AllOrNoneValueSet(coercedValueType, allOrNone.isAll()));
 
             return Domain.create(saturatedValueSet, domain.isNullAllowed());

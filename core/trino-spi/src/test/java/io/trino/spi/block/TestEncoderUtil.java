@@ -69,7 +69,8 @@ final class TestEncoderUtil
                 all(false, length),
                 all(true, length),
                 alternating(length),
-                randomBooleans(length)};
+                randomBooleans(length),
+        };
     }
 
     static byte[] getEncodedNullsAsBits(boolean[] isNull, int offset, int length)

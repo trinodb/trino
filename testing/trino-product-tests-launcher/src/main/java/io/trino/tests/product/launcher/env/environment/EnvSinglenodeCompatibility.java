@@ -75,6 +75,7 @@ public class EnvSinglenodeCompatibility
         DockerContainer container = new DockerContainer(dockerImage, COMPATIBILTY_TEST_CONTAINER_NAME)
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath(jvmConfig)), containerConfigDir + "jvm.config")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/trino/etc/log.properties")), containerConfigDir + "log.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getHiveConfigFor(dockerImage))), containerConfigDir + "catalog/hive.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getIcebergConfigFor(dockerImage))), containerConfigDir + "catalog/iceberg.properties")

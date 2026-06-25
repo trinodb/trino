@@ -23,26 +23,23 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeUtils;
 import io.trino.sql.ir.Array;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
 import io.trino.sql.routine.ir.IrContinue;
@@ -58,6 +55,7 @@ import io.trino.sql.routine.ir.IrStatement;
 import io.trino.sql.routine.ir.IrVariable;
 import io.trino.sql.routine.ir.IrWhile;
 
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -229,18 +227,13 @@ public final class SqlRoutineHash
                         default -> {
                             // For complex types (e.g., Block-backed arrays/rows/maps), serialize canonically
                             BlockBuilder blockBuilder = constant.type().createBlockBuilder(null, 1);
-                            TypeUtils.writeNativeValue(constant.type(), blockBuilder, value);
+                            writeNativeValue(constant.type(), blockBuilder, value);
                             Block block = blockBuilder.build();
                             SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
                             blockEncodingSerde.writeBlock(output, block);
                             hasher.putBytes(output.slice().getBytes());
                         }
                     }
-                }
-                case Comparison comparison -> {
-                    hashString(comparison.operator().name());
-                    hashExpression(comparison.left());
-                    hashExpression(comparison.right());
                 }
                 case Logical logical -> {
                     hashString(logical.operator().name());
@@ -256,6 +249,12 @@ public final class SqlRoutineHash
                     });
                     hashExpression(lambda.body());
                 }
+                case Let let -> {
+                    hashString(let.name().name());
+                    hashType(let.name().type());
+                    hashExpression(let.value());
+                    hashExpression(let.body());
+                }
                 case FieldReference fieldRef -> {
                     hasher.putInt(fieldRef.field());
                     hasher.putInt(expression.children().size());
@@ -264,8 +263,8 @@ public final class SqlRoutineHash
                     }
                 }
                 // These expression types are fully represented by class name + type + children
-                case Array _, Between _, Bind _, Case _, Cast _, Coalesce _,
-                     In _, IsNull _, NullIf _, Row _, Switch _ -> {
+                case Array _, Bind _, Case _, Cast _, Coalesce _,
+                     In _, IsNull _, Row _, Match _ -> {
                     hasher.putInt(expression.children().size());
                     for (Expression child : expression.children()) {
                         hashExpression(child);
@@ -301,8 +300,8 @@ public final class SqlRoutineHash
             hashString(function.functionId().toString());
 
             hasher.putInt(function.typeDependencies().size());
-            function.typeDependencies().forEach((typeSignature, type) -> {
-                hashString(typeSignature.toString());
+            function.typeDependencies().forEach((typeDescriptor, type) -> {
+                hashString(typeDescriptor.toString());
                 hashType(type);
             });
 

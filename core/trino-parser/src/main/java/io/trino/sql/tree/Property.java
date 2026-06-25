@@ -55,8 +55,7 @@ public class Property
 
     public Property(NodeLocation location, Identifier name, Expression value)
     {
-        this(
-                Optional.of(requireNonNull(location, "location is null")),
+        this(Optional.of(requireNonNull(location, "location is null")),
                 name,
                 Optional.of(requireNonNull(value, "value is null")));
     }

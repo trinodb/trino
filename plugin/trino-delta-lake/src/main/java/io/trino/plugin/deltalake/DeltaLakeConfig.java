@@ -48,7 +48,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "delta.metadata.cache-size",
         "delta.metadata.live-files.cache-size",
         "delta.metadata.live-files.cache-ttl",
-        "delta.checkpoint-filtering.enabled"
+        "delta.checkpoint-filtering.enabled",
 })
 public class DeltaLakeConfig
 {
@@ -95,6 +95,7 @@ public class DeltaLakeConfig
     private boolean deltaLogFileSystemCacheDisabled;
     private int metadataParallelism = 8;
     private int checkpointProcessingParallelism = 4;
+    private boolean loadMetadataFromChecksumFile = true;
 
     public Duration getMetadataCacheTtl()
     {
@@ -585,6 +586,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setCheckpointProcessingParallelism(int checkpointProcessingParallelism)
     {
         this.checkpointProcessingParallelism = checkpointProcessingParallelism;
+        return this;
+    }
+
+    public boolean isLoadMetadataFromChecksumFile()
+    {
+        return loadMetadataFromChecksumFile;
+    }
+
+    @Config("delta.load-metadata-from-checksum-file")
+    @ConfigDescription("Read table metadata and protocol from the Delta version checksum file when available, falling back to the transaction log")
+    public DeltaLakeConfig setLoadMetadataFromChecksumFile(boolean loadMetadataFromChecksumFile)
+    {
+        this.loadMetadataFromChecksumFile = loadMetadataFromChecksumFile;
         return this;
     }
 }

@@ -194,17 +194,38 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        delegate().checkCanSelectFromColumns(context, tableName, branch, columnNames);
+    }
+
+    @Deprecated
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         delegate().checkCanSelectFromColumns(context, tableName, columnNames);
     }
 
     @Override
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        delegate().checkCanInsertIntoTable(context, tableName, branch);
+    }
+
+    @Deprecated
+    @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanInsertIntoTable(context, tableName);
     }
 
+    @Override
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        delegate().checkCanDeleteFromTable(context, tableName, branch);
+    }
+
+    @Deprecated
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -217,6 +238,13 @@ public abstract class ForwardingConnectorAccessControl
         delegate().checkCanTruncateTable(context, tableName);
     }
 
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
+    {
+        delegate().checkCanUpdateTableColumns(context, tableName, branch, updatedColumns);
+    }
+
+    @Deprecated
     @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
     {
@@ -253,6 +281,13 @@ public abstract class ForwardingConnectorAccessControl
         delegate().checkCanDropView(context, viewName);
     }
 
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, branch, columnNames);
+    }
+
+    @Deprecated
     @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
@@ -350,7 +385,8 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context,
+    public void checkCanGrantRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -360,7 +396,8 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context,
+    public void checkCanRevokeRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,

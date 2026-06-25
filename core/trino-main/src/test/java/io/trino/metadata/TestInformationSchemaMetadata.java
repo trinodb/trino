@@ -16,7 +16,6 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.client.ClientCapabilities;
 import io.trino.connector.MockConnectorFactory;
@@ -25,6 +24,7 @@ import io.trino.connector.informationschema.InformationSchemaColumnHandle;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.connector.informationschema.InformationSchemaTableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -34,7 +34,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.QueryRunner;
@@ -47,9 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -75,10 +72,10 @@ public class TestInformationSchemaMetadata
     {
         queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
-                .withListTables((connectorSession, schemaName) ->
+                .withListSchemaNames(_ -> ImmutableList.of("test_schema"))
+                .withListTables((_, _) ->
                         ImmutableList.of("test_view", "another_table"))
-                .withGetViews((connectorSession, prefix) -> {
+                .withGetViews((_, _) -> {
                     ConnectorViewDefinition definition = new ConnectorViewDefinition(
                             "select 1",
                             Optional.of("test_catalog"),
@@ -126,7 +123,7 @@ public class TestInformationSchemaMetadata
         Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
-        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT, ConnectorExpressionEvaluator.NO_OP);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
@@ -140,10 +137,12 @@ public class TestInformationSchemaMetadata
     public void testInformationSchemaPredicatePushdownWithConstraintPredicate()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")),
+                new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")))));
 
         ConnectorSession session = createNewSession(transactionId);
-        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT, ConnectorExpressionEvaluator.NO_OP);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "columns"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
@@ -165,7 +164,7 @@ public class TestInformationSchemaMetadata
         Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
-        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT, ConnectorExpressionEvaluator.NO_OP);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
@@ -189,7 +188,7 @@ public class TestInformationSchemaMetadata
         Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
-        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT, ConnectorExpressionEvaluator.NO_OP);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
@@ -204,10 +203,11 @@ public class TestInformationSchemaMetadata
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
-        // predicate on non columns enumerating table should not cause tables to be enumerated
-        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
+        // schema-only predicate on non columns enumerating table should not cause tables to be enumerated
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")))));
         ConnectorSession session = createNewSession(transactionId);
-        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT, ConnectorExpressionEvaluator.NO_OP);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
@@ -227,7 +227,7 @@ public class TestInformationSchemaMetadata
         // ImmutableSet.of(new QualifiedTablePrefix(catalogName));
         Constraint constraint = new Constraint(TupleDomain.all());
         ConnectorSession session = createNewSession(transactionId);
-        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT, ConnectorExpressionEvaluator.NO_OP);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"), Optional.empty(), Optional.empty());
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(session, tableHandle, constraint);
@@ -239,7 +239,7 @@ public class TestInformationSchemaMetadata
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
         ConnectorSession session = createNewSession(transactionId);
-        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT, ConnectorExpressionEvaluator.NO_OP);
         InformationSchemaColumnHandle tableSchemaColumn = new InformationSchemaColumnHandle("table_schema");
         InformationSchemaColumnHandle tableNameColumn = new InformationSchemaColumnHandle("table_name");
         ConnectorTableHandle tableHandle = metadata.getTableHandle(session, new SchemaTableName("information_schema", "tables"), Optional.empty(), Optional.empty());
@@ -266,42 +266,6 @@ public class TestInformationSchemaMetadata
         assertThat(filtered.prefixes()).isEqualTo(ImmutableSet.of(
                 new QualifiedTablePrefix("test_catalog", "test_schema", ""),
                 new QualifiedTablePrefix("test_catalog", "information_schema", "")));
-    }
-
-    /**
-     * @see #testConstraintColumns()
-     */
-    private static boolean testConstraint(Map<ColumnHandle, NullableValue> bindings)
-    {
-        // test_schema has a table named "another_table" and we filter that out in this predicate
-
-        // Note: the columns inspected here must be in sync with testConstraintColumns()
-        NullableValue catalog = bindings.get(new InformationSchemaColumnHandle("table_catalog"));
-        NullableValue schema = bindings.get(new InformationSchemaColumnHandle("table_schema"));
-        NullableValue table = bindings.get(new InformationSchemaColumnHandle("table_name"));
-
-        boolean isValid = true;
-        if (catalog != null) {
-            isValid = ((Slice) catalog.getValue()).toStringUtf8().equals("test_catalog");
-        }
-        if (schema != null) {
-            isValid &= ((Slice) schema.getValue()).toStringUtf8().equals("test_schema");
-        }
-        if (table != null) {
-            isValid &= ((Slice) table.getValue()).toStringUtf8().equals("test_view");
-        }
-        return isValid;
-    }
-
-    /**
-     * Returns set of columns inspected by {@link #testConstraint(Map)}.
-     */
-    private static Set<ColumnHandle> testConstraintColumns()
-    {
-        return Set.of(
-                new InformationSchemaColumnHandle("table_catalog"),
-                new InformationSchemaColumnHandle("table_schema"),
-                new InformationSchemaColumnHandle("table_name"));
     }
 
     private static ConnectorSession createNewSession(TransactionId transactionId)

@@ -200,6 +200,296 @@ you need to use `\+01F600` for a grinning face emoji.
 Single quotes in string literals can be escaped by using another single quote: 
 `'I am big, it''s the pictures that got small!'`
 
+#### Methods
+
+The following instance methods are available on `VARCHAR` values. Each returns a
+new value; the receiver is never modified. The related plain function is linked
+from each entry.
+
+:::{function} string.length() -> bigint
+:noindex: true
+
+Returns the number of Unicode code points in `string`. Related: {func}`length`.
+
+```
+SELECT 'Hello, World!'.length();
+-- 13
+```
+:::
+
+:::{function} string.lower() -> varchar
+:noindex: true
+
+Returns `string` with every character converted to lower case. Related:
+{func}`lower`.
+
+```
+SELECT 'HELLO'.lower();
+-- hello
+```
+:::
+
+:::{function} string.upper() -> varchar
+:noindex: true
+
+Returns `string` with every character converted to upper case. Related:
+{func}`upper`.
+
+```
+SELECT 'hello'.upper();
+-- HELLO
+```
+:::
+
+:::{function} string.replace(search) -> varchar
+:noindex: true
+
+Returns `string` with every occurrence of the substring `search` removed.
+Related: {func}`replace`.
+
+```
+SELECT 'a.b.c'.replace('.');
+-- abc
+```
+:::
+
+:::{function} string.replace(search, replacement) -> varchar
+:noindex: true
+
+Returns `string` with every occurrence of the substring `search` replaced by
+`replacement`. Related: {func}`replace`.
+
+```
+SELECT 'a.b.c'.replace('.', '-');
+-- a-b-c
+```
+:::
+
+:::{function} string.reverse() -> varchar
+:noindex: true
+
+Returns `string` with its code points in reverse order. Related: {func}`reverse`.
+
+```
+SELECT 'Trino'.reverse();
+-- onirT
+```
+:::
+
+:::{function} string.split(delimiter) -> array(varchar)
+:noindex: true
+
+Splits `string` on each occurrence of `delimiter` and returns the pieces as an
+array. Related: {func}`split`.
+
+```
+SELECT 'a,b,c'.split(',');
+-- [a, b, c]
+```
+:::
+
+:::{function} string.split(delimiter, limit) -> array(varchar)
+:noindex: true
+
+Splits `string` on `delimiter` into at most `limit` pieces; the last piece holds
+the unsplit remainder. Related: {func}`split`.
+
+```
+SELECT 'a,b,c'.split(',', 2);
+-- [a, b,c]
+```
+:::
+
+:::{function} string.starts_with(prefix) -> boolean
+:noindex: true
+
+Returns `true` when `string` begins with `prefix`, otherwise `false`. Related:
+{func}`starts_with`.
+
+```
+SELECT 'apple'.starts_with('app');
+-- true
+```
+:::
+
+:::{function} string.strpos(substring) -> bigint
+:noindex: true
+
+Returns the 1-based index of the first occurrence of `substring` in `string`, or
+`0` when it does not occur. Related: {func}`strpos`.
+
+```
+SELECT 'hello'.strpos('l');
+-- 3
+```
+:::
+
+:::{function} string.strpos(substring, instance) -> bigint
+:noindex: true
+
+Returns the 1-based index of the `instance`-th occurrence of `substring` in
+`string`, or `0` when there are fewer than `instance` occurrences. Related:
+{func}`strpos`.
+
+```
+SELECT 'hello'.strpos('l', 2);
+-- 4
+```
+:::
+
+:::{function} string.substring(start) -> varchar
+:noindex: true
+
+Returns the part of `string` from the 1-based index `start` to the end. Related:
+{func}`substring`.
+
+```
+SELECT 'Trino'.substring(2);
+-- rino
+```
+:::
+
+:::{function} string.substring(start, length) -> varchar
+:noindex: true
+
+Returns the `length` code points of `string` beginning at the 1-based index
+`start`. Related: {func}`substring`.
+
+```
+SELECT 'Trino'.substring(2, 2);
+-- ri
+```
+:::
+
+:::{function} string.translate(from, to) -> varchar
+:noindex: true
+
+Returns `string` with each character that occurs in `from` replaced by the
+character at the same position in `to`, and removed when `to` is shorter.
+Related: {func}`translate`.
+
+```
+SELECT 'abcd'.translate('ac', 'xy');
+-- xbyd
+```
+:::
+
+:::{function} string.trim() -> varchar
+:noindex: true
+
+Returns `string` with whitespace removed from both ends. Related: {func}`trim`.
+
+```
+SELECT '  hi  '.trim();
+-- hi
+```
+:::
+
+:::{function} string.trim(chars) -> varchar
+:noindex: true
+
+Returns `string` with any of the characters in `chars` removed from both ends.
+Related: {func}`trim`.
+
+```
+SELECT '##hi##'.trim('#');
+-- hi
+```
+:::
+
+:::{function} string.ltrim() -> varchar
+:noindex: true
+
+Returns `string` with whitespace removed from the start. Related: {func}`ltrim`.
+:::
+
+:::{function} string.ltrim(chars) -> varchar
+:noindex: true
+
+Returns `string` with any of the characters in `chars` removed from the start.
+Related: {func}`ltrim`.
+:::
+
+:::{function} string.rtrim() -> varchar
+:noindex: true
+
+Returns `string` with whitespace removed from the end. Related: {func}`rtrim`.
+:::
+
+:::{function} string.rtrim(chars) -> varchar
+:noindex: true
+
+Returns `string` with any of the characters in `chars` removed from the end.
+Related: {func}`rtrim`.
+:::
+
+:::{function} string.lpad(size, padstring) -> varchar
+:noindex: true
+
+Returns `string` padded on the left with copies of `padstring` until it is `size`
+code points long, or truncated to `size` when already longer. Related:
+{func}`lpad`.
+
+```
+SELECT '7'.lpad(3, '0');
+-- 007
+```
+:::
+
+:::{function} string.rpad(size, padstring) -> varchar
+:noindex: true
+
+Returns `string` padded on the right with copies of `padstring` until it is
+`size` code points long, or truncated to `size` when already longer. Related:
+{func}`rpad`.
+
+```
+SELECT '7'.rpad(3, '0');
+-- 700
+```
+:::
+
+:::{function} string.to_utf8() -> varbinary
+:noindex: true
+
+Returns the UTF-8 encoding of `string` as a `VARBINARY` value. Related:
+{func}`to_utf8`.
+:::
+
+The following static methods construct `VARCHAR` values:
+
+:::{function} varchar::chr(n) -> varchar
+:noindex: true
+
+Returns the one-character string whose only character has Unicode code point `n`.
+Related: {func}`chr`.
+
+```
+SELECT varchar::chr(65);
+-- A
+```
+:::
+
+:::{function} varchar::from_utf8(binary) -> varchar
+:noindex: true
+
+Returns the string decoded from the UTF-8 bytes in `binary`, with invalid byte
+sequences replaced by the Unicode replacement character. Related:
+{func}`from_utf8`.
+
+```
+SELECT varchar::from_utf8(X'48656C6C6F');
+-- Hello
+```
+:::
+
+:::{function} varchar::from_utf8(binary, replace) -> varchar
+:noindex: true
+
+Returns the string decoded from the UTF-8 bytes in `binary`, with invalid byte
+sequences replaced by the string `replace`. Related: {func}`from_utf8`.
+:::
+
 ### `CHAR`
 
 Fixed length character data. A `CHAR` type without length specified has a
@@ -216,6 +506,78 @@ SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
 
 Example type definitions: `char`, `char(20)`
 
+#### `CHAR` and `VARCHAR` coercion and comparison
+
+A `CHAR` value implicitly coerces to `VARCHAR`, yielding the value with its
+trailing spaces removed (for example `CHAR(7) 'dog'` becomes `VARCHAR 'dog'`,
+and `CAST(CHAR(7) 'dog' AS VARCHAR)` returns `'dog'`, not the padded form).
+There is no implicit coercion in the other direction.
+
+As a result, comparing a `CHAR` and a `VARCHAR` value follows `VARCHAR`
+semantics: the `CHAR` value is coerced to `VARCHAR` (trailing spaces trimmed)
+and the two are compared with **no blank padding**, so trailing spaces are
+significant. For example `CHAR 'a' = VARCHAR 'a '` is `false`. Comparisons
+between two `CHAR` values are unaffected and remain blank-padded.
+
+#### Methods
+
+The following instance methods are available on `CHAR` values. Each returns a
+new value; the receiver is never modified.
+
+:::{function} string.length() -> bigint
+:noindex: true
+
+Returns the number of Unicode code points in `string`. Related: {func}`length`.
+:::
+
+:::{function} string.lower() -> char
+:noindex: true
+
+Returns `string` with every character converted to lower case. Related:
+{func}`lower`.
+:::
+
+:::{function} string.upper() -> char
+:noindex: true
+
+Returns `string` with every character converted to upper case. Related:
+{func}`upper`.
+:::
+
+:::{function} string.reverse() -> char
+:noindex: true
+
+Returns `string` with its code points in reverse order. Related: {func}`reverse`.
+:::
+
+:::{function} string.substring(start) -> char
+:noindex: true
+
+Returns the part of `string` from the 1-based index `start` to the end. Related:
+{func}`substring`.
+:::
+
+:::{function} string.substring(start, length) -> char
+:noindex: true
+
+Returns the `length` code points of `string` beginning at the 1-based index
+`start`. Related: {func}`substring`.
+:::
+
+:::{function} string.lpad(size, padstring) -> varchar
+:noindex: true
+
+Returns `string` padded on the left with copies of `padstring` until it is `size`
+code points long, or truncated to `size` when already longer. Related:
+{func}`lpad`.
+:::
+
+:::{function} string.to_utf8() -> varbinary
+:noindex: true
+
+Returns the UTF-8 encoding of `string` as a `VARBINARY` value. Related:
+{func}`to_utf8`.
+:::
 ### `VARBINARY`
 
 Variable length binary data.

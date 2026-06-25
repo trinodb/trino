@@ -1046,7 +1046,7 @@ public class TestAggregationsInRowPatternMatching
     }
 
     @Test
-    public void testPeriodLength() //https://stackoverflow.com/questions/68448694/how-can-i-calculate-user-session-time-from-heart-beat-data-in-presto-sql
+    public void testPeriodLength() // https://stackoverflow.com/questions/68448694/how-can-i-calculate-user-session-time-from-heart-beat-data-in-presto-sql
     {
         // D is for 1-element sequences; A B* C is for longer sequences
         assertThat(assertions.query(

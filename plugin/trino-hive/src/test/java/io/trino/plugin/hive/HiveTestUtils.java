@@ -60,8 +60,8 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -162,22 +162,22 @@ public final class HiveTestUtils
                 .add(new AvroFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))
                 .add(new RcFileFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
                 .add(new OrcFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, new FileFormatDataSourceStats(), new OrcWriterConfig()))
-                .add(new ParquetFileWriterFactory(fileSystemFactory, nodeVersion, TESTING_TYPE_MANAGER, hiveConfig, new FileFormatDataSourceStats()))
+                .add(new ParquetFileWriterFactory(fileSystemFactory, nodeVersion, TESTING_TYPE_MANAGER, hiveConfig, new ParquetWriterConfig(), new FileFormatDataSourceStats()))
                 .build();
     }
 
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeParameter.typeParameter(keyType.getTypeSignature()),
-                TypeParameter.typeParameter(valueType.getTypeSignature())));
+                TypeParameter.typeParameter(keyType.getTypeDescriptor()),
+                TypeParameter.typeParameter(valueType.getTypeDescriptor())));
     }
 
-    public static RowType rowType(List<Field> elementTypeSignatures)
+    public static RowType rowType(List<Field> elementTypeDescriptors)
     {
         return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
-                elementTypeSignatures.stream()
+                elementTypeDescriptors.stream()
                         .map(field -> TypeParameter.typeParameter(
                                 Optional.of(field.name()),
                                 field.type()))
@@ -264,5 +264,5 @@ public final class HiveTestUtils
         return new UUID(msb, lsb);
     }
 
-    record Field(String name, TypeSignature type) {}
+    record Field(String name, TypeDescriptor type) {}
 }

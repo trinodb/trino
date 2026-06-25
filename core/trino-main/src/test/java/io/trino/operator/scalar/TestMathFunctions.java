@@ -57,7 +57,7 @@ public class TestMathFunctions
     private static final int[] intRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
-    private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.fffffffffffffp-2;
+    private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.FFFFFFFFFFFFFp-2;
 
     private QueryAssertions assertions;
 
@@ -1863,10 +1863,43 @@ public class TestMathFunctions
 
         // 1.8E292*10^16 is infinity.
         assertThat(assertions.function("round", "DOUBLE '1.8E292'", "16"))
-                .isEqualTo(1.8E292);
+                .isEqualTo(1.8e292);
 
         assertThat(assertions.function("round", "DOUBLE '-1.8E292'", "16"))
-                .isEqualTo(-1.8E292);
+                .isEqualTo(-1.8e292);
+
+        // 10^decimals underflows to 0 for decimals <= -324; rounding any finite value to such a
+        // coarse place must yield 0, not NaN (regression for the 0L / 0.0 division). The sign of
+        // zero is preserved, consistent with rounding any negative value down to zero elsewhere.
+        assertThat(assertions.function("round", "DOUBLE '123.456'", "-324"))
+                .isEqualTo(0.0);
+
+        assertThat(assertions.function("round", "DOUBLE '-123.456'", "-1000"))
+                .isEqualTo(-0.0);
+
+        assertThat(assertions.function("round", "REAL '123.456'", "-324"))
+                .isEqualTo(0.0f);
+
+        assertThat(assertions.function("round", "REAL '-123.456'", "-1000"))
+                .isEqualTo(-0.0f);
+
+        assertThat(assertions.function("round", "nan()", "-1000"))
+                .isEqualTo(Double.NaN);
+
+        assertThat(assertions.function("round", "infinity()", "-1000"))
+                .isEqualTo(Double.POSITIVE_INFINITY);
+
+        assertThat(assertions.function("round", "-infinity()", "-1000"))
+                .isEqualTo(Double.NEGATIVE_INFINITY);
+
+        assertThat(assertions.function("round", "REAL 'NaN'", "-1000"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.function("round", "CAST(infinity() AS REAL)", "-1000"))
+                .isEqualTo(Float.POSITIVE_INFINITY);
+
+        assertThat(assertions.function("round", "CAST(-infinity() AS REAL)", "-1000"))
+                .isEqualTo(Float.NEGATIVE_INFINITY);
 
         assertThat(assertions.function("round", "TINYINT '3'", "TINYINT '1'"))
                 .isEqualTo((byte) 3);
@@ -2710,7 +2743,7 @@ public class TestMathFunctions
     @Test
     public void testSign()
     {
-        //retains type for NULL values
+        // retains type for NULL values
         assertThat(assertions.function("sign", "CAST(NULL as TINYINT)"))
                 .isNull(TINYINT);
 
@@ -2732,7 +2765,7 @@ public class TestMathFunctions
         assertThat(assertions.function("sign", "CAST(NULL as DECIMAL(38,0))"))
                 .isNull(createDecimalType(1, 0));
 
-        //tinyint
+        // tinyint
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2740,7 +2773,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.byteValue());
         }
 
-        //smallint
+        // smallint
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2748,7 +2781,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.shortValue());
         }
 
-        //integer
+        // integer
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2756,7 +2789,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.intValue());
         }
 
-        //bigint
+        // bigint
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2764,7 +2797,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.longValue());
         }
 
-        //double and float
+        // double and float
         for (double doubleValue : DOUBLE_VALUES) {
             assertThat(assertions.function("sign", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.signum(doubleValue));
@@ -2773,18 +2806,18 @@ public class TestMathFunctions
                     .isEqualTo(Math.signum(((float) doubleValue)));
         }
 
-        //returns NaN for NaN input
+        // returns NaN for NaN input
         assertThat(assertions.function("sign", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
 
-        //returns proper sign for +/-Infinity input
+        // returns proper sign for +/-Infinity input
         assertThat(assertions.function("sign", "DOUBLE '+Infinity'"))
                 .isEqualTo(1.0);
 
         assertThat(assertions.function("sign", "DOUBLE '-Infinity'"))
                 .isEqualTo(-1.0);
 
-        //short decimal
+        // short decimal
         assertThat(assertions.function("sign", "DECIMAL '0'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
@@ -2800,7 +2833,7 @@ public class TestMathFunctions
         assertThat(assertions.function("sign", "DECIMAL '-123.000000000000000'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
 
-        //long decimal
+        // long decimal
         assertThat(assertions.function("sign", "DECIMAL '0.000000000000000000'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
@@ -3911,7 +3944,7 @@ public class TestMathFunctions
                 .isEqualTo(0.9999999999999999);
 
         assertThat(assertions.function("t_pdf", "8", "3"))
-                .isEqualTo(7.369065209469264E-4);
+                .isEqualTo(7.369065209469264e-4);
         assertThat(assertions.function("t_pdf", "1", "10"))
                 .isEqualTo(0.2303619892291386);
 

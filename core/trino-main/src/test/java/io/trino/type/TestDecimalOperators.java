@@ -29,7 +29,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -291,59 +291,59 @@ public class TestDecimalOperators
     {
         // short short -> short
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '0'", "DECIMAL '1'"))
-                .isEqualTo(decimal("00", createDecimalType(3)));
+                .isEqualTo(decimal("00", createDecimalType(2)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '0'", "DECIMAL '-1'"))
-                .isEqualTo(decimal("00", createDecimalType(3)));
+                .isEqualTo(decimal("00", createDecimalType(2)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '1'", "DECIMAL '0'"))
-                .isEqualTo(decimal("00", createDecimalType(3)));
+                .isEqualTo(decimal("00", createDecimalType(2)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '-1'", "DECIMAL '0'"))
-                .isEqualTo(decimal("00", createDecimalType(3)));
+                .isEqualTo(decimal("00", createDecimalType(2)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '12'", "DECIMAL '3'"))
-                .isEqualTo(decimal("036", createDecimalType(4)));
+                .isEqualTo(decimal("036", createDecimalType(3)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '12'", "DECIMAL '-3'"))
-                .isEqualTo(decimal("-036", createDecimalType(4)));
+                .isEqualTo(decimal("-036", createDecimalType(3)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '-12'", "DECIMAL '3'"))
-                .isEqualTo(decimal("-036", createDecimalType(4)));
+                .isEqualTo(decimal("-036", createDecimalType(3)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '1234567890123456'", "DECIMAL '3'"))
-                .isEqualTo(decimal("03703703670370368", createDecimalType(18)));
+                .isEqualTo(decimal("03703703670370368", createDecimalType(17)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.1234567890123456'", "DECIMAL '3'"))
-                .isEqualTo(decimal("0.3703703670370368", createDecimalType(18, 16)));
+                .isEqualTo(decimal("0.3703703670370368", createDecimalType(17, 16)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.1234567890123456'", "DECIMAL '.3'"))
-                .isEqualTo(decimal(".03703703670370368", createDecimalType(18, 17)));
+                .isEqualTo(decimal(".03703703670370368", createDecimalType(17, 17)));
 
         // short short -> long
         assertThat(assertions.operator(MULTIPLY, "CAST(0 AS DECIMAL(18,0))", "CAST(1 AS DECIMAL(18,0))"))
-                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(37)));
+                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "CAST(0 AS DECIMAL(18,0))", "CAST(-1 AS DECIMAL(18,0))"))
-                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(37)));
+                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "CAST(1 AS DECIMAL(18,0))", "CAST(0 AS DECIMAL(18,0))"))
-                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(37)));
+                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "CAST(-1 AS DECIMAL(18,0))", "CAST(0 AS DECIMAL(18,0))"))
-                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(37)));
+                .isEqualTo(decimal("000000000000000000000000000000000000", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "DECIMAL '123456789012345670'"))
-                .isEqualTo(decimal("01524157875323883455265967556774890", createDecimalType(36)));
+                .isEqualTo(decimal("01524157875323883455265967556774890", createDecimalType(35)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '-12345678901234567'", "DECIMAL '123456789012345670'"))
-                .isEqualTo(decimal("-01524157875323883455265967556774890", createDecimalType(36)));
+                .isEqualTo(decimal("-01524157875323883455265967556774890", createDecimalType(35)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '-12345678901234567'", "DECIMAL '-123456789012345670'"))
-                .isEqualTo(decimal("01524157875323883455265967556774890", createDecimalType(36)));
+                .isEqualTo(decimal("01524157875323883455265967556774890", createDecimalType(35)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567'", "DECIMAL '.123456789012345670'"))
-                .isEqualTo(decimal(".01524157875323883455265967556774890", createDecimalType(36, 35)));
+                .isEqualTo(decimal(".01524157875323883455265967556774890", createDecimalType(35, 35)));
 
         // long short -> long
         assertThat(assertions.operator(MULTIPLY, "CAST(0 AS DECIMAL(38,0))", "1"))
@@ -362,10 +362,10 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("37037036703703703670370370367037037034", createDecimalType(38)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '1234567890123456789.0123456789012345678'", "DECIMAL '3'"))
-                .isEqualTo(decimal("3703703670370370367.03703703670370370", createDecimalType(38, 17)));
+                .isEqualTo(decimal("3703703670370370367.037037036703703703", createDecimalType(38, 18)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '3'"))
-                .isEqualTo(decimal(".370370367037037036703703703670370370", createDecimalType(38, 36)));
+                .isEqualTo(decimal(".3703703670370370367037037036703703703", createDecimalType(38, 37)));
 
         // short long -> long
         assertThat(assertions.operator(MULTIPLY, "0", "CAST(1 AS DECIMAL(38,0))"))
@@ -384,10 +384,10 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("37037036703703703670370370367037037034", createDecimalType(38)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '3'", "DECIMAL '1234567890123456789.0123456789012345678'"))
-                .isEqualTo(decimal("3703703670370370367.03703703670370370", createDecimalType(38, 17)));
+                .isEqualTo(decimal("3703703670370370367.037037036703703703", createDecimalType(38, 18)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '3'", "DECIMAL '.12345678901234567890123456789012345678'"))
-                .isEqualTo(decimal(".370370367037037036703703703670370370", createDecimalType(38, 36)));
+                .isEqualTo(decimal(".3703703670370370367037037036703703703", createDecimalType(38, 37)));
 
         // long long -> long
         assertThat(assertions.operator(MULTIPLY, "CAST(0 AS DECIMAL(38,0))", "CAST(1 AS DECIMAL(38,0))"))
@@ -409,26 +409,26 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("0000000000000000000000000000000000000.6", createDecimalType(38, 1)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.1234567890123456789'", "DECIMAL '.1234567890123456789'"))
-                .isEqualTo(decimal(".0152415787532388367501905199875019052", createDecimalType(38, 37)));
+                .isEqualTo(decimal(".01524157875323883675019051998750190521", createDecimalType(38, 38)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.1234567890123456789'", "DECIMAL '.12345678901234567890'"))
-                .isEqualTo(decimal("0.0152415787532388367501905199875019052", createDecimalType(38, 37)));
+                .isEqualTo(decimal("0.01524157875323883675019051998750190521", createDecimalType(38, 38)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.1'", "DECIMAL '.12345678901234567890123456789012345678'"))
-                .isEqualTo(decimal("0.0123456789012345678901234567890123457", createDecimalType(38, 37)));
+                .isEqualTo(decimal("0.01234567890123456789012345678901234568", createDecimalType(38, 38)));
 
         // runtime overflow tests
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '9'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '9'"))
-                .isEqualTo(decimal("1.111111101111111110111111111011111111", createDecimalType(38, 36)));
+                .isEqualTo(decimal("1.1111111011111111101111111110111111110", createDecimalType(38, 37)));
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '-9'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '-9'"))
-                .isEqualTo(decimal("-1.111111101111111110111111111011111111", createDecimalType(38, 36)));
+                .isEqualTo(decimal("-1.1111111011111111101111111110111111110", createDecimalType(38, 37)));
     }
 
     @Test
@@ -683,250 +683,250 @@ public class TestDecimalOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
         // short short -> short
-        assertThat(assertions.operator(MODULUS, "DECIMAL '1'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '1'", "DECIMAL '3'"))
                 .isEqualTo(decimal("1", createDecimalType(1, 0)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '10'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '10'", "DECIMAL '3'"))
                 .isEqualTo(decimal("1", createDecimalType(1, 0)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0'", "DECIMAL '3'"))
                 .isEqualTo(decimal("0", createDecimalType(1, 0)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("0", createDecimalType(1, 0)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '10.0'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '10.0'", "DECIMAL '3'"))
                 .isEqualTo(decimal("1.0", createDecimalType(2, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '10.0'", "DECIMAL '3.000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '10.0'", "DECIMAL '3.000'"))
                 .isEqualTo(decimal("1.000", createDecimalType(4, 3)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7'", "DECIMAL '3.0000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7'", "DECIMAL '3.0000000000000000'"))
                 .isEqualTo(decimal("1.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7.00000000000000000'", "DECIMAL '3.00000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7.00000000000000000'", "DECIMAL '3.00000000000000000'"))
                 .isEqualTo(decimal("1.00000000000000000", createDecimalType(18, 17)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7.00000000000000000'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7.00000000000000000'", "DECIMAL '3'"))
                 .isEqualTo(decimal("1.00000000000000000", createDecimalType(18, 17)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7'", "CAST(3 AS DECIMAL(17,0))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7'", "CAST(3 AS DECIMAL(17,0))"))
                 .isEqualTo(decimal("1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '.1'", "DECIMAL '.03'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '.1'", "DECIMAL '.03'"))
                 .isEqualTo(decimal(".01", createDecimalType(2, 2)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '.0001'", "DECIMAL '.03'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '.0001'", "DECIMAL '.03'"))
                 .isEqualTo(decimal(".0001", createDecimalType(4, 4)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-10'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-10'", "DECIMAL '3'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '10'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '10'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-10'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-10'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9'", "DECIMAL '3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9'", "DECIMAL '3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
         // short long -> short
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0'", "CAST(3 AS DECIMAL(38,16))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0'", "CAST(3 AS DECIMAL(38,16))"))
                 .isEqualTo(decimal("0.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0'", "CAST(-3 AS DECIMAL(38,16))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0'", "CAST(-3 AS DECIMAL(38,16))"))
                 .isEqualTo(decimal("0.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7'", "CAST(3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7'", "CAST(3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7'", "CAST(3 AS DECIMAL(38,16))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7'", "CAST(3 AS DECIMAL(38,16))"))
                 .isEqualTo(decimal("1.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
                 .isEqualTo(decimal("1.00000000000000000", createDecimalType(18, 17)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-7.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-7.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
                 .isEqualTo(decimal("-1.00000000000000000", createDecimalType(18, 17)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
                 .isEqualTo(decimal("1.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-7.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-7.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
                 .isEqualTo(decimal("-1.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
                 .isEqualTo(decimal("0.00000000000000000", createDecimalType(18, 17)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9.00000000000000000'", "CAST(3 AS DECIMAL(38,17))"))
                 .isEqualTo(decimal("0.00000000000000000", createDecimalType(18, 17)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
                 .isEqualTo(decimal("0.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9.0000000000000000'", "CAST(-3 AS DECIMAL(38,16))"))
                 .isEqualTo(decimal("0.0000000000000000", createDecimalType(17, 16)));
 
         // short long -> long
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0'", "DECIMAL '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0'", "DECIMAL '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7'", "DECIMAL '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7'", "DECIMAL '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7.00000000000000000'", "DECIMAL '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7.00000000000000000'", "DECIMAL '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '.01'", "DECIMAL '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '.01'", "DECIMAL '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal(".0100000000000000000000000000000000000", createDecimalType(37, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-7'", "DECIMAL '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-7'", "DECIMAL '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("-1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-7'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-7'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("-1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9'", "DECIMAL '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9'", "DECIMAL '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9'", "DECIMAL '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9'", "DECIMAL '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9'", "DECIMAL '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
         // long short -> short
-        assertThat(assertions.operator(MODULUS, "DECIMAL '99999999999999999999999999999999999997'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '99999999999999999999999999999999999997'", "DECIMAL '3'"))
                 .isEqualTo(decimal("1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '99999999999999999999999999999999999997'", "DECIMAL '3.0000000000000000'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '99999999999999999999999999999999999997'", "DECIMAL '3.0000000000000000'"))
                 .isEqualTo(decimal("1.0000000000000000", createDecimalType(17, 16)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-99999999999999999999999999999999999997'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-99999999999999999999999999999999999997'", "DECIMAL '3'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '99999999999999999999999999999999999997'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '99999999999999999999999999999999999997'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-99999999999999999999999999999999999997'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-99999999999999999999999999999999999997'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
         // long short -> long
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0.000000000000000000000000000000000000'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0.000000000000000000000000000000000000'", "DECIMAL '3'"))
                 .isEqualTo(decimal(".000000000000000000000000000000000000", createDecimalType(36, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '0.000000000000000000000000000000000000'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '0.000000000000000000000000000000000000'", "DECIMAL '-3'"))
                 .isEqualTo(decimal(".000000000000000000000000000000000000", createDecimalType(36, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7.000000000000000000000000000000000000'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7.000000000000000000000000000000000000'", "DECIMAL '3'"))
                 .isEqualTo(decimal("1.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-7.000000000000000000000000000000000000'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-7.000000000000000000000000000000000000'", "DECIMAL '3'"))
                 .isEqualTo(decimal("-1.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '7.000000000000000000000000000000000000'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '7.000000000000000000000000000000000000'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("1.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-7.000000000000000000000000000000000000'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-7.000000000000000000000000000000000000'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("-1.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9.000000000000000000000000000000000000'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9.000000000000000000000000000000000000'", "DECIMAL '3'"))
                 .isEqualTo(decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9.000000000000000000000000000000000000'", "DECIMAL '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9.000000000000000000000000000000000000'", "DECIMAL '3'"))
                 .isEqualTo(decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9.000000000000000000000000000000000000'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9.000000000000000000000000000000000000'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9.000000000000000000000000000000000000'", "DECIMAL '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9.000000000000000000000000000000000000'", "DECIMAL '-3'"))
                 .isEqualTo(decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
         // long long -> long
-        assertThat(assertions.operator(MODULUS, "CAST(0 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(0 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(0 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(0 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(7 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(7 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000001", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(7 AS DECIMAL(34,0))", "CAST(3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(7 AS DECIMAL(34,0))", "CAST(3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("0000000000000000000000000000000001", createDecimalType(34)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(7 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(34,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(7 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(34,0))"))
                 .isEqualTo(decimal("0000000000000000000000000000000001", createDecimalType(34)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(-7 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(-7 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("-00000000000000000000000000000000000001", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(7 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(7 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000001", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(-7 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(-7 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("-00000000000000000000000000000000000001", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(9 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(9 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(-9 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(-9 AS DECIMAL(38,0))", "CAST(3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(9 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(9 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
-        assertThat(assertions.operator(MODULUS, "CAST(-9 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
+        assertThat(assertions.operator(MODULO, "CAST(-9 AS DECIMAL(38,0))", "CAST(-3 AS DECIMAL(38,0))"))
                 .isEqualTo(decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
         // division by zero tests
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1'", "DECIMAL '0'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "DECIMAL '1'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "DECIMAL '1'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1'", "CAST(0 AS DECIMAL(38,0))")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "DECIMAL '1'", "CAST(0 AS DECIMAL(38,0))")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -1068,6 +1068,24 @@ public class TestDecimalOperators
 
         assertThat(assertions.operator(EQUAL, "DECIMAL '-00000000038.0000000000000000000000'", "DECIMAL '00000000038.0000000000000000000000'"))
                 .isEqualTo(false);
+
+        // short decimal (precision <= 18 → ShortDecimalType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "DECIMAL '37'")
+                .binding("b", "DECIMAL '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "DECIMAL '37'", "DECIMAL '37'"))
+                .neverFails();
+
+        // long decimal (precision > 18 → LongDecimalType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "DECIMAL '1234567890123456789'")
+                .binding("b", "DECIMAL '1234567890123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "DECIMAL '1234567890123456789'", "DECIMAL '1234567890123456789'"))
+                .neverFails();
     }
 
     @Test
@@ -1367,6 +1385,15 @@ public class TestDecimalOperators
 
         assertThat(assertions.operator(LESS_THAN, "DECIMAL '-00000000000100.000000000000'", "DECIMAL '0000000020.0000000000000'"))
                 .isEqualTo(true);
+
+        // short decimal (precision <= 18 → ShortDecimalType)
+        assertThat(assertions.expression("a < b")
+                .binding("a", "DECIMAL '37'")
+                .binding("b", "DECIMAL '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "DECIMAL '37'", "DECIMAL '37'"))
+                .neverFails();
     }
 
     @Test
@@ -1699,6 +1726,15 @@ public class TestDecimalOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DECIMAL '-00000000000100.000000000000'", "DECIMAL '0000000020.0000000000000'"))
                 .isEqualTo(true);
+
+        // short decimal (precision <= 18 → ShortDecimalType)
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "DECIMAL '37'")
+                .binding("b", "DECIMAL '37'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DECIMAL '37'", "DECIMAL '37'"))
+                .neverFails();
     }
 
     @Test
@@ -2135,41 +2171,41 @@ public class TestDecimalOperators
     {
         // decimal bigint
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "12345678901234567"))
-                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(37)));
+                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '-12345678901234567'", "12345678901234567"))
-                .isEqualTo(decimal("-000152415787532388345526596755677489", createDecimalType(37)));
+                .isEqualTo(decimal("-000152415787532388345526596755677489", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '-12345678901234567'", "-12345678901234567"))
-                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(37)));
+                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.1234567890'", "BIGINT '3'"))
-                .isEqualTo(decimal("0000000000000000000.3703703670", createDecimalType(30, 10)));
+                .isEqualTo(decimal("0000000000000000000.3703703670", createDecimalType(29, 10)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '.1234567890'", "BIGINT '0'"))
-                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(30, 10)));
+                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
 
         assertThat(assertions.operator(MULTIPLY, "DECIMAL '-.1234567890'", "BIGINT '0'"))
-                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(30, 10)));
+                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
 
         // bigint decimal
         assertThat(assertions.operator(MULTIPLY, "12345678901234567", "DECIMAL '12345678901234567'"))
-                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(37)));
+                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "12345678901234567", "DECIMAL '-12345678901234567'"))
-                .isEqualTo(decimal("-000152415787532388345526596755677489", createDecimalType(37)));
+                .isEqualTo(decimal("-000152415787532388345526596755677489", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "-12345678901234567", "DECIMAL '-12345678901234567'"))
-                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(37)));
+                .isEqualTo(decimal("000152415787532388345526596755677489", createDecimalType(36)));
 
         assertThat(assertions.operator(MULTIPLY, "BIGINT '3'", "DECIMAL '.1234567890'"))
-                .isEqualTo(decimal("0000000000000000000.3703703670", createDecimalType(30, 10)));
+                .isEqualTo(decimal("0000000000000000000.3703703670", createDecimalType(29, 10)));
 
         assertThat(assertions.operator(MULTIPLY, "BIGINT '3'", "DECIMAL '.0000000000'"))
-                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(30, 10)));
+                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
 
         assertThat(assertions.operator(MULTIPLY, "BIGINT '-3'", "DECIMAL '.0000000000'"))
-                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(30, 10)));
+                .isEqualTo(decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
     }
 
     @Test
@@ -2251,56 +2287,56 @@ public class TestDecimalOperators
     }
 
     @Test
-    public void testModulusDecimalBigint()
+    public void testModuloDecimalBigint()
     {
         // bigint % decimal
-        assertThat(assertions.operator(MODULUS, "BIGINT '13'", "DECIMAL '9.0'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '13'", "DECIMAL '9.0'"))
                 .isEqualTo(decimal("4.0", createDecimalType(2, 1)));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '18'", "DECIMAL '0.01'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '18'", "DECIMAL '0.01'"))
                 .isEqualTo(decimal(".00", createDecimalType(2, 2)));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '9'", "DECIMAL '.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '9'", "DECIMAL '.1'"))
                 .isEqualTo(decimal(".0", createDecimalType(1, 1)));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '-9'", "DECIMAL '.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '-9'", "DECIMAL '.1'"))
                 .isEqualTo(decimal(".0", createDecimalType(1, 1)));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '9'", "DECIMAL '-.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '9'", "DECIMAL '-.1'"))
                 .isEqualTo(decimal(".0", createDecimalType(1, 1)));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '-9'", "DECIMAL '-.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '-9'", "DECIMAL '-.1'"))
                 .isEqualTo(decimal(".0", createDecimalType(1, 1)));
 
         // decimal % bigint
-        assertThat(assertions.operator(MODULUS, "DECIMAL '13.0'", "BIGINT '9'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '13.0'", "BIGINT '9'"))
                 .isEqualTo(decimal("04.0", createDecimalType(3, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-13.0'", "BIGINT '9'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-13.0'", "BIGINT '9'"))
                 .isEqualTo(decimal("-04.0", createDecimalType(3, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '13.0'", "BIGINT '-9'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '13.0'", "BIGINT '-9'"))
                 .isEqualTo(decimal("04.0", createDecimalType(3, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-13.0'", "BIGINT '-9'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-13.0'", "BIGINT '-9'"))
                 .isEqualTo(decimal("-04.0", createDecimalType(3, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '18.00'", "BIGINT '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '18.00'", "BIGINT '3'"))
                 .isEqualTo(decimal("00.00", createDecimalType(4, 2)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9.0'", "BIGINT '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9.0'", "BIGINT '3'"))
                 .isEqualTo(decimal("0.0", createDecimalType(2, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9.0'", "BIGINT '3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9.0'", "BIGINT '3'"))
                 .isEqualTo(decimal("0.0", createDecimalType(2, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '9.0'", "BIGINT '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '9.0'", "BIGINT '-3'"))
                 .isEqualTo(decimal("0.0", createDecimalType(2, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '-9.0'", "BIGINT '-3'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '-9.0'", "BIGINT '-3'"))
                 .isEqualTo(decimal("0.0", createDecimalType(2, 1)));
 
-        assertThat(assertions.operator(MODULUS, "DECIMAL '5.128'", "BIGINT '2'"))
+        assertThat(assertions.operator(MODULO, "DECIMAL '5.128'", "BIGINT '2'"))
                 .isEqualTo(decimal("1.128", createDecimalType(4, 3)));
     }
 

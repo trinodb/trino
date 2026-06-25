@@ -57,10 +57,10 @@ public class AssignUniqueIdOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new AssignUniqueIdOperator(processorContext, sourcePages, valuePool);
+            return new AssignUniqueIdOperator(operatorContext, sourcePages, valuePool);
         }
 
         @Override
@@ -96,11 +96,11 @@ public class AssignUniqueIdOperator
 
     private final WorkProcessor<Page> pages;
 
-    private AssignUniqueIdOperator(ProcessorContext context, WorkProcessor<Page> sourcePages, AtomicLong rowIdPool)
+    private AssignUniqueIdOperator(OperatorContext operatorContext, WorkProcessor<Page> sourcePages, AtomicLong rowIdPool)
     {
         pages = sourcePages
                 .transform(new AssignUniqueId(
-                        context.getTaskId(),
+                        operatorContext.getDriverContext().getTaskId(),
                         rowIdPool));
     }
 

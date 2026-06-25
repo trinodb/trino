@@ -16,18 +16,18 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
-import io.airlift.units.Duration;
-import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesSplitSource;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.type.TypeManager;
@@ -40,15 +40,13 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.MetricsReporter;
-import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.SnapshotUtil;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +62,8 @@ public class IcebergSplitManager
     private final IcebergFileSystemFactory fileSystemFactory;
     private final ListeningExecutorService splitSourceExecutor;
     private final ExecutorService icebergPlanningExecutor;
-    private final CachingHostAddressProvider cachingHostAddressProvider;
+    private final SplitAffinityProvider splitAffinityProvider;
+    private final ConnectorExpressionEvaluator evaluator;
 
     @Inject
     public IcebergSplitManager(
@@ -73,14 +72,16 @@ public class IcebergSplitManager
             IcebergFileSystemFactory fileSystemFactory,
             @ForIcebergSplitSource ListeningExecutorService splitSourceExecutor,
             @ForIcebergSplitManager ExecutorService icebergPlanningExecutor,
-            CachingHostAddressProvider cachingHostAddressProvider)
+            SplitAffinityProvider splitAffinityProvider,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitSourceExecutor = requireNonNull(splitSourceExecutor, "splitSourceExecutor is null");
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
-        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
+        this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -88,7 +89,7 @@ public class IcebergSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle handle,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
@@ -102,8 +103,6 @@ public class IcebergSplitManager
 
         IcebergMetadata icebergMetadata = transactionManager.get(transaction, session.getIdentity());
         Table icebergTable = icebergMetadata.getIcebergTable(session, table.getSchemaTableName());
-        Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
-
         InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
         Scan scan = getScan(icebergMetadata, icebergTable, table, metricsReporter, icebergPlanningExecutor);
 
@@ -114,15 +113,15 @@ public class IcebergSplitManager
                 icebergTable,
                 scan,
                 table.getMaxScannedFileSize(),
-                dynamicFilter,
-                dynamicFilteringWaitTimeout,
                 constraint,
                 typeManager,
                 table.isRecordScannedFiles(),
                 getMinimumAssignedSplitWeight(session),
-                cachingHostAddressProvider,
+                splitAffinityProvider,
                 metricsReporter,
-                splitSourceExecutor);
+                splitSourceExecutor,
+                dynamicFilterColumns,
+                evaluator);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
     }
@@ -153,15 +152,14 @@ public class IcebergSplitManager
         }
 
         Schema schema = schemaFor(icebergTable, table.getSnapshotId().getAsLong());
-        List<String> names = table.getProjectedColumns().stream()
-                .map(column -> schema.findField(column.getId()))
-                .filter(Objects::nonNull) // Newly added column may not be found in current snapshot schema until new files are added
-                .map(Types.NestedField::name)
-                .collect(toImmutableList());
+        Set<Integer> projectedIds = table.getProjectedColumns().stream()
+                .map(IcebergColumnHandle::getId)
+                .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
+                .collect(toImmutableSet());
 
         return icebergTable.newScan()
                 .useSnapshot(table.getSnapshotId().getAsLong())
-                .project(schema.select(names)) // Using Scan.project method because Scan.select throws an exception for nested variant
+                .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);
     }

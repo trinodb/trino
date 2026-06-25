@@ -59,6 +59,33 @@ Find simple examples in each statement documentation, and refer to the
 [](/udf/sql/examples) for more complex use cases that combine multiple
 statements.
 
+(udf-sql-named-arguments)=
+## Named arguments
+
+Because a SQL UDF declares its parameters by name, you can invoke it using
+the named-argument form `name => value` in addition to passing arguments by
+position. Named arguments can appear in any order, and you can mix positional
+arguments (which must come first) with named ones:
+
+```sql
+WITH
+  FUNCTION clamp(value bigint, lo bigint, hi bigint)
+    RETURNS bigint
+    RETURN CASE
+        WHEN value < lo THEN lo
+        WHEN value > hi THEN hi
+        ELSE value
+    END
+SELECT
+    clamp(7, 0, 5),                       -- positional: 5
+    clamp(value => 7, lo => 0, hi => 5),  -- all named: 5
+    clamp(7, hi => 5, lo => 0);           -- mixed: 5
+```
+
+If you pass a name the function does not declare, the query fails with a
+diagnostic that points at the offending identifier. Passing a positional
+argument after a named one is a syntax error.
+
 (udf-sql-label)=
 ## Labels
 

@@ -14,7 +14,6 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.io.Closer;
-import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.testing.containers.Minio;
@@ -78,9 +77,6 @@ public class TestS3FileSystemMinIo
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
-        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
-                .isLessThan(LARGER_FILE_DATA_SIZE);
         return new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
@@ -89,7 +85,7 @@ public class TestS3FileSystemMinIo
                         .setPathStyleAccess(true)
                         .setAwsAccessKey(Minio.MINIO_ROOT_USER)
                         .setAwsSecretKey(Minio.MINIO_ROOT_PASSWORD)
-                        .setStreamingPartSize(streamingPartSize),
+                        .setStreamingPartSize(STREAMING_PART_SIZE),
                 new S3FileSystemStats());
     }
 
@@ -110,6 +106,15 @@ public class TestS3FileSystemMinIo
     {
         // MinIO is not hierarchical but has hierarchical naming constraints. For example it's not possible to have two blobs "level0" and "level0/level1".
         testListFiles(true);
+    }
+
+    @Test
+    @Override
+    public void testListFilesStartingFrom()
+            throws IOException
+    {
+        // MinIO is not hierarchical but has hierarchical naming constraints. For example it's not possible to have two blobs "level0" and "level0/level1".
+        testListFilesStartingFrom(true);
     }
 
     @Test

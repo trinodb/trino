@@ -1,0 +1,49 @@
+name: Cancel stale merge queue workflows
+
+on:
+  merge_group:
+    types:
+      - destroyed
+
+permissions:
+  actions: write
+  contents: read
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  cancel:
+    if: github.repository == 'trinodb/trino' && contains(fromJson('["invalidated", "dequeued"]'), github.event.reason)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Cancel stale merge queue workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha || github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          # Filter by event as well as SHA so a target-branch push run for a
+          # successfully merged queue entry cannot be selected.
+          gh api --method GET "/repos/${REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=merge_group&per_page=100" --paginate --jq '
+            .workflow_runs[]
+            | select(.event == "merge_group")
+            | select(.head_sha == "'"${HEAD_SHA}"'")
+            | select(.status != "completed")
+            | .id
+          ' | while read -r run_id; do
+            if [[ -n "${run_id}" && "${run_id}" != "${CURRENT_RUN_ID}" ]]; then
+              echo "Cancelling stale merge queue workflow run ${run_id}"
+              if ! output=$(gh api --method POST "/repos/${REPOSITORY}/actions/runs/${run_id}/cancel" 2>&1); then
+                if [[ "${output}" == *"HTTP 409"* ]]; then
+                  echo "Workflow run ${run_id} is no longer cancellable"
+                else
+                  echo "${output}" >&2
+                  exit 1
+                fi
+              fi
+            fi
+          done

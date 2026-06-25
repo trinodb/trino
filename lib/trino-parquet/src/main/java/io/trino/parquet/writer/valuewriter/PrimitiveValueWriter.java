@@ -58,6 +58,15 @@ public abstract class PrimitiveValueWriter
         return valuesWriter.getBufferedSize();
     }
 
+    public long getEstimatedBufferedSize()
+    {
+        return switch (valuesWriter) {
+            case DictionaryFallbackValuesWriter dictionaryFallbackValuesWriter -> dictionaryFallbackValuesWriter.getEstimatedBufferedSize();
+            case BloomFilterValuesWriter bloomFilterValuesWriter -> bloomFilterValuesWriter.getEstimatedBufferedSize();
+            default -> valuesWriter.getBufferedSize();
+        };
+    }
+
     @Override
     public BytesInput getBytes()
     {

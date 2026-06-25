@@ -185,7 +185,7 @@ public class OrcRecordReader
         this.appendRowNumberColumn = appendRowNumberColumn;
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
-        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(orcTypes, readTypes));
+        this.writeChecksumBuilder = writeValidation.map(_ -> createWriteChecksumBuilder(orcTypes, readTypes));
         this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
@@ -409,8 +409,10 @@ public class OrcRecordReader
             List<Long> columnHashes = actualChecksum.getColumnHashes();
             for (int i = 0; i < columnHashes.size(); i++) {
                 int columnIndex = i;
-                validateWrite(validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
-                        "Invalid checksum for column %s", columnIndex);
+                validateWrite(
+                        validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
+                        "Invalid checksum for column %s",
+                        columnIndex);
             }
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }
@@ -828,7 +830,7 @@ public class OrcRecordReader
 
     /**
      * @return The memory reserved by this OrcRecordReader. It does not include non-leaf level StreamReaders'
-     * instance sizes.
+     *         instance sizes.
      */
     @VisibleForTesting
     long getMemoryUsage()

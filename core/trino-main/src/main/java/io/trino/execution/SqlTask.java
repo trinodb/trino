@@ -42,6 +42,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
@@ -171,7 +172,7 @@ public class SqlTask
                 maxBroadcastBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
-                () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext(),
+                Lazy.from(() -> queryContext.getTaskContextByTaskId(taskId).aggregateUserMemoryContext().newLocalMemoryContext(LazyOutputBuffer.class.getSimpleName())),
                 this::notifyStatusChanged,
                 exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
@@ -492,7 +493,7 @@ public class SqlTask
 
         // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
         // is synchronized therefore notification for new listener won't be lost.
-        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskStatus(), directExecutor());
+        return Futures.transform(taskStatusVersionChange.createNewListener(), _ -> getTaskStatus(), directExecutor());
     }
 
     public synchronized ListenableFuture<TaskInfo> getTaskInfo(long callersCurrentVersion)
@@ -504,7 +505,7 @@ public class SqlTask
 
         // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
         // is synchronized therefore notification for new listener won't be lost.
-        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskInfo(), directExecutor());
+        return Futures.transform(taskStatusVersionChange.createNewListener(), _ -> getTaskInfo(), directExecutor());
     }
 
     public TaskInfo updateTask(

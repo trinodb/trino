@@ -75,15 +75,15 @@ public class Procedure
 
         public ProcedureFunction(JdbcTransactionManager transactionManager)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     List.of(
                             ScalarArgumentSpecification.builder()
                                     .name("QUERY")
                                     .type(VARCHAR)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         }
 

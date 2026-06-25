@@ -32,12 +32,14 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.Call;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -56,11 +58,13 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -136,17 +140,27 @@ public class TestPushJoinIntoTableScan
 
     @ParameterizedTest
     @MethodSource("testPushJoinIntoTableScanParams")
-    public void testPushJoinIntoTableScan(io.trino.sql.planner.plan.JoinType joinType, Optional<Comparison.Operator> filterComparisonOperator)
+    public void testPushJoinIntoTableScan(io.trino.sql.planner.plan.JoinType joinType, Optional<ComparisonOperator> filterComparisonOperator)
     {
-        MockConnectorFactory connectorFactory = createMockConnectorFactory((_, applyJoinType, left, right, joinCondition, leftAssignments, rightAssignments, _) -> {
+        MockConnectorFactory connectorFactory = createMockConnectorFactory((_, applyJoinType, left, right, joinCondition, _, _, _) -> {
             assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
             assertThat(((MockConnectorTableHandle) right).getTableName()).isEqualTo(TABLE_B_SCHEMA_TABLE_NAME);
             assertThat(applyJoinType).isEqualTo(toSpiJoinType(joinType));
-            JoinCondition.Operator expectedOperator = filterComparisonOperator.map(this::getConditionOperator).orElse(JoinCondition.Operator.EQUAL);
+            ComparisonOperator expectedComparison = filterComparisonOperator.orElse(ComparisonOperator.EQUAL);
+            // Comparisons are canonicalized so that greater-than forms become less-than forms with flipped operands.
+            FunctionName expectedFunctionName = switch (expectedComparison) {
+                case GREATER_THAN -> LESS_THAN_OPERATOR_FUNCTION_NAME;
+                case GREATER_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+                default -> getConditionOperator(expectedComparison).getCallFunctionName();
+            };
+            List<ConnectorExpression> expectedArguments = switch (expectedComparison) {
+                case GREATER_THAN, GREATER_THAN_OR_EQUAL -> List.of(COLUMN_B1_VARIABLE, COLUMN_A1_VARIABLE);
+                default -> List.of(COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE);
+            };
             assertThat(joinCondition).isEqualTo(new Call(
                     BOOLEAN,
-                    expectedOperator.getCallFunctionName(),
-                    List.of(COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE)));
+                    expectedFunctionName,
+                    expectedArguments));
 
             return Optional.of(new JoinApplicationResult<>(
                     JOIN_CONNECTOR_TABLE_HANDLE,
@@ -183,7 +197,7 @@ public class TestPushJoinIntoTableScan
                                 joinType,
                                 left,
                                 right,
-                                new Comparison(filterComparisonOperator.get(), columnA1Symbol.toSymbolReference(), columnB1Symbol.toSymbolReference()));
+                                comparison(filterComparisonOperator.get(), columnA1Symbol.toSymbolReference(), columnB1Symbol.toSymbolReference()));
                     })
                     .matches(
                             project(
@@ -195,40 +209,40 @@ public class TestPushJoinIntoTableScan
     {
         return Stream.of(
                 Arguments.of(INNER, Optional.empty()),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.EQUAL)),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.LESS_THAN)),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.LESS_THAN_OR_EQUAL)),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.GREATER_THAN)),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.IDENTICAL)),
+                Arguments.of(INNER, Optional.of(ComparisonOperator.EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonOperator.LESS_THAN)),
+                Arguments.of(INNER, Optional.of(ComparisonOperator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonOperator.GREATER_THAN)),
+                Arguments.of(INNER, Optional.of(ComparisonOperator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonOperator.NOT_EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonOperator.IDENTICAL)),
 
                 Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.empty()),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.LESS_THAN)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.LESS_THAN_OR_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.GREATER_THAN)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.IDENTICAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonOperator.EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonOperator.LESS_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonOperator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonOperator.GREATER_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonOperator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonOperator.NOT_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonOperator.IDENTICAL)),
 
                 Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.empty()),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.LESS_THAN)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.LESS_THAN_OR_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.GREATER_THAN)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.IDENTICAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonOperator.EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonOperator.LESS_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonOperator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonOperator.GREATER_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonOperator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonOperator.NOT_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonOperator.IDENTICAL)),
 
                 Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.empty()),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.LESS_THAN)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.LESS_THAN_OR_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.GREATER_THAN)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.IDENTICAL)));
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonOperator.EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonOperator.LESS_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonOperator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonOperator.GREATER_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonOperator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonOperator.NOT_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonOperator.IDENTICAL)));
     }
 
     /**
@@ -242,15 +256,15 @@ public class TestPushJoinIntoTableScan
                     assertThat(joinCondition).as("joinCondition")
                             .isEqualTo(new Call(
                                     BOOLEAN,
-                                    GREATER_THAN_OPERATOR_FUNCTION_NAME,
+                                    LESS_THAN_OPERATOR_FUNCTION_NAME,
                                     List.of(
+                                            new Variable("columnb1", BIGINT),
                                             new Call(
                                                     BIGINT,
                                                     MULTIPLY_FUNCTION_NAME,
                                                     List.of(
                                                             new io.trino.spi.expression.Constant(44L, BIGINT),
-                                                            new Variable("columna1", BIGINT))),
-                                            new Variable("columnb1", BIGINT))));
+                                                            new Variable("columna1", BIGINT))))));
                     return Optional.of(new JoinApplicationResult<>(
                             JOIN_CONNECTOR_TABLE_HANDLE,
                             JOIN_TABLE_A_COLUMN_MAPPING,
@@ -279,8 +293,8 @@ public class TestPushJoinIntoTableScan
                                 INNER,
                                 left,
                                 right,
-                                new Comparison(
-                                        Comparison.Operator.GREATER_THAN,
+                                comparison(
+                                        ComparisonOperator.GREATER_THAN,
                                         new io.trino.sql.ir.Call(MULTIPLY_BIGINT, ImmutableList.of(new Constant(BIGINT, 44L), columnA1Symbol.toSymbolReference())),
                                         columnB1Symbol.toSymbolReference()));
                     })
@@ -294,7 +308,7 @@ public class TestPushJoinIntoTableScan
     public void testPushJoinIntoTableScanDoesNotFireForDifferentCatalogs()
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
-                (_, _, __, _, _, _, _, _) -> {
+                (_, _, _, _, _, _, _, _) -> {
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
@@ -604,8 +618,8 @@ public class TestPushJoinIntoTableScan
     private MockConnectorFactory createMockConnectorFactory(MockConnectorFactory.ApplyJoin applyJoin)
     {
         return MockConnectorFactory.builder()
-                .withListSchemaNames(connectorSession -> ImmutableList.of(SCHEMA))
-                .withListTables((connectorSession, schema) -> SCHEMA.equals(schema) ? ImmutableList.of(TABLE_A_SCHEMA_TABLE_NAME.getTableName(), TABLE_B_SCHEMA_TABLE_NAME.getTableName()) : ImmutableList.of())
+                .withListSchemaNames(_ -> ImmutableList.of(SCHEMA))
+                .withListTables((_, schema) -> SCHEMA.equals(schema) ? ImmutableList.of(TABLE_A_SCHEMA_TABLE_NAME.getTableName(), TABLE_B_SCHEMA_TABLE_NAME.getTableName()) : ImmutableList.of())
                 .withApplyJoin(applyJoin)
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(TABLE_A_SCHEMA_TABLE_NAME)) {
@@ -632,24 +646,16 @@ public class TestPushJoinIntoTableScan
         };
     }
 
-    private JoinCondition.Operator getConditionOperator(Comparison.Operator operator)
+    private JoinCondition.Operator getConditionOperator(ComparisonOperator operator)
     {
-        switch (operator) {
-            case EQUAL:
-                return JoinCondition.Operator.EQUAL;
-            case NOT_EQUAL:
-                return JoinCondition.Operator.NOT_EQUAL;
-            case LESS_THAN:
-                return JoinCondition.Operator.LESS_THAN;
-            case LESS_THAN_OR_EQUAL:
-                return JoinCondition.Operator.LESS_THAN_OR_EQUAL;
-            case GREATER_THAN:
-                return JoinCondition.Operator.GREATER_THAN;
-            case GREATER_THAN_OR_EQUAL:
-                return JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
-            case IDENTICAL:
-                return JoinCondition.Operator.IDENTICAL;
-        }
-        throw new IllegalArgumentException("Unknown operator: " + operator);
+        return switch (operator) {
+            case EQUAL -> JoinCondition.Operator.EQUAL;
+            case NOT_EQUAL -> JoinCondition.Operator.NOT_EQUAL;
+            case LESS_THAN -> JoinCondition.Operator.LESS_THAN;
+            case LESS_THAN_OR_EQUAL -> JoinCondition.Operator.LESS_THAN_OR_EQUAL;
+            case GREATER_THAN -> JoinCondition.Operator.GREATER_THAN;
+            case GREATER_THAN_OR_EQUAL -> JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
+            case IDENTICAL -> JoinCondition.Operator.IDENTICAL;
+        };
     }
 }

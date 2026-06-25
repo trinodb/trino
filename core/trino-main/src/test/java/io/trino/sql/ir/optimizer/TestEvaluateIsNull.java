@@ -15,8 +15,9 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -24,6 +25,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.optimizer.rule.EvaluateIsNull;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -33,10 +35,11 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,18 +67,26 @@ public class TestEvaluateIsNull
         assertThat(optimize(new IsNull(new Row(ImmutableList.of(new Reference(BIGINT, "a"))))))
                 .isEqualTo(Optional.of(FALSE));
 
-        assertThat(optimize(new IsNull(new Comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
+        assertThat(optimize(new IsNull(new Array(BIGINT, ImmutableList.of(new Reference(BIGINT, "a"))))))
+                .describedAs("array expressions are never null")
+                .isEqualTo(Optional.of(FALSE));
+
+        assertThat(optimize(new IsNull(comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
                 .isEqualTo(Optional.of(new Logical(OR, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new IsNull(new Reference(BIGINT, "b"))))));
 
-        assertThat(optimize(new IsNull(new Comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
+        assertThat(optimize(new IsNull(comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(new IsNull(new Reference(BIGINT, "a"))))
                 .isEqualTo(Optional.empty());
+
+        assertThat(optimize(new IsNull(new Coalesce(new Constant(BIGINT, null), new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)))))
+                .describedAs("coalesce is not nullable when any operand is not nullable")
+                .isEqualTo(Optional.of(FALSE));
     }
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateIsNull().apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateIsNull(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

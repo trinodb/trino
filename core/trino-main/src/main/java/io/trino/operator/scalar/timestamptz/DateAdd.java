@@ -27,7 +27,7 @@ import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.updateMillisUtc;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Add the specified amount of time to the given timestamp")

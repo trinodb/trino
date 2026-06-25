@@ -108,35 +108,43 @@ public class BenchmarkMapSubscript
 
             List<String> keys;
             switch (mapSize) {
-                case 1:
-                    keys = ImmutableList.of("do_not_use");
-                    break;
-                case 13:
-                    keys = ImmutableList.of("is_inverted", "device_model", "country", "carrier_id", "network_type", "os_version",
-                            "device_brand", "device_type", "interface", "device_os", "app_version", "device_type_class", "browser");
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case 1 -> keys = ImmutableList.of("do_not_use");
+                case 13 -> {
+                    keys = ImmutableList.of(
+                            "is_inverted",
+                            "device_model",
+                            "country",
+                            "carrier_id",
+                            "network_type",
+                            "os_version",
+                            "device_brand",
+                            "device_type",
+                            "interface",
+                            "device_os",
+                            "app_version",
+                            "device_type_class",
+                            "browser");
+                }
+                default -> throw new UnsupportedOperationException();
             }
             verify(keys.size() == mapSize);
 
             MapType mapType;
             Block valueBlock;
             switch (name) {
-                case "fix-width":
+                case "fix-width" -> {
                     mapType = mapType(createUnboundedVarcharType(), DOUBLE);
                     valueBlock = createFixWidthValueBlock(POSITIONS, mapSize);
-                    break;
-                case "var-width":
+                }
+                case "var-width" -> {
                     mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createVarWidthValueBlock(POSITIONS, mapSize);
-                    break;
-                case "dictionary":
+                }
+                case "dictionary" -> {
                     mapType = mapType(createUnboundedVarcharType(), createUnboundedVarcharType());
                     valueBlock = createDictionaryValueBlock(POSITIONS, mapSize);
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
 
             Block keyBlock = createKeyBlock(POSITIONS, keys);
@@ -148,7 +156,8 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(call(
                         resolvedFunction,
-                        new Reference(mapType, "$col_0"), new Constant(createUnboundedVarcharType(), utf8Slice(keys.get(i)))));
+                        new Reference(mapType, "$col_0"),
+                        new Constant(createUnboundedVarcharType(), utf8Slice(keys.get(i)))));
             }
 
             List<Expression> projections = projectionsBuilder.build();

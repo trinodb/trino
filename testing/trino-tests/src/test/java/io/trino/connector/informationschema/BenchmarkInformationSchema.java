@@ -93,12 +93,12 @@ public class BenchmarkInformationSchema
                 @Override
                 public Iterable<ConnectorFactory> getConnectorFactories()
                 {
-                    Function<ConnectorSession, List<String>> listSchemaNames = session -> IntStream.range(0, Integer.parseInt(schemasCount))
+                    Function<ConnectorSession, List<String>> listSchemaNames = _ -> IntStream.range(0, Integer.parseInt(schemasCount))
                             .boxed()
                             .map(i -> "stream_" + i)
                             .collect(toImmutableList());
 
-                    BiFunction<ConnectorSession, String, List<String>> listTables = (session, schemaName) ->
+                    BiFunction<ConnectorSession, String, List<String>> listTables = (_, _) ->
                             IntStream.range(0, Integer.parseInt(tablesCount))
                                     .boxed()
                                     .map(i -> "table_" + i)
@@ -107,7 +107,7 @@ public class BenchmarkInformationSchema
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(listSchemaNames)
                             .withListTables(listTables)
-                            .withGetViews((session, prefix) -> ImmutableMap.of())
+                            .withGetViews((_, _) -> ImmutableMap.of())
                             .build();
                     return ImmutableList.of(connectorFactory);
                 }

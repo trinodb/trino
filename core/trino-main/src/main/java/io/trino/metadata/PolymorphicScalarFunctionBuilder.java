@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import io.trino.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
@@ -30,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -54,7 +56,7 @@ public final class PolymorphicScalarFunctionBuilder
     private String description;
     private boolean hidden;
     private Boolean deterministic;
-    private boolean neverFails;
+    private Predicate<BoundSignature> neverFails = _ -> false;
 
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
 
@@ -112,7 +114,12 @@ public final class PolymorphicScalarFunctionBuilder
 
     public PolymorphicScalarFunctionBuilder neverFails(boolean neverFails)
     {
-        this.neverFails = neverFails;
+        return neverFails(neverFails ? _ -> true : _ -> false);
+    }
+
+    public PolymorphicScalarFunctionBuilder neverFails(Predicate<BoundSignature> neverFails)
+    {
+        this.neverFails = requireNonNull(neverFails, "neverFails is null");
         return this;
     }
 
@@ -135,14 +142,8 @@ public final class PolymorphicScalarFunctionBuilder
         checkState(argumentNullability != null, "argumentNullability is null");
 
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder(name)
-                .signature(signature);
-
-        if (description != null) {
-            functionMetadata.description(description);
-        }
-        else {
-            functionMetadata.noDescription();
-        }
+                .signature(signature)
+                .description(Optional.ofNullable(description).orElse(""));
 
         if (hidden) {
             functionMetadata.hidden();
@@ -150,9 +151,7 @@ public final class PolymorphicScalarFunctionBuilder
         if (!deterministic) {
             functionMetadata.nondeterministic();
         }
-        if (neverFails) {
-            functionMetadata.neverFails();
-        }
+        functionMetadata.neverFails(neverFails);
         if (nullableResult) {
             functionMetadata.nullable();
         }
@@ -177,7 +176,7 @@ public final class PolymorphicScalarFunctionBuilder
 
     public static <T> Function<SpecializeContext, List<Object>> constant(T value)
     {
-        return context -> ImmutableList.of(value);
+        return _ -> ImmutableList.of(value);
     }
 
     public static final class SpecializeContext
@@ -196,7 +195,7 @@ public final class PolymorphicScalarFunctionBuilder
 
         public Long getLiteral(String name)
         {
-            return functionBinding.variables().getLongVariable(name);
+            return functionBinding.variables().getNumericVariable(name);
         }
 
         public List<Type> getParameterTypes()
@@ -259,10 +258,14 @@ public final class PolymorphicScalarFunctionBuilder
             checkState(matchingMethod.size() == 1, "multiple methods %s was not found in %s", methodName, clazz);
             MethodAndNativeContainerTypes methodAndNativeContainerTypes = matchingMethod.get(0);
             int argumentSize = signature.getArgumentTypes().size();
-            checkState(types.size() == argumentSize, "not matching number of arguments from signature: %s (should have %s)",
-                    types.size(), argumentSize);
-            checkState(types.size() == argumentConventions.size(), "not matching number of arguments from argument properties: %s (should have %s)",
-                    types.size(), argumentConventions.size());
+            checkState(types.size() == argumentSize,
+                    "not matching number of arguments from signature: %s (should have %s)",
+                    types.size(),
+                    argumentSize);
+            checkState(types.size() == argumentConventions.size(),
+                    "not matching number of arguments from argument properties: %s (should have %s)",
+                    types.size(),
+                    argumentConventions.size());
             Iterator<InvocationArgumentConvention> argumentConventionIterator = argumentConventions.iterator();
             Iterator<Optional<Class<?>>> typesIterator = types.iterator();
             while (argumentConventionIterator.hasNext() && typesIterator.hasNext()) {

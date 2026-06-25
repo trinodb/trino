@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -31,8 +31,6 @@ import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.TableVersion;
 
-import java.io.File;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -50,11 +48,6 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-/*
- * The test currently uses AWS Default Credential Provider Chain,
- * See https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html#credentials-default
- * on ways to set your AWS credentials which will be needed to run this test.
- */
 @TestInstance(PER_CLASS)
 public class TestIcebergGlueCatalogSkipArchive
         extends AbstractTestQueryFramework
@@ -66,16 +59,16 @@ public class TestIcebergGlueCatalogSkipArchive
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        glueClient = GlueClient.create();
-        File schemaDirectory = Files.createTempDirectory("test_iceberg").toFile();
-        schemaDirectory.deleteOnExit();
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-iceberg-glue-skip-archive-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        glueClient = closeAfterClass(floci.createGlueClient());
 
         return IcebergQueryRunner.builder()
-                .setIcebergProperties(
-                        ImmutableMap.<String, String>builder()
-                                .put("iceberg.catalog.type", "glue")
-                                .put("hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath())
-                                .buildOrThrow())
+                .addIcebergProperty("iceberg.catalog.type", "glue")
+                .addIcebergProperty("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
+                .addIcebergProperty("fs.s3.enabled", "true")
+                .addIcebergProperties(floci.s3AndGlueProperties())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withSchemaName(schemaName)

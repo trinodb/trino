@@ -32,9 +32,10 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -42,7 +43,6 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -74,10 +74,12 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
+import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.Reflection.methodHandle;
@@ -152,7 +154,8 @@ public class BenchmarkArrayFilter
                         name,
                         fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
                 ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-                projectionsBuilder.add(call(resolvedFunction,
+                projectionsBuilder.add(call(
+                        resolvedFunction,
                         new Reference(arrayType, "$col_" + i),
                         new Lambda(
                                 ImmutableList.of(new Symbol(BIGINT, "x")),
@@ -219,7 +222,8 @@ public class BenchmarkArrayFilter
                 ResolvedFunction resolvedFunction = functionResolution.resolveFunction(name, fromTypes(arrayType, new FunctionType(ROW_TYPES, BOOLEAN)));
                 ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
 
-                projectionsBuilder.add(call(resolvedFunction,
+                projectionsBuilder.add(call(
+                        resolvedFunction,
                         new Reference(arrayType, "$col_" + i),
                         new Lambda(
                                 ImmutableList.of(new Symbol(elementType, "x")),
@@ -237,7 +241,7 @@ public class BenchmarkArrayFilter
 
         private static Block createChannel(int positionCount, ArrayType arrayType)
         {
-            return createRandomBlockForType(arrayType, positionCount, 0.2F);
+            return createRandomBlockForType(arrayType, positionCount, 0.2f);
         }
 
         public PageProcessor getPageProcessor()
@@ -281,9 +285,9 @@ public class BenchmarkArrayFilter
             super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
                             .typeVariable("T")
-                            .returnType(arrayType(new TypeSignature("T")))
-                            .argumentType(arrayType(new TypeSignature("T")))
-                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")
@@ -336,9 +340,9 @@ public class BenchmarkArrayFilter
             super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
                             .typeVariable("T")
-                            .returnType(arrayType(new TypeSignature("T")))
-                            .argumentType(arrayType(new TypeSignature("T")))
-                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")

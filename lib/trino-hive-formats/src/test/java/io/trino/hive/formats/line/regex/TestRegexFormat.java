@@ -683,7 +683,7 @@ public class TestRegexFormat
         schema.putAll(createRegexProperties(regex, caseSensitive));
         // this is required in the Hive serde for some reason
         schema.put("columns.comments", columns.stream()
-                .map(column -> "\0")
+                .map(_ -> "\0")
                 .collect(joining(",")));
 
         try {

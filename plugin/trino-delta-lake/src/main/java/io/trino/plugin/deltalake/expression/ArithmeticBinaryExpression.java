@@ -27,7 +27,7 @@ public class ArithmeticBinaryExpression
         SUBTRACT("-"),
         MULTIPLY("*"),
         DIVIDE("/"),
-        MODULUS("%"),
+        MODULO("%"),
         BITWISE_AND("&"),
         BITWISE_XOR("^");
 

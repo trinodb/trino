@@ -70,7 +70,8 @@ public class TestJsonReader
         assertJsonValue("\"abc\"", new JsonString("abc", true));
 
         // escapes
-        assertJsonValue("\" \\\\ \\t \\b \\n \\r \\f \\a \\v \\u1234 \\uFFFD \\ufffd \"",
+        assertJsonValue(
+                "\" \\\\ \\t \\b \\n \\r \\f \\a \\v \\u1234 \\uFFFD \\ufffd \"",
                 new JsonString(" \\ \t \b \n \r \f \007 \011 \u1234 \uFFFD \ufffd ", true));
 
         // any other character is just passed through

@@ -110,7 +110,8 @@ public class TestDeltaLakePlugin
     public void testNoCaching()
     {
         ConnectorFactory factory = getConnectorFactory();
-        factory.create("test",
+        factory.create(
+                        "test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
                                 "delta.metadata.cache-ttl", "0s",
@@ -123,7 +124,8 @@ public class TestDeltaLakePlugin
     public void testNoActiveDataFilesCaching()
     {
         ConnectorFactory factory = getConnectorFactory();
-        factory.create("test",
+        factory.create(
+                        "test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
                                 "bootstrap.quiet", "true"),
@@ -135,7 +137,8 @@ public class TestDeltaLakePlugin
     public void testHiveConfigIsNotBound()
     {
         ConnectorFactory factory = getConnectorFactory();
-        assertThatThrownBy(() -> factory.create("test",
+        assertThatThrownBy(() -> factory.create(
+                "test",
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://foo:1234",
                         // Try setting any property provided by HiveConfig class

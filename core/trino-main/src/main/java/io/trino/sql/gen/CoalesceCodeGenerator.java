@@ -44,6 +44,8 @@ public class CoalesceCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
+        Class<?> returnJavaType = generatorContext.getCallSiteBinder().getAccessibleType(returnType.getJavaType());
+
         List<BytecodeNode> operands = new ArrayList<>();
         for (Expression expression : arguments) {
             operands.add(generatorContext.generate(expression));
@@ -52,7 +54,7 @@ public class CoalesceCodeGenerator
         Variable wasNull = generatorContext.wasNull();
         BytecodeNode nullValue = new BytecodeBlock()
                 .append(wasNull.set(constantTrue()))
-                .pushJavaDefault(returnType.getJavaType());
+                .pushJavaDefault(returnJavaType);
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (BytecodeNode operand : operands.reversed()) {
@@ -64,7 +66,7 @@ public class CoalesceCodeGenerator
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
             ifStatement.ifTrue()
-                    .pop(returnType.getJavaType())
+                    .pop(returnJavaType)
                     .append(wasNull.set(constantFalse()))
                     .append(nullValue);
 

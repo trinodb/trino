@@ -21,6 +21,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_OUTPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
@@ -393,6 +394,28 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $' OMIT QUOTES ON SCALAR STRING)"))
                 .matches("VALUES cast('[\"a\",\"b\",\"c\"]' AS varchar)");
+    }
+
+    @Test
+    public void testOmitQuotesRejectedWhenReturnTypeIsJson()
+    {
+        // SQL:2023 §6.35 SR 3: explicit RETURNING JSON
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $' RETURNING json OMIT QUOTES ON SCALAR STRING)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
+
+        // default RETURNING (VARCHAR) leaves OMIT QUOTES legal — SR 1 maps the input's varchar type to the
+        // return type, and SR 3 only applies to JSON returns. Both a direct character input and a JSON_QUERY
+        // input fall in this bucket today (the SQL/JSON producers default to VARCHAR; an explicit
+        // RETURNING JSON on the input would be caught at JSON_QUERY's input-coercion step).
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax \"some scalar text value\"' OMIT QUOTES ON SCALAR STRING)"))
+                .matches("VALUES cast('some scalar text value' AS varchar)");
+        assertThat(assertions.query(
+                "SELECT json_query(json_query('" + INPUT + "', 'lax \"some scalar text value\"'), 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                .matches("VALUES cast('some scalar text value' AS varchar)");
     }
 
     @Test

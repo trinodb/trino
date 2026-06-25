@@ -68,8 +68,9 @@ final class InputReferenceCompiler
 
             String methodName = "get" + Primitives.wrap(callType).getSimpleName();
             BytecodeExpression value = constantType(callSiteBinder, type).invoke(methodName, callType, block, position);
-            if (callType != type.getJavaType()) {
-                value = value.cast(type.getJavaType());
+            Class<?> expectedType = callSiteBinder.getAccessibleType(type.getJavaType());
+            if (callType != expectedType) {
+                value = value.cast(expectedType);
             }
             ifStatement.ifFalse(value);
 

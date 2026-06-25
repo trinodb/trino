@@ -30,7 +30,8 @@ public interface DoubleWriteFunction
 
     static DoubleWriteFunction of(int nullJdbcType, DoubleWriteFunctionImplementation implementation)
     {
-        return new DoubleWriteFunction() {
+        return new DoubleWriteFunction()
+        {
             @Override
             public void set(PreparedStatement statement, int index, double value)
                     throws SQLException

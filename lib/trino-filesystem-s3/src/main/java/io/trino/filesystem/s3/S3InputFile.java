@@ -128,12 +128,11 @@ final class S3InputFile
                 .bucket(location.bucket())
                 .key(location.key())
                 .applyMutation(builder ->
-                    key.ifPresentOrElse(
-                            encryption ->
-                                builder.sseCustomerKey(encoded(encryption))
+                        key.ifPresentOrElse(
+                                encryption -> builder.sseCustomerKey(encoded(encryption))
                                         .sseCustomerAlgorithm(encryption.algorithm())
                                         .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext())))
+                                () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
     }
 
@@ -146,12 +145,11 @@ final class S3InputFile
                 .bucket(location.bucket())
                 .key(location.key())
                 .applyMutation(builder ->
-                    key.ifPresentOrElse(
-                            encryption ->
-                                builder.sseCustomerKey(encoded(encryption))
+                        key.ifPresentOrElse(
+                                encryption -> builder.sseCustomerKey(encoded(encryption))
                                         .sseCustomerAlgorithm(encryption.algorithm())
                                         .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext())))
+                                () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         try {

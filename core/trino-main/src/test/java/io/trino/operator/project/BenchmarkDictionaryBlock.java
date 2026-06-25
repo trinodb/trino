@@ -20,8 +20,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -115,14 +115,9 @@ public class BenchmarkDictionaryBlock
             }
             Block mapBlock;
             switch (valueType) {
-                case "varchar":
-                    mapBlock = createVarcharMapBlock(POSITIONS);
-                    break;
-                case "integer":
-                    mapBlock = createIntMapBlock(POSITIONS);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unrecognized value type: " + valueType);
+                case "varchar" -> mapBlock = createVarcharMapBlock(POSITIONS);
+                case "integer" -> mapBlock = createIntMapBlock(POSITIONS);
+                default -> throw new IllegalArgumentException("Unrecognized value type: " + valueType);
             }
             dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(positionsIds.length, mapBlock, positionsIds);
             int[] allPositions = IntStream.range(0, POSITIONS).toArray();
@@ -132,7 +127,7 @@ public class BenchmarkDictionaryBlock
 
         private static Block createVarcharMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(VARCHAR.getTypeSignature()), TypeParameter.typeParameter(VARCHAR.getTypeSignature())));
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(VARCHAR.getTypeDescriptor()), TypeParameter.typeParameter(VARCHAR.getTypeDescriptor())));
             Block keyBlock = createVarcharDictionaryBlock(generateList("key", positionCount));
             Block valueBlock = createVarcharDictionaryBlock(generateList("value", positionCount));
             int[] offsets = new int[positionCount + 1];
@@ -155,7 +150,7 @@ public class BenchmarkDictionaryBlock
 
         private static Block createIntMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(INTEGER.getTypeSignature()), TypeParameter.typeParameter(INTEGER.getTypeSignature())));
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(INTEGER.getTypeDescriptor()), TypeParameter.typeParameter(INTEGER.getTypeDescriptor())));
             Block keyBlock = createIntDictionaryBlock(positionCount);
             Block valueBlock = createIntDictionaryBlock(positionCount);
             int[] offsets = new int[positionCount + 1];

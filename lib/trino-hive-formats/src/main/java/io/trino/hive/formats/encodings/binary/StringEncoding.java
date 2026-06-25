@@ -31,7 +31,7 @@ import static java.lang.Math.toIntExact;
 public class StringEncoding
         implements BinaryColumnEncoding
 {
-    private static final byte HIVE_EMPTY_STRING_BYTE = (byte) 0xbf;
+    private static final byte HIVE_EMPTY_STRING_BYTE = (byte) 0xBF;
 
     private final Type type;
 

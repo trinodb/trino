@@ -15,8 +15,8 @@
 package io.trino.cost;
 
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.AfterAll;
@@ -27,7 +27,8 @@ import org.junit.jupiter.api.TestInstance;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -57,8 +58,8 @@ public class TestFilterStatsRule
     public void testEstimatableFilter()
     {
         tester().assertStatsFor(pb -> pb
-                .filter(new Comparison(EQUAL, new Reference(BIGINT, "i1"), new Constant(BIGINT, 5L)),
-                        pb.values(pb.symbol("i1", BIGINT), pb.symbol("i2", BIGINT), pb.symbol("i3", BIGINT))))
+                        .filter(comparison(EQUAL, new Reference(BIGINT, "i1"), new Constant(BIGINT, 5L)),
+                                pb.values(pb.symbol("i1", BIGINT), pb.symbol("i2", BIGINT), pb.symbol("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(new Symbol(BIGINT, "i1"), SymbolStatsEstimate.builder()
@@ -102,8 +103,8 @@ public class TestFilterStatsRule
                                 .nullsFraction(0.05)));
 
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(new Comparison(EQUAL, new Reference(INTEGER, "i1"), new Constant(INTEGER, 5L)),
-                        pb.values(pb.symbol("i1", INTEGER), pb.symbol("i2", INTEGER), pb.symbol("i3", INTEGER))))
+                        .filter(comparison(EQUAL, new Reference(INTEGER, "i1"), new Constant(INTEGER, 5L)),
+                                pb.values(pb.symbol("i1", INTEGER), pb.symbol("i2", INTEGER), pb.symbol("i3", INTEGER))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(new Symbol(INTEGER, "i1"), SymbolStatsEstimate.builder()
@@ -151,7 +152,7 @@ public class TestFilterStatsRule
     public void testUnestimatableFunction()
     {
         // can't estimate function and default filter factor is turned off
-        Comparison unestimatableExpression = new Comparison(
+        Expression unestimatableExpression = comparison(
                 EQUAL,
                 new TestingFunctionResolution()
                         .functionCallBuilder("sin")
@@ -188,8 +189,8 @@ public class TestFilterStatsRule
 
         // can't estimate function, but default filter factor is turned on
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(unestimatableExpression,
-                        pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE), pb.symbol("i3", DOUBLE))))
+                        .filter(unestimatableExpression,
+                                pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE), pb.symbol("i3", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()

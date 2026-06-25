@@ -5,18 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>481-SNAPSHOT</version>
+        <version>482-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-hdfs</artifactId>
     <name>${project.artifactId}</name>
     <description>Trino - Legacy HDFS file system support</description>
-
-    <properties>
-        <!-- TODO: remove when dependency-scope is removed from airbase -->
-        <air.check.skip-dependency-scope>true</air.check.skip-dependency-scope>
-    </properties>
 
     <dependencies>
         <dependency>

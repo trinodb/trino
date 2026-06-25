@@ -115,7 +115,8 @@ public class TestDataSketches
         String sketchA = toHexSketch(idACategory);
         String sketchB = toHexSketch(idBCategory);
 
-        MaterializedResult actualEstimateResult = computeActual("""
+        MaterializedResult actualEstimateResult = computeActual(
+                """
                 SELECT category, theta_sketch_cardinality(sketch)
                 FROM (VALUES
                         ('a', X'%s'),
@@ -130,7 +131,8 @@ public class TestDataSketches
         assertThat(actualEstimateResult.getMaterializedRows())
                 .isEqualTo(expectedEstimateResult.getMaterializedRows());
 
-        double mergeEstimateResult = (double) computeScalar("""
+        double mergeEstimateResult = (double) computeScalar(
+                """
                 SELECT theta_sketch_cardinality(theta_sketch_union(sketch))
                 FROM (VALUES
                         (X'%s'),
@@ -183,7 +185,8 @@ public class TestDataSketches
     {
         String sketch = toHexSketch(new int[] {1, 2, 3});
 
-        double estimate = (double) computeScalar("""
+        double estimate = (double) computeScalar(
+                """
                 SELECT theta_sketch_cardinality(theta_sketch_union(sketch))
                 FROM (VALUES
                         (CAST(NULL AS VARBINARY)),

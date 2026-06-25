@@ -19,9 +19,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.stream.IntStream;
+
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -96,7 +101,7 @@ public class TestJsonTable
     @Test
     public void testSubqueries()
     {
-        // test subqueries in: context item, value of path parameter "index", empty default, error default
+        // subqueries are supported in the context item and path parameter value
         assertThat(assertions.query(
                 """
                  SELECT empty_default, error_default
@@ -104,10 +109,23 @@ public class TestJsonTable
                      (SELECT json_col),
                      'lax $[$index]' PASSING (SELECT 0) AS "index"
                      COLUMNS(
-                         empty_default bigint PATH 'lax $[-42]' DEFAULT (SELECT -42) ON EMPTY,
-                         error_default bigint PATH 'strict $[42]' DEFAULT (SELECT 42) ON ERROR))
+                         empty_default bigint PATH 'lax $[-42]' DEFAULT -42 ON EMPTY,
+                         error_default bigint PATH 'strict $[42]' DEFAULT 42 ON ERROR))
                 """))
                 .matches("VALUES (BIGINT '-42', BIGINT '42')");
+
+        assertThat(assertions.query(
+                """
+                 SELECT empty_default
+                 FROM (SELECT '[[1, 2, 3], [4, 5, 6]]') t(json_col), JSON_TABLE(
+                     (SELECT json_col),
+                     'lax $[$index]' PASSING (SELECT 0) AS "index"
+                     COLUMNS(
+                         empty_default bigint PATH 'lax $[-42]' DEFAULT (SELECT -42) ON EMPTY))
+                """))
+                .failure()
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessage("line 6:57: Subqueries are not supported in JSON_TABLE default expressions");
     }
 
     @Test
@@ -746,6 +764,33 @@ public class TestJsonTable
     }
 
     @Test
+    public void testDefaultExpressionEvaluationIsLazy()
+    {
+        assertThat(assertions.query(
+                """
+                 SELECT a
+                 FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
+                 JSON_TABLE(
+                     '[1, 2, 3]',
+                     'lax $'
+                     COLUMNS(a integer PATH 'lax $[0]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
+                """))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                """
+                 SELECT a
+                 FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
+                 JSON_TABLE(
+                     '[1, 2, 3]',
+                     'lax $'
+                     COLUMNS(a integer PATH 'lax $[42]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
+                """))
+                .failure()
+                .hasErrorCode(DIVISION_BY_ZERO);
+    }
+
+    @Test
     public void testValueColumnCoercion()
     {
         // returned value cast to declared type
@@ -928,5 +973,49 @@ public class TestJsonTable
                             ('[["g", "h"], ["i", "j"], ["k", "l"]]',         1,         null,      null,                    'i',                    1,        null,      null),
                             ('[["g", "h"], ["i", "j"], ["k", "l"]]',         1,         null,      null,                    'j',                    2,        null,      null)
                         """);
+    }
+
+    @Test
+    public void testPassThroughColumnCorrectness()
+    {
+        // Each input row has a pass-through column (id) that must be propagated to every expanded output row.
+        assertThat(assertions.query(
+                """
+                SELECT id, CAST(val AS VARCHAR(1)) val
+                FROM (VALUES (1, '["a","b","c"]'), (2, '["d","e"]')) t(id, json_col),
+                JSON_TABLE(json_col, 'lax $[*]' COLUMNS (val varchar PATH 'lax $'))
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, 'a'),
+                            (1, 'b'),
+                            (1, 'c'),
+                            (2, 'd'),
+                            (2, 'e')
+                        """);
+    }
+
+    @Test
+    public void testPassThroughColumnsWithLargeExpansion()
+    {
+        // Regression test for pass-through block overflow.
+        // Two input rows with distinct 512-byte pass-through values, each expanded by a 3000-element
+        // JSON array. Total pass-through data per partition = 3000 × 512B ≈ 1.5 MB, which exceeds
+        // DEFAULT_MAX_PAGE_SIZE_IN_BYTES (1 MB) and exercises the page-splitting fix.
+        String value1 = "a".repeat(512);
+        String value2 = "b".repeat(512);
+        String jsonArray = IntStream.rangeClosed(1, 3000)
+                .mapToObj(String::valueOf)
+                .collect(joining(",", "[", "]"));
+
+        assertThat(assertions.query(
+                "SELECT pt, count(*) " +
+                        "FROM (VALUES ('" + value1 + "'), ('" + value2 + "')) t(pt), " +
+                        "JSON_TABLE('" + jsonArray + "', 'lax $[*]' COLUMNS (val bigint PATH 'lax $')) " +
+                        "GROUP BY pt " +
+                        "ORDER BY pt"))
+                .matches(
+                        "VALUES ('" + value1 + "', BIGINT '3000'), ('" + value2 + "', BIGINT '3000')");
     }
 }

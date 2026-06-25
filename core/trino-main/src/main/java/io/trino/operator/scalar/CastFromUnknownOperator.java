@@ -20,13 +20,13 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -41,9 +41,10 @@ public final class CastFromUnknownOperator
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(new TypeSignature("E"))
+                        .returnType(typeVariable("E"))
                         .argumentType(UNKNOWN)
                         .build())
+                .neverFails()
                 .build());
     }
 

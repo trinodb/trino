@@ -54,7 +54,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.mapType;
@@ -103,24 +103,23 @@ public class BenchmarkMapConcat
             List<String> leftKeys;
             List<String> rightKeys;
             switch (mapConfig) {
-                case "left_empty":
+                case "left_empty" -> {
                     leftKeys = ImmutableList.of();
                     rightKeys = ImmutableList.of("a", "b", "c");
-                    break;
-                case "right_empty":
+                }
+                case "right_empty" -> {
                     leftKeys = ImmutableList.of("a", "b", "c");
                     rightKeys = ImmutableList.of();
-                    break;
-                case "both_empty":
+                }
+                case "both_empty" -> {
                     leftKeys = ImmutableList.of();
                     rightKeys = ImmutableList.of();
-                    break;
-                case "non_empty":
+                }
+                case "non_empty" -> {
                     leftKeys = ImmutableList.of("a", "b", "c");
                     rightKeys = ImmutableList.of("d", "b", "c");
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
 
             MapType mapType = mapType(createUnboundedVarcharType(), DOUBLE);
@@ -137,7 +136,8 @@ public class BenchmarkMapConcat
 
             projectionsBuilder.add(call(
                     functionResolution.resolveFunction(name, fromTypes(mapType, mapType)),
-                    new Reference(mapType, "$col_0"), new Reference(mapType, "$col_1")));
+                    new Reference(mapType, "$col_0"),
+                    new Reference(mapType, "$col_1")));
 
             List<Expression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(

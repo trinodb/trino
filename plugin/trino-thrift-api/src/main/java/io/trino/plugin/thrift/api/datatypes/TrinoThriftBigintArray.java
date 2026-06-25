@@ -93,7 +93,8 @@ public final class TrinoThriftBigintArray
     public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(desiredType instanceof ArrayType arrayType && BIGINT.equals(arrayType.getElementType()),
-                "type doesn't match: %s", desiredType);
+                "type doesn't match: %s",
+                desiredType);
         int numberOfRecords = numberOfRecords();
         return ArrayBlock.fromElementBlock(
                 numberOfRecords,
@@ -170,11 +171,11 @@ public final class TrinoThriftBigintArray
                 if (sizes == null) {
                     sizes = new int[positions];
                 }
-                sizes[position] = arrayBlock.apply((valuesBlock, startPosition, length) -> length, position);
+                sizes[position] = arrayBlock.apply((_, _, length) -> length, position);
             }
         }
         TrinoThriftBigint values = arrayBlock
-                .apply((valuesBlock, startPosition, length) -> TrinoThriftBigint.fromBlock(valuesBlock), 0)
+                .apply((valuesBlock, _, _) -> TrinoThriftBigint.fromBlock(valuesBlock), 0)
                 .getBigintData();
         checkState(values != null, "values must be present");
         checkState(totalSize(nulls, sizes) == values.numberOfRecords(), "unexpected number of values");

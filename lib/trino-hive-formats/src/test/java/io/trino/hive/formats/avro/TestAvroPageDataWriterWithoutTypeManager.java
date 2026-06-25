@@ -121,7 +121,8 @@ public class TestAvroPageDataWriterWithoutTypeManager
         Page toWrite = new Page(
                 RunLengthEncodedBlock.create(IntegerType.INTEGER, 2L, 2),
                 RunLengthEncodedBlock.create(VarcharType.VARCHAR, Slices.utf8Slice("rleString"), 2),
-                DictionaryBlock.create(2,
+                DictionaryBlock.create(
+                        2,
                         VarcharType.VARCHAR.createBlockBuilder(null, 3, 1)
                                 .writeEntry(Slices.utf8Slice("A"))
                                 .writeEntry(Slices.utf8Slice("B"))
@@ -130,7 +131,8 @@ public class TestAvroPageDataWriterWithoutTypeManager
                         new int[] {1, 2}),
                 RunLengthEncodedBlock.create(
                         expectedRLERow, 2),
-                DictionaryBlock.create(2,
+                DictionaryBlock.create(
+                        2,
                         expectedDictionaryRow,
                         new int[] {0, 0}));
 
@@ -208,7 +210,8 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ImmutableList.of("byteToInt", "shortToInt", "byteToLong", "shortToLong", "intToLong"),
-                ImmutableList.of(TINYINT, SMALLINT, TINYINT, SMALLINT, INTEGER), false)) {
+                ImmutableList.of(TINYINT, SMALLINT, TINYINT, SMALLINT, INTEGER),
+                false)) {
             avroFileWriter.write(toWrite);
         }
 

@@ -183,8 +183,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("varchar(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE), "'string max size'",
-                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE),
+                        "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE),
+                        format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("varchar"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("varchar"));
@@ -197,18 +199,24 @@ public abstract class BaseTestOracleTypeMapping
                 .addRoundTrip("varchar2(5 char)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .addRoundTrip("varchar2(10 char)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("varchar2(20 char)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_WRITE), "'string max size'",
-                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_WRITE),
+                        "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE),
+                        format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar2(5 byte)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .addRoundTrip("varchar2(10 byte)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("varchar2(20 byte)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ), "'string max size'",
-                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ),
+                        "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ),
+                        format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_READ))
                 .addRoundTrip("nvarchar2(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
                 .addRoundTrip("nvarchar2(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
                 .addRoundTrip("nvarchar2(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
-                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2), "'string max size'",
-                        createVarcharType(MAX_NVARCHAR2), format("CAST('string max size' AS VARCHAR(%d))", MAX_NVARCHAR2))
+                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2),
+                        "'string max size'",
+                        createVarcharType(MAX_NVARCHAR2),
+                        format("CAST('string max size' AS VARCHAR(%d))", MAX_NVARCHAR2))
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar"));
     }
 
@@ -224,8 +232,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
                 .addRoundTrip("varchar(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE), "'攻殻機動隊'",
-                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE),
+                        "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE),
+                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar(1)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
                 .addRoundTrip("varchar(6)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("varchar_unicode"))
@@ -239,22 +249,28 @@ public abstract class BaseTestOracleTypeMapping
                 // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
                 .addRoundTrip("varchar2(5 char)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
                 .addRoundTrip("varchar2(13 char)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
-                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_READ), "'攻殻機動隊'",
-                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_READ),
+                        "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ),
+                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
                 .addRoundTrip("varchar2(1 char)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
                 .addRoundTrip("varchar2(6 char)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
                 // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in '😂' is 4.
                 .addRoundTrip("varchar2(15 byte)", "'攻殻機動隊'", createVarcharType(15), "CAST('攻殻機動隊' AS varchar(15))")
                 .addRoundTrip("varchar2(23 byte)", "'攻殻機動隊'", createVarcharType(23), "CAST('攻殻機動隊' AS varchar(23))")
-                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ), "'攻殻機動隊'",
-                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ),
+                        "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ),
+                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
                 .addRoundTrip("varchar2(4 byte)", "'😂'", createVarcharType(4), "CAST('😂' AS varchar(4))")
                 .addRoundTrip("varchar2(9 byte)", "'😂'", createVarcharType(9), "CAST('😂' AS varchar(9))")
                 // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
                 .addRoundTrip("nvarchar2(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
                 .addRoundTrip("nvarchar2(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
-                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2), "'攻殻機動隊'",
-                        createVarcharType(MAX_NVARCHAR2), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_NVARCHAR2))
+                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2),
+                        "'攻殻機動隊'",
+                        createVarcharType(MAX_NVARCHAR2),
+                        format("CAST('攻殻機動隊' AS varchar(%d))", MAX_NVARCHAR2))
                 .addRoundTrip("nvarchar2(2)", "'😂'", createVarcharType(2), "CAST('😂' AS varchar(2))")
                 .addRoundTrip("nvarchar2(7)", "'😂'", createVarcharType(7), "CAST('😂' AS varchar(7))")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar_unicode"));
@@ -307,8 +323,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("char(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("char(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE), "'string max size'",
-                        createCharType(MAX_CHAR_ON_WRITE), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_WRITE))
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE),
+                        "'string max size'",
+                        createCharType(MAX_CHAR_ON_WRITE),
+                        format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_WRITE))
                 .addRoundTrip("char(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("char"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("char"));
@@ -321,20 +339,26 @@ public abstract class BaseTestOracleTypeMapping
                 .addRoundTrip("char(5 char)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
                 .addRoundTrip("char(10 char)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("char(20 char)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
-                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ), "'string max size'",
-                        createCharType(MAX_CHAR_ON_READ), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
 
+                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ),
+                        "'string max size'",
+                        createCharType(MAX_CHAR_ON_READ),
+                        format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
                 .addRoundTrip("char(5 byte)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
                 .addRoundTrip("char(10 byte)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("char(20 byte)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
-                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ), "'string max size'",
-                        createCharType(MAX_CHAR_ON_READ), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
 
+                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ),
+                        "'string max size'",
+                        createCharType(MAX_CHAR_ON_READ),
+                        format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
                 .addRoundTrip("nchar(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
                 .addRoundTrip("nchar(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
                 .addRoundTrip("nchar(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
-                .addRoundTrip(format("nchar(%d)", MAX_NCHAR), "'string max size'",
-                        createCharType(MAX_NCHAR), format("CAST('string max size' AS CHAR(%d))", MAX_NCHAR))
+                .addRoundTrip(format("nchar(%d)", MAX_NCHAR),
+                        "'string max size'",
+                        createCharType(MAX_NCHAR),
+                        format("CAST('string max size' AS CHAR(%d))", MAX_NCHAR))
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_char"));
     }
 
@@ -344,8 +368,10 @@ public abstract class BaseTestOracleTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
                 .addRoundTrip("char(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS char(13))")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE), "'攻殻機動隊'",
-                        createCharType(MAX_CHAR_ON_WRITE), format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_WRITE))
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE),
+                        "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_WRITE),
+                        format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_WRITE))
                 .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
                 .addRoundTrip("char(6)", "'😂'", createCharType(6), "CAST('😂' AS char(6))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("char_unicode"));
@@ -358,22 +384,28 @@ public abstract class BaseTestOracleTypeMapping
                 // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
                 .addRoundTrip("char(5 char)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
                 .addRoundTrip("char(13 char)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
-                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ), "'攻殻機動隊'",
-                        createCharType(MAX_CHAR_ON_READ), format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_READ))
+                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ),
+                        "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_READ),
+                        format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_READ))
                 .addRoundTrip("char(1 char)", "'😂'", createCharType(1), "CAST('😂' AS CHAR(1))")
                 .addRoundTrip("char(6 char)", "'😂'", createCharType(6), "CAST('😂' AS CHAR(6))")
                 // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in 😂 is 4.
                 .addRoundTrip("char(15 byte)", "'攻殻機動隊'", createCharType(15), "CAST('攻殻機動隊' AS CHAR(15))")
                 .addRoundTrip("char(23 byte)", "'攻殻機動隊'", createCharType(23), "CAST('攻殻機動隊' AS CHAR(23))")
-                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ), "'攻殻機動隊'",
-                        createCharType(MAX_CHAR_ON_READ), format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_CHAR_ON_READ))
+                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ),
+                        "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_READ),
+                        format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_CHAR_ON_READ))
                 .addRoundTrip("char(4 byte)", "'😂'", createCharType(4), "CAST('😂' AS CHAR(4))")
                 .addRoundTrip("char(9 byte)", "'😂'", createCharType(9), "CAST('😂' AS CHAR(9))")
                 // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
                 .addRoundTrip("nchar(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
                 .addRoundTrip("nchar(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
-                .addRoundTrip(format("nchar(%d)", MAX_NCHAR), "'攻殻機動隊'",
-                        createCharType(MAX_NCHAR), format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_NCHAR))
+                .addRoundTrip(format("nchar(%d)", MAX_NCHAR),
+                        "'攻殻機動隊'",
+                        createCharType(MAX_NCHAR),
+                        format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_NCHAR))
                 .addRoundTrip("nchar(2)", "'😂'", createCharType(2), "CAST('😂' AS CHAR(2))")
                 .addRoundTrip("nchar(7)", "'😂'", createCharType(7), "CAST('😂' AS CHAR(7))")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_char_unicode"));
@@ -1067,54 +1099,126 @@ public abstract class BaseTestOracleTypeMapping
     public void testTimestampWithTimeZoneFromTrino()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 Z'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Z'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 Z'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Z'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 Z'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Z'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'")
-                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'")
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(jvmZone)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(jvmZone)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(vilnius)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(vilnius)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)))
-                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1970-01-01 00:00:00.000 Z'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 Z'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1958-01-01 13:18:03.123 Z'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 Z'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '2019-03-18 10:01:17.987 Z'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 Z'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'")
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(jvmZone)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(jvmZone)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(vilnius)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(vilnius)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)))
+                .addRoundTrip(
+                        "timestamp with time zone",
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)))
                 .execute(getQueryRunner(), trinoCreateAsSelect("timestamp_tz"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("timestamp_tz"));
     }
@@ -1129,50 +1233,116 @@ public abstract class BaseTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("timestamp_tz"));
 
         SqlDataTypeTest.create()
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', 'UTC')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Z'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', 'Asia/Kathmandu')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', '+02:17')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', '-07:31')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', 'UTC')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Z'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', 'Asia/Kathmandu')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', '+02:17')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', '-07:31')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', 'UTC')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Z'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', 'Asia/Kathmandu')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', '+02:17')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', '-07:31')",
-                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'")
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInJvmZone.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInJvmZone.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInVilnius.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInVilnius.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone1.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone1.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone2.atZone(UTC)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone2.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInVilnius.atZone(kathmandu)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)))
-                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInKathmandu.atZone(vilnius)),
-                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', 'UTC')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 Z'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', 'Asia/Kathmandu')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', '+02:17')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', '-07:31')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', 'UTC')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 Z'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', 'Asia/Kathmandu')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', '+02:17')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', '-07:31')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', 'UTC')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 Z'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', 'Asia/Kathmandu')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', '+02:17')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', '-07:31')",
+                        TIMESTAMP_TZ_MILLIS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'")
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInJvmZone.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInJvmZone.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInVilnius.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone1.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone1.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone2.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone2.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)))
+                .addRoundTrip(
+                        "TIMESTAMP(3) WITH TIME ZONE",
+                        oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInKathmandu.atZone(vilnius)),
+                        TIMESTAMP_TZ_MILLIS,
+                        timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)))
                 .execute(getQueryRunner(), oracleCreateAndInsert("timestamp_tz"));
     }
 

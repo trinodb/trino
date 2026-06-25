@@ -16,6 +16,7 @@ package io.trino.parquet.reader.decoders;
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
 import io.trino.spi.type.BooleanType;
 import org.apache.parquet.column.values.ValuesWriter;
 
@@ -27,7 +28,6 @@ import java.util.Random;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.TestData.generateMixedData;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static io.trino.testing.DataProviders.concat;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;

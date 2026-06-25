@@ -445,9 +445,17 @@ public class TestUnwrapCastInComparison
                         "IS NOT DISTINCT FROM " +
                         "(CAST(%s AS %s) %s CAST(%s AS %s)) " +
                         "FROM (VALUES CAST(ROW(%s) AS ROW(%s))) t(v)",
-                toType, operator, toValue, toType,
-                fromValue, toType, operator, toValue, toType,
-                fromValue, fromType);
+                toType,
+                operator,
+                toValue,
+                toType,
+                fromValue,
+                toType,
+                operator,
+                toValue,
+                toType,
+                fromValue,
+                fromType);
 
         boolean result = (boolean) assertions.execute(session, query)
                 .getMaterializedRows()
@@ -497,9 +505,13 @@ public class TestUnwrapCastInComparison
                         "IS NOT DISTINCT FROM " +
                         "(CAST(%s AS date) %s CAST(%s AS date)) " +
                         "FROM (VALUES CAST(%s AS %s)) t(v)",
-                operator, toValue,
-                fromValue, operator, toValue,
-                fromValue, fromType);
+                operator,
+                toValue,
+                fromValue,
+                operator,
+                toValue,
+                fromValue,
+                fromType);
 
         boolean result = (boolean) assertions.execute(session, query)
                 .getMaterializedRows()

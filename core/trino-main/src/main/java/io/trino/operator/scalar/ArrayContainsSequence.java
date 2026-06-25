@@ -43,7 +43,7 @@ public final class ArrayContainsSequence
                     operator = IDENTICAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
-                    MethodHandle identical,
+            MethodHandle identical,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("array(T)") Block value)
             throws Throwable

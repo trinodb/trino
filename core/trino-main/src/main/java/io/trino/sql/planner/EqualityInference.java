@@ -19,8 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
-import io.trino.sql.ir.Comparison;
+import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Reference;
 import io.trino.util.DisjointSet;
@@ -42,10 +45,12 @@ import java.util.function.ToIntFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
+import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
-import static io.trino.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -53,6 +58,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class EqualityInference
 {
+    private final Metadata metadata;
     // Comparator used to determine Expression preference when determining canonicals
     private final Comparator<Expression> canonicalComparator;
     private final Multimap<Expression, Expression> equalitySets; // Indexed by canonical expression
@@ -62,19 +68,23 @@ public class EqualityInference
     private final Map<Expression, List<Symbol>> symbolsCache = new HashMap<>();
     private final Map<Expression, Set<Symbol>> uniqueSymbolsCache = new HashMap<>();
 
-    public EqualityInference(Expression... expressions)
+    public EqualityInference(PlannerContext plannerContext, Expression... expressions)
     {
-        this(Arrays.asList(expressions));
+        this(plannerContext, Arrays.asList(expressions));
     }
 
-    public EqualityInference(Collection<Expression> expressions)
+    public EqualityInference(PlannerContext plannerContext, Collection<Expression> expressions)
     {
+        requireNonNull(plannerContext, "plannerContext is null");
+
+        this.metadata = plannerContext.getMetadata();
+
         DisjointSet<Expression> equalities = new DisjointSet<>();
         expressions.stream()
                 .flatMap(expression -> extractConjuncts(expression).stream())
-                .filter(EqualityInference::isInferenceCandidate)
+                .filter(expression -> isInferenceCandidate(plannerContext, expression))
                 .forEach(expression -> {
-                    Comparison comparison = (Comparison) expression;
+                    Comparison comparison = requireNonNull(matchComparison(expression), "expression is not a comparison");
                     Expression expression1 = comparison.left();
                     Expression expression2 = comparison.right();
 
@@ -204,14 +214,14 @@ public class EqualityInference
             if (scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
-                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, matchingCanonical, expression))
+                        .map(expression -> comparison(metadata, ComparisonOperator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
             if (scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
-                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, complementCanonical, expression))
+                        .map(expression -> comparison(metadata, ComparisonOperator.EQUAL, complementCanonical, expression))
                         .forEach(scopeComplementEqualities::add);
             }
 
@@ -225,7 +235,7 @@ public class EqualityInference
                     .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, scope::contains, false) == null)
                     .min(canonicalComparator);
             if (matchingConnecting.isPresent() && complementConnecting.isPresent() && !matchingConnecting.equals(complementConnecting)) {
-                scopeStraddlingEqualities.add(new Comparison(Comparison.Operator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
+                scopeStraddlingEqualities.add(comparison(metadata, ComparisonOperator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
             }
 
             // Compile the scope straddling equality expressions.
@@ -244,7 +254,7 @@ public class EqualityInference
             if (connectingCanonical != null) {
                 straddlingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
-                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, connectingCanonical, expression))
+                        .map(expression -> comparison(metadata, ComparisonOperator.EQUAL, connectingCanonical, expression))
                         .forEach(scopeStraddlingEqualities::add);
             }
         }
@@ -255,26 +265,23 @@ public class EqualityInference
     /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
-    public static boolean isInferenceCandidate(Expression expression)
+    public static boolean isInferenceCandidate(PlannerContext plannerContext, Expression expression)
     {
-        if (expression instanceof Comparison comparison &&
-                isDeterministic(expression) &&
-                !mayReturnNullOnNonNullInput(expression)) {
-            if (comparison.operator() == Comparison.Operator.EQUAL) {
+        return matchComparison(expression) instanceof Comparison comparison
+                && comparison.operator() == ComparisonOperator.EQUAL
+                && isDeterministic(expression)
+                && !mayReturnNullOnNonNullInput(plannerContext, expression)
                 // We should only consider equalities that have distinct left and right components
-                return !comparison.left().equals(comparison.right());
-            }
-        }
-        return false;
+                && !comparison.left().equals(comparison.right());
     }
 
     /**
      * Provides a convenience Stream of Expression conjuncts which have not been added to the inference
      */
-    public static Stream<Expression> nonInferrableConjuncts(Expression expression)
+    public static Stream<Expression> nonInferrableConjuncts(PlannerContext plannerContext, Expression expression)
     {
         return extractConjuncts(expression).stream()
-                .filter(e -> !isInferenceCandidate(e));
+                .filter(e -> !isInferenceCandidate(plannerContext, e));
     }
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
@@ -283,7 +290,7 @@ public class EqualityInference
         extractSubExpressions(expression)
                 .stream()
                 .filter(allowFullReplacement
-                        ? subExpression -> true
+                        ? _ -> true
                         : subExpression -> !subExpression.equals(expression))
                 .forEach(subExpression -> {
                     Expression canonical = getScopedCanonical(subExpression, symbolScope);
@@ -363,7 +370,7 @@ public class EqualityInference
 
     private Set<Symbol> extractUniqueSymbols(Expression expression)
     {
-        return uniqueSymbolsCache.computeIfAbsent(expression, e -> ImmutableSet.copyOf(extractAllSymbols(expression)));
+        return uniqueSymbolsCache.computeIfAbsent(expression, _ -> ImmutableSet.copyOf(extractAllSymbols(expression)));
     }
 
     private List<Symbol> extractAllSymbols(Expression expression)

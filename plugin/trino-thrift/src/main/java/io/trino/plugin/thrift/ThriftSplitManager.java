@@ -36,7 +36,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 
 import java.util.List;
 import java.util.Optional;
@@ -73,7 +73,7 @@ public class ThriftSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
@@ -128,7 +128,7 @@ public class ThriftSplitManager
          * It can be called by multiple threads, but only if the previous call finished.
          */
         @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+        public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
         {
             checkState(future.get() == null || future.get().isDone(), "previous batch not completed");
             checkState(hasMoreData.get(), "this method cannot be invoked when there's no more data");
@@ -139,7 +139,7 @@ public class ThriftSplitManager
                     constraint,
                     maxSize,
                     new TrinoThriftNullableToken(currentToken));
-            ListenableFuture<ConnectorSplitBatch> resultFuture = Futures.transform(
+            ListenableFuture<List<ConnectorSplit>> resultFuture = Futures.transform(
                     splitsFuture,
                     batch -> {
                         requireNonNull(batch, "batch is null");
@@ -148,8 +148,9 @@ public class ThriftSplitManager
                                 .collect(toImmutableList());
                         checkState(nextToken.compareAndSet(currentToken, batch.getNextToken()));
                         checkState(hasMoreData.compareAndSet(true, nextToken.get() != null));
-                        return new ConnectorSplitBatch(splits, isFinished());
-                    }, directExecutor());
+                        return splits;
+                    },
+                    directExecutor());
             resultFuture = catchingThriftException(resultFuture);
             future.set(resultFuture);
             return toCompletableFuture(resultFuture);

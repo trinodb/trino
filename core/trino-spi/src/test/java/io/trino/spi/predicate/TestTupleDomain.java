@@ -51,7 +51,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestTupleDomain
 {
-    public record TestingColumnHandle(String name) implements ColumnHandle {}
+    public record TestingColumnHandle(String name)
+            implements ColumnHandle {}
 
     private static final ColumnHandle A = new TestingColumnHandle("a");
     private static final ColumnHandle B = new TestingColumnHandle("b");
@@ -670,7 +671,8 @@ class TestTupleDomain
                 .withJsonDeserializers(Map.of(
                         Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
                         Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde()),
-                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>() {
+                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        {
                             @Override
                             public ColumnHandle deserialize(JsonParser parser, DeserializationContext context)
                                     throws IOException
@@ -683,13 +685,13 @@ class TestTupleDomain
                 .get();
 
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
-        assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() { }));
+        assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
 
         tupleDomain = TupleDomain.none();
-        assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() { }));
+        assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
 
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(A, NullableValue.of(BIGINT, 1L), B, NullableValue.asNull(VARCHAR)));
-        assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() { }));
+        assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
     }
 
     @Test
@@ -724,7 +726,7 @@ class TestTupleDomain
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
-        assertThatThrownBy(() -> domain.transformKeys(input -> "x"))
+        assertThatThrownBy(() -> domain.transformKeys(_ -> "x"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1]}] ]");
     }
@@ -807,17 +809,20 @@ class TestTupleDomain
         testAsPredicate(bPositive, Map.of(A, doubleNull), true);
 
         // constraint and binding keys intersecting
-        testAsPredicate(abPositive,
+        testAsPredicate(
+                abPositive,
                 Map.of(
                         B, doubleZero,
                         C, doubleOne),
                 false);
-        testAsPredicate(abPositive,
+        testAsPredicate(
+                abPositive,
                 Map.of(
                         B, doubleOne,
                         C, doubleOne),
                 true);
-        testAsPredicate(abPositive,
+        testAsPredicate(
+                abPositive,
                 Map.of(
                         B, doubleOne,
                         C, doubleZero),

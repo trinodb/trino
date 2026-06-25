@@ -35,7 +35,6 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Logical;
@@ -52,14 +51,16 @@ import java.nio.file.Files;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -68,6 +69,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -178,7 +180,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Reference(BIGINT, "col0_y"), new Constant(BIGINT, 2L)), new Comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
+                                new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(BIGINT, "col0_y"), new Constant(BIGINT, 2L)), comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -195,7 +197,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new Comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Constant(BIGINT, 5L)),
+                                comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Constant(BIGINT, 5L)),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -221,7 +223,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                                         .left(
                                                 anyTree(
                                                         filter(
-                                                                new Comparison(EQUAL, new Reference(BIGINT, "expr_0_x"), new Constant(BIGINT, 2L)),
+                                                                comparison(EQUAL, new Reference(BIGINT, "expr_0_x"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
                                                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                                                 .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),
@@ -234,6 +236,39 @@ public class TestHiveProjectionPushdownIntoTableScan
                                                                         .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
                                                                 TupleDomain.all(),
                                                                 ImmutableMap.of("s_expr_1", column1Handle::equals))))))));
+    }
+
+    @Test
+    public void testProjectionPushdownInsideLambda()
+    {
+        String testTable = "test_lambda_projection_pushdown" + randomNameSuffix();
+        QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable);
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s AS " +
+                        "SELECT ARRAY[1, 2, 3] items, " +
+                        "CAST(row(10, 20) AS row(captured bigint, skipped bigint)) payload " +
+                        "WHERE false",
+                testTable));
+
+        Session session = getPlanTester().getDefaultSession();
+
+        Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
+        assertThat(tableHandle).as("expected the table handle to be present").isPresent();
+
+        Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
+
+        HiveColumnHandle items = (HiveColumnHandle) columns.get("items");
+        HiveColumnHandle payload = (HiveColumnHandle) columns.get("payload");
+        HiveColumnHandle captured = createProjectedColumnHandle(payload, ImmutableList.of(0));
+
+        assertPlan(
+                "SELECT transform(items, x -> x + payload.captured) result FROM " + testTable,
+                anyTree(
+                        tableScan(
+                                table -> ((HiveTableHandle) table).getProjectedColumns().equals(ImmutableSet.of(items, captured)),
+                                TupleDomain.all(),
+                                ImmutableMap.of("items", equalTo(items), "payload#captured", equalTo(captured)))));
     }
 
     @AfterAll

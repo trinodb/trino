@@ -57,7 +57,7 @@ public final class RealType
 
     private RealType()
     {
-        super(new TypeSignature(StandardTypes.REAL));
+        super(new TypeDescriptor(StandardTypes.REAL));
     }
 
     @Override
@@ -120,7 +120,7 @@ public final class RealType
         return Optional.empty();
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
@@ -130,7 +130,7 @@ public final class RealType
         return (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
-    @ScalarOperator(READ_VALUE)
+    @ScalarOperator(value = READ_VALUE, neverFails = true)
     private static void writeFlat(
             long value,
             @FlatFixed byte[] fixedSizeSlice,
@@ -142,13 +142,13 @@ public final class RealType
     }
 
     @SuppressWarnings("FloatingPointEquality")
-    @ScalarOperator(EQUAL)
+    @ScalarOperator(value = EQUAL, neverFails = true)
     private static boolean equalOperator(long left, long right)
     {
         return intBitsToFloat((int) left) == intBitsToFloat((int) right);
     }
 
-    @ScalarOperator(HASH_CODE)
+    @ScalarOperator(value = HASH_CODE, neverFails = true)
     private static long hashCodeOperator(long value)
     {
         float realValue = intBitsToFloat((int) value);
@@ -158,7 +158,7 @@ public final class RealType
         return AbstractLongType.hash(floatToIntBits(realValue));
     }
 
-    @ScalarOperator(XX_HASH_64)
+    @ScalarOperator(value = XX_HASH_64, neverFails = true)
     private static long xxHash64Operator(long value)
     {
         float realValue = intBitsToFloat((int) value);
@@ -169,7 +169,7 @@ public final class RealType
     }
 
     @SuppressWarnings("FloatingPointEquality")
-    @ScalarOperator(IDENTICAL)
+    @ScalarOperator(value = IDENTICAL, neverFails = true)
     private static boolean identical(long left, @IsNull boolean leftNull, long right, @IsNull boolean rightNull)
     {
         if (leftNull || rightNull) {
@@ -184,13 +184,13 @@ public final class RealType
         return leftFloat == rightFloat;
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_LAST, neverFails = true)
     private static long comparisonUnorderedLastOperator(long left, long right)
     {
         return compare(intBitsToFloat((int) left), intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(COMPARISON_UNORDERED_FIRST)
+    @ScalarOperator(value = COMPARISON_UNORDERED_FIRST, neverFails = true)
     private static long comparisonUnorderedFirstOperator(long leftBits, long rightBits)
     {
         // Float compare puts NaN last, so we must handle NaNs manually
@@ -208,13 +208,13 @@ public final class RealType
         return compare(left, right);
     }
 
-    @ScalarOperator(LESS_THAN)
+    @ScalarOperator(value = LESS_THAN, neverFails = true)
     private static boolean lessThanOperator(long left, long right)
     {
         return intBitsToFloat((int) left) < intBitsToFloat((int) right);
     }
 
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @ScalarOperator(value = LESS_THAN_OR_EQUAL, neverFails = true)
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return intBitsToFloat((int) left) <= intBitsToFloat((int) right);

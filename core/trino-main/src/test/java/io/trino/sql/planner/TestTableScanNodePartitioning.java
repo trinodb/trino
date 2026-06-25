@@ -147,7 +147,8 @@ public class TestTableScanNodePartitioning
                 anyTree(
                         aggregation(ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of("COUNT_PART"))), FINAL,
                                 exchange(LOCAL, REPARTITION,
-                                        aggregation(ImmutableMap.of("COUNT_PART", aggregationFunction("count", ImmutableList.of("B"))), PARTIAL,
+                                        aggregation(ImmutableMap.of("COUNT_PART", aggregationFunction("count", ImmutableList.of("B"))),
+                                                PARTIAL,
                                                 tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b")))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
         assertThat(subPlan.getAllFragments()).hasSize(1);
@@ -162,7 +163,8 @@ public class TestTableScanNodePartitioning
                         aggregation(ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of("COUNT_PART"))), FINAL,
                                 exchange(LOCAL, REPARTITION,
                                         exchange(REMOTE, REPARTITION,
-                                                aggregation(ImmutableMap.of("COUNT_PART", aggregationFunction("count", ImmutableList.of("B"))), PARTIAL,
+                                                aggregation(ImmutableMap.of("COUNT_PART", aggregationFunction("count", ImmutableList.of("B"))),
+                                                        PARTIAL,
                                                         tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b"))))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
         assertThat(subPlan.getAllFragments()).hasSize(2);
@@ -173,10 +175,10 @@ public class TestTableScanNodePartitioning
     {
         return MockConnectorFactory.builder()
                 .withPartitionProvider(new TestPartitioningProvider())
-                .withGetColumns(schemaTableName -> ImmutableList.of(
+                .withGetColumns(_ -> ImmutableList.of(
                         new ColumnMetadata(COLUMN_A, BIGINT),
                         new ColumnMetadata(COLUMN_B, VARCHAR)))
-                .withGetTableProperties((session, tableHandle) -> {
+                .withGetTableProperties((_, tableHandle) -> {
                     String tableName = ((MockConnectorTableHandle) tableHandle).getTableName().getTableName();
                     if (tableName.equals(PARTITIONED_TABLE)) {
                         return new ConnectorTableProperties(

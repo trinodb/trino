@@ -77,8 +77,8 @@ public abstract class AbstractTestRegexpFunctions
     {
         return Slices.wrappedBuffer(new byte[] {
                 // AAA\uD800AAAA\uDFFFAAA, D800 and DFFF are valid unicode code points, but not valid UTF8
-                (byte) 0x41, 0x41, (byte) 0xed, (byte) 0xa0, (byte) 0x80, 0x41, 0x41,
-                0x41, 0x41, (byte) 0xed, (byte) 0xbf, (byte) 0xbf, 0x41, 0x41, 0x41,
+                (byte) 0x41, 0x41, (byte) 0xED, (byte) 0xA0, (byte) 0x80, 0x41, 0x41,
+                0x41, 0x41, (byte) 0xED, (byte) 0xBF, (byte) 0xBF, 0x41, 0x41, 0x41,
         });
     }
 
@@ -118,6 +118,14 @@ public abstract class AbstractTestRegexpFunctions
         // verify word boundaries at end of pattern (https://github.com/airlift/joni/pull/11)
         assertThat(assertions.function("regexp_like", "'test'", "'test\\b'"))
                 .isEqualTo(true);
+
+        // invalid pattern -- exercises fallibility of varchar(x) -> regexp cast
+        assertTrinoExceptionThrownBy(assertions.function("regexp_like", "'abc'", "'[invalid'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        // invalid pattern from CHAR -- exercises fallibility of char(x) -> regexp cast
+        assertTrinoExceptionThrownBy(assertions.function("regexp_like", "'abc'", "CAST('[invalid' AS char(8))")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

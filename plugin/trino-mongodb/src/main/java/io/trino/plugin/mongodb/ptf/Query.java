@@ -83,8 +83,7 @@ public class Query
 
         public QueryFunction(MongoTransactionManager transactionManager)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     ImmutableList.of(
                             ScalarArgumentSpecification.builder()
@@ -99,7 +98,8 @@ public class Query
                                     .name("FILTER")
                                     .type(VARCHAR)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         }
 

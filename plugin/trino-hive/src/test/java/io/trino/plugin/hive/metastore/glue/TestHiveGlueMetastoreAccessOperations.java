@@ -19,18 +19,23 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -42,8 +47,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
-import static com.google.common.collect.Iterators.getOnlyElement;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.BATCH_UPDATE_PARTITION;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.CREATE_PARTITIONS;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.DELETE_COLUMN_STATISTICS_FOR_PARTITION;
@@ -57,11 +63,11 @@ import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_PARTIT
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_COLUMN_STATISTICS_FOR_TABLE;
-import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_PARTITION;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_TABLE;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -76,31 +82,31 @@ public class TestHiveGlueMetastoreAccessOperations
     private final String testSchema = "test_schema_" + randomNameSuffix();
 
     private GlueMetastoreStats glueStats;
-    private Path schemaDir;
+    private String schemaLocation;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-hive-glue-access-operations-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        schemaLocation = "s3://%s/%s".formatted(bucketName, testSchema);
+
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
                         .setCatalog("hive")
                         .setSchema(testSchema)
                         .build())
                 .addHiveProperty("hive.metastore", "glue")
-                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
+                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
                 .addHiveProperty("hive.security", "allow-all")
+                .addHiveProperty("fs.s3.enabled", "true")
+                .addHiveProperties(floci.s3AndGlueProperties())
                 .setCreateTpchSchemas(false)
                 .build();
-        queryRunner.execute("CREATE SCHEMA " + testSchema);
-        schemaDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").resolve("glue").resolve(testSchema);
+        queryRunner.execute("CREATE SCHEMA " + testSchema + " WITH (location = '" + schemaLocation + "')");
         glueStats = getConnectorService(queryRunner, GlueHiveMetastore.class).getStats();
         return queryRunner;
-    }
-
-    @AfterAll
-    public void cleanUpSchema()
-    {
-        getQueryRunner().execute("DROP SCHEMA " + testSchema + " CASCADE");
     }
 
     @Test
@@ -117,13 +123,15 @@ public class TestHiveGlueMetastoreAccessOperations
                     .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                     .setCatalogSessionProperty("hive", "statistics_enabled", "false")
                     .build();
-            assertInvocations(insertOverwriteSession, "INSERT INTO " + tableName + " VALUES (3, 1)",
+            assertInvocations(
+                    insertOverwriteSession,
+                    "INSERT INTO " + tableName + " VALUES (3, 1)",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .add(DELETE_COLUMN_STATISTICS_FOR_PARTITION)
                             .add(GET_COLUMN_STATISTICS_FOR_PARTITION)
-                            .add(GET_PARTITION)
+                            .add(BATCH_UPDATE_PARTITION)
+                            .addCopies(GET_PARTITIONS, 2)
                             .add(GET_TABLE)
-                            .add(UPDATE_PARTITION)
                             .build(),
                     // We can't disable partition cache in glue v2, see GlueMetastoreModule#createGlueCache
                     // there is maybe 1 time additional call for the GET_PARTITION
@@ -145,17 +153,25 @@ public class TestHiveGlueMetastoreAccessOperations
         try {
             assertUpdate("CREATE TABLE " + tableName + " (id INT, part INT) WITH (partitioned_by = ARRAY['part'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
-            Path tableDir = schemaDir.resolve(tableName);
-            Path sourcePartitionDir = tableDir.resolve("part=1");
-            Path sourceFile;
-            try (Stream<Path> paths = Files.list(sourcePartitionDir)) {
-                sourceFile = getOnlyElement(paths.iterator());
+            Location tableLocation = Location.of("%s/%s".formatted(schemaLocation, tableName));
+            Location sourcePartitionLocation = tableLocation.appendPath("part=1");
+            TrinoFileSystem fileSystem = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class)
+                    .create(ConnectorIdentity.ofUser("test"));
+            FileIterator files = fileSystem.listFiles(sourcePartitionLocation);
+            ImmutableList.Builder<Location> sourceFiles = ImmutableList.builder();
+            while (files.hasNext()) {
+                sourceFiles.add(files.next().location());
             }
+            Location sourceFile = getOnlyElement(sourceFiles.build());
 
             // prepare partition to sync
-            Path targetPartitionDir = tableDir.resolve("part=2");
-            Files.createDirectories(targetPartitionDir);
-            Files.copy(sourceFile, targetPartitionDir.resolve("data"));
+            TrinoInputFile sourceInput = fileSystem.newInputFile(sourceFile);
+            byte[] data;
+            try (TrinoInput input = sourceInput.newInput()) {
+                data = input.readFully(0, toIntExact(sourceInput.length())).byteArray();
+            }
+            fileSystem.newOutputFile(tableLocation.appendPath("part=2").appendPath("data"))
+                    .createOrOverwrite(data);
 
             // the sync_partition_metadata doesn't call UPDATE_COLUMN_STATISTICS_FOR_PARTITION
             assertInvocations("CALL system.sync_partition_metadata('%s', '%s', 'FULL')".formatted(testSchema, tableName),
@@ -582,7 +598,8 @@ public class TestHiveGlueMetastoreAccessOperations
     }
 
     private void assertInvocations(
-            Session session, @Language("SQL") String query,
+            Session session,
+            @Language("SQL") String query,
             Multiset<GlueMetastoreMethod> determinedExpectedGlueInvocations,
             Multiset<GlueMetastoreMethod> possibleExpectedGlueInvocations)
     {

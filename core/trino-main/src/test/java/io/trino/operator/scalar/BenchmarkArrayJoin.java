@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -89,7 +89,8 @@ public class BenchmarkArrayJoin
 
             List<Expression> projections = ImmutableList.of(call(
                     functionResolution.resolveFunction("array_join", fromTypes(new ArrayType(BIGINT), VARCHAR)),
-                    new Reference(new ArrayType(BIGINT), "$col_0"), new Constant(VARCHAR, Slices.wrappedBuffer(",".getBytes(UTF_8)))));
+                    new Reference(new ArrayType(BIGINT), "$col_0"),
+                    new Constant(VARCHAR, Slices.wrappedBuffer(",".getBytes(UTF_8)))));
 
             pageProcessor = functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(new ArrayType(BIGINT), "$col_0"), 0))

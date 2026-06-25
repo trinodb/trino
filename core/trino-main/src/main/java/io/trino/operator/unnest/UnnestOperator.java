@@ -95,7 +95,7 @@ public class UnnestOperator
     private static final int MAX_ROWS_PER_BLOCK = 1000;
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final List<Integer> replicateChannels;
     private final List<Type> replicateTypes;
     private final List<Integer> unnestChannels;
@@ -125,13 +125,13 @@ public class UnnestOperator
     public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalUserMemoryContext(UnnestOperator.class.getSimpleName());
+        this.memoryContext = operatorContext.newLocalUserMemoryContext(UnnestOperator.class.getSimpleName());
 
         this.replicateChannels = ImmutableList.copyOf(requireNonNull(replicateChannels, "replicateChannels is null"));
         this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
         checkArgument(replicateChannels.size() == replicateTypes.size(), "replicate channels or types has wrong size");
         this.replicatedBlockBuilders = replicateTypes.stream()
-                .map(type -> new ReplicatedBlockBuilder())
+                .map(_ -> new ReplicatedBlockBuilder())
                 .collect(toImmutableList());
 
         this.unnestChannels = ImmutableList.copyOf(requireNonNull(unnestChannels, "unnestChannels is null"));
@@ -182,7 +182,7 @@ public class UnnestOperator
         currentPage = page;
         currentPosition = 0;
         resetBlockBuilders();
-        systemMemoryContext.setBytes(getRetainedSizeInBytes());
+        memoryContext.setBytes(getRetainedSizeInBytes());
     }
 
     private void resetBlockBuilders()

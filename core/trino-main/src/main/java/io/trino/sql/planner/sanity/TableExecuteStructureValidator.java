@@ -34,7 +34,8 @@ public class TableExecuteStructureValidator
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode planNode,
+    public void validate(
+            PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
             WarningCollector warningCollector)

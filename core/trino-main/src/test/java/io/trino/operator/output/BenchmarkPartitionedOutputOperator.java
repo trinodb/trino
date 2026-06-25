@@ -32,7 +32,9 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
@@ -94,7 +96,6 @@ import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -157,7 +158,7 @@ public class BenchmarkPartitionedOutputOperator
         private TestType type = TestType.BIGINT;
 
         @Param({"0", "0.2"})
-        private float nullRate = 0.2F;
+        private float nullRate = 0.2f;
 
         private List<Type> types;
         private int pageCount;
@@ -264,7 +265,7 @@ public class BenchmarkPartitionedOutputOperator
                         positionCount,
                         Optional.of(ImmutableList.of(0)),
                         types.stream()
-                                .map(type -> {
+                                .map(_ -> {
                                     boolean[] isNull = null;
                                     if (nullRate > 0) {
                                         isNull = new boolean[positionCount];
@@ -279,7 +280,8 @@ public class BenchmarkPartitionedOutputOperator
                                             Optional.ofNullable(isNull),
                                             new Block[] {
                                                     RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), positionCount),
-                                                    createRandomLongsBlock(positionCount, nullRate)});
+                                                    createRandomLongsBlock(positionCount, nullRate),
+                                            });
                                 })
                                 .collect(toImmutableList()));
             });
@@ -448,7 +450,7 @@ public class BenchmarkPartitionedOutputOperator
                     new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), SCHEDULER),
                     buffers,
                     dataSize,
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                    Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                     SCHEDULER,
                     blackhole);
         }
@@ -463,7 +465,7 @@ public class BenchmarkPartitionedOutputOperator
                     OutputBufferStateMachine stateMachine,
                     PipelinedOutputBuffers outputBuffers,
                     DataSize maxBufferSize,
-                    Supplier<LocalMemoryContext> memoryContextSupplier,
+                    Lazy<LocalMemoryContext> memoryContextSupplier,
                     Executor notificationExecutor,
                     Blackhole blackhole)
             {

@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -32,6 +32,8 @@ public class TestGlueHiveMetastoreQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
                         .setCatalog("hive")
                         .setSchema(testSchema)
@@ -39,16 +41,11 @@ public class TestGlueHiveMetastoreQueries
                 .addHiveProperty("hive.metastore", "glue")
                 .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
                 .addHiveProperty("hive.security", "allow-all")
+                .addHiveProperties(floci.glueProperties())
                 .setCreateTpchSchemas(false)
                 .build();
         queryRunner.execute("CREATE SCHEMA " + testSchema);
         return queryRunner;
-    }
-
-    @AfterAll
-    public void cleanUpSchema()
-    {
-        getQueryRunner().execute("DROP SCHEMA " + testSchema + " CASCADE");
     }
 
     @Test

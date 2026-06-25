@@ -46,7 +46,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -179,7 +179,8 @@ public class SetOperationNodeTranslator
                     Optional.empty()));
         }
 
-        return singleAggregation(idAllocator.getNextId(),
+        return singleAggregation(
+                idAllocator.getNextId(),
                 sourceNode,
                 aggregations.buildOrThrow(),
                 singleGroupingSet(originalColumns));

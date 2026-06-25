@@ -34,15 +34,18 @@ import io.trino.spi.type.StandardTypes;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.operator.aggregation.ApproximateSetGenericAggregation.APPROX_SET_FUNCTION_NAME;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.util.Failures.internalError;
 
-@AggregationFunction(value = "$approx_set", hidden = true)
+@AggregationFunction(value = APPROX_SET_FUNCTION_NAME, hidden = true)
 // $approx_set is hidden as used only for statistics collection in ANALYZE so far; eventually it may be used for implementation of user visible approx_set
 public final class ApproximateSetGenericAggregation
 {
+    public static final String APPROX_SET_FUNCTION_NAME = "$approx_set";
+
     private static final int NUMBER_OF_BUCKETS = 4096;
     private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = StateCompiler.generateStateSerializer(HyperLogLogState.class);
 
@@ -64,7 +67,7 @@ public final class ApproximateSetGenericAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") double value)
     {
@@ -88,7 +91,7 @@ public final class ApproximateSetGenericAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") long value)
     {
@@ -121,7 +124,7 @@ public final class ApproximateSetGenericAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") Object value)
     {

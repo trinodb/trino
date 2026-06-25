@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.util.concurrent.Futures;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -31,6 +31,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 
 import java.util.List;
@@ -42,7 +43,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
@@ -71,6 +71,7 @@ public class HudiSplitSource
             ScheduledExecutorService splitLoaderExecutorService,
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
+            SplitAffinityProvider splitAffinityProvider,
             List<String> partitions)
     {
         HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
@@ -94,28 +95,27 @@ public class HudiSplitSource
                 queue,
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
+                splitAffinityProvider,
                 partitions,
                 throwable -> {
-                    trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
-                            "Failed to generate splits for " + table.getSchemaTableName(), throwable));
+                    trinoException.compareAndSet(null, new TrinoException(
+                            HUDI_CANNOT_OPEN_SPLIT,
+                            "Failed to generate splits for " + table.getSchemaTableName(),
+                            throwable));
                     queue.finish();
                 });
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
-        boolean noMoreSplits = isFinished();
         Throwable throwable = trinoException.get();
         if (throwable != null) {
             return CompletableFuture.failedFuture(throwable);
         }
 
-        return toCompletableFuture(Futures.transform(
-                queue.getBatchAsync(maxSize),
-                splits -> new ConnectorSplitBatch(splits, noMoreSplits),
-                directExecutor()));
+        return toCompletableFuture(queue.getBatchAsync(maxSize));
     }
 
     @Override

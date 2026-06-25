@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
-import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -51,7 +51,7 @@ public class TestRedshiftAutomaticJoinPushdown
     @Override
     protected void gatherStats(String tableName)
     {
-        executeInRedshift(handle -> {
+        executeInRedshiftWithRetry(handle -> {
             handle.execute(format("ANALYZE VERBOSE %s.%s", TEST_SCHEMA, tableName));
             for (int i = 0; i < 5; i++) {
                 long actualCount = handle.createQuery(format("SELECT count(*) FROM %s.%s", TEST_SCHEMA, tableName))

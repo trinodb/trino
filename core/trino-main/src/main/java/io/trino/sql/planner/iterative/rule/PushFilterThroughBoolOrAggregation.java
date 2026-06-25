@@ -250,7 +250,7 @@ public class PushFilterThroughBoolOrAggregation
             remainingExpression = combineConjuncts(conjuncts.stream().filter(expression -> !expression.equals(boolOrCoalesce.get())).toList());
         }
 
-        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(boolOrSymbol));
+        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(boolOrSymbol));
         Expression newPredicate = combineConjuncts(
                 new DomainTranslator(plannerContext.getMetadata()).toPredicate(newTupleDomain),
                 remainingExpression);
@@ -293,7 +293,7 @@ public class PushFilterThroughBoolOrAggregation
     private static boolean isGroupedAggregation(AggregationNode node)
     {
         return node.hasNonEmptyGroupingSet() &&
-               node.getGroupingSetCount() == 1 &&
-               node.getStep() == SINGLE;
+                node.getGroupingSetCount() == 1 &&
+                node.getStep() == SINGLE;
     }
 }

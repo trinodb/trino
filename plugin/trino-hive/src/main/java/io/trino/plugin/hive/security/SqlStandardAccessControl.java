@@ -20,6 +20,7 @@ import com.google.inject.Inject;
 import io.trino.metastore.Database;
 import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnSchema;
@@ -47,7 +48,6 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.Database.DEFAULT_DATABASE_NAME;
-import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -331,28 +331,49 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
     {
         // TODO: Implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, false)) {
-            denySelectTable(tableName.toString());
+            denySelectTable(tableName.toString(), branch);
         }
     }
 
+    @Deprecated
+    @Override
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    {
+        checkCanSelectFromColumns(context, tableName, Optional.empty(), columnNames);
+    }
+
+    @Override
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        if (!checkTablePermission(context, tableName, INSERT, false)) {
+            denyInsertTable(tableName.toString(), branch);
+        }
+    }
+
+    @Deprecated
     @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(context, tableName, INSERT, false)) {
-            denyInsertTable(tableName.toString());
-        }
+        checkCanInsertIntoTable(context, tableName, Optional.empty());
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         if (!checkTablePermission(context, tableName, DELETE, false)) {
-            denyDeleteTable(tableName.toString());
+            denyDeleteTable(tableName.toString(), branch);
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        checkCanDeleteFromTable(context, tableName, Optional.empty());
     }
 
     @Override
@@ -364,11 +385,18 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
     {
         if (!checkTablePermission(context, tableName, UPDATE, false)) {
-            denyUpdateTableColumns(tableName.toString(), updatedColumns);
+            denyUpdateTableColumns(tableName.toString(), branch, updatedColumns);
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        checkCanUpdateTableColumns(context, tableName, Optional.empty(), updatedColumns);
     }
 
     @Override
@@ -404,14 +432,21 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
     {
-        checkCanSelectFromColumns(context, tableName, columnNames);
+        checkCanSelectFromColumns(context, tableName, branch, columnNames);
 
         // TODO implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, true)) {
-            denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+            denyCreateViewWithSelect(tableName.toString(), branch, context.getIdentity());
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, tableName, Optional.empty(), columnNames);
     }
 
     @Override
@@ -569,7 +604,8 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context,
+    public void checkCanGrantRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -585,7 +621,8 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context,
+    public void checkCanRevokeRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -813,7 +850,8 @@ public class SqlStandardAccessControl
         return listTablePrivileges(context, databaseName, tableName, principals);
     }
 
-    private Stream<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context,
+    private Stream<HivePrivilegeInfo> listTablePrivileges(
+            ConnectorSecurityContext context,
             String databaseName,
             String tableName,
             Stream<HivePrincipal> principals)

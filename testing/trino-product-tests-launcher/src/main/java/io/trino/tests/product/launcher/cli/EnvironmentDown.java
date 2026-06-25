@@ -13,13 +13,13 @@
  */
 package io.trino.tests.product.launcher.cli;
 
+import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
 import java.util.concurrent.Callable;
 
 import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
-import static picocli.CommandLine.Command;
 
 @Command(
         name = "down",

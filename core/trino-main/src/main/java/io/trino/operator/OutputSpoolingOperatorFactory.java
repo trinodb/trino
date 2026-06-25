@@ -161,7 +161,7 @@ public class OutputSpoolingOperatorFactory
             NEEDS_INPUT, // output is not ready
             HAS_OUTPUT, // output page ready
             HAS_LAST_OUTPUT, // last output page ready
-            FINISHED // no more pages will be ever produced
+            FINISHED, // no more pages will be ever produced
         }
 
         private OutputSpoolingOperator.State state = NEEDS_INPUT;
@@ -184,8 +184,8 @@ public class OutputSpoolingOperatorFactory
             this.controller = new PipelineSpoolingController(
                     operatorContext.getDriverContext().getPipelineContext(),
                     new OperatorSpoolingController(
-                        getInitialSegmentSize(operatorContext.getSession()).toBytes(),
-                        getMaxSegmentSize(operatorContext.getSession()).toBytes()));
+                            getInitialSegmentSize(operatorContext.getSession()).toBytes(),
+                            getMaxSegmentSize(operatorContext.getSession()).toBytes()));
 
             this.minSegmentSize = getInitialSegmentSize(operatorContext.getSession()).toBytes();
             this.maxSegmentSize = getMaxSegmentSize(operatorContext.getSession()).toBytes();

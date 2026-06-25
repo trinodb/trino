@@ -27,13 +27,13 @@ import io.trino.operator.aggregation.state.GenericSliceStateSerializer;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -41,7 +41,8 @@ import java.lang.invoke.MethodHandle;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -66,6 +67,11 @@ public class ReduceAggregationFunction
     private static final MethodHandle BOOLEAN_STATE_OUTPUT_FUNCTION = methodHandle(GenericBooleanState.class, "write", Type.class, GenericBooleanState.class, BlockBuilder.class);
     private static final MethodHandle SLICE_STATE_OUTPUT_FUNCTION = methodHandle(GenericSliceState.class, "write", Type.class, GenericSliceState.class, BlockBuilder.class);
 
+    private static final AccumulatorStateFactory<GenericLongState> LONG_STATE_FACTORY = StateCompiler.generateStateFactory(GenericLongState.class);
+    private static final AccumulatorStateFactory<GenericDoubleState> DOUBLE_STATE_FACTORY = StateCompiler.generateStateFactory(GenericDoubleState.class);
+    private static final AccumulatorStateFactory<GenericBooleanState> BOOLEAN_STATE_FACTORY = StateCompiler.generateStateFactory(GenericBooleanState.class);
+    private static final AccumulatorStateFactory<GenericSliceState> SLICE_STATE_FACTORY = StateCompiler.generateStateFactory(GenericSliceState.class);
+
     public ReduceAggregationFunction()
     {
         super(
@@ -73,16 +79,16 @@ public class ReduceAggregationFunction
                         .signature(Signature.builder()
                                 .typeVariable("T")
                                 .typeVariable("S")
-                                .returnType(new TypeSignature("S"))
-                                .argumentType(new TypeSignature("T"))
-                                .argumentType(new TypeSignature("S"))
-                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
-                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S")))
+                                .returnType(typeVariable("S"))
+                                .argumentType(typeVariable("T"))
+                                .argumentType(typeVariable("S"))
+                                .argumentType(functionType(typeVariable("S"), typeVariable("T"), typeVariable("S")))
+                                .argumentType(functionType(typeVariable("S"), typeVariable("S"), typeVariable("S")))
                                 .build())
                         .description("Reduce input elements into a single value")
                         .build(),
                 AggregationFunctionMetadata.builder()
-                        .intermediateType(new TypeSignature("S"))
+                        .intermediateType(typeVariable("S"))
                         .build());
     }
 
@@ -100,7 +106,7 @@ public class ReduceAggregationFunction
                     .accumulatorStateDescriptor(
                             GenericLongState.class,
                             new GenericLongStateSerializer(stateType),
-                            StateCompiler.generateStateFactory(GenericLongState.class))
+                            LONG_STATE_FACTORY)
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }
@@ -112,7 +118,7 @@ public class ReduceAggregationFunction
                     .accumulatorStateDescriptor(
                             GenericDoubleState.class,
                             new GenericDoubleStateSerializer(stateType),
-                            StateCompiler.generateStateFactory(GenericDoubleState.class))
+                            DOUBLE_STATE_FACTORY)
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }
@@ -124,7 +130,7 @@ public class ReduceAggregationFunction
                     .accumulatorStateDescriptor(
                             GenericBooleanState.class,
                             new GenericBooleanStateSerializer(stateType),
-                            StateCompiler.generateStateFactory(GenericBooleanState.class))
+                            BOOLEAN_STATE_FACTORY)
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }
@@ -137,7 +143,7 @@ public class ReduceAggregationFunction
                     .accumulatorStateDescriptor(
                             GenericSliceState.class,
                             new GenericSliceStateSerializer(stateType),
-                            StateCompiler.generateStateFactory(GenericSliceState.class))
+                            SLICE_STATE_FACTORY)
                     .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
                     .build();
         }

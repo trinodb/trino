@@ -168,19 +168,24 @@ public class TestingHydraIdentityProvider
             String callbackUrl,
             String logoutCallbackUrl)
     {
+        String[] command = ImmutableList.<String>builder()
+                .add("clients", "create")
+                .add("--endpoint", "https://hydra:4445")
+                .add("--skip-tls-verify")
+                .add("--id", clientId)
+                .add("--secret", clientSecret)
+                .add("--audience", String.join(",", audiences))
+                .add("--grant-types", "authorization_code,refresh_token,client_credentials")
+                .add("--response-types", "token,code,id_token")
+                .add("--scope", "openid,offline")
+                .add("--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue())
+                .add("--callbacks", callbackUrl)
+                .add("--post-logout-callbacks", logoutCallbackUrl)
+                .build()
+                .toArray(String[]::new);
+
         createHydraContainer()
-                .withCommand("clients", "create",
-                        "--endpoint", "https://hydra:4445",
-                        "--skip-tls-verify",
-                        "--id", clientId,
-                        "--secret", clientSecret,
-                        "--audience", String.join(",", audiences),
-                        "--grant-types", "authorization_code,refresh_token,client_credentials",
-                        "--response-types", "token,code,id_token",
-                        "--scope", "openid,offline",
-                        "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
-                        "--callbacks", callbackUrl,
-                        "--post-logout-callbacks", logoutCallbackUrl)
+                .withCommand(command)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }

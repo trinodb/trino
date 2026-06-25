@@ -23,12 +23,14 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakePageSourceProvider;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
@@ -52,11 +54,11 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetIgno
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -81,6 +83,7 @@ public class TableChangesFunctionProcessor
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderOptions parquetReaderOptions,
             TableChangesTableFunctionHandle handle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             TableChangesSplit tableChangesSplit)
     {
         requireNonNull(session, "session is null");
@@ -89,6 +92,7 @@ public class TableChangesFunctionProcessor
         requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         requireNonNull(handle, "handle is null");
+        requireNonNull(tableCredentials, "tableCredentials is null");
         requireNonNull(tableChangesSplit, "tableChangesSplit is null");
 
         this.fileType = tableChangesSplit.fileType();
@@ -100,9 +104,10 @@ public class TableChangesFunctionProcessor
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 handle,
+                tableCredentials,
                 tableChangesSplit);
-        this.currentVersionAsBlock = nativeValueToBlock(BIGINT, tableChangesSplit.currentVersion());
-        this.currentVersionCommitTimestampAsBlock = nativeValueToBlock(
+        this.currentVersionAsBlock = writeNativeValue(BIGINT, tableChangesSplit.currentVersion());
+        this.currentVersionCommitTimestampAsBlock = writeNativeValue(
                 TIMESTAMP_TZ_MILLIS,
                 packDateTimeWithZone(tableChangesSplit.currentVersionCommitTimestamp(), UTC_KEY));
     }
@@ -147,7 +152,7 @@ public class TableChangesFunctionProcessor
                 blocks[i] = page.getBlock(i);
             }
             blocks[filePageColumns] = RunLengthEncodedBlock.create(
-                    nativeValueToBlock(VARCHAR, utf8Slice("insert")), page.getPositionCount());
+                    writeNativeValue(VARCHAR, utf8Slice("insert")), page.getPositionCount());
             blocks[filePageColumns + 1] = RunLengthEncodedBlock.create(
                     currentVersionAsBlock, page.getPositionCount());
             blocks[filePageColumns + 2] = RunLengthEncodedBlock.create(
@@ -168,9 +173,10 @@ public class TableChangesFunctionProcessor
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderOptions parquetReaderOptions,
             TableChangesTableFunctionHandle handle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             TableChangesSplit split)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, handle.credentialsHandle());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
         Map<String, Optional<String>> partitionKeys = split.partitionKeys();
 
@@ -195,6 +201,8 @@ public class TableChangesFunctionProcessor
             case DATA_FILE -> handle.columns();
         };
 
+        // TODO (https://github.com/trinodb/trino/issues/29958) memory usage reporting
+        MemoryContext memoryContext = MemoryContext.NO_LIMIT;
         ConnectorPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
                 0,
@@ -208,7 +216,8 @@ public class TableChangesFunctionProcessor
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.empty());
+                OptionalLong.empty(),
+                memoryContext);
 
         return DeltaLakePageSourceProvider.projectColumns(
                 splitColumns,

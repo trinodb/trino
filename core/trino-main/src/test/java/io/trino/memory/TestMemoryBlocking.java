@@ -97,15 +97,20 @@ public class TestMemoryBlocking
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR);
-        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
+        TableScanOperator source = new TableScanOperator(
+                driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .build()),
+                (_, _, _, _, _, _, reporter) -> {
+                    FixedPageSource pageSource = new FixedPageSource(rowPagesBuilder(types)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .build());
+                    reporter.setBytes(pageSource.getMemoryUsage());
+                    return pageSource;
+                },
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of());

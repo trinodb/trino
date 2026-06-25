@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.MoreFutures;
-import io.trino.Session;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -40,7 +39,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.FILE_BASED_CONFLICT_DETECTION_ENABLED;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -267,7 +265,7 @@ final class TestIcebergLocalConcurrentWrites
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         getQueryRunner().execute("DELETE FROM " + tableName + "  WHERE part = 10");
                         return true;
@@ -372,13 +370,6 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentNonOverlappingUpdate()
             throws Exception
     {
-        testConcurrentNonOverlappingUpdate(getSession());
-        testConcurrentNonOverlappingUpdate(withFileBasedConflictDetectionDisabledSession());
-    }
-
-    private void testConcurrentNonOverlappingUpdate(Session session)
-            throws InterruptedException
-    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
@@ -391,17 +382,17 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
                                 return null;
                             })
                             .build())
@@ -425,13 +416,11 @@ final class TestIcebergLocalConcurrentWrites
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
         String tableName = "test_concurrent_non_overlapping_updates_table_" + randomNameSuffix();
-        // Force creating more parquet files
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "target_max_file_size", "1kB")
-                .build();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'])");
-        assertUpdate(session, " INSERT INTO " + tableName + " SELECT * FROM " +
+        // Force creating more parquet files via the target_max_file_size table property
+        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'], target_max_file_size = '1kB')");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("target_max_file_size = '1kB'");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM " +
                 "(select * from UNNEST(SEQUENCE(1, 10000)) AS t(a)) CROSS JOIN (select * from UNNEST(SEQUENCE(1, 3)) AS t(part))", 30000);
 
         // UPDATE will increase every value by 1
@@ -442,17 +431,17 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE part = 1");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE part = 1");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 2");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 2");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 3");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 3");
                                 return null;
                             })
                             .build())
@@ -519,7 +508,7 @@ final class TestIcebergLocalConcurrentWrites
                     .count();
 
             assertThat(successes).isGreaterThanOrEqualTo(1);
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             switch ((int) successes) {
                 case 1 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (22, NULL), (32, 40)");
                 case 2 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (23, NULL), (33, 40)");
@@ -536,13 +525,6 @@ final class TestIcebergLocalConcurrentWrites
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(3)
     void testConcurrentNonOverlappingUpdateOnNestedPartition()
-            throws Exception
-    {
-        testConcurrentNonOverlappingUpdateOnNestedPartition(getSession());
-        testConcurrentNonOverlappingUpdateOnNestedPartition(withFileBasedConflictDetectionDisabledSession());
-    }
-
-    private void testConcurrentNonOverlappingUpdateOnNestedPartition(Session session)
             throws Exception
     {
         int threads = 3;
@@ -563,17 +545,17 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
                                 return null;
                             })
                             .build())
@@ -645,7 +627,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isGreaterThanOrEqualTo(2);
 
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             if (successfulWrites == 2) {
                 // If all queries starts at the same time DELETE will fail and results are:
                 assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (8, 10), (11, 20), (21, 30)");
@@ -724,7 +706,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isGreaterThanOrEqualTo(2);
 
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             if (successfulWrites == 2) {
                 // If all queries starts at the same time UPDATE will fail and results are:
                 assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (13, 20), (21, 30)");
@@ -879,7 +861,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isGreaterThanOrEqualTo(2);
 
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             if (successfulWrites == 2) {
                 // If all queries starts at the same time MERGE will fail and results are:
                 assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (8, 10), (21, 30)");
@@ -1039,7 +1021,8 @@ final class TestIcebergLocalConcurrentWrites
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
-        List<String> rows = ImmutableList.of("('A', TIMESTAMP '2024-01-01 01:01', 1, 'aaa')",
+        List<String> rows = ImmutableList.of(
+                "('A', TIMESTAMP '2024-01-01 01:01', 1, 'aaa')",
                 "('B', TIMESTAMP '2024-01-01 02:02', 1, 'aab')",
                 "('C', TIMESTAMP '2024-01-01 03:03', 1, 'aac')",
                 "('D', TIMESTAMP '2024-01-01 04:04', 1, 'aad')");
@@ -1137,7 +1120,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isEqualTo(3);
 
-            //There can be two possible results depended on which thread fails
+            // There can be two possible results depended on which thread fails
             MaterializedResult expected1 = computeActual("VALUES (VARCHAR 'AA', DATE '2024-01-01'), ('B', DATE '2024-01-02'), ('CC', DATE '2024-03-03'), ('DD', DATE '2024-04-04')");
             MaterializedResult expected2 = computeActual("VALUES (VARCHAR 'A', DATE '2024-01-01'), ('BB', DATE '2024-01-02'), ('CC', DATE '2024-03-03'), ('DD', DATE '2024-04-04')");
             assertThat(computeActual("SELECT data, part FROM " + tableName + " ORDER BY data"))
@@ -1323,7 +1306,7 @@ final class TestIcebergLocalConcurrentWrites
                             RuntimeException trinoException = getTrinoExceptionCause(e);
                             try {
                                 assertThat(trinoException).hasMessageMatching("Failed to commit the transaction during optimize.*|" +
-                                                                              "Failed to commit during optimize.*");
+                                        "Failed to commit during optimize.*");
                             }
                             catch (Throwable verifyFailure) {
                                 if (verifyFailure != e) {
@@ -1402,12 +1385,5 @@ final class TestIcebergLocalConcurrentWrites
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
-    }
-
-    private Session withFileBasedConflictDetectionDisabledSession()
-    {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), FILE_BASED_CONFLICT_DETECTION_ENABLED, "false")
-                .build();
     }
 }

@@ -91,8 +91,8 @@ public class TestSqlJsonLiteralConverter
         assertThat(json(new TypedValue(DOUBLE, Double.POSITIVE_INFINITY)))
                 .isEqualTo(DoubleNode.valueOf(Double.POSITIVE_INFINITY));
 
-        assertThat(json(new TypedValue(REAL, toReal(1F))))
-                .isEqualTo(FloatNode.valueOf(1F));
+        assertThat(json(new TypedValue(REAL, toReal(1f))))
+                .isEqualTo(FloatNode.valueOf(1f));
 
         assertThat(json(new TypedValue(REAL, toReal(Float.NaN))))
                 .isEqualTo(FloatNode.valueOf(Float.NaN));
@@ -175,8 +175,8 @@ public class TestSqlJsonLiteralConverter
         assertThat(typedValueResult(DoubleNode.valueOf(Double.POSITIVE_INFINITY)))
                 .isEqualTo(new TypedValue(DOUBLE, Double.POSITIVE_INFINITY));
 
-        assertThat(typedValueResult(FloatNode.valueOf(1F)))
-                .isEqualTo(new TypedValue(REAL, toReal(1F)));
+        assertThat(typedValueResult(FloatNode.valueOf(1f)))
+                .isEqualTo(new TypedValue(REAL, toReal(1f)));
 
         assertThat(typedValueResult(FloatNode.valueOf(Float.NEGATIVE_INFINITY)))
                 .isEqualTo(new TypedValue(REAL, toReal(Float.NEGATIVE_INFINITY)));

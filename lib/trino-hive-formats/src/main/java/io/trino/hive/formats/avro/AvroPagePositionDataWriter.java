@@ -16,6 +16,7 @@ package io.trino.hive.formats.avro;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.hive.formats.avro.AvroTypeUtils.SimpleUnionNullIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
@@ -42,7 +43,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.avro.AvroTypeUtils.SimpleUnionNullIndex;
 import static io.trino.hive.formats.avro.AvroTypeUtils.getSimpleNullableUnionNullIndex;
 import static io.trino.hive.formats.avro.AvroTypeUtils.isSimpleNullableUnion;
 import static io.trino.hive.formats.avro.AvroTypeUtils.lowerCaseAllFieldsForWriter;
@@ -558,7 +558,7 @@ public class AvroPagePositionDataWriter
                 channelEncoders[i].setBlock(sqlRow.getRawFieldBlock(i));
             }
             int rawIndex = sqlRow.getRawIndex();
-            encodeInternal(i -> rawIndex, encoder);
+            encodeInternal(_ -> rawIndex, encoder);
         }
 
         public void setChannelBlocksFromPage(Page page)
@@ -572,7 +572,7 @@ public class AvroPagePositionDataWriter
         public void encodePositionInEachChannel(int position, Encoder encoder)
                 throws IOException
         {
-            encodeInternal(ignore -> position, encoder);
+            encodeInternal(_ -> position, encoder);
         }
 
         private void encodeInternal(IntFunction<Integer> channelToPosition, Encoder encoder)

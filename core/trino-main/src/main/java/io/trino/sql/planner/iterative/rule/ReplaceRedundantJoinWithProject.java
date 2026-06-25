@@ -61,16 +61,14 @@ public class ReplaceRedundantJoinWithProject
                             left,
                             node.getLeftOutputSymbols(),
                             node.getRightOutputSymbols(),
-                            context.getIdAllocator()
-                    )) :
+                            context.getIdAllocator())) :
                     Result.empty();
             case RIGHT -> isEmpty(left, lookup) && !isEmpty(right, lookup) ?
                     Result.ofPlanNode(appendNulls(
                             right,
                             node.getRightOutputSymbols(),
                             node.getLeftOutputSymbols(),
-                            context.getIdAllocator()
-                    )) :
+                            context.getIdAllocator())) :
                     Result.empty();
             case FULL -> {
                 if (isEmpty(left, lookup) && !isEmpty(right, lookup)) {

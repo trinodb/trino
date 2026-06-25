@@ -15,6 +15,9 @@ package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -22,6 +25,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcRemoteIdentifiers;
@@ -34,9 +38,18 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
@@ -139,6 +152,9 @@ public class DruidJdbcClient
     // All the datasources in Druid are created under schema "druid"
     private static final String DRUID_SCHEMA = "druid";
 
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
     // TODO We could also re-evaluate this logic by using a new Calendar for each row if necessary
     private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone(UTC));
 
@@ -155,6 +171,24 @@ public class DruidJdbcClient
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .build();
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
+                        .add(new ImplementAvgBigint())
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, false))
+                        .add(new ImplementMinMax(false))
+                        // Druid has no decimal type, so decimal sum is not pushed down
+                        .add(new ImplementSum(_ -> Optional.empty()))
+                        .build());
     }
 
     @Override
@@ -163,7 +197,7 @@ public class DruidJdbcClient
         return ImmutableSet.of(DRUID_SCHEMA);
     }
 
-    //Overridden to filter out tables that don't match schemaTableName
+    // Overridden to filter out tables that don't match schemaTableName
     @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
@@ -212,7 +246,8 @@ public class DruidJdbcClient
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(DRUID_CATALOG,
+        return metadata.getTables(
+                DRUID_CATALOG,
                 DRUID_SCHEMA,
                 tableName.orElse(null),
                 null);
@@ -234,67 +269,40 @@ public class DruidJdbcClient
         }
 
         // TODO (https://github.com/trinodb/trino/issues/9215) Implement proper type mapping and add test
-        switch (typeHandle.jdbcType()) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-
-            case Types.FLOAT:
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
-
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-
-            case Types.CHAR:
-            case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
-
-            case Types.VARCHAR:
+        return switch (typeHandle.jdbcType()) {
+            case Types.BIT, Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.FLOAT, Types.REAL -> Optional.of(realColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.CHAR, Types.NCHAR -> Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.VARCHAR -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 if (columnSize == -1) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
+                    yield Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(columnSize, true));
-
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
-
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(varbinaryColumnMapping());
-
-            case Types.DATE:
-                return Optional.of(dateColumnMappingUsingSqlDate());
-
-            case Types.TIME:
+                yield Optional.of(defaultVarcharColumnMapping(columnSize, true));
+            }
+            case Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR -> Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
+            case Types.DATE -> Optional.of(dateColumnMappingUsingSqlDate());
+            case Types.TIME -> {
                 // TODO Consider using `StandardColumnMappings.timeColumnMapping`
-                return Optional.of(timeColumnMappingUsingSqlTime());
-
-            case Types.TIMESTAMP:
+                yield Optional.of(timeColumnMappingUsingSqlTime());
+            }
+            case Types.TIMESTAMP -> {
                 // TODO: use `StandardColumnMappings.timestampColumnMapping` when https://issues.apache.org/jira/browse/CALCITE-1630 gets resolved
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithFullPushdown(TIMESTAMP_MILLIS));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+                yield Optional.of(timestampColumnMappingUsingSqlTimestampWithFullPushdown(TIMESTAMP_MILLIS));
+            }
+            default -> {
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
+        };
     }
 
     @Override
@@ -324,10 +332,10 @@ public class DruidJdbcClient
                     boolean canPushdownFilter = domain.getValues().getValuesProcessor().transform(
                             ranges -> ranges.getOrderedRanges().stream()
                                     .allMatch(DruidJdbcClient::hasSecondPrecision),
-                            discreteValues -> {
+                            _ -> {
                                 throw new UnsupportedOperationException("Not supported for discrete values");
                             },
-                            allOrNone -> true);
+                            _ -> true);
 
                     if (canPushdownFilter) {
                         return FULL_PUSHDOWN.apply(session, domain);
@@ -623,5 +631,11 @@ public class DruidJdbcClient
     public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
     {
         return new JdbcRemoteIdentifiers(this, connection, false);
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 }

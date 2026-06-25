@@ -141,12 +141,6 @@ public class MongoPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0L;
-    }
-
-    @Override
     public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());

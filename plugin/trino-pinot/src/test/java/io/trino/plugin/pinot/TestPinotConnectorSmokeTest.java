@@ -70,7 +70,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -172,8 +171,8 @@ public class TestPinotConnectorSmokeTest
                             Arrays.asList("string_" + offset, "string1_" + (offset + 1), "string2_" + (offset + 2)),
                             true,
                             Arrays.asList(54 + i / 3, -10001, 1000),
-                            Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
-                            Arrays.asList(-17.33D + i, Double.POSITIVE_INFINITY, 10596.034D + i),
+                            Arrays.asList(-7.33f + i, Float.POSITIVE_INFINITY, 17.034f + i),
+                            Arrays.asList(-17.33d + i, Double.POSITIVE_INFINITY, 10596.034d + i),
                             Arrays.asList(-3147483647L + i, 12L - i, 4147483647L + i),
                             initialUpdatedAt.minusMillis(offset).toEpochMilli(),
                             initialUpdatedAt.plusMillis(offset).toEpochMilli())));
@@ -397,13 +396,13 @@ public class TestPinotConnectorSmokeTest
         kafka.createTopic(JSON_TABLE);
         long key = 0L;
         kafka.sendMessages(Stream.of(
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor1", "Los Angeles", Arrays.asList("foo1", "bar1", "baz1"), Arrays.asList(5, 6, 7), Arrays.asList(3.5F, 5.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 4)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor2", "New York", Arrays.asList("foo2", "bar1", "baz1"), Arrays.asList(6, 7, 8), Arrays.asList(4.5F, 6.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 6)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor3", "Los Angeles", Arrays.asList("foo3", "bar2", "baz1"), Arrays.asList(7, 8, 9), Arrays.asList(5.5F, 7.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 8)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor4", "New York", Arrays.asList("foo4", "bar2", "baz2"), Arrays.asList(8, 9, 10), Arrays.asList(6.5F, 8.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 10)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor5", "Los Angeles", Arrays.asList("foo5", "bar3", "baz2"), Arrays.asList(9, 10, 11), Arrays.asList(7.5F, 9.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
-                new ProducerRecord<>(JSON_TABLE, key, TestingJsonRecord.of("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(9.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor1", "Los Angeles", Arrays.asList("foo1", "bar1", "baz1"), Arrays.asList(5, 6, 7), Arrays.asList(3.5f, 5.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 4)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor2", "New York", Arrays.asList("foo2", "bar1", "baz1"), Arrays.asList(6, 7, 8), Arrays.asList(4.5f, 6.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 6)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor3", "Los Angeles", Arrays.asList("foo3", "bar2", "baz1"), Arrays.asList(7, 8, 9), Arrays.asList(5.5f, 7.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 8)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor4", "New York", Arrays.asList("foo4", "bar2", "baz2"), Arrays.asList(8, 9, 10), Arrays.asList(6.5f, 8.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 10)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor5", "Los Angeles", Arrays.asList("foo5", "bar3", "baz2"), Arrays.asList(9, 10, 11), Arrays.asList(7.5f, 9.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5f, 10.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
+                new ProducerRecord<>(JSON_TABLE, key, TestingJsonRecord.of("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(9.5f, 10.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
 
         pinot.createSchema("schema.json", JSON_TABLE);
         pinot.addRealTimeTable("realtimeSpec.json", JSON_TABLE);
@@ -616,24 +615,19 @@ public class TestPinotConnectorSmokeTest
             SegmentGeneratorConfig segmentGeneratorConfig = new SegmentGeneratorConfig(tableConfig, pinotSchema);
             segmentGeneratorConfig.setTableName(tableName);
             segmentGeneratorConfig.setOutDir(segmentTempLocation);
-            if (timeColumnName != null) {
-                DateTimeFormatSpec formatSpec = new DateTimeFormatSpec(pinotSchema.getDateTimeSpec(timeColumnName).getFormat());
-                segmentGeneratorConfig.setSegmentNameGenerator(new NormalizedDateSegmentNameGenerator(
-                        tableName,
-                        null,
-                        false,
-                        "APPEND",
-                        "daily",
-                        formatSpec,
-                        null));
-            }
-            else {
-                checkState(tableConfig.isDimTable(), "Null time column only allowed for dimension tables");
-            }
+            DateTimeFormatSpec formatSpec = new DateTimeFormatSpec(pinotSchema.getDateTimeSpec(timeColumnName).getFormat());
+            segmentGeneratorConfig.setSegmentNameGenerator(new NormalizedDateSegmentNameGenerator(
+                    tableName,
+                    null,
+                    false,
+                    "APPEND",
+                    "daily",
+                    formatSpec,
+                    null));
             segmentGeneratorConfig.setSequenceId(sequenceId);
             SegmentCreationDataSource dataSource = new RecordReaderSegmentCreationDataSource(recordReader);
             SegmentIndexCreationDriverImpl driver = new SegmentIndexCreationDriverImpl();
-            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(tableConfig, pinotSchema));
+            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(tableConfig, pinotSchema), null);
             driver.build();
             File segmentOutputDirectory = driver.getOutputDirectory();
             File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));
@@ -925,7 +919,8 @@ public class TestPinotConnectorSmokeTest
     public void testTopN()
     {
         // TODO https://github.com/trinodb/trino/issues/14045 Fix ORDER BY ... LIMIT query
-        assertQueryFails("SELECT regionkey FROM nation ORDER BY name LIMIT 3",
+        assertQueryFails(
+                "SELECT regionkey FROM nation ORDER BY name LIMIT 3",
                 format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
@@ -934,7 +929,8 @@ public class TestPinotConnectorSmokeTest
     public void testJoin()
     {
         // TODO https://github.com/trinodb/trino/issues/14046 Fix JOIN query
-        assertQueryFails("SELECT n.name, r.name FROM nation n JOIN region r on n.regionkey = r.regionkey",
+        assertQueryFails(
+                "SELECT n.name, r.name FROM nation n JOIN region r on n.regionkey = r.regionkey",
                 format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"name\", \"regionkey\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
@@ -943,7 +939,7 @@ public class TestPinotConnectorSmokeTest
     {
         MaterializedResult result = computeActual("SELECT price FROM " + JSON_TABLE + " WHERE vendor = 'vendor1'");
         assertThat(getOnlyElement(result.getTypes())).isEqualTo(REAL);
-        assertThat(result.getOnlyValue()).isEqualTo(3.5F);
+        assertThat(result.getOnlyValue()).isEqualTo(3.5f);
     }
 
     @Test
@@ -990,12 +986,14 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testBrokerColumnMappingsForArrays()
     {
-        assertQuery("SELECT ARRAY_MIN(unlucky_numbers), ARRAY_MAX(long_numbers), ELEMENT_AT(neighbors, 2), ARRAY_MIN(lucky_numbers), ARRAY_MAX(prices)" +
+        assertQuery(
+                "SELECT ARRAY_MIN(unlucky_numbers), ARRAY_MAX(long_numbers), ELEMENT_AT(neighbors, 2), ARRAY_MIN(lucky_numbers), ARRAY_MAX(prices)" +
                         "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
                         "  FROM " + JSON_TABLE +
                         "  WHERE vendor = 'vendor1'\"",
                 "VALUES (-3.7, 20000000, 'bar1', 5, 5.5)");
-        assertQuery("SELECT CARDINALITY(unlucky_numbers), CARDINALITY(long_numbers), CARDINALITY(neighbors), CARDINALITY(lucky_numbers), CARDINALITY(prices)" +
+        assertQuery(
+                "SELECT CARDINALITY(unlucky_numbers), CARDINALITY(long_numbers), CARDINALITY(neighbors), CARDINALITY(lucky_numbers), CARDINALITY(prices)" +
                         "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
                         "  FROM " + JSON_TABLE +
                         "  WHERE vendor = 'vendor1'\"",
@@ -1034,12 +1032,14 @@ public class TestPinotConnectorSmokeTest
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
         // Test segment query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
                 mixedCaseColumnNamesTableValues);
 
@@ -1086,12 +1086,14 @@ public class TestPinotConnectorSmokeTest
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
         // Test segment query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM " + MIXED_CASE_TABLE_NAME,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
-        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery(
+                "SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME + "\"",
                 mixedCaseColumnNamesTableValues);
 
@@ -1213,7 +1215,8 @@ public class TestPinotConnectorSmokeTest
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
         // The limit is greater than the result size returned.
-        assertQuery("SELECT string_col, updated_at_seconds" +
+        assertQuery(
+                "SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 2) + "\"",
                 tooManyRowsTableValues.stream().collect(joining(",", "VALUES ", "")));
@@ -1222,7 +1225,8 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testMaxLimitForPassthroughQueries()
     {
-        assertQueryFails("SELECT string_col, updated_at_seconds" +
+        assertQueryFails(
+                "SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1) + "\"",
                 "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"SELECT \"updated_at_seconds\", \"string_col\" FROM too_many_broker_rows LIMIT 13\"");
@@ -1242,7 +1246,8 @@ public class TestPinotConnectorSmokeTest
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
-        assertQuery("SELECT string_col, updated_at_seconds" +
+        assertQuery(
+                "SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  WHERE string_col != 'string_12'" +
                         "  LIMIT " + MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + "\"",
@@ -2088,23 +2093,58 @@ public class TestPinotConnectorSmokeTest
         // Aggregation is not pushed down for queries with count distinct and other aggregations
         countDistinctAndNonDistinctNotPushedDown(
                 withMarkDistinct,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                MarkDistinctNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         countDistinctAndNonDistinctNotPushedDown(
                 withSingleStep,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         countDistinctAndNonDistinctNotPushedDown(
                 withPreAggregate,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, GroupIdNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                ProjectNode.class,
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                GroupIdNode.class);
         // Test queries with no grouping columns
         globalCountDistinctAndNonDistinctNotPushedDown(
                 withMarkDistinct,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                MarkDistinctNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         globalCountDistinctAndNonDistinctNotPushedDown(
                 withSingleStep,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class);
         globalCountDistinctAndNonDistinctNotPushedDown(
                 withPreAggregate,
-                AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, FilterNode.class, GroupIdNode.class);
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                ProjectNode.class,
+                AggregationNode.class,
+                ExchangeNode.class,
+                ExchangeNode.class,
+                AggregationNode.class,
+                FilterNode.class,
+                GroupIdNode.class);
 
         Session countDistinctPushdownDisabledSession = Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty("pinot", "count_distinct_pushdown_enabled", "false")

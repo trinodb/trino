@@ -50,7 +50,8 @@ public class TestHiveCreateExternalTableDisabled
     {
         Path tempDir = createTempDirectory(null);
 
-        @Language("SQL") String createTableSql = format("" +
+        @Language("SQL") String createTableSql = format(
+                "" +
                         "CREATE TABLE test_create_external " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
@@ -66,7 +67,8 @@ public class TestHiveCreateExternalTableDisabled
     {
         Path tempDir = createTempDirectory(null);
 
-        @Language("SQL") String createTableSql = format("" +
+        @Language("SQL") String createTableSql = format(
+                "" +
                         "CREATE TABLE test_create_external (n TINYINT) " +
                         "WITH (external_location = '%s')",
                 tempDir.toUri().toASCIIString());

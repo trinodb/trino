@@ -658,10 +658,10 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
     {
         if (!canAccessCatalog(context, table.getCatalogName(), READ_ONLY)) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
 
         if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
@@ -675,32 +675,60 @@ public class FileBasedSystemAccessControl
                 .findFirst()
                 .orElse(false);
         if (!allowed) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
     }
 
+    @Deprecated
+    @Override
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    {
+        checkCanSelectFromColumns(context, table, Optional.empty(), columns);
+    }
+
+    @Override
+    public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
+    {
+        if (!checkTablePermission(context, table, INSERT)) {
+            denyInsertTable(table.toString(), branch);
+        }
+    }
+
+    @Deprecated
     @Override
     public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!checkTablePermission(context, table, INSERT)) {
-            denyInsertTable(table.toString());
+        checkCanInsertIntoTable(context, table, Optional.empty());
+    }
+
+    @Override
+    public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
+    {
+        if (!checkTablePermission(context, table, DELETE)) {
+            denyDeleteTable(table.toString(), branch);
         }
     }
 
+    @Deprecated
     @Override
     public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!checkTablePermission(context, table, DELETE)) {
-            denyDeleteTable(table.toString());
-        }
+        checkCanDeleteFromTable(context, table, Optional.empty());
     }
 
     @Override
-    public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> updatedColumnNames)
     {
         if (!checkTablePermission(context, table, UPDATE)) {
-            denyUpdateTableColumns(table.toString(), updatedColumnNames);
+            denyUpdateTableColumns(table.toString(), branch, updatedColumnNames);
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        checkCanUpdateTableColumns(securityContext, table, Optional.empty(), updatedColumnNames);
     }
 
     @Override
@@ -745,10 +773,10 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
     {
         if (!canAccessCatalog(context, table.getCatalogName(), ALL)) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
 
         if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
@@ -761,11 +789,18 @@ public class FileBasedSystemAccessControl
                 .findFirst()
                 .orElse(null);
         if (rule == null || !rule.canSelectColumns(columns)) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
-            denyCreateViewWithSelect(table.toString(), context.getIdentity());
+            denyCreateViewWithSelect(table.toString(), branch, context.getIdentity());
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, table, Optional.empty(), columns);
     }
 
     @Override
@@ -920,7 +955,8 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(SystemSecurityContext context,
+    public void checkCanGrantRoles(
+            SystemSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -930,7 +966,8 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanRevokeRoles(SystemSecurityContext context,
+    public void checkCanRevokeRoles(
+            SystemSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -1151,22 +1188,19 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetEntityAuthorization(SystemSecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
     {
-        boolean denied;
         String ownedKind = entityKindAndName.entityKind();
         List<String> name = entityKindAndName.name();
-        switch (ownedKind) {
-            case "SCHEMA":
+        boolean denied = switch (ownedKind) {
+            case "SCHEMA" -> {
                 CatalogSchemaName schema = new CatalogSchemaName(name.get(0), name.get(1));
-                denied = !isSchemaOwner(context, schema) || !checkCanSetAuthorization(context, principal);
-                break;
-            case "TABLE", "VIEW", "MATERIALIZED VIEW":
+                yield !isSchemaOwner(context, schema) || !checkCanSetAuthorization(context, principal);
+            }
+            case "TABLE", "VIEW", "MATERIALIZED VIEW" -> {
                 CatalogSchemaTableName table = new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2));
-                denied = !checkTablePermission(context, table, OWNERSHIP) || !checkCanSetAuthorization(context, principal);
-                break;
-            default:
-                denied = true;
-                break;
-        }
+                yield !checkTablePermission(context, table, OWNERSHIP) || !checkCanSetAuthorization(context, principal);
+            }
+            default -> true;
+        };
         if (denied) {
             denySetEntityAuthorization(new EntityKindAndName(ownedKind, name), principal);
         }

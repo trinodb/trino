@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.env;
 import jakarta.annotation.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 import java.io.File;
@@ -24,7 +25,6 @@ import java.nio.file.Path;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static java.util.Locale.ENGLISH;
-import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
 {
@@ -73,13 +73,9 @@ public final class EnvironmentOptions
     public void setBindOnHost(String value)
     {
         switch (value.toLowerCase(ENGLISH)) {
-            case BIND_ON_HOST:
-                this.bindPorts = true;
-                break;
-            case DO_NOT_BIND:
-                this.bindPorts = false;
-                break;
-            default:
+            case BIND_ON_HOST -> this.bindPorts = true;
+            case DO_NOT_BIND -> this.bindPorts = false;
+            default -> {
                 try {
                     this.bindPortsBase = Integer.parseInt(value);
                     this.bindPorts = true;
@@ -88,6 +84,7 @@ public final class EnvironmentOptions
                 catch (Exception e) {
                     throw new CommandLine.ParameterException(spec.commandLine(), "Port bind base is invalid", e);
                 }
+            }
         }
     }
 

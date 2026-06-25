@@ -30,8 +30,8 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -51,7 +52,6 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -78,9 +78,10 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.relativePath;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupMaxRowCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupSize;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.deltalake.DeltaLakeWriter.readStatistics;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVectors;
@@ -89,9 +90,9 @@ import static io.trino.plugin.deltalake.delete.DeletionVectors.writeDeletionVect
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -134,6 +135,7 @@ public class DeltaLakeMergeSink
     private final Map<String, DeletionVectorEntry> deletionVectors;
     private final int randomPrefixLength;
     private final Optional<String> shallowCloneSourceTableLocation;
+    private final boolean useDeltaLengthByteArrayEncoding;
     private long writtenBytes;
 
     @Nullable
@@ -149,7 +151,7 @@ public class DeltaLakeMergeSink
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats writerStats,
             Location rootTableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             ConnectorPageSink insertPageSink,
             List<DeltaLakeColumnHandle> tableColumns,
             int domainCompactionThreshold,
@@ -161,11 +163,12 @@ public class DeltaLakeMergeSink
             boolean deletionVectorEnabled,
             Map<String, DeletionVectorEntry> deletionVectors,
             int randomPrefixLength,
-            Optional<String> shallowCloneSourceTableLocation)
+            Optional<String> shallowCloneSourceTableLocation,
+            boolean useDeltaLengthByteArrayEncoding)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
-        this.fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        this.fileSystem = fileSystemFactory.create(session, tableCredentials);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
@@ -191,6 +194,7 @@ public class DeltaLakeMergeSink
         this.deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
         this.randomPrefixLength = randomPrefixLength;
         this.shallowCloneSourceTableLocation = requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
+        this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
 
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
@@ -231,7 +235,7 @@ public class DeltaLakeMergeSink
                 cdfPostUpdateBlocks[i] = updateInsertionsPage.getBlock(i);
             }
             cdfPostUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
-                    nativeValueToBlock(VARCHAR, utf8Slice(cdfOperation)), updateInsertionsPage.getPositionCount());
+                    writeNativeValue(VARCHAR, utf8Slice(cdfOperation)), updateInsertionsPage.getPositionCount());
             cdfPageSink.appendPage(new Page(updateInsertionsPage.getPositionCount(), cdfPostUpdateBlocks));
         }
     }
@@ -284,24 +288,23 @@ public class DeltaLakeMergeSink
         for (int position = 0; position < positionCount; position++) {
             byte operation = TINYINT.getByte(operationBlock, position);
             switch (operation) {
-                case DELETE_OPERATION_NUMBER:
+                case DELETE_OPERATION_NUMBER -> {
                     deletePositions[deletePositionCount] = position;
                     deletePositionCount++;
-                    break;
-                case INSERT_OPERATION_NUMBER:
+                }
+                case INSERT_OPERATION_NUMBER -> {
                     insertPositions[insertPositionCount] = position;
                     insertPositionCount++;
-                    break;
-                case UPDATE_INSERT_OPERATION_NUMBER:
+                }
+                case UPDATE_INSERT_OPERATION_NUMBER -> {
                     updateInsertPositions[updateInsertPositionCount] = position;
                     updateInsertPositionCount++;
-                    break;
-                case UPDATE_DELETE_OPERATION_NUMBER:
+                }
+                case UPDATE_DELETE_OPERATION_NUMBER -> {
                     updateDeletePositions[updateDeletePositionCount] = position;
                     updateDeletePositionCount++;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid merge operation: " + operation);
+                }
+                default -> throw new IllegalArgumentException("Invalid merge operation: " + operation);
             }
         }
         Optional<Page> deletePage = Optional.empty();
@@ -400,7 +403,7 @@ public class DeltaLakeMergeSink
         }
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toStringUtf8()));
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, parquetReaderOptions, fileFormatDataSourceStats)) {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetReaderOptions, Optional.empty(), Optional.empty());
             long rowCount = parquetMetadata.getBlocks().stream().map(BlockMetadata::rowCount).mapToLong(Long::longValue).sum();
             RoaringBitmapArray rowsRetained = new RoaringBitmapArray();
             rowsRetained.addRange(0, rowCount - 1);
@@ -515,15 +518,17 @@ public class DeltaLakeMergeSink
     private ParquetFileWriter createParquetFileWriter(Location path, List<DeltaLakeColumnHandle> dataColumns)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
-                .setMaxBlockSize(getParquetWriterBlockSize(session))
+                .setMaxBlockSize(getParquetWriterRowGroupSize(session))
+                .setMaxRowGroupRowCount(getParquetWriterRowGroupMaxRowCount(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
+                .setUseDeltaLengthByteArrayEncoding(useDeltaLengthByteArrayEncoding)
                 .build();
         CompressionCodec compressionCodec = toCompressionCodec(getCompressionCodec(session)).getParquetCompressionCodec()
                 .orElseThrow(); // validated on the session property level
 
         try {
-            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(path);
             dataColumns.forEach(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column));
 
             List<Type> parquetTypes = dataColumns.stream()
@@ -670,7 +675,7 @@ public class DeltaLakeMergeSink
                     cdfPageIndex++;
                 }
                 else {
-                    outputBlocks[i] = RunLengthEncodedBlock.create(nativeValueToBlock(
+                    outputBlocks[i] = RunLengthEncodedBlock.create(writeNativeValue(
                                     nonSynthesizedColumns.get(i).baseType(),
                                     deserializePartitionValue(
                                             nonSynthesizedColumns.get(i),
@@ -680,7 +685,7 @@ public class DeltaLakeMergeSink
                 }
             }
             Block cdfOperationBlock = RunLengthEncodedBlock.create(
-                    nativeValueToBlock(VARCHAR, utf8Slice(operation)), page.getPositionCount());
+                    writeNativeValue(VARCHAR, utf8Slice(operation)), page.getPositionCount());
             outputBlocks[nonSynthesizedColumns.size()] = cdfOperationBlock;
             cdfPageSink.appendPage(new Page(page.getPositionCount(), outputBlocks));
         }
@@ -706,7 +711,9 @@ public class DeltaLakeMergeSink
                 Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(fileSize));
+                OptionalLong.of(fileSize),
+                // TODO (https://github.com/trinodb/trino/issues/29956) report memory usage
+                MemoryContext.NO_LIMIT);
     }
 
     private String getReferencedPath(String basePath, String sourcePath)

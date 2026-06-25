@@ -19,7 +19,7 @@ public enum OperatorType
     SUBTRACT("-", 2),
     MULTIPLY("*", 2),
     DIVIDE("/", 2),
-    MODULUS("%", 2),
+    MODULO("%", 2),
     NEGATION("-", 1),
     EQUAL("=", 2),
     /**

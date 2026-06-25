@@ -48,15 +48,15 @@ public class TestOutputNodeStats
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .output(outputBuilder -> {
-                    Symbol a = pb.symbol("a", BIGINT);
-                    Symbol b = pb.symbol("b", DOUBLE);
-                    outputBuilder
-                            .source(pb.values(a, b))
-                            .column(a, "a1")
-                            .column(a, "a2")
-                            .column(b, "b");
-                }))
+                        .output(outputBuilder -> {
+                            Symbol a = pb.symbol("a", BIGINT);
+                            Symbol b = pb.symbol("b", DOUBLE);
+                            outputBuilder
+                                    .source(pb.values(a, b))
+                                    .column(a, "a1")
+                                    .column(a, "a2")
+                                    .column(b, "b");
+                        }))
                 .withSourceStats(stats)
                 .check(outputStats -> outputStats.equalTo(stats));
     }

@@ -63,7 +63,7 @@ public final class GeometryUtils
      */
     private static double translateFromAVNaN(double n)
     {
-        return n < -1.0E38D ? (0.0D / 0.0) : n;
+        return n < -1.0e38d ? (0.0d / 0.0) : n;
     }
 
     /**
@@ -214,6 +214,15 @@ public final class GeometryUtils
             return GEOMETRY_FACTORY.createGeometryCollection();
         }
         return UnaryUnionOp.union(geometries);
+    }
+
+    /**
+     * Create a JTS Point from x/y coordinates.
+     */
+    public static Point createPoint(double x, double y)
+    {
+        Coordinate coordinate = new Coordinate(x, y);
+        return GEOMETRY_FACTORY.createPoint(coordinate);
     }
 
     private static void flattenGeometry(Geometry geometry, List<Geometry> output)

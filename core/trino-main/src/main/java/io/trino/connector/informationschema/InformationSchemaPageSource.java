@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getRelationTypes;
@@ -206,30 +207,14 @@ public class InformationSchemaPageSource
         while (pages.isEmpty() && prefixIterator.get().hasNext() && !closed && !isLimitExhausted()) {
             QualifiedTablePrefix prefix = prefixIterator.get().next();
             switch (table) {
-                case COLUMNS:
-                    addColumnsRecords(prefix);
-                    break;
-                case TABLES:
-                    addTablesRecords(prefix);
-                    break;
-                case VIEWS:
-                    addViewsRecords(prefix);
-                    break;
-                case SCHEMATA:
-                    addSchemataRecords();
-                    break;
-                case TABLE_PRIVILEGES:
-                    addTablePrivilegesRecords(prefix);
-                    break;
-                case ROLES:
-                    addRolesRecords();
-                    break;
-                case APPLICABLE_ROLES:
-                    addApplicableRolesRecords();
-                    break;
-                case ENABLED_ROLES:
-                    addEnabledRolesRecords();
-                    break;
+                case COLUMNS -> addColumnsRecords(prefix);
+                case TABLES -> addTablesRecords(prefix);
+                case VIEWS -> addViewsRecords(prefix);
+                case SCHEMATA -> addSchemataRecords();
+                case TABLE_PRIVILEGES -> addTablePrivilegesRecords(prefix);
+                case ROLES -> addRolesRecords();
+                case APPLICABLE_ROLES -> addApplicableRolesRecords();
+                case ENABLED_ROLES -> addEnabledRolesRecords();
             }
         }
         if (!prefixIterator.get().hasNext() || isLimitExhausted()) {
@@ -396,7 +381,7 @@ public class InformationSchemaPageSource
     {
         pageBuilder.declarePosition();
         for (int i = 0; i < types.size(); i++) {
-            writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
+            writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i] instanceof String string ? utf8Slice(string) : values[i]);
         }
         if (pageBuilder.isFull()) {
             flushPageBuilder();

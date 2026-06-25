@@ -152,13 +152,9 @@ public class OrcMetadataWriter
     private void setWriter(OrcProto.Footer.Builder builder)
     {
         switch (writerIdentification) {
-            case LEGACY_HIVE_COMPATIBLE:
-                return;
-            case TRINO:
-                builder.setWriter(TRINO_WRITER_ID);
-                return;
+            case LEGACY_HIVE_COMPATIBLE -> {}
+            case TRINO -> builder.setWriter(TRINO_WRITER_ID);
         }
-        throw new IllegalStateException("Unexpected value: " + writerIdentification);
     }
 
     private static OrcProto.StripeInformation toStripeInformation(StripeInformation stripe)
@@ -338,28 +334,20 @@ public class OrcMetadataWriter
 
     private static OrcProto.Stream.Kind toStreamKind(StreamKind streamKind)
     {
-        switch (streamKind) {
-            case PRESENT:
-                return OrcProto.Stream.Kind.PRESENT;
-            case DATA:
-                return OrcProto.Stream.Kind.DATA;
-            case LENGTH:
-                return OrcProto.Stream.Kind.LENGTH;
-            case DICTIONARY_DATA:
-                return OrcProto.Stream.Kind.DICTIONARY_DATA;
-            case DICTIONARY_COUNT:
-                return OrcProto.Stream.Kind.DICTIONARY_COUNT;
-            case SECONDARY:
-                return OrcProto.Stream.Kind.SECONDARY;
-            case ROW_INDEX:
-                return OrcProto.Stream.Kind.ROW_INDEX;
-            case BLOOM_FILTER:
+        return switch (streamKind) {
+            case PRESENT -> OrcProto.Stream.Kind.PRESENT;
+            case DATA -> OrcProto.Stream.Kind.DATA;
+            case LENGTH -> OrcProto.Stream.Kind.LENGTH;
+            case DICTIONARY_DATA -> OrcProto.Stream.Kind.DICTIONARY_DATA;
+            case DICTIONARY_COUNT -> OrcProto.Stream.Kind.DICTIONARY_COUNT;
+            case SECONDARY -> OrcProto.Stream.Kind.SECONDARY;
+            case ROW_INDEX -> OrcProto.Stream.Kind.ROW_INDEX;
+            case BLOOM_FILTER_UTF8 -> OrcProto.Stream.Kind.BLOOM_FILTER_UTF8;
+            case BLOOM_FILTER -> {
                 // unsupported
-                break;
-            case BLOOM_FILTER_UTF8:
-                return OrcProto.Stream.Kind.BLOOM_FILTER_UTF8;
-        }
-        throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
+                throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
+            }
+        };
     }
 
     private static OrcProto.CalendarKind toOrcCalendarKind(CalendarKind calendarKind)

@@ -125,6 +125,7 @@ public class SubnetBasedTopology
         }
 
         // Compute a mask with n leading bits set
+
         byte[] computeSubnetMask(int n)
         {
             checkArgument(n > 0 && n < getTotalBitCount(), "Invalid length for subnet mask");
@@ -136,7 +137,7 @@ public class SubnetBasedTopology
                     break;
                 }
 
-                mask[i] = (byte) 0xff;
+                mask[i] = (byte) 0xFF;
                 n -= Byte.SIZE;
             }
 

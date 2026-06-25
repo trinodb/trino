@@ -24,15 +24,13 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
-import io.trino.filesystem.alluxio.AlluxioFileSystemFactory;
-import io.trino.filesystem.alluxio.AlluxioFileSystemModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
 import io.trino.filesystem.cache.CacheKeyProvider;
-import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
-import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
+import io.trino.filesystem.cache.NoopSplitAffinityProvider;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
@@ -90,11 +88,6 @@ public class FileSystemModule
 
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
 
-        if (config.isAlluxioEnabled()) {
-            install(new AlluxioFileSystemModule());
-            factories.addBinding("alluxio").to(AlluxioFileSystemFactory.class);
-        }
-
         if (config.isAzureEnabled()) {
             install(new AzureFileSystemModule());
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
@@ -121,8 +114,8 @@ public class FileSystemModule
             factories.addBinding("file").to(LocalFileSystemFactory.class);
         }
 
-        newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, SplitAffinityProvider.class).setDefault().to(NoopSplitAffinityProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, TrinoFileSystemCache.class);
         newOptionalBinder(binder, MemoryFileSystemCache.class);

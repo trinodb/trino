@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -113,22 +113,22 @@ public class TestDecimalToDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(4,0))")
                 .binding("a", "DECIMAL '12345.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(6, 1) '12345.6' to DECIMAL(4, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(4,0))")
                 .binding("a", "DECIMAL '-12345.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(6, 1) '-12345.6' to DECIMAL(4, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(4,2))")
                 .binding("a", "DECIMAL '12345.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(6, 1) '12345.6' to DECIMAL(4, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(4,2))")
                 .binding("a", "DECIMAL '-12345.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(6, 1) '-12345.6' to DECIMAL(4, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -153,6 +153,31 @@ public class TestDecimalToDecimalCasts
         assertThat(assertions.expression("cast(a as DECIMAL(5, 4))")
                 .binding("a", "DECIMAL '-1.23450000000000000000'"))
                 .isEqualTo(decimal("-1.2345", createDecimalType(5, 4)));
+    }
+
+    @Test
+    public void testDecimalToDecimalNeverFailsBoundaries()
+    {
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 1))").binding("a", "DECIMAL '12.3'"))
+                .neverFails()
+                .isEqualTo(decimal("12.3", createDecimalType(4, 1)));
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 1))").binding("a", "CAST(DECIMAL '1.2' AS DECIMAL(3, 1))"))
+                .couldFail()
+                .isEqualTo(decimal("1.2", createDecimalType(2, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(5, 3))").binding("a", "DECIMAL '12.3'"))
+                .neverFails()
+                .isEqualTo(decimal("12.300", createDecimalType(5, 3)));
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 2))").binding("a", "CAST(DECIMAL '1.2' AS DECIMAL(3, 1))"))
+                .couldFail()
+                .isEqualTo(decimal("1.20", createDecimalType(3, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 0))").binding("a", "DECIMAL '12.3'"))
+                .neverFails()
+                .isEqualTo(decimal("012", createDecimalType(3, 0)));
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 0))").binding("a", "DECIMAL '12.3'"))
+                .couldFail()
+                .isEqualTo(decimal("12", createDecimalType(2, 0)));
     }
 
     @Test
@@ -221,21 +246,21 @@ public class TestDecimalToDecimalCasts
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
                 .binding("a", "DECIMAL '1234500000000000000000000.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(26, 1) '1234500000000000000000000.6' to DECIMAL(20, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
                 .binding("a", "DECIMAL '-1234500000000000000000000.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(26, 1) '-1234500000000000000000000.6' to DECIMAL(20, 0)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(22,2))")
                 .binding("a", "DECIMAL '1234500000000000000000000.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(26, 1) '1234500000000000000000000.6' to DECIMAL(22, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(22,2))")
                 .binding("a", "DECIMAL '-1234500000000000000000000.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(26, 1) '-1234500000000000000000000.6' to DECIMAL(22, 2)")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 }

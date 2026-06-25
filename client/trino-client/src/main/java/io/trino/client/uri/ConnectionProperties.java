@@ -24,6 +24,7 @@ import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.spooling.encoding.QueryDataDecoders;
+import io.trino.client.uri.AbstractConnectionProperty.Validator;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -46,7 +47,6 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.client.uri.AbstractConnectionProperty.Validator;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static java.lang.String.format;
@@ -421,8 +421,7 @@ final class ConnectionProperties
 
         public AssumeLiteralNamesInMetadataCallsForNonConformingClients()
         {
-            super(
-                    PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
+            super(PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
                     validator(
                             AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients.IS_NOT_ENABLED.or(IS_NOT_ENABLED),
@@ -441,8 +440,7 @@ final class ConnectionProperties
 
         public AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
         {
-            super(
-                    PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
+            super(PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
                     validator(
                             AssumeLiteralNamesInMetadataCallsForNonConformingClients.IS_NOT_ENABLED.or(IS_NOT_ENABLED),
@@ -484,8 +482,7 @@ final class ConnectionProperties
 
         public SslVerification()
         {
-            super(
-                    PropertyName.SSL_VERIFICATION,
+            super(PropertyName.SSL_VERIFICATION,
                     Optional.of(FULL),
                     NOT_REQUIRED,
                     validator(IF_SSL_ENABLED, format("Connection property %s requires TLS/SSL to be enabled", PropertyName.SSL_VERIFICATION)),
@@ -725,8 +722,7 @@ final class ConnectionProperties
 
         public ExternalAuthenticationRedirectHandlers()
         {
-            super(
-                    PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
+            super(PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
                     Optional.of(singletonList(ExternalRedirectStrategy.OPEN)),
                     NOT_REQUIRED,
                     ALLOWED,

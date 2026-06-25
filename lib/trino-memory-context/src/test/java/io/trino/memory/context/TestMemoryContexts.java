@@ -208,8 +208,11 @@ public class TestMemoryContexts
         assertThat(delegate.getBytes()).isEqualTo(granularity);
     }
 
-    private static void assertCoarseGrainContextValues(CoarseGrainLocalMemoryContext coarseGrainContext,
-                                                       LocalMemoryContext delegate, long valueToSet, long expectedValue)
+    private static void assertCoarseGrainContextValues(
+            CoarseGrainLocalMemoryContext coarseGrainContext,
+            LocalMemoryContext delegate,
+            long valueToSet,
+            long expectedValue)
     {
         assertThat(coarseGrainContext.setBytes(valueToSet)).isEqualTo(NOT_BLOCKED);
 

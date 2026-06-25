@@ -46,7 +46,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -170,7 +170,7 @@ public class TestGenericPartitioningSpiller
                 mockMemoryContext(scheduledExecutor),
                 "testOperator")) {
             Page page = SequencePageBuilder.createSequencePage(TYPES, 10, FIRST_PARTITION_START, 5, 10, 15);
-            PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
+            PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, _ -> true);
             assertThat(spillResult.getRetained().getPositionCount()).isEqualTo(0);
             getFutureValue(spillResult.getSpillingFuture());
 
@@ -199,7 +199,7 @@ public class TestGenericPartitioningSpiller
                 "testOperator")) {
             for (int i = 0; i < 50_000; i++) {
                 Page page = SequencePageBuilder.createSequencePage(types, partitionCount, 0);
-                PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
+                PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, _ -> true);
                 assertThat(spillResult.getRetained().getPositionCount()).isEqualTo(0);
                 getFutureValue(spillResult.getSpillingFuture());
                 getFutureValue(spiller.flush());
@@ -218,11 +218,7 @@ public class TestGenericPartitioningSpiller
         for (int partition = 0; partition < expectedPartitions.size(); partition++) {
             List<Page> actualSpill = ImmutableList.copyOf(spiller.getSpilledPages(partition));
             List<Page> expectedSpill = expectedPartitions.get(partition);
-
-            assertThat(actualSpill).hasSize(expectedSpill.size());
-            for (int j = 0; j < actualSpill.size(); j++) {
-                assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
-            }
+            assertPagesEqual(types, actualSpill, expectedSpill);
         }
     }
 
@@ -234,7 +230,7 @@ public class TestGenericPartitioningSpiller
 
     private static SpillContext mockSpillContext()
     {
-        return bytes -> {};
+        return _ -> {};
     }
 
     private static class FourFixedPartitionsPartitionFunction

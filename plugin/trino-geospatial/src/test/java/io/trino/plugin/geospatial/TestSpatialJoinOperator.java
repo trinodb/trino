@@ -50,7 +50,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.locationtech.jts.geom.Geometry;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -194,7 +193,7 @@ public class TestSpatialJoinOperator
     private void assertSpatialJoin(TaskContext taskContext, Type joinType, RowPagesBuilder buildPages, RowPagesBuilder probePages, MaterializedResult expected)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), joinType, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
         assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
     }
@@ -274,7 +273,7 @@ public class TestSpatialJoinOperator
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> {
+                (_, _, _, _) -> {
                     filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
@@ -284,7 +283,7 @@ public class TestSpatialJoinOperator
                 .row(POLYGON_A, "A")
                 .pageBreak()
                 .row(POLYGON_B, "B");
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), OptionalInt.empty(), Optional.of(filterFunction), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.of(filterFunction), buildPages);
 
         // 10 points in polygon A (x0...x9)
         // 10 points in polygons A and B (y0...y9)
@@ -300,13 +299,13 @@ public class TestSpatialJoinOperator
         for (int i = 0; i < 10; i++) {
             probePages.row(stPoint(6 + 0.1 * i, 6 + 0.1 * i), "z" + i);
         }
-        List<Page> probeInput = probePages.build();
+        Page probeInput = probePages.buildPage();
 
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
 
         Operator operator = joinOperatorFactory.createOperator(driverContext);
         assertThat(operator.needsInput()).isTrue();
-        operator.addInput(probeInput.get(0));
+        operator.addInput(probeInput);
         operator.finish();
 
         // we will yield 40 times due to filterFunction
@@ -434,7 +433,7 @@ public class TestSpatialJoinOperator
                 .row("z", "B")
                 .build();
 
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), buildPages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.of(2), pagesSpatialIndexFactory);
         assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
     }
@@ -460,7 +459,7 @@ public class TestSpatialJoinOperator
                 .row("B", "B")
                 .build();
 
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.intersects(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), pages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.intersects(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), pages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, pages.getTypes(), Ints.asList(1), 0, OptionalInt.of(2), pagesSpatialIndexFactory);
         assertOperatorEquals(joinOperatorFactory, driverContext, pages.build(), expected);
     }
@@ -473,7 +472,7 @@ public class TestSpatialJoinOperator
     private PagesSpatialIndexFactory buildIndex(DriverContext driverContext, SpatialPredicate spatialRelationshipTest, OptionalInt radiusChannel, OptionalInt partitionChannel, Optional<Slice> kdbTreeJson, Optional<InternalJoinFilterFunction> filterFunction, RowPagesBuilder buildPages)
     {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
-                .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
+                .map(function -> (_, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         ValuesOperator.ValuesOperatorFactory valuesOperatorFactory = new ValuesOperator.ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.build());
         SpatialIndexBuilderOperatorFactory buildOperatorFactory = new SpatialIndexBuilderOperatorFactory(
@@ -491,7 +490,8 @@ public class TestSpatialJoinOperator
                 10_000,
                 new TestingFactory(false));
 
-        Driver driver = Driver.createDriver(driverContext,
+        Driver driver = Driver.createDriver(
+                driverContext,
                 valuesOperatorFactory.createOperator(driverContext),
                 buildOperatorFactory.createOperator(driverContext));
 

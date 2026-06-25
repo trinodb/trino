@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -35,12 +35,12 @@ public class TestDeltaLakeUpdate
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        Hive3FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
         return DeltaLakeQueryRunner.builder()
-                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
-                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
+                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .build();
     }
@@ -49,7 +49,8 @@ public class TestDeltaLakeUpdate
     public void testSimpleUpdate()
     {
         String tableName = "test_simple_update";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
@@ -85,7 +86,8 @@ public class TestDeltaLakeUpdate
     public void testUpdateAll()
     {
         String tableName = "test_update_all";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b) " +
                         "AS VALUES (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)",
                 "VALUES 5");
@@ -97,7 +99,8 @@ public class TestDeltaLakeUpdate
     public void testUpdateSingleRow()
     {
         String tableName = "test_update_single_row";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b) " +
                         "AS VALUES (1, 2)",
                 "VALUES 1");
@@ -109,7 +112,8 @@ public class TestDeltaLakeUpdate
     public void testUpdateNone()
     {
         String tableName = "test_update_none";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b) " +
                         "AS VALUES (1, 2)",
                 "VALUES 1");
@@ -121,7 +125,8 @@ public class TestDeltaLakeUpdate
     public void testUpdateOnPartitionKey()
     {
         String tableName = "test_update_on_partition_key";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (partitioned_by = ARRAY['b']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
@@ -139,7 +144,8 @@ public class TestDeltaLakeUpdate
     public void testUpdateWithPartitionKeyPredicate()
     {
         String tableName = "test_update_with_partition_key_predicate";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (partitioned_by = ARRAY['b']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
@@ -154,7 +160,8 @@ public class TestDeltaLakeUpdate
     public void testUpdateNull()
     {
         String tableName = "test_update_null";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
@@ -169,7 +176,8 @@ public class TestDeltaLakeUpdate
     public void testUpdateAllColumns()
     {
         String tableName = "test_update_all_columns";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");

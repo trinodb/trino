@@ -40,12 +40,12 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -377,6 +377,9 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567890' AS DATE)")).matches("DATE '2020-05-01'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678901' AS DATE)")).matches("DATE '2020-05-01'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789012' AS DATE)")).matches("DATE '2020-05-01'");
+
+        assertThat(assertions.expression("CAST(a AS DATE)").binding("a", "TIMESTAMP '2020-05-01 12:34:56'"))
+                .neverFails();
     }
 
     @Test
@@ -1767,6 +1770,224 @@ public class TestTimestamp
     }
 
     @Test
+    public void testCastFromChar()
+    {
+        // round down
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '2020-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '2020-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '2020-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '2020-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '2020-05-01 12:34:56.111111111111'");
+
+        // round up
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-01 12:34:57'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:56.6'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:56.56'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-01 12:34:56.556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(4))")).matches("TIMESTAMP '2020-05-01 12:34:56.5556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(5))")).matches("TIMESTAMP '2020-05-01 12:34:56.55556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-01 12:34:56.555556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(7))")).matches("TIMESTAMP '2020-05-01 12:34:56.5555556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(8))")).matches("TIMESTAMP '2020-05-01 12:34:56.55555556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:56.555555556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:56.5555555556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(12))")).matches("TIMESTAMP '2020-05-01 12:34:56.555555555555'");
+
+        // negative epoch, round down
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '2020-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '2020-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '2020-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '2020-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '2020-05-01 12:34:56.111111111111'");
+
+        // negative epoch, round up
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(0))")).matches("TIMESTAMP '1500-05-01 12:34:57'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(1))")).matches("TIMESTAMP '1500-05-01 12:34:56.6'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(2))")).matches("TIMESTAMP '1500-05-01 12:34:56.56'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(3))")).matches("TIMESTAMP '1500-05-01 12:34:56.556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(4))")).matches("TIMESTAMP '1500-05-01 12:34:56.5556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(5))")).matches("TIMESTAMP '1500-05-01 12:34:56.55556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(6))")).matches("TIMESTAMP '1500-05-01 12:34:56.555556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(7))")).matches("TIMESTAMP '1500-05-01 12:34:56.5555556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(8))")).matches("TIMESTAMP '1500-05-01 12:34:56.55555556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(9))")).matches("TIMESTAMP '1500-05-01 12:34:56.555555556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(10))")).matches("TIMESTAMP '1500-05-01 12:34:56.5555555556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(11))")).matches("TIMESTAMP '1500-05-01 12:34:56.55555555556'");
+        assertThat(assertions.expression("CAST(CHAR '1500-05-01 12:34:56.555555555555' AS TIMESTAMP(12))")).matches("TIMESTAMP '1500-05-01 12:34:56.555555555555'");
+
+        // 6-digit year
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '123001-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '123001-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '123001-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '123001-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST(CHAR '123001-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111111'");
+
+        // 6-digit year with + sign
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '123001-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '123001-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '123001-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '123001-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '123001-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '123001-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST(CHAR '+123001-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '123001-05-01 12:34:56.111111111111'");
+
+        // 6-digit year with - sign
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(0))")).matches("TIMESTAMP '-123001-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(1))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(2))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(3))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(4))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(5))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(6))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(7))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(8))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(9))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(10))")).matches("TIMESTAMP '-123001-05-01 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(11))")).matches("TIMESTAMP '-123001-05-01 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST(CHAR '-123001-05-01 12:34:56.111111111111' AS TIMESTAMP(12))")).matches("TIMESTAMP '-123001-05-01 12:34:56.111111111111'");
+
+        // values w/ time zone
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56 +01:23' AS TIMESTAMP(0))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.1 +01:23' AS TIMESTAMP(1))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.1'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.11 +01:23' AS TIMESTAMP(2))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.11'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111 +01:23' AS TIMESTAMP(3))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.1111 +01:23' AS TIMESTAMP(4))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.1111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.11111 +01:23' AS TIMESTAMP(5))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.11111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111 +01:23' AS TIMESTAMP(6))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.1111111 +01:23' AS TIMESTAMP(7))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.1111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.11111111 +01:23' AS TIMESTAMP(8))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.11111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111 +01:23' AS TIMESTAMP(9))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.1111111111 +01:23' AS TIMESTAMP(10))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.1111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.11111111111 +01:23' AS TIMESTAMP(11))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.11111111111'");
+        assertThat(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 +01:23' AS TIMESTAMP(12))"))
+                .matches("TIMESTAMP '2020-05-10 12:34:56.111111111111'");
+
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(0))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(1))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(2))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(3))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(4))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(5))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(6))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(7))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(8))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(9))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(10))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(11))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(12))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
+
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(0))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(1))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(2))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(3))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(4))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(5))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(6))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(7))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(8))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(9))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(10))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(11))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10 xxx' AS TIMESTAMP(12))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
+
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(0))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(1))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(2))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(3))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(4))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(5))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(6))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(7))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(8))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(9))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(10))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(11))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+        assertThatThrownBy(assertions.expression("CAST(CHAR '2020-05-10T12:34:56' AS TIMESTAMP(12))")::evaluate)
+                .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
+    }
+
+    @Test
     public void testLowerDigitsZeroed()
     {
         // round down
@@ -3115,6 +3336,24 @@ public class TestTimestamp
 
         assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-11'"))
                 .isEqualTo(false);
+
+        // short timestamp (precision <= 6 → ShortTimestampType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        // long timestamp (precision > 6 → LongTimestampType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
     }
 
     @Test
@@ -3161,6 +3400,24 @@ public class TestTimestamp
 
         assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-20'"))
                 .isEqualTo(false);
+
+        // short timestamp (precision <= 6 → ShortTimestampType)
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        // long timestamp (precision > 6 → LongTimestampType)
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
     }
 
     @Test
@@ -3183,6 +3440,24 @@ public class TestTimestamp
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-20'"))
                 .isEqualTo(false);
+
+        // short timestamp (precision <= 6 → ShortTimestampType)
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        // long timestamp (precision > 6 → LongTimestampType)
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
     }
 
     @Test
@@ -3331,7 +3606,7 @@ public class TestTimestamp
 
     private static BiFunction<Session, QueryRunner, Object> timestamp(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond)
     {
-        return (session, queryRunner) -> {
+        return (_, _) -> {
             LocalDateTime base = LocalDateTime.of(year, month, day, hour, minute, second);
 
             ZoneOffset offset = ZoneOffset.UTC;

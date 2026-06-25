@@ -108,7 +108,8 @@ public abstract class AbstractTestSessionPropertyManager
                                 "PROPERTY3", "VALUE_C1_P3"),
                         "CATALOG2", ImmutableMap.of("PROPERTY", "VALUE_C2"),
                         "CATALOG3", ImmutableMap.of("PROPERTY", "VALUE_C3")),
-                spec1, spec2);
+                spec1,
+                spec2);
     }
 
     @Test
@@ -134,7 +135,9 @@ public abstract class AbstractTestSessionPropertyManager
                         "PROPERTY2", "VALUE2_BIS",
                         "PROPERTY3", "VALUE3_TER"),
                 ImmutableMap.of(),
-                spec1, spec2, spec3);
+                spec1,
+                spec2,
+                spec3);
     }
 
     @Test
@@ -160,7 +163,9 @@ public abstract class AbstractTestSessionPropertyManager
                         "PROPERTY1", "VALUE1",
                         "PROPERTY2", "VALUE2_BIS",
                         "PROPERTY3", "VALUE3_TER")),
-                spec1, spec2, spec3);
+                spec1,
+                spec2,
+                spec3);
     }
 
     @Test

@@ -15,6 +15,7 @@ package io.trino.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.errorprone.annotations.Immutable;
 
 import java.math.BigDecimal;
@@ -26,7 +27,6 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -74,11 +74,11 @@ public class HiveColumnStatistics
         this.distinctValuesWithNullCount = requireNonNull(distinctValuesWithNullCount, "distinctValuesWithNullCount is null");
 
         List<String> presentStatistics = new ArrayList<>();
-        integerStatistics.ifPresent(s -> presentStatistics.add("integerStatistics"));
-        doubleStatistics.ifPresent(s -> presentStatistics.add("doubleStatistics"));
-        decimalStatistics.ifPresent(s -> presentStatistics.add("decimalStatistics"));
-        dateStatistics.ifPresent(s -> presentStatistics.add("dateStatistics"));
-        booleanStatistics.ifPresent(s -> presentStatistics.add("booleanStatistics"));
+        integerStatistics.ifPresent(_ -> presentStatistics.add("integerStatistics"));
+        doubleStatistics.ifPresent(_ -> presentStatistics.add("doubleStatistics"));
+        decimalStatistics.ifPresent(_ -> presentStatistics.add("decimalStatistics"));
+        dateStatistics.ifPresent(_ -> presentStatistics.add("dateStatistics"));
+        booleanStatistics.ifPresent(_ -> presentStatistics.add("booleanStatistics"));
         checkArgument(presentStatistics.size() <= 1, "multiple type specific statistic objects are present: %s", presentStatistics);
     }
 

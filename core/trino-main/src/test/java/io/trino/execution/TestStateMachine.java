@@ -80,12 +80,12 @@ public class TestStateMachine
                         .hasMessage("newState is null"));
 
         assertNoStateChange(stateMachine, () ->
-                assertThatThrownBy(() -> stateMachine.setIf(null, currentState -> true))
+                assertThatThrownBy(() -> stateMachine.setIf(null, _ -> true))
                         .isInstanceOf(NullPointerException.class)
                         .hasMessage("newState is null"));
 
         assertNoStateChange(stateMachine, () ->
-                assertThatThrownBy(() -> stateMachine.setIf(null, currentState -> false))
+                assertThatThrownBy(() -> stateMachine.setIf(null, _ -> false))
                         .isInstanceOf(NullPointerException.class)
                         .hasMessage("newState is null"));
     }
@@ -146,7 +146,8 @@ public class TestStateMachine
         assertNoStateChange(stateMachine, () -> stateMachine.compareAndSet(State.DINNER, State.LUNCH));
 
         // match with new state
-        assertStateChange(stateMachine,
+        assertStateChange(
+                stateMachine,
                 () -> stateMachine.compareAndSet(State.BREAKFAST, State.LUNCH),
                 State.LUNCH);
 
@@ -204,15 +205,15 @@ public class TestStateMachine
                 })).isFalse());
 
         // transition to a final state
-        assertStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true), State.DINNER);
+        assertStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, _ -> true), State.DINNER);
 
         // attempt transition from a final state
         assertNoStateChange(stateMachine, () ->
-                assertThatThrownBy(() -> stateMachine.setIf(State.LUNCH, currentState -> true))
+                assertThatThrownBy(() -> stateMachine.setIf(State.LUNCH, _ -> true))
                         .isInstanceOf(IllegalStateException.class)
                         .hasMessage("test cannot transition from DINNER to LUNCH"));
-        assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.LUNCH, currentState -> false));
-        assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true));
+        assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.LUNCH, _ -> false));
+        assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, _ -> true));
     }
 
     private static void assertStateChange(StateMachine<State> stateMachine, StateChanger stateChange, State expectedState)

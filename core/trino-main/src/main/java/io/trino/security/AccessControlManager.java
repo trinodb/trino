@@ -719,29 +719,31 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanInsertIntoTable(SecurityContext securityContext, QualifiedObjectName tableName)
+    public void checkCanInsertIntoTable(SecurityContext securityContext, QualifiedObjectName tableName, Optional<String> branch)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanInsertIntoTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanInsertIntoTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), branch));
 
-        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanInsertIntoTable(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanInsertIntoTable(context, tableName.asSchemaTableName(), branch));
     }
 
     @Override
-    public void checkCanDeleteFromTable(SecurityContext securityContext, QualifiedObjectName tableName)
+    public void checkCanDeleteFromTable(SecurityContext securityContext, QualifiedObjectName tableName, Optional<String> branch)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanDeleteFromTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanDeleteFromTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), branch));
 
-        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanDeleteFromTable(context, tableName.asSchemaTableName()));
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanDeleteFromTable(context, tableName.asSchemaTableName(), branch));
     }
 
     @Override
@@ -758,16 +760,17 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanUpdateTableColumns(SecurityContext securityContext, QualifiedObjectName tableName, Set<String> updatedColumnNames)
+    public void checkCanUpdateTableColumns(SecurityContext securityContext, QualifiedObjectName tableName, Optional<String> branch, Set<String> updatedColumnNames)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanUpdateTableColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), updatedColumnNames));
+        systemAuthorizationCheck(control -> control.checkCanUpdateTableColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), branch, updatedColumnNames));
 
-        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanUpdateTableColumns(context, tableName.asSchemaTableName(), updatedColumnNames));
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanUpdateTableColumns(context, tableName.asSchemaTableName(), branch, updatedColumnNames));
     }
 
     @Override
@@ -824,16 +827,18 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
+        requireNonNull(columnNames, "columnNames is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateViewWithSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnNames));
+        systemAuthorizationCheck(control -> control.checkCanCreateViewWithSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), branch, columnNames));
 
-        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanCreateViewWithSelectFromColumns(context, tableName.asSchemaTableName(), columnNames));
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanCreateViewWithSelectFromColumns(context, tableName.asSchemaTableName(), branch, columnNames));
     }
 
     @Override
@@ -1105,17 +1110,18 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
         requireNonNull(columnNames, "columnNames is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnNames));
+        systemAuthorizationCheck(control -> control.checkCanSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), branch, columnNames));
 
-        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanSelectFromColumns(context, tableName.asSchemaTableName(), columnNames));
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanSelectFromColumns(context, tableName.asSchemaTableName(), branch, columnNames));
     }
 
     @Override
@@ -1523,20 +1529,11 @@ public class AccessControlManager
         List<String> name = entityKindAndName.name();
         catalogAuthorizationCheck(name.get(0), securityContext, (control, context) -> {
             switch (ownedKind) {
-                case "SCHEMA":
-                    control.checkCanSetSchemaAuthorization(context, name.get(1), principal);
-                    break;
-                case "TABLE":
-                    control.checkCanSetTableAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
-                    break;
-                case "VIEW":
-                    control.checkCanSetViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
-                    break;
-                case "MATERIALIZED VIEW":
-                    control.checkCanSetMaterializedViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
-                    break;
-                default:
-                    denySetEntityAuthorization(new EntityKindAndName(ownedKind, name), principal);
+                case "SCHEMA" -> control.checkCanSetSchemaAuthorization(context, name.get(1), principal);
+                case "TABLE" -> control.checkCanSetTableAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
+                case "VIEW" -> control.checkCanSetViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
+                case "MATERIALIZED VIEW" -> control.checkCanSetMaterializedViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
+                default -> denySetEntityAuthorization(new EntityKindAndName(ownedKind, name), principal);
             }
         });
     }
@@ -1692,9 +1689,11 @@ public class AccessControlManager
     {
         try {
             clazz.getMethod(name, parameterTypes);
-            throw new IllegalArgumentException(format("Access control %s must not implement removed method %s(%s)",
+            throw new IllegalArgumentException(format(
+                    "Access control %s must not implement removed method %s(%s)",
                     clazz.getName(),
-                    name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
+                    name,
+                    Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
         }
         catch (ReflectiveOperationException _) {
         }

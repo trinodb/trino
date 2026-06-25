@@ -1,0 +1,42 @@
+name: CLA
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  cla-signed:
+    if: |
+      github.repository == 'trinodb/trino' &&
+      (
+        github.event_name != 'issue_comment' ||
+        (
+          github.event.issue.pull_request &&
+          contains(fromJson('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.comment.author_association) &&
+          (
+            contains(github.event.comment.body, '@cla-bot check') ||
+            contains(github.event.comment.body, '/cla-check')
+          )
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Check CLA
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkCla = require('./.github/bin/check-cla.js');
+            await checkCla({github, context, core});

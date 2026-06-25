@@ -64,13 +64,11 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.P4HyperLogLogType;
 import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import io.trino.type.IpAddressType;
-import io.trino.type.JsonType;
-import io.trino.type.TDigestType;
 import net.datafaker.Faker;
 
 import java.util.ArrayList;
@@ -416,14 +414,14 @@ public class FakerMetadata
         return !(type instanceof BooleanType ||
                 type instanceof HyperLogLogType ||
                 type instanceof QuantileDigestType ||
-                type instanceof TDigestType ||
+                type.getBaseName().equals(StandardTypes.TDIGEST) ||
                 type instanceof P4HyperLogLogType ||
                 isCharacterType(type) ||
                 type instanceof RowType ||
                 type instanceof ArrayType ||
                 type instanceof MapType ||
-                type instanceof JsonType ||
-                type instanceof IpAddressType ||
+                type.getBaseName().equals(StandardTypes.JSON) ||
+                type.getBaseName().equals(StandardTypes.IPADDRESS) ||
                 type instanceof UuidType);
     }
 
@@ -531,7 +529,8 @@ public class FakerMetadata
         boolean isSchemaSequenceDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_DETECTION_ENABLED, isSequenceDetectionEnabled);
         boolean isTableSequenceDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.SEQUENCE_DETECTION_ENABLED, isSchemaSequenceDetectionEnabled);
         Map<String, List<Object>> columnValues = getColumnValues(tableName, info, distinctValues, minimums, maximums);
-        return info.withColumns(columns.stream().map(column -> createColumnInfoFromStats(
+        return info.withColumns(columns.stream()
+                .map(column -> createColumnInfoFromStats(
                         column,
                         minimums.get(column.name()),
                         maximums.get(column.name()),
@@ -767,7 +766,7 @@ public class FakerMetadata
     @Override
     public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
     {
-        return functionBundle.getFunctions();
+        return schemaName.equals(SCHEMA_NAME) ? functionBundle.getFunctions() : List.of();
     }
 
     @Override

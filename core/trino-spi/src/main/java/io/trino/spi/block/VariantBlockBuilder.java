@@ -55,8 +55,7 @@ public class VariantBlockBuilder
 
     public VariantBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytes)
     {
-        this(
-                blockBuilderStatus,
+        this(blockBuilderStatus,
                 new VariableWidthBlockBuilder(blockBuilderStatus, expectedEntries, 64),
                 new VariableWidthBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytes),
                 new boolean[expectedEntries]);

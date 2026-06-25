@@ -38,7 +38,5 @@ public interface DecimalConfig
          */
         @Deprecated
         ALLOW_OVERFLOW,
-
-        /**/;
     }
 }

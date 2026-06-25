@@ -56,6 +56,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -996,6 +997,28 @@ public abstract class BaseSqlServerTypeMapping
                             """)
                     .isNotFullyPushedDown(tableScan(table.getName()));
         }
+    }
+
+    @Test
+    public void testJson()
+    {
+        // Conforms to RFC 4627, so not scalar values, but only objects and arrays.
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("json", "JSON '{}'", JSON, "JSON '{}'")
+                .addRoundTrip("json", "JSON '{\"a\":1,\"b\":2}'", JSON, "JSON '{\"a\":1,\"b\":2}'")
+                .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
+                .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
+                .execute(getQueryRunner(), sqlServerCreateAndTrinoInsert("test_json"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("json", "JSON '{}'", JSON, "JSON '{}'")
+                .addRoundTrip("json", "JSON '{\"a\":1,\"b\":2}'", JSON, "JSON '{\"a\":1,\"b\":2}'")
+                .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
+                .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_json"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_json"));
     }
 
     protected DataSetup trinoCreateAsSelect(String tableNamePrefix)

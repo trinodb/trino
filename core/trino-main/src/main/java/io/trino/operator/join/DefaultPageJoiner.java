@@ -16,10 +16,9 @@ package io.trino.operator.join;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.HashGenerator;
-import io.trino.operator.ProcessorContext;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.SpillContext;
 import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
@@ -65,14 +64,14 @@ import static java.util.Objects.requireNonNull;
 public class DefaultPageJoiner
         implements PageJoiner
 {
+    private final OperatorContext operatorContext;
+    private final SpillContext spillContext;
+    private final DriverYieldSignal yieldSignal;
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
     private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
     private final Optional<PartitioningSpillerFactory> partitioningSpillerFactory;
-    private final SpillContext spillContext;
-    private final MemoryTrackingContext memoryTrackingContext;
     private final JoinStatisticsCounter statisticsCounter;
-    private final DriverYieldSignal yieldSignal;
     private final Iterator<SavedRow> savedRows;
     private final Supplier<LocalPartitionGenerator> partitionGenerator;
     private final LookupJoinPageBuilder pageBuilder;
@@ -94,7 +93,7 @@ public class DefaultPageJoiner
     private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0));
 
     public DefaultPageJoiner(
-            ProcessorContext processorContext,
+            OperatorContext operatorContext,
             List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
@@ -108,15 +107,14 @@ public class DefaultPageJoiner
             JoinStatisticsCounter statisticsCounter,
             Iterator<SavedRow> savedRows)
     {
-        requireNonNull(processorContext, "processorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.spillContext = operatorContext.getSpillContext();
+        this.yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         this.probeTypes = requireNonNull(probeTypes, "probeTypes is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.lookupSourceProviderFuture = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
-        this.spillContext = processorContext.getSpillContext();
-        this.memoryTrackingContext = processorContext.getMemoryTrackingContext();
         this.statisticsCounter = requireNonNull(statisticsCounter, "statisticsCounter is null");
-        this.yieldSignal = processorContext.getDriverYieldSignal();
         this.savedRows = requireNonNull(savedRows, "savedRows is null");
         this.partitionGenerator = memoize(() -> new LocalPartitionGenerator(hashGenerator, lookupSourceFactory.partitions()));
         this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
@@ -346,7 +344,7 @@ public class DefaultPageJoiner
                 spilledRows.merge(
                         currentRowPartition,
                         new SavedRow(probe.getPage(), probe.getPosition(), getJoinPositionWithinPartition(), currentProbePositionProducedRow, joinSourcePositions),
-                        (oldValue, newValue) -> {
+                        (_, _) -> {
                             throw new IllegalStateException(format("Partition %s is already spilled", currentRowPartition));
                         });
                 Page remaining = pageTail(probe.getPage(), probe.getPosition() + 1);
@@ -376,7 +374,7 @@ public class DefaultPageJoiner
                     probeTypes,
                     partitionGenerator.get(),
                     spillContext.newLocalSpillContext(),
-                    memoryTrackingContext.newAggregateUserMemoryContext(),
+                    operatorContext.newAggregateUserMemoryContext(),
                     "LookupJoinOperator"));
         }
 
@@ -490,6 +488,6 @@ public class DefaultPageJoiner
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 }

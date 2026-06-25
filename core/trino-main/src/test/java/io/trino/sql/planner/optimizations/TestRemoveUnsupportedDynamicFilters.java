@@ -30,7 +30,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -65,10 +64,11 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjuncts;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
@@ -124,7 +124,7 @@ public class TestRemoveUnsupportedDynamicFilters
         PlanNode root = builder.join(
                 INNER,
                 builder.filter(
-                        new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                        comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                         ordersTableScanNode),
                 lineitemTableScanNode,
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
@@ -138,11 +138,10 @@ public class TestRemoveUnsupportedDynamicFilters
                         .equiCriteria("ORDERS_OK", "LINEITEM_OK")
                         .left(
                                 PlanMatchPattern.filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                         DynamicFilterConsumerMatcher.Builder::noConsumers,
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
-                        .right(
-                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+                        .right(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
     }
 
     @Test
@@ -172,8 +171,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                         TRUE,
                                         dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "ORDERS_OK")),
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
-                        .right(
-                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+                        .right(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
     }
 
     @Test
@@ -187,7 +185,7 @@ public class TestRemoveUnsupportedDynamicFilters
                         ordersTableScanNode,
                         builder.filter(
                                 combineConjuncts(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
                                         createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
@@ -200,11 +198,10 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(
                                         filter(
-                                                new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
+                                                comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
     }
 
@@ -218,7 +215,7 @@ public class TestRemoveUnsupportedDynamicFilters
                         INNER,
                         builder.filter(
                                 combineConjuncts(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
                                         createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
                                 builder.values(lineitemOrderKeySymbol)),
                         ordersTableScanNode,
@@ -234,10 +231,9 @@ public class TestRemoveUnsupportedDynamicFilters
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
                                         filter(
-                                                new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
+                                                comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
                                                 values("LINEITEM_OK")))
-                                .right(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+                                .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Test
@@ -268,10 +264,8 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
-                                .right(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .right(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
     @Test
@@ -300,8 +294,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(
                                         filter(
                                                 combineDisjuncts(
@@ -336,10 +329,8 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_DOUBLE_OK", "ORDERS_OK")
-                                .left(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_DOUBLE_OK", "orderkey")))
-                                .right(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+                                .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_DOUBLE_OK", "orderkey")))
+                                .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Test
@@ -370,7 +361,7 @@ public class TestRemoveUnsupportedDynamicFilters
     {
         PlanNode root = builder.semiJoin(
                 builder.filter(
-                        new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                        comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                         ordersTableScanNode),
                 lineitemTableScanNode,
                 ordersOrderKeySymbol,
@@ -380,9 +371,12 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
@@ -394,7 +388,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 ordersTableScanNode,
                 builder.filter(
                         combineConjuncts(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
                                 createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                         lineitemTableScanNode),
                 ordersOrderKeySymbol,
@@ -404,10 +398,13 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
     }
 
@@ -417,7 +414,7 @@ public class TestRemoveUnsupportedDynamicFilters
         PlanNode root = builder.semiJoin(
                 builder.filter(
                         combineConjuncts(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
                         ordersTableScanNode),
                 lineitemTableScanNode,
@@ -428,9 +425,12 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.empty());
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
@@ -441,7 +441,7 @@ public class TestRemoveUnsupportedDynamicFilters
         PlanNode root = builder.semiJoin(
                 builder.filter(
                         combineConjuncts(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
                         builder.values(ordersOrderKeySymbol)),
                 lineitemTableScanNode,
@@ -453,9 +453,12 @@ public class TestRemoveUnsupportedDynamicFilters
 
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         filter(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 values("ORDERS_OK")),
                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
@@ -481,7 +484,8 @@ public class TestRemoveUnsupportedDynamicFilters
                             createPlanOptimizersStatsCollector(),
                             new CachingTableStatsProvider(metadata, session, () -> false),
                             RuntimeInfoProvider.noImplementation()));
-            new DynamicFiltersChecker().validate(rewrittenPlan,
+            new DynamicFiltersChecker().validate(
+                    rewrittenPlan,
                     session,
                     plannerContext,
                     WarningCollector.NOOP);

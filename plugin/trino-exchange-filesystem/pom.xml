@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>481-SNAPSHOT</version>
+        <version>482-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -228,21 +228,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-core-client-fs</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-core-common</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-core-transport</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.reactivestreams</groupId>
             <artifactId>reactive-streams</artifactId>
         </dependency>
@@ -362,12 +347,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>tracing</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>configuration-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -381,6 +360,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>tracing</artifactId>
             <scope>test</scope>
         </dependency>
 

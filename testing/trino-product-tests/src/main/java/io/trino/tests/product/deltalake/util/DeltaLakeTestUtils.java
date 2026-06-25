@@ -48,11 +48,17 @@ public final class DeltaLakeTestUtils
             "\\Q[Databricks][\\E(DatabricksJDBCDriver|JDBCDriver)\\Q](500593) Communication link failure. Failed to connect to server. Reason: \\E" +
                     "(" +
                     "(HTTP retry after response received with no Retry-After header, error: HTTP Response code: 503|HTTP Response code: 504), Error message: Unknown." +
-                    "|java.net.SocketTimeoutException: Read timed out." +
-                    ")";
+                    ")" +
+                    "|504 Gateway Timeout" +
+                    "|SocketTimeoutException: Read timed out" +
+                    "|Error while closing operation" +
+                    "|HTTP request failed by code: 50[02]" +
+                    "|HTTP response code: 503" +
+                    "|The cluster is temporarily unavailable" +
+                    "|The current cluster state is Terminated";
+    private static final Pattern DATABRICKS_COMMUNICATION_FAILURE_PATTERN = Pattern.compile(DATABRICKS_COMMUNICATION_FAILURE_MATCH);
     private static final RetryPolicy<QueryResult> DATABRICKS_COMMUNICATION_FAILURE_RETRY_POLICY = RetryPolicy.<QueryResult>builder()
-            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof SQLException)
-            .handleIf(throwable -> Pattern.compile(DATABRICKS_COMMUNICATION_FAILURE_MATCH).matcher(Throwables.getRootCause(throwable).getMessage()).find())
+            .handleIf(DeltaLakeTestUtils::isDatabricksCommunicationFailure)
             .withBackoff(1, 10, ChronoUnit.SECONDS)
             .withMaxRetries(3)
             .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
@@ -66,6 +72,12 @@ public final class DeltaLakeTestUtils
             .build();
 
     private DeltaLakeTestUtils() {}
+
+    static boolean isDatabricksCommunicationFailure(Throwable throwable)
+    {
+        return Throwables.getRootCause(throwable) instanceof SQLException &&
+                DATABRICKS_COMMUNICATION_FAILURE_PATTERN.matcher(Throwables.getStackTraceAsString(throwable)).find();
+    }
 
     public static Optional<DatabricksVersion> getDatabricksRuntimeVersion()
     {

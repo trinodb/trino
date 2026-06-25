@@ -44,6 +44,7 @@ import io.trino.operator.SourceOperator;
 import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.output.TaskOutputOperator.TaskOutputOperatorFactory;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
@@ -222,7 +223,7 @@ public class TestSqlTaskExecution
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
                 DataSize.of(1, MEGABYTE),
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                 taskNotificationExecutor);
     }
 

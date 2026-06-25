@@ -360,20 +360,20 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName)
+    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch)
     {
         Span span = startSpan("checkCanInsertIntoTable");
         try (var _ = scopedSpan(span)) {
-            delegate.checkCanInsertIntoTable(context, tableName);
+            delegate.checkCanInsertIntoTable(context, tableName, branch);
         }
     }
 
     @Override
-    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName)
+    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch)
     {
         Span span = startSpan("checkCanDeleteFromTable");
         try (var _ = scopedSpan(span)) {
-            delegate.checkCanDeleteFromTable(context, tableName);
+            delegate.checkCanDeleteFromTable(context, tableName, branch);
         }
     }
 
@@ -387,11 +387,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
+    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> updatedColumnNames)
     {
         Span span = startSpan("checkCanUpdateTableColumns");
         try (var _ = scopedSpan(span)) {
-            delegate.checkCanUpdateTableColumns(context, tableName, updatedColumnNames);
+            delegate.checkCanUpdateTableColumns(context, tableName, branch, updatedColumnNames);
         }
     }
 
@@ -432,11 +432,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
     {
         Span span = startSpan("checkCanCreateViewWithSelectFromColumns");
         try (var _ = scopedSpan(span)) {
-            delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+            delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, branch, columnNames);
         }
     }
 
@@ -612,11 +612,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
     {
         Span span = startSpan("checkCanSelectFromColumns");
         try (var _ = scopedSpan(span)) {
-            delegate.checkCanSelectFromColumns(context, tableName, columnNames);
+            delegate.checkCanSelectFromColumns(context, tableName, branch, columnNames);
         }
     }
 

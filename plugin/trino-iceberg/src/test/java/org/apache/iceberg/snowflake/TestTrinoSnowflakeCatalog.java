@@ -34,6 +34,7 @@ import io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -226,10 +227,11 @@ public class TestTrinoSnowflakeCatalog
 
         // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
         ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                new CatalogName("iceberg"),
                 PLANNER_CONTEXT.getTypeManager(),
                 jsonCodec(CommitTaskData.class),
                 catalog,
-                (connectorIdentity, fileIOProperties) -> {
+                (_, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 TABLE_STATISTICS_READER,
@@ -243,7 +245,8 @@ public class TestTrinoSnowflakeCatalog
                 newDirectExecutorService(),
                 newDirectExecutorService(),
                 0,
-                ZERO);
+                ZERO,
+                ConnectorExpressionEvaluator.NO_OP);
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -285,7 +288,8 @@ public class TestTrinoSnowflakeCatalog
         String namespace = "test_create_sort_table_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
+        Schema tableSchema = new Schema(
+                Types.NestedField.optional(1, "col1", Types.LongType.get()),
                 Types.NestedField.optional(2, "col2", Types.StringType.get()),
                 Types.NestedField.optional(3, "col3", Types.TimestampType.withZone()),
                 Types.NestedField.optional(4, "col4", Types.StringType.get()));
@@ -358,7 +362,7 @@ public class TestTrinoSnowflakeCatalog
                 false,
                 ImmutableList.of());
         TrinoCatalog catalog = createTrinoCatalog(false);
-        assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, true))
+        assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, ImmutableMap.of(), true))
                 .hasMessageContaining("Views are not supported for the Snowflake Iceberg catalog");
     }
 

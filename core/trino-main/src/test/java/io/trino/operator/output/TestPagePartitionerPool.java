@@ -84,6 +84,7 @@ public class TestPagePartitionerPool
 
     @Test
     public void testBuffersReusedAcrossSplits()
+            throws Exception
     {
         Page split = new Page(createLongsBlock(1));
         // one split fit in the buffer but 2 do not
@@ -127,17 +128,18 @@ public class TestPagePartitionerPool
         // noMoreOperators forces buffers to be flushed even though they are not full
         processSplitsConcurrently(factory, memoryContext, split);
         assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(initialRetainedBytesTwoOperators + split.getSizeInBytes());
-        Operator operator = factory.createOperator(driverContext());
-        factory.noMoreOperators();
-        assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(8);
-        assertThat(memoryContext.getBytes()).isEqualTo(initialRetainedBytesOneOperator);
+        try (Operator operator = factory.createOperator(driverContext())) {
+            factory.noMoreOperators();
+            assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(8);
+            assertThat(memoryContext.getBytes()).isEqualTo(initialRetainedBytesOneOperator);
 
-        // noMoreOperators was called already so new split are flushed even though they are not full
-        operator.addInput(split);
-        operator.finish();
-        assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(9);
-        // pool is closed, all operators are finished/flushed, the retained memory should be 0
-        assertThat(memoryContext.getBytes()).isEqualTo(0);
+            // noMoreOperators was called already so new split are flushed even though they are not full
+            operator.addInput(split);
+            operator.finish();
+            assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(9);
+            // pool is closed, all operators are finished/flushed, the retained memory should be 0
+            assertThat(memoryContext.getBytes()).isEqualTo(0);
+        }
     }
 
     @Test
@@ -147,7 +149,8 @@ public class TestPagePartitionerPool
         // one split fit in the buffer but 2 do not
         DataSize maxPagePartitioningBufferSize = DataSize.ofBytes(split.getSizeInBytes() + 1);
         RuntimeException exception = new RuntimeException();
-        OutputBufferMock outputBuffer = new OutputBufferMock() {
+        OutputBufferMock outputBuffer = new OutputBufferMock()
+        {
             @Override
             public void enqueue(int partition, List<Slice> pages)
             {
@@ -171,7 +174,7 @@ public class TestPagePartitionerPool
                 new PlanNodeId("0"),
                 ImmutableList.of(BIGINT),
                 Function.identity(),
-                new BucketPartitionFunction((page, position) -> 0, new int[1]),
+                new BucketPartitionFunction((_, _) -> 0, new int[1]),
                 ImmutableList.of(0),
                 ImmutableList.of(),
                 false,
@@ -189,7 +192,7 @@ public class TestPagePartitionerPool
     private long processSplitsConcurrently(PartitionedOutputOperatorFactory factory, AggregatedMemoryContext memoryContext, Page... splits)
     {
         List<Operator> operators = Stream.of(splits)
-                .map(split -> factory.createOperator(driverContext()))
+                .map(_ -> factory.createOperator(driverContext()))
                 .collect(toImmutableList());
 
         long initialRetainedBytes = memoryContext.getBytes();
@@ -227,7 +230,7 @@ public class TestPagePartitionerPool
         @Override
         public void enqueue(int partition, List<Slice> pages)
         {
-            partitionBufferPages.compute(partition, (key, value) -> value == null ? pages.size() : value + pages.size());
+            partitionBufferPages.compute(partition, (_, value) -> value == null ? pages.size() : value + pages.size());
         }
 
         @Override

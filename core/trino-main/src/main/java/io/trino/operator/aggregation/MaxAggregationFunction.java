@@ -49,7 +49,7 @@ public final class MaxAggregationFunction
                     operator = OperatorType.COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {VALUE_BLOCK_POSITION_NOT_NULL, IN_OUT}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
+            MethodHandle compare,
             @AggregationState("T") InOut state,
             @BlockPosition @SqlType("T") ValueBlock block,
             @BlockIndex int position)
@@ -66,7 +66,7 @@ public final class MaxAggregationFunction
                     operator = OperatorType.COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {IN_OUT, IN_OUT}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
+            MethodHandle compare,
             @AggregationState("T") InOut state,
             @AggregationState("T") InOut otherState)
             throws Throwable

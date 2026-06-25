@@ -31,7 +31,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
@@ -40,8 +40,8 @@ import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import org.assertj.core.api.ThrowingConsumer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -86,8 +86,8 @@ class TestSqlFunctions
     static {
         JsonMapper mapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                    TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                    Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
                         Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
@@ -338,6 +338,35 @@ class TestSqlFunctions
     }
 
     @Test
+    void testWhileWithIfElseifSettingSameVariable()
+    {
+        // Exercise a routine variable with a Block-valued default (ARRAY[]) so that a JSON
+        // round-trip of the IR produces non-equal IrVariable records for the same field —
+        // SqlRoutineCompiler must dedupe by field number, not by record identity.
+        @Language("SQL") String sql =
+                """
+                FUNCTION test_generate_series(start_value bigint, end_value bigint, step bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE result array(bigint) DEFAULT array[];
+                  DECLARE current bigint DEFAULT start_value;
+                  WHILE current <= end_value DO
+                    IF step > 0 THEN
+                      SET result = concat(result, array[current]);
+                      SET current = current + step;
+                    ELSEIF step < 0 THEN
+                      SET current = current - step;
+                    ELSE
+                      RETURN 0;
+                    END IF;
+                  END WHILE;
+                  RETURN cardinality(result);
+                END
+                """;
+        assertFunction(sql, handle -> assertThat(handle.invoke(1L, 3L, 1L)).isEqualTo(3L));
+    }
+
+    @Test
     void testRepeat()
     {
         @Language("SQL") String sql =
@@ -572,8 +601,8 @@ class TestSqlFunctions
     {
         @Language("SQL") String sql = "FUNCTION %s(p %s)\nRETURNS %s\n%s\nRETURN %s".formatted(
                 "test" + nextId.incrementAndGet(),
-                inputType.getTypeSignature(),
-                outputType.getTypeSignature(),
+                inputType.getTypeDescriptor(),
+                outputType.getTypeDescriptor(),
                 deterministic ? "DETERMINISTIC" : "NOT DETERMINISTIC",
                 expression);
 

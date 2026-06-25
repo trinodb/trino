@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,14 +46,13 @@ import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBuckets;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Arrays.asList;
-import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFromTypeString;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -92,16 +92,16 @@ public class TestHiveBucketing
         assertBucketEquals("bigint", Long.MAX_VALUE, -2147483648, -536577852);
 
         assertBucketEquals("float", null, 0, 0);
-        assertBucketEquals("float", 12.34F, 1095069860, -381747602);
+        assertBucketEquals("float", 12.34f, 1095069860, -381747602);
         assertBucketEquals("float", -Float.MAX_VALUE, -8388609, 470252243);
         assertBucketEquals("float", Float.MIN_VALUE, 1, 1206721797);
         assertBucketEquals("float", Float.POSITIVE_INFINITY, 2139095040, -292175804);
         assertBucketEquals("float", Float.NEGATIVE_INFINITY, -8388608, -1433270801);
         assertBucketEquals("float", Float.NaN, 2143289344, -480354314);
-        assertBucketEquals("float", intBitsToFloat(0xffc00000), 2143289344, -480354314); // also a NaN
-        assertBucketEquals("float", intBitsToFloat(0x7fc00000), 2143289344, -480354314); // also a NaN
-        assertBucketEquals("float", intBitsToFloat(0x7fc01234), 2143289344, -480354314); // also a NaN
-        assertBucketEquals("float", intBitsToFloat(0xffc01234), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0xFFC00000), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0x7FC00000), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0x7FC01234), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0xFFC01234), 2143289344, -480354314); // also a NaN
 
         assertBucketEquals("double", null, 0, 0);
         assertBucketEquals("double", 12.34, 986311098, -2070733568);
@@ -110,9 +110,9 @@ public class TestHiveBucketing
         assertBucketEquals("double", Double.POSITIVE_INFINITY, 2146435072, 1614292060);
         assertBucketEquals("double", Double.NEGATIVE_INFINITY, -1048576, 141388605);
         assertBucketEquals("double", Double.NaN, 2146959360, 1138026565);
-        assertBucketEquals("double", longBitsToDouble(0xfff8000000000000L), 2146959360, 1138026565); // also a NaN
-        assertBucketEquals("double", longBitsToDouble(0x7ff8123412341234L), 2146959360, 1138026565); // also a NaN
-        assertBucketEquals("double", longBitsToDouble(0xfff8123412341234L), 2146959360, 1138026565); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0xFFF8000000000000L), 2146959360, 1138026565); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0x7FF8123412341234L), 2146959360, 1138026565); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0xFFF8123412341234L), 2146959360, 1138026565); // also a NaN
 
         assertBucketEquals("varchar(15)", null, 0, 0);
         assertBucketEquals("varchar(15)", "", 1, -965378730);
@@ -160,7 +160,7 @@ public class TestHiveBucketing
         // multiple bucketing columns
         assertBucketEquals(
                 ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
-                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)),
+                ImmutableList.of(12.34f, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)),
                 95411006,
                 932898434);
         assertBucketEquals(
@@ -186,7 +186,7 @@ public class TestHiveBucketing
         assertBucketsEqual(
                 ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
                 ImmutableList.of(
-                        ImmutableList.of(12.34F, 56.78F),
+                        ImmutableList.of(12.34f, 56.78f),
                         ImmutableList.of(ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableList.of((short) 1, (short) 2, (short) 3)),
                         ImmutableList.of(ImmutableMap.of("key1", 123L), ImmutableMap.of("key2", 456L))),
                 32,
@@ -233,7 +233,7 @@ public class TestHiveBucketing
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
         List<Type> trinoTypes = hiveTypes.stream()
-                .map(type -> TESTING_TYPE_MANAGER.getType(getTypeSignature(type)))
+                .map(type -> TESTING_TYPE_MANAGER.getType(getTypeDescriptor(type)))
                 .collect(toImmutableList());
 
         ImmutableList.Builder<List<NullableValue>> values = ImmutableList.builder();
@@ -309,7 +309,7 @@ public class TestHiveBucketing
         Object[] nativeContainerValues = new Object[hiveValues.size()];
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object hiveValue = hiveValues.get(i);
-            Type type = TESTING_TYPE_MANAGER.getType(getTypeSignature(hiveTypes.get(i)));
+            Type type = TESTING_TYPE_MANAGER.getType(getTypeDescriptor(hiveTypes.get(i)));
 
             BlockBuilder blockBuilder = type.createBlockBuilder(null, 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
@@ -347,15 +347,14 @@ public class TestHiveBucketing
             i++;
         }
 
-        switch (bucketingVersion) {
-            case BUCKETING_V1:
+        return switch (bucketingVersion) {
+            case BUCKETING_V1 -> {
                 @SuppressWarnings("deprecation")
                 int hashCodeOld = ObjectInspectorUtils.getBucketHashCodeOld(objects, objectInspectors);
-                return hashCodeOld;
-            case BUCKETING_V2:
-                return ObjectInspectorUtils.getBucketHashCode(objects, objectInspectors);
-        }
-        throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
+                yield hashCodeOld;
+            }
+            case BUCKETING_V2 -> ObjectInspectorUtils.getBucketHashCode(objects, objectInspectors);
+        };
     }
 
     private static void appendToBlockBuilder(Type type, Object hiveValue, BlockBuilder blockBuilder)

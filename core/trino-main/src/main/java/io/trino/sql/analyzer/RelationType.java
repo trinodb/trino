@@ -177,6 +177,7 @@ public class RelationType
                         field.getType(),
                         field.isHidden(),
                         field.getOriginTable(),
+                        field.getOriginBranch(),
                         field.getOriginColumnName(),
                         field.isAliased()));
             }
@@ -190,6 +191,7 @@ public class RelationType
                         field.getType(),
                         false,
                         field.getOriginTable(),
+                        field.getOriginBranch(),
                         field.getOriginColumnName(),
                         field.isAliased()));
             }

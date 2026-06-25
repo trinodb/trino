@@ -85,10 +85,7 @@ public class FeaturesConfig
 {
     public enum DataIntegrityVerification
     {
-        NONE,
-        ABORT,
-        RETRY,
-        /**/;
+        NONE, ABORT, RETRY,
     }
 
     @VisibleForTesting
@@ -129,10 +126,13 @@ public class FeaturesConfig
     private boolean forceSpillingJoin;
 
     private boolean columnarFilterEvaluationEnabled = true;
+    private boolean adaptiveFilterReorderingEnabled = true;
 
     private boolean externalExchangeEncryptionEnabled = true;
 
     private boolean legacyArithmeticDecimalOperators;
+
+    private boolean legacyVarcharToCharCoercion;
 
     public boolean isRedistributeWrites()
     {
@@ -455,6 +455,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isLegacyVarcharToCharCoercion()
+    {
+        return legacyVarcharToCharCoercion;
+    }
+
+    @Config("deprecated.legacy-varchar-to-char-coercion")
+    @ConfigDescription("Implicitly coerce varchar to char, instead of char to varchar")
+    public FeaturesConfig setLegacyVarcharToCharCoercion(boolean legacyVarcharToCharCoercion)
+    {
+        this.legacyVarcharToCharCoercion = legacyVarcharToCharCoercion;
+        return this;
+    }
+
     @Deprecated
     public boolean isIncrementalHashArrayLoadFactorEnabled()
     {
@@ -506,6 +519,19 @@ public class FeaturesConfig
     public FeaturesConfig setColumnarFilterEvaluationEnabled(boolean columnarFilterEvaluationEnabled)
     {
         this.columnarFilterEvaluationEnabled = columnarFilterEvaluationEnabled;
+        return this;
+    }
+
+    public boolean isAdaptiveFilterReorderingEnabled()
+    {
+        return adaptiveFilterReorderingEnabled;
+    }
+
+    @Config("experimental.adaptive-filter-reordering.enabled")
+    @ConfigDescription("Reorder conjunctive/disjunctive filter terms at runtime based on observed selectivity and performance")
+    public FeaturesConfig setAdaptiveFilterReorderingEnabled(boolean adaptiveFilterReorderingEnabled)
+    {
+        this.adaptiveFilterReorderingEnabled = adaptiveFilterReorderingEnabled;
         return this;
     }
 

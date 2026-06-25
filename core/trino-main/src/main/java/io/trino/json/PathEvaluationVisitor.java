@@ -536,7 +536,7 @@ class PathEvaluationVisitor
         }
         if (type.equals(DOUBLE)) {
             try {
-                return DoubleOperators.castToLong(value.getDoubleValue());
+                return DoubleOperators.castToBigint(value.getDoubleValue());
             }
             catch (Exception e) {
                 throw new PathEvaluationException(e);
@@ -544,7 +544,7 @@ class PathEvaluationVisitor
         }
         if (type.equals(REAL)) {
             try {
-                return RealOperators.castToLong(value.getLongValue());
+                return RealOperators.castToBigint(value.getLongValue());
             }
             catch (Exception e) {
                 throw new PathEvaluationException(e);
@@ -996,26 +996,13 @@ class PathEvaluationVisitor
         for (Object object : sequence) {
             if (object instanceof JsonNode jsonNode) {
                 switch (jsonNode.getNodeType()) {
-                    case NUMBER:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("number")));
-                        break;
-                    case STRING:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("string")));
-                        break;
-                    case BOOLEAN:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("boolean")));
-                        break;
-                    case ARRAY:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("array")));
-                        break;
-                    case OBJECT:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("object")));
-                        break;
-                    case NULL:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("null")));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("unexpected Json node type: " + jsonNode.getNodeType());
+                    case NUMBER -> outputSequence.add(new TypedValue(resultType, utf8Slice("number")));
+                    case STRING -> outputSequence.add(new TypedValue(resultType, utf8Slice("string")));
+                    case BOOLEAN -> outputSequence.add(new TypedValue(resultType, utf8Slice("boolean")));
+                    case ARRAY -> outputSequence.add(new TypedValue(resultType, utf8Slice("array")));
+                    case OBJECT -> outputSequence.add(new TypedValue(resultType, utf8Slice("object")));
+                    case NULL -> outputSequence.add(new TypedValue(resultType, utf8Slice("null")));
+                    default -> throw new IllegalArgumentException("unexpected Json node type: " + jsonNode.getNodeType());
                 }
             }
             else {

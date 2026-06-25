@@ -290,7 +290,8 @@ public class TestPushAggregationThroughOuterJoin
     {
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
-                        .source(p.join(LEFT,
+                        .source(p.join(
+                                LEFT,
                                 p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
                                 p.values(new Symbol(BIGINT, "COL2"), new Symbol(BIGINT, "COL3")),
                                 ImmutableList.of(new EquiJoinClause(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL2"))),

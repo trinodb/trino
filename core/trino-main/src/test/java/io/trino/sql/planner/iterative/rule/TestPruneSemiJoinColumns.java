@@ -52,7 +52,7 @@ public class TestPruneSemiJoinColumns
     public void testAllColumnsNeeded()
     {
         tester().assertThat(new PruneSemiJoinColumns())
-                .on(p -> buildProjectedSemiJoin(p, symbol -> true))
+                .on(p -> buildProjectedSemiJoin(p, _ -> true))
                 .doesNotFire();
     }
 
@@ -72,7 +72,9 @@ public class TestPruneSemiJoinColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of("match", expression(new Reference(BOOLEAN, "match"))),
-                                semiJoin("leftKey", "rightKey", "match",
+                                semiJoin("leftKey",
+                                        "rightKey",
+                                        "match",
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "leftKey", expression(new Reference(BIGINT, "leftKey"))),

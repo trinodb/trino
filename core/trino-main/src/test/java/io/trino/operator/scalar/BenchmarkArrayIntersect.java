@@ -54,7 +54,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
@@ -100,27 +100,19 @@ public class BenchmarkArrayIntersect
         {
             Type elementType;
             switch (type) {
-                case "BIGINT":
-                    elementType = BIGINT;
-                    break;
-                case "VARCHAR":
-                    elementType = VARCHAR;
-                    break;
-                case "DOUBLE":
-                    elementType = DOUBLE;
-                    break;
-                case "BOOLEAN":
-                    elementType = BOOLEAN;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case "BIGINT" -> elementType = BIGINT;
+                case "VARCHAR" -> elementType = VARCHAR;
+                case "DOUBLE" -> elementType = DOUBLE;
+                case "BOOLEAN" -> elementType = BOOLEAN;
+                default -> throw new UnsupportedOperationException();
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             ArrayType arrayType = new ArrayType(elementType);
             List<Expression> projections = ImmutableList.of(call(
                     functionResolution.resolveFunction(name, fromTypes(arrayType, arrayType)),
-                    new Reference(arrayType, "$col_0"), new Reference(arrayType, "$col_1")));
+                    new Reference(arrayType, "$col_0"),
+                    new Reference(arrayType, "$col_1")));
 
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(

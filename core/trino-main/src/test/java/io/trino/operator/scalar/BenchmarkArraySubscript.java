@@ -109,24 +109,23 @@ public class BenchmarkArraySubscript
             ArrayType arrayType;
             Block elementsBlock;
             switch (name) {
-                case "fix-width":
+                case "fix-width" -> {
                     arrayType = new ArrayType(DOUBLE);
                     elementsBlock = createFixWidthValueBlock(POSITIONS, arraySize);
-                    break;
-                case "var-width":
+                }
+                case "var-width" -> {
                     arrayType = new ArrayType(createUnboundedVarcharType());
                     elementsBlock = createVarWidthValueBlock(POSITIONS, arraySize);
-                    break;
-                case "dictionary":
+                }
+                case "dictionary" -> {
                     arrayType = new ArrayType(createUnboundedVarcharType());
                     elementsBlock = createDictionaryValueBlock(POSITIONS, arraySize);
-                    break;
-                case "array":
+                }
+                case "array" -> {
                     arrayType = new ArrayType(new ArrayType(createUnboundedVarcharType()));
                     elementsBlock = createArrayBlock(POSITIONS * arraySize, createVarWidthValueBlock(POSITIONS, arraySize));
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
 
             Block block = createArrayBlock(POSITIONS, elementsBlock);
@@ -137,7 +136,8 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < arraySize; i++) {
                 projectionsBuilder.add(call(
                         resolvedFunction,
-                        new Reference(arrayType, "$col_0"), new Constant(BIGINT, (long) i + 1)));
+                        new Reference(arrayType, "$col_0"),
+                        new Constant(BIGINT, (long) i + 1)));
             }
 
             List<Expression> projections = projectionsBuilder.build();

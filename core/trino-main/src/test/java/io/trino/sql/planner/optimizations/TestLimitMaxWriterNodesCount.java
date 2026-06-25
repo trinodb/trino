@@ -93,14 +93,14 @@ public class TestLimitMaxWriterNodesCount
     private MockConnectorFactory prepareConnectorFactory(String catalogName, OptionalInt maxWriterTasks, List<String> tables)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle((session, tableName) -> {
+                .withGetTableHandle((_, tableName) -> {
                     if (tables.contains(tableName.getTableName())) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
                 })
                 .withWriterScalingOptions(WriterScalingOptions.ENABLED)
-                .withGetInsertLayout((session, tableMetadata) -> {
+                .withGetInsertLayout((_, tableMetadata) -> {
                     if (tableMetadata.getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
@@ -109,7 +109,7 @@ public class TestLimitMaxWriterNodesCount
                     }
                     return Optional.empty();
                 })
-                .withGetNewTableLayout((session, tableMetadata) -> {
+                .withGetNewTableLayout((_, tableMetadata) -> {
                     if (tableMetadata.getTable().getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
@@ -118,7 +118,7 @@ public class TestLimitMaxWriterNodesCount
                     }
                     return Optional.empty();
                 })
-                .withGetLayoutForTableExecute((session, tableHandle) -> {
+                .withGetLayoutForTableExecute((_, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
                     if (tableExecuteHandle.schemaTableName().getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
@@ -131,7 +131,7 @@ public class TestLimitMaxWriterNodesCount
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
                 .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider())
                 .withMaxWriterTasks(maxWriterTasks)
-                .withGetColumns(schemaTableName -> ImmutableList.of(
+                .withGetColumns(_ -> ImmutableList.of(
                         new ColumnMetadata("column_a", VARCHAR),
                         new ColumnMetadata("column_b", VARCHAR)))
                 .withName(catalogName)
@@ -156,7 +156,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableWriterNode.class,
                                 exchange(LOCAL, OptionalInt.empty(),
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
-                                        exchange(REMOTE, FIXED_ARBITRARY_DISTRIBUTION, OptionalInt.of(2),
+                                        exchange(REMOTE,
+                                                FIXED_ARBITRARY_DISTRIBUTION,
+                                                OptionalInt.of(2),
                                                 values("column_a", "column_b"))))));
     }
 
@@ -178,7 +180,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableWriterNode.class,
                                 exchange(LOCAL, OptionalInt.empty(),
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
-                                        exchange(REMOTE, SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, OptionalInt.of(2),
+                                        exchange(REMOTE,
+                                                SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                                                OptionalInt.of(2),
                                                 values("column_a", "column_b"))))));
     }
 
@@ -199,7 +203,8 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableWriterNode.class,
-                                exchange(LOCAL, OptionalInt.empty(),
+                                exchange(LOCAL,
+                                        OptionalInt.empty(),
                                         values("column_a", "column_b")))));
     }
 
@@ -221,7 +226,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableWriterNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
-                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, OptionalInt.of(2),
+                                        exchange(REMOTE,
+                                                SCALED_WRITER_HASH_DISTRIBUTION,
+                                                OptionalInt.of(2),
                                                 values("column_a", "column_b"))))));
     }
 
@@ -240,10 +247,11 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableWriterNode.class,
-                                    exchange(LOCAL,
-                                            // partitionCount for writing stage is empty because here partitioning is not system partitioning here
-                                            exchange(REMOTE, OptionalInt.empty(),
-                                                        values("column_a", "column_b"))))));
+                                exchange(LOCAL,
+                                        // partitionCount for writing stage is empty because here partitioning is not system partitioning here
+                                        exchange(REMOTE,
+                                                OptionalInt.empty(),
+                                                values("column_a", "column_b"))))));
     }
 
     @Test
@@ -264,7 +272,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableWriterNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage should be set to 4 because it was specified by connector
-                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, OptionalInt.of(1),
+                                        exchange(REMOTE,
+                                                SCALED_WRITER_HASH_DISTRIBUTION,
+                                                OptionalInt.of(1),
                                                 values("column_a", "column_b"))))));
     }
 
@@ -286,7 +296,9 @@ public class TestLimitMaxWriterNodesCount
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL,
-                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, OptionalInt.empty(),
+                                        exchange(REMOTE,
+                                                SCALED_WRITER_HASH_DISTRIBUTION,
+                                                OptionalInt.empty(),
                                                 values("column_a", "column_b"))))));
     }
 
@@ -308,7 +320,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL, OptionalInt.empty(),
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
-                                        exchange(REMOTE, FIXED_ARBITRARY_DISTRIBUTION, OptionalInt.of(2),
+                                        exchange(REMOTE,
+                                                FIXED_ARBITRARY_DISTRIBUTION,
+                                                OptionalInt.of(2),
                                                 tableScan(unPartitionedTable))))));
     }
 
@@ -330,7 +344,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL, OptionalInt.empty(),
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
-                                        exchange(REMOTE, SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, OptionalInt.of(2),
+                                        exchange(REMOTE,
+                                                SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                                                OptionalInt.of(2),
                                                 tableScan(unPartitionedTable))))));
     }
 
@@ -351,7 +367,8 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableExecuteNode.class,
-                                exchange(LOCAL, OptionalInt.empty(),
+                                exchange(LOCAL,
+                                        OptionalInt.empty(),
                                         tableScan(unPartitionedTable)))));
     }
 
@@ -373,7 +390,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
-                                        exchange(REMOTE, FIXED_HASH_DISTRIBUTION, OptionalInt.of(2),
+                                        exchange(REMOTE,
+                                                FIXED_HASH_DISTRIBUTION,
+                                                OptionalInt.of(2),
                                                 node(TableScanNode.class))))));
     }
 
@@ -395,7 +414,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage should be set to 4 because it was specified by connector
-                                        exchange(REMOTE, FIXED_HASH_DISTRIBUTION, OptionalInt.of(1),
+                                        exchange(REMOTE,
+                                                FIXED_HASH_DISTRIBUTION,
+                                                OptionalInt.of(1),
                                                 node(TableScanNode.class))))));
     }
 
@@ -418,7 +439,9 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage is empty because it is FTE mode
-                                        exchange(REMOTE, FIXED_HASH_DISTRIBUTION, OptionalInt.empty(),
+                                        exchange(REMOTE,
+                                                FIXED_HASH_DISTRIBUTION,
+                                                OptionalInt.empty(),
                                                 node(TableScanNode.class))))));
     }
 }

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 public class GeometryType
         extends AbstractGeometryType
@@ -21,9 +21,9 @@ public class GeometryType
     public static final String NAME = "Geometry";
     public static final GeometryType GEOMETRY = new GeometryType();
 
-    private GeometryType()
+    public GeometryType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

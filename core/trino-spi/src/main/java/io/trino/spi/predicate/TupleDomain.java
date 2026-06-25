@@ -478,9 +478,9 @@ public final class TupleDomain<T>
         boolean allSingleMatchingColumn = nonNoneDomains.stream()
                 .allMatch(domain -> domain.getDomains().isPresent() && domain.getDomains().get().size() == 1)
                 && nonNoneDomains.stream()
-                        .map(domain -> domain.getDomains().get().keySet())
-                        .distinct()
-                        .count() == 1;
+                .map(domain -> domain.getDomains().get().keySet())
+                .distinct()
+                .count() == 1;
 
         if (!allSingleMatchingColumn) {
             // columnWiseUnion would be a superset of the strict union
@@ -648,12 +648,12 @@ public final class TupleDomain<T>
 
     public TupleDomain<T> simplify()
     {
-        return transformDomains((key, domain) -> domain.simplify());
+        return transformDomains((_, domain) -> domain.simplify());
     }
 
     public TupleDomain<T> simplify(int threshold)
     {
-        return transformDomains((key, domain) -> domain.simplify(threshold));
+        return transformDomains((_, domain) -> domain.simplify(threshold));
     }
 
     public TupleDomain<T> transformDomains(BiFunction<T, Domain, Domain> transformation)
@@ -675,7 +675,7 @@ public final class TupleDomain<T>
     public Predicate<Map<T, NullableValue>> asPredicate()
     {
         if (isNone()) {
-            return bindings -> false;
+            return _ -> false;
         }
         Map<T, Domain> domains = this.domains.orElseThrow();
         return bindings -> {

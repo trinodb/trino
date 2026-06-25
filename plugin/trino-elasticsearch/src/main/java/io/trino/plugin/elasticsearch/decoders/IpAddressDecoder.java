@@ -19,10 +19,10 @@ import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
+import io.trino.plugin.elasticsearch.client.SearchDocument;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -48,7 +48,7 @@ public class IpAddressDecoder
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(SearchDocument document, Supplier<Object> getter, BlockBuilder output)
     {
         Object value = getter.get();
         if (value == null) {
@@ -77,8 +77,8 @@ public class IpAddressDecoder
         byte[] bytes;
         if (address.length == 4) {
             bytes = new byte[16];
-            bytes[10] = (byte) 0xff;
-            bytes[11] = (byte) 0xff;
+            bytes[10] = (byte) 0xFF;
+            bytes[11] = (byte) 0xFF;
             arraycopy(address, 0, bytes, 12, 4);
         }
         else if (address.length == 16) {

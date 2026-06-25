@@ -50,7 +50,8 @@ final class AggregationFunctionProvider
     @Override
     public String toString()
     {
-        return format("%s (%s%s) %s %s",
+        return format(
+                "%s (%s%s) %s %s",
                 name,
                 distinct ? "DISTINCT" : "",
                 Joiner.on(", ").join(args),

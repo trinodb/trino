@@ -16,11 +16,15 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.parquet.cache.MemoryParquetFooterCache;
+import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProviderFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -81,6 +85,7 @@ public class IcebergModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergSchemaProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergViewProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergAnalyzeProperties.class).in(Scopes.SINGLETON);
 
@@ -147,5 +152,15 @@ public class IcebergModule
         binder.bind(IcebergConnector.class).in(Scopes.SINGLETON);
 
         binder.install(new IcebergExecutorModule());
+    }
+
+    @Provides
+    @Singleton
+    public static ParquetFooterCache createParquetFooterCache(IcebergConfig config)
+    {
+        return switch (config.getParquetFooterCacheType()) {
+            case NONE -> ParquetFooterCache.noop();
+            case MEMORY -> new MemoryParquetFooterCache(config.getParquetFooterCacheMemoryMaxSize());
+        };
     }
 }

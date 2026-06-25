@@ -15,7 +15,12 @@ package io.trino.operator.table.json.execution;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.json.ir.IrJsonPath;
+import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.SelectedPositions;
+import io.trino.operator.scalar.json.JsonValueFunction.DefaultValueLambda;
 import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -29,54 +34,49 @@ public class ValueColumn
 {
     private final int outputIndex;
     private final MethodHandle methodHandle;
+    private final ConnectorSession session;
     private final IrJsonPath path;
     private final long emptyBehavior;
-    private final int emptyDefaultInput;
+    private final PageProjection emptyDefaultProjection;
+    private final Type emptyDefaultType;
     private final long errorBehavior;
-    private final int errorDefaultInput;
-    private final Type resultType;
+    private final PageProjection errorDefaultProjection;
+    private final Type errorDefaultType;
 
     public ValueColumn(
             int outputIndex,
             MethodHandle methodHandle,
+            ConnectorSession session,
             IrJsonPath path,
             long emptyBehavior,
-            int emptyDefaultInput,
+            PageProjection emptyDefaultProjection,
+            Type emptyDefaultType,
             long errorBehavior,
-            int errorDefaultInput,
-            Type resultType)
+            PageProjection errorDefaultProjection,
+            Type errorDefaultType)
     {
         this.outputIndex = outputIndex;
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+        this.session = requireNonNull(session, "session is null");
         this.path = requireNonNull(path, "path is null");
         this.emptyBehavior = emptyBehavior;
-        this.emptyDefaultInput = emptyDefaultInput;
+        this.emptyDefaultProjection = emptyDefaultProjection;
+        this.emptyDefaultType = requireNonNull(emptyDefaultType, "emptyDefaultType is null");
         this.errorBehavior = errorBehavior;
-        this.errorDefaultInput = errorDefaultInput;
-        this.resultType = requireNonNull(resultType, "resultType is null");
+        this.errorDefaultProjection = errorDefaultProjection;
+        this.errorDefaultType = requireNonNull(errorDefaultType, "errorDefaultType is null");
     }
 
     @Override
     public Object evaluate(long sequentialNumber, JsonNode item, Page input, int position)
     {
-        Object emptyDefault;
-        if (emptyDefaultInput == -1) {
-            emptyDefault = null;
-        }
-        else {
-            emptyDefault = readNativeValue(resultType, input.getBlock(emptyDefaultInput), position);
-        }
-
-        Object errorDefault;
-        if (errorDefaultInput == -1) {
-            errorDefault = null;
-        }
-        else {
-            errorDefault = readNativeValue(resultType, input.getBlock(errorDefaultInput), position);
-        }
+        SourcePage sourcePage = SourcePage.create(input);
+        SelectedPositions selectedPosition = SelectedPositions.positionsRange(position, 1);
+        DefaultValueLambda emptyDefault = () -> emptyDefaultProjection == null ? null : readNativeValue(emptyDefaultType, emptyDefaultProjection.project(session, emptyDefaultProjection.getInputChannels().getInputChannels(sourcePage), selectedPosition), 0);
+        DefaultValueLambda errorDefault = () -> errorDefaultProjection == null ? null : readNativeValue(errorDefaultType, errorDefaultProjection.project(session, errorDefaultProjection.getInputChannels().getInputChannels(sourcePage), selectedPosition), 0);
 
         try {
-            return methodHandle.invoke(item, path, null, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+            return methodHandle.invoke(item, path, null, null, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
         }
         catch (Throwable throwable) {
             // According to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.462 General rules 1) e) ii) 2) D) any exception thrown by column evaluation should be propagated.

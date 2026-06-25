@@ -29,7 +29,7 @@ final class TestExasolPlugin
         Plugin plugin = new ExasolPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
-                "test",
+                        "test",
                         ImmutableMap.of("connection-url", "jdbc:exa:localhost:8563"),
                         new TestingConnectorContext())
                 .shutdown();

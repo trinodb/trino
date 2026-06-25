@@ -126,52 +126,48 @@ public class PinotPatterns
     public static Property<Predicate, ?, String> binaryOperatorValue()
     {
         return Property.optionalProperty("binaryOperatorValue", predicate -> {
-            switch (predicate.getType()) {
-                case EQ:
-                    return Optional.of(((EqPredicate) predicate).getValue());
-                case NOT_EQ:
-                    return Optional.of(((NotEqPredicate) predicate).getValue());
-                case RANGE:
+            return switch (predicate.getType()) {
+                case EQ -> Optional.of(((EqPredicate) predicate).getValue());
+                case NOT_EQ -> Optional.of(((NotEqPredicate) predicate).getValue());
+                case RANGE -> {
                     RangePredicate rangePredicate = (RangePredicate) predicate;
                     if (rangePredicate.getLowerBound().equals(UNBOUNDED)) {
-                        return Optional.of(rangePredicate.getUpperBound());
+                        yield Optional.of(rangePredicate.getUpperBound());
                     }
                     if (rangePredicate.getUpperBound().equals(UNBOUNDED)) {
-                        return Optional.of(rangePredicate.getLowerBound());
+                        yield Optional.of(rangePredicate.getLowerBound());
                     }
-                    return Optional.empty();
-                default:
-                    return Optional.empty();
-            }
+                    yield Optional.empty();
+                }
+                default -> Optional.empty();
+            };
         });
     }
 
     public static Property<Predicate, ?, String> binaryOperator()
     {
         return Property.optionalProperty("binaryOperator", predicate -> {
-            switch (predicate.getType()) {
-                case EQ:
-                    return Optional.of("=");
-                case NOT_EQ:
-                    return Optional.of("!=");
-                case RANGE:
+            return switch (predicate.getType()) {
+                case EQ -> Optional.of("=");
+                case NOT_EQ -> Optional.of("!=");
+                case RANGE -> {
                     RangePredicate rangePredicate = (RangePredicate) predicate;
                     if (rangePredicate.getLowerBound().equals(UNBOUNDED)) {
                         if (rangePredicate.isUpperInclusive()) {
-                            return Optional.of("<=");
+                            yield Optional.of("<=");
                         }
-                        return Optional.of("<");
+                        yield Optional.of("<");
                     }
                     if (rangePredicate.getUpperBound().equals(UNBOUNDED)) {
                         if (rangePredicate.isLowerInclusive()) {
-                            return Optional.of(">=");
+                            yield Optional.of(">=");
                         }
-                        return Optional.of(">");
+                        yield Optional.of(">");
                     }
-                    return Optional.empty();
-                default:
-                    return Optional.empty();
-            }
+                    yield Optional.empty();
+                }
+                default -> Optional.empty();
+            };
         });
     }
 

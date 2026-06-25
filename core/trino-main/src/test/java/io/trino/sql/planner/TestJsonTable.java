@@ -29,9 +29,12 @@ import io.trino.operator.table.json.JsonTablePlanSingle;
 import io.trino.operator.table.json.JsonTablePlanUnion;
 import io.trino.operator.table.json.JsonTableQueryColumn;
 import io.trino.operator.table.json.JsonTableValueColumn;
+import io.trino.spi.type.FunctionType;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -55,7 +58,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.planner.JsonTablePlanComparator.planComparator;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -78,9 +81,7 @@ public class TestJsonTable
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
 
-    private static final ResolvedFunction JSON_VALUE_FUNCTION = FUNCTIONS.resolveFunction(
-            JSON_VALUE_FUNCTION_NAME,
-            fromTypes(JSON_2016, JSON_PATH_2016, JSON_NO_PARAMETERS_ROW_TYPE, TINYINT, BIGINT, TINYINT, BIGINT));
+    private static final ResolvedFunction JSON_VALUE_FUNCTION = jsonValueFunction(BIGINT, BIGINT, BIGINT);
 
     private static final ResolvedFunction JSON_QUERY_FUNCTION = FUNCTIONS.resolveFunction(
             JSON_QUERY_FUNCTION_NAME,
@@ -102,14 +103,16 @@ public class TestJsonTable
                         bigint_col BIGINT DEFAULT 5 ON EMPTY DEFAULT int_col ON ERROR,
                         varchar_col VARCHAR FORMAT JSON ERROR ON ERROR)
                     EMPTY ON ERROR)
-                    """,
+                """,
                 CREATED,
-                strictOutput(// left-side columns first, json_table columns next
+                strictOutput(
+                        // left-side columns first, json_table columns next
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
                                         ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(JSON_2016, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
-                                        tableFunction(builder -> builder
+                                        tableFunction(
+                                                builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
                                                                 "$input",
@@ -122,16 +125,15 @@ public class TestJsonTable
                                                         ImmutableMap.of(
                                                                 "context_item", expression(new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "json_col_coerced"), FALSE))), // apply input function to context item
                                                                 "parameters_row", expression(new Cast(new Row(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
-                                                        project(// coerce context item, path parameters and default expressions
+                                                        project(
+                                                                // coerce context item and path parameters (default expressions are evaluated lazily inside $json_value)
                                                                 ImmutableMap.of(
                                                                         "name_coerced", expression(new Cast(new Reference(createVarcharType(5), "name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
-                                                                        "default_value_coerced", expression(new Cast(new Reference(INTEGER, "default_value"), BIGINT)), // cast default value to BIGINT to match declared return type for the column
-                                                                        "json_col_coerced", expression(new Cast(new Reference(createVarcharType(9), "json_col"), VARCHAR)), // cast context item to VARCHAR for the input function
-                                                                        "int_col_coerced", expression(new Cast(new Reference(INTEGER, "int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
-                                                                project(// pre-project context item, path parameters and default expressions
+                                                                        "json_col_coerced", expression(new Cast(new Reference(createVarcharType(9), "json_col"), VARCHAR))), // cast context item to VARCHAR for the input function
+                                                                project(
+                                                                        // pre-project path parameter
                                                                         ImmutableMap.of(
-                                                                                "name", expression(new Constant(createVarcharType(5), Slices.utf8Slice("[ala]"))),
-                                                                                "default_value", expression(new Constant(INTEGER, 5L))),
+                                                                                "name", expression(new Constant(createVarcharType(5), Slices.utf8Slice("[ala]")))),
                                                                         anyTree(
                                                                                 project(
                                                                                         ImmutableMap.of(
@@ -153,7 +155,7 @@ public class TestJsonTable
                         first_col BIGINT,
                         "Second_Col" BIGINT,
                         "_""_'_?_" BIGINT))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -175,7 +177,7 @@ public class TestJsonTable
                         first_col BIGINT PATH 'lax $.a',
                         "Second_Col" BIGINT PATH 'lax $.B',
                         "_""_'_?_" BIGINT PATH 'lax false'))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -201,7 +203,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.y' COLUMNS(
                                 c BIGINT)),
                         d BIGINT))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -233,7 +235,7 @@ public class TestJsonTable
                         d VARCHAR FORMAT JSON,
                         e VARCHAR FORMAT JSON WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY ERROR ON ERROR,
                         f VARCHAR FORMAT JSON OMIT QUOTES EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -241,23 +243,24 @@ public class TestJsonTable
                                         0,
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "A")),
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1,
+                                        null,
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1),
+                                        null),
                                 valueColumn(
                                         1,
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "B")),
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1,
+                                        null,
                                         JsonValue.EmptyOrErrorBehavior.ERROR,
-                                        -1),
+                                        null),
                                 valueColumn(
                                         2,
+                                        jsonValueFunction(BIGINT, INTEGER, INTEGER),
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "C")),
                                         JsonValue.EmptyOrErrorBehavior.DEFAULT,
-                                        2,
+                                        new Constant(INTEGER, 1L),
                                         JsonValue.EmptyOrErrorBehavior.DEFAULT,
-                                        3),
+                                        new Constant(INTEGER, 2L)),
                                 queryColumn(
                                         3,
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "D")),
@@ -290,7 +293,7 @@ public class TestJsonTable
                     'lax $' AS root_path
                     COLUMNS(
                         a BIGINT))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -298,9 +301,9 @@ public class TestJsonTable
                                         0,
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "A")),
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1,
+                                        null,
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1))));
+                                        null))));
 
         // the column has no explicit error behavior, and json_table has explicit ERROR ON ERROR. The default behavior for column is ERROR ON ERROR.
         assertJsonTablePlan(
@@ -312,7 +315,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT)
                     ERROR ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -320,9 +323,9 @@ public class TestJsonTable
                                         0,
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "A")),
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1,
+                                        null,
                                         JsonValue.EmptyOrErrorBehavior.ERROR,
-                                        -1))));
+                                        null))));
 
         // the column has no explicit error behavior, and json_table has explicit EMPTY ON ERROR. The default behavior for column is NULL ON ERROR.
         assertJsonTablePlan(
@@ -334,7 +337,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT)
                     EMPTY ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -342,9 +345,9 @@ public class TestJsonTable
                                         0,
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "A")),
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1,
+                                        null,
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1))));
+                                        null))));
 
         // the column has  explicit NULL ON ERROR behavior, and json_table has no explicit ERROR ON ERROR. The behavior for column is the one explicitly specified.
         assertJsonTablePlan(
@@ -356,7 +359,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT NULL ON ERROR)
                     ERROR ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -364,9 +367,9 @@ public class TestJsonTable
                                         0,
                                         new IrJsonPath(true, memberAccessor(contextVariable(), "A")),
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1,
+                                        null,
                                         JsonValue.EmptyOrErrorBehavior.NULL,
-                                        -1))));
+                                        null))));
     }
 
     @Test
@@ -385,7 +388,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.c' COLUMNS(col_2 BIGINT),
                             NESTED PATH 'lax $.d' COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' COLUMNS(col_4 BIGINT)))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -426,7 +429,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN DEFAULT (INNER, CROSS))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -463,7 +466,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN DEFAULT (CROSS))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -504,7 +507,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN (ROOT_PATH INNER (((B OUTER (D CROSS C)) UNION E) CROSS A)))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -532,17 +535,37 @@ public class TestJsonTable
 
     private static JsonTableValueColumn valueColumn(int outputIndex, IrJsonPath path)
     {
-        return valueColumn(outputIndex, path, JsonValue.EmptyOrErrorBehavior.NULL, -1, JsonValue.EmptyOrErrorBehavior.NULL, -1);
+        return valueColumn(outputIndex, JSON_VALUE_FUNCTION, path, JsonValue.EmptyOrErrorBehavior.NULL, null, JsonValue.EmptyOrErrorBehavior.NULL, null);
     }
 
-    private static JsonTableValueColumn valueColumn(int outputIndex, IrJsonPath path, JsonValue.EmptyOrErrorBehavior emptyBehavior, int emptyDefaultInput, JsonValue.EmptyOrErrorBehavior errorBehavior, int errorDefaultInput)
+    private static JsonTableValueColumn valueColumn(int outputIndex, IrJsonPath path, JsonValue.EmptyOrErrorBehavior emptyBehavior, Expression emptyDefault, JsonValue.EmptyOrErrorBehavior errorBehavior, Expression errorDefault)
     {
-        return new JsonTableValueColumn(outputIndex, JSON_VALUE_FUNCTION, path, emptyBehavior.ordinal(), emptyDefaultInput, errorBehavior.ordinal(), errorDefaultInput);
+        return valueColumn(outputIndex, JSON_VALUE_FUNCTION, path, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+    }
+
+    private static JsonTableValueColumn valueColumn(int outputIndex, ResolvedFunction function, IrJsonPath path, JsonValue.EmptyOrErrorBehavior emptyBehavior, Expression emptyDefault, JsonValue.EmptyOrErrorBehavior errorBehavior, Expression errorDefault)
+    {
+        return new JsonTableValueColumn(outputIndex, function, path, emptyBehavior.ordinal(), emptyDefault, errorBehavior.ordinal(), errorDefault, ImmutableList.of());
     }
 
     private static JsonTableQueryColumn queryColumn(int outputIndex, IrJsonPath path, JsonQuery.ArrayWrapperBehavior wrapperBehavior, JsonQuery.EmptyOrErrorBehavior emptyBehavior, JsonQuery.EmptyOrErrorBehavior errorBehavior)
     {
         return new JsonTableQueryColumn(outputIndex, JSON_QUERY_FUNCTION, path, wrapperBehavior.ordinal(), emptyBehavior.ordinal(), errorBehavior.ordinal());
+    }
+
+    private static ResolvedFunction jsonValueFunction(Type returnType, Type emptyDefaultType, Type errorDefaultType)
+    {
+        return FUNCTIONS.resolveFunction(
+                JSON_VALUE_FUNCTION_NAME,
+                fromTypes(
+                        JSON_2016,
+                        JSON_PATH_2016,
+                        JSON_NO_PARAMETERS_ROW_TYPE,
+                        returnType,
+                        TINYINT,
+                        new FunctionType(ImmutableList.of(), emptyDefaultType),
+                        TINYINT,
+                        new FunctionType(ImmutableList.of(), errorDefaultType)));
     }
 
     private void assertJsonTablePlan(@Language("SQL") String sql, JsonTablePlanNode expectedPlan)

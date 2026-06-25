@@ -70,6 +70,8 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
+import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.SplitSchedulerStats;
@@ -272,6 +274,10 @@ public class CoordinatorModule
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
+        // consistent hashing address provider used by the scheduler to place splits that carry a cache key
+        configBinder(binder).bindConfig(ConsistentHashingAddressProviderConfig.class);
+        binder.bind(ConsistentHashingAddressProvider.class).in(Scopes.SINGLETON);
+
         // network topology
         switch (buildConfigObject(NodeSchedulerConfig.class).getNodeSchedulerPolicy()) {
             case UNIFORM -> install(new UniformNodeSelectorModule());
@@ -317,7 +323,7 @@ public class CoordinatorModule
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
 
-        //exchanges metrics
+        // exchanges metrics
         binder.bind(ExchangeMetricsCollector.class).in(Scopes.SINGLETON);
 
         // statistics calculator
@@ -453,7 +459,8 @@ public class CoordinatorModule
         ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
                 queryManagerConfig.getQueryExecutorPoolSize(),
                 queryManagerConfig.getQueryExecutorPoolSize(),
-                60, SECONDS,
+                60,
+                SECONDS,
                 new LinkedBlockingQueue<>(1000),
                 threadsNamed("query-execution-%s"));
         queryExecutor.allowCoreThreadTimeOut(true);

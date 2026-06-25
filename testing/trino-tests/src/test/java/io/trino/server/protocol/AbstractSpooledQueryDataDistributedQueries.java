@@ -138,7 +138,8 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
 
     private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encoding)
     {
-        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory() {
+        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory()
+        {
             @Override
             public StatementClient create(OkHttpClient httpClient, Session session, ClientSession clientSession, String query)
             {
@@ -146,7 +147,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                         .builder(clientSession)
                         .encoding(Optional.ofNullable(encoding))
                         .build();
-                return newStatementClient(httpClient, clientSessionSpooled, query, Optional.empty());
+                return newStatementClient(httpClient, clientSessionSpooled, query, Optional.of(session.getClientCapabilities()));
             }
         }, session, new OkHttpClient());
     }

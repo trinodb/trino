@@ -94,7 +94,7 @@ public class RowConstructorCodeGenerator
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
-            Variable field = scope.getOrCreateTempVariable(fieldType.getJavaType());
+            Variable field = scope.getOrCreateTempVariable(binder.getAccessibleType(fieldType.getJavaType()));
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())
@@ -181,7 +181,7 @@ public class RowConstructorCodeGenerator
 
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
-            Variable field = scope.getOrCreateTempVariable(fieldType.getJavaType());
+            Variable field = scope.getOrCreateTempVariable(binder.getAccessibleType(fieldType.getJavaType()));
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())

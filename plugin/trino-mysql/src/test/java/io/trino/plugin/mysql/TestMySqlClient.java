@@ -60,7 +60,7 @@ public class TestMySqlClient
     private static final JdbcClient JDBC_CLIENT = new MySqlClient(
             new BaseJdbcConfig(),
             new JdbcStatisticsConfig(),
-            session -> {
+            _ -> {
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),

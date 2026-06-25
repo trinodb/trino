@@ -99,7 +99,7 @@ public class TestUniformNodeSelector
                 .setIncludeCoordinator(false);
 
         // contents of taskMap indicate the node-task map for the current stage
-        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig())));
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session);
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
@@ -139,7 +139,8 @@ public class TestUniformNodeSelector
                 500,
                 NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
                 false,
-                queueSizeAdjuster);
+                queueSizeAdjuster,
+                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
 
         for (int i = 0; i < 20; i++) {
             splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit()));
@@ -311,7 +312,8 @@ public class TestUniformNodeSelector
                 2000,
                 NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
                 true,
-                new UniformNodeSelector.QueueSizeAdjuster(1000, 10000, new TestingTicker()));
+                new UniformNodeSelector.QueueSizeAdjuster(1000, 10000, new TestingTicker()),
+                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
 
         Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(node1.getHostAndPort())));
         splits.add(rigidSplit);

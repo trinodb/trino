@@ -45,6 +45,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
+import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.bigquery.BigQueryClient.RemoteDatabaseObject;
 import io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType;
 import io.trino.plugin.bigquery.ptf.Query.QueryHandle;
@@ -128,7 +129,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
-import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_BAD_WRITE;
@@ -290,7 +290,7 @@ public class BigQueryMetadata
         }).orElseGet(() -> listSchemaNames(session));
         Map<SchemaTableName, RelationCommentMetadata> resultsByName = schemaNames.stream()
                 .flatMap(schema -> listRelationCommentMetadata(session, client, schema))
-                .collect(toImmutableMap(RelationCommentMetadata::name, Functions.identity(), (first, second) -> {
+                .collect(toImmutableMap(RelationCommentMetadata::name, Functions.identity(), (first, _) -> {
                     log.debug("Filtered out [%s] from list of tables due to ambiguous name", first.name());
                     return null;
                 }));
@@ -375,7 +375,7 @@ public class BigQueryMetadata
     private static boolean isBigLakeTable(TableDefinition tableDefinition)
     {
         if (tableDefinition instanceof ExternalTableDefinition externalTableDefinition) {
-            //BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
+            // BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
             List<String> sourceUris = externalTableDefinition.getSourceUris();
             return !isNullOrEmpty(externalTableDefinition.getConnectionId()) &&
                     isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
@@ -441,7 +441,7 @@ public class BigQueryMetadata
         Optional<String> query = Optional.ofNullable(((ViewDefinition) tableInfo.getDefinition()).getQuery());
         Iterable<List<Object>> propertyValues = ImmutableList.of(ImmutableList.of(query.orElse("NULL")));
 
-        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), constraint -> new InMemoryRecordSet(types, propertyValues).cursor()));
+        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), _ -> new InMemoryRecordSet(types, propertyValues).cursor()));
     }
 
     @Override
@@ -732,7 +732,8 @@ public class BigQueryMetadata
 
             String columns = columnNames.stream().map(BigQueryUtil::quote).collect(Collectors.joining(", "));
 
-            String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s temp_table " +
+            String insertSql = format(
+                    "INSERT INTO %s (%s) SELECT %s FROM %s temp_table " +
                             "WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
                     quoted(targetTable),
                     columns,
@@ -1008,8 +1009,7 @@ public class BigQueryMetadata
     {
         for (BigQueryColumnHandle existingColumn : existingColumns) {
             List<String> existingColumnDereferenceNames = existingColumn.dereferenceNames();
-            verify(
-                    column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
+            verify(column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
                     "Selected column's dereference size must be greater than or equal to the existing column's dereference size");
             if (existingColumn.name().equals(column.name())
                     && column.dereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {

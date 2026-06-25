@@ -51,7 +51,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
-import io.trino.sql.ir.Between;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -76,19 +76,24 @@ import java.util.stream.Stream;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.IDENTICAL;
-import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.sql.ir.TestingIr.between;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DataProviders.trueFalse;
@@ -142,49 +147,24 @@ public class TestColumnarFilters
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution(FUNCTION_BUNDLE);
     private static final ColumnarFilterCompiler COMPILER = FUNCTION_RESOLUTION.getColumnarFilterCompiler();
 
-    @ParameterizedTest
-    @MethodSource("inputProviders")
-    public void testIsNotDistinctFrom(NullsProvider nullsProvider, boolean dictionaryEncoded)
-    {
-        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
-        // col IS NOT DISTINCT FROM constant
-        Expression isNotDistinctFromFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(IDENTICAL, ImmutableList.of(INTEGER, INTEGER)),
-                new Constant(INTEGER, CONSTANT), new Reference(INTEGER, COL_INT_A));
-        assertThatColumnarFilterEvaluationIsSupported(isNotDistinctFromFilter);
-        verifyFilter(inputPages, isNotDistinctFromFilter);
-
-        // colA IS NOT DISTINCT FROM NULL
-        isNotDistinctFromFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(IDENTICAL, ImmutableList.of(INTEGER, INTEGER)),
-                constantNull(INTEGER), new Reference(INTEGER, COL_INT_A));
-        assertThatColumnarFilterEvaluationIsNotSupported(isNotDistinctFromFilter);
-        verifyFilter(inputPages, isNotDistinctFromFilter);
-
-        // colA IS NOT DISTINCT FROM colB
-        isNotDistinctFromFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(IDENTICAL, ImmutableList.of(INTEGER, INTEGER)),
-                new Reference(INTEGER, COL_INT_C), new Reference(INTEGER, COL_INT_A));
-        assertThatColumnarFilterEvaluationIsSupported(isNotDistinctFromFilter);
-        verifyFilter(inputPages, isNotDistinctFromFilter);
-    }
-
     @Test
     public void testIsDistinctFrom()
     {
         List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
         // col IS DISTINCT FROM constant
-        Expression isDistinctFromFilter = createNotExpression(call(
-                FUNCTION_RESOLUTION.resolveOperator(IDENTICAL, ImmutableList.of(INTEGER, INTEGER)),
-                new Constant(INTEGER, CONSTANT), new Reference(INTEGER, COL_INT_A)));
+        Expression isDistinctFromFilter = createNotExpression(comparison(
+                ComparisonOperator.IDENTICAL,
+                new Constant(INTEGER, CONSTANT),
+                new Reference(INTEGER, COL_INT_A)));
         // IS DISTINCT is not supported in columnar evaluation yet
         assertThatColumnarFilterEvaluationIsNotSupported(isDistinctFromFilter);
         verifyFilter(inputPages, isDistinctFromFilter);
 
         // colA IS DISTINCT FROM colB
-        isDistinctFromFilter = createNotExpression(call(
-                FUNCTION_RESOLUTION.resolveOperator(IDENTICAL, ImmutableList.of(INTEGER, INTEGER)),
-                new Reference(INTEGER, COL_INT_B), new Reference(INTEGER, COL_INT_A)));
+        isDistinctFromFilter = createNotExpression(comparison(
+                ComparisonOperator.IDENTICAL,
+                new Reference(INTEGER, COL_INT_B),
+                new Reference(INTEGER, COL_INT_A)));
         // IS DISTINCT is not supported in columnar evaluation yet
         assertThatColumnarFilterEvaluationIsNotSupported(isDistinctFromFilter);
         verifyFilter(inputPages, isDistinctFromFilter);
@@ -272,15 +252,16 @@ public class TestColumnarFilters
     }
 
     @Test
-    public void testNot()
+    public void testNotEqual()
     {
         List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
-        Expression notNullFilter = createNotExpression(call(
-                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(INTEGER, INTEGER)),
-                new Constant(INTEGER, CONSTANT), new Reference(INTEGER, COL_INT_A)));
-        // NOT is not supported in columnar evaluation yet
-        assertThatColumnarFilterEvaluationIsNotSupported(notNullFilter);
-        verifyFilter(inputPages, notNullFilter);
+        Expression notEqualFilter = comparison(
+                ComparisonOperator.NOT_EQUAL,
+                new Constant(INTEGER, CONSTANT),
+                new Reference(INTEGER, COL_INT_A));
+        // NOT_EQUAL is not supported in columnar evaluation yet
+        assertThatColumnarFilterEvaluationIsNotSupported(notEqualFilter);
+        verifyFilter(inputPages, notEqualFilter);
     }
 
     @ParameterizedTest
@@ -290,63 +271,56 @@ public class TestColumnarFilters
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         Expression likeFilter = call(
                 FUNCTION_RESOLUTION.resolveFunction("$like", fromTypes(VARCHAR, LIKE_PATTERN)),
-                new Reference(VARCHAR, COL_STRING), new Constant(LIKE_PATTERN, LikePattern.compile(Long.toString(CONSTANT), Optional.empty())));
+                new Reference(VARCHAR, COL_STRING),
+                new Constant(LIKE_PATTERN, LikePattern.compile(Long.toString(CONSTANT), Optional.empty())));
         assertThatColumnarFilterEvaluationIsSupported(likeFilter);
         verifyFilter(inputPages, likeFilter);
     }
 
     @ParameterizedTest
     @MethodSource("inputProviders")
-    public void testLessThan(NullsProvider nullsProvider, boolean dictionaryEncoded)
+    public void testComparison(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
-        // constant < col
-        Expression lessThanFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(INTEGER, INTEGER)),
-                new Constant(INTEGER, CONSTANT), new Reference(INTEGER, COL_INT_A));
-        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
-        verifyFilter(inputPages, lessThanFilter);
+        for (ComparisonOperator operator : List.of(
+                EQUAL,
+                LESS_THAN,
+                LESS_THAN_OR_EQUAL,
+                GREATER_THAN,
+                GREATER_THAN_OR_EQUAL,
+                IDENTICAL)) {
+            // constant OP col
+            Expression filter = comparison(
+                    operator,
+                    new Constant(INTEGER, CONSTANT),
+                    new Reference(INTEGER, COL_INT_A));
+            assertThatColumnarFilterEvaluationIsSupported(filter);
+            verifyFilter(inputPages, filter);
 
-        // col < constant
-        lessThanFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
-                new Reference(DOUBLE, COL_DOUBLE), new Constant(DOUBLE, (double) CONSTANT));
-        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
-        verifyFilter(inputPages, lessThanFilter);
+            // col OP constant
+            filter = comparison(
+                    operator,
+                    new Reference(DOUBLE, COL_DOUBLE),
+                    new Constant(DOUBLE, (double) CONSTANT));
+            assertThatColumnarFilterEvaluationIsSupported(filter);
+            verifyFilter(inputPages, filter);
 
-        // colA < colB
-        lessThanFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(INTEGER, INTEGER)),
-                new Reference(INTEGER, COL_INT_C), new Reference(INTEGER, COL_INT_A));
-        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
-        verifyFilter(inputPages, lessThanFilter);
-    }
+            // colA OP colB
+            filter = comparison(
+                    operator,
+                    new Reference(INTEGER, COL_INT_C),
+                    new Reference(INTEGER, COL_INT_A));
+            assertThatColumnarFilterEvaluationIsSupported(filter);
+            verifyFilter(inputPages, filter);
+        }
 
-    @ParameterizedTest
-    @MethodSource("inputProviders")
-    public void testEq(NullsProvider nullsProvider, boolean dictionaryEncoded)
-    {
-        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
-        // constant = col
-        Expression lessThanFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(INTEGER, INTEGER)),
-                new Constant(INTEGER, CONSTANT), new Reference(INTEGER, COL_INT_A));
-        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
-        verifyFilter(inputPages, lessThanFilter);
-
-        // col = constant
-        lessThanFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                new Reference(DOUBLE, COL_DOUBLE), new Constant(DOUBLE, (double) CONSTANT));
-        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
-        verifyFilter(inputPages, lessThanFilter);
-
-        // colA = colB
-        lessThanFilter = call(
-                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(INTEGER, INTEGER)),
-                new Reference(INTEGER, COL_INT_C), new Reference(INTEGER, COL_INT_A));
-        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
-        verifyFilter(inputPages, lessThanFilter);
+        // colA IS NOT DISTINCT FROM NULL — only IDENTICAL meaningfully compares against NULL
+        Expression identicalNullFilter = comparison(
+                IDENTICAL,
+                constantNull(INTEGER),
+                new Reference(INTEGER, COL_INT_A));
+        assertThatColumnarFilterEvaluationIsNotSupported(identicalNullFilter);
+        verifyFilter(inputPages, identicalNullFilter);
     }
 
     @ParameterizedTest
@@ -355,7 +329,7 @@ public class TestColumnarFilters
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         // col BETWEEN constantA AND constantB
-        Expression betweenFilter = new Between(
+        Expression betweenFilter = between(
                 new Reference(INTEGER, COL_INT_A),
                 new Constant(INTEGER, CONSTANT - 5),
                 new Constant(INTEGER, CONSTANT + 5));
@@ -363,16 +337,14 @@ public class TestColumnarFilters
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND constant
-        betweenFilter = new Between(
-                new Reference(INTEGER, COL_INT_A),
+        betweenFilter = between(new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Constant(INTEGER, CONSTANT + 5));
         assertThatColumnarFilterEvaluationIsSupported(betweenFilter);
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND colC
-        betweenFilter = new Between(
-                new Reference(INTEGER, COL_INT_A),
+        betweenFilter = between(new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Reference(INTEGER, COL_INT_C));
         assertThatColumnarFilterEvaluationIsSupported(betweenFilter);
@@ -437,13 +409,16 @@ public class TestColumnarFilters
 
         Expression andFilter = new Logical(Logical.Operator.AND, ImmutableList.of(
                 new Constant(BOOLEAN, false),
-                call(FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                        new Reference(BIGINT, colB), new Constant(BIGINT, CONSTANT))));
+                comparison(
+                        EQUAL,
+                        new Reference(BIGINT, colB),
+                        new Constant(BIGINT, CONSTANT))));
 
-        TestingSourcePage testingPage = new TestingSourcePage(100,
+        TestingSourcePage testingPage = new TestingSourcePage(
+                100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(andFilter, layout, COMPILER).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(andFilter, layout, COMPILER, true).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct returned no positions
@@ -462,15 +437,20 @@ public class TestColumnarFilters
                 new Symbol(BIGINT, colB), 1);
 
         Expression orFilter = new Logical(Logical.Operator.OR, ImmutableList.of(
-                call(FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                        new Reference(BIGINT, colA), new Reference(BIGINT, colA)),
-                call(FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                        new Reference(BIGINT, colB), new Constant(BIGINT, CONSTANT))));
+                comparison(
+                        EQUAL,
+                        new Reference(BIGINT, colA),
+                        new Reference(BIGINT, colA)),
+                comparison(
+                        EQUAL,
+                        new Reference(BIGINT, colB),
+                        new Constant(BIGINT, CONSTANT))));
 
-        TestingSourcePage testingPage = new TestingSourcePage(100,
+        TestingSourcePage testingPage = new TestingSourcePage(
+                100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(orFilter, layout, COMPILER).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(orFilter, layout, COMPILER, true).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct selected all rows
@@ -668,10 +648,11 @@ public class TestColumnarFilters
         return call(FUNCTION_RESOLUTION.resolveFunction("$not", fromTypes(BOOLEAN)), expression);
     }
 
-    private static List<Page> processFilter(List<Page> inputPages, boolean columnarEvaluationEnabled, Expression filter)
+    private static List<Page> processFilter(List<Page> inputPages, boolean columnarEvaluationEnabled, boolean filterReorderingEnabled, Expression filter)
     {
         PageProcessor compiledProcessor = FUNCTION_RESOLUTION.getExpressionCompiler().compilePageProcessor(
                         columnarEvaluationEnabled,
+                        filterReorderingEnabled,
                         Optional.of(filter),
                         Optional.empty(),
                         ImmutableList.of(new Reference(BIGINT, COL_ROW_NUM)),
@@ -921,8 +902,17 @@ public class TestColumnarFilters
 
     private static void verifyFilterInternal(List<Page> inputPages, Expression filter)
     {
-        List<Page> outputPagesExpected = processFilter(inputPages, false, filter);
-        List<Page> outputPagesActual = processFilter(inputPages, true, filter);
+        List<Page> outputPagesExpected = processFilter(inputPages, false, false, filter);
+        // Without filter reordering
+        List<Page> outputPagesActual = processFilter(inputPages, true, false, filter);
+        assertThat(outputPagesExpected).hasSize(outputPagesActual.size());
+
+        for (int pageCount = 0; pageCount < outputPagesActual.size(); pageCount++) {
+            assertPageEquals(ImmutableList.of(BIGINT), outputPagesActual.get(pageCount), outputPagesExpected.get(pageCount));
+        }
+
+        // With filter reordering
+        outputPagesActual = processFilter(inputPages, true, true, filter);
         assertThat(outputPagesExpected).hasSize(outputPagesActual.size());
 
         for (int pageCount = 0; pageCount < outputPagesActual.size(); pageCount++) {
@@ -943,12 +933,12 @@ public class TestColumnarFilters
 
     private static void assertThatColumnarFilterEvaluationIsSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER)).isPresent();
+        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true)).isPresent();
     }
 
     private static void assertThatColumnarFilterEvaluationIsNotSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER)).isEmpty();
+        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true)).isEmpty();
     }
 
     @ScalarFunction("custom_is_distinct_from")

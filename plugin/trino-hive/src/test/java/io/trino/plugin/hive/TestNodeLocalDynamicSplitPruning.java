@@ -30,6 +30,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
@@ -125,6 +126,7 @@ class TestNodeLocalDynamicSplitPruning
                 new Schema(hiveConfig.getHiveStorageFormat().getSerde(), false, ImmutableMap.of()),
                 ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), "42")),
                 ImmutableList.of(),
+                Optional.empty(),
                 OptionalInt.of(1),
                 OptionalInt.of(1),
                 false,
@@ -164,39 +166,36 @@ class TestNodeLocalDynamicSplitPruning
                 tableHandle.connectorHandle(),
                 Optional.empty(),
                 ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE, PARTITION_HIVE_COLUMN_HANDLE),
-                dynamicFilter);
+                dynamicFilter,
+                MemoryContext.NO_LIMIT);
     }
 
     private static TupleDomain<ColumnHandle> getTupleDomainForBucketSplitPruning()
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        BUCKET_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 10L)));
+                        BUCKET_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 10L)));
     }
 
     private static TupleDomain<ColumnHandle> getNonSelectiveBucketTupleDomain()
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        BUCKET_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 1L)));
+                        BUCKET_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 1L)));
     }
 
     private static TupleDomain<ColumnHandle> getTupleDomainForPartitionSplitPruning()
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        PARTITION_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 1L)));
+                        PARTITION_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 1L)));
     }
 
     private static TupleDomain<ColumnHandle> getNonSelectivePartitionTupleDomain()
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        PARTITION_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 42L)));
+                        PARTITION_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 42L)));
     }
 
     private static TestingConnectorSession getSession(HiveConfig config)

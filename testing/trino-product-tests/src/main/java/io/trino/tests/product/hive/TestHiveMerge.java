@@ -409,7 +409,7 @@ public class TestHiveMerge
                 {"CREATE TABLE %s (customer STRING, purchases INT, address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
                 {"CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
                 {"CREATE TABLE %s (customer STRING, purchases INT) PARTITIONED BY (address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
-                {"CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (address) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')"}
+                {"CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (address) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
         };
     }
 
@@ -493,7 +493,7 @@ public class TestHiveMerge
                 {
                         "target_flat_source_partitioned_by_customer",
                         "CREATE TABLE %s (customer STRING, purchases INT, address STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
-                        "CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')"
+                        "CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
                 },
                 {
                         "target_partitioned_by_customer_source_flat",
@@ -514,7 +514,7 @@ public class TestHiveMerge
                         "target_partitioned_target_partitioned_and_bucketed",
                         "CREATE TABLE %s (customer STRING, purchases INT) PARTITIONED BY (address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')",
                         "CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
-                }
+                },
         };
     }
 
@@ -583,8 +583,13 @@ public class TestHiveMerge
                         "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
                         "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable,
-                        row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 11, "Darbyshire"), row("Dave", 11, "Devon"), row("Ed", 7, "Etherville"));
+                verifySelectForTrinoAndHive(
+                        "SELECT * FROM " + targetTable,
+                        row("Aaron", 11, "Arches"),
+                        row("Bill", 7, "Buena"),
+                        row("Dave", 11, "Darbyshire"),
+                        row("Dave", 11, "Devon"),
+                        row("Ed", 7, "Etherville"));
 
                 onTrino().executeQuery(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
                         " ON t.customer = s.customer" +
@@ -595,12 +600,23 @@ public class TestHiveMerge
                         "    WHEN NOT MATCHED" +
                         "        THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
 
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable,
-                        row("Aaron", 17, "Arches/Arches"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire/Darbyshire"), row("Ed", 14, "Etherville/Etherville"));
+                verifySelectForTrinoAndHive(
+                        "SELECT * FROM " + targetTable,
+                        row("Aaron", 17, "Arches/Arches"),
+                        row("Bill", 7, "Buena"),
+                        row("Carol", 9, "Centreville"),
+                        row("Dave", 22, "Darbyshire/Darbyshire"),
+                        row("Ed", 14, "Etherville/Etherville"));
 
                 onTrino().executeQuery(format("INSERT INTO %s (customer, purchases, address) VALUES('Fred', 30, 'Franklin')", targetTable));
-                verifySelectForTrinoAndHive("SELECT * FROM " + targetTable,
-                        row("Aaron", 17, "Arches/Arches"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire/Darbyshire"), row("Ed", 14, "Etherville/Etherville"), row("Fred", 30, "Franklin"));
+                verifySelectForTrinoAndHive(
+                        "SELECT * FROM " + targetTable,
+                        row("Aaron", 17, "Arches/Arches"),
+                        row("Bill", 7, "Buena"),
+                        row("Carol", 9, "Centreville"),
+                        row("Dave", 22, "Darbyshire/Darbyshire"),
+                        row("Ed", 14, "Etherville/Etherville"),
+                        row("Fred", 30, "Franklin"));
             });
         });
     }
@@ -777,7 +793,7 @@ public class TestHiveMerge
         return new Object[][] {
                 {Engine.HIVE, Engine.TRINO},
                 {Engine.TRINO, Engine.TRINO},
-                {Engine.TRINO, Engine.HIVE}
+                {Engine.TRINO, Engine.HIVE},
         };
     }
 

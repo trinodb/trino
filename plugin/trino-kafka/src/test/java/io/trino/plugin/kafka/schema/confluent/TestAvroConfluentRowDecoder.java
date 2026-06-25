@@ -200,17 +200,16 @@ public class TestAvroConfluentRowDecoder
         }
         else {
             switch (schema.getType()) {
-                case INT:
-                case LONG:
+                case INT, LONG -> {
                     assertThat(actual.getLong()).isEqualTo(((Number) expected).longValue());
-                    break;
-                case STRING:
+                }
+                case STRING -> {
                     assertThat(actual.getSlice().toStringUtf8()).isEqualTo(expected);
-                    break;
-                case BYTES:
+                }
+                case BYTES -> {
                     assertThat(actual.getSlice().getBytes()).isEqualTo(((ByteBuffer) expected).array());
-                    break;
-                case UNION:
+                }
+                case UNION -> {
                     Optional<Schema> nonNullSchema = schema.getTypes().stream()
                             .filter(type -> type.getType() != Schema.Type.NULL)
                             .findFirst();
@@ -220,9 +219,10 @@ public class TestAvroConfluentRowDecoder
                         expected = getOnlyElement(schema.getFields()).defaultVal();
                     }
                     assertValuesAreEqual(actual, expected, nonNullSchema.get());
-                    break;
-                default:
+                }
+                default -> {
                     throw new IllegalStateException("Unexpected type");
+                }
             }
         }
     }

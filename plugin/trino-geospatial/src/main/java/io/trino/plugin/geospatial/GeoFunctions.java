@@ -165,7 +165,8 @@ public final class GeoFunctions
 
             Coordinate coordinate = point.getCoordinate();
             if (coordinate.equals(previousCoordinate)) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+                throw new TrinoException(
+                        INVALID_FUNCTION_ARGUMENT,
                         format("Invalid input to ST_LineString: consecutive duplicate points at index %s", i + 1));
             }
             coordinates.add(coordinate);
@@ -372,7 +373,8 @@ public final class GeoFunctions
             // Leaf geometry types: Point, LineString, LinearRing, Polygon
             String type = geometry.getGeometryType();
             if (!VALID_SPHERICAL_GEOGRAPHY_LEAF_TYPES.contains(type)) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+                throw new TrinoException(
+                        INVALID_FUNCTION_ARGUMENT,
                         "Cannot convert geometry of this type to spherical geography: " + type);
             }
         }
@@ -834,7 +836,8 @@ public final class GeoFunctions
                 expectedSrid = srid;
             }
             else if (srid != 0 && srid != expectedSrid) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+                throw new TrinoException(
+                        INVALID_FUNCTION_ARGUMENT,
                         format("SRID mismatch: %d vs %d", expectedSrid, srid));
             }
             if (!geometry.isEmpty()) {

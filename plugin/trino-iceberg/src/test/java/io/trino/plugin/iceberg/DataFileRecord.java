@@ -31,13 +31,13 @@ public class DataFileRecord
     private final Map<Integer, Long> valueCounts;
     private final Map<Integer, Long> nullValueCounts;
     private final Map<Integer, Long> nanValueCounts;
-    private final Map<Integer, String> lowerBounds;
-    private final Map<Integer, String> upperBounds;
+    private final MaterializedRow lowerBounds;
+    private final MaterializedRow upperBounds;
 
     @SuppressWarnings("unchecked")
     public static DataFileRecord toDataFileRecord(MaterializedRow row)
     {
-        assertThat(row.getFieldCount()).isEqualTo(25);
+        assertThat(row.getFieldCount()).isEqualTo(26);
         return new DataFileRecord(
                 (int) row.getField(0),
                 (String) row.getField(1),
@@ -48,8 +48,8 @@ public class DataFileRecord
                 row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(7)) : null,
                 row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(8)) : null,
                 row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(9)) : null,
-                row.getField(10) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(10)) : null,
-                row.getField(11) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(11)) : null);
+                row.getField(10) != null ? (MaterializedRow) row.getField(10) : null,
+                row.getField(11) != null ? (MaterializedRow) row.getField(11) : null);
     }
 
     private DataFileRecord(
@@ -62,8 +62,8 @@ public class DataFileRecord
             Map<Integer, Long> valueCounts,
             Map<Integer, Long> nullValueCounts,
             Map<Integer, Long> nanValueCounts,
-            Map<Integer, String> lowerBounds,
-            Map<Integer, String> upperBounds)
+            MaterializedRow lowerBounds,
+            MaterializedRow upperBounds)
     {
         this.content = content;
         this.filePath = filePath;
@@ -123,12 +123,12 @@ public class DataFileRecord
         return nanValueCounts;
     }
 
-    public Map<Integer, String> getLowerBounds()
+    public MaterializedRow getLowerBounds()
     {
         return lowerBounds;
     }
 
-    public Map<Integer, String> getUpperBounds()
+    public MaterializedRow getUpperBounds()
     {
         return upperBounds;
     }

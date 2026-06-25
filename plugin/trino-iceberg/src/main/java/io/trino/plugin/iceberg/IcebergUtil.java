@@ -22,6 +22,7 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -39,8 +40,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
@@ -62,6 +63,7 @@ import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.IcebergManifestUtils;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
@@ -76,6 +78,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
@@ -92,6 +95,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -149,10 +153,12 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_WRITER_ROW_GROUP_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -173,10 +179,8 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -189,6 +193,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
@@ -215,8 +220,10 @@ import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -340,7 +347,7 @@ public final class IcebergUtil
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         IcebergFileFormat fileFormat = getFileFormat(icebergTable);
         properties.put(FILE_FORMAT_PROPERTY, fileFormat);
-        if (!icebergTable.spec().fields().isEmpty()) {
+        if (icebergTable.spec().isPartitioned()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
         }
 
@@ -375,6 +382,14 @@ public final class IcebergUtil
         if (icebergTable.properties().containsKey(METADATA_PREVIOUS_VERSIONS_MAX)) {
             int maxPreviousVersions = parseInt(icebergTable.properties().get(METADATA_PREVIOUS_VERSIONS_MAX));
             properties.put(MAX_PREVIOUS_VERSIONS, maxPreviousVersions);
+        }
+
+        if (icebergTable.properties().containsKey(WRITE_TARGET_FILE_SIZE_BYTES)) {
+            properties.put(TARGET_MAX_FILE_SIZE, DataSize.succinctBytes(Long.parseLong(icebergTable.properties().get(WRITE_TARGET_FILE_SIZE_BYTES))));
+        }
+
+        if (icebergTable.properties().containsKey(PARQUET_ROW_GROUP_SIZE_BYTES)) {
+            properties.put(PARQUET_WRITER_ROW_GROUP_SIZE, DataSize.succinctBytes(Long.parseLong(icebergTable.properties().get(PARQUET_ROW_GROUP_SIZE_BYTES))));
         }
 
         // iceberg ORC format bloom filter properties
@@ -497,8 +512,18 @@ public final class IcebergUtil
 
     public static StructType structTypeFromHandles(List<IcebergColumnHandle> columns)
     {
-        List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity())))
+        // Deduplicate by base column ID to handle nested field projections where multiple
+        // nested fields from the same base struct appear (e.g., root.a, root.b both reference base column "root")
+        Map<Integer, IcebergColumnHandle> columnsByBaseId = new LinkedHashMap<>();
+        for (IcebergColumnHandle column : columns) {
+            columnsByBaseId.putIfAbsent(column.getBaseColumnIdentity().getId(), column);
+        }
+
+        List<NestedField> icebergColumns = columnsByBaseId.values().stream()
+                .map(column -> NestedField.optional(
+                        column.getBaseColumnIdentity().getId(),
+                        column.getBaseColumnIdentity().getName(),
+                        toIcebergType(column.getBaseType(), column.getBaseColumnIdentity())))
                 .collect(toImmutableList());
         return StructType.of(icebergColumns);
     }
@@ -537,6 +562,10 @@ public final class IcebergUtil
         if (type.isNestedType()) {
             return primitiveFields(type.asNestedType().fields())
                     .map(field -> NestedField.from(field).withName(nestedField.name() + "." + field.name()).build());
+        }
+
+        if (type.isVariantType()) {
+            return Stream.empty();
         }
 
         throw new IllegalStateException("Unsupported field type: " + nestedField);
@@ -594,7 +623,7 @@ public final class IcebergUtil
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }
 
-    private static String quotedName(String name)
+    public static String quotedName(String name)
     {
         if (SIMPLE_NAME.matcher(name).matches()) {
             return name;
@@ -663,8 +692,8 @@ public final class IcebergUtil
                     }
                     return true;
                 },
-                discreteValues -> false,
-                allOrNone -> true);
+                _ -> false,
+                _ -> true);
     }
 
     private static boolean canEnforceRangeWithPartitioningField(PartitionField field, ColumnTransform transform, Range range, MethodHandle targetTypeEqualOperator)
@@ -704,8 +733,8 @@ public final class IcebergUtil
     {
         requireNonNull(first, "first is null");
         requireNonNull(second, "second is null");
-        Object firstTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, first), 0);
-        Object secondTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, second), 0);
+        Object firstTransformed = transform.valueTransform().apply(writeNativeValue(sourceType, first), 0);
+        Object secondTransformed = transform.valueTransform().apply(writeNativeValue(sourceType, second), 0);
         // The pushdown logic assumes NULLs and non-NULLs are segregated, so that we have to think about non-null values only.
         verify(firstTransformed != null && secondTransformed != null, "Transform for %s returned null for non-null input", field);
         try {
@@ -801,11 +830,6 @@ public final class IcebergUtil
      * Returns a map from fieldId to serialized partition value containing entries for all identity partitions.
      * {@code null} partition values are represented with {@link Optional#empty}.
      */
-    public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
-    {
-        return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
-    }
-
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
     {
         ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
@@ -887,7 +911,7 @@ public final class IcebergUtil
                 // Set initial-default and write-default if present
                 // Note: DEFAULT NULL results in icebergDefault=null, which we skip since null is already the implicit default
                 column.getDefaultValue().ifPresent(defaultValue -> {
-                    Object icebergDefault = parseDefaultValue(defaultValue, column.getType(), type);
+                    Object icebergDefault = parseDefaultValue(defaultValue, column.getType());
                     if (icebergDefault != null) {
                         fieldBuilder.withInitialDefault(lit(icebergDefault));
                         fieldBuilder.withWriteDefault(lit(icebergDefault));
@@ -989,12 +1013,7 @@ public final class IcebergUtil
             propertiesBuilder.put(OBJECT_STORE_ENABLED, "true");
         }
         Optional<String> dataLocation = IcebergTableProperties.getDataLocation(tableMetadata.getProperties());
-        dataLocation.ifPresent(location -> {
-            if (!objectStoreLayoutEnabled) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
-            }
-            propertiesBuilder.put(WRITE_DATA_LOCATION, location);
-        });
+        dataLocation.ifPresent(location -> propertiesBuilder.put(WRITE_DATA_LOCATION, location));
 
         // iceberg ORC format bloom filter properties used by create table
         List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
@@ -1014,6 +1033,11 @@ public final class IcebergUtil
                 propertiesBuilder.put(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true");
             }
         }
+
+        IcebergTableProperties.getTargetMaxFileSize(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(value.toBytes())));
+        IcebergTableProperties.getParquetWriterRowGroupSize(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(value.toBytes())));
 
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
@@ -1111,7 +1135,7 @@ public final class IcebergUtil
      * in snapshot parents chain starting at {@link Table#currentSnapshot()}.
      *
      * @return First (oldest) Snapshot reachable from {@link Table#currentSnapshot()} or empty if table history
-     * expiration makes it impossible to find the snapshot.
+     *         expiration makes it impossible to find the snapshot.
      * @throws IllegalArgumentException when table has no snapshot.
      */
     public static Optional<Snapshot> firstSnapshot(Table table)
@@ -1133,11 +1157,11 @@ public final class IcebergUtil
 
     /**
      * @return First (oldest) snapshot that is reachable from {@link Table#currentSnapshot()} but is not
-     * reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
-     * expiration makes it impossible to find the snapshot.
+     *         reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
+     *         expiration makes it impossible to find the snapshot.
      * @throws IllegalArgumentException when table has no snapshot,
-     * {@code baseSnapshotId} is not a valid snapshot in the table or
-     * the {@code baseSnapshotId} is the current snapshot.
+     *         {@code baseSnapshotId} is not a valid snapshot in the table or
+     *         the {@code baseSnapshotId} is the current snapshot.
      */
     public static Optional<Snapshot> firstSnapshotAfter(Table table, long baseSnapshotId)
     {
@@ -1335,6 +1359,13 @@ public final class IcebergUtil
         return readerForManifest(manifest, table.io(), table.specs());
     }
 
+    public static PartitionSpec getFileScanPartitionSpec(FileScanTask fileScanTask, Map<Integer, PartitionSpec> specs)
+    {
+        int specId = fileScanTask.file().specId();
+        PartitionSpec spec = specs.get(specId);
+        return requireNonNull(spec, "Table specs doesn't contain specId: " + specId);
+    }
+
     public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, FileIO fileIO, Map<Integer, PartitionSpec> specsById)
     {
         return switch (manifest.content()) {
@@ -1343,11 +1374,44 @@ public final class IcebergUtil
         };
     }
 
-    public static Map<String, String> getFileIoProperties(Optional<ConnectorTableCredentials> tableCredentials)
+    public static List<ManifestFile> loadAllManifestsFromSnapshot(Table icebergTable, @Nullable Snapshot snapshot)
     {
-        if (tableCredentials.isPresent()) {
-            return ((IcebergTableCredentials) tableCredentials.get()).fileIoProperties();
+        if (snapshot == null) {
+            return ImmutableList.of();
         }
-        return ImmutableMap.of();
+        try {
+            return snapshot.allManifests(icebergTable.io());
+        }
+        catch (NotFoundException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
+        }
+    }
+
+    public static List<ManifestFile> loadDataManifestsFromSnapshot(Table icebergTable, @Nullable Snapshot snapshot)
+    {
+        if (snapshot == null) {
+            return ImmutableList.of();
+        }
+        try {
+            return snapshot.dataManifests(icebergTable.io());
+        }
+        catch (NotFoundException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
+        }
+    }
+
+    /**
+     * Use instead of loadAllManifestsFromSnapshot when loading manifests from multiple distinct snapshots
+     * Each BaseSnapshot object caches manifest files separately, so loading manifests from multiple distinct snapshots
+     * results in O(num_snapshots^2) copies of the same manifest file metadata in memory
+     */
+    public static List<ManifestFile> loadAllManifestsFromManifestList(Table icebergTable, String manifestListLocation)
+    {
+        try {
+            return IcebergManifestUtils.read(icebergTable.io(), manifestListLocation);
+        }
+        catch (NotFoundException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
+        }
     }
 }

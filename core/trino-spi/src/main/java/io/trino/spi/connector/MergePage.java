@@ -80,16 +80,15 @@ public final class MergePage
         for (int position = 0; position < positionCount; position++) {
             byte operation = TINYINT.getByte(operationBlock, position);
             switch (operation) {
-                case DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER:
+                case DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> {
                     deletePositions[deletePositionCount] = position;
                     deletePositionCount++;
-                    break;
-                case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER:
+                }
+                case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER -> {
                     insertPositions[insertPositionCount] = position;
                     insertPositionCount++;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid merge operation: " + operation);
+                }
+                default -> throw new IllegalArgumentException("Invalid merge operation: " + operation);
             }
         }
 

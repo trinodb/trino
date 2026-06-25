@@ -80,7 +80,7 @@ public class OrcDeletedRows
         NOT_LOADED,
         LOADING,
         LOADED,
-        CLOSED
+        CLOSED,
     }
 
     public OrcDeletedRows(

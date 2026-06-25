@@ -26,8 +26,8 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.MetricsUtil.ReadableMetricsStruct;
@@ -83,8 +83,7 @@ public class EntriesTable
 
     public EntriesTable(TypeManager typeManager, SchemaTableName tableName, Table icebergTable, MetadataTableType metadataTableType, ExecutorService executor)
     {
-        super(
-                requireNonNull(icebergTable, "icebergTable is null"),
+        super(requireNonNull(icebergTable, "icebergTable is null"),
                 new ConnectorTableMetadata(
                         requireNonNull(tableName, "tableName is null"),
                         columns(requireNonNull(typeManager, "typeManager is null"), icebergTable)),
@@ -113,7 +112,7 @@ public class EntriesTable
                 .add(new ColumnMetadata("sequence_number", BIGINT))
                 .add(new ColumnMetadata("file_sequence_number", BIGINT))
                 .add(new ColumnMetadata("data_file", RowType.from(dataFileFieldMetadata(typeManager, icebergTable))))
-                .add(new ColumnMetadata("readable_metrics", typeManager.getType(new TypeSignature(JSON))))
+                .add(new ColumnMetadata("readable_metrics", typeManager.getType(new TypeDescriptor(JSON))))
                 .build();
     }
 
@@ -250,8 +249,14 @@ public class EntriesTable
                     // data files don't have equality ids
                     fieldBuilders.get(++position).appendNull();
 
+                    // sort_order_id is optional per the Iceberg spec — null means "unsorted"
                     Integer sortOrderId = dataFile.get(++position, Integer.class);
-                    INTEGER.writeLong(fieldBuilders.get(position), Long.valueOf(sortOrderId));
+                    if (sortOrderId == null) {
+                        fieldBuilders.get(position).appendNull();
+                    }
+                    else {
+                        INTEGER.writeLong(fieldBuilders.get(position), sortOrderId.longValue());
+                    }
                 }
                 case POSITION_DELETE -> {
                     // position delete files don't have equality ids
@@ -266,7 +271,12 @@ public class EntriesTable
                     appendIntegerArray((ArrayBlockBuilder) fieldBuilders.get(position), equalityIds);
 
                     Integer sortOrderId = dataFile.get(++position, Integer.class);
-                    INTEGER.writeLong(fieldBuilders.get(position), Long.valueOf(sortOrderId));
+                    if (sortOrderId == null) {
+                        fieldBuilders.get(position).appendNull();
+                    }
+                    else {
+                        INTEGER.writeLong(fieldBuilders.get(position), sortOrderId.longValue());
+                    }
                 }
             }
         });

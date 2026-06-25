@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -29,7 +28,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
@@ -61,8 +61,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
     {
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
-                        p.apply(
-                                ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
+                        p.apply(ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(),
                                 p.values(),
                                 p.values()))
@@ -80,13 +79,12 @@ public class TestTransformExistsApplyToCorrelatedJoin
     {
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
-                        p.apply(
-                                ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
+                        p.apply(ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(p.symbol("corr")),
                                 p.values(p.symbol("corr")),
                                 p.project(Assignments.of(),
                                         p.filter(
-                                                new Comparison(EQUAL, new Reference(BIGINT, "corr"), new Reference(BIGINT, "column")),
+                                                comparison(EQUAL, new Reference(BIGINT, "corr"), new Reference(BIGINT, "column")),
                                                 p.values(p.symbol("column"))))))
                 .matches(
                         project(ImmutableMap.of("b", PlanMatchPattern.expression(new Coalesce(new Reference(BOOLEAN, "subquery"), FALSE))),

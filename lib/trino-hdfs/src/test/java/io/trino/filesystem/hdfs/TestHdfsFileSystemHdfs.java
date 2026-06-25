@@ -32,9 +32,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Set;
 
 import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,6 +51,9 @@ public class TestHdfsFileSystemHdfs
     private HdfsContext hdfsContext;
     private TrinoFileSystem fileSystem;
 
+    @RegisterExtension
+    final AfterTestExecutionCallback hadoopDiagnostics = Hadoop.printDiagnosticsOnFailure(() -> hadoop);
+
     @BeforeAll
     void beforeAll()
     {
@@ -55,7 +61,9 @@ public class TestHdfsFileSystemHdfs
         hadoop.start();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
-        hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), emptySet());
+        hdfsConfiguration = new DynamicHdfsConfiguration(
+                new HdfsConfigurationInitializer(hdfsConfig, Set.of(Hadoop.SINGLE_DATANODE_CONFIGURATION_INITIALIZER)),
+                emptySet());
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
 

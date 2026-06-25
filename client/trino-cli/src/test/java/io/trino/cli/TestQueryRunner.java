@@ -27,10 +27,14 @@ import io.trino.client.uri.TrinoUri;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.junit5.StartStop;
+import okhttp3.Cache;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -58,6 +62,9 @@ public class TestQueryRunner
 
     @StartStop
     private final MockWebServer server = new MockWebServer();
+
+    @TempDir
+    private Path tempDirectory;
 
     @Test
     public void testCookie()
@@ -89,6 +96,27 @@ public class TestQueryRunner
         assertThat(server.takeRequest().getHeaders().get("Cookie")).isNull();
         assertThat(server.takeRequest().getHeaders().get("Cookie")).isEqualTo("a=apple");
         assertThat(server.takeRequest().getHeaders().get("Cookie")).isEqualTo("a=apple");
+    }
+
+    @Test
+    public void testCloseClosesAllHttpClients()
+    {
+        OkHttpClient httpClient = newClientWithCache("http-client");
+        OkHttpClient segmentHttpClient = newClientWithCache("segment-http-client");
+        QueryRunner queryRunner = new QueryRunner(
+                createClientSession(server),
+                false,
+                httpClient,
+                segmentHttpClient,
+                1000,
+                500);
+
+        queryRunner.close();
+
+        assertThat(httpClient.dispatcher().executorService().isShutdown()).isTrue();
+        assertThat(segmentHttpClient.dispatcher().executorService().isShutdown()).isTrue();
+        assertThat(httpClient.cache().isClosed()).isTrue();
+        assertThat(segmentHttpClient.cache().isClosed()).isTrue();
     }
 
     static TrinoUri createTrinoUri(MockWebServer server, boolean insecureSsl)
@@ -130,7 +158,7 @@ public class TestQueryRunner
                         .setProgressPercentage(OptionalDouble.empty())
                         .setRunningPercentage(OptionalDouble.empty())
                         .build(),
-                //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                // new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
                 null,
@@ -151,5 +179,12 @@ public class TestQueryRunner
     static PrintStream nullPrintStream()
     {
         return new PrintStream(nullOutputStream());
+    }
+
+    private OkHttpClient newClientWithCache(String cacheDirectory)
+    {
+        return new OkHttpClient.Builder()
+                .cache(new Cache(tempDirectory.resolve(cacheDirectory).toFile(), 1024))
+                .build();
     }
 }

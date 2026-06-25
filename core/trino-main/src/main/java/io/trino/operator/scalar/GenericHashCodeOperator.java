@@ -20,12 +20,12 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericHashCodeOperator
@@ -39,8 +39,9 @@ public class GenericHashCodeOperator
                 .signature(Signature.builder()
                         .comparableTypeParameter("T")
                         .returnType(BIGINT)
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
+                .neverFails()
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

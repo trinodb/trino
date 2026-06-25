@@ -16,5 +16,5 @@ package io.trino.spi.connector;
 public enum SampleType
 {
     SYSTEM,
-    BERNOULLI
+    BERNOULLI,
 }

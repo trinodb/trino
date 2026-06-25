@@ -972,13 +972,13 @@ public class TestPythonFunctions
                 .failure().hasMessage("Function result cannot be converted to decimal(38,5): Decimal overflow");
 
         // NaN
-        assertThat(assertions.query( realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL 'NaN')"))
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL 'NaN')"))
                 .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: NaN");
 
         // Infinity
         assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '-Infinity')"))
                 .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: -Infinity");
-        assertThat(assertions.query( realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '+Infinity')"))
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '+Infinity')"))
                 .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: Infinity");
     }
 

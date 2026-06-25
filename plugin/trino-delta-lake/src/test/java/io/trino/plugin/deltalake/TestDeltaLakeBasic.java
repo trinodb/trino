@@ -175,6 +175,7 @@ public class TestDeltaLakeBasic
         closeAfterClass(() -> deleteRecursively(catalogDir, ALLOW_INSECURE));
 
         return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addDeltaProperty("hive.metastore.catalog.dir", catalogDir.toUri().toString())
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
@@ -548,7 +549,6 @@ public class TestDeltaLakeBasic
                     ImmutableList.of("0.12", "3.45"),
                     ImmutableList.of(decimal("0.12", createDecimalType(3, 2)), decimal("3.45", createDecimalType(3, 2))));
             testPartitionValuesParsedCheckpoint(mode, "varchar", ImmutableList.of("'alice'", "'bob'"), ImmutableList.of("alice", "bob"));
-            // TODO https://github.com/trinodb/trino/issues/24155 Cannot insert varbinary values into partitioned columns
             testPartitionValuesParsedCheckpoint(
                     mode,
                     "date",
@@ -566,7 +566,7 @@ public class TestDeltaLakeBasic
                     "timestamp with time zone",
                     ImmutableList.of("TIMESTAMP '1970-01-01 00:00:00 +00:00'", "TIMESTAMP '1970-01-02 00:00:00 +00:00'"),
                     ImmutableList.of(SqlTimestamp.newInstance(3, 0, 0), SqlTimestamp.newInstance(3, epochPlus1DayMillis, 0)));
-            // array, map, row types are unsupported as partition column type. This is tested in TestDeltaLakeConnectorTest.testCreateTableWithUnsupportedPartitionType.
+            // array, map, row, varbinary types are unsupported as partition column type. This is tested in TestDeltaLakeConnectorTest.testCreateTableWithUnsupportedPartitionType.
         }
     }
 
@@ -1127,7 +1127,8 @@ public class TestDeltaLakeBasic
         assertThat(protocolEntry.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
 
         // Insert rows and verify results
-        assertUpdate(session,
+        assertUpdate(
+                session,
                 "INSERT INTO " + tableName + " " +
                         """
                         VALUES
@@ -1885,11 +1886,11 @@ public class TestDeltaLakeBasic
         assertThat(query("TABLE " + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                         "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
-                         "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
-                         "(3, JSON 'null', NULL)," +
-                         "(4, NULL, NULL)," +
-                         "(5, JSON '{\"a\":5}', NULL)");
+                        "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
+                        "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
+                        "(3, JSON 'null', NULL)," +
+                        "(4, NULL, NULL)," +
+                        "(5, JSON '{\"a\":5}', NULL)");
     }
 
     /**
@@ -2037,36 +2038,37 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
 
         // Assert queries fail cleanly
-        assertQueryFails("TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("DESCRIBE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SHOW COLUMNS FROM " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SHOW STATS FOR " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ANALYZE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", "Metadata not found in transaction log for tpch." + tableName);
+        String corruptedTableMessageRegex = "(Metadata not found in transaction log for tpch\\." + tableName + "|Delta table tpch\\." + tableName + " has no commits)";
+        assertQueryFails("TABLE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM " + tableName + " WHERE false", corruptedTableMessageRegex);
+        assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", corruptedTableMessageRegex);
+        assertQueryFails("SHOW CREATE TABLE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", corruptedTableMessageRegex);
+        assertQueryFails("DESCRIBE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("SHOW COLUMNS FROM " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("SHOW STATS FOR " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("ANALYZE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", corruptedTableMessageRegex);
         // TODO (https://github.com/trinodb/trino/issues/16248) ADD field
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo.bar", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("INSERT INTO " + tableName + " VALUES (NULL)", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("UPDATE " + tableName + " SET foo = 'bar'", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("DELETE FROM " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("TRUNCATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " (id INTEGER)", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo.bar", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true", corruptedTableMessageRegex);
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (NULL)", corruptedTableMessageRegex);
+        assertQueryFails("UPDATE " + tableName + " SET foo = 'bar'", corruptedTableMessageRegex);
+        assertQueryFails("DELETE FROM " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", corruptedTableMessageRegex);
+        assertQueryFails("TRUNCATE TABLE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", corruptedTableMessageRegex);
+        assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", corruptedTableMessageRegex);
+        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))", corruptedTableMessageRegex);
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " (id INTEGER)", corruptedTableMessageRegex);
         assertQuerySucceeds("CALL system.drop_extended_stats(CURRENT_SCHEMA, '" + tableName + "')");
 
         // Avoid failing metadata queries
@@ -2484,7 +2486,7 @@ public class TestDeltaLakeBasic
                     part_date = DATE '2020-08-21' AND
                     part_timestamp = TIMESTAMP '2020-10-21 01:00:00.123 UTC' AND
                     part_timestamp_ntz =TIMESTAMP '2023-01-02 01:02:03.456'\
-                    """.formatted(tableName)))
+                """.formatted(tableName)))
                 .matches("VALUES 1");
     }
 
@@ -2901,13 +2903,13 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(sourceTable, sourceLocation.toUri()));
 
         @Language("SQL") String sourceTableValues =
-        """
-        VALUES
-        (1, 'A', TIMESTAMP '2024-01-01'),
-        (2, 'B', TIMESTAMP '2024-01-01'),
-        (3, 'C', TIMESTAMP '2024-02-02'),
-        (4, 'D', TIMESTAMP '2024-02-02')
-        """;
+                """
+                VALUES
+                (1, 'A', TIMESTAMP '2024-01-01'),
+                (2, 'B', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'D', TIMESTAMP '2024-02-02')
+                """;
 
         assertQuery("SELECT * FROM " + sourceTable, sourceTableValues);
 
@@ -2926,35 +2928,35 @@ public class TestDeltaLakeBasic
 
         // update on cloned table
         @Language("SQL") String expectedValuesAfterUpdate =
-        """
+                """
                 VALUES
                 (1, 'A', TIMESTAMP '2024-01-01'),
                 (2, 'updated', TIMESTAMP '2024-01-01'),
                 (3, 'C', TIMESTAMP '2024-02-02'),
                 (4, 'updated', TIMESTAMP '2024-02-02')
-        """;
+                """;
         assertUpdate("UPDATE " + clonedTable + " SET v = 'updated' WHERE id IN (2, 4)", 2);
         assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterUpdate);
 
         // merge on cloned table, including insert,update,delete
         String mergeSql =
-        """
-        MERGE INTO %s t
-        USING (VALUES (1, 'yyy', TIMESTAMP '2025-01-01'), (2, 'merged', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
-        ON (t.id = s.id)
-        WHEN MATCHED AND s.v = 'yyy' THEN DELETE
-        WHEN MATCHED THEN UPDATE SET v = s.v
-        WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
-        """.formatted(clonedTable);
+                """
+                MERGE INTO %s t
+                USING (VALUES (1, 'yyy', TIMESTAMP '2025-01-01'), (2, 'merged', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
+                ON (t.id = s.id)
+                WHEN MATCHED AND s.v = 'yyy' THEN DELETE
+                WHEN MATCHED THEN UPDATE SET v = s.v
+                WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
+                """.formatted(clonedTable);
 
         @Language("SQL") String expectedValuesAfterMerge =
-        """
-        VALUES
-        (2, 'merged', TIMESTAMP '2024-01-01'),
-        (3, 'C', TIMESTAMP '2024-02-02'),
-        (4, 'updated', TIMESTAMP '2024-02-02'),
-        (5, 'kkk', TIMESTAMP '2025-03-03')
-        """;
+                """
+                VALUES
+                (2, 'merged', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'updated', TIMESTAMP '2024-02-02'),
+                (5, 'kkk', TIMESTAMP '2025-03-03')
+                """;
 
         assertUpdate(mergeSql, 3);
         assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterMerge);

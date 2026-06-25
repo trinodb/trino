@@ -190,8 +190,7 @@ public class GlueHiveMetastore
             CatalogName catalogName,
             Set<TableKind> visibleTableKinds)
     {
-        this(
-                glueClient,
+        this(glueClient,
                 glueCache,
                 glueStats,
                 fileSystemFactory.create(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)),
@@ -370,32 +369,8 @@ public class GlueHiveMetastore
     @Override
     public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        try {
-            var database = stats.getGetDatabase().call(() -> glueClient.getDatabase(builder -> builder
-                    .name(databaseName)).database());
-            DatabaseInput renamedDatabase = DatabaseInput.builder()
-                    .name(newDatabaseName)
-                    .parameters(database.parameters())
-                    .description(database.description())
-                    .locationUri(database.locationUri())
-                    .build();
-            stats.getUpdateDatabase().call(() -> glueClient.updateDatabase(builder -> builder
-                    .name(databaseName).databaseInput(renamedDatabase)));
-        }
-        catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(databaseName, e);
-        }
-        catch (AlreadyExistsException e) {
-            throw new SchemaAlreadyExistsException(newDatabaseName, e);
-        }
-        catch (SdkException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        finally {
-            glueCache.invalidateDatabase(databaseName);
-            glueCache.invalidateDatabase(newDatabaseName);
-            glueCache.invalidateDatabaseNames();
-        }
+        // AWS Glue UpdateDatabase rejects name changes with "Database cannot be renamed".
+        throw new TrinoException(NOT_SUPPORTED, "Database rename is not supported by the Glue service");
     }
 
     @Override
@@ -425,7 +400,8 @@ public class GlueHiveMetastore
     {
         try {
             List<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
-                    .call(() -> glueClient.getTablesPaginator(builder -> builder
+                    .call(() -> glueClient
+                            .getTablesPaginator(builder -> builder
                                     .databaseName(databaseName)).stream()
                             .map(GetTablesResponse::tableList)
                             .flatMap(List::stream))
@@ -640,7 +616,8 @@ public class GlueHiveMetastore
         // read the existing table
         software.amazon.awssdk.services.glue.model.Table table;
         try {
-            table = stats.getGetTable().call(() -> glueClient.getTable(builder -> builder
+            table = stats.getGetTable().call(() -> glueClient
+                    .getTable(builder -> builder
                             .databaseName(databaseName)
                             .name(tableName))
                     .table());
@@ -738,7 +715,8 @@ public class GlueHiveMetastore
     private Map<String, HiveColumnStatistics> getTableColumnStatisticsInternal(String databaseName, String tableName, Set<String> columnNames)
     {
         var columnStatsTasks = Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE).stream()
-                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForTable().call(() -> glueClient.getColumnStatisticsForTable(builder -> builder
+                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForTable().call(() -> glueClient
+                        .getColumnStatisticsForTable(builder -> builder
                                 .databaseName(databaseName)
                                 .tableName(tableName)
                                 .columnNames(partialColumns))
@@ -942,7 +920,8 @@ public class GlueHiveMetastore
             throws EntityNotFoundException
     {
         try {
-            return stats.getGetPartitionNames().call(() -> glueClient.getPartitionsPaginator(builder -> builder
+            return stats.getGetPartitionNames().call(() -> glueClient
+                    .getPartitionsPaginator(builder -> builder
                             .databaseName(databaseName)
                             .tableName(tableName)
                             .expression(expression)
@@ -1248,7 +1227,8 @@ public class GlueHiveMetastore
             throws EntityNotFoundException
     {
         var columnStatsTasks = Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE).stream()
-                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForPartition().call(() -> glueClient.getColumnStatisticsForPartition(builder -> builder
+                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForPartition().call(() -> glueClient
+                        .getColumnStatisticsForPartition(builder -> builder
                                 .databaseName(databaseName)
                                 .tableName(tableName)
                                 .partitionValues(partitionName.partitionValues())
@@ -1438,7 +1418,8 @@ public class GlueHiveMetastore
     private Collection<LanguageFunction> getFunctionsByPatternInternal(String databaseName, String functionNamePattern)
     {
         try {
-            return stats.getGetUserDefinedFunctions().call(() -> glueClient.getUserDefinedFunctionsPaginator(builder -> builder
+            return stats.getGetUserDefinedFunctions().call(() -> glueClient
+                    .getUserDefinedFunctionsPaginator(builder -> builder
                             .databaseName(databaseName)
                             .pattern(functionNamePattern)
                             .maxResults(AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS)).stream()

@@ -266,6 +266,27 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNamedArgumentsRejectedForFunctionsWithoutDeclaredNames()
+    {
+        // No built-in function declares parameter names yet, so any named-arg call should
+        // fail with a "no argument named X" diagnostic pointing at the offending name.
+        assertFails("SELECT substr('abc', \"from\" => 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("No argument named from for function substr");
+
+        // Duplicate named arguments are caught before lookup so the error points at the
+        // second occurrence rather than failing in candidate filtering.
+        assertFails("SELECT some_fn(x => 1, x => 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Duplicate named argument: x");
+
+        // Positional after named is rejected at analysis time.
+        assertFails("SELECT some_fn(x => 1, 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Positional arguments cannot follow named arguments");
+    }
+
+    @Test
     public void testNonComparableGroupBy()
     {
         assertFails("SELECT * FROM (SELECT approx_set(1)) GROUP BY 1")
@@ -2449,9 +2470,8 @@ public class TestAnalyzer
         assertFails("INSERT INTO t8 (unbounded_varchar_column) VALUES (1)")
                 .hasErrorCode(TYPE_MISMATCH);
 
-        // coercion with potential loss is not allowed for nested bounded character string types
-        assertFails("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
-                .hasErrorCode(TYPE_MISMATCH);
+        // a value is assignable to a nested bounded character string type; truncation of non-space characters is checked at run time
+        analyze("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))");
     }
 
     @Test
@@ -2972,7 +2992,7 @@ public class TestAnalyzer
                 "          )" +
                 "          SELECT * from t")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:82: recursion step relation output type (decimal(3,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
+                .hasMessage("line 1:82: recursion step relation output type (decimal(2,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
 
         assertFails("WITH RECURSIVE t(n) AS (" +
                 "          SELECT * FROM (VALUES('a'), ('b')) AS t(n)" +
@@ -3097,12 +3117,7 @@ public class TestAnalyzer
         assertFails("SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:28: Escape for LIKE expression must evaluate to a varchar (actual: integer)");
-        assertFails("SELECT 'abc' LIKE CHAR 'abc' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:19: Pattern for LIKE expression must evaluate to a varchar (actual: char(3))");
-        assertFails("SELECT 'abc' LIKE 'abc' ESCAPE CHAR '#' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:32: Escape for LIKE expression must evaluate to a varchar (actual: char(1))");
+        // a char pattern or escape is now accepted: it is implicitly coerced to varchar
 
         // extract
         assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
@@ -3993,8 +4008,7 @@ public class TestAnalyzer
                 .hasMessageMatching(".* Lambda expression cannot contain subqueries");
 
         // GROUP BY column captured in lambda
-        analyze(
-                "SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+        analyze("SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
 
         // non-GROUP BY column captured in lambda
         assertFails("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
@@ -4312,6 +4326,60 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testMatchPredicate()
+    {
+        // basic SIMPLE / PARTIAL / FULL / UNIQUE all analyze when row and subquery shapes match
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH SIMPLE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH PARTIAL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH FULL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE FULL (SELECT b FROM t2)");
+
+        // mismatched row arity
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b, c FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // mismatched element types
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT 'abc' FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // MATCH requires comparable types — HLL is not comparable
+        assertFails("SELECT * FROM t1 WHERE ROW(cast(NULL AS HyperLogLog)) MATCH (SELECT cast(NULL AS HyperLogLog) FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testUniquePredicate()
+    {
+        // Comparable scalar/row types
+        analyze("SELECT UNIQUE (SELECT a FROM t1)");
+        analyze("SELECT UNIQUE (SELECT a, b FROM t1)");
+        analyze("SELECT * FROM t1 WHERE NOT UNIQUE (SELECT a FROM t1)");
+
+        // Non-comparable type rejected
+        assertFails("SELECT UNIQUE (SELECT cast(NULL AS HyperLogLog))")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testBooleanTest()
+    {
+        // boolean operand accepted in all forms
+        analyze("SELECT a IS TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS UNKNOWN FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT UNKNOWN FROM (VALUES true) t(a)");
+
+        // non-boolean operand rejected
+        assertFails("SELECT 1 IS TRUE FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Boolean test value must evaluate to a boolean (actual: integer)");
+    }
+
+    @Test
     public void testJoinUnnest()
     {
         // Lateral references are only allowed in INNER and LEFT join.
@@ -4364,7 +4432,8 @@ public class TestAnalyzer
     @Test
     public void testJoinNearest()
     {
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4373,7 +4442,8 @@ public class TestAnalyzer
                     MATCH quotes.ts < trades.ts
                 )
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4382,7 +4452,8 @@ public class TestAnalyzer
                     MATCH quotes.ts <= trades.ts
                 ) ON TRUE
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4391,7 +4462,8 @@ public class TestAnalyzer
                     MATCH quotes.ts > trades.ts
                 )
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4400,7 +4472,8 @@ public class TestAnalyzer
                     MATCH quotes.ts >= trades.ts
                 ) ON TRUE
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 INNER JOIN NEAREST (
@@ -4409,7 +4482,8 @@ public class TestAnalyzer
                     MATCH quotes.ts <= trades.ts
                 ) ON TRUE
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4418,7 +4492,8 @@ public class TestAnalyzer
                     MATCH quotes.ts <= date_add('second', (SELECT 0), trades.ts)
                 )
                 """);
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4429,7 +4504,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(UNSUPPORTED_SUBQUERY)
                 .hasMessageContaining("Correlated subqueries are not supported in NEAREST WHERE clause");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4440,7 +4516,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(UNSUPPORTED_SUBQUERY)
                 .hasMessageContaining("Correlated subqueries are not supported in NEAREST MATCH clause");
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES (TIMESTAMP '2020-01-01 00:00:02')) trades(ts),
                      NEAREST (
@@ -4449,7 +4526,8 @@ public class TestAnalyzer
                      )
                 """);
 
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 INNER JOIN NEAREST (
@@ -4460,7 +4538,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("INNER JOIN involving NEAREST is only supported with condition ON TRUE");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 RIGHT JOIN NEAREST (
@@ -4471,7 +4550,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(INVALID_COLUMN_REFERENCE)
                 .hasMessageContaining("LATERAL reference not allowed in RIGHT JOIN");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 FULL JOIN NEAREST (
@@ -4482,7 +4562,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(INVALID_COLUMN_REFERENCE)
                 .hasMessageContaining("LATERAL reference not allowed in FULL JOIN");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4493,7 +4574,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("LEFT JOIN involving NEAREST is only supported with condition ON TRUE");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4504,7 +4586,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("JOIN USING involving NEAREST is not supported");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 NATURAL JOIN NEAREST (
@@ -4514,7 +4597,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("Natural join not supported");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM NEAREST (
                     FROM (VALUES (TIMESTAMP '2020-01-01 00:00:01')) quotes(ts)
@@ -4523,7 +4607,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4534,7 +4619,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4545,7 +4631,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4556,7 +4643,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must be a comparison expression");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4567,7 +4655,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4578,7 +4667,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessageContaining("NEAREST WHERE clause must evaluate to a boolean");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4588,7 +4678,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessageContaining("NEAREST MATCH clause must evaluate to a boolean");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4599,7 +4690,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4610,7 +4702,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4620,7 +4713,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4630,7 +4724,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -6472,14 +6567,12 @@ public class TestAnalyzer
                 "                   DEFAULT 1.0 ON EMPTY) " +
                 "       FROM (VALUES '-1', 'ala') t(json_column)");
 
-        assertFails("SELECT JSON_VALUE( " +
+        analyze("SELECT JSON_VALUE( " +
                 "                   json_column, " +
                 "                   'lax $.double()'" +
                 "                   RETURNING double" +
                 "                   DEFAULT 'text' ON EMPTY) " +
-                "       FROM (VALUES '-1', 'ala') t(json_column)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:149: Function JSON_VALUE default ON EMPTY result must evaluate to a double (actual: varchar(4))");
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
 
         // default value has the same type as the declared returned type
         analyze("SELECT JSON_VALUE( " +
@@ -6497,14 +6590,34 @@ public class TestAnalyzer
                 "                   DEFAULT 1.0 ON ERROR) " +
                 "       FROM (VALUES '-1', 'ala') t(json_column)");
 
-        assertFails("SELECT JSON_VALUE( " +
+        analyze("SELECT JSON_VALUE( " +
                 "                   json_column, " +
                 "                   'lax $.double()'" +
                 "                   RETURNING double" +
                 "                   DEFAULT 'text' ON ERROR) " +
-                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(
+                """
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'lax $'
+                    COLUMNS(x DATE DEFAULT true ON EMPTY))
+                """)
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:149: Function JSON_VALUE default ON ERROR result must evaluate to a double (actual: varchar(4))");
+                .hasMessageContaining("Function JSON_TABLE default ON EMPTY result must evaluate to a date");
+
+        assertFails(
+                """
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'strict $'
+                    COLUMNS(x DATE DEFAULT true ON ERROR))
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("Function JSON_TABLE default ON ERROR result must evaluate to a date");
     }
 
     @Test
@@ -6836,9 +6949,10 @@ public class TestAnalyzer
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
-        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))"))
-                .isInstanceOf(ParsingException.class)
-                .hasMessageContaining("line 1:93: mismatched input '=>'.");
+        // same diagnostic when the inner call uses named-argument syntax (now accepted at parse time)
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
         // cannot pass a table function as the argument, also preceding nested table function with TABLE is incorrect
         assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(my_schema.my_table_function(1))))"))
@@ -7801,9 +7915,20 @@ public class TestAnalyzer
                 FROM JSON_TABLE(
                     (SELECT '[1, 2, 3]'),
                     'lax $[2]' PASSING (SELECT 1) AS parameter_name
+                    COLUMNS(x BIGINT))
+                """);
+
+        assertFails(
+                """
+                SELECT *
+                FROM JSON_TABLE(
+                    (SELECT '[1, 2, 3]'),
+                    'lax $[2]' PASSING (SELECT 1) AS parameter_name
                     COLUMNS(
                         x BIGINT DEFAULT (SELECT 2) ON EMPTY))
-                """);
+                """)
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Subqueries are not supported in JSON_TABLE default expressions");
     }
 
     @Test
@@ -7922,7 +8047,8 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testSelectColumnsLineageInfoAggregateFunction() {
+    public void testSelectColumnsLineageInfoAggregateFunction()
+    {
         String sql = "SELECT SUM(a) FROM t1 WHERE b > 1";
 
         Analysis analysis = analyze(sql);
@@ -7955,9 +8081,9 @@ public class TestAnalyzer
         ColumnLineageInfo colA = lineageInfo.getFirst();
         assertThat(colA.name()).isEqualTo("unionized");
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t1", "c"),
-                new ColumnDetail("tpch","s1","t2", "b"),
-                new ColumnDetail("tpch","s1","t3", "a"));
+                new ColumnDetail("tpch", "s1", "t1", "c"),
+                new ColumnDetail("tpch", "s1", "t2", "b"),
+                new ColumnDetail("tpch", "s1", "t3", "a"));
     }
 
     @Test
@@ -7977,14 +8103,14 @@ public class TestAnalyzer
         assertThat(colA.name()).isEqualTo("a");
         // The source columns should include both 'a' from t1 and 'b' from t2
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t1", "a"),
-                new ColumnDetail("tpch","s1","t2", "b"));
+                new ColumnDetail("tpch", "s1", "t1", "a"),
+                new ColumnDetail("tpch", "s1", "t2", "b"));
     }
 
     @Test
     public void testSelectColumnsLineageInfoWithSubquery()
     {
-    String sql = "SELECT (SELECT max(a)+min(b) FROM t2) AS min_max FROM t1 UNION SELECT max(a) FROM t3";
+        String sql = "SELECT (SELECT max(a)+min(b) FROM t2) AS min_max FROM t1 UNION SELECT max(a) FROM t3";
 
         Analysis analysis = analyze(sql);
 
@@ -7998,9 +8124,9 @@ public class TestAnalyzer
         assertThat(colA.name()).isEqualTo("min_max");
         // The source columns should include both 'a' and 'b' from t2 in the subquery and t3.a from the union
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t2", "a"),
-                new ColumnDetail("tpch","s1","t2", "b"),
-                new ColumnDetail("tpch","s1","t3", "a"));
+                new ColumnDetail("tpch", "s1", "t2", "a"),
+                new ColumnDetail("tpch", "s1", "t2", "b"),
+                new ColumnDetail("tpch", "s1", "t3", "a"));
     }
 
     @Test
@@ -8020,9 +8146,9 @@ public class TestAnalyzer
         assertThat(colA.name()).isEqualTo("a");
         // The source columns should include both 'a' from the subquery and 'b' from t2
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t1", "a"),
-                new ColumnDetail("tpch","s1","t2", "b"),
-                new ColumnDetail("tpch","s1","t3", "b"));
+                new ColumnDetail("tpch", "s1", "t1", "a"),
+                new ColumnDetail("tpch", "s1", "t2", "b"),
+                new ColumnDetail("tpch", "s1", "t3", "b"));
     }
 
     @Test
@@ -8043,6 +8169,36 @@ public class TestAnalyzer
         // The source column should include 'a' from t1
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch", "s1", "t1", "a"));
+    }
+
+    @Test
+    public void testSelectColumnsLineageInfoRecursiveAliases()
+    {
+        String sql =
+                """
+                WITH RECURSIVE t(x, y) AS (
+                    SELECT a, b FROM t1
+                    UNION ALL
+                    SELECT x + 1, y + 1 FROM t WHERE x < 5
+                )
+                SELECT * FROM t""";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> optionalLineageInfo = analysis.getSelectColumnsLineageInfo();
+        assertThat(optionalLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = optionalLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(2);
+
+        ColumnLineageInfo colX = lineageInfo.getFirst();
+        assertThat(colX.name()).isEqualTo("x");
+        assertThat(colX.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"));
+
+        ColumnLineageInfo colY = lineageInfo.get(1);
+        assertThat(colY.name()).isEqualTo("y");
+        assertThat(colY.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "b"));
     }
 
     @Test
@@ -8285,7 +8441,9 @@ public class TestAnalyzer
         planTester.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table1, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
@@ -8294,14 +8452,18 @@ public class TestAnalyzer
                 FAIL));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table2, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT))),
                 FAIL));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table3, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
@@ -8310,7 +8472,9 @@ public class TestAnalyzer
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table5, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         ColumnMetadata.builder().setName("b").setType(BIGINT).setHidden(true).build())),
@@ -8318,7 +8482,9 @@ public class TestAnalyzer
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table6, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", VARCHAR),
@@ -8328,7 +8494,9 @@ public class TestAnalyzer
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table7 = new SchemaTableName("s1", "t7");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table7, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", DOUBLE),
@@ -8402,7 +8570,9 @@ public class TestAnalyzer
 
         // type analysis for INSERT
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table8, ImmutableList.of(
                         new ColumnMetadata("tinyint_column", TINYINT),
                         new ColumnMetadata("integer_column", INTEGER),
@@ -8426,39 +8596,51 @@ public class TestAnalyzer
         Type doubleNestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
 
         SchemaTableName b = new SchemaTableName("a", "b");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(b, ImmutableList.of(
                         new ColumnMetadata("x", VARCHAR))),
                 FAIL));
 
         SchemaTableName t1 = new SchemaTableName("a", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t1, ImmutableList.of(
                         new ColumnMetadata("b", rowType))),
                 FAIL));
 
         SchemaTableName t2 = new SchemaTableName("a", "t2");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t2, ImmutableList.of(
                         new ColumnMetadata("a", rowType))),
                 FAIL));
 
         SchemaTableName t3 = new SchemaTableName("a", "t3");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t3, ImmutableList.of(
                         new ColumnMetadata("b", nestedRowType),
                         new ColumnMetadata("c", BIGINT))),
                 FAIL));
 
         SchemaTableName t4 = new SchemaTableName("a", "t4");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t4, ImmutableList.of(
                         new ColumnMetadata("b", doubleNestedRowType),
                         new ColumnMetadata("c", BIGINT))),
                 FAIL));
 
         SchemaTableName t5 = new SchemaTableName("a", "t5");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t5, ImmutableList.of(
                         new ColumnMetadata("b", singleFieldRowType))),
                 FAIL));
@@ -8704,8 +8886,8 @@ public class TestAnalyzer
                 new SchemaPropertyManager(CatalogServiceProvider.fail()),
                 new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
-                new ViewPropertyManager(catalogName -> ImmutableMap.of()),
-                new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
+                new ViewPropertyManager(_ -> ImmutableMap.of()),
+                new MaterializedViewPropertyManager(_ -> ImmutableMap.of()))));
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
@@ -8719,9 +8901,9 @@ public class TestAnalyzer
                         return new ConnectorTransactionHandle() {};
                     }
                 },
-                user -> ImmutableSet.of(),
+                _ -> ImmutableSet.of(),
                 new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
-                new TableFunctionRegistry(catalogName -> new CatalogTableFunctions(ImmutableList.of(
+                new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of(
                         new TwoScalarArgumentsFunction(),
                         new TableArgumentFunction(),
                         new TableArgumentRowSemanticsFunction(),

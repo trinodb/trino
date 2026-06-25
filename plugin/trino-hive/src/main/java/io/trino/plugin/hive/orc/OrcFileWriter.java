@@ -26,6 +26,7 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.Page;
@@ -73,7 +74,7 @@ public final class OrcFileWriter
     private final AcidTransaction transaction;
     private final boolean useAcidSchema;
     private final OptionalInt bucketNumber;
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
@@ -88,7 +89,7 @@ public final class OrcFileWriter
             AcidTransaction transaction,
             boolean useAcidSchema,
             OptionalInt bucketNumber,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             ColumnMetadata<OrcType> fileColumnOrcTypes,
@@ -175,7 +176,7 @@ public final class OrcFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             if (transaction.isAcidTransactionRunning() && useAcidSchema) {
@@ -185,7 +186,7 @@ public final class OrcFileWriter
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Exception ex) {
                 // ignore
@@ -217,14 +218,15 @@ public final class OrcFileWriter
         int stripeRowCount = orcWriter.getStripeRowCount();
         Map<String, String> userMetadata = new HashMap<>();
         switch (writerKind) {
-            case INSERT:
+            case INSERT -> {
                 userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
-                break;
-            case DELETE:
+            }
+            case DELETE -> {
                 userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
-                break;
-            default:
+            }
+            default -> {
                 throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
+            }
         }
         userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
         userMetadata.put("hive.acid.version", "2");
@@ -235,7 +237,7 @@ public final class OrcFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             orcWriter.close();
         }
         catch (Exception e) {
@@ -273,7 +275,7 @@ public final class OrcFileWriter
                 RunLengthEncodedBlock.create(INTEGER, (long) bucketValue, positionCount),
                 buildAcidRowIdsColumn(positionCount),
                 RunLengthEncodedBlock.create(BIGINT, transaction.getWriteId(), positionCount),
-                rowBlock
+                rowBlock,
         };
     }
 

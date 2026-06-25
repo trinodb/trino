@@ -21,6 +21,7 @@ import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
 import io.trino.cli.lexer.StatementSplitter;
+import io.trino.cli.lexer.StatementSplitter.Statement;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.uri.PropertyName;
@@ -64,7 +65,6 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
 import static io.trino.cli.Trino.formatCliErrorMessage;
-import static io.trino.cli.lexer.StatementSplitter.Statement;
 import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static java.lang.String.format;
@@ -166,8 +166,8 @@ public class Console
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             exiting.set(true);
             interruptor.interrupt();
-            @SuppressWarnings("CheckReturnValue")
-            boolean ignored = awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
+            @SuppressWarnings("UnusedLocalVariable")
+            var ignored = awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
             // Terminal closing restores terminal settings and releases underlying system resources
             closeTerminal();
         }));

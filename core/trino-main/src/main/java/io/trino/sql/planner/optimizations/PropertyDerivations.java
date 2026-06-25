@@ -38,6 +38,7 @@ import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -121,21 +122,23 @@ public final class PropertyDerivations
     public static ActualProperties derivePropertiesRecursively(
             PlanNode node,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, plannerContext, session))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, symbolAllocator))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, plannerContext, session);
+        return deriveProperties(node, inputProperties, plannerContext, session, symbolAllocator);
     }
 
     public static ActualProperties deriveProperties(
             PlanNode node,
             List<ActualProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
-        ActualProperties output = node.accept(new Visitor(plannerContext, session), inputProperties);
+        ActualProperties output = node.accept(new Visitor(plannerContext, session, symbolAllocator), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
                 verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
@@ -154,9 +157,10 @@ public final class PropertyDerivations
             PlanNode node,
             List<ActualProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
-        return node.accept(new Visitor(plannerContext, session), inputProperties);
+        return node.accept(new Visitor(plannerContext, session, symbolAllocator), inputProperties);
     }
 
     private static class Visitor
@@ -165,12 +169,14 @@ public final class PropertyDerivations
         private final PlannerContext plannerContext;
         private final IrExpressionOptimizer optimizer;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
 
-        public Visitor(PlannerContext plannerContext, Session session)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = plannerContext;
             this.optimizer = plannerContext.getExpressionOptimizer();
             this.session = session;
+            this.symbolAllocator = symbolAllocator;
         }
 
         @Override
@@ -532,7 +538,7 @@ public final class PropertyDerivations
         @Override
         public ActualProperties visitMergeProcessor(MergeProcessorNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+            return Iterables.getOnlyElement(inputProperties).translate(_ -> Optional.empty());
         }
 
         @Override
@@ -574,12 +580,11 @@ public final class PropertyDerivations
                         .local(ImmutableList.of())
                         .unordered(true)
                         .build();
-                case FULL ->
-                        // We can't say anything about the partitioning scheme because any partition of
-                        // a hash-partitioned join can produce nulls in case of a lack of matches
-                        ActualProperties.builder()
-                                .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
-                                .build();
+                // We can't say anything about the partitioning scheme because any partition of
+                // a hash-partitioned join can produce nulls in case of a lack of matches
+                case FULL -> ActualProperties.builder()
+                        .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
+                        .build();
             };
         }
 
@@ -729,12 +734,11 @@ public final class PropertyDerivations
                                 .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
                         .constants(constants)
                         .build();
-                case REPLICATE ->
-                        // TODO: this should have the same global properties as the stream taking the replicated data
-                        ActualProperties.builder()
-                                .global(arbitraryPartition())
-                                .constants(constants)
-                                .build();
+                // TODO: this should have the same global properties as the stream taking the replicated data
+                case REPLICATE -> ActualProperties.builder()
+                        .global(arbitraryPartition())
+                        .constants(constants)
+                        .build();
             };
         }
 
@@ -775,8 +779,7 @@ public final class PropertyDerivations
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
-                // ("ROW comparison not supported for fields with null elements", etc)
-                Expression value = optimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
+                Expression value = optimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
 
                 if (value instanceof Reference) {
                     Symbol symbol = Symbol.from(value);

@@ -320,28 +320,22 @@ final class TestPostgreSqlCastPushdown
                         .add(new InvalidCastTestCase("c_infinity_real_1", "tinyint", "Out of range for tinyint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_1", "smallint", "Out of range for smallint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_1", "integer", "Out of range for integer: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_1", "bigint", "Out of range for bigint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_2", "tinyint", "Out of range for tinyint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_2", "smallint", "Out of range for smallint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_2", "integer", "Out of range for integer: -Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_2", "bigint", "Out of range for bigint: -Infinity"))
 
                         // No pushdown for double precision datatype to integral types
                         .add(new InvalidCastTestCase("c_infinity_double_1", "tinyint", "Out of range for tinyint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_1", "smallint", "Out of range for smallint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_1", "integer", "Out of range for integer: Infinity"))
-                        .add(new InvalidCastTestCase("c_infinity_double_1", "bigint", "Unable to cast Infinity to bigint"))
+                        .add(new InvalidCastTestCase("c_infinity_double_1", "bigint", "Out of range for bigint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_2", "tinyint", "Out of range for tinyint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_2", "smallint", "Out of range for smallint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_2", "integer", "Out of range for integer: -Infinity"))
-                        .add(new InvalidCastTestCase("c_infinity_double_2", "bigint", "Unable to cast -Infinity to bigint"))
+                        .add(new InvalidCastTestCase("c_infinity_double_2", "bigint", "Out of range for bigint: -Infinity"))
                         .build());
-    }
-
-    @Test
-    void testCastRealInfinityValueToBigint()
-    {
-        assertThat(query("SELECT CAST(c_Infinity_real AS BIGINT) FROM %s".formatted(leftTable())))
-                .matches("VALUES (BIGINT '9223372036854775807'), (BIGINT '-9223372036854775808'), (null)")
-                .isNotFullyPushedDown(ProjectNode.class);
     }
 
     @Test
@@ -420,6 +414,7 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_double_precision_negative", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_float", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_float8", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_char_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_text_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "tinyint", "c_smallint"))
@@ -430,6 +425,7 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_double_precision_negative", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_float", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_float8", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_char_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_text_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "smallint", "c_smallint"))
@@ -440,6 +436,7 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_double_precision_negative", "integer", "c_integer"))
                 .add(new CastTestCase("c_float", "integer", "c_integer"))
                 .add(new CastTestCase("c_float8", "integer", "c_integer"))
+                .add(new CastTestCase("c_char_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_varchar_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_text_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "integer", "c_integer"))
@@ -450,6 +447,7 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_double_precision_negative", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_float", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_float8", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_char_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_varchar_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_text_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "bigint", "c_bigint"))
@@ -473,7 +471,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new InvalidCastTestCase("c_varchar_decimal", "integer"))
                 .add(new InvalidCastTestCase("c_varchar_decimal_sign", "integer"))
                 .add(new InvalidCastTestCase("c_varchar_alpha_numeric", "integer"))
-                .add(new InvalidCastTestCase("c_char_numeric", "integer"))
                 .add(new InvalidCastTestCase("c_nan_real", "integer"))
                 .add(new InvalidCastTestCase("c_nan_double", "integer"))
 

@@ -16,6 +16,7 @@ package io.trino.parquet;
 import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -26,6 +27,7 @@ public class ParquetReaderOptions
     private static final DataSize DEFAULT_MAX_MERGE_DISTANCE = DataSize.of(1, MEGABYTE);
     private static final DataSize DEFAULT_MAX_BUFFER_SIZE = DataSize.of(8, MEGABYTE);
     private static final DataSize DEFAULT_SMALL_FILE_THRESHOLD = DataSize.of(3, MEGABYTE);
+    public static final DataSize DEFAULT_FOOTER_READ_SIZE = DataSize.of(48, KILOBYTE);
     private static final DataSize DEFAULT_MAX_FOOTER_READ_SIZE = DataSize.of(15, MEGABYTE);
     private static final DataSize DEFAULT_MAX_PAGE_READ_SIZE = DataSize.of(500, MEGABYTE);
 
@@ -38,6 +40,7 @@ public class ParquetReaderOptions
     private final boolean useBloomFilter;
     private final DataSize smallFileThreshold;
     private final boolean vectorizedDecodingEnabled;
+    private final DataSize footerReadSize;
     private final DataSize maxFooterReadSize;
     private final DataSize maxPageReadSize;
 
@@ -52,6 +55,7 @@ public class ParquetReaderOptions
         useBloomFilter = true;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
         vectorizedDecodingEnabled = true;
+        footerReadSize = DEFAULT_FOOTER_READ_SIZE;
         maxFooterReadSize = DEFAULT_MAX_FOOTER_READ_SIZE;
         maxPageReadSize = DEFAULT_MAX_PAGE_READ_SIZE;
     }
@@ -66,6 +70,7 @@ public class ParquetReaderOptions
             boolean useBloomFilter,
             DataSize smallFileThreshold,
             boolean vectorizedDecodingEnabled,
+            DataSize footerReadSize,
             DataSize maxFooterReadSize,
             DataSize maxPageReadSize)
     {
@@ -79,6 +84,8 @@ public class ParquetReaderOptions
         this.useBloomFilter = useBloomFilter;
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
         this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
+        this.footerReadSize = requireNonNull(footerReadSize, "footerReadSize is null");
+        checkArgument(footerReadSize.toBytes() >= 8, "footerReadSize must be at least 8 bytes");
         this.maxFooterReadSize = requireNonNull(maxFooterReadSize, "maxFooterReadSize is null");
         this.maxPageReadSize = requireNonNull(maxPageReadSize, "maxPageReadSize is null");
     }
@@ -148,6 +155,11 @@ public class ParquetReaderOptions
         return maxFooterReadSize;
     }
 
+    public DataSize getFooterReadSize()
+    {
+        return footerReadSize;
+    }
+
     public DataSize getMaxPageReadSize()
     {
         return maxPageReadSize;
@@ -164,6 +176,7 @@ public class ParquetReaderOptions
         private boolean useBloomFilter;
         private DataSize smallFileThreshold;
         private boolean vectorizedDecodingEnabled;
+        private DataSize footerReadSize;
         private DataSize maxFooterReadSize;
         private DataSize maxPageReadSize;
 
@@ -179,6 +192,7 @@ public class ParquetReaderOptions
             this.useBloomFilter = parquetReaderOptions.useBloomFilter;
             this.smallFileThreshold = parquetReaderOptions.smallFileThreshold;
             this.vectorizedDecodingEnabled = parquetReaderOptions.vectorizedDecodingEnabled;
+            this.footerReadSize = parquetReaderOptions.footerReadSize;
             this.maxFooterReadSize = parquetReaderOptions.maxFooterReadSize;
             this.maxPageReadSize = parquetReaderOptions.maxPageReadSize;
         }
@@ -243,6 +257,12 @@ public class ParquetReaderOptions
             return this;
         }
 
+        public Builder withFooterReadSize(DataSize footerReadSize)
+        {
+            this.footerReadSize = requireNonNull(footerReadSize, "footerReadSize is null");
+            return this;
+        }
+
         public Builder withMaxPageReadSize(DataSize maxPageReadSize)
         {
             this.maxPageReadSize = requireNonNull(maxPageReadSize, "maxPageSize is null");
@@ -261,6 +281,7 @@ public class ParquetReaderOptions
                     useBloomFilter,
                     smallFileThreshold,
                     vectorizedDecodingEnabled,
+                    footerReadSize,
                     maxFooterReadSize,
                     maxPageReadSize);
         }

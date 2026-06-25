@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.flat;
 
 import io.trino.parquet.reader.FilteredRowRanges;
+import io.trino.parquet.reader.FilteredRowRanges.RowRange;
 
 import java.util.Iterator;
 import java.util.OptionalLong;
@@ -21,7 +22,6 @@ import java.util.OptionalLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -87,7 +87,7 @@ public class FilteredRowRangesIterator
 
     /**
      * @return Size of the next read within current range, bounded by chunkSize.
-     * When all the rows of the current range have been read, advance to the next range.
+     *         When all the rows of the current range have been read, advance to the next range.
      */
     @Override
     public int advanceRange(int chunkSize)
@@ -161,7 +161,7 @@ public class FilteredRowRangesIterator
 
     /**
      * @return Count of values to be skipped when current range start
-     * is after current position in the page
+     *         is after current position in the page
      */
     @Override
     public long skipToRangeStart()

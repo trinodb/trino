@@ -41,9 +41,9 @@ public class PruneMarkDistinctColumns
         }
 
         Set<Symbol> requiredInputs = Streams.concat(
-                referencedOutputs.stream()
-                        .filter(symbol -> !symbol.equals(markDistinctNode.getMarkerSymbol())),
-                markDistinctNode.getDistinctSymbols().stream())
+                        referencedOutputs.stream()
+                                .filter(symbol -> !symbol.equals(markDistinctNode.getMarkerSymbol())),
+                        markDistinctNode.getDistinctSymbols().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), markDistinctNode, requiredInputs);

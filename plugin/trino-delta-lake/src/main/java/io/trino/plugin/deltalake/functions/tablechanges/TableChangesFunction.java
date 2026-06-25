@@ -68,14 +68,14 @@ public class TableChangesFunction
 
     public TableChangesFunction(DeltaLakeMetadataFactory deltaLakeMetadataFactory)
     {
-        super(
-                SCHEMA_NAME,
+        super(SCHEMA_NAME,
                 NAME,
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder().name(SCHEMA_NAME_ARGUMENT).type(VARCHAR).build(),
                         ScalarArgumentSpecification.builder().name(TABLE_NAME_ARGUMENT).type(VARCHAR).build(),
                         ScalarArgumentSpecification.builder().name(SINCE_VERSION_ARGUMENT).type(BIGINT).defaultValue(null).build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "");
         this.deltaLakeMetadataFactory = requireNonNull(deltaLakeMetadataFactory, "deltaLakeMetadataFactory is null");
     }
 
@@ -125,7 +125,7 @@ public class TableChangesFunction
                     .map(DeltaLakeColumnHandle.class::cast)
                     .filter(column -> column.columnType() != SYNTHESIZED)
                     .collect(toImmutableList());
-            accessControl.checkCanSelectFromColumns(null, schemaTableName, columnHandles.stream()
+            accessControl.checkCanSelectFromColumns(null, schemaTableName, Optional.empty(), columnHandles.stream()
                     // Lowercase column names because users don't know the original names
                     .map(column -> column.columnName().toLowerCase(ENGLISH))
                     .collect(toImmutableSet()));

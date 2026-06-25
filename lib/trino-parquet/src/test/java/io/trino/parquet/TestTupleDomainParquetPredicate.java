@@ -45,6 +45,7 @@ import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
@@ -102,7 +103,6 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
@@ -558,20 +558,12 @@ public class TestTupleDomainParquetPredicate
     private void testTimestampInt64(TimeUnit timeUnit, int precision, LocalDateTime baseTime, Object baseDomainValue)
             throws ParquetCorruptionException
     {
-        int parquetPrecision;
-        switch (timeUnit) {
-            case MILLIS:
-                parquetPrecision = 3;
-                break;
-            case MICROS:
-                parquetPrecision = 6;
-                break;
-            case NANOS:
-                parquetPrecision = 9;
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown Parquet TimeUnit " + timeUnit);
-        }
+        int parquetPrecision = switch (timeUnit) {
+            case MILLIS -> 3;
+            case MICROS -> 6;
+            case NANOS -> 9;
+            default -> throw new IllegalArgumentException("Unknown Parquet TimeUnit " + timeUnit);
+        };
 
         PrimitiveType type = Types.required(INT64)
                 .as(LogicalTypeAnnotation.timestampType(false, timeUnit))
@@ -663,8 +655,7 @@ public class TestTupleDomainParquetPredicate
     {
         ColumnDescriptor column = createColumnDescriptor(INT32, "Test column");
         TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
-                column,
-                Domain.create(ValueSet.of(typeForParquetInt32, 42L, 43L, 44L, 112L), false)));
+                column, Domain.create(ValueSet.of(typeForParquetInt32, 42L, 43L, 44L, 112L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
 
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, intColumnStats(32, 42)), ID))
@@ -680,8 +671,7 @@ public class TestTupleDomainParquetPredicate
     {
         ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
         TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
-                column,
-                Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false)));
+                column, Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
 
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, longColumnStats(32, 42)), ID))
@@ -701,8 +691,7 @@ public class TestTupleDomainParquetPredicate
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page)))).isTrue();
 
         effectivePredicate = withColumnDomains(ImmutableMap.of(
-                column,
-                singleValue(createVarcharType(255), Slices.utf8Slice("abc"), true)));
+                column, singleValue(createVarcharType(255), Slices.utf8Slice("abc"), true)));
         parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page)))).isTrue();
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page)))).isFalse();
@@ -750,15 +739,14 @@ public class TestTupleDomainParquetPredicate
         ColumnDescriptor columnA = new ColumnDescriptor(new String[] {"pathA"}, Types.optional(INT64).named("Test column A"), 0, 0);
         ColumnDescriptor columnB = new ColumnDescriptor(new String[] {"pathB"}, Types.optional(INT64).named("Test column B"), 0, 0);
         TupleDomain<ColumnDescriptor> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columnA,
-                Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false),
-                columnB,
-                Domain.create(ValueSet.ofRanges(range(BIGINT, 42L, true, 404L, true)), false)));
+                columnA, Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false),
+                columnB, Domain.create(ValueSet.ofRanges(range(BIGINT, 42L, true, 404L, true)), false)));
 
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(columnA), UTC);
         assertThat(parquetPredicate.getIndexLookupCandidates(
                 ImmutableMap.of(columnA, 2L, columnB, 2L),
-                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)), ID))
+                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)),
+                ID))
                 .isEqualTo(Optional.of(ImmutableList.of(columnA)));
 
         parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, ImmutableList.of(columnA, columnB), UTC);
@@ -769,12 +757,14 @@ public class TestTupleDomainParquetPredicate
         // All possible values for columnB are covered by effectivePredicate
         assertThat(parquetPredicate.getIndexLookupCandidates(
                 ImmutableMap.of(columnA, 2L, columnB, 2L),
-                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(50, 400)), ID))
+                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(50, 400)),
+                ID))
                 .isEqualTo(Optional.of(ImmutableList.of(columnA)));
 
         assertThat(parquetPredicate.getIndexLookupCandidates(
                 ImmutableMap.of(columnA, 2L, columnB, 2L),
-                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)), ID))
+                ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)),
+                ID))
                 .isEqualTo(Optional.of(ImmutableList.of(columnA, columnB)));
     }
 

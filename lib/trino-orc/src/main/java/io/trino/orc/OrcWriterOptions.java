@@ -65,8 +65,7 @@ public class OrcWriterOptions
 
     public OrcWriterOptions()
     {
-        this(
-                WriterIdentification.TRINO,
+        this(WriterIdentification.TRINO,
                 DEFAULT_STRIPE_MIN_SIZE,
                 DEFAULT_STRIPE_MAX_SIZE,
                 DEFAULT_STRIPE_MAX_ROW_COUNT,

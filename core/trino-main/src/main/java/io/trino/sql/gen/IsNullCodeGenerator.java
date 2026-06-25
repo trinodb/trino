@@ -49,7 +49,7 @@ public class IsNullCodeGenerator
         BytecodeBlock block = new BytecodeBlock()
                 .comment("is null")
                 .append(value)
-                .pop(argument.type().getJavaType())
+                .pop(generatorContext.getCallSiteBinder().getAccessibleType(argument.type().getJavaType()))
                 .append(wasNull);
 
         // clear the null flag

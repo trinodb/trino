@@ -28,7 +28,6 @@ import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.HIVE_ALLUXIO_CACHING;
-import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
@@ -44,7 +43,7 @@ public class Suite5
                         .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveImpersonation.class)
-                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION, AUTHORIZATION, HIVE_KERBEROS)
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION, AUTHORIZATION)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveImpersonationWithCredentialCache.class)
                         .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION, AUTHORIZATION)

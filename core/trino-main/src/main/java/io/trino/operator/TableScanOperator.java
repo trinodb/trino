@@ -124,7 +124,8 @@ public class TableScanOperator
     private final TableHandle table;
     private final Optional<ConnectorTableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
-    private final LocalMemoryContext memoryContext;
+    private final LocalMemoryContext pageSourceProviderMemoryContext;
+    private final LocalMemoryContext pageSourceMemoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
 
     @Nullable
@@ -152,7 +153,8 @@ public class TableScanOperator
         this.table = requireNonNull(table, "table is null");
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
+        this.pageSourceProviderMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-PageSourceProvider");
+        this.pageSourceMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-ConnectorPageSource");
     }
 
     @Override
@@ -213,7 +215,7 @@ public class TableScanOperator
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            memoryContext.setBytes(source.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
+            pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
             operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
     }
@@ -224,7 +226,7 @@ public class TableScanOperator
         if (!finished) {
             finished = (source != null) && source.isFinished();
             if (source != null) {
-                memoryContext.setBytes(source.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
+                pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
             }
         }
 
@@ -246,7 +248,7 @@ public class TableScanOperator
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 
     @Override
@@ -268,7 +270,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, DynamicFilter.EMPTY);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, DynamicFilter.EMPTY, pageSourceMemoryContext::setBytes);
         }
 
         SourcePage sourcePage = source.getNextSourcePage();
@@ -293,7 +295,7 @@ public class TableScanOperator
         readTimeNanos = endReadTimeNanos;
 
         // updating memory usage should happen after page is loaded.
-        memoryContext.setBytes(source.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
+        pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }

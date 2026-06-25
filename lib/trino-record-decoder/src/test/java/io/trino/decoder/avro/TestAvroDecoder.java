@@ -111,13 +111,9 @@ public class TestAvroDecoder
             Schema fieldSchema = parser.parse(field.getValue());
             GenericDefault<Schema> genericDefault = fieldBuilder.type(fieldSchema);
             switch (fieldSchema.getType()) {
-                case ARRAY:
-                    genericDefault.withDefault(ImmutableList.of());
-                    break;
-                case MAP:
-                    genericDefault.withDefault(ImmutableMap.of());
-                    break;
-                case UNION:
+                case ARRAY -> genericDefault.withDefault(ImmutableList.of());
+                case MAP -> genericDefault.withDefault(ImmutableMap.of());
+                case UNION -> {
                     if (fieldSchema.getTypes().stream()
                             .map(Schema::getType)
                             .anyMatch(Schema.Type.NULL::equals)) {
@@ -126,12 +122,9 @@ public class TestAvroDecoder
                     else {
                         genericDefault.noDefault();
                     }
-                    break;
-                case NULL:
-                    genericDefault.withDefault(null);
-                    break;
-                default:
-                    genericDefault.noDefault();
+                }
+                case NULL -> genericDefault.withDefault(null);
+                default -> genericDefault.noDefault();
             }
         }
         return fieldAssembler.endRecord();
@@ -247,7 +240,8 @@ public class TestAvroDecoder
         byte[] originalData = buildAvroData(getFieldBuilder()
                         .name("string_field").type().stringType().noDefault()
                         .endRecord(),
-                "string_field", "string_field_value");
+                "string_field",
+                "string_field_value");
         String addedColumnSchema = getFieldBuilder()
                 .name("string_field").type().stringType().noDefault()
                 .name("string_field_added").type().optional().stringType()
@@ -268,7 +262,8 @@ public class TestAvroDecoder
         byte[] originalData = buildAvroData(getFieldBuilder()
                         .name("string_field").type().stringType().noDefault()
                         .endRecord(),
-                "string_field", "string_field_value");
+                "string_field",
+                "string_field_value");
 
         DecoderTestColumnHandle renamedColumn = new DecoderTestColumnHandle(0, "row0", VARCHAR, "string_field_renamed", null, null, false, false, false);
         String renamedColumnSchema = getFieldBuilder()
@@ -315,7 +310,8 @@ public class TestAvroDecoder
         byte[] originalIntData = buildAvroData(getFieldBuilder()
                         .name("int_to_long_field").type().intType().noDefault()
                         .endRecord(),
-                "int_to_long_field", 100);
+                "int_to_long_field",
+                100);
 
         DecoderTestColumnHandle longColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", BIGINT, "int_to_long_field", null, null, false, false, false);
         String changedTypeSchema = getFieldBuilder()
@@ -337,7 +333,8 @@ public class TestAvroDecoder
         byte[] originalIntData = buildAvroData(getFieldBuilder()
                         .name("int_to_double_field").type().intType().noDefault()
                         .endRecord(),
-                "int_to_double_field", 100);
+                "int_to_double_field",
+                100);
 
         DecoderTestColumnHandle doubleColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", DOUBLE, "int_to_double_field", null, null, false, false, false);
         String changedTypeSchema = getFieldBuilder()
@@ -359,7 +356,8 @@ public class TestAvroDecoder
         byte[] originalIntData = buildAvroData(getFieldBuilder()
                         .name("int_to_string_field").type().intType().noDefault()
                         .endRecord(),
-                "int_to_string_field", 100);
+                "int_to_string_field",
+                100);
 
         DecoderTestColumnHandle stringColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", VARCHAR, "int_to_string_field", null, null, false, false, false);
         String changedTypeSchema = getFieldBuilder()
@@ -725,8 +723,8 @@ public class TestAvroDecoder
                 .values()
                 .floatType();
         List<Map<String, Float>> data = ImmutableList.<Map<String, Float>>builder()
-                .add(buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)))
-                .add(buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)))
+                .add(buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3f, 2.3f, -.5f)))
+                .add(buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3f, 12.3f, -1.5f)))
                 .build();
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(REAL_MAP_TYPE), "array_field", null, null, false, false, false);
@@ -744,10 +742,10 @@ public class TestAvroDecoder
                 .values()
                 .nullable().floatType();
         List<Map<String, Float>> data = Arrays.asList(
-                buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)),
+                buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3f, 2.3f, -.5f)),
                 null,
-                buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)),
-                buildMapFromKeysAndValues(ImmutableList.of("key100", "key200", "key300"), Arrays.asList(111.3F, null, -11.5F)));
+                buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3f, 12.3f, -1.5f)),
+                buildMapFromKeysAndValues(ImmutableList.of("key100", "key200", "key300"), Arrays.asList(111.3f, null, -11.5f)));
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(REAL_MAP_TYPE), "array_field", null, null, false, false, false);
         GenericArray<Map<String, Float>> list = new GenericData.Array<>(schema, data);
@@ -765,8 +763,8 @@ public class TestAvroDecoder
                 .floatType();
 
         Map<String, Map<String, Float>> data = ImmutableMap.<String, Map<String, Float>>builder()
-                .put("k1", buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)))
-                .put("k2", buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)))
+                .put("k1", buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3f, 2.3f, -.5f)))
+                .put("k2", buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3f, 12.3f, -1.5f)))
                 .buildOrThrow();
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_REAL_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
@@ -783,9 +781,9 @@ public class TestAvroDecoder
                 .nullable().floatType();
 
         Map<String, Map<String, Float>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2", "k3"),
-                Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)),
+                Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3f, 2.3f, -.5f)),
                         null,
-                        buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), Arrays.asList(11.3F, null, -1.5F))));
+                        buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), Arrays.asList(11.3f, null, -1.5f))));
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_REAL_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
         checkMapValue(decodedRow, row, data);
@@ -803,8 +801,8 @@ public class TestAvroDecoder
                 .floatType();
 
         Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
-                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, 2.3F))),
-                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3f, -5.3f, 2.3f))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3f, -1.5f, 12.3f)))));
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
         checkMapValue(decodedRow, row, data);
@@ -822,9 +820,9 @@ public class TestAvroDecoder
                 .nullable().floatType();
 
         Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2", "k3"),
-                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, null, 2.3F))),
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3f, null, 2.3f))),
                         null,
-                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3f, -1.5f, 12.3f)))));
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
         checkMapValue(decodedRow, row, data);
@@ -842,11 +840,11 @@ public class TestAvroDecoder
                 .floatType();
 
         Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
-                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, 2.3F))),
-                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3f, -5.3f, 2.3f))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3f, -1.5f, 12.3f)))));
         Map<String, List<Map<String, Float>>> mismatchedData = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
-                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "badKey"), Arrays.asList(1.3F, -5.3F, 2.3F))),
-                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "badKey"), Arrays.asList(1.3f, -5.3f, 2.3f))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3f, -1.5f, 12.3f)))));
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
@@ -867,11 +865,11 @@ public class TestAvroDecoder
                 .floatType();
 
         Map<String, List<Map<String, Float>>> data = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
-                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, 2.3F))),
-                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3f, -5.3f, 2.3f))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3f, -1.5f, 12.3f)))));
         Map<String, List<Map<String, Float>>> mismatchedData = buildMapFromKeysAndValues(ImmutableList.of("k1", "k2"),
-                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3F, -5.3F, -2.3F))),
-                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3F, -1.5F, 12.3F)))));
+                Arrays.asList(Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk1", "sk2", "sk3"), Arrays.asList(1.3f, -5.3f, -2.3f))),
+                        Arrays.asList(buildMapFromKeysAndValues(ImmutableList.of("sk11", "sk21", "sk31"), Arrays.asList(11.3f, -1.5f, 12.3f)))));
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
@@ -1000,8 +998,8 @@ public class TestAvroDecoder
                         .build())))
                 .build());
         GenericRecord data = new GenericRecordBuilder(schema)
-                .set("f1", 1.5F)
-                .set("f2", 1.6D)
+                .set("f1", 1.5f)
+                .set("f2", 1.6d)
                 .set("f3", 5)
                 .set("f4", 6L)
                 .set("f5", "hello")
@@ -1021,11 +1019,11 @@ public class TestAvroDecoder
                         .build())
                 .set("f11", ImmutableMap.builder()
                         .put("key1", new GenericRecordBuilder(schema.getField("f11").schema().getValueType())
-                                .set("sf1", 3.5D)
+                                .set("sf1", 3.5d)
                                 .set("sf2", true)
                                 .build())
                         .put("key2", new GenericRecordBuilder(schema.getField("f11").schema().getValueType())
-                                .set("sf1", 4.5D)
+                                .set("sf1", 4.5d)
                                 .set("sf2", false)
                                 .build())
                         .buildOrThrow())

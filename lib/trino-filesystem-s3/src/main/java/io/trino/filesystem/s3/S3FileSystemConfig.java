@@ -29,7 +29,6 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import software.amazon.awssdk.core.signer.Signer;
 import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.StorageClass;
@@ -89,19 +88,7 @@ public class S3FileSystemConfig
         Aws4Signer,
         AsyncAws4Signer,
         Aws4UnsignedPayloadSigner,
-        EventStreamAws4Signer;
-
-        @SuppressWarnings("deprecation")
-        public Signer create()
-        {
-            return switch (this) {
-                case AwsS3V4Signer -> software.amazon.awssdk.auth.signer.AwsS3V4Signer.create();
-                case Aws4Signer -> software.amazon.awssdk.auth.signer.Aws4Signer.create();
-                case AsyncAws4Signer -> software.amazon.awssdk.auth.signer.AsyncAws4Signer.create();
-                case Aws4UnsignedPayloadSigner -> software.amazon.awssdk.auth.signer.Aws4UnsignedPayloadSigner.create();
-                case EventStreamAws4Signer -> software.amazon.awssdk.auth.signer.EventStreamAws4Signer.create();
-            };
-        }
+        EventStreamAws4Signer,
     }
 
     public enum ObjectCannedAcl

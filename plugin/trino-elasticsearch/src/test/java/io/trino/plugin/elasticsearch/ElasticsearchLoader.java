@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.Session;
 import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
@@ -22,12 +25,10 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestingTrinoClient;
 import io.trino.testing.ResultsSession;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.xcontent.XContentBuilder;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RestClient;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -43,16 +44,17 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
-import static org.elasticsearch.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
         extends AbstractTestingTrinoClient<Void>
 {
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
+
     private final String tableName;
-    private final RestHighLevelClient client;
+    private final RestClient client;
 
     public ElasticsearchLoader(
-            RestHighLevelClient client,
+            RestClient client,
             String tableName,
             TestingTrinoServer trinoServer,
             Session defaultSession)
@@ -90,27 +92,56 @@ public class ElasticsearchLoader
             checkState(types.get() != null, "Type information is missing");
             List<Column> columns = statusInfo.getColumns();
 
-            BulkRequest request = new BulkRequest();
+            StringBuilder bulkBody = new StringBuilder();
             for (List<Object> fields : data) {
                 try {
-                    XContentBuilder dataBuilder = jsonBuilder().startObject();
+                    // Action line
+                    ObjectNode action = JSON_MAPPER.createObjectNode();
+                    ObjectNode indexAction = JSON_MAPPER.createObjectNode();
+                    indexAction.put("_index", tableName);
+                    action.set("index", indexAction);
+                    bulkBody.append(JSON_MAPPER.writeValueAsString(action)).append('\n');
+
+                    // Data line
+                    ObjectNode doc = JSON_MAPPER.createObjectNode();
                     for (int i = 0; i < fields.size(); i++) {
                         Type type = types.get().get(i);
                         Object value = convertValue(fields.get(i), type);
-                        dataBuilder.field(columns.get(i).getName(), value);
+                        String columnName = columns.get(i).getName();
+                        if (value == null) {
+                            doc.putNull(columnName);
+                        }
+                        else if (value instanceof Boolean b) {
+                            doc.put(columnName, b);
+                        }
+                        else if (value instanceof Long l) {
+                            doc.put(columnName, l);
+                        }
+                        else if (value instanceof Integer n) {
+                            doc.put(columnName, n);
+                        }
+                        else if (value instanceof Double d) {
+                            doc.put(columnName, d);
+                        }
+                        else if (value instanceof String s) {
+                            doc.put(columnName, s);
+                        }
+                        else {
+                            doc.put(columnName, value.toString());
+                        }
                     }
-                    dataBuilder.endObject();
-
-                    request.add(new IndexRequest(tableName, "doc").source(dataBuilder));
+                    bulkBody.append(JSON_MAPPER.writeValueAsString(doc)).append('\n');
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
                 }
             }
 
-            request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
             try {
-                client.bulk(request, RequestOptions.DEFAULT);
+                Request request = new Request("POST", "/_bulk");
+                request.addParameter("refresh", "true");
+                request.setEntity(new StringEntity(bulkBody.toString(), ContentType.create("application/x-ndjson")));
+                client.performRequest(request);
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

@@ -53,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExponentialGrowthPartitionMemoryEstimator
 {
-    private static final Function<PlanFragmentId, PlanFragment> THROWING_PLAN_FRAGMENT_LOOKUP = planFragmentId -> {
+    private static final Function<PlanFragmentId, PlanFragment> THROWING_PLAN_FRAGMENT_LOOKUP = _ -> {
         throw new RuntimeException("should not be used");
     };
 
@@ -61,8 +61,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     {
         ExponentialGrowthPartitionMemoryEstimator.Factory factory = new ExponentialGrowthPartitionMemoryEstimator.Factory(
                 () -> ImmutableMap.of(
-                        new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(),
-                        Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
+                        new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
                 true);
         factory.refreshNodePoolMemoryInfos();
         return factory;

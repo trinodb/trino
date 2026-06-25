@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
  * Redis specific {@link ConnectorTableHandle}.
  *
  * @param schemaName The schema name for this table. Is set through configuration and read
- * using {@link RedisConnectorConfig#getDefaultSchema()}. Usually 'default'.
+ *         using {@link RedisConnectorConfig#getDefaultSchema()}. Usually 'default'.
  * @param tableName The table name used by Trino.
  */
 public record RedisTableHandle(

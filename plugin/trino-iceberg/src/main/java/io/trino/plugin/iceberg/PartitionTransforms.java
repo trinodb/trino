@@ -32,6 +32,8 @@ import org.apache.iceberg.PartitionField;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.function.Function;
@@ -46,7 +48,6 @@ import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
@@ -64,11 +65,13 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_HOUR;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
+import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 
@@ -76,6 +79,9 @@ public final class PartitionTransforms
 {
     private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
+
+    private static final VarHandle LONG_HANDLE_BIG_ENDIAN =
+            MethodHandles.byteArrayViewVarHandle(long[].class, BIG_ENDIAN);
 
     private static final DateTimeField YEAR_FIELD = ISOChronology.getInstanceUTC().year();
     private static final DateTimeField MONTH_FIELD = ISOChronology.getInstanceUTC().monthOfYear();
@@ -87,9 +93,10 @@ public final class PartitionTransforms
         String transform = field.transform().toString();
 
         switch (transform) {
-            case "identity":
+            case "identity" -> {
                 return identity(sourceType);
-            case "year":
+            }
+            case "year" -> {
                 if (sourceType.equals(DATE)) {
                     return yearsFromDate();
                 }
@@ -106,7 +113,8 @@ public final class PartitionTransforms
                     return yearsFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
-            case "month":
+            }
+            case "month" -> {
                 if (sourceType.equals(DATE)) {
                     return monthsFromDate();
                 }
@@ -123,7 +131,8 @@ public final class PartitionTransforms
                     return monthsFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
-            case "day":
+            }
+            case "day" -> {
                 if (sourceType.equals(DATE)) {
                     return daysFromDate();
                 }
@@ -140,7 +149,8 @@ public final class PartitionTransforms
                     return daysFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
-            case "hour":
+            }
+            case "hour" -> {
                 if (sourceType.equals(TIMESTAMP_MICROS)) {
                     return hoursFromTimestampMicros();
                 }
@@ -154,8 +164,10 @@ public final class PartitionTransforms
                     return hoursFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
-            case "void":
+            }
+            case "void" -> {
                 return voidTransform(sourceType);
+            }
         }
 
         Matcher matcher = BUCKET_PATTERN.matcher(transform);
@@ -647,20 +659,60 @@ public final class PartitionTransforms
 
     private static Hasher hashShortDecimal(DecimalType decimal)
     {
+        // Reused across rows; safe because Hasher is invoked single-threaded per operator/driver
+        byte[] bytes = new byte[8];
         return (block, position) -> {
-            // TODO: write optimized implementation
-            BigDecimal value = readBigDecimal(decimal, block, position);
-            return bucketHash(Slices.wrappedBuffer(value.unscaledValue().toByteArray()));
+            long unscaled = decimal.getLong(block, position);
+            int offset = minimalBigEndianBytes(unscaled, bytes);
+            return bucketHash(Slices.wrappedBuffer(bytes, offset, 8 - offset));
         };
     }
 
     private static Hasher hashLongDecimal(DecimalType decimal)
     {
+        // Reused across rows; safe because Hasher is invoked single-threaded per operator/driver
+        byte[] bytes = new byte[16];
         return (block, position) -> {
-            // TODO: write optimized implementation
-            BigDecimal value = readBigDecimal(decimal, block, position);
-            return bucketHash(Slices.wrappedBuffer(value.unscaledValue().toByteArray()));
+            Int128 unscaled = (Int128) decimal.getObject(block, position);
+            LONG_HANDLE_BIG_ENDIAN.set(bytes, 0, unscaled.getHigh());
+            LONG_HANDLE_BIG_ENDIAN.set(bytes, 8, unscaled.getLow());
+            int offset = minimalBigEndianOffset(bytes);
+            return bucketHash(Slices.wrappedBuffer(bytes, offset, 16 - offset));
         };
+    }
+
+    /**
+     * Writes a long value as big-endian bytes into the buffer and returns the offset
+     * of the first byte of the minimal two's-complement representation (matching
+     * {@link java.math.BigInteger#toByteArray()} output).
+     */
+    private static int minimalBigEndianBytes(long value, byte[] bytes)
+    {
+        LONG_HANDLE_BIG_ENDIAN.set(bytes, 0, value);
+        return minimalBigEndianOffset(bytes);
+    }
+
+    /**
+     * Returns the start offset for the minimal two's-complement representation
+     * within a big-endian byte array (matching {@link java.math.BigInteger#toByteArray()} output).
+     */
+    private static int minimalBigEndianOffset(byte[] bytes)
+    {
+        int length = bytes.length;
+        if (bytes[0] == 0) {
+            // Positive or zero: skip leading 0x00 bytes, but keep one if next byte has high bit set
+            int offset = 0;
+            while (offset < length - 1 && bytes[offset] == 0 && (bytes[offset + 1] & 0x80) == 0) {
+                offset++;
+            }
+            return offset;
+        }
+        // Negative: skip leading 0xFF bytes, but keep one if next byte has high bit clear
+        int offset = 0;
+        while (offset < length - 1 && bytes[offset] == (byte) 0xFF && (bytes[offset + 1] & 0x80) != 0) {
+            offset++;
+        }
+        return offset;
     }
 
     private static int hashDate(Block block, int position)
@@ -973,14 +1025,14 @@ public final class PartitionTransforms
 
     private static ColumnTransform voidTransform(Type type)
     {
-        Block nullBlock = nativeValueToBlock(type, null);
+        Block nullBlock = writeNativeValue(type, null);
         return new ColumnTransform(
                 type,
                 true,
                 true,
                 false,
                 block -> RunLengthEncodedBlock.create(nullBlock, block.getPositionCount()),
-                (block, position) -> null);
+                (_, _) -> null);
     }
 
     private static Block transformBlock(Type sourceType, FixedWidthType resultType, Block block, LongUnaryOperator function)

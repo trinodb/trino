@@ -42,7 +42,6 @@ import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -53,6 +52,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
@@ -64,6 +64,7 @@ import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -120,32 +121,28 @@ public class GlobalFunctionCatalog
         // so we only these exact signatures to be registered.  Since, only a single function with
         // a specific signature can be registered, it prevents others from being registered.
         Signature.Builder expectedSignature = Signature.builder()
-                .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), new TypeSignature("T")));
+                .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), typeVariable("T")));
 
         switch (operatorType) {
-            case EQUAL:
-            case IDENTICAL:
-            case INDETERMINATE:
+            case EQUAL, IDENTICAL, INDETERMINATE -> {
                 expectedSignature.returnType(BOOLEAN);
                 expectedSignature.comparableTypeParameter("T");
-                break;
-            case HASH_CODE:
-            case XX_HASH_64:
+            }
+            case HASH_CODE, XX_HASH_64 -> {
                 expectedSignature.returnType(BIGINT);
                 expectedSignature.comparableTypeParameter("T");
-                break;
-            case COMPARISON_UNORDERED_FIRST:
-            case COMPARISON_UNORDERED_LAST:
+            }
+            case COMPARISON_UNORDERED_FIRST, COMPARISON_UNORDERED_LAST -> {
                 expectedSignature.returnType(INTEGER);
                 expectedSignature.orderableTypeParameter("T");
-                break;
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
+            }
+            case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                 expectedSignature.returnType(BOOLEAN);
                 expectedSignature.orderableTypeParameter("T");
-                break;
-            default:
+            }
+            default -> {
                 return;
+            }
         }
 
         checkArgument(signature.equals(expectedSignature.build()), "Can not register %s functionMetadata: %s", operatorType, signature);
@@ -153,7 +150,9 @@ public class GlobalFunctionCatalog
 
     public List<FunctionMetadata> listFunctions()
     {
-        return functions.list();
+        return functions.list().stream()
+                .filter(function -> !function.isMethod())
+                .collect(toImmutableList());
     }
 
     public Collection<FunctionMetadata> getBuiltInFunctions(String functionName)
@@ -248,7 +247,7 @@ public class GlobalFunctionCatalog
             this.functionBundlesById = ImmutableMap.<FunctionId, FunctionBundle>builder()
                     .putAll(map.functionBundlesById)
                     .putAll(functionBundle.getFunctions().stream()
-                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, functionMetadata -> functionBundle)))
+                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, _ -> functionBundle)))
                     .buildOrThrow();
 
             this.functionsById = ImmutableMap.<FunctionId, FunctionMetadata>builder()
