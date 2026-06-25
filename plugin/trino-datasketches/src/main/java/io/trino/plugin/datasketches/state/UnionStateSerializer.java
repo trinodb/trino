@@ -26,8 +26,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
-public class SketchStateSerializer
-        implements AccumulatorStateSerializer<SketchState>
+public class UnionStateSerializer
+        implements AccumulatorStateSerializer<UnionState>
 {
     @Override
     public Type getSerializedType()
@@ -36,7 +36,7 @@ public class SketchStateSerializer
     }
 
     @Override
-    public void serialize(SketchState state, BlockBuilder out)
+    public void serialize(UnionState state, BlockBuilder out)
     {
         if (state.getSketch() == null) {
             out.appendNull();
@@ -57,7 +57,7 @@ public class SketchStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, SketchState state)
+    public void deserialize(Block block, int index, UnionState state)
     {
         Slice slice = VARBINARY.getSlice(block, index);
         SliceInput input = slice.getInput();
@@ -66,6 +66,6 @@ public class SketchStateSerializer
         state.setSeed(input.readLong());
 
         int sketchLength = input.readInt();
-        state.addSketch(input.readSlice(sketchLength));
+        state.setSketch(input.readSlice(sketchLength));
     }
 }

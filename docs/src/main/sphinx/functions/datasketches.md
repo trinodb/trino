@@ -8,9 +8,10 @@ approximate answers with mathematical guarantees much faster than traditional
 exact methods. DataSketches functions allow querying these serialized sketches
 from Trino. Support for the
 [Theta Sketch framework](https://datasketches.apache.org/docs/Theta/ThetaSketchFramework.html)
-is available through {func}`theta_sketch_union` and
-{func}`theta_sketch_cardinality`, typically used to replace expensive
-`COUNT(DISTINCT ...)` aggregations when sketches are precomputed and stored.
+is available through {func}`theta_sketch_union`, {func}`theta_sketch_intersection`,
+and {func}`theta_sketch_cardinality`, typically used to replace expensive
+`COUNT(DISTINCT ...)` and set-intersection aggregations when sketches are
+precomputed and stored.
 
 ## Configuration
 
@@ -59,6 +60,15 @@ non-default sketch size and seed when merging sketches created with custom
 settings.
 :::
 
+:::{function} theta_sketch_intersection(sketch) -> varbinary
+Returns a serialized sketch as `varbinary` representing the intersection of all
+input sketches. The result can be passed to {func}`theta_sketch_cardinality` to
+obtain an estimate of the number of elements common to all inputs. All input
+sketches must have been built with the default seed; use
+{func}`theta_sketch_union` on the result if you need to compose intersection
+with further aggregation.
+:::
+
 :::{function} theta_sketch_cardinality(sketch) -> double
 Returns the estimated value of the sketch.
 :::
@@ -97,4 +107,14 @@ SELECT
   SUM(o_totalprice) AS user_spent
 FROM tpch.sf100000.orders_raw_keys
 GROUP BY o_orderdate;
+```
+
+The following query computes the approximate number of customers who placed
+orders on both January 1 and January 2, by intersecting two precomputed daily
+sketches:
+
+```sql
+SELECT theta_sketch_cardinality(theta_sketch_intersection(daily_sketch))
+FROM daily_customer_sketches
+WHERE order_date IN (DATE '2024-01-01', DATE '2024-01-02');
 ```
