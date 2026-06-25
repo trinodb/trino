@@ -29,7 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 
-@ScalarFunction("array_min")
+@ScalarFunction(value = "array_min", neverFails = true)
 @Description("Get minimum value of array")
 public final class ArrayMinFunction
 {

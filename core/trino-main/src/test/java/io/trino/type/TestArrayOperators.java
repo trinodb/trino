@@ -2626,6 +2626,13 @@ public class TestArrayOperators
         assertThat(assertions.function("array_min", "ARRAY[ARRAY[REAL '1'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']]"))
                 .hasType(new ArrayType(REAL))
                 .isEqualTo(ImmutableList.of(1.0f));
+
+        assertThat(assertions.function("array_min", "ARRAY[1, 2, 3]"))
+                .neverFails();
+        assertThat(assertions.function("array_min", "ARRAY[ARRAY[1, NULL], ARRAY[1, 2]]"))
+                .neverFails();
+        assertThat(assertions.function("array_min", "ARRAY[ROW(1, NULL), ROW(1, 2), ROW(2, NULL)]"))
+                .neverFails();
     }
 
     @Test
@@ -2843,6 +2850,13 @@ public class TestArrayOperators
         assertThat(assertions.function("array_max", "ARRAY[ARRAY[REAL '1'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']]"))
                 .hasType(new ArrayType(REAL))
                 .isEqualTo(ImmutableList.of(3.0f));
+
+        assertThat(assertions.function("array_max", "ARRAY[1, 2, 3]"))
+                .neverFails();
+        assertThat(assertions.function("array_max", "ARRAY[ARRAY[1, NULL], ARRAY[1, 2]]"))
+                .neverFails();
+        assertThat(assertions.function("array_max", "ARRAY[ROW(1, NULL), ROW(1, 2), ROW(2, NULL)]"))
+                .neverFails();
     }
 
     @Test
