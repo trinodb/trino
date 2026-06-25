@@ -16,6 +16,7 @@ package io.trino.plugin.dynamodb;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -33,7 +34,8 @@ public class TestDynamoDbConfig
                 .setAwsRegion(null)
                 .setIamRole(null)
                 .setExternalId(null)
-                .setScanSegments(1));
+                .setScanSegments(1)
+                .setEndpointOverride(null));
     }
 
     @Test
@@ -46,6 +48,7 @@ public class TestDynamoDbConfig
                 .put("dynamodb.aws-iam-role", "arn:aws:iam::123456789012:role/trino-dynamodb-role")
                 .put("dynamodb.aws-external-id", "my-external-id")
                 .put("dynamodb.scan-segments", "4")
+                .put("dynamodb.endpoint-override", "http://localhost:8888")
                 .buildOrThrow();
 
         DynamoDbConfig expected = new DynamoDbConfig()
@@ -54,7 +57,8 @@ public class TestDynamoDbConfig
                 .setAwsRegion("us-west-2")
                 .setIamRole("arn:aws:iam::123456789012:role/trino-dynamodb-role")
                 .setExternalId("my-external-id")
-                .setScanSegments(4);
+                .setScanSegments(4)
+                .setEndpointOverride(URI.create("http://localhost:8888"));
 
         assertFullMapping(properties, expected);
     }

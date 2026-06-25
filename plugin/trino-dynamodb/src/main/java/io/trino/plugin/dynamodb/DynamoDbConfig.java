@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.net.URI;
 import java.util.Optional;
 
 public class DynamoDbConfig
@@ -29,6 +30,7 @@ public class DynamoDbConfig
     private Optional<String> iamRole = Optional.empty();
     private Optional<String> externalId = Optional.empty();
     private int scanSegments = 1;
+    private Optional<URI> endpointOverride = Optional.empty();
 
     public Optional<String> getAwsAccessKey()
     {
@@ -108,6 +110,19 @@ public class DynamoDbConfig
     public DynamoDbConfig setScanSegments(int scanSegments)
     {
         this.scanSegments = scanSegments;
+        return this;
+    }
+
+    public Optional<URI> getEndpointOverride()
+    {
+        return endpointOverride;
+    }
+
+    @Config("dynamodb.endpoint-override")
+    @ConfigDescription("Override the DynamoDB endpoint URL (for testing with DynamoDB Local)")
+    public DynamoDbConfig setEndpointOverride(URI endpointOverride)
+    {
+        this.endpointOverride = Optional.ofNullable(endpointOverride);
         return this;
     }
 }

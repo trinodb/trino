@@ -95,10 +95,11 @@ public class DynamoDbService
             credentialsProvider = baseCredentialsProvider;
         }
 
-        this.dynamoDbClient = DynamoDbClient.builder()
+        var clientBuilder = DynamoDbClient.builder()
                 .region(Region.of(region))
-                .credentialsProvider(credentialsProvider)
-                .build();
+                .credentialsProvider(credentialsProvider);
+        config.getEndpointOverride().ifPresent(clientBuilder::endpointOverride);
+        this.dynamoDbClient = clientBuilder.build();
     }
 
     @PreDestroy
