@@ -143,6 +143,13 @@ public class TestVarcharMethods
     }
 
     @Test
+    public void testEndsWith()
+    {
+        assertThat(assertions.expression("'hello'.ends_with('lo')"))
+                .matches("ends_with('hello', 'lo')");
+    }
+
+    @Test
     public void testTranslate()
     {
         assertThat(assertions.expression("'abcd'.translate('ac', 'xy')"))
