@@ -300,6 +300,18 @@ SELECT 'a,b,c'.split(',', 2);
 ```
 :::
 
+:::{function} string.ends_with(suffix) -> boolean
+:noindex: true
+
+Returns `true` when `string` ends with `suffix`, otherwise `false`. Related:
+{func}`ends_with`.
+
+```
+SELECT 'apple'.ends_with('ple');
+-- true
+```
+:::
+
 :::{function} string.starts_with(prefix) -> boolean
 :noindex: true
 
