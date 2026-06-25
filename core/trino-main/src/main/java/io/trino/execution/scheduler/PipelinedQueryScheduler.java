@@ -1335,9 +1335,11 @@ public class PipelinedQueryScheduler
                         futures.addAll(blockedStages);
                         // allow for schedule to resume scheduling (e.g. when some active stage completes
                         // and dependent stages can be started)
-                        stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
-                        try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
-                            tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                        if (blockedStages.size() == stagesScheduleResult.getStagesToSchedule().size()) {
+                            stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
+                            try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
+                                tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                            }
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
                             blockedStage.cancel(true);
