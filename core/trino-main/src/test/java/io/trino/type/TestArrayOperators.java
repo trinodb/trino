@@ -3588,6 +3588,15 @@ public class TestArrayOperators
                 .hasType(new ArrayType(INTEGER))
                 .isEqualTo(asList(-1, 0, 1, null, null));
 
+        assertThat(assertions.function("array_sort", "ARRAY[ROW(1, 2), ROW(1, 3)]"))
+                .neverFails();
+        assertThat(assertions.function("array_sort", "ARRAY[ARRAY[1, 2], ARRAY[1, 3]]"))
+                .neverFails();
+        assertThat(assertions.expression("array_sort(ARRAY[ROW(1, NULL), ROW(1, 2)])"))
+                .matches("ARRAY[ROW(1, 2), ROW(1, NULL)]");
+        assertThat(assertions.expression("array_sort(ARRAY[ARRAY[1, NULL], ARRAY[1, 2]])"))
+                .matches("ARRAY[ARRAY[1, 2], ARRAY[1, NULL]]");
+
         // invalid functions
         assertTrinoExceptionThrownBy(assertions.function("array_sort", "ARRAY[color('red'), color('blue')]")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND);
