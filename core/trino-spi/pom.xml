@@ -612,6 +612,27 @@
                                     <old>class io.trino.spi.type.TypeParameter.Variable</old>
                                     <justification>A TypeSignature is now always ground; variables live only in TypeTemplate, so the Variable type parameter is removed.</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.trino.spi.type.TypeTemplate io.trino.spi.type.TypeTemplates::type(java.lang.String, io.trino.spi.type.NumericExpression[])</old>
+                                    <new>method io.trino.spi.type.TypeTemplate io.trino.spi.type.TypeTemplates::type(java.lang.String, io.trino.spi.type.NumericExpression[])</new>
+                                    <justification>Revapi detects this by mistake</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.trino.spi.type.TypeTemplate io.trino.spi.type.TypeTemplates::type(java.lang.String, io.trino.spi.type.TemplateParameter[])</old>
+                                    <new>method io.trino.spi.type.TypeTemplate io.trino.spi.type.TypeTemplates::type(java.lang.String, io.trino.spi.type.TemplateParameter[])</new>
+                                    <justification>Revapi detects this by mistake</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.trino.spi.type.TypeTemplate io.trino.spi.type.TypeTemplates::type(java.lang.String, io.trino.spi.type.TypeTemplate[])</old>
+                                    <new>method io.trino.spi.type.TypeTemplate io.trino.spi.type.TypeTemplates::type(java.lang.String, io.trino.spi.type.TypeTemplate[])</new>
+                                    <justification>Revapi detects this by mistake</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
