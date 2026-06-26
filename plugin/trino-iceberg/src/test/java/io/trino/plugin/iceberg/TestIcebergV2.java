@@ -52,6 +52,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -65,9 +66,12 @@ import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.data.parquet.InternalWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
@@ -113,6 +117,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -122,6 +127,7 @@ import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.Files.localOutput;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
@@ -437,6 +443,76 @@ public class TestIcebergV2
                             .row(ImmutableList.of(4L))
                             .build());
         }
+    }
+
+    @Test
+    public void testOptimizeNotNullViolation()
+            throws Exception
+    {
+        testOptimizeNotNullViolation(true);
+        testOptimizeNotNullViolation(false);
+    }
+
+    private void testOptimizeNotNullViolation(boolean partitioned)
+            throws Exception
+    {
+        String tableProperty = partitioned ? "WITH (partitioning = ARRAY['x'])" : "";
+        try (TestTable table = newTrinoTable("test_optimize_not_null", "(x INT NOT NULL)" + tableProperty)) {
+            BaseTable icebergTable = loadTable(table.getName());
+
+            // Add data file with NULL value on NOT NULL column
+            Schema nullableSchema = new Schema(Types.NestedField.optional(1, "x", Types.IntegerType.get()));
+            GenericRecord record = GenericRecord.create(nullableSchema);
+            record.setField("x", null);
+            insertRecord(icebergTable, nullableSchema, record);
+            insertRecord(icebergTable, nullableSchema, record);
+
+            Location dataDirectory = Location.of(icebergTable.location()).appendPath("data");
+            List<String> dataFiles = listFiles(dataDirectory);
+            assertThat(dataFiles).hasSize(2);
+
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES CAST(NULL AS integer), NULL");
+
+            assertThat(query("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE")).failure()
+                    .hasMessage("NULL value not allowed for NOT NULL column: x");
+            assertEventually(() -> assertThat(listFiles(dataDirectory))
+                    .as("Failed optimize procedure shouldn't leave new data files")
+                    .containsExactlyInAnyOrderElementsOf(dataFiles));
+
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES CAST(NULL AS integer), NULL");
+        }
+    }
+
+    private static void insertRecord(Table table, Schema schema, Record record)
+            throws IOException
+    {
+        OutputFile outputFile = localOutput(table.location() + "/data/" + randomNameSuffix() + ".parquet");
+        try (FileAppender<Record> writer = Parquet.write(outputFile)
+                .schema(schema)
+                .createWriterFunc(fileSchema -> InternalWriter.create(schema.asStruct(), fileSchema))
+                .build()) {
+            writer.add(record);
+            DataFile file = DataFiles.builder(PartitionSpec.unpartitioned())
+                    .withRecordCount(1)
+                    .withFileSizeInBytes(1000)
+                    .withPath(outputFile.location())
+                    .withFormat(FileFormat.PARQUET)
+                    .build();
+            table.newAppend().appendFile(file).commit();
+        }
+    }
+
+    protected List<String> listFiles(Location location)
+            throws IOException
+    {
+        ImmutableList.Builder<String> files = ImmutableList.builder();
+        FileIterator listing = fileSystemFactory.create(SESSION).listFiles(location);
+        while (listing.hasNext()) {
+            files.add(listing.next().location().toString());
+        }
+        return files.build();
     }
 
     @Test
