@@ -123,7 +123,6 @@ import io.trino.operator.scalar.ArrayUnionFunction;
 import io.trino.operator.scalar.ArrayVectorFunctions;
 import io.trino.operator.scalar.ArraysOverlapFunction;
 import io.trino.operator.scalar.BitwiseFunctions;
-import io.trino.operator.scalar.CharMethods;
 import io.trino.operator.scalar.CharToVarcharCast;
 import io.trino.operator.scalar.CharacterStringCasts;
 import io.trino.operator.scalar.ColorFunctions;
@@ -459,7 +458,6 @@ public final class SystemFunctionBundle
                 .scalars(SessionFunctions.class)
                 .scalars(StringFunctions.class)
                 .scalars(VarcharMethods.class)
-                .scalars(CharMethods.class)
                 .scalars(WordStemFunction.class)
                 .scalar(SplitToMapFunction.class)
                 .scalar(SplitToMultimapFunction.class)

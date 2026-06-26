@@ -101,6 +101,7 @@ public final class StringFunctions
 
     @Description("Count of code points of the given string")
     @ScalarFunction
+    @InstanceMethod("length")
     @Infallible
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
@@ -111,6 +112,7 @@ public final class StringFunctions
 
     @Description("Count of code points of the given string")
     @ScalarFunction(value = "length")
+    @InstanceMethod("length")
     @Infallible
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
@@ -130,6 +132,7 @@ public final class StringFunctions
 
     @Description("Greedily removes occurrences of a pattern in a string")
     @ScalarFunction
+    @InstanceMethod("replace")
     @Infallible
     @LiteralParameters({"x", "y"})
     @SqlType("varchar(x)")
@@ -140,6 +143,7 @@ public final class StringFunctions
 
     @Description("Greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
+    @InstanceMethod("replace")
     @Infallible
     @LiteralParameters({"x", "y", "z", "u"})
     @Constraint(variable = "u", expression = "min(2147483647, x + z * (x + 1))")
@@ -208,6 +212,7 @@ public final class StringFunctions
 
     @Description("Reverse all code points in a given string")
     @ScalarFunction
+    @InstanceMethod("reverse")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -229,6 +234,7 @@ public final class StringFunctions
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction(value = "strpos")
+    @InstanceMethod("strpos")
     @Infallible
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
@@ -239,6 +245,7 @@ public final class StringFunctions
 
     @Description("Returns index of n-th occurrence of a substring (or 0 if not found)")
     @ScalarFunction(value = "strpos")
+    @InstanceMethod("strpos")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
@@ -299,6 +306,7 @@ public final class StringFunctions
 
     @Description("Suffix starting at given index")
     @ScalarFunction(alias = "substr")
+    @InstanceMethod("substring")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -338,6 +346,7 @@ public final class StringFunctions
 
     @Description("Suffix starting at given index")
     @ScalarFunction(value = "substring", alias = "substr")
+    @InstanceMethod("substring")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -348,6 +357,7 @@ public final class StringFunctions
 
     @Description("Substring of given length starting at an index")
     @ScalarFunction(alias = "substr")
+    @InstanceMethod("substring")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -398,6 +408,7 @@ public final class StringFunctions
 
     @Description("Substring of given length starting at an index")
     @ScalarFunction(value = "substring", alias = "substr")
+    @InstanceMethod("substring")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -439,6 +450,7 @@ public final class StringFunctions
     }
 
     @ScalarFunction
+    @InstanceMethod("split")
     @LiteralParameters({"x", "y"})
     @SqlType("array(varchar(x))")
     public static Block split(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice delimiter)
@@ -447,6 +459,7 @@ public final class StringFunctions
     }
 
     @ScalarFunction
+    @InstanceMethod("split")
     @LiteralParameters({"x", "y"})
     @SqlType("array(varchar(x))")
     public static Block split(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
@@ -535,6 +548,7 @@ public final class StringFunctions
 
     @Description("Removes whitespace from the beginning of a string")
     @ScalarFunction(value = "ltrim")
+    @InstanceMethod("ltrim")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -555,6 +569,7 @@ public final class StringFunctions
 
     @Description("Removes whitespace from the end of a string")
     @ScalarFunction(value = "rtrim")
+    @InstanceMethod("rtrim")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -575,6 +590,7 @@ public final class StringFunctions
 
     @Description("Removes whitespace from the beginning and end of a string")
     @ScalarFunction
+    @InstanceMethod("trim")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -595,6 +611,7 @@ public final class StringFunctions
 
     @Description("Remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction(value = "ltrim")
+    @InstanceMethod("ltrim")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -615,6 +632,7 @@ public final class StringFunctions
 
     @Description("Remove the longest string containing only given characters from the end of a string")
     @ScalarFunction(value = "rtrim")
+    @InstanceMethod("rtrim")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -635,6 +653,7 @@ public final class StringFunctions
 
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
     @ScalarFunction(value = "trim")
+    @InstanceMethod("trim")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -696,6 +715,7 @@ public final class StringFunctions
 
     @Description("Converts the string to lower case")
     @ScalarFunction
+    @InstanceMethod("lower")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -706,6 +726,7 @@ public final class StringFunctions
 
     @Description("Converts the string to lower case")
     @ScalarFunction(value = "lower")
+    @InstanceMethod("lower")
     @Infallible
     @LiteralParameters("x")
     @SqlType("char(x)")
@@ -716,6 +737,7 @@ public final class StringFunctions
 
     @Description("Converts the string to upper case")
     @ScalarFunction
+    @InstanceMethod("upper")
     @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -726,6 +748,7 @@ public final class StringFunctions
 
     @Description("Converts the string to upper case")
     @ScalarFunction(value = "upper")
+    @InstanceMethod("upper")
     @Infallible
     @LiteralParameters("x")
     @SqlType("char(x)")
@@ -789,6 +812,7 @@ public final class StringFunctions
 
     @Description("Pads a string on the left")
     @ScalarFunction("lpad")
+    @InstanceMethod("lpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice leftPad(@LiteralParameter("x") long x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
@@ -799,6 +823,7 @@ public final class StringFunctions
 
     @Description("Pads a string on the left")
     @ScalarFunction("lpad")
+    @InstanceMethod("lpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice leftPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
@@ -808,6 +833,7 @@ public final class StringFunctions
 
     @Description("Pads a string on the right")
     @ScalarFunction("rpad")
+    @InstanceMethod("rpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice rightPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
@@ -962,6 +988,7 @@ public final class StringFunctions
 
     @Description("Encodes the string to UTF-8")
     @ScalarFunction
+    @InstanceMethod("to_utf8")
     @Infallible
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
@@ -972,6 +999,7 @@ public final class StringFunctions
 
     @Description("Encodes the string to UTF-8")
     @ScalarFunction
+    @InstanceMethod("to_utf8")
     @Infallible
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
@@ -1007,6 +1035,7 @@ public final class StringFunctions
 
     @Description("Determine whether source starts with prefix or not")
     @ScalarFunction
+    @InstanceMethod("starts_with")
     @Infallible
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BOOLEAN)
@@ -1020,6 +1049,7 @@ public final class StringFunctions
 
     @Description("Determine whether source ends with suffix or not")
     @ScalarFunction
+    @InstanceMethod("ends_with")
     @Infallible
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.BOOLEAN)
@@ -1033,6 +1063,7 @@ public final class StringFunctions
 
     @Description("Translate characters from the source string based on original and translations strings")
     @ScalarFunction
+    @InstanceMethod("translate")
     @LiteralParameters({"x", "y", "z"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice translate(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
