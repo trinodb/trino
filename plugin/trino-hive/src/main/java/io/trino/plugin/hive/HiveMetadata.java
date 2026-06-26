@@ -175,6 +175,10 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.hive.formats.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.METADATA_TYPED_COLUMNSET_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.metastore.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.metastore.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.metastore.HiveType.HIVE_STRING;
@@ -1544,6 +1548,7 @@ public class HiveMetadata
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(hiveTableHandle);
+        failIfSerdeNotSupportedForDropColumn(hiveTableHandle);
         HiveColumnHandle columnHandle = (HiveColumnHandle) column;
 
         metastore.dropColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
@@ -1564,6 +1569,23 @@ public class HiveMetadata
         }
         if (table.getParameters().containsKey(AVRO_SCHEMA_LITERAL_KEY) || table.getStorage().getSerdeParameters().containsKey(AVRO_SCHEMA_LITERAL_KEY)) {
             throw new TrinoException(NOT_SUPPORTED, "ALTER TABLE not supported when Avro schema literal is set");
+        }
+    }
+
+    // Package-private so test code can assert against the same set without duplicating it.
+    static final Set<String> DROP_COLUMN_SUPPORTED_SERDES = ImmutableSet.of(
+            COLUMNAR_SERDE_CLASS,
+            LAZY_SIMPLE_SERDE_CLASS,
+            METADATA_TYPED_COLUMNSET_SERDE_CLASS,
+            PARQUET_HIVE_SERDE_CLASS);
+
+    private void failIfSerdeNotSupportedForDropColumn(HiveTableHandle handle)
+    {
+        Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+        String serde = table.getStorage().getStorageFormat().getSerDeNullable();
+        if (serde == null || !DROP_COLUMN_SUPPORTED_SERDES.contains(serde)) {
+            throw new TrinoException(NOT_SUPPORTED, format("Dropping columns is not supported by table SerDe: %s", serde));
         }
     }
 
