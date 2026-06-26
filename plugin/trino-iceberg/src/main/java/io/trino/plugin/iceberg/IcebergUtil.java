@@ -1369,7 +1369,7 @@ public final class IcebergUtil
     public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, FileIO fileIO, Map<Integer, PartitionSpec> specsById)
     {
         return switch (manifest.content()) {
-            case DATA -> ManifestFiles.read(manifest, fileIO);
+            case DATA -> ManifestFiles.read(manifest, fileIO, specsById);
             case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
         };
     }
