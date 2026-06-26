@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -469,7 +470,7 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
         if (schemaVersion == SchemaVersion.V0) {
             throw new TrinoException(NOT_SUPPORTED, "Schema version V0 does not support views");
@@ -482,7 +483,7 @@ public class TrinoJdbcCatalog
         Optional<String> locationProperty = IcebergViewProperties.getLocation(viewProperties);
         String viewLocation = locationProperty.map(LocationUtil::stripTrailingSlash).orElse(defaultTableLocation(session, schemaViewName));
         ViewBuilder viewBuilder = jdbcCatalog.buildView(toIdentifier(schemaViewName));
-        if (replace && jdbcCatalog.viewExists(toIdentifier(schemaViewName))) {
+        if (saveMode == SaveMode.REPLACE && jdbcCatalog.viewExists(toIdentifier(schemaViewName))) {
             viewLocation = loadIcebergView(schemaViewName).location();
         }
         viewBuilder = viewBuilder.withSchema(schema)
@@ -492,7 +493,7 @@ public class TrinoJdbcCatalog
                 .withProperties(properties.buildOrThrow())
                 .withLocation(viewLocation);
 
-        if (replace) {
+        if (saveMode == SaveMode.REPLACE) {
             viewBuilder.createOrReplace();
         }
         else {
