@@ -373,6 +373,7 @@ public class OutputSpoolingOperatorFactory
     private static class PageBuffer
     {
         private final List<Page> buffer = new ArrayList<>();
+        private long sizeInBytes;
 
         private PageBuffer() {}
 
@@ -384,11 +385,15 @@ public class OutputSpoolingOperatorFactory
         public synchronized void add(Page page)
         {
             buffer.add(page);
+            sizeInBytes += page.getSizeInBytes();
         }
 
-        public synchronized void addAll(List<Page> page)
+        public synchronized void addAll(List<Page> pages)
         {
-            buffer.addAll(page);
+            buffer.addAll(pages);
+            for (Page page : pages) {
+                sizeInBytes += page.getSizeInBytes();
+            }
         }
 
         public boolean isEmpty()
@@ -400,14 +405,13 @@ public class OutputSpoolingOperatorFactory
         {
             List<Page> pages = ImmutableList.copyOf(buffer);
             buffer.clear();
+            sizeInBytes = 0;
             return pages;
         }
 
         public synchronized long getSize()
         {
-            return buffer.stream()
-                    .mapToLong(Page::getSizeInBytes)
-                    .sum();
+            return sizeInBytes;
         }
     }
 
