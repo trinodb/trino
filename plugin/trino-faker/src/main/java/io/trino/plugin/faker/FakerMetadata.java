@@ -664,13 +664,13 @@ public class FakerMetadata
             SchemaTableName viewName,
             ConnectorViewDefinition definition,
             Map<String, Object> viewProperties,
-            boolean replace)
+            SaveMode saveMode)
     {
         checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
         checkSchemaExists(viewName.getSchemaName());
         checkTableNotExists(viewName);
 
-        if (replace) {
+        if (saveMode == SaveMode.REPLACE) {
             views.put(viewName, definition);
         }
         else if (views.putIfAbsent(viewName, definition) != null) {

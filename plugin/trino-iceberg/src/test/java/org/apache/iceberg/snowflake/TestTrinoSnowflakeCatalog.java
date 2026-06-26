@@ -37,6 +37,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.VarcharType;
@@ -362,7 +363,7 @@ public class TestTrinoSnowflakeCatalog
                 false,
                 ImmutableList.of());
         TrinoCatalog catalog = createTrinoCatalog(false);
-        assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, ImmutableMap.of(), true))
+        assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, ImmutableMap.of(), SaveMode.FAIL))
                 .hasMessageContaining("Views are not supported for the Snowflake Iceberg catalog");
     }
 

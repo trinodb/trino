@@ -16,8 +16,11 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -59,6 +62,37 @@ public final class TrinoViewUtil
                     definition.getPath());
         }
         return Optional.of(definition);
+    }
+
+    public static boolean isSameView(ConnectorViewDefinition left, ConnectorViewDefinition right)
+    {
+        return Objects.equals(left.getOriginalSql(), right.getOriginalSql()) &&
+                Objects.equals(left.getCatalog(), right.getCatalog()) &&
+                Objects.equals(left.getSchema(), right.getSchema()) &&
+                Objects.equals(left.getComment(), right.getComment()) &&
+                Objects.equals(left.getOwner(), right.getOwner()) &&
+                left.isRunAsInvoker() == right.isRunAsInvoker() &&
+                Objects.equals(left.getPath(), right.getPath()) &&
+                isSameColumns(left.getColumns(), right.getColumns());
+    }
+
+    private static boolean isSameColumns(Iterable<ViewColumn> left, Iterable<ViewColumn> right)
+    {
+        Iterator<ViewColumn> leftIterator = left.iterator();
+        Iterator<ViewColumn> rightIterator = right.iterator();
+        while (leftIterator.hasNext() && rightIterator.hasNext()) {
+            if (!isSameColumn(leftIterator.next(), rightIterator.next())) {
+                return false;
+            }
+        }
+        return !leftIterator.hasNext() && !rightIterator.hasNext();
+    }
+
+    private static boolean isSameColumn(ViewColumn left, ViewColumn right)
+    {
+        return Objects.equals(left.getName(), right.getName()) &&
+                Objects.equals(left.getType(), right.getType()) &&
+                Objects.equals(left.getComment(), right.getComment());
     }
 
     public static Map<String, String> createViewProperties(ConnectorSession session, String trinoVersion, String connectorName)

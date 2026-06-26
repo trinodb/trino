@@ -2778,11 +2778,9 @@ public class HiveMetadata
             SchemaTableName viewName,
             ConnectorViewDefinition definition,
             Map<String, Object> viewProperties,
-            boolean replace)
+            SaveMode saveMode)
     {
-        if (usingSystemSecurity) {
-            definition = definition.withoutOwner();
-        }
+        ConnectorViewDefinition viewDefinition = usingSystemSecurity ? definition.withoutOwner() : definition;
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         propertiesBuilder
@@ -2819,7 +2817,7 @@ public class HiveMetadata
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(propertiesBuilder.buildOrThrow())
-                .setViewOriginalText(Optional.of(encodeViewData(definition)))
+                .setViewOriginalText(Optional.of(encodeViewData(viewDefinition)))
                 .setViewExpandedText(Optional.of(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
 
         tableBuilder.getStorageBuilder()
@@ -2830,7 +2828,10 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isTrinoView(existing.get())) {
+            if (saveMode == SaveMode.IGNORE && getExistingView(existing.get()).filter(existingView -> TrinoViewUtil.isSameView(existingView, viewDefinition)).isPresent()) {
+                return;
+            }
+            if (saveMode != REPLACE || !isTrinoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -2842,8 +2843,21 @@ public class HiveMetadata
             metastore.createTable(session, table, principalPrivileges, Optional.empty(), Optional.empty(), false, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()), false);
         }
         catch (TableAlreadyExistsException e) {
+            Optional<Table> current = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
+            if (saveMode == SaveMode.IGNORE && current.isPresent() && getExistingView(current.get()).filter(existingView -> TrinoViewUtil.isSameView(existingView, viewDefinition)).isPresent()) {
+                return;
+            }
             throw new ViewAlreadyExistsException(e.getTableName());
         }
+    }
+
+    private Optional<ConnectorViewDefinition> getExistingView(Table view)
+    {
+        return TrinoViewUtil.getView(
+                view.getViewOriginalText(),
+                view.getTableType(),
+                view.getParameters(),
+                view.getOwner());
     }
 
     @Override
