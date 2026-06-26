@@ -162,7 +162,7 @@ final class TestCreateBranchTask
     void testCreateBranchOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(viewName), SaveMode.FAIL, "main", Optional.empty(), List.of())))
                 .hasErrorCode(NOT_SUPPORTED)

@@ -122,7 +122,7 @@ public class TestDropNotNullConstraintConstraintTask
     public void testDropNotNullConstraintOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropNotNullConstraint(asQualifiedName(viewName), identifier("test"), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)

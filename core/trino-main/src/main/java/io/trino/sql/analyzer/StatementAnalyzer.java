@@ -1041,6 +1041,9 @@ class StatementAnalyzer
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
+            if (node.isReplace() && node.isNotExists()) {
+                throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
+            }
             node.getQuery().getFunctions().stream().findFirst().ifPresent(function -> {
                 throw semanticException(NOT_SUPPORTED, function, "Views cannot contain inline functions");
             });
