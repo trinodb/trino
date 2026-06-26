@@ -483,12 +483,27 @@ public final class IrExpressions
         };
     }
 
+    /// Whether the root operation of `expression` can raise an error on its own, independent of whether its
+    /// inputs may fail. For a [Call] this is the function/operator itself; for a [Cast] it is the coercion.
+    /// Other node types are treated conservatively as fallible. Used to decide whether a surrounding `$try`
+    /// can be narrowed past this node onto its (fallible) arguments.
+    public static boolean mayFailIndependentlyOfArguments(PlannerContext plannerContext, Expression expression)
+    {
+        return switch (expression) {
+            case Call call -> mayFail(call);
+            case Cast cast -> castMayFail(plannerContext, cast);
+            default -> true;
+        };
+    }
+
     // TODO: record "safety" (can the cast fail at runtime) in Cast node
     private static boolean mayFail(PlannerContext plannerContext, Cast cast)
     {
-        if (mayFail(plannerContext, cast.expression())) {
-            return true;
-        }
+        return mayFail(plannerContext, cast.expression()) || castMayFail(plannerContext, cast);
+    }
+
+    private static boolean castMayFail(PlannerContext plannerContext, Cast cast)
+    {
         ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(cast.expression().type(), cast.type());
         if (castFunction.neverFails()) {
             return false;
