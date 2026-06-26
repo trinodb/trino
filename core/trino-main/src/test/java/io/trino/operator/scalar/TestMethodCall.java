@@ -59,24 +59,21 @@ public class TestMethodCall
         assertions = null;
     }
 
-    @ScalarFunction("char_length")
-    @InstanceMethod
+    @InstanceMethod("char_length")
     @SqlType(StandardTypes.BIGINT)
     public static long varcharCharLength(@SqlType(StandardTypes.VARCHAR) Slice self)
     {
         return self.toStringUtf8().length();
     }
 
-    @ScalarFunction("repeat")
-    @InstanceMethod
+    @InstanceMethod("repeat")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice varcharRepeat(@SqlType(StandardTypes.VARCHAR) Slice self, @Name("count") @SqlType(StandardTypes.BIGINT) long count)
     {
         return Slices.utf8Slice(self.toStringUtf8().repeat((int) count));
     }
 
-    @ScalarFunction("pad")
-    @InstanceMethod
+    @InstanceMethod("pad")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice varcharPad(
             @SqlType(StandardTypes.VARCHAR) Slice self,
@@ -274,14 +271,6 @@ public class TestMethodCall
     }
 
     @Test
-    public void testInstanceMethodRequiresScalarFunctionAnnotation()
-    {
-        assertTrinoExceptionThrownBy(() -> InternalFunctionBundle.builder().scalars(MissingScalarFunctionFixture.class).build())
-                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
-                .hasMessageContaining("missing @ScalarFunction or @ScalarOperator");
-    }
-
-    @Test
     public void testInstanceMethodRequiresSelfArgument()
     {
         assertTrinoExceptionThrownBy(() -> InternalFunctionBundle.builder().scalars(MissingSelfFixture.class).build())
@@ -289,20 +278,9 @@ public class TestMethodCall
                 .hasMessageContaining("Instance method nothing must declare a self argument");
     }
 
-    public static class MissingScalarFunctionFixture
-    {
-        @InstanceMethod
-        @SqlType(StandardTypes.BIGINT)
-        public static long length(@SqlType(StandardTypes.VARCHAR) Slice self)
-        {
-            return self.toStringUtf8().length();
-        }
-    }
-
     public static class MissingSelfFixture
     {
-        @ScalarFunction("nothing")
-        @InstanceMethod
+        @InstanceMethod("nothing")
         @SqlType(StandardTypes.BIGINT)
         public static long noSelf()
         {

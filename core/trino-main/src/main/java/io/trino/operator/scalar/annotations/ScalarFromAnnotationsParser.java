@@ -20,6 +20,7 @@ import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.scalar.ParametricScalar;
 import io.trino.operator.scalar.ScalarHeader;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.Signature;
@@ -85,8 +86,10 @@ public final class ScalarFromAnnotationsParser
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
-        for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, ScalarFunction.class, ScalarOperator.class, SqlType.class)) {
-            checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
+        for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, ScalarFunction.class, ScalarOperator.class, InstanceMethod.class, SqlType.class)) {
+            checkCondition(method.getAnnotation(ScalarFunction.class) != null
+                            || method.getAnnotation(ScalarOperator.class) != null
+                            || method.getAnnotation(InstanceMethod.class) != null,
                     FUNCTION_IMPLEMENTATION_ERROR,
                     "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator",
                     method);

@@ -25,6 +25,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.Infallible;
+import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -216,7 +217,8 @@ public final class StringFunctions
     }
 
     @Description("Reverse all code points in a given string")
-    @ScalarFunction(value = "reverse")
+    @ScalarFunction("reverse")
+    @InstanceMethod("reverse")
     @Infallible
     @LiteralParameters("x")
     @SqlType("char(x)")

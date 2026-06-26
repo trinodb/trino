@@ -19,7 +19,6 @@ import io.trino.spi.function.Infallible;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
-import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -28,9 +27,8 @@ public final class CharMethods
     private CharMethods() {}
 
     @Description("Count of code points of the given string")
-    @ScalarFunction(value = "length")
     @Infallible
-    @InstanceMethod
+    @InstanceMethod("length")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long length(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
@@ -38,21 +36,9 @@ public final class CharMethods
         return StringFunctions.charLength(x, slice);
     }
 
-    @Description("Reverse all code points in a given string")
-    @ScalarFunction(value = "reverse")
-    @Infallible
-    @InstanceMethod
-    @LiteralParameters("x")
-    @SqlType("char(x)")
-    public static Slice reverse(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
-    {
-        return StringFunctions.charReverse(x, slice);
-    }
-
     @Description("Suffix starting at given index")
-    @ScalarFunction(value = "substring")
     @Infallible
-    @InstanceMethod
+    @InstanceMethod("substring")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice substring(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
@@ -61,9 +47,8 @@ public final class CharMethods
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction(value = "substring")
     @Infallible
-    @InstanceMethod
+    @InstanceMethod("substring")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice substring(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
@@ -72,9 +57,8 @@ public final class CharMethods
     }
 
     @Description("Converts the string to lower case")
-    @ScalarFunction(value = "lower")
     @Infallible
-    @InstanceMethod
+    @InstanceMethod("lower")
     @LiteralParameters("x")
     @SqlType("char(x)")
     public static Slice lower(@SqlType("char(x)") Slice slice)
@@ -83,9 +67,8 @@ public final class CharMethods
     }
 
     @Description("Converts the string to upper case")
-    @ScalarFunction(value = "upper")
     @Infallible
-    @InstanceMethod
+    @InstanceMethod("upper")
     @LiteralParameters("x")
     @SqlType("char(x)")
     public static Slice upper(@SqlType("char(x)") Slice slice)
@@ -94,8 +77,7 @@ public final class CharMethods
     }
 
     @Description("Pads a string on the left")
-    @ScalarFunction("lpad")
-    @InstanceMethod
+    @InstanceMethod("lpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice leftPad(@LiteralParameter("x") long x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
@@ -104,9 +86,8 @@ public final class CharMethods
     }
 
     @Description("Encodes the string to UTF-8")
-    @ScalarFunction(value = "to_utf8")
     @Infallible
-    @InstanceMethod
+    @InstanceMethod("to_utf8")
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
     public static Slice toUtf8(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)

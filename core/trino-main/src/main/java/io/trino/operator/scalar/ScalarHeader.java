@@ -94,8 +94,9 @@ public class ScalarHeader
 
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
 
+        checkArgument(staticMethod == null || instanceMethod == null, "@StaticMethod and @InstanceMethod are mutually exclusive on %s", annotated);
+
         if (scalarFunction != null) {
-            checkArgument(staticMethod == null || instanceMethod == null, "@StaticMethod and @InstanceMethod are mutually exclusive on %s", annotated);
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
             Optional<TypeTemplate> receiverType = Optional.empty();
             if (staticMethod != null) {
@@ -103,13 +104,20 @@ public class ScalarHeader
                 TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
                 receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
             }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), deterministic, infallible, receiverType, instanceMethod != null));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), deterministic, infallible, receiverType, false));
         }
         else if (staticMethod != null) {
             throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);
         }
-        else if (instanceMethod != null) {
-            throw new IllegalArgumentException("@InstanceMethod requires @ScalarFunction on " + annotated);
+
+        if (instanceMethod != null) {
+            String baseName = instanceMethod.value();
+            if (baseName.isEmpty()) {
+                baseName = scalarFunction != null && !scalarFunction.value().isEmpty()
+                        ? scalarFunction.value()
+                        : camelToSnake(annotatedName(annotated));
+            }
+            builder.add(new ScalarHeader(baseName, ImmutableSet.of(), description, false, deterministic, infallible, Optional.empty(), true));
         }
 
         if (scalarOperator != null) {

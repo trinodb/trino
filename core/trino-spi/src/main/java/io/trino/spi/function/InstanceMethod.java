@@ -25,7 +25,13 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * {@code <method invocation>} syntax: {@code receiver.method(args)}.
  * The receiver type is taken from the first {@code @SqlType} argument of
  * the implementation, which becomes the {@code self} parameter.
+ *
+ * <p>May be combined with {@link ScalarFunction} on the same Java method
+ * to register it both as a regular function and as an instance method.
  */
 @Retention(RUNTIME)
 @Target({METHOD, TYPE})
-public @interface InstanceMethod {}
+public @interface InstanceMethod
+{
+    String value() default "";
+}
