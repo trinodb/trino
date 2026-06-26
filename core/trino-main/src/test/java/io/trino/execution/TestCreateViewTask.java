@@ -181,7 +181,7 @@ public class TestCreateViewTask
                 new NodeLocation(1, 1),
                 viewName,
                 query,
-                replace,
+                replace ? io.trino.sql.tree.SaveMode.REPLACE : io.trino.sql.tree.SaveMode.FAIL,
                 Optional.empty(),
                 Optional.empty(),
                 viewProperties);
