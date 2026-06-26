@@ -47,6 +47,7 @@ public class FunctionMetadata
     private final boolean deprecated;
     private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
+    private final int receiverArgumentIndex;
 
     private FunctionMetadata(
             FunctionId functionId,
@@ -61,7 +62,8 @@ public class FunctionMetadata
             FunctionKind kind,
             boolean deprecated,
             Optional<TypeTemplate> receiverType,
-            boolean instanceMethod)
+            boolean instanceMethod,
+            int receiverArgumentIndex)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
@@ -86,6 +88,10 @@ public class FunctionMetadata
             throw new IllegalArgumentException("instance method must have a receiver type");
         }
         this.instanceMethod = instanceMethod;
+        if (instanceMethod && (receiverArgumentIndex < 0 || receiverArgumentIndex >= signature.getArgumentTypes().size())) {
+            throw new IllegalArgumentException("receiverArgumentIndex out of bounds: " + receiverArgumentIndex);
+        }
+        this.receiverArgumentIndex = receiverArgumentIndex;
     }
 
     /**
@@ -163,8 +169,8 @@ public class FunctionMetadata
      * The receiver type when this function is a method. For a static method
      * (invocable as {@code T::method(args)}) this is the named type. For an
      * instance method (invocable as {@code receiver.method(args)}) this is
-     * the type of the {@code self} parameter (the first declared argument).
-     * Empty for regular functions.
+     * the type of the {@code self} parameter, located at
+     * {@link #getReceiverArgumentIndex()}. Empty for regular functions.
      */
     public Optional<TypeTemplate> getReceiverType()
     {
@@ -182,13 +188,24 @@ public class FunctionMetadata
     }
 
     /**
-     * Whether this is an instance method (receiver passed as the first
-     * argument) rather than a static method. Only meaningful when
-     * {@link #getReceiverType()} is present.
+     * Whether this is an instance method (receiver passed as the argument at
+     * {@link #getReceiverArgumentIndex()}) rather than a static method. Only
+     * meaningful when {@link #getReceiverType()} is present.
      */
     public boolean isInstanceMethod()
     {
         return instanceMethod;
+    }
+
+    /**
+     * The position of the receiver ({@code self}) within the declared arguments
+     * of an instance method. The receiver is supplied implicitly by the
+     * {@code receiver.method(args)} call syntax and occupies this slot in the
+     * function signature. Only meaningful when {@link #isInstanceMethod()} is true.
+     */
+    public int getReceiverArgumentIndex()
+    {
+        return receiverArgumentIndex;
     }
 
     @Override
@@ -244,6 +261,7 @@ public class FunctionMetadata
         private boolean deprecated;
         private Optional<TypeTemplate> receiverType = Optional.empty();
         private boolean instanceMethod;
+        private int receiverArgumentIndex;
 
         private Builder(String canonicalName, FunctionKind kind)
         {
@@ -360,6 +378,12 @@ public class FunctionMetadata
             return this;
         }
 
+        public Builder receiverArgumentIndex(int receiverArgumentIndex)
+        {
+            this.receiverArgumentIndex = receiverArgumentIndex;
+            return this;
+        }
+
         public FunctionMetadata build()
         {
             FunctionId functionId = this.functionId;
@@ -382,7 +406,8 @@ public class FunctionMetadata
                     kind,
                     deprecated,
                     receiverType,
-                    instanceMethod);
+                    instanceMethod,
+                    receiverArgumentIndex);
         }
     }
 }

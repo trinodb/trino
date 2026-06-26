@@ -346,6 +346,7 @@ public class ExpressionAnalyzer
 
     private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, Integer> methodReceiverIndexes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
@@ -461,6 +462,11 @@ public class ExpressionAnalyzer
     public Map<NodeRef<FunctionCall>, Identifier> getMethodCallReceivers()
     {
         return unmodifiableMap(methodCallReceivers);
+    }
+
+    public Map<NodeRef<Expression>, Integer> getMethodReceiverIndexes()
+    {
+        return unmodifiableMap(methodReceiverIndexes);
     }
 
     public Map<NodeRef<Expression>, List<Integer>> getArgumentBindings()
@@ -1710,12 +1716,19 @@ public class ExpressionAnalyzer
             return List.copyOf(binding);
         }
 
-        /// Returns the declared arguments visible to the caller, dropping the leading
-        /// `receiverSlots` entries that the call syntax supplies implicitly (an instance
-        /// method's `self`).
+        /// Returns the declared arguments visible to the caller. For an instance method the
+        /// `self` argument -- which the `receiver.method(args)` syntax supplies implicitly --
+        /// is dropped from its declared position (the receiver may sit at any argument index,
+        /// not just the front). For functions and static methods `receiverSlots` is 0 and all
+        /// arguments are visible.
         private static List<Signature.Argument> callerVisibleArguments(FunctionMetadata candidate, int receiverSlots)
         {
             List<Signature.Argument> arguments = candidate.getSignature().getArguments();
+            if (candidate.isInstanceMethod()) {
+                List<Signature.Argument> visible = new ArrayList<>(arguments);
+                visible.remove(candidate.getReceiverArgumentIndex());
+                return List.copyOf(visible);
+            }
             return arguments.subList(receiverSlots, arguments.size());
         }
 
@@ -1940,17 +1953,39 @@ public class ExpressionAnalyzer
 
         private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
         {
-            List<TypeDescriptorProvider> argumentTypes = ImmutableList.<TypeDescriptorProvider>builder()
-                    .add(new TypeDescriptorProvider(receiverType.getTypeDescriptor()))
-                    .addAll(getCallArgumentTypes(arguments, context))
-                    .build();
+            // The receiver occupies a fixed slot in the method's signature (slot 0 for the
+            // common case, but any slot when declared with @Self). Insert the receiver type
+            // at that slot so the explicit arguments line up with the remaining signature slots.
+            int receiverIndex = instanceMethodReceiverIndex(methodName, receiverType);
+            List<TypeDescriptorProvider> argumentTypes = new ArrayList<>(getCallArgumentTypes(arguments, context));
+            receiverIndex = Math.min(receiverIndex, argumentTypes.size());
+            argumentTypes.add(receiverIndex, new TypeDescriptorProvider(receiverType.getTypeDescriptor()));
+            List<TypeDescriptorProvider> resolvedArgumentTypes = List.copyOf(argumentTypes);
             ResolvedFunction function = functionResolver.resolveInstanceMethod(
                     session,
                     receiverType.getTypeDescriptor(),
                     QualifiedName.of(methodName),
-                    argumentTypes,
+                    resolvedArgumentTypes,
                     accessControl);
-            return new MethodResolution(function, argumentTypes);
+            return new MethodResolution(function, resolvedArgumentTypes, receiverIndex);
+        }
+
+        /// The signature slot the receiver occupies for an instance method named `methodName`
+        /// on `receiverType`. Taken from the matching overloads' declared `@Self` position;
+        /// defaults to 0 (receiver first) when there is no candidate or overloads disagree.
+        private int instanceMethodReceiverIndex(String methodName, Type receiverType)
+        {
+            OptionalInt index = OptionalInt.empty();
+            for (FunctionMetadata candidate : findInstanceMethodCandidates(methodName, receiverType)) {
+                int candidateIndex = candidate.getReceiverArgumentIndex();
+                if (index.isEmpty()) {
+                    index = OptionalInt.of(candidateIndex);
+                }
+                else if (index.getAsInt() != candidateIndex) {
+                    return 0;
+                }
+            }
+            return index.orElse(0);
         }
 
         private Type analyzeInstanceMethodInvocation(
@@ -1967,26 +2002,30 @@ public class ExpressionAnalyzer
             }
 
             BoundSignature signature = resolution.function().signature();
-            Type expectedReceiverType = signature.getArgumentTypes().getFirst();
+            int receiverIndex = resolution.receiverIndex();
+            Type expectedReceiverType = signature.getArgumentTypes().get(receiverIndex);
             coerceType(receiver, receiverType, expectedReceiverType, format("Method .%s receiver", methodName));
-            // Slot 0 of the signature is the receiver (self), so user-visible argument i maps to signature slot i + 1.
+            // The receiver occupies signature slot `receiverIndex`, so user-visible argument i
+            // maps to the slot at i when before the receiver and i + 1 when at or after it.
             for (int i = 0; i < arguments.size(); i++) {
                 Expression expression = arguments.get(i);
-                Type expectedType = signature.getArgumentTypes().get(i + 1);
-                if (resolution.argumentTypes().get(i + 1).hasDependency()) {
+                int slot = i < receiverIndex ? i : i + 1;
+                Type expectedType = signature.getArgumentTypes().get(slot);
+                if (resolution.argumentTypes().get(slot).hasDependency()) {
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeDescriptor());
+                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(slot).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Method .%s argument %d", methodName, i));
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), resolution.function());
+            methodReceiverIndexes.put(NodeRef.of(node), receiverIndex);
             return setExpressionType(node, signature.getReturnType());
         }
 
-        private record MethodResolution(ResolvedFunction function, List<TypeDescriptorProvider> argumentTypes) {}
+        private record MethodResolution(ResolvedFunction function, List<TypeDescriptorProvider> argumentTypes, int receiverIndex) {}
 
         @Override
         protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
@@ -4558,6 +4597,7 @@ public class ExpressionAnalyzer
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
         analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));
+        analyzer.getMethodReceiverIndexes().forEach((key, value) -> analysis.setMethodReceiverIndex(key.getNode(), value));
         analyzer.getArgumentBindings().forEach((key, value) -> analysis.setArgumentBinding(key.getNode(), value));
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());

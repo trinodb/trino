@@ -19,6 +19,7 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.Name;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.Self;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.StandardTypes;
@@ -96,6 +97,23 @@ public class TestMethodCall
     public static long bigintFromString(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         return Long.parseLong(value.toStringUtf8());
+    }
+
+    // @Self on the first argument: callable both as a function and as an instance method.
+    @ScalarFunction("ends_with_self")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean varcharEndsWithSelf(@Self @SqlType(StandardTypes.VARCHAR) Slice self, @SqlType(StandardTypes.VARCHAR) Slice suffix)
+    {
+        return self.toStringUtf8().endsWith(suffix.toStringUtf8());
+    }
+
+    // @Self on the second argument: the receiver is `needle`, so needle.contained_in(haystack)
+    // means contained_in(haystack, needle).
+    @ScalarFunction("contained_in")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean varcharContainedIn(@Name("haystack") @SqlType(StandardTypes.VARCHAR) Slice haystack, @Self @SqlType(StandardTypes.VARCHAR) Slice needle)
+    {
+        return haystack.toStringUtf8().contains(needle.toStringUtf8());
     }
 
     @Test
@@ -271,6 +289,60 @@ public class TestMethodCall
         assertTrinoExceptionThrownBy(() -> assertions.expression("'xy'.pad(length => 5, length => 6)").evaluate())
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageContaining("Duplicate named argument: length");
+    }
+
+    @Test
+    public void testSelfFunctionIsCallableAsFunction()
+    {
+        // A @Self function keeps its ordinary function form.
+        assertThat(assertions.expression("ends_with_self('hello', 'lo')"))
+                .matches("true");
+        assertThat(assertions.expression("ends_with_self('hello', 'xx')"))
+                .matches("false");
+    }
+
+    @Test
+    public void testSelfFunctionIsCallableAsMethod()
+    {
+        // The same @Self function is also callable as an instance method on its receiver.
+        assertThat(assertions.expression("'hello'.ends_with_self('lo')"))
+                .matches("true");
+        assertThat(assertions.expression("'hello'.ends_with_self('xx')"))
+                .matches("false");
+    }
+
+    @Test
+    public void testSelfFunctionAsMethodOnBareReceiver()
+    {
+        assertThat(assertions.query("SELECT s.ends_with_self('lo') FROM (VALUES VARCHAR 'hello') t(s)"))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testSelfOnNonFirstArgumentAsFunction()
+    {
+        // contained_in(haystack, needle) with @Self on needle still works as a plain function.
+        assertThat(assertions.expression("contained_in('hello world', 'lo')"))
+                .matches("true");
+    }
+
+    @Test
+    public void testSelfOnNonFirstArgumentAsMethod()
+    {
+        // The receiver is `needle` (the second argument), so 'lo'.contained_in('hello world')
+        // means contained_in('hello world', 'lo'). This exercises receiver insertion at a
+        // non-zero signature slot.
+        assertThat(assertions.expression("'lo'.contained_in('hello world')"))
+                .matches("true");
+        assertThat(assertions.expression("'zz'.contained_in('hello world')"))
+                .matches("false");
+    }
+
+    @Test
+    public void testSelfOnNonFirstArgumentWithNamedArgument()
+    {
+        assertThat(assertions.expression("'lo'.contained_in(haystack => 'hello world')"))
+                .matches("true");
     }
 
     @Test

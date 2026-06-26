@@ -228,6 +228,7 @@ public class Analysis
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, Integer> methodReceiverIndexes = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
@@ -735,6 +736,18 @@ public class Analysis
     public Optional<Identifier> getMethodCallReceiver(FunctionCall node)
     {
         return Optional.ofNullable(methodCallReceivers.get(NodeRef.of(node)));
+    }
+
+    public void setMethodReceiverIndex(Expression node, int receiverIndex)
+    {
+        methodReceiverIndexes.put(NodeRef.of(node), receiverIndex);
+    }
+
+    /// The signature slot the receiver occupies for an analyzed instance-method call.
+    /// Defaults to 0 (receiver first) for calls that predate @Self receiver placement.
+    public int getMethodReceiverIndex(Expression node)
+    {
+        return methodReceiverIndexes.getOrDefault(NodeRef.of(node), 0);
     }
 
     /// Records the mapping from signature position to AST argument index for a
