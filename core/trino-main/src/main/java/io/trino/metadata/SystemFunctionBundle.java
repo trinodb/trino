@@ -178,7 +178,6 @@ import io.trino.operator.scalar.TryFunction;
 import io.trino.operator.scalar.TypeOfFunction;
 import io.trino.operator.scalar.UrlFunctions;
 import io.trino.operator.scalar.VarbinaryFunctions;
-import io.trino.operator.scalar.VarcharMethods;
 import io.trino.operator.scalar.VersionFunction;
 import io.trino.operator.scalar.WilsonInterval;
 import io.trino.operator.scalar.WordStemFunction;
@@ -457,7 +456,6 @@ public final class SystemFunctionBundle
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
                 .scalars(StringFunctions.class)
-                .scalars(VarcharMethods.class)
                 .scalars(WordStemFunction.class)
                 .scalar(SplitToMapFunction.class)
                 .scalar(SplitToMultimapFunction.class)

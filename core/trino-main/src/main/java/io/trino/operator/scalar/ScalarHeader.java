@@ -98,16 +98,7 @@ public class ScalarHeader
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            Optional<TypeTemplate> receiverType = Optional.empty();
-            if (staticMethod != null) {
-                checkArgument(!hasTypeParameters(staticMethod.value()), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
-                TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
-                receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
-            }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), deterministic, infallible, receiverType, false));
-        }
-        else if (staticMethod != null) {
-            throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), deterministic, infallible, Optional.empty(), false));
         }
 
         if (instanceMethod != null) {
@@ -118,6 +109,19 @@ public class ScalarHeader
                         : camelToSnake(annotatedName(annotated));
             }
             builder.add(new ScalarHeader(baseName, ImmutableSet.of(), description, false, deterministic, infallible, Optional.empty(), true));
+        }
+
+        if (staticMethod != null) {
+            checkArgument(!hasTypeParameters(staticMethod.value()), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
+            TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
+            Optional<TypeTemplate> receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
+            String baseName = staticMethod.name();
+            if (baseName.isEmpty()) {
+                baseName = scalarFunction != null && !scalarFunction.value().isEmpty()
+                        ? scalarFunction.value()
+                        : camelToSnake(annotatedName(annotated));
+            }
+            builder.add(new ScalarHeader(baseName, ImmutableSet.of(), description, false, deterministic, infallible, receiverType, false));
         }
 
         if (scalarOperator != null) {

@@ -33,6 +33,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.CodePointsType;
@@ -78,6 +79,7 @@ public final class StringFunctions
 
     @Description("Convert Unicode code point to a string")
     @ScalarFunction
+    @StaticMethod(StandardTypes.VARCHAR)
     @SqlType("varchar(1)")
     public static Slice chr(@SqlType(StandardTypes.BIGINT) long codepoint)
     {
@@ -942,6 +944,7 @@ public final class StringFunctions
 
     @Description("Decodes the UTF-8 encoded string")
     @ScalarFunction
+    @StaticMethod(StandardTypes.VARCHAR)
     @Infallible
     @SqlType(StandardTypes.VARCHAR)
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
@@ -951,6 +954,7 @@ public final class StringFunctions
 
     @Description("Decodes the UTF-8 encoded string")
     @ScalarFunction
+    @StaticMethod(StandardTypes.VARCHAR)
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType("varchar(x)") Slice replacementCharacter)
@@ -977,6 +981,7 @@ public final class StringFunctions
 
     @Description("Decodes the UTF-8 encoded string")
     @ScalarFunction
+    @StaticMethod(StandardTypes.VARCHAR)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
     {

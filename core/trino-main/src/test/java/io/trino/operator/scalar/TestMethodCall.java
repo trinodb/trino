@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.Name;
-import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.StandardTypes;
@@ -87,8 +86,7 @@ public class TestMethodCall
         return Slices.utf8Slice(builder.substring(0, (int) Math.max(length, self.toStringUtf8().length())));
     }
 
-    @ScalarFunction("from_string")
-    @StaticMethod(StandardTypes.BIGINT)
+    @StaticMethod(value = StandardTypes.BIGINT, name = "from_string")
     @SqlType(StandardTypes.BIGINT)
     public static long bigintFromString(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
