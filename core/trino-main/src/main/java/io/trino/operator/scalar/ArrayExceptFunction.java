@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -31,7 +32,8 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static java.lang.Math.min;
 
-@ScalarFunction(value = "array_except", neverFails = true)
+@ScalarFunction(value = "array_except")
+@Infallible
 @Description("Returns an array of elements that are in the first array but not the second, without duplicates.")
 public final class ArrayExceptFunction
 {

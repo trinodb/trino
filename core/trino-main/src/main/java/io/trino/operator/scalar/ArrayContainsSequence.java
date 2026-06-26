@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -30,7 +31,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 
 @Description("Determines whether an array contains a sequence, with the values in the exact order")
-@ScalarFunction(value = "contains_sequence", neverFails = true)
+@ScalarFunction(value = "contains_sequence")
+@Infallible
 public final class ArrayContainsSequence
 {
     private ArrayContainsSequence() {}

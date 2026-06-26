@@ -15,11 +15,13 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
-@ScalarFunction(value = "reverse", neverFails = true)
+@ScalarFunction(value = "reverse")
+@Infallible
 @Description("Returns an array which has the reversed order of the given array.")
 public final class ArrayReverseFunction
 {

@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -24,7 +25,8 @@ public final class CombineHashFunction
 {
     private CombineHashFunction() {}
 
-    @ScalarFunction(value = "combine_hash", hidden = true, neverFails = true)
+    @ScalarFunction(value = "combine_hash", hidden = true)
+    @Infallible
     @SqlType(StandardTypes.BIGINT)
     public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
     {

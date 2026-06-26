@@ -13,8 +13,6 @@
  */
 package io.trino.spi.function;
 
-import com.google.errorprone.annotations.Keep;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -22,10 +20,10 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-@Keep
+/**
+ * Marks a {@link ScalarFunction} or {@link ScalarOperator} as one that
+ * never throws any exception for any possible combination of input arguments.
+ */
 @Retention(RUNTIME)
 @Target({METHOD, TYPE})
-public @interface ScalarOperator
-{
-    OperatorType value();
-}
+public @interface Infallible {}

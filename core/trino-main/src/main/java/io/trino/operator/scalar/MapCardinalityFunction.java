@@ -15,12 +15,14 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 
-@ScalarFunction(value = "cardinality", neverFails = true)
+@ScalarFunction(value = "cardinality")
+@Infallible
 @Description("Returns the cardinality (the number of key-value pairs) of the map")
 public final class MapCardinalityFunction
 {

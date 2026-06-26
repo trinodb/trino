@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -30,7 +31,8 @@ public final class VarcharMethods
     private VarcharMethods() {}
 
     @Description("Count of code points of the given string")
-    @ScalarFunction(value = "length", neverFails = true)
+    @ScalarFunction(value = "length")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
@@ -40,7 +42,8 @@ public final class VarcharMethods
     }
 
     @Description("Greedily removes occurrences of a pattern in a string")
-    @ScalarFunction(value = "replace", neverFails = true)
+    @ScalarFunction(value = "replace")
+    @Infallible
     @InstanceMethod
     @LiteralParameters({"x", "y"})
     @SqlType("varchar(x)")
@@ -50,7 +53,8 @@ public final class VarcharMethods
     }
 
     @Description("Greedily replaces occurrences of a pattern with a string")
-    @ScalarFunction(value = "replace", neverFails = true)
+    @ScalarFunction(value = "replace")
+    @Infallible
     @InstanceMethod
     @LiteralParameters({"x", "y", "z", "u"})
     @Constraint(variable = "u", expression = "min(2147483647, x + z * (x + 1))")
@@ -61,7 +65,8 @@ public final class VarcharMethods
     }
 
     @Description("Reverse all code points in a given string")
-    @ScalarFunction(value = "reverse", neverFails = true)
+    @ScalarFunction(value = "reverse")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -91,7 +96,8 @@ public final class VarcharMethods
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction(value = "substring", neverFails = true)
+    @ScalarFunction(value = "substring")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -101,7 +107,8 @@ public final class VarcharMethods
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction(value = "substring", neverFails = true)
+    @ScalarFunction(value = "substring")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -129,7 +136,8 @@ public final class VarcharMethods
     }
 
     @Description("Removes whitespace from the beginning and end of a string")
-    @ScalarFunction(value = "trim", neverFails = true)
+    @ScalarFunction(value = "trim")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -139,7 +147,8 @@ public final class VarcharMethods
     }
 
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
-    @ScalarFunction(value = "trim", neverFails = true)
+    @ScalarFunction(value = "trim")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -149,7 +158,8 @@ public final class VarcharMethods
     }
 
     @Description("Removes whitespace from the beginning of a string")
-    @ScalarFunction(value = "ltrim", neverFails = true)
+    @ScalarFunction(value = "ltrim")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -159,7 +169,8 @@ public final class VarcharMethods
     }
 
     @Description("Remove the longest string containing only given characters from the beginning of a string")
-    @ScalarFunction(value = "ltrim", neverFails = true)
+    @ScalarFunction(value = "ltrim")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -169,7 +180,8 @@ public final class VarcharMethods
     }
 
     @Description("Removes whitespace from the end of a string")
-    @ScalarFunction(value = "rtrim", neverFails = true)
+    @ScalarFunction(value = "rtrim")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -179,7 +191,8 @@ public final class VarcharMethods
     }
 
     @Description("Remove the longest string containing only given characters from the end of a string")
-    @ScalarFunction(value = "rtrim", neverFails = true)
+    @ScalarFunction(value = "rtrim")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -189,7 +202,8 @@ public final class VarcharMethods
     }
 
     @Description("Converts the string to lower case")
-    @ScalarFunction(value = "lower", neverFails = true)
+    @ScalarFunction(value = "lower")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -199,7 +213,8 @@ public final class VarcharMethods
     }
 
     @Description("Converts the string to upper case")
-    @ScalarFunction(value = "upper", neverFails = true)
+    @ScalarFunction(value = "upper")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -229,7 +244,8 @@ public final class VarcharMethods
     }
 
     @Description("Encodes the string to UTF-8")
-    @ScalarFunction(value = "to_utf8", neverFails = true)
+    @ScalarFunction(value = "to_utf8")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)

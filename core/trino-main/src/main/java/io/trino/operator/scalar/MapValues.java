@@ -16,12 +16,14 @@ package io.trino.operator.scalar;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
-@ScalarFunction(value = "map_values", neverFails = true)
+@ScalarFunction(value = "map_values")
+@Infallible
 @Description("Returns the values of the given map(K,V) as an array")
 public final class MapValues
 {

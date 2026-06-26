@@ -34,7 +34,7 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.rescale;
 import static java.lang.Math.multiplyExact;
 
-// TODO (https://github.com/trinodb/trino/issues/29896) this likely can be declared as neverFails=true
+// TODO (https://github.com/trinodb/trino/issues/29896) this likely can be declared as @Infallible
 @ScalarOperator(CAST)
 public final class TimeToTimestampWithTimeZoneCast
 {

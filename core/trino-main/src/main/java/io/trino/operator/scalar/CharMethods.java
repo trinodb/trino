@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -27,7 +28,8 @@ public final class CharMethods
     private CharMethods() {}
 
     @Description("Count of code points of the given string")
-    @ScalarFunction(value = "length", neverFails = true)
+    @ScalarFunction(value = "length")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
@@ -37,7 +39,8 @@ public final class CharMethods
     }
 
     @Description("Reverse all code points in a given string")
-    @ScalarFunction(value = "reverse", neverFails = true)
+    @ScalarFunction(value = "reverse")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("char(x)")
@@ -47,7 +50,8 @@ public final class CharMethods
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction(value = "substring", neverFails = true)
+    @ScalarFunction(value = "substring")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -57,7 +61,8 @@ public final class CharMethods
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction(value = "substring", neverFails = true)
+    @ScalarFunction(value = "substring")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -67,7 +72,8 @@ public final class CharMethods
     }
 
     @Description("Converts the string to lower case")
-    @ScalarFunction(value = "lower", neverFails = true)
+    @ScalarFunction(value = "lower")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("char(x)")
@@ -77,7 +83,8 @@ public final class CharMethods
     }
 
     @Description("Converts the string to upper case")
-    @ScalarFunction(value = "upper", neverFails = true)
+    @ScalarFunction(value = "upper")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("char(x)")
@@ -97,7 +104,8 @@ public final class CharMethods
     }
 
     @Description("Encodes the string to UTF-8")
-    @ScalarFunction(value = "to_utf8", neverFails = true)
+    @ScalarFunction(value = "to_utf8")
+    @Infallible
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)

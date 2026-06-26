@@ -15,13 +15,15 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 
 @Description("Returns the cardinality (length) of the array")
-@ScalarFunction(value = "cardinality", neverFails = true)
+@ScalarFunction(value = "cardinality")
+@Infallible
 public final class ArrayCardinalityFunction
 {
     private ArrayCardinalityFunction() {}

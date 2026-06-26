@@ -16,6 +16,7 @@ package io.trino.operator.scalar.time;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -44,7 +45,8 @@ public final class TimeFunctions
     private TimeFunctions() {}
 
     @Description("Millisecond of the second of the given time")
-    @ScalarFunction(value = "millisecond", neverFails = true)
+    @ScalarFunction(value = "millisecond")
+    @Infallible
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long millisecond(@SqlType("time(p)") long time)
@@ -53,7 +55,8 @@ public final class TimeFunctions
     }
 
     @Description("Second of the minute of the given time")
-    @ScalarFunction(value = "second", neverFails = true)
+    @ScalarFunction(value = "second")
+    @Infallible
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long second(@SqlType("time(p)") long time)
@@ -62,7 +65,8 @@ public final class TimeFunctions
     }
 
     @Description("Minute of the hour of the given time")
-    @ScalarFunction(value = "minute", neverFails = true)
+    @ScalarFunction(value = "minute")
+    @Infallible
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long minute(@SqlType("time(p)") long time)
@@ -71,7 +75,8 @@ public final class TimeFunctions
     }
 
     @Description("Hour of the day of the given time")
-    @ScalarFunction(value = "hour", neverFails = true)
+    @ScalarFunction(value = "hour")
+    @Infallible
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long hour(@SqlType("time(p)") long time)

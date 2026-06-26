@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
@@ -86,6 +87,7 @@ public class ScalarHeader
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
         StaticMethod staticMethod = annotated.getAnnotation(StaticMethod.class);
         InstanceMethod instanceMethod = annotated.getAnnotation(InstanceMethod.class);
+        boolean infallible = annotated.getAnnotation(Infallible.class) != null;
         Optional<String> description = parseDescription(annotated);
 
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
@@ -99,7 +101,7 @@ public class ScalarHeader
                 TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
                 receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
             }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), infallible, receiverType, instanceMethod != null));
         }
         else if (staticMethod != null) {
             throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);
@@ -109,10 +111,10 @@ public class ScalarHeader
         }
 
         if (scalarOperator != null) {
-            if (scalarOperator.value().neverFails() && scalarOperator.neverFails()) {
-                throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
+            if (scalarOperator.value().neverFails() && infallible) {
+                throw new IllegalArgumentException("@Infallible is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
             }
-            builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails()));
+            builder.add(new ScalarHeader(scalarOperator.value(), description, infallible));
         }
 
         List<ScalarHeader> result = builder.build();

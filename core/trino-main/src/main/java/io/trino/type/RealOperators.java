@@ -17,6 +17,7 @@ import com.google.common.math.DoubleMath;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -60,42 +61,48 @@ public final class RealOperators
 
     private RealOperators() {}
 
-    @ScalarOperator(value = ADD, neverFails = true)
+    @ScalarOperator(ADD)
+    @Infallible
     @SqlType(StandardTypes.REAL)
     public static long add(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) + intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(value = SUBTRACT, neverFails = true)
+    @ScalarOperator(SUBTRACT)
+    @Infallible
     @SqlType(StandardTypes.REAL)
     public static long subtract(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) - intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(value = MULTIPLY, neverFails = true)
+    @ScalarOperator(MULTIPLY)
+    @Infallible
     @SqlType(StandardTypes.REAL)
     public static long multiply(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) * intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(value = DIVIDE, neverFails = true)
+    @ScalarOperator(DIVIDE)
+    @Infallible
     @SqlType(StandardTypes.REAL)
     public static long divide(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) / intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(value = MODULO, neverFails = true)
+    @ScalarOperator(MODULO)
+    @Infallible
     @SqlType(StandardTypes.REAL)
     public static long modulo(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) % intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(value = NEGATION, neverFails = true)
+    @ScalarOperator(NEGATION)
+    @Infallible
     @SqlType(StandardTypes.REAL)
     public static long negate(@SqlType(StandardTypes.REAL) long value)
     {
@@ -205,14 +212,16 @@ public final class RealOperators
         return (byte) rounded;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.REAL) long value)
     {
         return intBitsToFloat((int) value);
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.REAL) long value)
     {
@@ -226,7 +235,8 @@ public final class RealOperators
         return TrinoNumber.from(new BigDecimal(Float.toString(floatValue)));
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.REAL) long value)
     {

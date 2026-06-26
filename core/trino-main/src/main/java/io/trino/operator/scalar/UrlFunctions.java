@@ -21,6 +21,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -47,7 +48,8 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract protocol from url")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractProtocol(@SqlType("varchar(x)") Slice url)
@@ -58,7 +60,8 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract host from url")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractHost(@SqlType("varchar(x)") Slice url)
@@ -69,7 +72,8 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract port from url")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static Long urlExtractPort(@SqlType("varchar(x)") Slice url)
@@ -83,7 +87,8 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract part from url")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractPath(@SqlType("varchar(x)") Slice url)
@@ -94,7 +99,8 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract query from url")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractQuery(@SqlType("varchar(x)") Slice url)
@@ -105,7 +111,8 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract fragment from url")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractFragment(@SqlType("varchar(x)") Slice url)

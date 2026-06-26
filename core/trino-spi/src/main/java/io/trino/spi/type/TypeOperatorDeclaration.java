@@ -24,6 +24,7 @@ import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
@@ -376,8 +377,8 @@ public final class TypeOperatorDeclaration
                     continue;
                 }
                 OperatorType operatorType = scalarOperator.value();
-                if (operatorType.neverFails() && scalarOperator.neverFails()) {
-                    throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(operatorType, method));
+                if (operatorType.neverFails() && method.isAnnotationPresent(Infallible.class)) {
+                    throw new IllegalArgumentException("@Infallible is redundant for %s operator which is always infallible: %s".formatted(operatorType, method));
                 }
 
                 MethodHandle methodHandle;

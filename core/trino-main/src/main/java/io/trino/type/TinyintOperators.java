@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -121,49 +122,56 @@ public final class TinyintOperators
         return (byte) result;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType(StandardTypes.TINYINT) long value)
     {
         return value;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.TINYINT) long value)
     {
         return value;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.TINYINT) long value)
     {
         return value;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.TINYINT) long value)
     {
         return value != 0;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.TINYINT) long value)
     {
         return value;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.TINYINT) long value)
     {
         return floatToRawIntBits((float) value);
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.TINYINT) long value)
     {

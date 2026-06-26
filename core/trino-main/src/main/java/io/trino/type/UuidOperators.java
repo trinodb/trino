@@ -16,6 +16,7 @@ package io.trino.type;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -38,7 +39,8 @@ public final class UuidOperators
     private UuidOperators() {}
 
     @Description("Generates a random UUID")
-    @ScalarFunction(deterministic = false, neverFails = true)
+    @ScalarFunction(deterministic = false)
+    @Infallible
     @SqlType(StandardTypes.UUID)
     public static Slice uuid()
     {
@@ -89,7 +91,8 @@ public final class UuidOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid UUID binary length: " + slice.length());
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castFromUuidToVarbinary(@SqlType(StandardTypes.UUID) Slice slice)
     {

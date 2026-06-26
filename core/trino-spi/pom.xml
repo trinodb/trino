@@ -228,6 +228,18 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.attributeRemovedFromAnnotationType</code>
+                                    <old>method boolean io.trino.spi.function.ScalarFunction::neverFails()</old>
+                                    <justification>Replaced by @Infallible annotation.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.attributeRemovedFromAnnotationType</code>
+                                    <old>method boolean io.trino.spi.function.ScalarOperator::neverFails()</old>
+                                    <justification>Replaced by @Infallible annotation.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
                                     <new>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::argumentTypes(io.trino.spi.type.TypeDescriptor[])</new>
                                     <justification>argumentTypes deliberately overloads on TypeDescriptor... and TypeTemplate... so call sites keep a stable shape across the ground/open split.</justification>

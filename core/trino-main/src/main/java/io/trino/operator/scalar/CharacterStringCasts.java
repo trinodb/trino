@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -37,7 +38,8 @@ public final class CharacterStringCasts
 {
     private CharacterStringCasts() {}
 
-    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
+    @ScalarOperator(value = OperatorType.CAST)
+    @Infallible
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
     public static Slice varcharToVarcharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)
@@ -48,7 +50,8 @@ public final class CharacterStringCasts
         return slice;
     }
 
-    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
+    @ScalarOperator(value = OperatorType.CAST)
+    @Infallible
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
     public static Slice charToCharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)
@@ -59,7 +62,8 @@ public final class CharacterStringCasts
         return slice;
     }
 
-    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
+    @ScalarOperator(value = OperatorType.CAST)
+    @Infallible
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
     public static Slice varcharToCharCast(@LiteralParameter("y") Long y, @SqlType("varchar(x)") Slice slice)

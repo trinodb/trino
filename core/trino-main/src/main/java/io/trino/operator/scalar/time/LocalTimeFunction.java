@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.time;
 
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -28,7 +29,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 
-@ScalarFunction(value = LOCALTIME_FUNCTION_NAME, hidden = true, neverFails = true)
+@ScalarFunction(value = LOCALTIME_FUNCTION_NAME, hidden = true)
+@Infallible
 public final class LocalTimeFunction
 {
     public static final String LOCALTIME_FUNCTION_NAME = "$localtime";

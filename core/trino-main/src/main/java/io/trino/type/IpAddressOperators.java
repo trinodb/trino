@@ -16,6 +16,7 @@ package io.trino.type;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -98,7 +99,8 @@ public final class IpAddressOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length());
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castFromIpAddressToVarbinary(@SqlType(StandardTypes.IPADDRESS) Slice slice)
     {

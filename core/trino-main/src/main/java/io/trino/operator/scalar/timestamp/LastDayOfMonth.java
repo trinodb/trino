@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -25,7 +26,8 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Description("Last day of the month of the given timestamp")
-@ScalarFunction(value = "last_day_of_month", neverFails = true)
+@ScalarFunction(value = "last_day_of_month")
+@Infallible
 public final class LastDayOfMonth
 {
     private static final int MILLISECONDS_IN_DAY = 24 * 3600 * 1000;

@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -40,7 +41,8 @@ public final class FormatNumberFunction
         format1Number.setRoundingMode(RoundingMode.HALF_UP);
     }
 
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @Description("Formats large number using a unit symbol")
     @SqlType(StandardTypes.VARCHAR)
     public Slice formatNumber(@SqlType(StandardTypes.BIGINT) long value)
@@ -48,7 +50,8 @@ public final class FormatNumberFunction
         return utf8Slice(format(value));
     }
 
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @Description("Formats large number using a unit symbol")
     @SqlType(StandardTypes.VARCHAR)
     public Slice formatNumber(@SqlType(StandardTypes.DOUBLE) double value)

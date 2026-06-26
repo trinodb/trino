@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -25,7 +26,8 @@ import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEA
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Quarter of the year of the given timestamp")
-@ScalarFunction(value = "quarter", neverFails = true)
+@ScalarFunction(value = "quarter")
+@Infallible
 public final class ExtractQuarter
 {
     private ExtractQuarter() {}

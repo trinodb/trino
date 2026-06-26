@@ -21,6 +21,7 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
@@ -38,7 +39,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 
 @Description("Return a map containing the counts of the elements in the array")
-@ScalarFunction(value = "array_histogram", neverFails = true)
+@ScalarFunction(value = "array_histogram")
+@Infallible
 public final class ArrayHistogramFunction
 {
     private ArrayHistogramFunction() {}

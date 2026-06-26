@@ -16,6 +16,7 @@ package io.trino.type.setdigest;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -29,7 +30,8 @@ public final class SetDigestOperators
 {
     private SetDigestOperators() {}
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@SqlType(StandardTypes.SET_DIGEST) Slice slice)
     {
