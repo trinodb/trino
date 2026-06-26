@@ -13,8 +13,6 @@
  */
 package io.trino.spi.function;
 
-import com.google.errorprone.annotations.Keep;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -22,14 +20,10 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-@Keep
+/**
+ * Marks a {@link ScalarFunction} as non-deterministic, meaning that
+ * its result may differ across invocations with the same input arguments.
+ */
 @Retention(RUNTIME)
 @Target({METHOD, TYPE})
-public @interface ScalarFunction
-{
-    String value() default "";
-
-    String[] alias() default {};
-
-    boolean hidden() default false;
-}
+public @interface NonDeterministic {}

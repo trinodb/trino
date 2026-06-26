@@ -235,6 +235,12 @@
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.attributeRemovedFromAnnotationType</code>
+                                    <old>method boolean io.trino.spi.function.ScalarFunction::deterministic()</old>
+                                    <justification>Replaced by @NonDeterministic annotation.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.attributeRemovedFromAnnotationType</code>
                                     <old>method boolean io.trino.spi.function.ScalarOperator::neverFails()</old>
                                     <justification>Replaced by @Infallible annotation.</justification>
                                 </item>

@@ -16,6 +16,7 @@ package io.trino.plugin.faker;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import net.datafaker.Faker;
@@ -32,7 +33,8 @@ public final class FakerFunctions
         faker = new Faker();
     }
 
-    @ScalarFunction(deterministic = false)
+    @ScalarFunction
+    @NonDeterministic
     @Description("Generate a random string based on the Faker expression")
     @SqlType(VARCHAR)
     public Slice randomString(@SqlType(VARCHAR) Slice fakerExpression)

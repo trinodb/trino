@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -40,7 +41,8 @@ public final class ObjectIdFunctions
     private ObjectIdFunctions() {}
 
     @Description("Mongodb ObjectId")
-    @ScalarFunction(deterministic = false)
+    @ScalarFunction
+    @NonDeterministic
     @SqlType("ObjectId")
     public static Slice objectid()
     {

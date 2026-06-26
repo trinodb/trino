@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.function.Infallible;
 import io.trino.spi.function.InstanceMethod;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -88,6 +89,7 @@ public class ScalarHeader
         StaticMethod staticMethod = annotated.getAnnotation(StaticMethod.class);
         InstanceMethod instanceMethod = annotated.getAnnotation(InstanceMethod.class);
         boolean infallible = annotated.getAnnotation(Infallible.class) != null;
+        boolean deterministic = annotated.getAnnotation(NonDeterministic.class) == null;
         Optional<String> description = parseDescription(annotated);
 
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
@@ -101,7 +103,7 @@ public class ScalarHeader
                 TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
                 receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
             }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), infallible, receiverType, instanceMethod != null));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), deterministic, infallible, receiverType, instanceMethod != null));
         }
         else if (staticMethod != null) {
             throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);

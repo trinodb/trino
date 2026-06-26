@@ -27,6 +27,7 @@ import io.trino.spi.function.Description;
 import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -675,7 +676,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random value")
-    @ScalarFunction(alias = "rand", deterministic = false)
+    @ScalarFunction(alias = "rand")
+    @NonDeterministic
     @Infallible
     @SqlType(StandardTypes.DOUBLE)
     public static double random()
@@ -684,7 +686,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between 0 and value (exclusive)")
-    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @ScalarFunction(value = "random", alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.TINYINT)
     public static long randomTinyint(@SqlType(StandardTypes.TINYINT) long value)
     {
@@ -693,7 +696,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between 0 and value (exclusive)")
-    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @ScalarFunction(value = "random", alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.SMALLINT)
     public static long randomSmallint(@SqlType(StandardTypes.SMALLINT) long value)
     {
@@ -702,7 +706,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between 0 and value (exclusive)")
-    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @ScalarFunction(value = "random", alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.INTEGER)
     public static long randomInteger(@SqlType(StandardTypes.INTEGER) long value)
     {
@@ -711,7 +716,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between 0 and value (exclusive)")
-    @ScalarFunction(alias = "rand", deterministic = false)
+    @ScalarFunction(alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.BIGINT)
     public static long random(@SqlType(StandardTypes.BIGINT) long value)
     {
@@ -720,7 +726,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between start and stop (exclusive)")
-    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @ScalarFunction(value = "random", alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.TINYINT)
     public static long randomTinyint(@SqlType(StandardTypes.TINYINT) long start, @SqlType(StandardTypes.TINYINT) long stop)
     {
@@ -729,7 +736,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between start and stop (exclusive)")
-    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @ScalarFunction(value = "random", alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.SMALLINT)
     public static long randomSmallint(@SqlType(StandardTypes.SMALLINT) long start, @SqlType(StandardTypes.SMALLINT) long stop)
     {
@@ -738,7 +746,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between start and stop (exclusive)")
-    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @ScalarFunction(value = "random", alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.INTEGER)
     public static long randomInteger(@SqlType(StandardTypes.INTEGER) long start, @SqlType(StandardTypes.INTEGER) long stop)
     {
@@ -747,7 +756,8 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random number between start and stop (exclusive)")
-    @ScalarFunction(value = "random", alias = "rand", deterministic = false)
+    @ScalarFunction(value = "random", alias = "rand")
+    @NonDeterministic
     @SqlType(StandardTypes.BIGINT)
     public static long random(@SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long stop)
     {

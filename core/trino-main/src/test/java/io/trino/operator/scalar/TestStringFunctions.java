@@ -21,6 +21,7 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
@@ -73,7 +74,7 @@ public class TestStringFunctions
     }
 
     @Description("Varchar length")
-    @ScalarFunction(value = "vl", deterministic = true)
+    @ScalarFunction(value = "vl")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long varcharLength(@LiteralParameter("x") Long param, @SqlType("varchar(x)") Slice slice)
@@ -81,7 +82,8 @@ public class TestStringFunctions
         return param;
     }
 
-    @ScalarFunction(value = "utf8", deterministic = false)
+    @ScalarFunction(value = "utf8")
+    @NonDeterministic
     @SqlType(StandardTypes.VARCHAR)
     public static Slice convertBinaryToVarchar(@SqlType(StandardTypes.VARBINARY) Slice binary)
     {

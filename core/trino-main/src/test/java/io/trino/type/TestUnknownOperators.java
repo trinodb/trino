@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -60,7 +61,8 @@ public class TestUnknownOperators
         assertions = null;
     }
 
-    @ScalarFunction(value = "null_function", deterministic = false)
+    @ScalarFunction(value = "null_function")
+    @NonDeterministic
     @SqlNullable
     @SqlType("unknown")
     public static Boolean nullFunction()
