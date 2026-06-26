@@ -15,6 +15,8 @@ package io.trino.spi.connector;
 
 import io.trino.spi.predicate.TupleDomain;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * A per-batch snapshot of the engine's dynamic filter state, passed to
  * {@link ConnectorSplitSource#getNextBatch(int, DynamicFilterSnapshot)}.
@@ -22,4 +24,9 @@ import io.trino.spi.predicate.TupleDomain;
 public record DynamicFilterSnapshot(TupleDomain<ColumnHandle> currentPredicate, boolean isComplete)
 {
     public static final DynamicFilterSnapshot EMPTY = new DynamicFilterSnapshot(TupleDomain.all(), true);
+
+    public DynamicFilterSnapshot
+    {
+        requireNonNull(currentPredicate, "currentPredicate is null");
+    }
 }
