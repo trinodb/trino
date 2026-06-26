@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -36,7 +37,8 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 
 @Description("Internal try function for desugaring TRY")
-@ScalarFunction(value = TRY_FUNCTION_NAME, hidden = true, deterministic = false)
+@ScalarFunction(value = TRY_FUNCTION_NAME, hidden = true)
+@NonDeterministic
 public final class TryFunction
 {
     public static final String TRY_FUNCTION_NAME = "$try";

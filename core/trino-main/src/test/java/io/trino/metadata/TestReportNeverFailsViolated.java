@@ -14,6 +14,8 @@
 package io.trino.metadata;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Infallible;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -54,7 +56,8 @@ public class TestReportNeverFailsViolated
         assertions = null;
     }
 
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.BIGINT)
     public static long lyingNeverFails(@SqlType(StandardTypes.BOOLEAN) boolean fail)
     {
@@ -64,7 +67,9 @@ public class TestReportNeverFailsViolated
         return 0;
     }
 
-    @ScalarFunction(deterministic = false, neverFails = true)
+    @ScalarFunction
+    @NonDeterministic
+    @Infallible
     @SqlType(StandardTypes.BIGINT)
     public static long lyingNonDeterministicNeverFails(@SqlType(StandardTypes.BOOLEAN) boolean fail)
     {
@@ -74,7 +79,8 @@ public class TestReportNeverFailsViolated
         return 0;
     }
 
-    @ScalarOperator(value = NEGATION, neverFails = true)
+    @ScalarOperator(NEGATION)
+    @Infallible
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lyingNeverFailsOperator(@SqlType(StandardTypes.BOOLEAN) boolean fail)
     {

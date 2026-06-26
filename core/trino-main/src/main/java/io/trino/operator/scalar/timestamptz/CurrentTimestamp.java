@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -31,7 +32,8 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.roundToNearest;
 
-@ScalarFunction(value = CURRENT_TIMESTAMP_FUNCTION_NAME, hidden = true, neverFails = true)
+@ScalarFunction(value = CURRENT_TIMESTAMP_FUNCTION_NAME, hidden = true)
+@Infallible
 public final class CurrentTimestamp
 {
     public static final String CURRENT_TIMESTAMP_FUNCTION_NAME = "$current_timestamp";

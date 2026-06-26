@@ -32,12 +32,4 @@ public @interface ScalarFunction
     String[] alias() default {};
 
     boolean hidden() default false;
-
-    boolean deterministic() default true;
-
-    /**
-     * Describes whether the function never throws any exception
-     * for any possible combination of input arguments.
-     */
-    boolean neverFails() default false;
 }

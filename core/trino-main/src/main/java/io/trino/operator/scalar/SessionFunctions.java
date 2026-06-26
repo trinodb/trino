@@ -20,6 +20,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -38,7 +39,8 @@ public final class SessionFunctions
 
     private SessionFunctions() {}
 
-    @ScalarFunction(value = CURRENT_USER_FUNCTION_NAME, hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_USER_FUNCTION_NAME, hidden = true)
+    @Infallible
     @Description("Current user")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentUser(ConnectorSession session)
@@ -46,7 +48,8 @@ public final class SessionFunctions
         return utf8Slice(session.getUser());
     }
 
-    @ScalarFunction(value = CURRENT_PATH_FUNCTION_NAME, hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_PATH_FUNCTION_NAME, hidden = true)
+    @Infallible
     @Description("Retrieve current path")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentPath(ConnectorSession session)
@@ -55,7 +58,8 @@ public final class SessionFunctions
         return utf8Slice(((FullConnectorSession) session).getSession().getPath().toString());
     }
 
-    @ScalarFunction(value = CURRENT_CATALOG_FUNCTION_NAME, hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_CATALOG_FUNCTION_NAME, hidden = true)
+    @Infallible
     @Description("Current catalog")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentCatalog(ConnectorSession session)
@@ -65,7 +69,8 @@ public final class SessionFunctions
                 .orElse(null);
     }
 
-    @ScalarFunction(value = CURRENT_SCHEMA_FUNCTION_NAME, hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_SCHEMA_FUNCTION_NAME, hidden = true)
+    @Infallible
     @Description("Current schema")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentSchema(ConnectorSession session)
@@ -75,7 +80,8 @@ public final class SessionFunctions
                 .orElse(null);
     }
 
-    @ScalarFunction(value = "current_groups", neverFails = true)
+    @ScalarFunction(value = "current_groups")
+    @Infallible
     @Description("Current groups of current user")
     @SqlType("array(varchar)")
     public static Block currentGroups(ConnectorSession session)

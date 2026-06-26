@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -32,7 +33,8 @@ public final class LegacyCharToVarcharCast
 {
     private LegacyCharToVarcharCast() {}
 
-    @ScalarOperator(value = OperatorType.CAST, neverFails = true)
+    @ScalarOperator(value = OperatorType.CAST)
+    @Infallible
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
     public static Slice charToVarcharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)

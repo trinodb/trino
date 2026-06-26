@@ -24,6 +24,7 @@ import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -48,7 +49,8 @@ public final class VarbinaryFunctions
     private VarbinaryFunctions() {}
 
     @Description("Length of the given binary")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.BIGINT)
     public static long length(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -56,7 +58,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode binary data as base64")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toBase64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -91,7 +94,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode binary data as base64 using the URL safe alphabet")
-    @ScalarFunction(value = "to_base64url", neverFails = true)
+    @ScalarFunction(value = "to_base64url")
+    @Infallible
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toBase64Url(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -126,7 +130,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode binary data as base32")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toBase32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -167,7 +172,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode binary data as hex")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toHex(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -208,7 +214,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode value as a 64-bit 2's complement big endian varbinary")
-    @ScalarFunction(value = "to_big_endian_64", neverFails = true)
+    @ScalarFunction(value = "to_big_endian_64")
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice toBigEndian64(@SqlType(StandardTypes.BIGINT) long value)
     {
@@ -229,7 +236,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode value as a 32-bit 2's complement big endian varbinary")
-    @ScalarFunction(value = "to_big_endian_32", neverFails = true)
+    @ScalarFunction(value = "to_big_endian_32")
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice toBigEndian32(@SqlType(StandardTypes.INTEGER) long value)
     {
@@ -250,7 +258,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode value as a big endian varbinary according to IEEE 754 single-precision floating-point format")
-    @ScalarFunction(value = "to_ieee754_32", neverFails = true)
+    @ScalarFunction(value = "to_ieee754_32")
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice toIEEE754Binary32(@SqlType(StandardTypes.REAL) long value)
     {
@@ -269,7 +278,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Encode value as a big endian varbinary according to IEEE 754 double-precision floating-point format")
-    @ScalarFunction(value = "to_ieee754_64", neverFails = true)
+    @ScalarFunction(value = "to_ieee754_64")
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice toIEEE754Binary64(@SqlType(StandardTypes.DOUBLE) double value)
     {
@@ -288,7 +298,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute md5 hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice md5(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -298,7 +309,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute sha1 hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice sha1(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -308,7 +320,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute sha256 hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice sha256(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -316,7 +329,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute sha512 hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice sha512(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -324,7 +338,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute murmur3 hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice murmur3(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -332,7 +347,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute xxhash64 hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice xxhash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -342,7 +358,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute SpookyHashV2 32-bit hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice spookyHashV2_32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -352,7 +369,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute SpookyHashV2 64-bit hash")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice spookyHashV2_64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -370,7 +388,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Compute CRC-32")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.BIGINT)
     public static long crc32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
@@ -380,7 +399,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice substr(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long start)
     {
@@ -388,7 +408,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice substr(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
@@ -487,7 +508,8 @@ public final class VarbinaryFunctions
     }
 
     @Description("Reverse a given varbinary")
-    @ScalarFunction(value = "reverse", neverFails = true)
+    @ScalarFunction(value = "reverse")
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice reverse(@SqlType("varbinary") Slice inputSlice)
     {

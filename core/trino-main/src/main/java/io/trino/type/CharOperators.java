@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -149,7 +150,8 @@ public final class CharOperators
     }
 
     @LiteralParameters("x")
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {

@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -24,7 +25,8 @@ import io.trino.spi.type.Type;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 
 @Description("Creates an empty map")
-@ScalarFunction(value = "map", neverFails = true)
+@ScalarFunction(value = "map")
+@Infallible
 public final class EmptyMapConstructor
 {
     private final SqlMap emptyMap;

@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -27,7 +28,8 @@ import java.time.LocalDateTime;
 
 import static io.trino.operator.scalar.timestamp.LocalTimestamp.LOCALTIMESTAMP_FUNCTION_NAME;
 
-@ScalarFunction(value = LOCALTIMESTAMP_FUNCTION_NAME, hidden = true, neverFails = true)
+@ScalarFunction(value = LOCALTIMESTAMP_FUNCTION_NAME, hidden = true)
+@Infallible
 public final class LocalTimestamp
 {
     public static final String LOCALTIMESTAMP_FUNCTION_NAME = "$localtimestamp";

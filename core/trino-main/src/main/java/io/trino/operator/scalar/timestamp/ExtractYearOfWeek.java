@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -24,7 +25,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Year of the ISO week of the given timestamp")
-@ScalarFunction(value = "year_of_week", alias = "yow", neverFails = true)
+@ScalarFunction(value = "year_of_week", alias = "yow")
+@Infallible
 public final class ExtractYearOfWeek
 {
     private ExtractYearOfWeek() {}

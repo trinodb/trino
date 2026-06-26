@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -25,7 +26,8 @@ public final class HyperLogLogOperators
 {
     private HyperLogLogOperators() {}
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice slice)
     {

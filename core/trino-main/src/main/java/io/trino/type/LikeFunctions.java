@@ -16,6 +16,7 @@ package io.trino.type;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -37,7 +38,8 @@ public final class LikeFunctions
 
     private LikeFunctions() {}
 
-    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true, neverFails = true)
+    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true)
+    @Infallible
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
@@ -46,7 +48,8 @@ public final class LikeFunctions
     }
 
     // TODO: this should not be callable from SQL
-    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true, neverFails = true)
+    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true)
+    @Infallible
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)

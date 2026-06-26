@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Name;
-import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
 import io.trino.spi.type.StandardTypes;
@@ -59,8 +58,7 @@ public class TestStaticMethodCall
         assertions = null;
     }
 
-    @ScalarFunction("parse")
-    @StaticMethod(StandardTypes.BIGINT)
+    @StaticMethod(value = StandardTypes.BIGINT, name = "parse")
     @SqlType(StandardTypes.BIGINT)
     public static long bigintParse(@Name("value") @SqlType(StandardTypes.VARCHAR) Slice value)
     {
@@ -72,8 +70,7 @@ public class TestStaticMethodCall
         }
     }
 
-    @ScalarFunction("clamp")
-    @StaticMethod(StandardTypes.BIGINT)
+    @StaticMethod(value = StandardTypes.BIGINT, name = "clamp")
     @SqlType(StandardTypes.BIGINT)
     public static long bigintClamp(
             @Name("value") @SqlType(StandardTypes.BIGINT) long value,
@@ -83,48 +80,42 @@ public class TestStaticMethodCall
         return Math.max(low, Math.min(high, value));
     }
 
-    @ScalarFunction("array_method")
-    @StaticMethod(StandardTypes.ARRAY)
+    @StaticMethod(value = StandardTypes.ARRAY, name = "array_method")
     @SqlType(StandardTypes.BIGINT)
     public static long arrayMethod()
     {
         return 1L;
     }
 
-    @ScalarFunction("row_method")
-    @StaticMethod(StandardTypes.ROW)
+    @StaticMethod(value = StandardTypes.ROW, name = "row_method")
     @SqlType(StandardTypes.BIGINT)
     public static long rowMethod()
     {
         return 2L;
     }
 
-    @ScalarFunction("map_method")
-    @StaticMethod(StandardTypes.MAP)
+    @StaticMethod(value = StandardTypes.MAP, name = "map_method")
     @SqlType(StandardTypes.BIGINT)
     public static long mapMethod()
     {
         return 3L;
     }
 
-    @ScalarFunction("token")
-    @StaticMethod(StandardTypes.ARRAY)
+    @StaticMethod(value = StandardTypes.ARRAY, name = "token")
     @SqlType(StandardTypes.BIGINT)
     public static long arrayToken()
     {
         return 10L;
     }
 
-    @ScalarFunction("token")
-    @StaticMethod(StandardTypes.ROW)
+    @StaticMethod(value = StandardTypes.ROW, name = "token")
     @SqlType(StandardTypes.BIGINT)
     public static long rowToken()
     {
         return 20L;
     }
 
-    @ScalarFunction("token")
-    @StaticMethod(StandardTypes.MAP)
+    @StaticMethod(value = StandardTypes.MAP, name = "token")
     @SqlType(StandardTypes.BIGINT)
     public static long mapToken()
     {
@@ -272,8 +263,7 @@ public class TestStaticMethodCall
 
     public static class ParametricReceiverFixture
     {
-        @ScalarFunction("parse")
-        @StaticMethod("varchar(5)")
+        @StaticMethod(value = "varchar(5)", name = "parse")
         @SqlType(StandardTypes.BIGINT)
         public static long parse(@SqlType(StandardTypes.VARCHAR) Slice value)
         {

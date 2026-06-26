@@ -34,6 +34,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
@@ -125,7 +126,8 @@ public class TestAnnotationEngineForScalars
         assertThat(functionMetadata.isHidden()).isTrue();
     }
 
-    @ScalarFunction(value = "non_deterministic_scalar_function", deterministic = false)
+    @ScalarFunction(value = "non_deterministic_scalar_function")
+    @NonDeterministic
     @Description("Simple scalar with deterministic property reset")
     public static final class NonDeterministicScalarFunction
     {
@@ -267,7 +269,8 @@ public class TestAnnotationEngineForScalars
             return v;
         }
 
-        @ScalarFunction(value = "static_method_scalar_2", hidden = true, deterministic = false)
+        @ScalarFunction(value = "static_method_scalar_2", hidden = true)
+        @NonDeterministic
         @Description("Simple scalar with single implementation based on method 2")
         @SqlType(StandardTypes.BIGINT)
         public static long fun2(@SqlType(StandardTypes.BIGINT) long v)

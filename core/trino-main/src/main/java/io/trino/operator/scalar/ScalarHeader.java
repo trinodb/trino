@@ -15,7 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.InstanceMethod;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -86,33 +88,47 @@ public class ScalarHeader
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
         StaticMethod staticMethod = annotated.getAnnotation(StaticMethod.class);
         InstanceMethod instanceMethod = annotated.getAnnotation(InstanceMethod.class);
+        boolean infallible = annotated.getAnnotation(Infallible.class) != null;
+        boolean deterministic = annotated.getAnnotation(NonDeterministic.class) == null;
         Optional<String> description = parseDescription(annotated);
 
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
 
+        checkArgument(staticMethod == null || instanceMethod == null, "@StaticMethod and @InstanceMethod are mutually exclusive on %s", annotated);
+
         if (scalarFunction != null) {
-            checkArgument(staticMethod == null || instanceMethod == null, "@StaticMethod and @InstanceMethod are mutually exclusive on %s", annotated);
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            Optional<TypeTemplate> receiverType = Optional.empty();
-            if (staticMethod != null) {
-                checkArgument(!hasTypeParameters(staticMethod.value()), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
-                TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
-                receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), deterministic, infallible, Optional.empty(), false));
+        }
+
+        if (instanceMethod != null) {
+            String baseName = instanceMethod.value();
+            if (baseName.isEmpty()) {
+                baseName = scalarFunction != null && !scalarFunction.value().isEmpty()
+                        ? scalarFunction.value()
+                        : camelToSnake(annotatedName(annotated));
             }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.of(), description, false, deterministic, infallible, Optional.empty(), true));
         }
-        else if (staticMethod != null) {
-            throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);
-        }
-        else if (instanceMethod != null) {
-            throw new IllegalArgumentException("@InstanceMethod requires @ScalarFunction on " + annotated);
+
+        if (staticMethod != null) {
+            checkArgument(!hasTypeParameters(staticMethod.value()), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
+            TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
+            Optional<TypeTemplate> receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
+            String baseName = staticMethod.name();
+            if (baseName.isEmpty()) {
+                baseName = scalarFunction != null && !scalarFunction.value().isEmpty()
+                        ? scalarFunction.value()
+                        : camelToSnake(annotatedName(annotated));
+            }
+            builder.add(new ScalarHeader(baseName, ImmutableSet.of(), description, false, deterministic, infallible, receiverType, false));
         }
 
         if (scalarOperator != null) {
-            if (scalarOperator.value().neverFails() && scalarOperator.neverFails()) {
-                throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
+            if (scalarOperator.value().neverFails() && infallible) {
+                throw new IllegalArgumentException("@Infallible is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
             }
-            builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails()));
+            builder.add(new ScalarHeader(scalarOperator.value(), description, infallible));
         }
 
         List<ScalarHeader> result = builder.build();

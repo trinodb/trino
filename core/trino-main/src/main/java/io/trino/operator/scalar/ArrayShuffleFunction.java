@@ -15,13 +15,17 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-@ScalarFunction(value = "shuffle", deterministic = false, neverFails = true)
+@ScalarFunction(value = "shuffle")
+@NonDeterministic
+@Infallible
 @Description("Generates a random permutation of the given array.")
 public final class ArrayShuffleFunction
 {

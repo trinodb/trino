@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -25,7 +26,8 @@ import io.trino.spi.type.Type;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @Description("Textual representation of expression type")
-@ScalarFunction(value = "typeof", neverFails = true)
+@ScalarFunction(value = "typeof")
+@Infallible
 public final class TypeOfFunction
 {
     private TypeOfFunction() {}

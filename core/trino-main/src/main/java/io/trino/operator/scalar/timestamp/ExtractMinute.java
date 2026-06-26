@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -24,7 +25,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Minute of the hour of the given timestamp")
-@ScalarFunction(value = "minute", neverFails = true)
+@ScalarFunction(value = "minute")
+@Infallible
 public final class ExtractMinute
 {
     private ExtractMinute() {}

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.spi.function.NonDeterministic;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
@@ -71,7 +72,8 @@ public abstract class AbstractTestRegexpFunctions
         assertions = null;
     }
 
-    @ScalarFunction(deterministic = false) // if not non-deterministic, constant folding code accidentally fix invalid characters
+    @ScalarFunction
+    @NonDeterministic // if not non-deterministic, constant folding code accidentally fix invalid characters
     @SqlType(StandardTypes.VARCHAR)
     public static Slice invalidUtf8()
     {

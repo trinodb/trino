@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -24,21 +25,24 @@ public final class QuantileDigestOperators
 {
     private QuantileDigestOperators() {}
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinaryDouble(@SqlType("qdigest(double)") Slice slice)
     {
         return slice;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinaryBigint(@SqlType("qdigest(bigint)") Slice slice)
     {
         return slice;
     }
 
-    @ScalarOperator(value = CAST, neverFails = true)
+    @ScalarOperator(CAST)
+    @Infallible
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinaryReal(@SqlType("qdigest(real)") Slice slice)
     {

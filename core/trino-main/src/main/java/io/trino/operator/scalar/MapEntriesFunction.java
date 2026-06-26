@@ -19,6 +19,7 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.Infallible;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -28,7 +29,8 @@ import io.trino.spi.type.Type;
 
 import static com.google.common.base.Verify.verify;
 
-@ScalarFunction(value = "map_entries", neverFails = true)
+@ScalarFunction(value = "map_entries")
+@Infallible
 @Description("Construct an array of entries from a given map")
 public class MapEntriesFunction
 {
