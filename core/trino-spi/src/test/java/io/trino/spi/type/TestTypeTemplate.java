@@ -43,13 +43,14 @@ class TestTypeTemplate
     }
 
     @Test
-    void testRenderSpecialForms()
+    void testRender()
     {
-        // Renderings that diverge from the generic base(parameters) shape, kept in sync with the
-        // ground TypeSignature rendering
-        assertThat(TypeTemplates.type("varchar", new NumericExpression.Literal(2147483647)).render()).isEqualTo("varchar");
-        assertThat(TypeTemplates.type("timestamp with time zone", new NumericExpression.Literal(3)).render()).isEqualTo("timestamp(3) with time zone");
-        assertThat(TypeTemplates.type("timestamp without time zone", new NumericExpression.Literal(3)).render()).isEqualTo("timestamp(3) without time zone");
+        // render() is the internal base(parameters) IR, mirroring TypeDescriptor.toString(): no
+        // surface special-casing (the unbounded-varchar elision and time-zone word order live in
+        // TypeSyntax). Quoted row field names are part of the IR and survive the round-trip.
+        assertThat(TypeTemplates.type("varchar", new NumericExpression.Literal(2147483647)).render()).isEqualTo("varchar(2147483647)");
+        assertThat(TypeTemplates.type("timestamp with time zone", new NumericExpression.Literal(3)).render()).isEqualTo("timestamp with time zone(3)");
+        assertThat(TypeTemplates.type("timestamp without time zone", new NumericExpression.Literal(3)).render()).isEqualTo("timestamp without time zone(3)");
         assertThat(new TypeTemplate.TypeApplication(
                 "row",
                 List.of(new TemplateParameter.TypeArgument(Optional.of("a\"b"), new TypeTemplate.TypeApplication("bigint", List.of())))).render())

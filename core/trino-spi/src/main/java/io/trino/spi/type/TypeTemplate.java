@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.joining;
 
 /// The open, variable-bearing structural form of a type, used in the argument and return positions of a
 /// function [io.trino.spi.function.Signature] — e.g. `array(E)`, `decimal(p, s)`,
@@ -34,9 +34,9 @@ public sealed interface TypeTemplate
     /// The base name: the variable name for a [TypeVariable], the constructor name for a [TypeApplication].
     String baseName();
 
-    /// Renders this template in type syntax, e.g. `array(E)`, `decimal(p,s)`, `char(x + y)`. Mirrors the
-    /// [TypeDescriptor] formatting (unbounded varchar, time-zone syntax, quoted row field names) so error
-    /// messages and round-trips match.
+    /// Renders this template in the internal `base(arg, …)` IR form, e.g. `array(E)`, `decimal(p,s)`,
+    /// `char(x + y)`. Mirrors [TypeDescriptor#toString] so the open and ground forms share one
+    /// representation; the user-visible SQL spelling is produced separately by [TypeSyntax].
     String render();
 
     /// A type constructor applied to template parameters, e.g. `array(E)` or `decimal(p, s)`.
@@ -59,7 +59,10 @@ public sealed interface TypeTemplate
         @Override
         public String render()
         {
-            return TypeSyntax.render(base, parameters.stream().map(TemplateParameter::render).collect(toUnmodifiableList()));
+            if (parameters.isEmpty()) {
+                return base;
+            }
+            return base + parameters.stream().map(TemplateParameter::render).collect(joining(",", "(", ")"));
         }
 
         // Type names are case-insensitive in Trino, matching the TypeDescriptor identity.
