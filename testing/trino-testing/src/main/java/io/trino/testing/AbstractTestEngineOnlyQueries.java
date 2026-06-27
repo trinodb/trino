@@ -362,29 +362,36 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testCharVarcharComparison()
     {
-        // with implicit coercions
-        assertQuery(
+        // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar (no blank
+        // padding): char '   ' becomes '', so it matches the empty varchar but not a space-padded varchar.
+        assertThat(query(
                 "SELECT * FROM (VALUES" +
                         "   CAST(NULL AS char(3)), " +
                         "   CAST('   ' AS char(3))) t(x) " +
-                        "WHERE x = CAST('  ' AS varchar(2))",
-                // H2 returns '' on CAST char(3) to varchar(2)
-                "SELECT '   '");
+                        "WHERE x = CAST('' AS varchar(2))"))
+                .matches("VALUES CAST('   ' AS char(3))");
 
-        // with explicit casts
-        assertQuery(
+        assertThat(query(
                 "SELECT * FROM (VALUES" +
                         "   CAST(NULL AS char(3)), " +
                         "   CAST('   ' AS char(3))) t(x) " +
-                        "WHERE CAST(x AS varchar(2)) = CAST('  ' AS varchar(2))",
-                // H2 returns '' on CAST char(3) to varchar(2)
-                "SELECT '   '");
+                        "WHERE x = CAST('  ' AS varchar(2))"))
+                .returnsEmptyResult();
+
+        // explicit casts to varchar compare as varchar (no blank padding) as well
+        assertThat(query(
+                "SELECT * FROM (VALUES" +
+                        "   CAST(NULL AS char(3)), " +
+                        "   CAST('   ' AS char(3))) t(x) " +
+                        "WHERE CAST(x AS varchar(2)) = CAST('' AS varchar(2))"))
+                .matches("VALUES CAST('   ' AS char(3))");
     }
 
     @Test
     public void testVarcharCharComparison()
     {
-        // with implicit coercions
+        // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar (no blank
+        // padding): char '  ' becomes '', matching only the empty varchar.
         assertThat(query("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS varchar(3)), " +
                 "   CAST('' AS varchar(3))," +
@@ -392,7 +399,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
                 "WHERE x = CAST('  ' AS char(2))"))
-                .matches("VALUES '', ' ', '  ', '   '");
+                .matches("VALUES CAST('' AS varchar(3))");
 
         // with explicit casts
         assertQuery("SELECT * FROM (VALUES" +
@@ -6613,7 +6620,7 @@ public abstract class AbstractTestEngineOnlyQueries
         // returning char(6) (java type Slice)
         assertThat(query("SELECT json_value(json_input, 'strict $?(@[1] > 1 || @[2] == true)[0]' RETURNING char(6)) result " +
                 "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
-                .matches("VALUES cast('AFRICA' AS char(6)), null, 'ASIA  ', 'EUROPE', 'MIDDLE'");
+                .matches("VALUES cast('AFRICA' AS char(6)), null, cast('ASIA' AS char(6)), cast('EUROPE' AS char(6)), cast('MIDDLE' AS char(6))");
 
         // returning integer (java type long)
         assertThat(query("SELECT json_value(json_input, 'strict $?(@[0] starts with \"A\" || @[1] < 4)[1]' RETURNING integer) result " +

@@ -20,6 +20,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -43,7 +44,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.RowType.Field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -60,10 +60,17 @@ import static java.util.Objects.requireNonNull;
 public final class TypeCoercion
 {
     private final Function<TypeDescriptor, Type> lookupType;
+    private final boolean legacyVarcharToCharCoercion;
 
     public TypeCoercion(Function<TypeDescriptor, Type> lookupType)
     {
+        this(lookupType, false);
+    }
+
+    public TypeCoercion(Function<TypeDescriptor, Type> lookupType, boolean legacyVarcharToCharCoercion)
+    {
         this.lookupType = requireNonNull(lookupType, "lookupType is null");
+        this.legacyVarcharToCharCoercion = legacyVarcharToCharCoercion;
     }
 
     public boolean isTypeOnlyCoercion(Type source, Type result)
@@ -158,6 +165,18 @@ public final class TypeCoercion
     {
         TypeCompatibility typeCompatibility = compatibility(fromType, toType);
         return typeCompatibility.isCompatible();
+    }
+
+    /// Whether a value of `sourceType` may be assigned to a column of `targetType` in a store-assignment
+    /// context such as `INSERT`, `UPDATE` or `MERGE`.
+    ///
+    /// Store assignment is broader than implicit coercion: a value may be assignable even when its type does
+    /// not implicitly coerce to the target. A positive result means only that the assignment is permitted,
+    /// not that it always succeeds — at execution it may fail rather than silently lose data (for example,
+    /// storing a longer string into a shorter character column).
+    public boolean isStoreAssignable(Type sourceType, Type targetType)
+    {
+        return isCompatible(sourceType, targetType);
     }
 
     public boolean canCoerce(Type fromType, Type toType)
@@ -415,6 +434,9 @@ public final class TypeCoercion
             };
             case StandardTypes.VARCHAR -> switch (resultTypeBase) {
                 case StandardTypes.CHAR -> {
+                    if (!legacyVarcharToCharCoercion) {
+                        yield Optional.empty();
+                    }
                     VarcharType varcharType = (VarcharType) sourceType;
                     if (varcharType.isUnbounded()) {
                         yield Optional.of(createCharType(CharType.MAX_LENGTH));
@@ -428,10 +450,12 @@ public final class TypeCoercion
                 default -> Optional.empty();
             };
             case StandardTypes.CHAR -> switch (resultTypeBase) {
-                // CHAR could be coercible to VARCHAR, but they cannot be both coercible to each other.
-                // VARCHAR to CHAR coercion provides natural semantics when comparing VARCHAR literals to CHAR columns.
-                // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
-                case StandardTypes.VARCHAR -> Optional.empty();
+                case StandardTypes.VARCHAR -> {
+                    if (legacyVarcharToCharCoercion) {
+                        yield Optional.empty();
+                    }
+                    yield Optional.of(createVarcharType(((CharType) sourceType).getLength()));
+                }
                 case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
                 case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);

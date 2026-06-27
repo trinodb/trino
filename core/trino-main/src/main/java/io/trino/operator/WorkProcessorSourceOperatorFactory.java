@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -29,7 +28,6 @@ public interface WorkProcessorSourceOperatorFactory
 
     WorkProcessorSourceOperator create(
             OperatorContext operatorContext,
-            MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
             WorkProcessor<Split> split);
 }

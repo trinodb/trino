@@ -27,7 +27,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
@@ -44,7 +43,8 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -217,7 +217,7 @@ public class TestPartialTopNWithPresortedInput
                                         limit(1, ImmutableList.of(), true, ImmutableList.of("k"),
                                                 project(ImmutableMap.of("k", expression(new FieldReference(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), 0))),
                                                         filter(
-                                                                new Comparison(EQUAL, new FieldReference(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), 0), new Constant(INTEGER, 1L)),
+                                                                comparison(EQUAL, new FieldReference(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), 0), new Constant(INTEGER, 1L)),
                                                                 tableScan("with_nested_field", ImmutableMap.of("nested", "nested")))))))));
     }
 }

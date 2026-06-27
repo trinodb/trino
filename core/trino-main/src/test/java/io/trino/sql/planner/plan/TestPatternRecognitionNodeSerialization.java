@@ -29,7 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -60,8 +59,9 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -140,7 +140,7 @@ public class TestPatternRecognitionNodeSerialization
 
         assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(
                 ifExpression(
-                        new Comparison(GREATER_THAN, new Reference(VARCHAR, "classifier"), new Reference(VARCHAR, "x")),
+                        comparison(GREATER_THAN, new Reference(VARCHAR, "classifier"), new Reference(VARCHAR, "x")),
                         new Cast(new Call(RANDOM, ImmutableList.of()), INTEGER),
                         new Call(NEGATION_INTEGER, ImmutableList.of(new Reference(INTEGER, "match_number")))),
                 ImmutableList.of(
@@ -168,7 +168,7 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(MEASURE_CODEC, new Measure(
                 new ExpressionAndValuePointers(
                         ifExpression(
-                                new Comparison(GREATER_THAN, new Reference(INTEGER, "match_number"), new Reference(INTEGER, "x")),
+                                comparison(GREATER_THAN, new Reference(INTEGER, "match_number"), new Reference(INTEGER, "x")),
                                 new Constant(BIGINT, 10L),
                                 new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "y")))),
                         ImmutableList.of(

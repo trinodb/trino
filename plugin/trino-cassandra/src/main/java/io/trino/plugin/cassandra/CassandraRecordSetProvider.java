@@ -13,8 +13,9 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -32,8 +33,6 @@ import static java.util.stream.Collectors.toList;
 public class CassandraRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private static final Logger log = Logger.get(CassandraRecordSetProvider.class);
-
     private final CassandraSession cassandraSession;
     private final CassandraTypeManager cassandraTypeManager;
 
@@ -55,18 +54,22 @@ public class CassandraRecordSetProvider
                 .collect(toList());
 
         if (cassandraTable.relationHandle() instanceof CassandraQueryRelationHandle queryRelationHandle) {
-            return new CassandraRecordSet(cassandraSession, cassandraTypeManager, queryRelationHandle.getQuery(), cassandraColumns);
+            return new CassandraRecordSet(
+                    cassandraSession,
+                    cassandraTypeManager,
+                    SimpleStatement.newInstance(queryRelationHandle.getQuery()),
+                    cassandraColumns);
         }
 
-        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable.getRequiredNamedRelation(), cassandraColumns).asCql();
-        StringBuilder sb = new StringBuilder(selectCql);
-        if (sb.charAt(sb.length() - 1) == ';') {
-            sb.setLength(sb.length() - 1);
+        String where = cassandraSplit.getWhereClause();
+        Select select = CassandraCqlUtils.selectFrom(cassandraTable.getRequiredNamedRelation(), cassandraColumns);
+        if (!where.isBlank()) {
+            select = select.whereRaw(where);
         }
-        sb.append(cassandraSplit.getWhereClause());
-        String cql = sb.toString();
-        log.debug("Creating record set: %s", cql);
-
-        return new CassandraRecordSet(cassandraSession, cassandraTypeManager, cql, cassandraColumns);
+        return new CassandraRecordSet(
+                cassandraSession,
+                cassandraTypeManager,
+                select.build().setIdempotent(true),
+                cassandraColumns);
     }
 }

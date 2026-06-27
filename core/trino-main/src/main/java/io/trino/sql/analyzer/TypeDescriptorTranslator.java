@@ -377,4 +377,12 @@ public final class TypeDescriptorTranslator
     {
         return SQL_PARSER.createType(signature);
     }
+
+    /// Whether a type signature is written with explicit parameters, distinguishing `varchar(10)` from a
+    /// bare `varchar`. The written form is inspected directly, so an unbounded `varchar` -- which lowers
+    /// to a magic length parameter -- is reported as having none.
+    public static boolean hasTypeParameters(String signature)
+    {
+        return !(parseDataType(signature) instanceof GenericDataType genericDataType) || !genericDataType.getArguments().isEmpty();
+    }
 }

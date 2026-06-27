@@ -19,10 +19,10 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;

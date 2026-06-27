@@ -23,7 +23,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -44,8 +43,9 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -110,7 +110,7 @@ public class TestWindowFrameRange
                                                         filter(
                                                                 // validate offset values
                                                                 ifExpression(
-                                                                        new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(2, 1), "x"), new Constant(createDecimalType(2, 1), 0L)),
+                                                                        comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(2, 1), "x"), new Constant(createDecimalType(2, 1), 0L)),
                                                                         TRUE,
                                                                         new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(
@@ -159,7 +159,7 @@ public class TestWindowFrameRange
                                                 filter(
                                                         // validate offset values
                                                         ifExpression(
-                                                                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(10, 0), "offset"), new Constant(createDecimalType(10, 0), 0L)),
+                                                                comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(10, 0), "offset"), new Constant(createDecimalType(10, 0), 0L)),
                                                                 TRUE,
                                                                 new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                         project(
@@ -208,7 +208,7 @@ public class TestWindowFrameRange
                                         filter(
                                                 // validate frame end offset values
                                                 ifExpression(
-                                                        new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "y"), new Constant(INTEGER, 0L)),
+                                                        comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "y"), new Constant(INTEGER, 0L)),
                                                         TRUE,
                                                         new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                 project(
@@ -217,7 +217,7 @@ public class TestWindowFrameRange
                                                         filter(
                                                                 // validate frame start offset values
                                                                 ifExpression(
-                                                                        new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)),
+                                                                        comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)),
                                                                         TRUE,
                                                                         new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(

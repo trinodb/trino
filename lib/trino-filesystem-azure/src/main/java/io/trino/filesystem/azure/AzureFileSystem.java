@@ -26,7 +26,6 @@ import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
-import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.azure.storage.common.sas.SasProtocol;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
@@ -38,6 +37,7 @@ import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.ListPathsOptions;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -71,7 +71,6 @@ import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.azure.AzureUtils.blobCustomerProvidedKey;
 import static io.trino.filesystem.azure.AzureUtils.encodedKey;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
-import static io.trino.filesystem.azure.AzureUtils.isFileNotFoundException;
 import static io.trino.filesystem.azure.AzureUtils.keySha256Checksum;
 import static io.trino.filesystem.azure.AzureUtils.lakeCustomerProvidedKey;
 import static java.lang.Math.toIntExact;
@@ -194,12 +193,9 @@ public class AzureFileSystem
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation, Optional.empty());
         try {
-            client.delete();
+            client.deleteIfExists();
         }
         catch (RuntimeException e) {
-            if (isFileNotFoundException(e)) {
-                return;
-            }
             throw handleAzureException(e, "deleting file", azureLocation);
         }
     }
@@ -654,10 +650,24 @@ public class AzureFileSystem
             throws IOException
     {
         try {
-            BlockBlobClient blockBlobClient = createBlobContainerClient(location, Optional.empty())
-                    .getBlobClient("/")
-                    .getBlockBlobClient();
-            return blockBlobClient.exists();
+            // Normalize consecutive slashes: the Azure DataLake getAccessControl API returns HTTP 400
+            // for paths containing "//", while other APIs like listPaths silently canonicalize them
+            String canonicalPath = CharMatcher.is('/').collapseFrom(
+                    CharMatcher.is('/').trimTrailingFrom(location.path()), '/');
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
+            fileSystemClient.getDirectoryClient(canonicalPath).getAccessControl();
+            return true;
+        }
+        catch (DataLakeStorageException e) {
+            // getAccessControl() is only supported on HNS-enabled accounts; flat namespace returns HierarchicalNamespaceNotEnabled
+            if ("HierarchicalNamespaceNotEnabled".equals(e.getErrorCode())) {
+                return false;
+            }
+            // Path does not exist yet (e.g. creating a new nested directory), but the account supports HNS
+            if (e.getStatusCode() == 404) {
+                return true;
+            }
+            throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
         }
         catch (RuntimeException e) {
             throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
@@ -707,8 +717,11 @@ public class AzureFileSystem
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();
         DataLakeFileSystemClient fileSystemClient = client.getFileSystemClient(location.container().orElseThrow());
-        if (!fileSystemClient.exists()) {
-            throw new IllegalArgumentException();
+        // SAS tokens are scoped to an existing container; directory-scoped tokens cannot perform container-level operations
+        if (!(azureAuth instanceof AzureAuthSasToken)) {
+            if (!fileSystemClient.exists()) {
+                throw new IllegalArgumentException();
+            }
         }
         return fileSystemClient;
     }

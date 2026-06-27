@@ -26,6 +26,7 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 
@@ -59,5 +60,6 @@ public class ConnectorContextModule
         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
         binder.bind(BlocksHashFactory.class).toInstance(context.getBlocksHashFactory());
+        binder.bind(ConnectorExpressionEvaluator.class).toInstance(context.getExpressionEvaluator());
     }
 }

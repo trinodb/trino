@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem;
 
-import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
 import io.trino.filesystem.encryption.EncryptionKey;
 
@@ -25,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.getCausalChain;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -382,18 +382,26 @@ public interface TrinoFileSystem
     }
 
     /**
-     * Checks whether given exception is unrecoverable, so that further retries won't help
+     * Checks whether the given exception is unrecoverable, so that further retries won't help.
      * <p>
      * By default, all third party (AWS, Azure, GCP) SDKs will retry appropriate exceptions
      * (either client side IO errors, or 500/503), so there is no need to retry those additionally.
      * <p>
-     * If any custom retry behavior is needed, it is advised to change SDK's retry handlers,
-     * rather than introducing outer retry loop, which combined with SDKs default retries,
-     * could lead to prolonged, unnecessary retries
+     * If any custom retry behavior is needed, it is advised to change the SDK's retry handlers,
+     * rather than introducing an outer retry loop, which combined with the SDKs default retries,
+     * could lead to prolonged, unnecessary retries.
+     * <p>
+     * Recoverability is decided when the exception is thrown: implementations wrap fatal backend
+     * errors (for example a {@code 403 Forbidden}) in a {@link TrinoFileSystemException}, while
+     * transient errors (for example a {@code 503 Service Unavailable}) surface as a plain
+     * {@link IOException}. This classification therefore relies only on the exception type, so it is
+     * a {@code static} check that works regardless of which file system (including delegating ones
+     * such as tracing, caching, or switching) produced the exception. Callers running their own retry
+     * loop can use this to abort early on errors that retrying cannot fix.
      */
     static boolean isUnrecoverableException(Throwable throwable)
     {
-        return Throwables.getCausalChain(throwable).stream()
+        return getCausalChain(throwable).stream()
                 .anyMatch(t -> t instanceof TrinoFileSystemException || t instanceof FileNotFoundException || t instanceof UnsupportedOperationException);
     }
 }

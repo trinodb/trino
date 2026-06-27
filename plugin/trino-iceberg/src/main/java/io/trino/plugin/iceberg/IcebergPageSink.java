@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.geospatial.serde.JtsGeometrySerde;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -59,7 +60,6 @@ import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -113,6 +113,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.FileContent.DATA;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -130,7 +131,7 @@ public class IcebergPageSink
     private final IcebergFileFormat fileFormat;
     private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
-    private final long targetMaxFileSize;
+    private final long targetMaxFileSizeBytes;
     private final long idleWriterMinFileSize;
     private final Map<String, String> storageProperties;
     private final List<TrinoSortField> sortFields;
@@ -148,7 +149,7 @@ public class IcebergPageSink
     private final Map<Integer, org.apache.iceberg.types.Type> columnsWithGeometry;
 
     private final List<WriteContext> writers = new ArrayList<>();
-    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
+    private final List<RollbackAction> closedWriterRollbackActions = new ArrayList<>();
     private final Collection<Slice> commitTasks = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
 
@@ -172,6 +173,7 @@ public class IcebergPageSink
             int maxOpenWriters,
             List<TrinoSortField> sortFields,
             int sortOrderId,
+            DataSize targetMaxFileSize,
             DataSize sortingFileWriterBufferSize,
             int sortingFileWriterMaxOpenFiles,
             Optional<String> sortedWritingLocalStagingPath,
@@ -190,7 +192,7 @@ public class IcebergPageSink
         this.metricsConfig = MetricsConfig.from(requireNonNull(storageProperties, "storageProperties is null"), null, null);
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(partitionColumns, partitionSpec, outputSchema));
-        this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
+        this.targetMaxFileSizeBytes = getTargetMaxFileSizeBytes(storageProperties, targetMaxFileSize);
         this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortFields = requireNonNull(sortFields, "sortFields is null");
@@ -280,16 +282,16 @@ public class IcebergPageSink
     @Override
     public void abort()
     {
-        List<Closeable> rollbackActions = Streams.concat(
+        List<RollbackAction> rollbackActions = Streams.concat(
                         writers.stream()
                                 .filter(Objects::nonNull)
                                 .map(writer -> writer::rollback),
                         closedWriterRollbackActions.stream())
                 .collect(toImmutableList());
         RuntimeException error = null;
-        for (Closeable rollbackAction : rollbackActions) {
+        for (RollbackAction rollbackAction : rollbackActions) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Throwable t) {
                 if (error == null) {
@@ -508,7 +510,7 @@ public class IcebergPageSink
             int writerIndex = writerIndexes[position];
             WriteContext writer = writers.get(writerIndex);
             if (writer != null) {
-                if (writer.getWrittenBytes() <= targetMaxFileSize) {
+                if (writer.getWrittenBytes() <= targetMaxFileSizeBytes) {
                     continue;
                 }
                 closeWriter(writerIndex);
@@ -774,6 +776,20 @@ public class IcebergPageSink
             return location;
         }
         return Location.of("local:///" + location.path());
+    }
+
+    static long getTargetMaxFileSizeBytes(Map<String, String> storageProperties, DataSize targetMaxFileSize)
+    {
+        String tableProperty = storageProperties.get(WRITE_TARGET_FILE_SIZE_BYTES);
+        if (tableProperty == null) {
+            return targetMaxFileSize.toBytes();
+        }
+        try {
+            return Long.parseLong(tableProperty);
+        }
+        catch (NumberFormatException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid value for Iceberg table property %s: %s", WRITE_TARGET_FILE_SIZE_BYTES, tableProperty), e);
+        }
     }
 
     private static class WriteContext

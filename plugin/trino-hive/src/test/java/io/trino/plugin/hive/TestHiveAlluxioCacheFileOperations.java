@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -33,7 +34,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getCacheOperationSpans;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -64,6 +64,7 @@ public class TestHiveAlluxioCacheFileOperations
         return HiveQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setHiveProperties(hiveProperties)
+                .addHiveProperty("fs.hadoop.enabled", "true")
                 .setWorkerCount(1)
                 .build();
     }

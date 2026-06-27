@@ -35,7 +35,6 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Logical;
@@ -59,8 +58,9 @@ import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjected
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -180,7 +180,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Reference(BIGINT, "col0_y"), new Constant(BIGINT, 2L)), new Comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
+                                new Logical(AND, ImmutableList.of(comparison(EQUAL, new Reference(BIGINT, "col0_y"), new Constant(BIGINT, 2L)), comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -197,7 +197,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new Comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Constant(BIGINT, 5L)),
+                                comparison(EQUAL, new Reference(BIGINT, "col0_x"), new Constant(BIGINT, 5L)),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -223,7 +223,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                                         .left(
                                                 anyTree(
                                                         filter(
-                                                                new Comparison(EQUAL, new Reference(BIGINT, "expr_0_x"), new Constant(BIGINT, 2L)),
+                                                                comparison(EQUAL, new Reference(BIGINT, "expr_0_x"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
                                                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                                                 .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),

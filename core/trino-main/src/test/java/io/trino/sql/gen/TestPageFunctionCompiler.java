@@ -52,7 +52,6 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -87,8 +86,9 @@ import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -359,7 +359,7 @@ public class TestPageFunctionCompiler
     public void testFilterCache()
     {
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
-        Expression filter = new Comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+        Expression filter = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
 
         // First compile: cache miss
@@ -390,7 +390,7 @@ public class TestPageFunctionCompiler
     {
         // Filter: $col_0 > 2, with column at different positions in each layout
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
-        Expression filter = new Comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+        Expression filter = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
 
         Map<Symbol, Integer> layout1 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
         Map<Symbol, Integer> layout2 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 3);

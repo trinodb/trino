@@ -91,6 +91,7 @@ public class TestHiveParquetEncryption
         // Bind retriever that knows ONLY the footer key + age column key
         return HiveQueryRunner.builder()
                 .setHiveProperties(properties)
+                .addHiveProperty("fs.hadoop.enabled", "true")
                 .setDecryptionKeyRetriever(new TestingParquetEncryptionModule(FOOTER_KEY, Optional.of(COLUMN_KEY_AGE), Optional.empty()))
                 .build();
     }

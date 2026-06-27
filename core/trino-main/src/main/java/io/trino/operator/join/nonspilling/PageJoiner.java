@@ -16,7 +16,7 @@ package io.trino.operator.join.nonspilling;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.ProcessorContext;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.join.JoinStatisticsCounter;
 import io.trino.operator.join.JoinType;
@@ -62,7 +62,7 @@ public class PageJoiner
     private boolean currentProbePositionProducedRow;
 
     public PageJoiner(
-            ProcessorContext processorContext,
+            OperatorContext operatorContext,
             List<Type> buildOutputTypes,
             JoinType joinType,
             boolean outputSingleMatch,
@@ -70,11 +70,10 @@ public class PageJoiner
             ListenableFuture<LookupSource> lookupSource,
             JoinStatisticsCounter statisticsCounter)
     {
-        requireNonNull(processorContext, "processorContext is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.lookupSourceFuture = requireNonNull(lookupSource, "lookupSource is null");
         this.statisticsCounter = requireNonNull(statisticsCounter, "statisticsCounter is null");
-        this.yieldSignal = processorContext.getDriverYieldSignal();
+        this.yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
         this.outputSingleMatch = outputSingleMatch;
 

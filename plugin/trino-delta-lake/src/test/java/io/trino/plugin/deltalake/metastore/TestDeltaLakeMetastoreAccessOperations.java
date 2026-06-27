@@ -24,7 +24,6 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
-import io.trino.plugin.deltalake.TestingDeltaLakeUtils;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -40,6 +39,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.metastore.MetastoreInvocations.filterInvocations;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
@@ -73,9 +73,9 @@ public class TestDeltaLakeMetastoreAccessOperations
                 .addDeltaProperty("delta.metastore.store-table-metadata-interval", "30m") // Use a large interval to avoid interference with the test
                 .build();
 
-        metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
-        metadataScheduler = TestingDeltaLakeUtils.getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
+        metadataScheduler = getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
 
         return queryRunner;
     }

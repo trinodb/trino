@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -16,9 +16,9 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.dylibso.chicory</groupId>
+                <groupId>run.endive</groupId>
                 <artifactId>bom</artifactId>
-                <version>1.7.5</version>
+                <version>0.0.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -26,25 +26,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <dependency>
-            <groupId>com.dylibso.chicory</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.dylibso.chicory</groupId>
-            <artifactId>runtime</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.dylibso.chicory</groupId>
-            <artifactId>wasi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.dylibso.chicory</groupId>
-            <artifactId>wasm</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -75,12 +56,31 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-wasm-python</artifactId>
-            <version>3.13-6</version>
+            <version>3.13-7</version>
         </dependency>
 
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>run.endive</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>run.endive</groupId>
+            <artifactId>runtime</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>run.endive</groupId>
+            <artifactId>wasi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>run.endive</groupId>
+            <artifactId>wasm</artifactId>
         </dependency>
 
         <dependency>

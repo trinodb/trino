@@ -2420,8 +2420,7 @@ public class TestTimeWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TIME '12:34:56+08:35'", "TIME '12:34:56+08:35'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         assertThat(assertions.expression("a <= b")
                 .binding("a", "TIME '12:34:56+08:35'")
@@ -2429,8 +2428,7 @@ public class TestTimeWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIME '12:34:56+08:35'", "TIME '12:34:56+08:35'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         // long (precision > 9 → LongTimeWithTimeZoneType)
         assertThat(assertions.expression("a = b")
@@ -2447,8 +2445,7 @@ public class TestTimeWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "TIME '12:34:56.1234567891+08:35'", "TIME '12:34:56.1234567891+08:35'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
 
         assertThat(assertions.expression("a <= b")
                 .binding("a", "TIME '12:34:56.1234567891+08:35'")
@@ -2456,8 +2453,7 @@ public class TestTimeWithTimeZone
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIME '12:34:56.1234567891+08:35'", "TIME '12:34:56.1234567891+08:35'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     private static BiFunction<Session, QueryRunner, Object> timeWithTimeZone(int precision, int hour, int minute, int second, long picoOfSecond, int offsetMinutes)

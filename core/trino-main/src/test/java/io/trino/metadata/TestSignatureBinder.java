@@ -1327,7 +1327,7 @@ public class TestSignatureBinder
         private Optional<VariableBindings> bindVariables()
         {
             Assertions.assertThat(argumentTypes).isNotNull();
-            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion);
+            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, PLANNER_CONTEXT.isLegacyVarcharToCharCoercion());
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }

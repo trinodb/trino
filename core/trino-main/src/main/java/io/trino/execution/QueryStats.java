@@ -23,6 +23,7 @@ import io.trino.operator.BlockedReason;
 import io.trino.operator.MergeWriterOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
@@ -36,7 +37,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.Objects.requireNonNull;
 
 public class QueryStats

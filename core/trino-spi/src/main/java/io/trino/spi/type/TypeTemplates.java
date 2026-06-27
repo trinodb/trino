@@ -77,15 +77,15 @@ public final class TypeTemplates
     public static boolean isCalculated(TypeTemplate template)
     {
         return switch (template) {
-            case TypeVariable(String name) -> false;
-            case TypeApplication(String base, List<TemplateParameter> parameters) -> parameters.stream().anyMatch(TypeTemplates::isCalculated);
+            case TypeVariable(String _) -> false;
+            case TypeApplication(String _, List<TemplateParameter> parameters) -> parameters.stream().anyMatch(TypeTemplates::isCalculated);
         };
     }
 
     private static boolean isCalculated(TemplateParameter parameter)
     {
         return switch (parameter) {
-            case TypeArgument(Optional<String> name, TypeTemplate type) -> isCalculated(type);
+            case TypeArgument(Optional<String> _, TypeTemplate type) -> isCalculated(type);
             case NumericArgument(NumericExpression value) -> !(value instanceof NumericExpression.Literal);
         };
     }

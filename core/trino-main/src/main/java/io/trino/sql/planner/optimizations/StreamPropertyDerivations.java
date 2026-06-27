@@ -30,6 +30,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -113,33 +114,37 @@ public final class StreamPropertyDerivations
     public static StreamProperties derivePropertiesRecursively(
             PlanNode node,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, plannerContext, session))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, symbolAllocator))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, plannerContext, session);
+        return deriveProperties(node, inputProperties, plannerContext, session, symbolAllocator);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             StreamProperties inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session);
+        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, symbolAllocator);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             List<StreamProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(session, "session is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
 
         // properties.otherActualProperties will never be null here because the only way
         // an external caller should obtain StreamProperties is from this method, and the
@@ -150,7 +155,8 @@ public final class StreamPropertyDerivations
                         .map(properties -> properties.otherActualProperties)
                         .collect(toImmutableList()),
                 plannerContext,
-                session);
+                session,
+                symbolAllocator);
 
         StreamProperties result = deriveStreamPropertiesWithoutActualProperties(node, inputProperties, plannerContext.getMetadata(), session)
                 .withOtherActualProperties(otherProperties);

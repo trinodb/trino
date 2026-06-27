@@ -21,12 +21,12 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
-import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -41,8 +41,10 @@ import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -104,7 +106,7 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.filter(
-                                        new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                        comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                         p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))
                 .matches(
                         project(
@@ -119,7 +121,7 @@ public class TestTransformCorrelatedScalarSubquery
                                                                 "unique",
                                                                 values("corr")),
                                                         filter(
-                                                                new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                                                                comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
                                                                 values("a")))))));
     }
 
@@ -134,7 +136,7 @@ public class TestTransformCorrelatedScalarSubquery
                                 p.project(
                                         Assignments.of(p.symbol("a2", INTEGER), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)))),
                                         p.filter(
-                                                new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                 p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS))))))
                 .matches(
                         project(
@@ -150,7 +152,7 @@ public class TestTransformCorrelatedScalarSubquery
                                                                 values("corr")),
                                                         project(ImmutableMap.of("a2", expression(new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L))))),
                                                                 filter(
-                                                                        new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                                                                        comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
                                                                         values("a"))))))));
     }
 
@@ -167,7 +169,7 @@ public class TestTransformCorrelatedScalarSubquery
                                         p.project(
                                                 Assignments.of(p.symbol("a2", INTEGER), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)))),
                                                 p.filter(
-                                                        new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                        comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                         p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))))
                 .matches(
                         project(
@@ -186,7 +188,7 @@ public class TestTransformCorrelatedScalarSubquery
                                                                 project(
                                                                         ImmutableMap.of("a2", expression(new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L))))),
                                                                         filter(
-                                                                                new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                                                                                comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
                                                                                 values("a")))))))));
     }
 
@@ -202,25 +204,30 @@ public class TestTransformCorrelatedScalarSubquery
                         TRUE,
                         p.enforceSingleRow(
                                 p.filter(
-                                        new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                        comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                         p.values(ImmutableList.of(p.symbol("a")), ONE_ROW)))))
                 .matches(
                         correlatedJoin(
                                 ImmutableList.of("corr"),
                                 values("corr"),
                                 filter(
-                                        new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                                        comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
                                         values("a")))
                                 .with(CorrelatedJoinNode.class, join -> join.getType() == LEFT));
     }
 
     private Expression ensureScalarSubquery()
     {
-        return new Switch(
+        return new Match(
                 new Reference(BOOLEAN, "is_distinct"),
-                ImmutableList.of(new WhenClause(TRUE, TRUE)),
+                ImmutableList.of(equalityClause(TRUE, TRUE)),
                 new Cast(
                         failFunction(tester().getMetadata(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                         BOOLEAN));
+    }
+
+    private static MatchClause equalityClause(Expression value, Expression result)
+    {
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), new Symbol(value.type(), "operand"), value, result);
     }
 }

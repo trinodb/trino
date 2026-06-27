@@ -2097,8 +2097,7 @@ public class TestNumberOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN, "NUMBER '37'", "NUMBER '37'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -2574,8 +2573,7 @@ public class TestNumberOperators
                 .neverFails();
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '37'", "NUMBER '37'"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
     }
 
     @Test
@@ -3393,6 +3391,22 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(IDENTICAL, "ARRAY [1234567890.123456789, NULL]", "ARRAY [NULL, 9876543210.987654321]"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "NUMBER 'NaN'", "NUMBER '37'"))
+                .isEqualTo(false);
+    }
+
+    @Test
+    void testNaNGroupedByDistinctAndGroupBy()
+    {
+        assertThat(assertions.query("SELECT count(*) FROM (SELECT DISTINCT n FROM (VALUES NUMBER 'NaN', NUMBER 'NaN', NUMBER 'NaN') t(n))"))
+                .matches("VALUES BIGINT '1'");
+
+        assertThat(assertions.query("SELECT count(*) FROM (VALUES NUMBER 'NaN', NUMBER 'NaN', NUMBER 'NaN') t(n) GROUP BY n"))
+                .matches("VALUES BIGINT '3'");
     }
 
     @Test

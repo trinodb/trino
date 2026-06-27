@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
@@ -40,7 +39,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -233,7 +233,7 @@ public class TestPrunePattenRecognitionColumns
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "pointer"), new Constant(BIGINT, 0L)),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "pointer"), new Constant(BIGINT, 0L)),
                                         ImmutableMap.of(new Symbol(BIGINT, "pointer"), new ScalarValuePointer(
                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                 new Symbol(BIGINT, "a"))))
@@ -246,7 +246,7 @@ public class TestPrunePattenRecognitionColumns
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(
                                                         new IrLabel("X"),
-                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "pointer"), new Constant(BIGINT, 0L)),
+                                                        comparison(GREATER_THAN, new Reference(BIGINT, "pointer"), new Constant(BIGINT, 0L)),
                                                         ImmutableMap.of("pointer", new ScalarValuePointer(
                                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                                 new Symbol(BIGINT, "a")))),
@@ -264,7 +264,7 @@ public class TestPrunePattenRecognitionColumns
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
                                         ImmutableMap.of(new Symbol(BIGINT, "agg"), new AggregationValuePointer(
                                                 maxBy,
                                                 new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -280,7 +280,7 @@ public class TestPrunePattenRecognitionColumns
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(
                                                         new IrLabel("X"),
-                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
+                                                        comparison(GREATER_THAN, new Reference(BIGINT, "agg"), new Constant(BIGINT, 5L)),
                                                         ImmutableMap.of("agg", new AggregationValuePointer(
                                                                 maxBy,
                                                                 new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -418,7 +418,7 @@ public class TestPrunePattenRecognitionColumns
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "value"), new Constant(INTEGER, 0L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "value"), new Constant(INTEGER, 0L)),
                                         ImmutableMap.of(new Symbol(INTEGER, "value"), new ScalarValuePointer(
                                                 new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
                                                 new Symbol(BIGINT, "a"))))

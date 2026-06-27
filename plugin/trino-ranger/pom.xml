@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -140,12 +140,6 @@
             <groupId>com.carrotsearch</groupId>
             <artifactId>hppc</artifactId>
             <version>0.10.0</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -357,6 +351,12 @@
             <artifactId>truffle-api</artifactId>
             <version>${dep.graalvm.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

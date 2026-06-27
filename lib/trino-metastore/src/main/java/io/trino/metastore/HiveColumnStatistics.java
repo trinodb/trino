@@ -15,6 +15,7 @@ package io.trino.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.errorprone.annotations.Immutable;
 
 import java.math.BigDecimal;
@@ -26,7 +27,6 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

@@ -14,7 +14,6 @@
 package io.trino.execution.buffer;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -22,12 +21,12 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.TDigest;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import jakarta.annotation.Nullable;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -59,7 +58,7 @@ final class OutputBufferMemoryManager
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
-    private final Supplier<LocalMemoryContext> memoryContextSupplier;
+    private final Lazy<LocalMemoryContext> memoryContextSupplier;
     private final Executor notificationExecutor;
 
     @GuardedBy("this")
@@ -69,12 +68,12 @@ final class OutputBufferMemoryManager
     @GuardedBy("this")
     private double lastBufferUtilization;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
+    public OutputBufferMemoryManager(long maxBufferedBytes, Lazy<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
     {
         requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
-        this.memoryContextSupplier = Suppliers.memoize(memoryContextSupplier::get);
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.lastBufferUtilizationRecordTime = ticker.read();
         this.lastBufferUtilization = 0;

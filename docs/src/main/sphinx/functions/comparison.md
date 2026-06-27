@@ -77,6 +77,30 @@ Note that the value, min, and max parameters to `BETWEEN` and `NOT BETWEEN` must
 be the same type. For example, Trino produces an error if you ask it if `John`
 is between `2.3` and `35.2`.
 
+### Symmetric and asymmetric ranges
+
+By default the bounds are interpreted in order, so `value BETWEEN min AND max`
+only matches when `min <= max`. This default can be made explicit with
+`ASYMMETRIC`:
+
+```sql
+SELECT 3 BETWEEN ASYMMETRIC 2 AND 6; -- true
+SELECT 3 BETWEEN ASYMMETRIC 6 AND 2; -- false
+```
+
+With `SYMMETRIC`, the two bounds are treated as an unordered pair, so the test
+succeeds when the value lies between them in either order. `value BETWEEN
+SYMMETRIC min AND max` is equivalent to `value BETWEEN ASYMMETRIC min AND max OR
+value BETWEEN ASYMMETRIC max AND min`:
+
+```sql
+SELECT 3 BETWEEN SYMMETRIC 2 AND 6; -- true
+SELECT 3 BETWEEN SYMMETRIC 6 AND 2; -- true
+```
+
+`SYMMETRIC` can be combined with `NOT`, and follows the same `NULL` evaluation
+rules as the equivalent expanded expression.
+
 (is-null-operator)=
 ## IS NULL and IS NOT NULL
 
@@ -94,6 +118,33 @@ But any other constant does not:
 ```sql
 SELECT 3.0 IS NULL; -- false
 ```
+
+(is-boolean-test)=
+## IS TRUE, IS FALSE, and IS UNKNOWN
+
+The `IS [NOT] TRUE`, `IS [NOT] FALSE`, and `IS [NOT] UNKNOWN` operators test the
+three-valued result of a boolean expression. Unlike a direct comparison against
+`TRUE` or `FALSE`, these operators always return a non-null boolean, treating a
+`NULL` (unknown) operand as a known value. `IS UNKNOWN` is equivalent to `IS NULL`
+on a boolean operand:
+
+```sql
+SELECT (1 > 0) IS TRUE; -- true
+
+SELECT (1 > 2) IS FALSE; -- true
+
+SELECT (NULL > 0) IS UNKNOWN; -- true
+
+SELECT (NULL > 0) IS NOT TRUE; -- true
+```
+
+The following truth table demonstrates the handling of each truth value:
+
+| a       | a IS TRUE | a IS FALSE | a IS UNKNOWN | a IS NOT TRUE | a IS NOT FALSE | a IS NOT UNKNOWN |
+| ------- | --------- | ---------- | ------------ | ------------- | -------------- | ---------------- |
+| `TRUE`  | `TRUE`    | `FALSE`    | `FALSE`      | `FALSE`       | `TRUE`         | `TRUE`           |
+| `FALSE` | `FALSE`   | `TRUE`     | `FALSE`      | `TRUE`        | `FALSE`        | `TRUE`           |
+| `NULL`  | `FALSE`   | `FALSE`    | `TRUE`       | `TRUE`        | `TRUE`         | `FALSE`          |
 
 (is-distinct-operator)=
 ## IS DISTINCT FROM and IS NOT DISTINCT FROM

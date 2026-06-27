@@ -110,14 +110,14 @@ public class NativeLogicalTypesAvroTypeManager
     static Type getAvroLogicalTypeSpiType(AvroLogicalType avroLogicalType)
     {
         return switch (avroLogicalType) {
-            case DateLogicalType __ -> DateType.DATE;
+            case DateLogicalType _ -> DateType.DATE;
             case BytesDecimalLogicalType bytesDecimalLogicalType -> DecimalType.createDecimalType(bytesDecimalLogicalType.precision(), bytesDecimalLogicalType.scale());
             case FixedDecimalLogicalType fixedDecimalLogicalType -> DecimalType.createDecimalType(fixedDecimalLogicalType.precision(), fixedDecimalLogicalType.scale());
-            case TimeMillisLogicalType __ -> TimeType.TIME_MILLIS;
-            case TimeMicrosLogicalType __ -> TimeType.TIME_MICROS;
-            case TimestampMillisLogicalType __ -> TimestampType.TIMESTAMP_MILLIS;
-            case TimestampMicrosLogicalType __ -> TimestampType.TIMESTAMP_MICROS;
-            case StringUUIDLogicalType __ -> UuidType.UUID;
+            case TimeMillisLogicalType _ -> TimeType.TIME_MILLIS;
+            case TimeMicrosLogicalType _ -> TimeType.TIME_MICROS;
+            case TimestampMillisLogicalType _ -> TimestampType.TIMESTAMP_MILLIS;
+            case TimestampMicrosLogicalType _ -> TimestampType.TIMESTAMP_MICROS;
+            case StringUUIDLogicalType _ -> UuidType.UUID;
         };
     }
 
@@ -228,10 +228,10 @@ public class NativeLogicalTypesAvroTypeManager
     static Optional<AvroLogicalType> validateAndLogIssues(Schema schema)
     {
         switch (validateLogicalType(schema)) {
-            case NoLogicalType ignored -> {
+            case NoLogicalType _ -> {
                 return Optional.empty();
             }
-            case NonNativeAvroLogicalType ignored -> {
+            case NonNativeAvroLogicalType _ -> {
                 log.debug("Unrecognized logical type %s", schema);
                 return Optional.empty();
             }

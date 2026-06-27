@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.107.9</dep.nessie.version>
+        <dep.nessie.version>0.108.0</dep.nessie.version>
         <dep.keycloak.version>26.0.8</dep.keycloak.version>
     </properties>
 
@@ -399,27 +399,34 @@
         </dependency>
 
         <dependency>
+            <!-- Docs promise that PostgreSQL driver will be on the classpath, for JDBC catalog's sake-->
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-security-keyvault-keys</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-blob</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-common</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>javax.annotation</groupId>
@@ -429,113 +436,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.cloud.gcs.analytics</groupId>
-            <artifactId>gcs-analytics-core</artifactId>
-            <version>1.3.0</version>
-            <scope>runtime</scope>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>node</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>stats</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-trace</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem-azure</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem-gcs</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.httpcomponents.client5</groupId>
-            <artifactId>httpclient5</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.httpcomponents.core5</groupId>
-            <artifactId>httpcore5</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-bundled-guava</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <!-- Docs promise that PostgreSQL driver will be on the classpath, for JDBC catalog's sake-->
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>kms</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>retries-spi</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>configuration-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -548,6 +456,24 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>node</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>stats</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -566,6 +492,12 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -592,6 +524,18 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-azure</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-gcs</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -684,6 +628,24 @@
         </dependency>
 
         <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
             <classifier>tests</classifier>
@@ -699,6 +661,12 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -762,6 +730,24 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>retries-spi</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -853,16 +839,8 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/Test*Avro*.java</exclude>
-                                <exclude>**/Test*Minio*.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestTrinoGlueCatalog.java</exclude>
-                                <exclude>**/TestSharedGlueMetastore.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogMaterializedView.java</exclude>
-                                <exclude>**/TestIcebergGlueCreateTableFailure.java</exclude>
-                                <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
-                                <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
-                                <exclude>**/TestIcebergS3AndGlueMetastoreTest.java</exclude>
+                                <exclude>**/Test*Floci*.java</exclude>
+                                <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
@@ -900,7 +878,7 @@
         </profile>
 
         <profile>
-            <id>minio-and-avro</id>
+            <id>floci-and-avro</id>
             <build>
                 <plugins>
                     <plugin>
@@ -909,7 +887,7 @@
                         <configuration>
                             <includes>
                                 <include>**/Test*Avro*.java</include>
-                                <include>**/Test*Minio*.java</include>
+                                <include>**/Test*Floci*.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -926,15 +904,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestIcebergGlueCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestTrinoGlueCatalog.java</include>
-                                <include>**/TestSharedGlueMetastore.java</include>
-                                <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
-                                <include>**/TestIcebergGlueCatalogMaterializedView.java</include>
-                                <include>**/TestIcebergGlueCreateTableFailure.java</include>
-                                <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
-                                <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
-                                <include>**/TestIcebergS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>

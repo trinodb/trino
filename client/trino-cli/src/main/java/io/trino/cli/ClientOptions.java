@@ -30,6 +30,8 @@ import io.trino.client.uri.TrinoUri;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 import java.lang.annotation.Retention;
 import java.net.URI;
@@ -92,8 +94,6 @@ import static java.lang.String.format;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static picocli.CommandLine.Option;
-import static picocli.CommandLine.Parameters;
 
 public class ClientOptions
 {

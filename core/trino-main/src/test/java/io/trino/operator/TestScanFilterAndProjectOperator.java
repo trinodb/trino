@@ -139,7 +139,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
+                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -184,7 +184,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new FixedPageSource(input),
+                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(input),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -227,7 +227,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new SinglePagePageSource(input),
+                _ -> (_, _, _, _, _, _, _) -> new SinglePagePageSource(input),
                 _ -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -264,7 +264,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                _ -> (_, _, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -322,7 +322,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                _ -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
+                _ -> (_, _, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
@@ -440,12 +440,6 @@ public class TestScanFilterAndProjectOperator
 
         @Override
         public long getReadTimeNanos()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getMemoryUsage()
         {
             return 0;
         }

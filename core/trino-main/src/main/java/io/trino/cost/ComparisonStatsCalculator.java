@@ -13,7 +13,7 @@
  */
 package io.trino.cost;
 
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.planner.Symbol;
 
 import java.util.Optional;
@@ -45,7 +45,7 @@ public final class ComparisonStatsCalculator
             SymbolStatsEstimate expressionStatistics,
             Optional<Symbol> expressionSymbol,
             OptionalDouble literalValue,
-            Comparison.Operator operator)
+            ComparisonOperator operator)
     {
         return switch (operator) {
             case EQUAL -> estimateExpressionEqualToLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
@@ -161,7 +161,7 @@ public final class ComparisonStatsCalculator
             Optional<Symbol> leftExpressionSymbol,
             SymbolStatsEstimate rightExpressionStatistics,
             Optional<Symbol> rightExpressionSymbol,
-            Comparison.Operator operator)
+            ComparisonOperator operator)
     {
         return switch (operator) {
             case EQUAL -> estimateExpressionEqualToExpression(inputStatistics, leftExpressionStatistics, leftExpressionSymbol, rightExpressionStatistics, rightExpressionSymbol);
@@ -248,7 +248,7 @@ public final class ComparisonStatsCalculator
     }
 
     private static PlanNodeStatsEstimate estimateExpressionToExpressionInequality(
-            Comparison.Operator operator,
+            ComparisonOperator operator,
             PlanNodeStatsEstimate inputStatistics,
             SymbolStatsEstimate leftExpressionStatistics,
             Optional<Symbol> leftExpressionSymbol,

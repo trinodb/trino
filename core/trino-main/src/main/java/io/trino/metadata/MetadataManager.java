@@ -25,6 +25,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
@@ -217,13 +218,15 @@ public final class MetadataManager
             LanguageFunctionManager languageFunctionManager,
             TableFunctionRegistry tableFunctionRegistry,
             TypeManager typeManager,
-            CatalogManager catalogManager)
+            CatalogManager catalogManager,
+            FeaturesConfig featuresConfig)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
-        this.typeCoercion = new TypeCoercion(typeManager::getType);
+        boolean legacyVarcharToCharCoercion = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyVarcharToCharCoercion();
+        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog, legacyVarcharToCharCoercion);
+        this.typeCoercion = new TypeCoercion(typeManager::getType, legacyVarcharToCharCoercion);
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");

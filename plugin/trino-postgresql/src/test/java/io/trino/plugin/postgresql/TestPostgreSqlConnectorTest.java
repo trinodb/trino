@@ -33,7 +33,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -65,6 +65,7 @@ import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -1233,8 +1234,8 @@ public class TestPostgreSqlConnectorTest
                                                                     new Call(reverseFunction, ImmutableList.of(new Reference(VARCHAR, "cola"))),
                                                                     new Reference(VARCHAR, "colb"))))),
                                             filter(
-                                                    new Comparison(
-                                                            Comparison.Operator.EQUAL,
+                                                    comparison(
+                                                            ComparisonOperator.EQUAL,
                                                             new Call(
                                                                     concatFunction,
                                                                     ImmutableList.of(

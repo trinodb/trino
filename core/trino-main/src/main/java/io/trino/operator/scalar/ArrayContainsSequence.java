@@ -30,7 +30,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 
 @Description("Determines whether an array contains a sequence, with the values in the exact order")
-@ScalarFunction("contains_sequence")
+@ScalarFunction(value = "contains_sequence", neverFails = true)
 public final class ArrayContainsSequence
 {
     private ArrayContainsSequence() {}

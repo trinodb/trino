@@ -87,7 +87,7 @@ public class TestCharacterStringCasts
     @Test
     public void testVarcharToCharCast()
     {
-        // widening
+        // widening; VARCHAR -> CHAR is no longer an implicit coercion, but the explicit cast still pads/truncates and never fails
         assertThat(assertions.expression("cast(a as char(10))")
                 .binding("a", "'bar  '"))
                 .hasType(createCharType(10))
@@ -110,17 +110,17 @@ public class TestCharacterStringCasts
     @Test
     public void testCharToVarcharCast()
     {
-        // widening
+        // widening; CHAR -> VARCHAR yields the unpadded value (trailing spaces are not re-introduced)
         assertThat(assertions.expression("cast(a as varchar(10))")
                 .binding("a", "CAST('bar' AS char(5))"))
                 .hasType(createVarcharType(10))
                 .neverFails()
-                .isEqualTo("bar  ");
+                .isEqualTo("bar");
 
         assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(10))")
                 .binding("a", "'bar'"))
                 .hasType(createVarcharType(10))
-                .isEqualTo("bar  ");
+                .isEqualTo("bar");
 
         assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(1))")
                 .binding("a", "'bar'"))
@@ -130,7 +130,7 @@ public class TestCharacterStringCasts
         assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(2))")
                 .binding("a", "'b'"))
                 .hasType(createVarcharType(2))
-                .isEqualTo("b ");
+                .isEqualTo("b");
 
         assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(1))")
                 .binding("a", "'b'"))
@@ -145,14 +145,14 @@ public class TestCharacterStringCasts
         assertThat(assertions.expression("cast(cast(a as char(3)) as varchar(3))")
                 .binding("a", "'b'"))
                 .hasType(createVarcharType(3))
-                .isEqualTo("b  ");
+                .isEqualTo("b");
 
         // narrowing (truncation)
         assertThat(assertions.expression("cast(a as varchar(4))")
                 .binding("a", "CAST('bar' AS char(5))"))
                 .hasType(createVarcharType(4))
                 .neverFails()
-                .isEqualTo("bar ");
+                .isEqualTo("bar");
 
         assertThat(assertions.expression("cast(a as varchar(2))")
                 .binding("a", "CAST('bar' AS char(5))"))

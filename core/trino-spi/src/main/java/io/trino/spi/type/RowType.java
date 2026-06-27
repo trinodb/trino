@@ -13,8 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.StandardErrorCode;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -31,7 +29,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
@@ -51,6 +48,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
@@ -75,6 +73,15 @@ public class RowType
     private static final InvocationConvention IDENTICAL_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+    private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
+
+    // State of a field-by-field less-than walk: all fields so far are equal (keep going), or a
+    // deciding field has been found that is less, greater, or whose comparison is unknown (a null
+    // is involved). Encoded as int constants so the walk can be composed with MethodHandles.
+    private static final int LESS_THAN_FIELDS_EQUAL = 0;
+    private static final int LESS_THAN_FIELD_LESS = 1;
+    private static final int LESS_THAN_FIELD_GREATER = 2;
+    private static final int LESS_THAN_FIELD_UNKNOWN = 3;
 
     private static final MethodHandle READ_FLAT;
     private static final MethodHandle READ_FLAT_TO_BLOCK;
@@ -90,6 +97,9 @@ public class RowType
     private static final MethodHandle CHAIN_INDETERMINATE;
     private static final MethodHandle COMPARISON;
     private static final MethodHandle CHAIN_COMPARISON;
+    private static final MethodHandle LESS_THAN;
+    private static final MethodHandle CHAIN_LESS_THAN;
+    private static final MethodHandle LESS_THAN_RESULT;
     private static final int MEGAMORPHIC_FIELD_COUNT = 64;
 
     // this field is used in double-checked locking
@@ -111,8 +121,11 @@ public class RowType
             CHAIN_IDENTICAL = lookup.findStatic(RowType.class, "chainIdentical", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
             INDETERMINATE = lookup.findStatic(RowType.class, "megamorphicIndeterminateOperator", methodType(boolean.class, List.class, SqlRow.class));
             CHAIN_INDETERMINATE = lookup.findStatic(RowType.class, "chainIndeterminate", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, SqlRow.class));
-            COMPARISON = lookup.findStatic(RowType.class, "megamorphicComparisonOperator", methodType(long.class, List.class, SqlRow.class, SqlRow.class));
-            CHAIN_COMPARISON = lookup.findStatic(RowType.class, "chainComparison", methodType(long.class, long.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            COMPARISON = lookup.findStatic(RowType.class, "megamorphicComparisonOperator", methodType(long.class, boolean.class, List.class, SqlRow.class, SqlRow.class));
+            CHAIN_COMPARISON = lookup.findStatic(RowType.class, "chainComparison", methodType(long.class, long.class, boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            LESS_THAN = lookup.findStatic(RowType.class, "megamorphicLessThanOperator", methodType(Boolean.class, boolean.class, List.class, List.class, SqlRow.class, SqlRow.class));
+            CHAIN_LESS_THAN = lookup.findStatic(RowType.class, "chainLessThan", methodType(int.class, int.class, int.class, MethodHandle.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            LESS_THAN_RESULT = lookup.findStatic(RowType.class, "lessThanResult", methodType(Boolean.class, boolean.class, int.class));
         }
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
@@ -381,8 +394,10 @@ public class RowType
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, fields))
                 .addIdenticalOperators(getIdenticalOperatorInvokers(typeOperators, fields))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, fields))
-                .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedLastOperator, fields))
-                .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedFirstOperator, fields))
+                .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators, fields, false))
+                .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators, fields, true))
+                .addLessThanOperators(getLessThanOperatorInvokers(typeOperators, fields, false))
+                .addLessThanOrEqualOperators(getLessThanOperatorInvokers(typeOperators, fields, true))
                 .build();
     }
 
@@ -826,44 +841,44 @@ public class RowType
         return (boolean) currentFieldIndeterminateOperator.invokeExact(fieldBlock, rawIndex);
     }
 
-    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(BiFunction<Type, InvocationConvention, MethodHandle> comparisonOperatorFactory, List<Field> fields)
+    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(TypeOperators typeOperators, List<Field> fields, boolean nullsFirst)
     {
         boolean orderable = fields.stream().allMatch(field -> field.getType().isOrderable());
         if (!orderable) {
             return emptyList();
         }
 
-        // for large rows, use a generic loop with a megamorphic call site
-        if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
-            List<MethodHandle> comparisonOperators = fields.stream()
-                    .map(field -> comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)))
-                    .toList();
-            return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(comparisonOperators)));
+        List<MethodHandle> comparisonOperators = new ArrayList<>(fields.size());
+        for (Field field : fields) {
+            InvocationConvention fieldConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL);
+            // compare non-null field values with the same null ordering, so nested nulls are ordered consistently
+            MethodHandle fieldComparison = nullsFirst
+                    ? typeOperators.getComparisonUnorderedFirstOperator(field.getType(), fieldConvention)
+                    : typeOperators.getComparisonUnorderedLastOperator(field.getType(), fieldConvention);
+            comparisonOperators.add(fieldComparison);
         }
 
-        // (SqlRow, SqlRow):Boolean
+        // for large rows, use a generic loop with a megamorphic call site
+        if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
+            return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, insertArguments(COMPARISON, 0, nullsFirst, comparisonOperators)));
+        }
+
+        // (SqlRow, SqlRow):long
         MethodHandle comparison = dropArguments(constant(long.class, 0), 0, SqlRow.class, SqlRow.class);
         for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
-            Field field = fields.get(fieldId);
-            // (SqlRow, SqlRow, int, MethodHandle, SqlRow, SqlRow):Boolean
-            comparison = collectArguments(
-                    CHAIN_COMPARISON,
-                    0,
-                    comparison);
+            // (SqlRow, SqlRow, boolean, int, MethodHandle, SqlRow, SqlRow):long
+            comparison = collectArguments(CHAIN_COMPARISON, 0, comparison);
 
-            // field comparison
-            MethodHandle fieldComparisonOperator = comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
+            // (SqlRow, SqlRow, SqlRow, SqlRow):long
+            comparison = insertArguments(comparison, 2, nullsFirst, fieldId, comparisonOperators.get(fieldId));
 
-            // (SqlRow, SqlRow, SqlRow, SqlRow):Boolean
-            comparison = insertArguments(comparison, 2, fieldId, fieldComparisonOperator);
-
-            // (SqlRow, SqlRow):Boolean
+            // (SqlRow, SqlRow):long
             comparison = permuteArguments(comparison, methodType(long.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
         return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
     }
 
-    private static long megamorphicComparisonOperator(List<MethodHandle> comparisonOperators, SqlRow leftRow, SqlRow rightRow)
+    private static long megamorphicComparisonOperator(boolean nullsFirst, List<MethodHandle> comparisonOperators, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         int leftRawIndex = leftRow.getRawIndex();
@@ -873,19 +888,25 @@ public class RowType
             Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
             Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
 
-            checkElementNotNull(leftFieldBlock.isNull(leftRawIndex));
-            checkElementNotNull(rightFieldBlock.isNull(rightRawIndex));
+            boolean leftIsNull = leftFieldBlock.isNull(leftRawIndex);
+            boolean rightIsNull = rightFieldBlock.isNull(rightRawIndex);
+            if (leftIsNull || rightIsNull) {
+                long nullComparison = compareNullFields(nullsFirst, leftIsNull, rightIsNull);
+                if (nullComparison != 0) {
+                    return nullComparison;
+                }
+                continue;
+            }
 
-            MethodHandle comparisonOperator = comparisonOperators.get(fieldIndex);
-            long result = (long) comparisonOperator.invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
-            if (result == 0) {
+            long result = (long) comparisonOperators.get(fieldIndex).invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
+            if (result != 0) {
                 return result;
             }
         }
         return 0;
     }
 
-    private static long chainComparison(long previousFieldsResult, int fieldIndex, MethodHandle nextFieldComparison, SqlRow leftRow, SqlRow rightRow)
+    private static long chainComparison(long previousFieldsResult, boolean nullsFirst, int fieldIndex, MethodHandle nextFieldComparison, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         if (previousFieldsResult != 0) {
@@ -897,16 +918,134 @@ public class RowType
         Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
         Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
 
-        checkElementNotNull(leftFieldBlock.isNull(leftRawIndex));
-        checkElementNotNull(rightFieldBlock.isNull(rightRawIndex));
+        boolean leftIsNull = leftFieldBlock.isNull(leftRawIndex);
+        boolean rightIsNull = rightFieldBlock.isNull(rightRawIndex);
+        if (leftIsNull || rightIsNull) {
+            return compareNullFields(nullsFirst, leftIsNull, rightIsNull);
+        }
 
         return (long) nextFieldComparison.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
     }
 
-    private static void checkElementNotNull(boolean isNull)
+    /// Total ordering for a field where at least one side is null. Nulls sort first when
+    /// `nullsFirst` is set (`COMPARISON_UNORDERED_FIRST`) and last otherwise
+    /// (`COMPARISON_UNORDERED_LAST`); two nulls compare equal.
+    private static long compareNullFields(boolean nullsFirst, boolean leftIsNull, boolean rightIsNull)
     {
-        if (isNull) {
-            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
+        if (leftIsNull && rightIsNull) {
+            return 0;
         }
+        if (leftIsNull) {
+            return nullsFirst ? -1 : 1;
+        }
+        return nullsFirst ? 1 : -1;
+    }
+
+    private static List<OperatorMethodHandle> getLessThanOperatorInvokers(TypeOperators typeOperators, List<Field> fields, boolean orEqual)
+    {
+        boolean orderable = fields.stream().allMatch(field -> field.getType().isOrderable());
+        if (!orderable) {
+            return emptyList();
+        }
+
+        List<MethodHandle> equalOperators = new ArrayList<>(fields.size());
+        List<MethodHandle> lessThanOperators = new ArrayList<>(fields.size());
+        for (Field field : fields) {
+            InvocationConvention fieldConvention = simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL);
+            equalOperators.add(typeOperators.getEqualOperator(field.getType(), fieldConvention));
+            lessThanOperators.add(typeOperators.getLessThanOperator(field.getType(), fieldConvention));
+        }
+
+        // for large rows, use a generic loop with a megamorphic call site
+        if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
+            return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, insertArguments(LESS_THAN, 0, orEqual, equalOperators, lessThanOperators)));
+        }
+
+        // (SqlRow, SqlRow):int
+        MethodHandle lessThan = dropArguments(constant(int.class, LESS_THAN_FIELDS_EQUAL), 0, SqlRow.class, SqlRow.class);
+        for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
+            // (SqlRow, SqlRow, int, MethodHandle, MethodHandle, SqlRow, SqlRow):int
+            lessThan = collectArguments(CHAIN_LESS_THAN, 0, lessThan);
+
+            // (SqlRow, SqlRow, SqlRow, SqlRow):int
+            lessThan = insertArguments(lessThan, 2, fieldId, equalOperators.get(fieldId), lessThanOperators.get(fieldId));
+
+            // (SqlRow, SqlRow):int
+            lessThan = permuteArguments(lessThan, methodType(int.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
+        }
+        // (SqlRow, SqlRow):Boolean
+        MethodHandle lessThanResult = filterReturnValue(lessThan, insertArguments(LESS_THAN_RESULT, 0, orEqual));
+        return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThanResult));
+    }
+
+    private static Boolean megamorphicLessThanOperator(boolean orEqual, List<MethodHandle> equalOperators, List<MethodHandle> lessThanOperators, SqlRow leftRow, SqlRow rightRow)
+            throws Throwable
+    {
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+
+        for (int fieldIndex = 0; fieldIndex < equalOperators.size(); fieldIndex++) {
+            Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+            Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+
+            if (leftFieldBlock.isNull(leftRawIndex) || rightFieldBlock.isNull(rightRawIndex)) {
+                // a null field is the deciding one, so the result is unknown
+                return null;
+            }
+
+            Boolean fieldEqual = (Boolean) equalOperators.get(fieldIndex).invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
+            if (fieldEqual == null) {
+                return null;
+            }
+            if (!fieldEqual) {
+                // the first unequal field decides the result, which is itself unknown if that field's comparison is
+                return (Boolean) lessThanOperators.get(fieldIndex).invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
+            }
+        }
+        // every field is equal
+        return orEqual ? TRUE : FALSE;
+    }
+
+    private static int chainLessThan(int previousFieldsState, int fieldIndex, MethodHandle fieldEqual, MethodHandle fieldLessThan, SqlRow leftRow, SqlRow rightRow)
+            throws Throwable
+    {
+        if (previousFieldsState != LESS_THAN_FIELDS_EQUAL) {
+            return previousFieldsState;
+        }
+
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+        Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+        Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+
+        if (leftFieldBlock.isNull(leftRawIndex) || rightFieldBlock.isNull(rightRawIndex)) {
+            return LESS_THAN_FIELD_UNKNOWN;
+        }
+
+        Boolean fieldEqualResult = (Boolean) fieldEqual.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
+        if (fieldEqualResult == null) {
+            return LESS_THAN_FIELD_UNKNOWN;
+        }
+        if (fieldEqualResult) {
+            return LESS_THAN_FIELDS_EQUAL;
+        }
+
+        Boolean fieldLessThanResult = (Boolean) fieldLessThan.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
+        if (fieldLessThanResult == null) {
+            return LESS_THAN_FIELD_UNKNOWN;
+        }
+        return fieldLessThanResult ? LESS_THAN_FIELD_LESS : LESS_THAN_FIELD_GREATER;
+    }
+
+    private static Boolean lessThanResult(boolean orEqual, int fieldsState)
+    {
+        return switch (fieldsState) {
+            case LESS_THAN_FIELD_LESS -> TRUE;
+            case LESS_THAN_FIELD_GREATER -> FALSE;
+            case LESS_THAN_FIELD_UNKNOWN -> null;
+            // every field is equal: strict less-than is false, less-than-or-equal is true
+            case LESS_THAN_FIELDS_EQUAL -> orEqual ? TRUE : FALSE;
+            default -> throw new IllegalStateException("Unexpected less-than state: " + fieldsState);
+        };
     }
 }

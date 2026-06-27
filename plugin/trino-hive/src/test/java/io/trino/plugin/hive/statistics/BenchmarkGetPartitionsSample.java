@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.getPartitionsSample;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableLongArray;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -25,12 +26,12 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -39,7 +40,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
-import static io.trino.testing.TestingMetadata.TestingColumnHandle;
 import static java.lang.Double.NaN;
 
 public class TestRemoteSourceStatsRule

@@ -60,11 +60,13 @@ class FunctionBinder
 {
     private final Metadata metadata;
     private final TypeManager typeManager;
+    private final boolean legacyVarcharToCharCoercion;
 
-    public FunctionBinder(Metadata metadata, TypeManager typeManager)
+    public FunctionBinder(Metadata metadata, TypeManager typeManager, boolean legacyVarcharToCharCoercion)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.legacyVarcharToCharCoercion = legacyVarcharToCharCoercion;
     }
 
     CatalogFunctionBinding bindFunction(List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates, String displayName)
@@ -126,7 +128,7 @@ class FunctionBinder
 
     private boolean canBindSignature(Signature declaredSignature, GroundSignature actualSignature)
     {
-        return new SignatureBinder(metadata, typeManager, declaredSignature, false)
+        return new SignatureBinder(metadata, typeManager, declaredSignature, false, legacyVarcharToCharCoercion)
                 .canBind(fromTypeDescriptors(actualSignature.argumentTypes()), actualSignature.returnType());
     }
 
@@ -186,7 +188,7 @@ class FunctionBinder
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (CatalogFunctionMetadata function : candidates) {
-            new SignatureBinder(metadata, typeManager, function.functionMetadata().getSignature(), allowCoercion)
+            new SignatureBinder(metadata, typeManager, function.functionMetadata().getSignature(), allowCoercion, legacyVarcharToCharCoercion)
                     .bind(actualParameters)
                     .ifPresent(signature -> applicableFunctions.add(new ApplicableFunction(function, signature)));
         }
@@ -336,7 +338,7 @@ class FunctionBinder
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
         List<TypeDescriptorProvider> resolvedTypes = fromTypeDescriptors(left.boundSignature().argumentTypes());
-        return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true)
+        return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true, legacyVarcharToCharCoercion)
                 .canBind(resolvedTypes);
     }
 

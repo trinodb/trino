@@ -15,6 +15,7 @@ package io.trino.plugin.geospatial.aggregation;
 
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.plugin.geospatial.GeometryType;
+import io.trino.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateFactory;
@@ -23,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 
-import static io.trino.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeometryStateSerializer

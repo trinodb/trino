@@ -51,8 +51,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
-import io.trino.sql.ir.Between;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -85,14 +84,16 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.sql.ir.TestingIr.between;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DataProviders.trueFalse;
@@ -151,8 +152,8 @@ public class TestColumnarFilters
     {
         List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
         // col IS DISTINCT FROM constant
-        Expression isDistinctFromFilter = createNotExpression(new Comparison(
-                Comparison.Operator.IDENTICAL,
+        Expression isDistinctFromFilter = createNotExpression(comparison(
+                ComparisonOperator.IDENTICAL,
                 new Constant(INTEGER, CONSTANT),
                 new Reference(INTEGER, COL_INT_A)));
         // IS DISTINCT is not supported in columnar evaluation yet
@@ -160,8 +161,8 @@ public class TestColumnarFilters
         verifyFilter(inputPages, isDistinctFromFilter);
 
         // colA IS DISTINCT FROM colB
-        isDistinctFromFilter = createNotExpression(new Comparison(
-                Comparison.Operator.IDENTICAL,
+        isDistinctFromFilter = createNotExpression(comparison(
+                ComparisonOperator.IDENTICAL,
                 new Reference(INTEGER, COL_INT_B),
                 new Reference(INTEGER, COL_INT_A)));
         // IS DISTINCT is not supported in columnar evaluation yet
@@ -254,8 +255,8 @@ public class TestColumnarFilters
     public void testNotEqual()
     {
         List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
-        Expression notEqualFilter = new Comparison(
-                Comparison.Operator.NOT_EQUAL,
+        Expression notEqualFilter = comparison(
+                ComparisonOperator.NOT_EQUAL,
                 new Constant(INTEGER, CONSTANT),
                 new Reference(INTEGER, COL_INT_A));
         // NOT_EQUAL is not supported in columnar evaluation yet
@@ -281,7 +282,7 @@ public class TestColumnarFilters
     public void testComparison(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
-        for (Comparison.Operator operator : List.of(
+        for (ComparisonOperator operator : List.of(
                 EQUAL,
                 LESS_THAN,
                 LESS_THAN_OR_EQUAL,
@@ -289,7 +290,7 @@ public class TestColumnarFilters
                 GREATER_THAN_OR_EQUAL,
                 IDENTICAL)) {
             // constant OP col
-            Expression filter = new Comparison(
+            Expression filter = comparison(
                     operator,
                     new Constant(INTEGER, CONSTANT),
                     new Reference(INTEGER, COL_INT_A));
@@ -297,7 +298,7 @@ public class TestColumnarFilters
             verifyFilter(inputPages, filter);
 
             // col OP constant
-            filter = new Comparison(
+            filter = comparison(
                     operator,
                     new Reference(DOUBLE, COL_DOUBLE),
                     new Constant(DOUBLE, (double) CONSTANT));
@@ -305,7 +306,7 @@ public class TestColumnarFilters
             verifyFilter(inputPages, filter);
 
             // colA OP colB
-            filter = new Comparison(
+            filter = comparison(
                     operator,
                     new Reference(INTEGER, COL_INT_C),
                     new Reference(INTEGER, COL_INT_A));
@@ -314,7 +315,7 @@ public class TestColumnarFilters
         }
 
         // colA IS NOT DISTINCT FROM NULL — only IDENTICAL meaningfully compares against NULL
-        Expression identicalNullFilter = new Comparison(
+        Expression identicalNullFilter = comparison(
                 IDENTICAL,
                 constantNull(INTEGER),
                 new Reference(INTEGER, COL_INT_A));
@@ -328,7 +329,7 @@ public class TestColumnarFilters
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         // col BETWEEN constantA AND constantB
-        Expression betweenFilter = new Between(
+        Expression betweenFilter = between(
                 new Reference(INTEGER, COL_INT_A),
                 new Constant(INTEGER, CONSTANT - 5),
                 new Constant(INTEGER, CONSTANT + 5));
@@ -336,16 +337,14 @@ public class TestColumnarFilters
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND constant
-        betweenFilter = new Between(
-                new Reference(INTEGER, COL_INT_A),
+        betweenFilter = between(new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Constant(INTEGER, CONSTANT + 5));
         assertThatColumnarFilterEvaluationIsSupported(betweenFilter);
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND colC
-        betweenFilter = new Between(
-                new Reference(INTEGER, COL_INT_A),
+        betweenFilter = between(new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Reference(INTEGER, COL_INT_C));
         assertThatColumnarFilterEvaluationIsSupported(betweenFilter);
@@ -410,7 +409,7 @@ public class TestColumnarFilters
 
         Expression andFilter = new Logical(Logical.Operator.AND, ImmutableList.of(
                 new Constant(BOOLEAN, false),
-                new Comparison(
+                comparison(
                         EQUAL,
                         new Reference(BIGINT, colB),
                         new Constant(BIGINT, CONSTANT))));
@@ -438,11 +437,11 @@ public class TestColumnarFilters
                 new Symbol(BIGINT, colB), 1);
 
         Expression orFilter = new Logical(Logical.Operator.OR, ImmutableList.of(
-                new Comparison(
+                comparison(
                         EQUAL,
                         new Reference(BIGINT, colA),
                         new Reference(BIGINT, colA)),
-                new Comparison(
+                comparison(
                         EQUAL,
                         new Reference(BIGINT, colB),
                         new Constant(BIGINT, CONSTANT))));

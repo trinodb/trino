@@ -18,10 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 
 import java.util.List;
 
-import static io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -20,12 +20,12 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -36,8 +36,9 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,7 +56,7 @@ public class TestRemoveRedundantInItems
     {
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"), ImmutableList.of(new Reference(BIGINT, "y")))))
-                .isEqualTo(Optional.of(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
+                .isEqualTo(Optional.of(comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
@@ -140,6 +141,6 @@ public class TestRemoveRedundantInItems
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

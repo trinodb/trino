@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -35,9 +34,10 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -64,7 +64,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
-                            new Comparison(LESS_THAN, new Reference(BIGINT, "rank_1"), new Constant(BIGINT, 100L)),
+                            comparison(LESS_THAN, new Reference(BIGINT, "rank_1"), new Constant(BIGINT, 100L)),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rankSymbol, newWindowNodeFunction(ranking, a)),
@@ -95,14 +95,14 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
-                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Constant(BIGINT, 3L), new Reference(BIGINT, "row_number_1")), new Comparison(LESS_THAN, new Reference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)))),
+                            new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Constant(BIGINT, 3L), new Reference(BIGINT, "row_number_1")), comparison(LESS_THAN, new Reference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)))),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(p.symbol("a"))));
                 })
                 .matches(filter(
-                        new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Constant(BIGINT, 3L), new Reference(BIGINT, "row_number_1")), new Comparison(LESS_THAN, new Reference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)))),
+                        new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Constant(BIGINT, 3L), new Reference(BIGINT, "row_number_1")), comparison(LESS_THAN, new Reference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)))),
                         topNRanking(
                                 pattern -> pattern
                                         .partial(false)
@@ -122,15 +122,15 @@ public class TestPushdownFilterIntoWindow
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
                             new Logical(AND, ImmutableList.of(
-                                    new Comparison(LESS_THAN, new Reference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)),
-                                    new Comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)))),
+                                    comparison(LESS_THAN, new Reference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)),
+                                    comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)))),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(p.symbol("a"))));
                 })
                 .matches(filter(
-                        new Comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)),
+                        comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)),
                         topNRanking(
                                 pattern -> pattern
                                         .partial(false)
@@ -160,7 +160,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
-                            new Comparison(LESS_THAN, new Cast(new Constant(INTEGER, 3L), BIGINT), new Reference(BIGINT, "row_number_1")),
+                            comparison(LESS_THAN, new Cast(new Constant(INTEGER, 3L), BIGINT), new Reference(BIGINT, "row_number_1")),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),

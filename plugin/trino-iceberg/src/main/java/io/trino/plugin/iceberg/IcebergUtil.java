@@ -22,6 +22,7 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -40,6 +41,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
@@ -151,10 +153,12 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_WRITER_ROW_GROUP_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -175,7 +179,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -217,8 +220,10 @@ import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -377,6 +382,14 @@ public final class IcebergUtil
         if (icebergTable.properties().containsKey(METADATA_PREVIOUS_VERSIONS_MAX)) {
             int maxPreviousVersions = parseInt(icebergTable.properties().get(METADATA_PREVIOUS_VERSIONS_MAX));
             properties.put(MAX_PREVIOUS_VERSIONS, maxPreviousVersions);
+        }
+
+        if (icebergTable.properties().containsKey(WRITE_TARGET_FILE_SIZE_BYTES)) {
+            properties.put(TARGET_MAX_FILE_SIZE, DataSize.succinctBytes(Long.parseLong(icebergTable.properties().get(WRITE_TARGET_FILE_SIZE_BYTES))));
+        }
+
+        if (icebergTable.properties().containsKey(PARQUET_ROW_GROUP_SIZE_BYTES)) {
+            properties.put(PARQUET_WRITER_ROW_GROUP_SIZE, DataSize.succinctBytes(Long.parseLong(icebergTable.properties().get(PARQUET_ROW_GROUP_SIZE_BYTES))));
         }
 
         // iceberg ORC format bloom filter properties
@@ -1021,6 +1034,11 @@ public final class IcebergUtil
             }
         }
 
+        IcebergTableProperties.getTargetMaxFileSize(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(value.toBytes())));
+        IcebergTableProperties.getParquetWriterRowGroupSize(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(value.toBytes())));
+
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
@@ -1351,7 +1369,7 @@ public final class IcebergUtil
     public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, FileIO fileIO, Map<Integer, PartitionSpec> specsById)
     {
         return switch (manifest.content()) {
-            case DATA -> ManifestFiles.read(manifest, fileIO);
+            case DATA -> ManifestFiles.read(manifest, fileIO, specsById);
             case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
         };
     }

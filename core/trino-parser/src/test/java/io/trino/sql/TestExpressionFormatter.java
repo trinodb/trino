@@ -14,16 +14,27 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.IntervalField.Day;
+import io.trino.sql.tree.IntervalField.Hour;
+import io.trino.sql.tree.IntervalField.Minute;
+import io.trino.sql.tree.IntervalField.Month;
+import io.trino.sql.tree.IntervalField.Second;
+import io.trino.sql.tree.IntervalField.Year;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.Overlay;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SimpleIntervalQualifier;
@@ -35,12 +46,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.sql.parser.ParserAssert.expression;
-import static io.trino.sql.tree.IntervalField.Day;
-import static io.trino.sql.tree.IntervalField.Hour;
-import static io.trino.sql.tree.IntervalField.Minute;
-import static io.trino.sql.tree.IntervalField.Month;
-import static io.trino.sql.tree.IntervalField.Second;
-import static io.trino.sql.tree.IntervalField.Year;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -254,6 +259,18 @@ public class TestExpressionFormatter
                 "(x).pad(5, pad => '-')");
     }
 
+    @Test
+    public void testExtendedCase()
+    {
+        // SQL:2023 F262: a simple-CASE WHEN clause may carry a predicate fragment. Formatting one
+        // must render the fragment — visitWhenClause previously threw on WhenClause.getOperand().
+        Expression extendedCase = new SqlParser().createExpression(
+                "CASE x WHEN > 100 THEN 'big' WHEN BETWEEN 1 AND 10 THEN 'small' WHEN IS NULL THEN 'unknown' ELSE 'other' END");
+        assertThat(expression(ExpressionFormatter.formatExpression(extendedCase)))
+                .ignoringLocation()
+                .isEqualTo(extendedCase);
+    }
+
     private static Row createRow(String... fieldNames)
     {
         ImmutableList.Builder<Row.Field> fields = ImmutableList.builder();
@@ -266,6 +283,48 @@ public class TestExpressionFormatter
     private static Row.Field createRowField(String fieldName, Expression expression)
     {
         return new Row.Field(new NodeLocation(1, 1), Optional.ofNullable(fieldName).map(Identifier::new), expression);
+    }
+
+    @Test
+    public void testBetween()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+        LongLiteral value = new LongLiteral(location, "1");
+        LongLiteral min = new LongLiteral(location, "2");
+        LongLiteral max = new LongLiteral(location, "3");
+
+        // No keyword: nothing is emitted, and the round-trip stays keyword-free.
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, false, Optional.empty(), min, max)),
+                "(1 BETWEEN 2 AND 3)");
+        // An explicit ASYMMETRIC is preserved (distinct from the keyword-free form above).
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, false, Optional.of(Symmetry.ASYMMETRIC), min, max)),
+                "(1 BETWEEN ASYMMETRIC 2 AND 3)");
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, false, Optional.of(Symmetry.SYMMETRIC), min, max)),
+                "(1 BETWEEN SYMMETRIC 2 AND 3)");
+        assertFormattedExpression(
+                new Predicated(location, value, new BetweenPredicate(location, true, Optional.of(Symmetry.SYMMETRIC), min, max)),
+                "(1 NOT BETWEEN SYMMETRIC 2 AND 3)");
+    }
+
+    @Test
+    public void testOverlay()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+        StringLiteral value = new StringLiteral("abcdef");
+        StringLiteral replacement = new StringLiteral("XY");
+        LongLiteral start = new LongLiteral(location, "3");
+        LongLiteral length = new LongLiteral(location, "2");
+
+        assertFormattedExpression(
+                new Overlay(location, value, replacement, start, Optional.empty()),
+                "OVERLAY('abcdef' PLACING 'XY' FROM 3)");
+
+        assertFormattedExpression(
+                new Overlay(location, value, replacement, start, Optional.of(length)),
+                "OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR 2)");
     }
 
     private void assertFormattedExpression(Expression expression, String expected)

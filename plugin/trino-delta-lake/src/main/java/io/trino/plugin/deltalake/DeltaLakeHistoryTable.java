@@ -31,6 +31,7 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -47,7 +48,8 @@ public class DeltaLakeHistoryTable
             DeltaMetastoreTable table,
             DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         super(requireNonNull(table, "table is null"),
                 fileSystemFactory,
@@ -68,7 +70,8 @@ public class DeltaLakeHistoryTable
                                 .add(new ColumnMetadata("is_blind_append", BOOLEAN))
                                 .add(new ColumnMetadata("operation_metrics", new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators())))
                                 // TODO add support for userMetadata, engineInfo
-                                .build()));
+                                .build()),
+                tableCredentials);
     }
 
     @Override

@@ -13,12 +13,14 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3Context.S3SseContext;
+import io.trino.filesystem.s3.S3FileSystemConfig.SignerType;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
@@ -27,11 +29,16 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.auth.aws.scheme.AwsV4AuthScheme;
+import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
+import software.amazon.awssdk.http.auth.spi.scheme.AuthSchemeOption;
+import software.amazon.awssdk.http.auth.spi.signer.SignerProperty;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
@@ -44,6 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
@@ -53,7 +61,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
-import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.SIGNER;
 
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
@@ -158,6 +165,7 @@ final class S3FileSystemLoader
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
+        Optional<S3AuthSchemeProvider> authSchemeProvider = config.getSignerType().map(S3FileSystemLoader::createAuthSchemeProvider);
 
         return mapping -> {
             Optional<AwsCredentialsProvider> credentialsProvider = mapping
@@ -177,6 +185,7 @@ final class S3FileSystemLoader
             s3.responseChecksumValidation(WHEN_REQUIRED);
             s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
             s3.addPlugin(LegacyMd5Plugin.create());
+            authSchemeProvider.ifPresent(s3::authSchemeProvider);
 
             region.map(Region::of).ifPresent(s3::region);
             endpoint.map(URI::create).ifPresent(s3::endpointOverride);
@@ -205,10 +214,9 @@ final class S3FileSystemLoader
         };
     }
 
-    @SuppressWarnings("deprecation")
     private static ClientOverrideConfiguration createOverrideConfiguration(OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
     {
-        ClientOverrideConfiguration.Builder builder = ClientOverrideConfiguration.builder()
+        return ClientOverrideConfiguration.builder()
                 .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
@@ -217,9 +225,43 @@ final class S3FileSystemLoader
                         .maxAttempts(config.getMaxErrorRetries())
                         .build())
                 .appId(config.getApplicationId())
-                .addMetricPublisher(metricPublisher);
-        config.getSignerType().ifPresent(signer -> builder.putAdvancedOption(SIGNER, signer.create()));
+                .addMetricPublisher(metricPublisher)
+                .build();
+    }
+
+    static S3AuthSchemeProvider createAuthSchemeProvider(SignerType signerType)
+    {
+        Map<SignerProperty<?>, Object> signerProperties = switch (signerType) {
+            case AwsS3V4Signer -> ImmutableMap.of();
+            case Aws4Signer, AsyncAws4Signer, EventStreamAws4Signer -> ImmutableMap.of(
+                    AwsV4HttpSigner.DOUBLE_URL_ENCODE, true,
+                    AwsV4HttpSigner.NORMALIZE_PATH, true);
+            case Aws4UnsignedPayloadSigner -> ImmutableMap.of(
+                    AwsV4HttpSigner.DOUBLE_URL_ENCODE, true,
+                    AwsV4HttpSigner.NORMALIZE_PATH, true,
+                    AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED, false);
+        };
+
+        S3AuthSchemeProvider delegate = S3AuthSchemeProvider.defaultProvider();
+        return params -> delegate.resolveAuthScheme(params).stream()
+                .map(option -> applySignerProperties(option, signerProperties))
+                .collect(toImmutableList());
+    }
+
+    private static AuthSchemeOption applySignerProperties(AuthSchemeOption option, Map<SignerProperty<?>, Object> signerProperties)
+    {
+        if (signerProperties.isEmpty() || !option.schemeId().equals(AwsV4AuthScheme.SCHEME_ID)) {
+            return option;
+        }
+        AuthSchemeOption.Builder builder = option.toBuilder();
+        signerProperties.forEach((property, value) -> putSignerProperty(builder, property, value));
         return builder.build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> void putSignerProperty(AuthSchemeOption.Builder builder, SignerProperty<?> property, Object value)
+    {
+        builder.putSignerProperty((SignerProperty<T>) property, (T) value);
     }
 
     private static SdkHttpClient createHttpClient(S3FileSystemConfig config)

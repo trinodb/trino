@@ -78,6 +78,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
         polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.toString()));
 
         return IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")

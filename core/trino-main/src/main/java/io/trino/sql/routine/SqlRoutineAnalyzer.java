@@ -377,7 +377,7 @@ public class SqlRoutineAnalyzer
         private final Type returnType;
 
         private final Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
-        private final TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        private final TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
         public StatementVisitor(Session session, AccessControl accessControl, Type returnType)
         {

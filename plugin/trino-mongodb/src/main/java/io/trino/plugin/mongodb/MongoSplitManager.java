@@ -13,28 +13,28 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.FixedSplitSource;
 
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.plugin.mongodb.MongoSessionProperties.getDynamicFilteringWaitTimeout;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class MongoSplitManager
         implements ConnectorSplitManager
 {
-    private static final ConnectorSplitSource.ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitSource.ConnectorSplitBatch(ImmutableList.of(), false);
-
     private final MongoServerDetailsProvider serverDetailsProvider;
 
     @Inject
@@ -48,42 +48,36 @@ public class MongoSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
+        long dynamicFilteringWaitTimeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
         MongoSplit split = new MongoSplit(serverDetailsProvider.getServerAddress());
-        return new MongoSplitSource(session, dynamicFilter, new FixedSplitSource(split));
+        return new MongoSplitSource(dynamicFilteringWaitTimeoutMillis, new FixedSplitSource(split));
     }
 
     private static class MongoSplitSource
             implements ConnectorSplitSource
     {
-        private final DynamicFilter dynamicFilter;
-        private final long startNanos;
-        private final long dynamicFilteringTimeoutNanos;
-
+        private final long dynamicFilteringWaitTimeoutMillis;
         private final ConnectorSplitSource delegateSplitSource;
 
-        public MongoSplitSource(ConnectorSession session, DynamicFilter dynamicFilter, ConnectorSplitSource delegateSplitSource)
+        public MongoSplitSource(long dynamicFilteringWaitTimeoutMillis, ConnectorSplitSource delegateSplitSource)
         {
-            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-            this.dynamicFilteringTimeoutNanos = (long) getDynamicFilteringWaitTimeout(session).getValue(NANOSECONDS);
-            this.startNanos = System.nanoTime();
+            this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeoutMillis;
             this.delegateSplitSource = requireNonNull(delegateSplitSource, "delegateSplitSource is null");
         }
 
         @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+        public long getRequestedDynamicFilterWaitTimeoutMillis()
         {
-            long remainingTimeoutNanos = getRemainingTimeoutNanos();
-            if (remainingTimeoutNanos > 0 && dynamicFilter.isAwaitable()) {
-                // wait for dynamic filter and yield
-                return dynamicFilter.isBlocked()
-                        .thenApply(_ -> EMPTY_BATCH)
-                        .completeOnTimeout(EMPTY_BATCH, remainingTimeoutNanos, NANOSECONDS);
-            }
+            return dynamicFilteringWaitTimeoutMillis;
+        }
 
-            return delegateSplitSource.getNextBatch(maxSize);
+        @Override
+        public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
+        {
+            return delegateSplitSource.getNextBatch(maxSize, dynamicFilterSnapshot);
         }
 
         @Override
@@ -95,16 +89,7 @@ public class MongoSplitManager
         @Override
         public boolean isFinished()
         {
-            if (getRemainingTimeoutNanos() > 0 && dynamicFilter.isAwaitable()) {
-                return false;
-            }
-
             return delegateSplitSource.isFinished();
-        }
-
-        private long getRemainingTimeoutNanos()
-        {
-            return dynamicFilteringTimeoutNanos - (System.nanoTime() - startNanos);
         }
     }
 }

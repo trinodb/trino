@@ -59,12 +59,12 @@ class BuiltinFunctionResolver
     private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
     private final NonEvictableCache<FunctionCacheKey, ResolvedFunction> functionCache;
 
-    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog)
+    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog, boolean legacyVarcharToCharCoercion)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        this.functionBinder = new FunctionBinder(metadata, typeManager);
+        this.functionBinder = new FunctionBinder(metadata, typeManager, legacyVarcharToCharCoercion);
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         coercionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
@@ -167,6 +167,7 @@ class BuiltinFunctionResolver
     private Collection<CatalogFunctionMetadata> getBuiltinFunctions(String functionName)
     {
         return globalFunctionCatalog.getBuiltInFunctions(functionName).stream()
+                .filter(function -> !function.isMethod())
                 .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
     }

@@ -6450,7 +6450,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("CREATE TABLE test_table_with_char_rc WITH (format = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);
         try {
             assertQuery(
-                    "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
+                    "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki'",
                     "VALUES ('khaki  ')");
         }
         finally {

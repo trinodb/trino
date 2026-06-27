@@ -20,6 +20,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
@@ -33,7 +34,6 @@ import java.util.Set;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 

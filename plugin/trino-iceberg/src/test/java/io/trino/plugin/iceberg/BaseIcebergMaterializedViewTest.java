@@ -71,7 +71,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
-import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
@@ -1474,8 +1473,8 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testSplitOffsetsOnStorageTable()
     {
         String materializedViewName = "test_split_offsets_" + randomNameSuffix();
-        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM tpch.tiny.nation", materializedViewName));
-        assertUpdate(withSmallRowGroups(getSession()), "REFRESH MATERIALIZED VIEW " + materializedViewName, 25);
+        computeActual(format("CREATE MATERIALIZED VIEW %s WITH (parquet_writer_row_group_size = '1kB') AS SELECT * FROM tpch.tiny.nation", materializedViewName));
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 25);
 
         assertQueryStats(
                 getSession(),

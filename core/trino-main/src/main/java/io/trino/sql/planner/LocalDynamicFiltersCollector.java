@@ -25,6 +25,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.DynamicFilters.Descriptor;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
@@ -41,7 +42,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
-import static io.trino.sql.DynamicFilters.Descriptor;
 import static io.trino.sql.DynamicFilters.extractSourceSymbols;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static java.lang.String.format;

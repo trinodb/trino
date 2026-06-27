@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -31,18 +31,18 @@ public class TestDeltaLakeDelete
         extends AbstractTestQueryFramework
 {
     private final String bucketName = "test-delta-lake-connector-test-" + randomNameSuffix();
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private Hive3FlociDataLake hiveFlociDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
         return DeltaLakeQueryRunner.builder()
-                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
-                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
+                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
@@ -93,7 +93,7 @@ public class TestDeltaLakeDelete
 
     private void testDeleteMultiFile(String tableName, String resourcePath)
     {
-        hiveMinioDataLake.copyResources(resourcePath + "/lineitem", tableName);
+        hiveFlociDataLake.floci().copyResources(resourcePath + "/lineitem", bucketName, tableName);
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')", tableName, bucketName, tableName));
 
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT count(*) FROM lineitem");
@@ -162,15 +162,15 @@ public class TestDeltaLakeDelete
                 .addAll(originalFiles)
                 .add(tableName + "/_delta_log/00000000000000000021.json")
                 .build();
-        assertThat(hiveMinioDataLake.listFiles(tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
+        assertThat(hiveFlociDataLake.floci().listObjects(bucketName, tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
     }
 
     @Test
     public void testDeleteAllOssDeltaLake()
     {
         String tableName = "test_delete_all_deltalake";
-        hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/ossdeltalake/customer", tableName);
-        Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
+        hiveFlociDataLake.floci().copyResources("io/trino/plugin/deltalake/testing/resources/ossdeltalake/customer", bucketName, tableName);
+        Set<String> originalFiles = ImmutableSet.copyOf(hiveFlociDataLake.floci().listObjects(bucketName, tableName));
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')", tableName, bucketName, tableName));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
         // There are `add` files in the transaction log without stats, reason why the DELETE statement on the whole table
@@ -181,13 +181,13 @@ public class TestDeltaLakeDelete
                 .addAll(originalFiles)
                 .add(tableName + "/_delta_log/00000000000000000001.json")
                 .build();
-        assertThat(hiveMinioDataLake.listFiles(tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
+        assertThat(hiveFlociDataLake.floci().listObjects(bucketName, tableName)).containsExactlyInAnyOrder(expected.toArray(new String[0]));
     }
 
     private Set<String> testDeleteAllAndReturnInitialDataLakeFilesSet(String tableName, String resourcePath)
     {
-        hiveMinioDataLake.copyResources(resourcePath + "/customer", tableName);
-        Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
+        hiveFlociDataLake.floci().copyResources(resourcePath + "/customer", bucketName, tableName);
+        Set<String> originalFiles = ImmutableSet.copyOf(hiveFlociDataLake.floci().listObjects(bucketName, tableName));
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')", tableName, bucketName, tableName));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
         assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM customer");

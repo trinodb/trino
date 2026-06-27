@@ -84,6 +84,7 @@ public class IcebergConfig
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
+    private Optional<DataSize> maxSplitSize = Optional.empty();
     // This is meant to protect users who are misusing schema locations (by
     // putting schemas in locations with extraneous files), so default to false
     // to avoid deleting those files if Trino is unable to check.
@@ -401,6 +402,19 @@ public class IcebergConfig
     public IcebergConfig setIdleWriterMinFileSize(DataSize idleWriterMinFileSize)
     {
         this.idleWriterMinFileSize = idleWriterMinFileSize;
+        return this;
+    }
+
+    public Optional<DataSize> getMaxSplitSize()
+    {
+        return maxSplitSize;
+    }
+
+    @Config("iceberg.max-split-size")
+    @ConfigDescription("Target maximum split size for Iceberg tables")
+    public IcebergConfig setMaxSplitSize(DataSize maxSplitSize)
+    {
+        this.maxSplitSize = Optional.ofNullable(maxSplitSize);
         return this;
     }
 

@@ -27,11 +27,13 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReader;
+import io.trino.orc.OrcReader.ProjectedLayout;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
@@ -89,6 +91,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.MemoryContext;
+import io.trino.spi.connector.MemoryUsageReportingPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -157,9 +161,9 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.serde.JtsGeometrySerde.OGC_CRS84_SRID;
 import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
+import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.trino.orc.OrcReader.ProjectedLayout;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -275,7 +279,8 @@ public class IcebergPageSourceProvider
             ConnectorTableHandle connectorTable,
             Optional<ConnectorTableCredentials> connectorTableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         verify(connectorTableCredentials.isPresent(), "connectorTableCredentials is empty");
         IcebergTableCredentials icebergTableCredentials = connectorTableCredentials.map(IcebergTableCredentials.class::cast).get();
@@ -319,7 +324,8 @@ public class IcebergPageSourceProvider
                 icebergTableCredentials,
                 split.dataSequenceNumber(),
                 split.fileFirstRowId(),
-                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson),
+                newAggregatedMemoryContext(memoryContext));
     }
 
     public ConnectorPageSource createPageSource(
@@ -341,7 +347,8 @@ public class IcebergPageSourceProvider
             IcebergTableCredentials tableCredentials,
             OptionalLong dataSequenceNumber,
             OptionalLong fileFirstRowId,
-            Optional<NameMapping> nameMapping)
+            Optional<NameMapping> nameMapping,
+            AggregatedMemoryContext memoryContext)
     {
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
         TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
@@ -398,7 +405,8 @@ public class IcebergPageSourceProvider
                 partition,
                 partitionKeys,
                 dataSequenceNumber,
-                fileFirstRowId);
+                fileFirstRowId,
+                memoryContext.newAggregatedMemoryContext());
 
         ConnectorPageSource pageSource = readerPageSourceWithRowPositions.pageSource();
 
@@ -414,7 +422,7 @@ public class IcebergPageSourceProvider
                             readerPageSourceWithRowPositions.startRowPosition(),
                             readerPageSourceWithRowPositions.endRowPosition(),
                             deleteFile -> readDeletionVector(fileSystem, deleteFile),
-                            (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
+                            (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext())));
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {
                     Optional<PageFilter> pageFilter = deletePredicate.get();
@@ -546,7 +554,8 @@ public class IcebergPageSourceProvider
             TrinoFileSystem fileSystem,
             DeleteFile delete,
             List<IcebergColumnHandle> columns,
-            TupleDomain<IcebergColumnHandle> tupleDomain)
+            TupleDomain<IcebergColumnHandle> tupleDomain,
+            AggregatedMemoryContext memoryContext)
     {
         return createDataPageSource(
                 session,
@@ -564,7 +573,8 @@ public class IcebergPageSourceProvider
                 "",
                 ImmutableMap.of(),
                 OptionalLong.empty(),
-                OptionalLong.empty())
+                OptionalLong.empty(),
+                memoryContext)
                 .pageSource();
     }
 
@@ -584,7 +594,8 @@ public class IcebergPageSourceProvider
             String partition,
             Map<Integer, Optional<String>> partitionKeys,
             OptionalLong dataSequenceNumber,
-            OptionalLong fileFirstRowId)
+            OptionalLong fileFirstRowId,
+            AggregatedMemoryContext memoryContext)
     {
         return switch (fileFormat) {
             case ORC -> createOrcPageSource(
@@ -611,7 +622,8 @@ public class IcebergPageSourceProvider
                     partition,
                     partitionKeys,
                     dataSequenceNumber,
-                    fileFirstRowId);
+                    fileFirstRowId,
+                    memoryContext);
             case PARQUET -> createParquetPageSource(
                     inputFile,
                     start,
@@ -638,7 +650,8 @@ public class IcebergPageSourceProvider
                     partition,
                     partitionKeys,
                     dataSequenceNumber,
-                    fileFirstRowId);
+                    fileFirstRowId,
+                    memoryContext);
             case AVRO -> createAvroPageSource(
                     inputFile,
                     start,
@@ -652,7 +665,8 @@ public class IcebergPageSourceProvider
                     partitionKeys,
                     typeManager,
                     dataSequenceNumber,
-                    fileFirstRowId);
+                    fileFirstRowId,
+                    memoryContext);
         };
     }
 
@@ -707,7 +721,8 @@ public class IcebergPageSourceProvider
             String partition,
             Map<Integer, Optional<String>> partitionKeys,
             OptionalLong dataSequenceNumber,
-            OptionalLong fileFirstRowId)
+            OptionalLong fileFirstRowId,
+            AggregatedMemoryContext memoryContext)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -843,7 +858,6 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
             OrcDataSourceId orcDataSourceId = orcDataSource.getId();
             OrcRecordReader recordReader = reader.createRecordReader(
                     fileReadColumns,
@@ -854,7 +868,7 @@ public class IcebergPageSourceProvider
                     start,
                     length,
                     UTC,
-                    memoryUsage,
+                    memoryContext,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSourceId, exception),
                     new IdBasedFieldMapperFactory(baseColumns));
@@ -864,7 +878,7 @@ public class IcebergPageSourceProvider
                     orcDataSource,
                     Optional.empty(),
                     Optional.empty(),
-                    memoryUsage,
+                    memoryContext,
                     stats,
                     reader.getCompressionKind());
 
@@ -1061,10 +1075,9 @@ public class IcebergPageSourceProvider
             String partition,
             Map<Integer, Optional<String>> partitionKeys,
             OptionalLong dataSequenceNumber,
-            OptionalLong fileFirstRowId)
+            OptionalLong fileFirstRowId,
+            AggregatedMemoryContext memoryContext)
     {
-        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-
         ParquetDataSource dataSource = null;
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
@@ -1320,7 +1333,8 @@ public class IcebergPageSourceProvider
             Map<Integer, Optional<String>> partitionKeys,
             TypeManager typeManager,
             OptionalLong dataSequenceNumber,
-            OptionalLong fileFirstRowId)
+            OptionalLong fileFirstRowId,
+            AggregatedMemoryContext memoryContext)
     {
         InputFile file = new ForwardingInputFile(inputFile);
         OptionalLong fileModifiedTime = OptionalLong.empty();
@@ -1449,6 +1463,16 @@ public class IcebergPageSourceProvider
                     dataSequenceNumber,
                     newSimpleAggregatedMemoryContext());
             pageSource = transforms.build(pageSource);
+            pageSource = new MemoryUsageReportingPageSource(pageSource, new MemoryContext()
+            {
+                private final LocalMemoryContext localMemoryContext = memoryContext.newLocalMemoryContext(IcebergAvroPageSource.class.getSimpleName());
+
+                @Override
+                public void setBytes(long currentBytes)
+                {
+                    localMemoryContext.setBytes(currentBytes);
+                }
+            });
 
             return new ReaderPageSourceWithRowPositions(
                     pageSource,

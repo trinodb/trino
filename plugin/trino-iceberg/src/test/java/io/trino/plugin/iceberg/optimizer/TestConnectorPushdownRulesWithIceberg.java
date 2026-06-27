@@ -40,7 +40,6 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -71,7 +70,8 @@ import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -270,13 +270,13 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p ->
                         p.filter(
-                                new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                                comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("a", INTEGER)),
                                         ImmutableMap.of(p.symbol("a", INTEGER), column))))
                 .matches(filter(
-                        new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                        comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                         tableScan(
                                 tableHandle -> ((IcebergTableHandle) tableHandle).getUnenforcedPredicate().getDomains().get()
                                         .equals(ImmutableMap.of(column, Domain.singleValue(INTEGER, 5L))),

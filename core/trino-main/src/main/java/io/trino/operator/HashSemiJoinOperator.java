@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.SetBuilderOperator.SetSupplier;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
@@ -76,10 +75,10 @@ public class HashSemiJoinOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new HashSemiJoinOperator(sourcePages, setSupplier, probeJoinChannel, processorContext.getMemoryTrackingContext());
+            return new HashSemiJoinOperator(operatorContext, sourcePages, setSupplier, probeJoinChannel);
         }
 
         @Override
@@ -116,16 +115,16 @@ public class HashSemiJoinOperator
     private final WorkProcessor<Page> pages;
 
     private HashSemiJoinOperator(
+            OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages,
             SetSupplier channelSetFuture,
-            int probeJoinChannel,
-            MemoryTrackingContext memoryTrackingContext)
+            int probeJoinChannel)
     {
         pages = sourcePages
                 .transform(new SemiJoinPages(
                         channelSetFuture,
                         probeJoinChannel,
-                        memoryTrackingContext.aggregateUserMemoryContext()));
+                        operatorContext.aggregateUserMemoryContext()));
     }
 
     @Override

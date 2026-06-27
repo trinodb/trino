@@ -60,6 +60,7 @@ import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
 import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.security.AccessControlMetadata;
@@ -291,7 +292,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
-import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
@@ -592,7 +592,7 @@ public class HiveMetadata
 
             handle = handle.withAnalyzePartitionValues(list);
             HivePartitionResult partitions = partitionManager.getPartitions(handle, list);
-            handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue());
+            handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue(), partitions.getPrepared());
         }
 
         if (analyzeColumnNames.isPresent()) {
@@ -947,7 +947,7 @@ public class HiveMetadata
 
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
-        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()));
+        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()), session);
         // If partitions are not loaded, then don't generate table statistics.
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
@@ -3029,7 +3029,7 @@ public class HiveMetadata
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, handle);
+            Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, handle, session);
             List<String> partitionIds = new ArrayList<>();
             while (partitions.hasNext()) {
                 partitionIds.add(partitions.next().getPartitionId());
@@ -3067,7 +3067,7 @@ public class HiveMetadata
                         // We load the partitions to compute the predicates enforced by the table.
                         // Note that the computation is not persisted in the table handle, so can be redone many times
                         // TODO: https://github.com/trinodb/trino/issues/10980.
-                        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
+                        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()), session);
                         return partitionManager.tryLoadPartitions(partitionResult);
                     });
 
@@ -3127,8 +3127,8 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         checkArgument(handle.getAnalyzePartitionValues().isEmpty() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
-        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint);
-        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint);
+        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint, session);
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint, partitionResult.getPrepared());
 
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getPartitionNames().equals(newHandle.getPartitionNames()) &&

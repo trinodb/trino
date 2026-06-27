@@ -20,7 +20,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.Rule;
@@ -32,7 +31,8 @@ import io.trino.sql.planner.plan.ProjectNode;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Except.distinct;
 import static io.trino.sql.planner.plan.Patterns.except;
 import static java.util.Objects.requireNonNull;
@@ -109,7 +109,7 @@ public class ImplementExceptAll
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = new Comparison(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), count);
+        Expression removeExtraRows = comparison(metadata, LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), count);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.getPlanNode(),

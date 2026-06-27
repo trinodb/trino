@@ -27,6 +27,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -115,6 +116,10 @@ public final class DynamicPageFilter
         if (currentPredicate.isAll()) {
             return SelectAllEvaluator::new;
         }
+        // There is no planning context here; seed the allocator with the layout symbols so that a
+        // symbol introduced by a rule (e.g. a Let binding) cannot collide with a column reference
+        // in the expression handed to codegen below.
+        SymbolAllocator symbolAllocator = new SymbolAllocator(columnHandles.values());
         // We translate each conjunct into separate FilterEvaluator to make it easy to profile selectivity
         // of dynamic filter per column and drop them if they're ineffective
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = currentPredicate.getDomains().orElseThrow()
@@ -123,7 +128,7 @@ public final class DynamicPageFilter
                     Symbol symbol = columnHandles.get(entry.getKey());
                     Expression expression = domainTranslator.toPredicate(entry.getValue(), symbol.toSymbolReference());
                     // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
-                    expression = irExpressionOptimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
+                    expression = irExpressionOptimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
                     return createColumnarFilterEvaluator(expression, sourceLayout, compiler, filterReorderingEnabled);
                 })
                 .filter(Optional::isPresent)
