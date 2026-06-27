@@ -212,7 +212,9 @@ public class TestTrinoDatabaseMetaData
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             ResultSet typeInfo = metaData.getTypeInfo();
+            List<String> typeNames = new ArrayList<>();
             while (typeInfo.next()) {
+                typeNames.add(typeInfo.getString("TYPE_NAME"));
                 int jdbcType = typeInfo.getInt("DATA_TYPE");
                 switch (jdbcType) {
                     case Types.BIGINT:
@@ -238,6 +240,8 @@ public class TestTrinoDatabaseMetaData
                         break;
                 }
             }
+            assertThat(typeNames).contains("timestamp with time zone", "time with time zone", "interval day to second", "interval year to month");
+            assertThat(typeNames).noneMatch(name -> name.startsWith("$"));
         }
     }
 

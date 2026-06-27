@@ -51,6 +51,15 @@ class TestTypeSyntax
     }
 
     @Test
+    void testBareSpecialTypes()
+    {
+        assertThat(TypeSyntax.toSql(new TypeDescriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))).isEqualTo("timestamp with time zone");
+        assertThat(TypeSyntax.toSql(new TypeDescriptor(StandardTypes.TIME_WITH_TIME_ZONE))).isEqualTo("time with time zone");
+        assertThat(TypeSyntax.toSql(new TypeDescriptor(StandardTypes.INTERVAL_DAY_TO_SECOND))).isEqualTo("interval day to second");
+        assertThat(TypeSyntax.toSql(new TypeDescriptor(StandardTypes.INTERVAL_YEAR_TO_MONTH))).isEqualTo("interval year to month");
+    }
+
+    @Test
     void testOpenTypeSurface()
     {
         // A bare type variable renders as its name.
