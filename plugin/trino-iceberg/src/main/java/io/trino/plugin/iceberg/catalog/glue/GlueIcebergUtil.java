@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.TypeConverter;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSyntax;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.types.Type;
@@ -137,7 +138,7 @@ public final class GlueIcebergUtil
                     !GLUE_COLUMN_COMMENT_PATTERN.matcher(columnComment).matches()) {
                 return Optional.empty();
             }
-            String trinoTypeId = TypeConverter.toTrinoType(icebergColumn.type(), typeManager).getTypeId().getId();
+            String trinoTypeId = TypeSyntax.toSql(TypeConverter.toTrinoType(icebergColumn.type(), typeManager).getTypeDescriptor());
             Column.Builder column = Column.builder()
                     .name(icebergColumn.name())
                     .type(glueTypeString)
