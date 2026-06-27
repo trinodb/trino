@@ -451,7 +451,7 @@ public final class DateTimeFunctions
     @Description("Millisecond of the second of the given interval")
     @ScalarFunction(value = "millisecond", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
+    public static long millisecondFromInterval(@SqlType("interval day to second") long milliseconds)
     {
         return milliseconds % MILLISECONDS_IN_SECOND;
     }
@@ -459,7 +459,7 @@ public final class DateTimeFunctions
     @Description("Second of the minute of the given interval")
     @ScalarFunction(value = "second", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
-    public static long secondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
+    public static long secondFromInterval(@SqlType("interval day to second") long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_MINUTE) / MILLISECONDS_IN_SECOND;
     }
@@ -467,7 +467,7 @@ public final class DateTimeFunctions
     @Description("Minute of the hour of the given interval")
     @ScalarFunction(value = "minute", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
-    public static long minuteFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
+    public static long minuteFromInterval(@SqlType("interval day to second") long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_HOUR) / MILLISECONDS_IN_MINUTE;
     }
@@ -475,7 +475,7 @@ public final class DateTimeFunctions
     @Description("Hour of the day of the given interval")
     @ScalarFunction(value = "hour", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
-    public static long hourFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
+    public static long hourFromInterval(@SqlType("interval day to second") long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_DAY) / MILLISECONDS_IN_HOUR;
     }
@@ -499,7 +499,7 @@ public final class DateTimeFunctions
     @Description("Day of the month of the given interval")
     @ScalarFunction(value = "day", alias = "day_of_month", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
-    public static long dayFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
+    public static long dayFromInterval(@SqlType("interval day to second") long milliseconds)
     {
         return milliseconds / MILLISECONDS_IN_DAY;
     }
@@ -548,7 +548,7 @@ public final class DateTimeFunctions
     @Description("Month of the year of the given interval")
     @ScalarFunction(value = "month", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
-    public static long monthFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
+    public static long monthFromInterval(@SqlType("interval year to month") long months)
     {
         return months % 12;
     }
@@ -572,7 +572,7 @@ public final class DateTimeFunctions
     @Description("Year of the given interval")
     @ScalarFunction(value = "year", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
-    public static long yearFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
+    public static long yearFromInterval(@SqlType("interval year to month") long months)
     {
         return months / 12;
     }
@@ -731,7 +731,7 @@ public final class DateTimeFunctions
     @Description("Convert duration string to an interval")
     @ScalarFunction("parse_duration")
     @LiteralParameters("x")
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    @SqlType("interval day to second")
     public static long parseDuration(@SqlType("varchar(x)") Slice duration)
     {
         try {
@@ -744,7 +744,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction("to_milliseconds")
     @SqlType(StandardTypes.BIGINT)
-    public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    public static long toMilliseconds(@SqlType("interval day to second") long value)
     {
         return value;
     }

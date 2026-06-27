@@ -17,7 +17,6 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -32,14 +31,14 @@ public final class AtTimeZoneWithOffset
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p) with time zone")
-    public static long atTimeZone(@SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
+    public static long atTimeZone(@SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("interval day to second") long zoneOffset)
     {
         return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis), getTimeZoneKeyForOffset(getZoneOffsetMinutes(zoneOffset)));
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p) with time zone")
-    public static LongTimestampWithTimeZone atTimeZone(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
+    public static LongTimestampWithTimeZone atTimeZone(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("interval day to second") long zoneOffset)
     {
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKeyForOffset(getZoneOffsetMinutes(zoneOffset)));
     }

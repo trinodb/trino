@@ -45,8 +45,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long add(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @SqlType("interval year to month")
+    public static long add(@SqlType("interval year to month") long left, @SqlType("interval year to month") long right)
     {
         try {
             return addExact(toIntExact(left), toIntExact(right));
@@ -58,8 +58,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long subtract(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @SqlType("interval year to month")
+    public static long subtract(@SqlType("interval year to month") long left, @SqlType("interval year to month") long right)
     {
         try {
             return subtractExact(toIntExact(left), toIntExact(right));
@@ -71,8 +71,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long multiplyByBigint(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.BIGINT) long right)
+    @SqlType("interval year to month")
+    public static long multiplyByBigint(@SqlType("interval year to month") long left, @SqlType(StandardTypes.BIGINT) long right)
     {
         try {
             return toIntExact(multiplyExact(left, right));
@@ -84,8 +84,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType("interval year to month")
+    public static long multiplyByDouble(@SqlType("interval year to month") long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         if (Double.isNaN(right)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
@@ -95,8 +95,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @SqlType("interval year to month")
+    public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType("interval year to month") long right)
     {
         try {
             return toIntExact(multiplyExact(left, right));
@@ -108,8 +108,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @SqlType("interval year to month")
+    public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType("interval year to month") long right)
     {
         if (Double.isNaN(left)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
@@ -119,8 +119,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(DIVIDE)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType("interval year to month")
+    public static long divideByDouble(@SqlType("interval year to month") long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         if (Double.isNaN(right) || right == 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot divide by double %s", right));
@@ -130,8 +130,8 @@ public final class IntervalYearMonthOperators
 
     // fallible
     @ScalarOperator(NEGATION)
-    @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long negate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    @SqlType("interval year to month")
+    public static long negate(@SqlType("interval year to month") long value)
     {
         try {
             return negateExact(toIntExact(value));
@@ -145,7 +145,7 @@ public final class IntervalYearMonthOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType("interval year to month") long value)
     {
         Slice slice = utf8Slice(IntervalYearMonth.formatMonths(toIntExact(value)));
         // slice is all-ASCII, so slice.length() here returns actual code points count

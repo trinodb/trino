@@ -21,7 +21,6 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.type.StandardTypes;
 
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.Math.round;
@@ -32,7 +31,7 @@ public final class IntervalDayToSecondAverageAggregation
     private IntervalDayToSecondAverageAggregation() {}
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    public static void input(LongAndDoubleState state, @SqlType("interval day to second") long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
@@ -46,7 +45,7 @@ public final class IntervalDayToSecondAverageAggregation
     }
 
     @SqlNullable
-    @OutputFunction(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    @OutputFunction("interval day to second")
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

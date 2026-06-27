@@ -19,7 +19,6 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 
 import static io.trino.operator.scalar.SequenceFunction.checkMaxEntry;
@@ -44,7 +43,7 @@ public final class SequenceIntervalDayToSecond
     public static Block sequence(
             @SqlType("timestamp(p)") long start,
             @SqlType("timestamp(p)") long stop,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
+            @SqlType("interval day to second") long step)
     {
         // scale to micros
         step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND);
@@ -65,7 +64,7 @@ public final class SequenceIntervalDayToSecond
     public static Block sequence(
             @SqlType("timestamp(p)") LongTimestamp start,
             @SqlType("timestamp(p)") LongTimestamp stop,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
+            @SqlType("interval day to second") long step)
     {
         step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND); // scale to micros
 
