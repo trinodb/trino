@@ -945,7 +945,7 @@ public final class IcebergUtil
         List<NestedField> icebergColumns = new ArrayList<>();
         AtomicInteger nextFieldId = new AtomicInteger(1);
         for (ViewColumn column : columns) {
-            Type trinoType = typeManager.getType(column.getType());
+            Type trinoType = typeManager.fromSqlType(column.getType().getId());
             org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(trinoType, nextFieldId);
             NestedField field = NestedField.required(nextFieldId.getAndIncrement(), column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
@@ -957,7 +957,7 @@ public final class IcebergUtil
     public static List<ViewColumn> viewColumnsFromSchema(TypeManager typeManager, Schema schema)
     {
         return IcebergUtil.getTopLevelColumns(schema, typeManager).stream()
-                .map(column -> new ViewColumn(column.getName(), column.getType().getTypeId(), column.getComment()))
+                .map(column -> ViewColumn.fromType(column.getName(), column.getType(), column.getComment()))
                 .toList();
     }
 

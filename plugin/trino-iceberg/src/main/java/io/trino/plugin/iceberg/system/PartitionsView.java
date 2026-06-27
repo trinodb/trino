@@ -58,14 +58,14 @@ public final class PartitionsView
         boolean hasPartitionColumn;
         if (partitionType.isPresent()) {
             hasPartitionColumn = true;
-            viewColumns.add(new ViewColumn("partition", partitionType.get().rowType().getTypeId(), Optional.empty()));
+            viewColumns.add(ViewColumn.fromType("partition", partitionType.get().rowType(), Optional.empty()));
         }
         else {
             hasPartitionColumn = false;
         }
 
         Stream.of("record_count", "file_count", "total_size")
-                .forEach(column -> viewColumns.add(new ViewColumn(column, BIGINT.getTypeId(), Optional.empty())));
+                .forEach(column -> viewColumns.add(ViewColumn.fromType(column, BIGINT, Optional.empty())));
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
                 .map(PartitionField::sourceId)
@@ -81,7 +81,7 @@ public final class PartitionsView
         String dataAggregationSql;
         if (dataColumnType.isPresent()) {
             hasDataColumn = true;
-            viewColumns.add(new ViewColumn("data", dataColumnType.get().getTypeId(), Optional.empty()));
+            viewColumns.add(ViewColumn.fromType("data", dataColumnType.get(), Optional.empty()));
             dataAggregationSql = buildDataAggregation(typeManager, nonPartitionPrimitiveColumns);
         }
         else {
