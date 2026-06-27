@@ -73,21 +73,27 @@ public final class TypeSyntax
         };
     }
 
-    static String render(String base, List<String> parameters)
+    private static String render(String base, List<String> parameters)
     {
-        // The time-zone datetime types spell the time-zone phrase as a trailing clause around the
-        // optional precision, not as a generic parameter. These run before the empty-parameter
-        // short-circuit so the bare, unparameterized form (as in a function signature) gets it too.
+        // The time-zone datetime types carry an opaque internal base ($timestamp_tz/$time_tz); their SQL
+        // surface spells the time-zone phrase as a trailing clause around the optional precision. These
+        // run before the empty-parameter short-circuit so the bare, unparameterized form (as in a
+        // function signature) still renders the SQL name rather than the internal token.
         if (base.equalsIgnoreCase(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)) {
             return timeZoneSpelling("timestamp", "with time zone", parameters);
-        }
-        if (base.equalsIgnoreCase("timestamp without time zone")) {
-            return timeZoneSpelling("timestamp", "without time zone", parameters);
         }
         if (base.equalsIgnoreCase(StandardTypes.TIME_WITH_TIME_ZONE)) {
             return timeZoneSpelling("time", "with time zone", parameters);
         }
         if (parameters.isEmpty()) {
+            // The interval types likewise carry an opaque internal base ($interval_day_time /
+            // $interval_year_month); their bare form spells the SQL qualifier.
+            if (base.equalsIgnoreCase(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
+                return "interval day to second";
+            }
+            if (base.equalsIgnoreCase(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+                return "interval year to month";
+            }
             return base;
         }
         // An unbounded varchar renders without its sentinel length, as `varchar`.

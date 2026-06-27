@@ -17,21 +17,17 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.TypeDescriptor;
 
+import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
+
 public final class IntervalYearMonthType
         extends AbstractIntType
 {
-    public static final String NAME = "interval year to month";
+    public static final String NAME = INTERVAL_YEAR_TO_MONTH;
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
 
     private IntervalYearMonthType()
     {
         super(new TypeDescriptor(NAME));
-    }
-
-    @Override
-    public String getDisplayName()
-    {
-        return NAME;
     }
 
     @Override
