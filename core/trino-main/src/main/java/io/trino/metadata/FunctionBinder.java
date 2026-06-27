@@ -23,10 +23,11 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.type.CharVarcharCoercion;
 
@@ -172,12 +173,18 @@ class FunctionBinder
         StringBuilder errorMessageBuilder = new StringBuilder();
         errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
         errorMessageBuilder.append("Actual types: (");
-        Joiner.on(", ").appendTo(errorMessageBuilder, parameters);
+        Joiner.on(", ").appendTo(errorMessageBuilder, parameters.stream()
+                .map(parameter -> parameter.hasDependency() ? "<function>" : TypeSyntax.toSql(parameter.getTypeDescriptor()))
+                .toList());
         errorMessageBuilder.append(")\n");
         errorMessageBuilder.append("Candidates are:\n");
         for (ApplicableFunction function : applicableFunctions) {
             errorMessageBuilder.append("\t * ");
-            errorMessageBuilder.append(function.boundSignature());
+            GroundSignature signature = function.boundSignature();
+            errorMessageBuilder.append(signature.argumentTypes().stream()
+                    .map(TypeSyntax::toSql)
+                    .collect(Collectors.joining(",", "(", "):")));
+            errorMessageBuilder.append(TypeSyntax.toSql(signature.returnType()));
             errorMessageBuilder.append("\n");
         }
         throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
@@ -407,13 +414,17 @@ class FunctionBinder
         Set<String> expectedParameters = new TreeSet<>();
         for (CatalogFunctionMetadata function : candidates) {
             String arguments = function.functionMetadata().getSignature().getArgumentTypes().stream()
-                    .map(TypeTemplate::render)
+                    .map(TypeSyntax::toSql)
                     .collect(Collectors.joining(", "));
-            String constraints = Joiner.on(", ").join(function.functionMetadata().getSignature().getTypeVariableConstraints());
+            String constraints = function.functionMetadata().getSignature().getTypeVariableConstraints().stream()
+                    .map(TypeVariableConstraint::toSql)
+                    .collect(Collectors.joining(", "));
             expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
         }
 
-        String parameters = Joiner.on(", ").join(parameterTypes);
+        String parameters = parameterTypes.stream()
+                .map(parameter -> parameter.hasDependency() ? "<function>" : TypeSyntax.toSql(parameter.getTypeDescriptor()))
+                .collect(Collectors.joining(", "));
         String expected = Joiner.on(", ").join(expectedParameters);
         String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         return new TrinoException(FUNCTION_NOT_FOUND, message);
