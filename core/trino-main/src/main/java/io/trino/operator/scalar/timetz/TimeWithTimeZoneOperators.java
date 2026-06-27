@@ -19,7 +19,6 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimeWithTimeZone;
-import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -72,7 +71,7 @@ public final class TimeWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
                 @SqlType("time(p) with time zone") long packedTime,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             long picos = unpackTimeNanos(packedTime) * PICOSECONDS_PER_NANOSECOND;
             long nanos = TimeOperators.add(picos, (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND) / PICOSECONDS_PER_NANOSECOND;
@@ -85,7 +84,7 @@ public final class TimeWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimeWithTimeZone add(
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             long picos = TimeOperators.add(time.getPicoseconds(), (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
             return new LongTimeWithTimeZone(picos, time.getOffsetMinutes());
@@ -101,7 +100,7 @@ public final class TimeWithTimeZoneOperators
         @SqlType("time(u) with time zone")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
+                @SqlType("interval day to second") long interval,
                 @SqlType("time(p) with time zone") long time)
         {
             return TimePlusIntervalDayToSecond.add(time, interval);
@@ -111,7 +110,7 @@ public final class TimeWithTimeZoneOperators
         @SqlType("time(u) with time zone")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimeWithTimeZone add(
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
+                @SqlType("interval day to second") long interval,
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
         {
             return TimePlusIntervalDayToSecond.add(time, interval);
@@ -128,7 +127,7 @@ public final class TimeWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long subtract(
                 @SqlType("time(p) with time zone") long packedTime,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return TimePlusIntervalDayToSecond.add(packedTime, -floorMod(interval, MILLISECONDS_PER_DAY));
         }
@@ -138,7 +137,7 @@ public final class TimeWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimeWithTimeZone subtract(
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return TimePlusIntervalDayToSecond.add(time, -floorMod(interval, MILLISECONDS_PER_DAY));
         }
@@ -150,7 +149,7 @@ public final class TimeWithTimeZoneOperators
         private TimeMinusTime() {}
 
         @LiteralParameters("p")
-        @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+        @SqlType("interval day to second")
         public static long subtract(
                 @SqlType("time(p) with time zone") long left,
                 @SqlType("time(p) with time zone") long right)
@@ -160,7 +159,7 @@ public final class TimeWithTimeZoneOperators
         }
 
         @LiteralParameters("p")
-        @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+        @SqlType("interval day to second")
         public static long subtract(
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone left,
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone right)

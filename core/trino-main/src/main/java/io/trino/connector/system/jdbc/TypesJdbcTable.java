@@ -25,6 +25,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeSyntax;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
@@ -116,7 +118,7 @@ public class TypesJdbcTable
 
     private static void addTypeRow(Builder builder, ParametricType type)
     {
-        String typeName = type.getName();
+        String typeName = TypeSyntax.toSql(new TypeDescriptor(type.getName()));
         builder.addRow(
                 typeName,
                 typeName.equalsIgnoreCase("array") ? Types.ARRAY : Types.JAVA_OBJECT,

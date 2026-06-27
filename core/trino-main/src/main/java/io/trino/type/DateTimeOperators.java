@@ -35,7 +35,7 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+    public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day to second") long interval)
     {
         if (MILLIS_OF_DAY.get(interval) != 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
@@ -45,14 +45,14 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long intervalDayToSecondPlusDate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.DATE) long date)
+    public static long intervalDayToSecondPlusDate(@SqlType("interval day to second") long interval, @SqlType(StandardTypes.DATE) long date)
     {
         return datePlusIntervalDayToSecond(date, interval);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year to month") long interval)
     {
         long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(date), interval);
         return TimeUnit.MILLISECONDS.toDays(millis);
@@ -60,14 +60,14 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
-    public static long intervalYearToMonthPlusDate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.DATE) long date)
+    public static long intervalYearToMonthPlusDate(@SqlType("interval year to month") long interval, @SqlType(StandardTypes.DATE) long date)
     {
         return datePlusIntervalYearToMonth(date, interval);
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+    public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day to second") long interval)
     {
         if (MILLIS_OF_DAY.get(interval) != 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
@@ -77,7 +77,7 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+    public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year to month") long interval)
     {
         return datePlusIntervalYearToMonth(date, -interval);
     }

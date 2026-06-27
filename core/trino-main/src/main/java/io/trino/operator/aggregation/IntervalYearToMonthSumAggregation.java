@@ -23,7 +23,6 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.type.BigintOperators;
 
-import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 
 @AggregationFunction("sum")
@@ -32,7 +31,7 @@ public final class IntervalYearToMonthSumAggregation
     private IntervalYearToMonthSumAggregation() {}
 
     @InputFunction
-    public static void sum(NullableLongState state, @SqlType(INTERVAL_YEAR_TO_MONTH) long value)
+    public static void sum(NullableLongState state, @SqlType("interval year to month") long value)
     {
         state.setNull(false);
         state.setValue(BigintOperators.add(state.getValue(), value));
@@ -50,7 +49,7 @@ public final class IntervalYearToMonthSumAggregation
     }
 
     @SqlNullable
-    @OutputFunction(INTERVAL_YEAR_TO_MONTH)
+    @OutputFunction("interval year to month")
     public static void output(NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(INTERVAL_YEAR_MONTH, state, out);

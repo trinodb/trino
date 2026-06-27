@@ -75,7 +75,7 @@ public final class SequenceFunction
     public static Block sequenceDateDayToSecond(
             @SqlType(StandardTypes.DATE) long start,
             @SqlType(StandardTypes.DATE) long stop,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
+            @SqlType("interval day to second") long step)
     {
         checkCondition(
                 step % TimeUnit.DAYS.toMillis(1) == 0,
@@ -89,7 +89,7 @@ public final class SequenceFunction
     public static Block sequenceDateYearToMonth(
             @SqlType(StandardTypes.DATE) long start,
             @SqlType(StandardTypes.DATE) long stop,
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
+            @SqlType("interval year to month") long step)
     {
         checkValidStep(start, stop, step);
 

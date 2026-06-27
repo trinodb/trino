@@ -43,14 +43,15 @@ class TestTypeTemplate
     }
 
     @Test
-    void testRender()
+    void testRenderInternalForm()
     {
-        // render() is the internal base(parameters) IR, mirroring TypeDescriptor.toString(): no
-        // surface special-casing (the unbounded-varchar elision and time-zone word order live in
-        // TypeSyntax). Quoted row field names are part of the IR and survive the round-trip.
+        // render() produces the internal base(arg, …) IR form, never the user-visible SQL surface (the
+        // SQL spelling — unbounded varchar elision, time-zone word order — is a separate presentation
+        // layer applied above this). The IR keeps the sentinel length, the trailing parameter, and the
+        // opaque internal base names (`$timestamp_tz`, not `timestamp with time zone`).
         assertThat(TypeTemplates.type("varchar", new NumericExpression.Literal(2147483647)).render()).isEqualTo("varchar(2147483647)");
-        assertThat(TypeTemplates.type("timestamp with time zone", new NumericExpression.Literal(3)).render()).isEqualTo("timestamp with time zone(3)");
-        assertThat(TypeTemplates.type("timestamp without time zone", new NumericExpression.Literal(3)).render()).isEqualTo("timestamp without time zone(3)");
+        assertThat(TypeTemplates.type(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, new NumericExpression.Literal(3)).render()).isEqualTo("$timestamp_tz(3)");
+        assertThat(TypeTemplates.type(StandardTypes.TIME_WITH_TIME_ZONE, new NumericExpression.Literal(3)).render()).isEqualTo("$time_tz(3)");
         assertThat(new TypeTemplate.TypeApplication(
                 "row",
                 List.of(new TemplateParameter.TypeArgument(Optional.of("a\"b"), new TypeTemplate.TypeApplication("bigint", List.of())))).render())
