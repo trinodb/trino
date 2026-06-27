@@ -48,7 +48,7 @@ import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.getRelationTypes;
-import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listOperationalCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -144,7 +144,7 @@ public class TableJdbcTable
         Session session = ((FullConnectorSession) connectorSession).getSession();
         // This is an implementation of SINGLE_COORDINATOR distribution for this table.
         HostAddress address = currentNode.getHostAndPort();
-        List<SystemSplit> splits = listCatalogNames(session, metadata, accessControl, catalogDomain).stream()
+        List<SystemSplit> splits = listOperationalCatalogNames(session, metadata, accessControl, catalogDomain).stream()
                 .map(catalog -> new SystemSplit(address, constraint, Optional.of(catalog)))
                 .collect(toImmutableList());
         return Optional.of(new FixedSplitSource(splits));

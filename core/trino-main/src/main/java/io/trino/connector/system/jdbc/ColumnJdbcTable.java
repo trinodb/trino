@@ -68,7 +68,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
-import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listOperationalCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTables;
@@ -187,7 +187,7 @@ public class ColumnJdbcTable
         String catalogVariable = columnToVariable.get(TABLE_CATALOG_COLUMN);
         String schemaVariable = columnToVariable.get(TABLE_SCHEMA_COLUMN);
         String tableVariable = columnToVariable.get(TABLE_NAME_COLUMN);
-        List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogDomain).stream()
+        List<String> catalogs = listOperationalCatalogNames(session, metadata, accessControl, catalogDomain).stream()
                 .filter(catalogName -> {
                     if (catalogVariable == null) {
                         return true;
@@ -297,7 +297,7 @@ public class ColumnJdbcTable
         Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
+        for (String catalog : listOperationalCatalogNames(session, metadata, accessControl, catalogDomain)) {
             if (!catalogDomain.includesNullableValue(utf8Slice(catalog))) {
                 continue;
             }

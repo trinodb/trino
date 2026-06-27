@@ -48,7 +48,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
-import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listOperationalCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -108,7 +108,7 @@ public class TableCommentSystemTable
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
+        for (String catalog : listOperationalCatalogNames(session, metadata, accessControl, catalogDomain)) {
             // TODO A connector may be able to pull information from multiple schemas at once, so pass the schema filter to the connector instead.
             // TODO Support LIKE predicates on schema name (or any other functional predicates), so pass the schema filter as Constraint-like to the connector.
             if (schemaDomain.isNullableDiscreteSet()) {

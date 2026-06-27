@@ -46,8 +46,8 @@ import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.getMaterializedViews;
-import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listMaterializedViews;
+import static io.trino.metadata.MetadataListing.listOperationalCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -126,7 +126,7 @@ public class MaterializedViewSystemTable
         boolean needNameOnly = LISTING_ONLY_COLUMNS.containsAll(requiredColumnNames);
         boolean needFreshness = requiredColumnNames.contains("freshness") || requiredColumnNames.contains("last_fresh_time");
 
-        listCatalogNames(session, metadata, accessControl, catalogDomain).forEach(catalogName -> {
+        listOperationalCatalogNames(session, metadata, accessControl, catalogDomain).forEach(catalogName -> {
             // TODO A connector may be able to pull information from multiple schemas at once, so pass the schema filter to the connector instead.
             // TODO Support LIKE predicates on schema name (or any other functional predicates), so pass the schema filter as Constraint-like to the connector.
             if (schemaDomain.isNullableDiscreteSet()) {
