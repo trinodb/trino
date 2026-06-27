@@ -18,7 +18,6 @@ import io.trino.FeaturesConfig;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 
@@ -45,12 +44,6 @@ public final class InternalTypeManager
     public Type fromSqlType(String type)
     {
         return typeRegistry.fromSqlType(type);
-    }
-
-    @Override
-    public Type getType(TypeId id)
-    {
-        return typeRegistry.getType(id);
     }
 
     @Override

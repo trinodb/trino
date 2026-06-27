@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
@@ -193,7 +194,9 @@ public class TestTypeDescriptor
     public void parseSignature()
     {
         assertSignature("boolean", "boolean", ImmutableList.of());
-        assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
+        // parsing the SQL `varchar` yields the unbounded descriptor, which renders back to the bare `varchar`
+        // surface even though the parameter carries the sentinel length
+        assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)), "varchar");
 
         assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
 
@@ -211,6 +214,7 @@ public class TestTypeDescriptor
                 "map(bigint,array(bigint))",
                 "map",
                 ImmutableList.of("bigint", "array(bigint)"));
+        // a nested unbounded varchar renders back to the bare `varchar` surface
         assertSignature(
                 "map(bigint,map(bigint,map(varchar,bigint)))",
                 "map",
@@ -232,9 +236,40 @@ public class TestTypeDescriptor
     }
 
     @Test
+    public void testInternalFormRoundTrip()
+    {
+        // TypeDescriptor.fromString parses the internal base(arg, …) IR (toString/jsonValue) back to an
+        // equal descriptor — the (de)serialization round-trip, including the special types whose IR
+        // diverges from their SQL spelling, and nested/named cases.
+        List<TypeDescriptor> descriptors = ImmutableList.of(
+                new TypeDescriptor("bigint"),
+                new TypeDescriptor("varchar", TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH)),
+                new TypeDescriptor("decimal", TypeParameter.numericParameter(10), TypeParameter.numericParameter(2)),
+                new TypeDescriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeParameter.numericParameter(6)),
+                new TypeDescriptor(StandardTypes.TIME_WITH_TIME_ZONE, TypeParameter.numericParameter(9)),
+                new TypeDescriptor("array", TypeParameter.typeParameter(new TypeDescriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeParameter.numericParameter(3)))),
+                new TypeDescriptor("map", TypeParameter.typeParameter(new TypeDescriptor("varchar", TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH))), TypeParameter.typeParameter(new TypeDescriptor("bigint"))),
+                new TypeDescriptor("row", TypeParameter.namedField("a", new TypeDescriptor("bigint")), TypeParameter.namedField("a\"b,c", new TypeDescriptor("varchar", TypeParameter.numericParameter(10)))));
+        for (TypeDescriptor descriptor : descriptors) {
+            assertThat(TypeDescriptor.fromString(descriptor.toString())).isEqualTo(descriptor);
+            assertThat(TypeDescriptor.fromString(descriptor.jsonValue())).isEqualTo(descriptor);
+            // The internal-form TypeId is the IR, and parses back through fromString.
+            assertThat(descriptor.toTypeId().getId()).isEqualTo(descriptor.jsonValue());
+            assertThat(TypeDescriptor.fromString(descriptor.toTypeId().getId())).isEqualTo(descriptor);
+        }
+
+        // Corruption in a machine-generated id surfaces as an exception, not a silently wrong descriptor.
+        assertThatThrownBy(() -> TypeDescriptor.fromString("array(bigint")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TypeDescriptor.fromString("varchar()")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     public void testVarchar()
     {
-        assertThat(VARCHAR.getTypeDescriptor().toString()).isEqualTo("varchar");
+        // toString() is the internal IR and keeps the sentinel length; getTypeId() is the serialized
+        // SQL spelling, which elides it.
+        assertThat(VARCHAR.getTypeDescriptor().toString()).isEqualTo("varchar(2147483647)");
+        assertThat(VARCHAR.getTypeId().getId()).isEqualTo("varchar");
         assertThat(createVarcharType(42).getTypeDescriptor().toString()).isEqualTo("varchar(42)");
         assertThat(VARCHAR.getTypeDescriptor()).isEqualTo(createUnboundedVarcharType().getTypeDescriptor());
         assertThat(createUnboundedVarcharType().getTypeDescriptor()).isEqualTo(VARCHAR.getTypeDescriptor());
@@ -266,9 +301,9 @@ public class TestTypeDescriptor
         assertThat(signature.getBase()).isEqualTo(base);
         assertThat(signature.getParameters()).hasSize(parameters.size());
         for (int i = 0; i < signature.getParameters().size(); i++) {
-            assertThat(signature.getParameters().get(i).toString()).isEqualTo(parameters.get(i));
+            assertThat(TypeSyntax.toSql(signature.getParameters().get(i))).isEqualTo(parameters.get(i));
         }
-        assertThat(signature.toString()).isEqualTo(expectedTypeName);
+        assertThat(TypeSyntax.toSql(signature)).isEqualTo(expectedTypeName);
     }
 
     private void assertSignatureFail(String typeName)
