@@ -206,7 +206,6 @@
 
 - [if](if-expression)
 - {func}`index`
-- {func}`initcap`
 - {func}`infinity`
 - {func}`intersection_cardinality`
 - {func}`inverse_beta_cdf`
@@ -471,6 +470,7 @@
 - {func}`timezone`
 - {func}`timezone_hour`
 - {func}`timezone_minute`
+- {func}`title_case`
 - {func}`to_base`
 - {func}`to_base32`
 - {func}`to_base64`

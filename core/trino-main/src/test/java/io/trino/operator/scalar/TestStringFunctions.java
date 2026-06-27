@@ -2079,73 +2079,73 @@ public class TestStringFunctions
     }
 
     @Test
-    public void testInitcap()
+    public void testTitleCase()
     {
-        assertThat(assertions.function("initcap", "''"))
+        assertThat(assertions.function("title_case", "''"))
                 .hasType(createVarcharType(0))
                 .isEqualTo("");
 
-        assertThat(assertions.function("initcap", "'hello'"))
+        assertThat(assertions.function("title_case", "'hello'"))
                 .hasType(createVarcharType(5))
                 .isEqualTo("Hello");
 
-        assertThat(assertions.function("initcap", "'hello world'"))
+        assertThat(assertions.function("title_case", "'hello world'"))
                 .hasType(createVarcharType(11))
                 .isEqualTo("Hello World");
 
-        assertThat(assertions.function("initcap", "'HELLO WORLD'"))
+        assertThat(assertions.function("title_case", "'HELLO WORLD'"))
                 .hasType(createVarcharType(11))
                 .isEqualTo("Hello World");
 
-        assertThat(assertions.function("initcap", "'hElLo WoRLd'"))
+        assertThat(assertions.function("title_case", "'hElLo WoRLd'"))
                 .hasType(createVarcharType(11))
                 .isEqualTo("Hello World");
 
-        assertThat(assertions.function("initcap", "'what!!'"))
+        assertThat(assertions.function("title_case", "'what!!'"))
                 .hasType(createVarcharType(6))
                 .isEqualTo("What!!");
 
-        assertThat(assertions.function("initcap", "'hello-world'"))
+        assertThat(assertions.function("title_case", "'hello-world'"))
                 .hasType(createVarcharType(11))
                 .isEqualTo("Hello-world");
 
-        assertThat(assertions.function("initcap", "'hello   world'"))
+        assertThat(assertions.function("title_case", "'hello   world'"))
                 .hasType(createVarcharType(13))
                 .isEqualTo("Hello   World");
 
-        assertThat(assertions.function("initcap", "'hello world 123'"))
+        assertThat(assertions.function("title_case", "'hello world 123'"))
                 .hasType(createVarcharType(15))
                 .isEqualTo("Hello World 123");
 
-        assertThat(assertions.function("initcap", "'123hello'"))
+        assertThat(assertions.function("title_case", "'123hello'"))
                 .hasType(createVarcharType(8))
                 .isEqualTo("123hello");
 
-        assertThat(assertions.function("initcap", "'österreich'"))
+        assertThat(assertions.function("title_case", "'österreich'"))
                 .hasType(createVarcharType(10))
                 .isEqualTo("Österreich");
     }
 
     @Test
-    public void testCharInitcap()
+    public void testCharTitleCase()
     {
-        assertThat(assertions.function("initcap", "CAST('' AS CHAR(10))"))
+        assertThat(assertions.function("title_case", "CAST('' AS CHAR(10))"))
                 .hasType(createCharType(10))
                 .isEqualTo(padRight("", 10));
 
-        assertThat(assertions.function("initcap", "CAST('hello world' AS CHAR(11))"))
+        assertThat(assertions.function("title_case", "CAST('hello world' AS CHAR(11))"))
                 .hasType(createCharType(11))
                 .isEqualTo(padRight("Hello World", 11));
 
-        assertThat(assertions.function("initcap", "CAST('HELLO WORLD' AS CHAR(11))"))
+        assertThat(assertions.function("title_case", "CAST('HELLO WORLD' AS CHAR(11))"))
                 .hasType(createCharType(11))
                 .isEqualTo(padRight("Hello World", 11));
 
-        assertThat(assertions.function("initcap", "CAST('what!!' AS CHAR(6))"))
+        assertThat(assertions.function("title_case", "CAST('what!!' AS CHAR(6))"))
                 .hasType(createCharType(6))
                 .isEqualTo(padRight("What!!", 6));
 
-        assertThat(assertions.function("initcap", "CAST('österreich' AS CHAR(10))"))
+        assertThat(assertions.function("title_case", "CAST('österreich' AS CHAR(10))"))
                 .hasType(createCharType(10))
                 .isEqualTo(padRight("Österreich", 10));
     }

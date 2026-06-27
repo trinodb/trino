@@ -480,7 +480,7 @@ For more details, see {doc}`string`
 - {func}`format`
 - {func}`from_utf8`
 - {func}`hamming_distance`
-- {func}`initcap`
+- {func}`title_case`
 - {func}`length`
 - {func}`levenshtein_distance`
 - {func}`lower`
