@@ -27,7 +27,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 
 import java.util.ArrayList;
@@ -409,13 +409,15 @@ class FunctionBinder
         Set<String> expectedParameters = new TreeSet<>();
         for (CatalogFunctionMetadata function : candidates) {
             String arguments = function.functionMetadata().getSignature().getArgumentTypes().stream()
-                    .map(TypeTemplate::render)
+                    .map(TypeSyntax::toSql)
                     .collect(Collectors.joining(", "));
             String constraints = Joiner.on(", ").join(function.functionMetadata().getSignature().getTypeVariableConstraints());
             expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
         }
 
-        String parameters = Joiner.on(", ").join(parameterTypes);
+        String parameters = parameterTypes.stream()
+                .map(parameter -> parameter.hasDependency() ? "<function>" : TypeSyntax.toSql(parameter.getTypeDescriptor()))
+                .collect(Collectors.joining(", "));
         String expected = Joiner.on(", ").join(expectedParameters);
         String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         return new TrinoException(FUNCTION_NOT_FOUND, message);

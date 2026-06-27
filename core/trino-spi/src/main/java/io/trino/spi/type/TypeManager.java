@@ -32,7 +32,10 @@ public interface TypeManager
     /**
      * Gets the type with the give (opaque) id
      */
-    Type getType(TypeId id);
+    default Type getType(TypeId id)
+    {
+        return fromSqlType(id.getId());
+    }
 
     /**
      * Gets the type with the specified base type and the given parameters.

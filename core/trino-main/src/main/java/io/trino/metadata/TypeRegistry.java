@@ -27,7 +27,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
@@ -192,12 +191,6 @@ public final class TypeRegistry
             }
         }
         return type;
-    }
-
-    public Type getType(TypeId id)
-    {
-        // TODO: ID should be encoded in a more canonical form than SQL
-        return fromSqlType(id.getId());
     }
 
     public Type fromSqlType(String sqlType)
@@ -456,12 +449,6 @@ public final class TypeRegistry
         public Type fromSqlType(String type)
         {
             return typeRegistry.fromSqlType(type);
-        }
-
-        @Override
-        public Type getType(TypeId id)
-        {
-            return typeRegistry.getType(id);
         }
 
         @Override
