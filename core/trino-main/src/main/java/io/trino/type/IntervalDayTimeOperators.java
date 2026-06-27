@@ -44,8 +44,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long add(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    @SqlType("interval day to second")
+    public static long add(@SqlType("interval day to second") long left, @SqlType("interval day to second") long right)
     {
         try {
             return addExact(left, right);
@@ -57,8 +57,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long subtract(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    @SqlType("interval day to second")
+    public static long subtract(@SqlType("interval day to second") long left, @SqlType("interval day to second") long right)
     {
         try {
             return subtractExact(left, right);
@@ -70,8 +70,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long multiplyByBigint(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.BIGINT) long right)
+    @SqlType("interval day to second")
+    public static long multiplyByBigint(@SqlType("interval day to second") long left, @SqlType(StandardTypes.BIGINT) long right)
     {
         try {
             return multiplyExact(left, right);
@@ -83,8 +83,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType("interval day to second")
+    public static long multiplyByDouble(@SqlType("interval day to second") long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         if (Double.isNaN(right)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
@@ -94,8 +94,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    @SqlType("interval day to second")
+    public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType("interval day to second") long right)
     {
         try {
             return multiplyExact(left, right);
@@ -107,8 +107,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    @SqlType("interval day to second")
+    public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType("interval day to second") long right)
     {
         if (Double.isNaN(left)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
@@ -118,8 +118,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(DIVIDE)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType("interval day to second")
+    public static long divideByDouble(@SqlType("interval day to second") long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         if (Double.isNaN(right) || right == 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot divide by double %s", right));
@@ -129,8 +129,8 @@ public final class IntervalDayTimeOperators
 
     // fallible
     @ScalarOperator(NEGATION)
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
-    public static long negate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    @SqlType("interval day to second")
+    public static long negate(@SqlType("interval day to second") long value)
     {
         try {
             return negateExact(value);
@@ -144,7 +144,7 @@ public final class IntervalDayTimeOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType("interval day to second") long value)
     {
         Slice slice = utf8Slice(formatMillis(value));
         // slice is all-ASCII, so slice.length() here returns actual code points count

@@ -25,7 +25,7 @@ public abstract sealed class TimeWithTimeZoneType
         implements FixedWidthType
         permits LongTimeWithTimeZoneType, ShortTimeWithTimeZoneType
 {
-    public static final String NAME = "time with time zone";
+    public static final String NAME = "$time_tz";
     public static final int MAX_PRECISION = 12;
     public static final int MAX_SHORT_PRECISION = 9;
 

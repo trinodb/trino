@@ -89,16 +89,16 @@ public class TestTypeDescriptor
         // named fields of types with spaces
         assertRowSignature(
                 "row(time time with time zone)",
-                rowSignature(namedParameter("time", signature("time with time zone"))));
+                rowSignature(namedParameter("time", signature(StandardTypes.TIME_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(time timestamp with time zone)",
-                rowSignature(namedParameter("time", signature("timestamp with time zone"))));
+                rowSignature(namedParameter("time", signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(interval interval day to second)",
-                rowSignature(namedParameter("interval", signature("interval day to second"))));
+                rowSignature(namedParameter("interval", signature(StandardTypes.INTERVAL_DAY_TO_SECOND))));
         assertRowSignature(
                 "row(interval interval year to month)",
-                rowSignature(namedParameter("interval", signature("interval year to month"))));
+                rowSignature(namedParameter("interval", signature(StandardTypes.INTERVAL_YEAR_TO_MONTH))));
         assertRowSignature(
                 "row(double double precision)",
                 rowSignature(namedParameter("double", signature("double"))));
@@ -106,31 +106,31 @@ public class TestTypeDescriptor
         // unnamed fields of types with spaces
         assertRowSignature(
                 "row(time with time zone)",
-                rowSignature(unnamedParameter(signature("time with time zone"))));
+                rowSignature(unnamedParameter(signature(StandardTypes.TIME_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(timestamp with time zone)",
-                rowSignature(unnamedParameter(signature("timestamp with time zone"))));
+                rowSignature(unnamedParameter(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(interval day to second)",
-                rowSignature(unnamedParameter(signature("interval day to second"))));
+                rowSignature(unnamedParameter(signature(StandardTypes.INTERVAL_DAY_TO_SECOND))));
         assertRowSignature(
                 "row(interval year to month)",
-                rowSignature(unnamedParameter(signature("interval year to month"))));
+                rowSignature(unnamedParameter(signature(StandardTypes.INTERVAL_YEAR_TO_MONTH))));
         assertRowSignature(
                 "row(double precision)",
                 rowSignature(unnamedParameter(signature("double"))));
         assertRowSignature(
                 "row(array(time with time zone))",
-                rowSignature(unnamedParameter(array(signature("time with time zone")))));
+                rowSignature(unnamedParameter(array(signature(StandardTypes.TIME_WITH_TIME_ZONE)))));
         assertRowSignature(
                 "row(map(timestamp with time zone,interval day to second))",
-                rowSignature(unnamedParameter(map(signature("timestamp with time zone"), signature("interval day to second")))));
+                rowSignature(unnamedParameter(map(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE), signature(StandardTypes.INTERVAL_DAY_TO_SECOND)))));
 
         // quoted field names
         assertRowSignature(
                 "row(\"time with time zone\" time with time zone,\"double\" double)",
                 rowSignature(
-                        namedParameter("time with time zone", signature("time with time zone")),
+                        namedParameter("time with time zone", signature(StandardTypes.TIME_WITH_TIME_ZONE)),
                         namedParameter("double", signature("double"))));
 
         // allow spaces
