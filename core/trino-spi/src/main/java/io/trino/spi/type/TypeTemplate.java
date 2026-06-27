@@ -13,14 +13,12 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.type.TemplateParameter.NumericArgument;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /// The open, variable-bearing structural form of a type, used in the argument and return positions of a
 /// function [io.trino.spi.function.Signature] — e.g. `array(E)`, `decimal(p, s)`,
@@ -61,25 +59,7 @@ public sealed interface TypeTemplate
         @Override
         public String render()
         {
-            if (parameters.isEmpty()) {
-                return base;
-            }
-            if (base.equalsIgnoreCase(StandardTypes.VARCHAR)
-                    && parameters.size() == 1
-                    && parameters.getFirst() instanceof NumericArgument(NumericExpression.Literal(long length))
-                    && length == VarcharType.UNBOUNDED_LENGTH) {
-                return base;
-            }
-            if (base.equalsIgnoreCase(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)) {
-                return "timestamp(" + parameters.getFirst().render() + ") with time zone";
-            }
-            if (base.equalsIgnoreCase("timestamp without time zone")) {
-                return "timestamp(" + parameters.getFirst().render() + ") without time zone";
-            }
-            if (base.equalsIgnoreCase(StandardTypes.TIME_WITH_TIME_ZONE)) {
-                return "time(" + parameters.getFirst().render() + ") with time zone";
-            }
-            return base + parameters.stream().map(TemplateParameter::render).collect(joining(",", "(", ")"));
+            return TypeSyntax.render(base, parameters.stream().map(TemplateParameter::render).collect(toUnmodifiableList()));
         }
 
         // Type names are case-insensitive in Trino, matching the TypeDescriptor identity.
