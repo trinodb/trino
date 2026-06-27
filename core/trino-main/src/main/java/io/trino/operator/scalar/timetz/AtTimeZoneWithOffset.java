@@ -17,7 +17,6 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimeWithTimeZone;
-import io.trino.spi.type.StandardTypes;
 
 import static io.trino.operator.scalar.timetz.AtTimeZone.AT_TIMEZONE_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -41,7 +40,7 @@ public final class AtTimeZoneWithOffset
     @SqlType("time(p) with time zone")
     public static long atTimeZone(
             @SqlType("time(p) with time zone") long packedTime,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
+            @SqlType("interval day to second") long zoneOffset)
     {
         int offsetMinutes = getZoneOffsetMinutes(zoneOffset);
         long nanos = unpackTimeNanos(packedTime) - (unpackOffsetMinutes(packedTime) - offsetMinutes) * NANOSECONDS_PER_MINUTE;
@@ -52,7 +51,7 @@ public final class AtTimeZoneWithOffset
     @SqlType("time(p) with time zone")
     public static LongTimeWithTimeZone atTimeZone(
             @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
+            @SqlType("interval day to second") long zoneOffset)
     {
         int offsetMinutes = getZoneOffsetMinutes(zoneOffset);
         long picos = time.getPicoseconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;

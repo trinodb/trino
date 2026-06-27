@@ -136,6 +136,15 @@ public abstract class AbstractType
         writeSlice(blockBuilder, (Slice) value);
     }
 
+    /// A type's display name is its user-visible SQL spelling. By default it is rendered from the
+    /// internal representation by [TypeSyntax]; a type overrides this only when its display name departs
+    /// from that standard surface form.
+    @Override
+    public String getDisplayName()
+    {
+        return TypeSyntax.toSql(getTypeDescriptor());
+    }
+
     @Override
     public String toString()
     {

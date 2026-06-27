@@ -230,6 +230,40 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <!-- The zoned datetime and interval types now carry opaque internal base names
+                                     ($timestamp_tz, $time_tz, $interval_day_time, $interval_year_month); their SQL
+                                     spelling is produced by TypeSyntax. The public StandardTypes and *Type.NAME
+                                     constants therefore hold the internal token as their value. -->
+                                <item>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND</old>
+                                    <new>field io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND</new>
+                                </item>
+                                <item>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH</old>
+                                    <new>field io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH</new>
+                                </item>
+                                <item>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE</old>
+                                    <new>field io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE</new>
+                                </item>
+                                <item>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE</old>
+                                    <new>field io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE</new>
+                                </item>
+                                <item>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.TimestampWithTimeZoneType.NAME</old>
+                                    <new>field io.trino.spi.type.TimestampWithTimeZoneType.NAME</new>
+                                </item>
+                                <item>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.TimeWithTimeZoneType.NAME</old>
+                                    <new>field io.trino.spi.type.TimeWithTimeZoneType.NAME</new>
+                                </item>
                                 <item>
                                     <code>java.method.visibilityIncreased</code>
                                     <old>method int io.trino.spi.block.ArrayBlock::getOffsetBase()</old>

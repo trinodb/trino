@@ -18,7 +18,6 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -43,7 +42,7 @@ public final class TimestampWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
                 @SqlType("timestamp(p) with time zone") long packedEpochMillis,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis) + interval, unpackZoneKey(packedEpochMillis));
         }
@@ -53,7 +52,7 @@ public final class TimestampWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimestampWithTimeZone add(
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis() + interval, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
         }
@@ -68,7 +67,7 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(u) with time zone")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
+                @SqlType("interval day to second") long interval,
                 @SqlType("timestamp(p) with time zone") long timestamp)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
@@ -78,7 +77,7 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(u) with time zone")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimestampWithTimeZone add(
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
+                @SqlType("interval day to second") long interval,
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
@@ -94,7 +93,7 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(p) with time zone")
         public static long add(
                 @SqlType("timestamp(p) with time zone") long packedEpochMillis,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             long epochMillis = unpackMillisUtc(packedEpochMillis);
             long result = unpackChronology(packedEpochMillis).monthOfYear().add(epochMillis, interval);
@@ -106,7 +105,7 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(p) with time zone")
         public static LongTimestampWithTimeZone add(
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             long epochMillis = timestamp.getEpochMillis();
             long result = unpackChronology(timestamp.getTimeZoneKey()).monthOfYear().add(epochMillis, interval);
@@ -123,7 +122,7 @@ public final class TimestampWithTimeZoneOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p) with time zone")
         public static long add(
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
+                @SqlType("interval year to month") long interval,
                 @SqlType("timestamp(p) with time zone") long timestamp)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
@@ -132,7 +131,7 @@ public final class TimestampWithTimeZoneOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p) with time zone")
         public static LongTimestampWithTimeZone add(
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
+                @SqlType("interval year to month") long interval,
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
@@ -148,7 +147,7 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(p) with time zone")
         public static long subtract(
                 @SqlType("timestamp(p) with time zone") long timestamp,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
@@ -157,7 +156,7 @@ public final class TimestampWithTimeZoneOperators
         @SqlType("timestamp(p) with time zone")
         public static LongTimestampWithTimeZone subtract(
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
@@ -173,7 +172,7 @@ public final class TimestampWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long subtract(
                 @SqlType("timestamp(p) with time zone") long timestamp,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
         }
@@ -183,7 +182,7 @@ public final class TimestampWithTimeZoneOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimestampWithTimeZone subtract(
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
         }
@@ -195,7 +194,7 @@ public final class TimestampWithTimeZoneOperators
         private TimestampMinusTimestamp() {}
 
         @LiteralParameters("p")
-        @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+        @SqlType("interval day to second")
         public static long subtract(
                 @SqlType("timestamp(p) with time zone") long left,
                 @SqlType("timestamp(p) with time zone") long right)
@@ -204,7 +203,7 @@ public final class TimestampWithTimeZoneOperators
         }
 
         @LiteralParameters("p")
-        @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+        @SqlType("interval day to second")
         public static long subtract(
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left,
                 @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)

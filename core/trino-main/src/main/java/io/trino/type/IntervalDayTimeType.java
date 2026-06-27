@@ -17,21 +17,17 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.TypeDescriptor;
 
+import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+
 public final class IntervalDayTimeType
         extends AbstractLongType
 {
-    public static final String NAME = "interval day to second";
+    public static final String NAME = INTERVAL_DAY_TO_SECOND;
     public static final IntervalDayTimeType INTERVAL_DAY_TIME = new IntervalDayTimeType();
 
     private IntervalDayTimeType()
     {
         super(new TypeDescriptor(NAME));
-    }
-
-    @Override
-    public String getDisplayName()
-    {
-        return NAME;
     }
 
     @Override

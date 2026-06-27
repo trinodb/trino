@@ -23,7 +23,6 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.type.BigintOperators;
 
-import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 @AggregationFunction("sum")
@@ -32,7 +31,7 @@ public final class IntervalDayToSecondSumAggregation
     private IntervalDayToSecondSumAggregation() {}
 
     @InputFunction
-    public static void sum(NullableLongState state, @SqlType(INTERVAL_DAY_TO_SECOND) long value)
+    public static void sum(NullableLongState state, @SqlType("interval day to second") long value)
     {
         state.setNull(false);
         state.setValue(BigintOperators.add(state.getValue(), value));
@@ -50,7 +49,7 @@ public final class IntervalDayToSecondSumAggregation
     }
 
     @SqlNullable
-    @OutputFunction(INTERVAL_DAY_TO_SECOND)
+    @OutputFunction("interval day to second")
     public static void output(NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(INTERVAL_DAY_TIME, state, out);

@@ -15,6 +15,7 @@ package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
@@ -58,6 +59,8 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -91,7 +94,7 @@ public final class ProtocolUtil
             case DateTimeDataType dataTimeType -> {
                 if (!supportsParametricDateTime) {
                     if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
-                        yield TIMESTAMP_WITH_TIME_ZONE;
+                        yield ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
                     }
                     if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
                         yield TIMESTAMP;
@@ -100,7 +103,7 @@ public final class ProtocolUtil
                         yield TIME;
                     }
                     if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
-                        yield TIME_WITH_TIME_ZONE;
+                        yield ClientStandardTypes.TIME_WITH_TIME_ZONE;
                     }
                 }
 
@@ -144,13 +147,13 @@ public final class ProtocolUtil
                 return new ClientTypeSignature(TIMESTAMP);
             }
             if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
-                return new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE);
+                return new ClientTypeSignature(ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE);
             }
             if (signature.getBase().equalsIgnoreCase(TIME)) {
                 return new ClientTypeSignature(TIME);
             }
             if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
-                return new ClientTypeSignature(TIME_WITH_TIME_ZONE);
+                return new ClientTypeSignature(ClientStandardTypes.TIME_WITH_TIME_ZONE);
             }
         }
         if (!supportsNumberType && signature.getBase().equalsIgnoreCase(NUMBER)) {
@@ -160,9 +163,29 @@ public final class ProtocolUtil
             return new ClientTypeSignature(JSON);
         }
 
-        return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
+        return new ClientTypeSignature(toClientBase(signature.getBase()), signature.getParameters().stream()
                 .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary))
                 .collect(toImmutableList()));
+    }
+
+    /// The wire protocol identifies the time-zone and interval types by their SQL name, not the internal
+    /// `$timestamp_tz`/`$time_tz`/`$interval_*` base, so map those back when building the client signature.
+    /// Every other base is already its own SQL spelling.
+    private static String toClientBase(String base)
+    {
+        if (base.equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
+            return ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+        }
+        if (base.equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+            return ClientStandardTypes.TIME_WITH_TIME_ZONE;
+        }
+        if (base.equalsIgnoreCase(INTERVAL_DAY_TO_SECOND)) {
+            return ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
+        }
+        if (base.equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH)) {
+            return ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
+        }
+        return base;
     }
 
     private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)

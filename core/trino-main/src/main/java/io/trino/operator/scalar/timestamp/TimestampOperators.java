@@ -18,7 +18,6 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.StandardTypes;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
@@ -48,7 +47,7 @@ public final class TimestampOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             // scale to micros
             interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
@@ -61,7 +60,7 @@ public final class TimestampOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimestamp add(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return new LongTimestamp(timestamp.getEpochMicros() + multiplyExact(interval, MICROSECONDS_PER_MILLISECOND), timestamp.getPicosOfMicro());
         }
@@ -77,7 +76,7 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
+                @SqlType("interval day to second") long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
@@ -87,7 +86,7 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimestamp add(
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
+                @SqlType("interval day to second") long interval,
                 @SqlType("timestamp(p)") LongTimestamp timestamp)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
@@ -105,7 +104,7 @@ public final class TimestampOperators
         @SqlType("timestamp(p)")
         public static long add(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             long fractionMicros = getMicrosOfMilli(timestamp);
             long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
@@ -116,7 +115,7 @@ public final class TimestampOperators
         @SqlType("timestamp(p)")
         public static LongTimestamp add(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             return new LongTimestamp(
                     add(timestamp.getEpochMicros(), interval),
@@ -132,7 +131,7 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long add(
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
+                @SqlType("interval year to month") long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
@@ -141,7 +140,7 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static LongTimestamp add(
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
+                @SqlType("interval year to month") long interval,
                 @SqlType("timestamp(p)") LongTimestamp timestamp)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
@@ -157,7 +156,7 @@ public final class TimestampOperators
         @SqlType("timestamp(p)")
         public static long subtract(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
@@ -166,7 +165,7 @@ public final class TimestampOperators
         @SqlType("timestamp(p)")
         public static LongTimestamp subtract(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+                @SqlType("interval year to month") long interval)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
@@ -183,7 +182,7 @@ public final class TimestampOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long subtract(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
         }
@@ -193,7 +192,7 @@ public final class TimestampOperators
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static LongTimestamp subtract(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+                @SqlType("interval day to second") long interval)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
         }
@@ -205,7 +204,7 @@ public final class TimestampOperators
         private TimestampMinusTimestamp() {}
 
         @LiteralParameters("p")
-        @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+        @SqlType("interval day to second")
         public static long subtract(
                 @SqlType("timestamp(p)") long left,
                 @SqlType("timestamp(p)") long right)
@@ -219,7 +218,7 @@ public final class TimestampOperators
         }
 
         @LiteralParameters("p")
-        @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+        @SqlType("interval day to second")
         public static long subtract(
                 @SqlType("timestamp(p)") LongTimestamp left,
                 @SqlType("timestamp(p)") LongTimestamp right)

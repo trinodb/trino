@@ -21,7 +21,6 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -50,7 +49,7 @@ public final class TimeOperators
 
     @ScalarOperator(SUBTRACT)
     @LiteralParameters("p")
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    @SqlType("interval day to second")
     public static long subtract(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
     {
         long interval = left - right;
@@ -95,7 +94,7 @@ public final class TimeOperators
     @LiteralParameters({"p", "u"})
     @SqlType("time(u)")
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
-    public static long timePlusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+    public static long timePlusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType("interval day to second") long interval)
     {
         return add(time, (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
     }
@@ -104,7 +103,7 @@ public final class TimeOperators
     @LiteralParameters({"p", "u"})
     @SqlType("time(u)")
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
-    public static long intervalDayToSecondPlusTime(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType("time(p)") long time)
+    public static long intervalDayToSecondPlusTime(@SqlType("interval day to second") long interval, @SqlType("time(p)") long time)
     {
         return timePlusIntervalDayToSecond(time, interval);
     }
@@ -113,7 +112,7 @@ public final class TimeOperators
     @LiteralParameters({"p", "u"})
     @SqlType("time(u)")
     @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
-    public static long timeMinusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+    public static long timeMinusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType("interval day to second") long interval)
     {
         return add(time, -(long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
     }
