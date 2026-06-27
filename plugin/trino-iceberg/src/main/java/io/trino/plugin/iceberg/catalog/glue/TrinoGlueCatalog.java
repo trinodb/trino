@@ -54,7 +54,6 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
@@ -673,7 +672,7 @@ public class TrinoGlueCatalog
             Map<String, String> columnParameters = glueColumn.parameters();
             String trinoTypeId = columnParameters.getOrDefault(COLUMN_TRINO_TYPE_ID_PROPERTY, glueColumn.type());
             boolean notNull = parseBoolean(columnParameters.getOrDefault(COLUMN_TRINO_NOT_NULL_PROPERTY, "false"));
-            Type type = typeManager.getType(TypeId.of(trinoTypeId));
+            Type type = typeManager.fromSqlType(trinoTypeId);
             columns.add(ColumnMetadata.builder()
                     .setName(glueColumn.name())
                     .setType(type)

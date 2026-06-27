@@ -5735,7 +5735,7 @@ class StatementAnalyzer
         private Type getViewColumnType(ViewColumn column, QualifiedObjectName name, Node node)
         {
             try {
-                return plannerContext.getTypeManager().getType(column.type());
+                return plannerContext.getTypeManager().fromSqlType(column.type().getId());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.type(), column.name(), name);
