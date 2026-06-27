@@ -36,10 +36,13 @@ public interface Type
      */
     TypeDescriptor getTypeDescriptor();
 
+    /// The serialized identity of this type, used for intra-cluster serialization (connector handles,
+    /// predicates, block encoding, symbol keys). This is the SQL spelling, so it round-trips through
+    /// [TypeManager#getType(TypeId)] via [TypeManager#fromSqlType(String)].
     @JsonValue
     default TypeId getTypeId()
     {
-        return TypeId.of(getTypeDescriptor().toString());
+        return TypeId.of(TypeSyntax.toSql(getTypeDescriptor()));
     }
 
     /**

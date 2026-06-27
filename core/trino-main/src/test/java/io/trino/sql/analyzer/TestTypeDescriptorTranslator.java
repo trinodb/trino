@@ -114,9 +114,9 @@ public class TestTypeDescriptorTranslator
         TypeDescriptor lowerCaseAfter = parseTypeDescriptor("row(\"memberid\" integer, \"viewerurn\" varchar)");
 
         assertThat(camelCaseFirst.toString())
-                .isEqualTo("row(\"memberId\" integer,\"viewerUrn\" varchar)");
+                .isEqualTo("row(\"memberId\" integer,\"viewerUrn\" varchar(2147483647))");
         assertThat(lowerCaseAfter.toString())
-                .isEqualTo("row(\"memberid\" integer,\"viewerurn\" varchar)");
+                .isEqualTo("row(\"memberid\" integer,\"viewerurn\" varchar(2147483647))");
         assertThat(camelCaseFirst).isNotEqualTo(lowerCaseAfter);
 
         // Reverse order: lowercase first, camelCase second. Both must still preserve their input casing.
@@ -124,9 +124,9 @@ public class TestTypeDescriptorTranslator
         TypeDescriptor camelCaseAfter = parseTypeDescriptor("row(\"actorUrn\" varchar, \"appName\" varchar)");
 
         assertThat(lowerCaseFirst.toString())
-                .isEqualTo("row(\"actorurn\" varchar,\"appname\" varchar)");
+                .isEqualTo("row(\"actorurn\" varchar(2147483647),\"appname\" varchar(2147483647))");
         assertThat(camelCaseAfter.toString())
-                .isEqualTo("row(\"actorUrn\" varchar,\"appName\" varchar)");
+                .isEqualTo("row(\"actorUrn\" varchar(2147483647),\"appName\" varchar(2147483647))");
         assertThat(lowerCaseFirst).isNotEqualTo(camelCaseAfter);
     }
 }
