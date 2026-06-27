@@ -189,6 +189,7 @@ import io.trino.operator.scalar.time.TimeToTimestampCast;
 import io.trino.operator.scalar.time.TimeToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamp.CharToTimestampCast;
 import io.trino.operator.scalar.timestamp.DateAdd;
+import io.trino.operator.scalar.timestamp.DateBin;
 import io.trino.operator.scalar.timestamp.DateDiff;
 import io.trino.operator.scalar.timestamp.DateFormat;
 import io.trino.operator.scalar.timestamp.DateToTimestampCast;
@@ -668,6 +669,7 @@ public final class SystemFunctionBundle
                 .scalar(VarcharToTimestampCast.class)
                 .scalar(CharToTimestampCast.class)
                 .scalar(LocalTimestamp.class)
+                .scalar(DateBin.class)
                 .scalar(DateTrunc.class)
                 .scalar(HumanReadableSeconds.class)
                 .scalar(ToIso8601.class)
@@ -716,6 +718,7 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timestamptz.ExtractYearOfWeek.class)
                 .scalar(io.trino.operator.scalar.timestamptz.ToIso8601.class)
                 .scalar(io.trino.operator.scalar.timestamptz.DateAdd.class)
+                .scalar(io.trino.operator.scalar.timestamptz.DateBin.class)
                 .scalar(io.trino.operator.scalar.timestamptz.DateTrunc.class)
                 .scalar(io.trino.operator.scalar.timestamptz.TimeZone.class)
                 .scalar(io.trino.operator.scalar.timestamptz.TimeZoneHour.class)
