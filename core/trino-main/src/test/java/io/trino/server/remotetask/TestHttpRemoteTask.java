@@ -73,6 +73,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
@@ -139,6 +140,7 @@ import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.trino.spi.security.ExtraCredentials.authenticatedExtraCredentialName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -216,6 +218,38 @@ public class TestHttpRemoteTask
         remoteTask.cancel();
         poll(() -> remoteTask.getTaskStatus().state().isDone());
         poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
+
+        httpRemoteTaskFactory.stop();
+    }
+
+    @Test
+    @Timeout(30)
+    public void testInternalExtraCredentialsAreNotSentToWorkers()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        Session session = Session.builder(TEST_SESSION)
+                .setIdentity(Identity.forUser(TEST_SESSION.getUser())
+                        .withExtraCredentials(ImmutableMap.of(
+                                "token", "access-token",
+                                authenticatedExtraCredentialName("token"), "access-token"))
+                        .build())
+                .build();
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of(), session);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
+
+        poll(() -> testingTaskResource.getLatestExtraCredentials().containsKey("token"));
+        assertThat(testingTaskResource.getLatestExtraCredentials())
+                .containsEntry("token", "access-token")
+                .doesNotContainKey(authenticatedExtraCredentialName("token"));
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -781,6 +815,7 @@ public class TestHttpRemoteTask
         private TaskState taskState;
         private long taskInstanceId = INITIAL_TASK_INSTANCE_ID;
         private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
+        private Map<String, String> latestExtraCredentials = ImmutableMap.of();
 
         private long statusFetchCounter;
         private long createOrUpdateCounter;
@@ -830,6 +865,7 @@ public class TestHttpRemoteTask
                 dynamicFiltersSentCounter++;
                 latestDynamicFilterFromCoordinator = taskUpdateRequest.dynamicFilterDomains();
             }
+            latestExtraCredentials = taskUpdateRequest.extraCredentials();
             createOrUpdateCounter++;
             lastActivityNanos.set(System.nanoTime());
             return buildTaskInfo();
@@ -942,6 +978,11 @@ public class TestHttpRemoteTask
         public synchronized long getCreateOrUpdateCounter()
         {
             return createOrUpdateCounter;
+        }
+
+        public synchronized Map<String, String> getLatestExtraCredentials()
+        {
+            return latestExtraCredentials;
         }
 
         public synchronized long getDynamicFiltersFetchCounter()

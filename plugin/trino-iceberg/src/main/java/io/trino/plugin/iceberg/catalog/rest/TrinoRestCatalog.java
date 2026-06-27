@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
-import io.jsonwebtoken.impl.DefaultJwtBuilder;
-import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -69,7 +67,6 @@ import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.RESTSessionCatalog;
-import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.apache.iceberg.util.LocationUtil;
 import org.apache.iceberg.view.ReplaceViewVersion;
 import org.apache.iceberg.view.SQLViewRepresentation;
@@ -81,12 +78,12 @@ import org.apache.iceberg.view.ViewVersion;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -119,7 +116,6 @@ public class TrinoRestCatalog
 
     private static final int PER_QUERY_CACHE_SIZE = 1000;
     private static final String NAMESPACE_SEPARATOR = ".";
-
     private final IcebergFileSystemFactory fileSystemFactory;
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
@@ -127,6 +123,7 @@ public class TrinoRestCatalog
     private final Security security;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
+    private final Map<String, String> sessionProperties;
     private final boolean nestedNamespaceEnabled;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
@@ -134,6 +131,7 @@ public class TrinoRestCatalog
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
     private final boolean viewEndpointsEnabled;
+    private final AtomicBoolean missingCredentialsWarned;
 
     private final Cache<SchemaTableName, BaseTable> tableCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -146,6 +144,7 @@ public class TrinoRestCatalog
             Security security,
             SessionType sessionType,
             Map<String, String> credentials,
+            Map<String, String> sessionProperties,
             boolean nestedNamespaceEnabled,
             String trinoVersion,
             TypeManager typeManager,
@@ -153,7 +152,8 @@ public class TrinoRestCatalog
             boolean caseInsensitiveNameMatching,
             Cache<Namespace, Namespace> remoteNamespaceMappingCache,
             Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache,
-            boolean viewEndpointsEnabled)
+            boolean viewEndpointsEnabled,
+            AtomicBoolean missingCredentialsWarned)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
@@ -161,6 +161,7 @@ public class TrinoRestCatalog
         this.security = requireNonNull(security, "security is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
+        this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -169,6 +170,7 @@ public class TrinoRestCatalog
         this.remoteNamespaceMappingCache = requireNonNull(remoteNamespaceMappingCache, "remoteNamespaceMappingCache is null");
         this.remoteTableMappingCache = requireNonNull(remoteTableMappingCache, "remoteTableMappingCache is null");
         this.viewEndpointsEnabled = viewEndpointsEnabled;
+        this.missingCredentialsWarned = requireNonNull(missingCredentialsWarned, "missingCredentialsWarned is null");
     }
 
     @Override
@@ -609,10 +611,7 @@ public class TrinoRestCatalog
         if (!remoteView.name().equals(schemaTableName.getTableName())) {
             return remoteView;
         }
-        if (remoteView.name().equals(schemaTableName.getTableName()) && remoteTable.name().equals(schemaTableName.getTableName())) {
-            return remoteTable;
-        }
-        throw new RuntimeException("Unable to find remote object");
+        return remoteTable;
     }
 
     @Override
@@ -928,24 +927,19 @@ public class TrinoRestCatalog
                         "trinoCatalog", catalogName.toString(),
                         "trinoVersion", trinoVersion);
 
-                Map<String, Object> claims = ImmutableMap.<String, Object>builder()
+                // Per-request properties take precedence over static OAuth2 session properties.
+                Map<String, String> sessionProperties = ImmutableMap.<String, String>builder()
+                        .putAll(this.sessionProperties)
                         .putAll(properties)
-                        .buildOrThrow();
+                        .buildKeepingLast();
 
-                String subjectJwt = new DefaultJwtBuilder()
-                        .subject(session.getUser())
-                        .issuer(trinoVersion)
-                        .issuedAt(new Date())
-                        .claims(claims)
-                        .json(new JacksonSerializer<>())
-                        .compact();
+                Map<String, String> sessionCredentials = OAuth2SessionCredentials.fromExtraCredentials(session.getIdentity().getExtraCredentials());
+                if (sessionCredentials.isEmpty() && missingCredentialsWarned.compareAndSet(false, true)) {
+                    log.warn("No OAuth2 credentials found for user session; REST catalog requests may be rejected. " +
+                            "Ensure http-server.authentication.oauth2.access-token-extra-credential-name is configured.");
+                }
 
-                Map<String, String> credentials = ImmutableMap.<String, String>builder()
-                        .putAll(session.getIdentity().getExtraCredentials())
-                        .put(OAuth2Properties.JWT_TOKEN_TYPE, subjectJwt)
-                        .buildOrThrow();
-
-                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties, session.getIdentity());
+                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), sessionCredentials, sessionProperties, session.getIdentity());
             }
         };
     }
