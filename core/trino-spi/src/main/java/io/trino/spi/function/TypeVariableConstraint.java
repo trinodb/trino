@@ -17,12 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -91,6 +93,17 @@ public class TypeVariableConstraint
     @Override
     public String toString()
     {
+        return render(TypeTemplate::render);
+    }
+
+    /// Renders constraints using SQL type spelling for user-facing diagnostics.
+    public String toSql()
+    {
+        return render(TypeSyntax::toSql);
+    }
+
+    private String render(Function<TypeTemplate, String> renderType)
+    {
         String value = name;
         if (comparableRequired) {
             value += ":comparable";
@@ -102,10 +115,10 @@ public class TypeVariableConstraint
             value += ":row(*)";
         }
         if (!castableTo.isEmpty()) {
-            value += castableTo.stream().map(TypeTemplate::render).collect(joining(", ", ":castableTo(", ")"));
+            value += castableTo.stream().map(renderType).collect(joining(", ", ":castableTo(", ")"));
         }
         if (!castableFrom.isEmpty()) {
-            value += castableFrom.stream().map(TypeTemplate::render).collect(joining(", ", ":castableFrom(", ")"));
+            value += castableFrom.stream().map(renderType).collect(joining(", ", ":castableFrom(", ")"));
         }
         return value;
     }

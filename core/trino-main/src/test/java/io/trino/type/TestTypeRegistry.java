@@ -29,9 +29,9 @@ public class TestTypeRegistry
     @Test
     public void testNonexistentType()
     {
-        assertThatThrownBy(() -> typeRegistry.getType(new TypeDescriptor("not a real type")))
+        assertThatThrownBy(() -> typeRegistry.getType(new TypeDescriptor("not_a_real_type")))
                 .isInstanceOf(TypeNotFoundException.class)
-                .hasMessage("Unknown type: not a real type");
+                .hasMessage("Unknown type: not_a_real_type");
     }
 
     @Test
