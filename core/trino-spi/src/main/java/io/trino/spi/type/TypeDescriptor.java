@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TypeParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -32,9 +31,6 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 @Immutable
 public final class TypeDescriptor
 {
-    private static final String TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone";
-    private static final String TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone";
-
     private final String base;
     private final List<TypeParameter> parameters;
     private final boolean calculated;
@@ -87,38 +83,11 @@ public final class TypeDescriptor
 
     private String formatValue(boolean json)
     {
-        if (parameters.isEmpty()) {
-            return base;
-        }
-
-        if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
-                (parameters.size() == 1) &&
-                parameters.get(0) instanceof TypeParameter.Numeric(long length) &&
-                length == VarcharType.UNBOUNDED_LENGTH) {
-            return base;
-        }
-
-        // TODO: this is somewhat of a hack. We need to evolve TypeDescriptor to be more "structural" for the special types, similar to DataType from the AST.
-        //   In fact. TypeDescriptor should become the IR counterpart to DataType from the AST.
-        if (base.equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
-            return format("timestamp(%s) with time zone", parameters.get(0));
-        }
-
-        if (base.equalsIgnoreCase(TIMESTAMP_WITHOUT_TIME_ZONE)) {
-            return format("timestamp(%s) without time zone", parameters.get(0));
-        }
-
-        if (base.equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
-            return format("time(%s) with time zone", parameters.get(0));
-        }
-
-        StringBuilder typeName = new StringBuilder(base);
-        typeName.append("(").append(json ? parameters.get(0).jsonValue() : parameters.get(0).toString());
-        for (int i = 1; i < parameters.size(); i++) {
-            typeName.append(",").append(json ? parameters.get(i).jsonValue() : parameters.get(i).toString());
-        }
-        typeName.append(")");
-        return typeName.toString();
+        // The surface special cases (unbounded-varchar elision, time-zone word order) live in one place,
+        // TypeSyntax; render the parameters first and let it assemble the spelling.
+        return TypeSyntax.render(base, parameters.stream()
+                .map(parameter -> json ? parameter.jsonValue() : parameter.toString())
+                .collect(toUnmodifiableList()));
     }
 
     @FormatMethod
