@@ -119,7 +119,7 @@ import static io.trino.connector.informationschema.InformationSchemaTable.TABLES
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.trino.execution.CreateFunctionTask.defaultFunctionSchema;
 import static io.trino.execution.CreateFunctionTask.qualifiedFunctionName;
-import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listAllCatalogNames;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
@@ -421,7 +421,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = listCatalogNames(session, metadata, accessControl, Domain.all(VARCHAR)).stream()
+            List<Expression> rows = listAllCatalogNames(session, metadata, accessControl, Domain.all(VARCHAR)).stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toImmutableList());
 
