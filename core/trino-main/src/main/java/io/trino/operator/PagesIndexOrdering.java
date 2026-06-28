@@ -40,7 +40,6 @@ public class PagesIndexOrdering
     /**
      * Sorts the specified range of elements using the specified swapper and according to the order induced by the specified
      * comparator using quickSort.
-     * <p/>
      * <p>The sorting algorithm is a tuned quickSort adapted from Jon L. Bentley and M. Douglas
      * McIlroy, &ldquo;Engineering a Sort Function&rdquo;, <i>Software: Practice and Experience</i>, 23(11), pages
      * 1249&minus;1265, 1993.
