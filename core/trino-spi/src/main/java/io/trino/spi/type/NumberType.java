@@ -47,7 +47,6 @@ import static java.lang.invoke.MethodHandles.lookup;
  * <p>
  * Stack representation of this type is {@link TrinoNumber} which wraps a slice with the format documented below.
  * <b>Note:</b> the binary format is not stable and may change between releases. Only the Java API is considered stable.
- * <p>
  * <h2>Current unstable binary format</h2>
  * <pre>
  *    ┌───────────────────────┬─────────────────────────┐

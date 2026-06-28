@@ -36,7 +36,6 @@ public final class TimeZone
      * Extracts the time zone from a `time(p) with time zone` as a VARCHAR.
      * This function takes a packed long value representing
      * the time with time zone and extracts the associated time zone offset.
-     * <p>
      *
      * @param timeWithTimeZone the packed long
      *         representing a `time(p) with time zone`
