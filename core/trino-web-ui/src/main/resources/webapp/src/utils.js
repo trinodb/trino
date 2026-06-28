@@ -191,7 +191,7 @@ export function addExponentiallyWeightedToHistory(value: number, valuesArray: nu
     }
 
     let movingAverage = value * MOVING_AVERAGE_ALPHA + valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA)
-    if (value < 1) {
+    if (value < 0) {
         movingAverage = 0
     }
 
