@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionId;
@@ -92,13 +93,13 @@ public class AiFunctions
 
     static {
         try {
-            AI_ANALYZE_SENTIMENT = lookup().findVirtual(AiFunctions.class, "aiAnalyzeSentiment", methodType(Slice.class, Slice.class));
-            AI_CLASSIFY = lookup().findVirtual(AiFunctions.class, "aiClassify", methodType(Slice.class, Slice.class, Block.class));
-            AI_EXTRACT = lookup().findVirtual(AiFunctions.class, "aiExtract", methodType(SqlMap.class, MapType.class, Slice.class, Block.class));
-            AI_FIX_GRAMMAR = lookup().findVirtual(AiFunctions.class, "aiFixGrammar", methodType(Slice.class, Slice.class));
-            AI_GEN = lookup().findVirtual(AiFunctions.class, "aiGen", methodType(Slice.class, Slice.class));
-            AI_MASK = lookup().findVirtual(AiFunctions.class, "aiMask", methodType(Slice.class, Slice.class, Block.class));
-            AI_TRANSLATE = lookup().findVirtual(AiFunctions.class, "aiTranslate", methodType(Slice.class, Slice.class, Slice.class));
+            AI_ANALYZE_SENTIMENT = lookup().findVirtual(AiFunctions.class, "aiAnalyzeSentiment", methodType(Slice.class, ConnectorSession.class, Slice.class));
+            AI_CLASSIFY = lookup().findVirtual(AiFunctions.class, "aiClassify", methodType(Slice.class, ConnectorSession.class, Slice.class, Block.class));
+            AI_EXTRACT = lookup().findVirtual(AiFunctions.class, "aiExtract", methodType(SqlMap.class, ConnectorSession.class, MapType.class, Slice.class, Block.class));
+            AI_FIX_GRAMMAR = lookup().findVirtual(AiFunctions.class, "aiFixGrammar", methodType(Slice.class, ConnectorSession.class, Slice.class));
+            AI_GEN = lookup().findVirtual(AiFunctions.class, "aiGen", methodType(Slice.class, ConnectorSession.class, Slice.class));
+            AI_MASK = lookup().findVirtual(AiFunctions.class, "aiMask", methodType(Slice.class, ConnectorSession.class, Slice.class, Block.class));
+            AI_TRANSLATE = lookup().findVirtual(AiFunctions.class, "aiTranslate", methodType(Slice.class, ConnectorSession.class, Slice.class, Slice.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -161,39 +162,39 @@ public class AiFunctions
                 .build();
     }
 
-    public Slice aiAnalyzeSentiment(Slice text)
+    public Slice aiAnalyzeSentiment(ConnectorSession session, Slice text)
     {
-        return utf8Slice(client.analyzeSentiment(text.toStringUtf8()));
+        return utf8Slice(client.analyzeSentiment(session.getIdentity(), text.toStringUtf8()));
     }
 
-    public Slice aiClassify(Slice text, Block labels)
+    public Slice aiClassify(ConnectorSession session, Slice text, Block labels)
     {
-        return utf8Slice(client.classify(text.toStringUtf8(), fromSqlArray(labels)));
+        return utf8Slice(client.classify(session.getIdentity(), text.toStringUtf8(), fromSqlArray(labels)));
     }
 
-    public SqlMap aiExtract(MapType mapType, Slice text, Block labels)
+    public SqlMap aiExtract(ConnectorSession session, MapType mapType, Slice text, Block labels)
     {
-        return toSqlMap(mapType, client.extract(text.toStringUtf8(), fromSqlArray(labels)));
+        return toSqlMap(mapType, client.extract(session.getIdentity(), text.toStringUtf8(), fromSqlArray(labels)));
     }
 
-    public Slice aiFixGrammar(Slice text)
+    public Slice aiFixGrammar(ConnectorSession session, Slice text)
     {
-        return utf8Slice(client.fixGrammar(text.toStringUtf8()));
+        return utf8Slice(client.fixGrammar(session.getIdentity(), text.toStringUtf8()));
     }
 
-    public Slice aiGen(Slice prompt)
+    public Slice aiGen(ConnectorSession session, Slice prompt)
     {
-        return utf8Slice(client.generate(prompt.toStringUtf8()));
+        return utf8Slice(client.generate(session.getIdentity(), prompt.toStringUtf8()));
     }
 
-    public Slice aiMask(Slice text, Block labels)
+    public Slice aiMask(ConnectorSession session, Slice text, Block labels)
     {
-        return utf8Slice(client.mask(text.toStringUtf8(), fromSqlArray(labels)));
+        return utf8Slice(client.mask(session.getIdentity(), text.toStringUtf8(), fromSqlArray(labels)));
     }
 
-    public Slice aiTranslate(Slice text, Slice language)
+    public Slice aiTranslate(ConnectorSession session, Slice text, Slice language)
     {
-        return utf8Slice(client.translate(text.toStringUtf8(), language.toStringUtf8()));
+        return utf8Slice(client.translate(session.getIdentity(), text.toStringUtf8(), language.toStringUtf8()));
     }
 
     private static List<String> fromSqlArray(Block block)

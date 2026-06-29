@@ -13,22 +13,24 @@
  */
 package io.trino.plugin.ai.functions;
 
+import io.trino.spi.security.ConnectorIdentity;
+
 import java.util.List;
 import java.util.Map;
 
 public interface AiClient
 {
-    String analyzeSentiment(String text);
+    String analyzeSentiment(ConnectorIdentity identity, String text);
 
-    String classify(String text, List<String> labels);
+    String classify(ConnectorIdentity identity, String text, List<String> labels);
 
-    Map<String, String> extract(String text, List<String> labels);
+    Map<String, String> extract(ConnectorIdentity identity, String text, List<String> labels);
 
-    String fixGrammar(String text);
+    String fixGrammar(ConnectorIdentity identity, String text);
 
-    String generate(String prompt);
+    String generate(ConnectorIdentity identity, String prompt);
 
-    String mask(String text, List<String> labels);
+    String mask(ConnectorIdentity identity, String text, List<String> labels);
 
-    String translate(String text, String language);
+    String translate(ConnectorIdentity identity, String text, String language);
 }
