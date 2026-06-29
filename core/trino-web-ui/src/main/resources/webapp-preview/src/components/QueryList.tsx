@@ -270,6 +270,7 @@ export const QueryList = () => {
             />
         )
     }
+
     const renderStateTypeSelectItem = (newStateType: keyof typeof STATE_TYPE, filterText: string) => {
         const handleClick = () => {
             setTimeout(() => {
@@ -288,13 +289,8 @@ export const QueryList = () => {
         }
 
         return (
-            <MenuItem key={filterText} value={filterText}>
-                <Checkbox
-                    checked={stateFilters.includes(newStateType)}
-                    size="small"
-                    sx={{ padding: 0 }}
-                    onClick={handleClick}
-                />
+            <MenuItem key={filterText} value={filterText} onClick={handleClick}>
+                <Checkbox checked={stateFilters.includes(newStateType)} size="small" sx={{ padding: 0 }} />
                 <ListItemText primary={<Typography sx={smallFormControlSx}>{filterText}</Typography>} />
             </MenuItem>
         )
@@ -318,13 +314,8 @@ export const QueryList = () => {
         }
 
         return (
-            <MenuItem key={errorTypeText} value={errorTypeText}>
-                <Checkbox
-                    checked={errorTypeFilters.includes(newErrorType)}
-                    size="small"
-                    sx={{ padding: 0 }}
-                    onClick={handleClick}
-                />
+            <MenuItem key={errorTypeText} value={errorTypeText} onClick={handleClick}>
+                <Checkbox checked={errorTypeFilters.includes(newErrorType)} size="small" sx={{ padding: 0 }} />
                 <ListItemText primary={<Typography sx={smallFormControlSx}>Failed - {errorTypeText}</Typography>} />
             </MenuItem>
         )
