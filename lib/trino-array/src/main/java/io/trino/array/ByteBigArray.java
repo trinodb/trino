@@ -99,11 +99,8 @@ public final class ByteBigArray
      */
     public void fill(byte value)
     {
-        for (byte[] segment : array) {
-            if (segment == null) {
-                return;
-            }
-            Arrays.fill(segment, value);
+        for (int i = 0; i < segments; i++) {
+            Arrays.fill(array[i], value);
         }
     }
 

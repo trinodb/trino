@@ -130,11 +130,8 @@ public final class DoubleBigArray
      */
     public void fill(double value)
     {
-        for (double[] segment : array) {
-            if (segment == null) {
-                return;
-            }
-            Arrays.fill(segment, value);
+        for (int i = 0; i < segments; i++) {
+            Arrays.fill(array[i], value);
         }
     }
 

@@ -155,11 +155,8 @@ public final class ObjectBigArray<T>
      */
     public void fill(T value)
     {
-        for (Object[] segment : array) {
-            if (segment == null) {
-                return;
-            }
-            Arrays.fill(segment, value);
+        for (int i = 0; i < segments; i++) {
+            Arrays.fill(array[i], value);
         }
     }
 
