@@ -907,6 +907,15 @@ public class HiveMetadata
 
     private Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTableName tableName)
     {
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (table.isEmpty()) {
+            return Stream.empty();
+        }
+        if (isSomeKindOfAView(table.get()) && !(isHiveView(table.get()) && translateHiveViews)) {
+            // Skip views and materialized views (except translated Hive views, which are exposed as tables)
+            return Stream.empty();
+        }
+
         try {
             if (redirectTable(session, tableName).isPresent()) {
                 return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
@@ -918,7 +927,6 @@ public class HiveMetadata
             return Stream.empty();
         }
         catch (TableNotFoundException e) {
-            // it is not a table (e.g. it's a view) (TODO remove exception-driven logic for this case) OR
             // table disappeared during listing operation
             return Stream.empty();
         }
