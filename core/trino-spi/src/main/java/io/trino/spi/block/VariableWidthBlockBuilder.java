@@ -128,10 +128,9 @@ public class VariableWidthBlockBuilder
             ensureFreeSpace(length);
 
             Slice rawSlice = variableWidthBlock.getRawSlice();
-            byte[] rawByteArray = rawSlice.byteArray();
-            int byteArrayOffset = rawSlice.byteArrayOffset();
 
-            System.arraycopy(rawByteArray, byteArrayOffset + startValueOffset, bytes, offsets[positionCount], length);
+            rawSlice.getBytes(startValueOffset, bytes, offsets[positionCount], length);
+
             bytesWritten = length;
             hasNonNullValue = true;
         }
@@ -176,11 +175,8 @@ public class VariableWidthBlockBuilder
 
                 // copy in the value
                 Slice rawSlice = variableWidthBlock.getRawSlice();
-                byte[] rawByteArray = rawSlice.byteArray();
-                int byteArrayOffset = rawSlice.byteArrayOffset();
-
                 int currentOffset = offsets[positionCount];
-                System.arraycopy(rawByteArray, byteArrayOffset + startValueOffset, bytes, currentOffset, length);
+                rawSlice.getBytes(startValueOffset, bytes, currentOffset, length);
 
                 // repeatedly duplicate the written vales, doubling the number of values copied each time
                 int duplicatedBytes = length;
@@ -234,7 +230,7 @@ public class VariableWidthBlockBuilder
         ensureFreeSpace(totalSize);
 
         Slice sourceSlice = variableWidthBlock.getRawSlice();
-        System.arraycopy(sourceSlice.byteArray(), sourceSlice.byteArrayOffset() + startValueOffset, bytes, offsets[positionCount], totalSize);
+        sourceSlice.getBytes(startValueOffset, bytes, offsets[positionCount], totalSize);
 
         // update offsets for copied data
         int offsetDelta = offsets[positionCount] - rawOffsets[rawArrayBase + offset];
