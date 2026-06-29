@@ -51,21 +51,20 @@ public class TestDeltaLakeSystemTables
     @Test
     public void testHistoryTable()
     {
-        try {
-            assertUpdate("CREATE TABLE test_simple_table (_bigint BIGINT)");
-            assertUpdate("INSERT INTO test_simple_table VALUES 1, 2, 3", 3);
-            assertQuery("SELECT count(*) FROM test_simple_table", "VALUES 3");
+        try (TestTable simpleTable = newTrinoTable("test_simple_table_", "(_bigint BIGINT)");
+                TestTable checkpointTable = newTrinoTable("test_checkpoint_table_", "(_bigint BIGINT, _date DATE) WITH (partitioned_by = ARRAY['_date'])")) {
+            assertUpdate("INSERT INTO " + simpleTable.getName() + " VALUES 1, 2, 3", 3);
+            assertQuery("SELECT count(*) FROM " + simpleTable.getName(), "VALUES 3");
 
-            assertUpdate("CREATE TABLE test_checkpoint_table (_bigint BIGINT, _date DATE) WITH (partitioned_by = ARRAY['_date'] )");
-            assertUpdate("INSERT INTO test_checkpoint_table VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
-            assertUpdate("INSERT INTO test_checkpoint_table VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
-            assertUpdate("UPDATE test_checkpoint_table SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
-            assertUpdate("DELETE FROM test_checkpoint_table WHERE _date =  DATE '2019-09-08'", 1);
-            assertQuerySucceeds("ALTER TABLE test_checkpoint_table EXECUTE OPTIMIZE");
-            assertQuery("SELECT count(*) FROM test_checkpoint_table", "VALUES 5");
+            assertUpdate("INSERT INTO " + checkpointTable.getName() + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + checkpointTable.getName() + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertUpdate("UPDATE " + checkpointTable.getName() + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
+            assertUpdate("DELETE FROM " + checkpointTable.getName() + " WHERE _date =  DATE '2019-09-08'", 1);
+            assertQuerySucceeds("ALTER TABLE " + checkpointTable.getName() + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT count(*) FROM " + checkpointTable.getName(), "VALUES 5");
 
             assertQuery(
-                    "SHOW COLUMNS FROM \"test_checkpoint_table$history\"",
+                    "SHOW COLUMNS FROM \"" + checkpointTable.getName() + "$history\"",
                     """
                     VALUES
                     ('version', 'bigint', '', ''),
@@ -82,14 +81,14 @@ public class TestDeltaLakeSystemTables
                     """);
 
             // Test the contents of history system table
-            assertThat(query("SELECT version, operation, read_version, isolation_level, is_blind_append FROM \"test_simple_table$history\""))
+            assertThat(query("SELECT version, operation, read_version, isolation_level, is_blind_append FROM \"" + simpleTable.getName() + "$history\""))
                     .matches(
                             """
                             VALUES
                                 (BIGINT '1', VARCHAR 'WRITE', BIGINT '0', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '0', VARCHAR 'CREATE TABLE', BIGINT '0', VARCHAR 'WriteSerializable', true)
                             """);
-            assertThat(query("SELECT version, operation, read_version, isolation_level, is_blind_append FROM \"test_checkpoint_table$history\""))
+            assertThat(query("SELECT version, operation, read_version, isolation_level, is_blind_append FROM \"" + checkpointTable.getName() + "$history\""))
                     // TODO (https://github.com/trinodb/trino/issues/15763) Use correct operation name for DML statements
                     .matches(
                             """
@@ -101,10 +100,6 @@ public class TestDeltaLakeSystemTables
                                 (BIGINT '1', VARCHAR 'WRITE', BIGINT '0', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '0', VARCHAR 'CREATE TABLE', BIGINT '0', VARCHAR 'WriteSerializable', true)
                             """);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS test_simple_table");
-            assertUpdate("DROP TABLE IF EXISTS test_checkpoint_table");
         }
     }
 
@@ -135,20 +130,15 @@ public class TestDeltaLakeSystemTables
     @Test
     public void testPropertiesTable()
     {
-        String tableName = "test_simple_properties_table";
-        try {
-            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT) WITH (change_data_feed_enabled = true, checkpoint_interval = 5)");
-            String tableLocation = getTableLocation(tableName);
-            assertQuery("SELECT * FROM \"" + tableName + "$properties\"", "VALUES " +
+        try (TestTable table = newTrinoTable("test_simple_properties_table_", "(_bigint BIGINT) WITH (change_data_feed_enabled = true, checkpoint_interval = 5)")) {
+            String tableLocation = getTableLocation(table.getName());
+            assertQuery("SELECT * FROM \"" + table.getName() + "$properties\"", "VALUES " +
                     "('location', '" + tableLocation + "')," +
                     "('delta.enableChangeDataFeed', 'true')," +
                     "('delta.enableDeletionVectors', 'false')," +
                     "('delta.checkpointInterval', '5')," +
                     "('delta.minReaderVersion', '1')," +
                     "('delta.minWriterVersion', '4')");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -167,16 +157,14 @@ public class TestDeltaLakeSystemTables
     @Test
     public void testPartitionsTable()
     {
-        String tableName = "test_simple_partitions_table_" + randomNameSuffix();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _date DATE) WITH (partitioned_by = ARRAY['_date'])");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (6, NULL)", 1);
-            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 7");
-            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 4");
+        try (TestTable table = newTrinoTable("test_simple_partitions_table_", "(_bigint BIGINT, _date DATE) WITH (partitioned_by = ARRAY['_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (6, NULL)", 1);
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 7");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$partitions\"", "VALUES 4");
 
-            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+            assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$partitions\"",
                     """
                     VALUES
                     ('partition', 'row("_date" date)', '', ''),
@@ -185,9 +173,9 @@ public class TestDeltaLakeSystemTables
                     ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint))', '', '')
                     """);
 
-            assertQuery("SELECT partition._date FROM \"" + tableName + "$partitions\"", " VALUES DATE '2019-09-08', DATE '2019-09-09', DATE '2019-09-10', NULL");
+            assertQuery("SELECT partition._date FROM \"" + table.getName() + "$partitions\"", " VALUES DATE '2019-09-08', DATE '2019-09-09', DATE '2019-09-10', NULL");
 
-            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + tableName + "$partitions\""))
+            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + table.getName() + "$partitions\""))
                     .matches(
                             """
                             VALUES
@@ -197,9 +185,9 @@ public class TestDeltaLakeSystemTables
                             ROW(ROW(BIGINT '6', BIGINT '6', BIGINT '0'))
                             """);
 
-            assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, CAST('2019-09-09' AS DATE))", 1);
-            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 8");
-            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + tableName + "$partitions\""))
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (NULL, CAST('2019-09-09' AS DATE))", 1);
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 8");
+            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + table.getName() + "$partitions\""))
                     .matches(
                             """
                             VALUES
@@ -208,9 +196,6 @@ public class TestDeltaLakeSystemTables
                             ROW(ROW(BIGINT '6', BIGINT '6', BIGINT '0')),
                             ROW(ROW(NULL, NULL, BIGINT '1'))
                             """);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -261,19 +246,19 @@ public class TestDeltaLakeSystemTables
 
     private void testColumnMappingModePartitionsTable(String columnMappingMode)
     {
-        String tableName = "test_simple_column_mapping_mode_" + columnMappingMode + "_partitions_table_" + randomNameSuffix();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _date DATE) WITH (column_mapping_mode = '" + columnMappingMode + "', partitioned_by = ARRAY['_date'])");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (6, NULL), (NULL, CAST('2019-09-08' AS DATE)), (NULL, CAST('2019-09-08' AS DATE))", 3);
+        try (TestTable table = newTrinoTable(
+                "test_simple_column_mapping_mode_" + columnMappingMode + "_partitions_table_",
+                "(_bigint BIGINT, _date DATE) WITH (column_mapping_mode = '" + columnMappingMode + "', partitioned_by = ARRAY['_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (6, NULL), (NULL, CAST('2019-09-08' AS DATE)), (NULL, CAST('2019-09-08' AS DATE))", 3);
 
-            assertQuerySucceeds("SELECT * FROM " + tableName);
-            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 9");
-            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 4");
+            assertQuerySucceeds("SELECT * FROM " + table.getName());
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 9");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$partitions\"", "VALUES 4");
 
             assertQuery(
-                    "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    "SHOW COLUMNS FROM \"" + table.getName() + "$partitions\"",
                     """
                     VALUES
                     ('partition', 'row("_date" date)', '', ''),
@@ -282,9 +267,9 @@ public class TestDeltaLakeSystemTables
                     ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint))', '', '')
                     """);
 
-            assertQuery("SELECT partition._date FROM \"" + tableName + "$partitions\"", " VALUES DATE '2019-09-08', DATE '2019-09-09', DATE '2019-09-10', NULL");
+            assertQuery("SELECT partition._date FROM \"" + table.getName() + "$partitions\"", " VALUES DATE '2019-09-08', DATE '2019-09-09', DATE '2019-09-10', NULL");
 
-            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + tableName + "$partitions\""))
+            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + table.getName() + "$partitions\""))
                     .matches(
                             """
                             VALUES
@@ -294,30 +279,25 @@ public class TestDeltaLakeSystemTables
                             ROW(ROW(CAST(NULL AS BIGINT), CAST(NULL AS BIGINT), BIGINT '2'))
                             """);
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testPartitionsTableMultipleColumns()
     {
-        String tableName = "test_partitions_table_multiple_columns_" + randomNameSuffix();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (partitioned_by = ARRAY['_date', '_varchar'])");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE), 'a'), (1, CAST('2019-09-09' AS DATE), 'b'), (2, CAST('2019-09-09' AS DATE), 'c')", 3);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE), 'd'), (4, CAST('2019-09-10' AS DATE), 'e'), (5, CAST('2019-09-10' AS DATE), 'f'), (4, CAST('2019-09-10' AS DATE), 'f')", 4);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (6, null, 'g'), (6, CAST('2019-09-10' AS DATE), null), (7, null, null), (8, null, 'g')", 4);
-            assertUpdate("UPDATE " + tableName + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
-            assertUpdate("DELETE FROM " + tableName + " WHERE _date =  DATE '2019-09-08'", 1);
-            assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 10");
-            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 8");
-            assertQuery("SELECT count(partition._varchar) FROM \"" + tableName + "$partitions\"", "VALUES 6");
-            assertQuery("SELECT count(distinct partition._date) FROM \"" + tableName + "$partitions\"", "VALUES 2");
+        try (TestTable table = newTrinoTable("test_partitions_table_multiple_columns_", "(_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (partitioned_by = ARRAY['_date', '_varchar'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, CAST('2019-09-08' AS DATE), 'a'), (1, CAST('2019-09-09' AS DATE), 'b'), (2, CAST('2019-09-09' AS DATE), 'c')", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, CAST('2019-09-09' AS DATE), 'd'), (4, CAST('2019-09-10' AS DATE), 'e'), (5, CAST('2019-09-10' AS DATE), 'f'), (4, CAST('2019-09-10' AS DATE), 'f')", 4);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (6, null, 'g'), (6, CAST('2019-09-10' AS DATE), null), (7, null, null), (8, null, 'g')", 4);
+            assertUpdate("UPDATE " + table.getName() + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE _date =  DATE '2019-09-08'", 1);
+            assertQuerySucceeds("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 10");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$partitions\"", "VALUES 8");
+            assertQuery("SELECT count(partition._varchar) FROM \"" + table.getName() + "$partitions\"", "VALUES 6");
+            assertQuery("SELECT count(distinct partition._date) FROM \"" + table.getName() + "$partitions\"", "VALUES 2");
 
             assertQuery(
-                    "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    "SHOW COLUMNS FROM \"" + table.getName() + "$partitions\"",
                     """
                     VALUES
                     ('partition', 'row(\"_date\" date, \"_varchar\" varchar)', '', ''),
@@ -327,7 +307,7 @@ public class TestDeltaLakeSystemTables
                     """);
 
             assertQuery(
-                    "SELECT partition._date, partition._varchar FROM \"" + tableName + "$partitions\"",
+                    "SELECT partition._date, partition._varchar FROM \"" + table.getName() + "$partitions\"",
                     """
                     VALUES
                     (DATE '2019-09-09', 'b'),
@@ -340,7 +320,7 @@ public class TestDeltaLakeSystemTables
                     (null, null)
                     """);
 
-            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + tableName + "$partitions\""))
+            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + table.getName() + "$partitions\""))
                     .matches(
                             """
                             VALUES
@@ -354,30 +334,25 @@ public class TestDeltaLakeSystemTables
                             ROW(ROW(BIGINT '7', BIGINT '7', BIGINT '0'))
                             """);
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testPartitionsTableDifferentOrderFromDefinitionMultipleColumns()
     {
-        String tableName = "test_partitions_table_different_order_from_definition_multiple_columns_" + randomNameSuffix();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (partitioned_by = ARRAY['_varchar', '_date'])");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE), 'a'), (1, CAST('2019-09-09' AS DATE), 'b'), (2, CAST('2019-09-09' AS DATE), 'c')", 3);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE), 'd'), (4, CAST('2019-09-10' AS DATE), 'e'), (5, CAST('2019-09-10' AS DATE), 'f'), (4, CAST('2019-09-10' AS DATE), 'f')", 4);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (6, null, 'g'), (6, CAST('2019-09-10' AS DATE), null), (7, null, null), (8, null, 'g')", 4);
-            assertUpdate("UPDATE " + tableName + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
-            assertUpdate("DELETE FROM " + tableName + " WHERE _date =  DATE '2019-09-08'", 1);
-            assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 10");
-            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 8");
-            assertQuery("SELECT count(partition._varchar) FROM \"" + tableName + "$partitions\"", "VALUES 6");
-            assertQuery("SELECT count(distinct partition._date) FROM \"" + tableName + "$partitions\"", "VALUES 2");
+        try (TestTable table = newTrinoTable("test_partitions_table_different_order_from_definition_multiple_columns_", "(_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (partitioned_by = ARRAY['_varchar', '_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, CAST('2019-09-08' AS DATE), 'a'), (1, CAST('2019-09-09' AS DATE), 'b'), (2, CAST('2019-09-09' AS DATE), 'c')", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, CAST('2019-09-09' AS DATE), 'd'), (4, CAST('2019-09-10' AS DATE), 'e'), (5, CAST('2019-09-10' AS DATE), 'f'), (4, CAST('2019-09-10' AS DATE), 'f')", 4);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (6, null, 'g'), (6, CAST('2019-09-10' AS DATE), null), (7, null, null), (8, null, 'g')", 4);
+            assertUpdate("UPDATE " + table.getName() + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE _date =  DATE '2019-09-08'", 1);
+            assertQuerySucceeds("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 10");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$partitions\"", "VALUES 8");
+            assertQuery("SELECT count(partition._varchar) FROM \"" + table.getName() + "$partitions\"", "VALUES 6");
+            assertQuery("SELECT count(distinct partition._date) FROM \"" + table.getName() + "$partitions\"", "VALUES 2");
 
             assertQuery(
-                    "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    "SHOW COLUMNS FROM \"" + table.getName() + "$partitions\"",
                     """
                     VALUES
                     ('partition', 'row(\"_varchar\" varchar, \"_date\" date)', '', ''),
@@ -387,7 +362,7 @@ public class TestDeltaLakeSystemTables
                     """);
 
             assertQuery(
-                    "SELECT partition._varchar, partition._date FROM \"" + tableName + "$partitions\"",
+                    "SELECT partition._varchar, partition._date FROM \"" + table.getName() + "$partitions\"",
                     """
                     VALUES
                     ('b', DATE '2019-09-09'),
@@ -400,7 +375,7 @@ public class TestDeltaLakeSystemTables
                     (null, null)
                     """);
 
-            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + tableName + "$partitions\""))
+            assertThat(query("SELECT CAST(data._bigint AS ROW(BIGINT, BIGINT, BIGINT)) FROM \"" + table.getName() + "$partitions\""))
                     .matches(
                             """
                             VALUES
@@ -413,9 +388,6 @@ public class TestDeltaLakeSystemTables
                             ROW(ROW(BIGINT '6', BIGINT '8', BIGINT '0')),
                             ROW(ROW(BIGINT '7', BIGINT '7', BIGINT '0'))
                             """);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -528,40 +500,30 @@ public class TestDeltaLakeSystemTables
 
     private void testPartitionsTableColumnTypes(String type, @Language("SQL") String insertIntoValues, int insertIntoValuesCount, @Language("SQL") String expectedDataColumn)
     {
-        String tableName = "test_partitions_table_data_column_" + randomNameSuffix();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + "(_nonpartition " + type + ", _partition VARCHAR) WITH (partitioned_by = ARRAY['_partition'])");
-            assertUpdate("INSERT INTO " + tableName + " " + insertIntoValues, insertIntoValuesCount);
-            assertThat(query("SELECT CAST(data._nonpartition AS ROW(" + type + "," + type + ", BIGINT)) FROM \"" + tableName + "$partitions\"")).matches(expectedDataColumn);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        try (TestTable table = newTrinoTable("test_partitions_table_data_column_", "(_nonpartition " + type + ", _partition VARCHAR) WITH (partitioned_by = ARRAY['_partition'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " " + insertIntoValues, insertIntoValuesCount);
+            assertThat(query("SELECT CAST(data._nonpartition AS ROW(" + type + "," + type + ", BIGINT)) FROM \"" + table.getName() + "$partitions\"")).matches(expectedDataColumn);
         }
     }
 
     @Test
     public void testPartitionsTableUnpartitioned()
     {
-        String tableName = "test_partitions_table_unpartitioned_" + randomNameSuffix();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _date DATE)");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
-            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 6");
-            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 0");
-            assertQueryReturnsEmptyResult("SELECT * FROM \"" + tableName + "$partitions\"");
+        try (TestTable table = newTrinoTable("test_partitions_table_unpartitioned_", "(_bigint BIGINT, _date DATE)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 6");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$partitions\"", "VALUES 0");
+            assertQueryReturnsEmptyResult("SELECT * FROM \"" + table.getName() + "$partitions\"");
 
             assertQuery(
-                    "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    "SHOW COLUMNS FROM \"" + table.getName() + "$partitions\"",
                     """
                     VALUES
                     ('file_count', 'bigint', '', ''),
                     ('total_size', 'bigint', '', ''),
                     ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint), "_date" row("min" date, "max" date, "null_count" bigint))', '', '')
                     """);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 }
