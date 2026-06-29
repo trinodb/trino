@@ -2086,6 +2086,41 @@ CREATE TABLE example_table (
 When trying to insert/update data in the table, the query fails if trying to set
 `NULL` value on a column having the `NOT NULL` constraint.
 
+(iceberg-view-management)=
+### View management
+
+The Iceberg connector supports {ref}`sql-view-management`.
+
+For Iceberg catalogs using the {ref}`iceberg-jdbc-catalog` or
+{ref}`iceberg-rest-catalog`, {doc}`/sql/create-view` supports the `location`
+view property. The property optionally specifies the file system location URI
+for the view metadata files. When omitted, Trino uses the catalog's default
+location for the view. Other Iceberg catalog types do not support view
+properties.
+
+:::{list-table} Iceberg view properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `location`
+  - Optionally specifies the file system location URI for the view metadata
+    files. Supported for JDBC and REST catalogs.
+:::
+
+The example below creates a view with view metadata files stored in a specified
+location:
+
+```sql
+CREATE VIEW example_view
+WITH (
+    location = 's3://my-bucket/views/example_view')
+AS
+SELECT orderkey, totalprice
+FROM orders;
+```
+
 (iceberg-materialized-views)=
 ### Materialized views
 
