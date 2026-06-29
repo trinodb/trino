@@ -24,7 +24,10 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -135,18 +138,30 @@ public class TestDeltaLakeSystemTables
         String tableName = "test_simple_properties_table";
         try {
             assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT) WITH (change_data_feed_enabled = true, checkpoint_interval = 5)");
-            assertQuery("SELECT * FROM \"" + tableName + "$properties\" WHERE key LIKE 'delta%'", "VALUES " +
+            String tableLocation = getTableLocation(tableName);
+            assertQuery("SELECT * FROM \"" + tableName + "$properties\"", "VALUES " +
+                    "('location', '" + tableLocation + "')," +
                     "('delta.enableChangeDataFeed', 'true')," +
                     "('delta.enableDeletionVectors', 'false')," +
                     "('delta.checkpointInterval', '5')," +
                     "('delta.minReaderVersion', '1')," +
                     "('delta.minWriterVersion', '4')");
-            assertThat((String) computeScalar("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'location'"))
-                    .matches("local:///delta/tpch/test_simple_properties_table.*");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     @Test
