@@ -15,6 +15,7 @@ package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
 import io.trino.tests.product.postgresql.PostgresqlBasicEnvironment;
+import io.trino.tests.product.postgresql.PostgresqlPostgisEnvironment;
 import io.trino.tests.product.postgresql.PostgresqlSpoolingEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
@@ -27,6 +28,7 @@ import java.util.List;
  * This suite runs two sequential test runs:
  * <ol>
  *   <li>PostgreSQL basic tests: All tests tagged with {@code postgresql} but not {@code postgresql_spooling}</li>
+ *   <li>PostgreSQL PostGIS tests: All tests tagged with {@code postgresql_postgis}</li>
  *   <li>PostgreSQL spooling tests: All tests tagged with {@code postgresql_spooling}</li>
  * </ol>
  * <p>
@@ -52,7 +54,12 @@ public final class SuitePostgresql
                 .excludeTag(TestGroup.PostgresqlSpooling.class)
                 .run());
 
-        // Run 2: PostgreSQL spooling tests
+        // Run 2: PostgreSQL PostGIS tests
+        results.add(SuiteRunner.forEnvironment(PostgresqlPostgisEnvironment.class)
+                .includeTag(TestGroup.PostgresqlPostgis.class)
+                .run());
+
+        // Run 3: PostgreSQL spooling tests
         results.add(SuiteRunner.forEnvironment(PostgresqlSpoolingEnvironment.class)
                 .includeTag(TestGroup.PostgresqlSpooling.class)
                 .run());

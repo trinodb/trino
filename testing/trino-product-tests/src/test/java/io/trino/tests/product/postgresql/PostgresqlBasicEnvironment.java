@@ -82,7 +82,8 @@ public class PostgresqlBasicEnvironment
         try (Connection conn = postgresql.createConnection("");
                 Statement stmt = conn.createStatement()) {
             // Create workers_psql table
-            stmt.execute("""
+            stmt.execute(
+                    """
                     CREATE TABLE workers_psql (
                         id_employee INT,
                         first_name VARCHAR(32),
@@ -95,7 +96,8 @@ public class PostgresqlBasicEnvironment
                     )
                     """);
 
-            stmt.execute("""
+            stmt.execute(
+                    """
                     INSERT INTO workers_psql VALUES
                     (null, null, null, null, null, 1, 'Marketing', 4000),
                     (2, 'Ann', 'Turner', '2000-05-28', 2, 2, 'R&D', 5000),
@@ -114,7 +116,8 @@ public class PostgresqlBasicEnvironment
                     """);
 
             // Create datatype_psql table
-            stmt.execute("""
+            stmt.execute(
+                    """
                     CREATE TABLE datatype_psql (
                         c_bigint BIGINT,
                         c_double DOUBLE PRECISION,
@@ -125,7 +128,8 @@ public class PostgresqlBasicEnvironment
                     )
                     """);
 
-            stmt.execute("""
+            stmt.execute(
+                    """
                     INSERT INTO datatype_psql VALUES
                     (12, 12.25, 'String1', '1999-01-08', '1999-01-08 02:05:06', true),
                     (25, 55.52, 'test', '1952-01-05', '1989-01-08 04:05:06', false),
@@ -146,7 +150,8 @@ public class PostgresqlBasicEnvironment
                     """);
 
             // Create real_table_psql table
-            stmt.execute("""
+            stmt.execute(
+                    """
                     CREATE TABLE real_table_psql (
                         id_employee INT,
                         salary REAL,
@@ -156,7 +161,8 @@ public class PostgresqlBasicEnvironment
                     )
                     """);
 
-            stmt.execute("""
+            stmt.execute(
+                    """
                     INSERT INTO real_table_psql VALUES
                     (null, 4000.10889, 100.59889, 11.456789, 96.42),
                     (2, 100.97, 0.94, 0.8895, 73.658),
