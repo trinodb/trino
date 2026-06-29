@@ -138,6 +138,7 @@ import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.GroupProviderManager;
+import io.trino.security.credential.CredentialProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionPropertyDefaults;
@@ -455,7 +456,8 @@ public class PlanTester
                 nodeSchedulerConfig,
                 optimizerConfig,
                 secretsResolver,
-                evaluator));
+                evaluator,
+                new CredentialProviderManager(ImmutableSet.of())));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));

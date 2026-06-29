@@ -23,9 +23,15 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.Credential;
+import io.trino.spi.security.CredentialProviders;
+import io.trino.spi.security.OAuth2Credential;
+import io.trino.spi.security.OAuth2CredentialRequest;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.HeaderNames.AUTHORIZATION;
@@ -59,23 +65,41 @@ public class OpenAiClient
 
     private final HttpClient httpClient;
     private final Tracer tracer;
-    private final URI endpoint;
-    private final String apiKey;
+    private final OpenAiConfig openAiConfig;
+    private final CredentialProviders credentialProviderManager;
 
     @Inject
-    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig)
+    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig, CredentialProviders credentialProviderManager)
     {
         super(aiConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
-        this.endpoint = openAiConfig.getEndpoint();
-        this.apiKey = openAiConfig.getApiKey();
+        this.openAiConfig = requireNonNull(openAiConfig, "openAiConfig is null");
+        this.credentialProviderManager = requireNonNull(credentialProviderManager, "credentialProviderManager is null");
+    }
+
+    private String getBearerToken(ConnectorIdentity identity)
+    {
+        if (openAiConfig.getApiKey() != null) {
+            return openAiConfig.getApiKey();
+        }
+
+        requireNonNull(openAiConfig.getOAuth2Audience(), "ai.openai.oauth2.audience is null");
+        requireNonNull(openAiConfig.getOAuth2Scope(), "ai.openai.oauth2.scope is null");
+
+        Optional<Credential> credential = credentialProviderManager.getCredential(identity, new OAuth2CredentialRequest(openAiConfig.getOAuth2Audience(), openAiConfig.getOAuth2Scope()));
+        if (credential.isEmpty()) {
+            throw new TrinoException(AI_ERROR, "No credential received for oauth2 request");
+        }
+        return credential.map(OAuth2Credential.class::cast).get().accessToken();
     }
 
     @Override
-    protected String generateCompletion(String model, String prompt)
+    protected String generateCompletion(ConnectorIdentity identity, String model, String prompt)
     {
-        URI uri = uriBuilderFrom(endpoint)
+        String bearerToken = getBearerToken(identity);
+
+        URI uri = uriBuilderFrom(openAiConfig.getEndpoint())
                 .appendPath("/v1/chat/completions")
                 .build();
 
@@ -84,7 +108,7 @@ public class OpenAiClient
 
         Request request = preparePost()
                 .setUri(uri)
-                .setHeader(AUTHORIZATION, "Bearer " + apiKey)
+                .setHeader(AUTHORIZATION, "Bearer %s".formatted(bearerToken))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(CHAT_REQUEST_CODEC, body))
                 .build();

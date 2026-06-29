@@ -40,6 +40,7 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorName;
+import io.trino.spi.security.CredentialProviders;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.transaction.TransactionManager;
@@ -78,6 +79,7 @@ public class DefaultCatalogFactory
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
     private final SecretsResolver secretsResolver;
     private final ConnectorExpressionEvaluator evaluator;
+    private final CredentialProviders credentialProviderManager;
 
     @Inject
     public DefaultCatalogFactory(
@@ -95,7 +97,8 @@ public class DefaultCatalogFactory
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
             SecretsResolver secretsResolver,
-            ConnectorExpressionEvaluator evaluator)
+            ConnectorExpressionEvaluator evaluator,
+            CredentialProviders credentialProviderManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -112,6 +115,7 @@ public class DefaultCatalogFactory
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.credentialProviderManager = requireNonNull(credentialProviderManager, "credentialProviderManager is null");
     }
 
     @Override
@@ -206,7 +210,8 @@ public class DefaultCatalogFactory
                 pageIndexerFactory,
                 new InternalFunctionBundleFactory(),
                 blocksHashFactory,
-                evaluator);
+                evaluator,
+                credentialProviderManager);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName
