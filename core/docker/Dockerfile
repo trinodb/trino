@@ -37,7 +37,7 @@ RUN \
     mkdir -p /tmp/overlay/usr/libexec/ && \
     touch /tmp/overlay/usr/libexec/grepconf.sh && \
     chmod +x /tmp/overlay/usr/libexec/grepconf.sh && \
-    dnf update -y && \
+    dnf update -y --nobest --allowerasing && \
     dnf install --installroot /tmp/overlay --setopt install_weak_deps=false --nodocs -y \
       less \
       libstdc++ `# required by snappy and duckdb` \
