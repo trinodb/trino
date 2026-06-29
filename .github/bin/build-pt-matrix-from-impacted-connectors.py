@@ -27,7 +27,26 @@ def main():
         "--impacted-features",
         type=argparse.FileType("r"),
         dest="impacted_features",
-        help="List of impacted features, one per line",
+        help="List of impacted features vs master, one per line",
+    )
+    parser.add_argument(
+        "--impacted-features-prev",
+        type=argparse.FileType("r"),
+        dest="impacted_features_prev",
+        default=None,
+        help="List of impacted features vs the merge commit of the previous PR CI run. "
+        "When provided together with --prev-non-success-jobs, matrix items whose features "
+        "are not impacted vs the previous run AND that are not on the prev-non-success list "
+        "are skipped.",
+    )
+    parser.add_argument(
+        "--prev-non-success-jobs",
+        type=argparse.FileType("r"),
+        dest="prev_non_success_jobs",
+        default=None,
+        help="File containing rendered job names (one per line) for jobs from the "
+        "previous PR CI run whose conclusion was NOT success. Treated as a deny list "
+        "for the prev-run gate.",
     )
     parser.add_argument(
         "-o",
@@ -57,7 +76,23 @@ def main():
         sys.argv = [sys.argv[0]]
         unittest.main()
         return
-    build(args.matrix, args.impacted_features, args.output, "testing/bin/ptl")
+    build(
+        args.matrix,
+        args.impacted_features,
+        args.output,
+        "testing/bin/ptl",
+        impacted_features_prev_file=args.impacted_features_prev,
+        prev_non_success_jobs_file=args.prev_non_success_jobs,
+    )
+
+
+def render(item):
+    """Compute the GHA job name for a PT matrix item.
+
+    Must match the `pt` job's explicit `name:` declaration in ci.yml:
+    `pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})`.
+    """
+    return "pt ({}, {}, {})".format(item.get("config", ""), item.get("suite", ""), item.get("jdk", ""))
 
 
 def excluded(item, excludes):
@@ -131,7 +166,14 @@ def tested_features(available_features, config, suite):
     return available_features.get((config, suite), [])
 
 
-def build(matrix_file, impacted_file, output_file, ptl_binary_path):
+def build(
+    matrix_file,
+    impacted_file,
+    output_file,
+    ptl_binary_path,
+    impacted_features_prev_file=None,
+    prev_non_success_jobs_file=None,
+):
     matrix = yaml.load(matrix_file, Loader=yaml.Loader)
     logging.info("Read matrix: %s", matrix)
     if impacted_file is None:
@@ -142,6 +184,15 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
 
     impacted_features = list(filter(None, [line.rstrip() for line in impacted_file.readlines()]))
     logging.info("Read impacted_features: %s", impacted_features)
+    impacted_features_prev = None
+    if impacted_features_prev_file is not None:
+        impacted_features_prev = list(filter(None, [line.rstrip() for line in impacted_features_prev_file.readlines()]))
+        logging.info("Read impacted_features_prev: %s", impacted_features_prev)
+    prev_non_success = None
+    if prev_non_success_jobs_file is not None:
+        prev_non_success = set(filter(None, [line.rstrip() for line in prev_non_success_jobs_file.readlines()]))
+        logging.info("Read prev_non_success (%d names)", len(prev_non_success))
+
     result = copy.copy(matrix)
     items = expand_matrix(matrix)
     logging.info("Expanded matrix: %s", items)
@@ -150,26 +201,57 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
     for item in items:
         configToSuiteMap[item.get("config")].append(item.get("suite"))
     available_features = load_available_features(configToSuiteMap, ptl_binary_path)
+    rendered_names = []
     if len(available_features) > 0:
         all_excluded = True
         for item in items:
             features = tested_features(available_features, item.get("config"), item.get("suite"))
             logging.debug("matrix item features: %s", features)
-            if not any(feature in impacted_features for feature in features):
+            if not _keep(item, features, impacted_features, impacted_features_prev, prev_non_success):
                 if "include" in result and item in result["include"]:
                     logging.info("Removing from include list: %s", item)
                     result["include"].remove(item)
                 else:
-                    logging.info("Excluding matrix entry due to features: %s", item)
+                    logging.info("Excluding matrix entry: %s", item)
                     result.setdefault("exclude", []).append(item)
             else:
-                all_excluded = False
-        if all_excluded:
+                rendered_names.append(render(item))
+        if not rendered_names:
             # if every single item in the matrix is excluded, write an empty matrix
             output_file.write("{}\n")
             return
+    _assert_unique_names(rendered_names)
     json.dump(result, output_file)
     output_file.write("\n")
+
+
+def _keep(item, features, impacted_master, impacted_prev, prev_non_success):
+    """Apply both gates. Returns True if the matrix item should be kept."""
+    # Gate 1: master-side. Skip if none of the item's features are impacted vs master.
+    if not any(f in impacted_master for f in features):
+        return False
+    # Gate 2: prev-run-side. Skip when none of the item's features are impacted
+    # vs the prev merge commit AND the item is NOT on the non-success deny list
+    # (i.e., the prev run either succeeded for this item, or didn't run it at
+    # all — both equivalent under the empty-diff invariant).
+    if impacted_prev is not None and prev_non_success is not None:
+        if render(item) not in prev_non_success and not any(f in impacted_prev for f in features):
+            return False
+    return True
+
+
+def _assert_unique_names(names):
+    if len(names) != len(set(names)):
+        seen = {}
+        dups = set()
+        for n in names:
+            if n in seen:
+                dups.add(n)
+            seen[n] = True
+        raise AssertionError(
+            "render() produced duplicate job names; matching against prev jobs "
+            "API would be ambiguous. Duplicates: " + ", ".join(sorted(dups))
+        )
 
 
 class TestBuild(unittest.TestCase):
@@ -393,6 +475,80 @@ class TestBuild(unittest.TestCase):
                     output = json.load(output_file)
                     # then
                     self.assertEqual(output, expected)
+
+    def _run_prev(self, matrix, impacted, impacted_prev, prev_non_success, expected, ptl_binary_path=".github/bin/fake-ptl"):
+        with tempfile.TemporaryFile("w+") as matrix_file, \
+                tempfile.TemporaryFile("w+") as impacted_file, \
+                tempfile.TemporaryFile("w+") as impacted_prev_file, \
+                tempfile.TemporaryFile("w+") as prev_non_success_file, \
+                tempfile.TemporaryFile("w+") as output_file:
+            yaml.dump(matrix, matrix_file)
+            matrix_file.seek(0)
+            impacted_file.write("\n".join(impacted))
+            impacted_file.seek(0)
+            impacted_prev_file.write("\n".join(impacted_prev))
+            impacted_prev_file.seek(0)
+            prev_non_success_file.write("\n".join(prev_non_success))
+            prev_non_success_file.seek(0)
+            build(
+                matrix_file,
+                impacted_file,
+                output_file,
+                ptl_binary_path,
+                impacted_features_prev_file=impacted_prev_file,
+                prev_non_success_jobs_file=prev_non_success_file,
+            )
+            output_file.seek(0)
+            output = json.load(output_file)
+            self.assertEqual(output, expected)
+
+    def test_prev_skip_when_not_on_deny_list_and_no_diff(self):
+        # A:1 and B:2 are present (per fake-ptl mapping); neither failed prev,
+        # no diff vs prev -> both skipped.
+        self._run_prev(
+            matrix={"config": ["A", "B"], "suite": ["1", "2"]},
+            impacted=["A:1", "A:2", "B:1", "B:2"],
+            impacted_prev=[],
+            prev_non_success=[],  # nothing failed prev
+            expected={},
+        )
+
+    def test_prev_runs_when_on_deny_list(self):
+        # B:2 failed (timed_out) in prev -> runs even with no diff.
+        self._run_prev(
+            matrix={"config": ["A", "B"], "suite": ["1", "2"]},
+            impacted=["A:1", "B:2"],
+            impacted_prev=[],
+            prev_non_success=["pt (B, 2, )"],  # rendered name for jdk=""
+            expected={
+                "config": ["A", "B"],
+                "suite": ["1", "2"],
+                "exclude": [
+                    # A:1: master-impacted but no diff vs prev and not on deny -> prev-gate skips it
+                    {"config": "A", "suite": "1"},
+                    {"config": "A", "suite": "2"},  # not impacted vs master
+                    {"config": "B", "suite": "1"},  # not impacted vs master
+                    # B:2 kept: on deny list -> prev-gate doesn't fire -> runs
+                ],
+            },
+        )
+
+    def test_master_gate_dominates_over_prev(self):
+        # A:2 not impacted vs master -> dropped regardless of prev state.
+        self._run_prev(
+            matrix={"config": ["A"], "suite": ["1", "2"]},
+            impacted=["A:1"],  # only A:1 in master-impacted
+            impacted_prev=["A:2"],  # diff present for A:2 but moot
+            prev_non_success=["pt (A, 1, )", "pt (A, 2, )"],
+            expected={
+                "config": ["A"],
+                "suite": ["1", "2"],
+                "exclude": [
+                    # A:1 runs (on deny list, master-impacted)
+                    {"config": "A", "suite": "2"},  # master gate dropped it
+                ],
+            },
+        )
 
 
 if __name__ == "__main__":
