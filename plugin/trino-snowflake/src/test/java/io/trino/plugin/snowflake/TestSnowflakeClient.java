@@ -26,6 +26,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.TypeDescriptor;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -37,6 +38,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSnowflakeClient
@@ -60,7 +62,8 @@ public class TestSnowflakeClient
             _ -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
-            RemoteQueryModifier.NONE);
+            RemoteQueryModifier.NONE,
+            TESTING_TYPE_MANAGER);
 
     @Test
     public void testImplementCount()
@@ -136,6 +139,25 @@ public class TestSnowflakeClient
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), false, filter),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
                 Optional.empty()); // filter not supported
+    }
+
+    @Test
+    public void testVariantMapping()
+    {
+        JdbcTypeHandle variantTypeHandle = new JdbcTypeHandle(
+                Types.VARCHAR,
+                Optional.of("variant"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(
+                SESSION, null, variantTypeHandle);
+
+        assertThat(columnMapping).isPresent();
+        assertThat(columnMapping.get().getType())
+                .isEqualTo(TESTING_TYPE_MANAGER.getType(new TypeDescriptor("json")));
     }
 
     private static void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)

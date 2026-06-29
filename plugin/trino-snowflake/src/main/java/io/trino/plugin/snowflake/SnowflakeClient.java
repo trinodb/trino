@@ -76,6 +76,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 
 import java.sql.Connection;
@@ -103,9 +105,12 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -134,6 +139,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
@@ -161,6 +167,7 @@ public class SnowflakeClient
     private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("u-MM-dd'T'HH:mm:ss.SSSSSSSSS");
     private static final DateTimeFormatter SNOWFLAKE_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSSSSS");
     private static final TimeZone UTC_TZ = TimeZone.getTimeZone(ZoneId.of("UTC"));
+    private final Type jsonType;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
@@ -169,10 +176,11 @@ public class SnowflakeClient
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
-            RemoteQueryModifier remoteQueryModifier)
+            RemoteQueryModifier remoteQueryModifier,
+            TypeManager typeManager)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, remoteQueryModifier, false);
-
+        this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -232,6 +240,9 @@ public class SnowflakeClient
             case Types.VARCHAR -> {
                 if (jdbcTypeName.equals("varchar")) {
                     yield Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
+                }
+                if (jdbcTypeName.equals("variant")) {
+                    yield Optional.of(jsonColumnMapping());
                 }
                 // Some other Snowflake types (ARRAY, VARIANT, GEOMETRY, etc.) are also mapped to Types.VARCHAR, but they're unsupported.
                 yield getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
@@ -562,5 +573,15 @@ public class SnowflakeClient
             Instant instant = Instant.ofEpochSecond(epochSeconds, adjustNanoSeconds);
             statement.setString(index, SNOWFLAKE_DATETIME_FORMATTER.format(ZonedDateTime.ofInstant(instant, zone)));
         });
+    }
+
+    private ColumnMapping jsonColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                (resultSet, columnIndex) ->
+                        jsonParse(utf8Slice(resultSet.getString(columnIndex))),
+                varcharWriteFunction(),
+                DISABLE_PUSHDOWN);
     }
 }
