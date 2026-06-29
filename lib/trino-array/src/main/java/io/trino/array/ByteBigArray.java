@@ -146,7 +146,7 @@ public final class ByteBigArray
 
         // grow base array if necessary
         if (array.length < requiredSegments) {
-            array = Arrays.copyOf(array, requiredSegments);
+            array = Arrays.copyOf(array, Math.max(requiredSegments, array.length * 2));
         }
 
         // add new segments
