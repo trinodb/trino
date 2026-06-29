@@ -15,12 +15,49 @@ package io.trino.array;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongBigArray
 {
+    @Test
+    public void testForEachSegment()
+    {
+        LongBigArray array = new LongBigArray();
+        long capacity = (2 * BigArrays.SEGMENT_SIZE) + 1;
+        array.ensureCapacity(capacity);
+        for (long i = 0; i < capacity; i++) {
+            array.set(i, i);
+        }
+
+        for (long from : Arrays.asList(0L, 1L, (long) BigArrays.SEGMENT_SIZE, BigArrays.SEGMENT_SIZE + 1L)) {
+            for (long to : Arrays.asList(from, from + 1, from + BigArrays.SEGMENT_SIZE, capacity)) {
+                assertForEachSegment(array, from, to);
+            }
+        }
+    }
+
+    private static void assertForEachSegment(LongBigArray array, long from, long to)
+    {
+        List<Long> visited = new ArrayList<>();
+        array.forEachSegment(from, to, (segment, offset, length) -> {
+            assertThat(length).isGreaterThan(0);
+            assertThat(offset + length).isLessThanOrEqualTo(BigArrays.SEGMENT_SIZE);
+            for (int i = offset; i < offset + length; i++) {
+                visited.add(segment[i]);
+            }
+        });
+
+        List<Long> expected = new ArrayList<>();
+        for (long i = from; i < to; i++) {
+            expected.add(i);
+        }
+        assertThat(visited).isEqualTo(expected);
+    }
+
     @Test
     public void testFill()
     {

@@ -111,6 +111,23 @@ public final class IntBigArray
     }
 
     /**
+     * Invokes {@code consumer} for the elements in the range {@code [from, to)}, one contiguous run
+     * per backing segment. This lets callers iterate a contiguous range without recomputing the
+     * segment and offset for every element, processing each run directly against the backing array.
+     */
+    public void forEachSegment(long from, long to, IntSegmentConsumer consumer)
+    {
+        long index = from;
+        while (index < to) {
+            int[] segment = array[segment(index)];
+            int offset = offset(index);
+            int length = (int) Math.min(to - index, SEGMENT_SIZE - offset);
+            consumer.accept(segment, offset, length);
+            index += length;
+        }
+    }
+
+    /**
      * Ensures this big array is at least the specified length.  If the array is smaller, segments
      * are added until the array is larger then the specified length.
      */
