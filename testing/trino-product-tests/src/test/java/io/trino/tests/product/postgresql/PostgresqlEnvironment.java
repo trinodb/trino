@@ -53,4 +53,15 @@ public abstract class PostgresqlEnvironment
             throw new RuntimeException("Failed to execute PostgreSQL query: " + sql, e);
         }
     }
+
+    public int executePostgresqlUpdate(String sql)
+    {
+        try (Connection conn = createPostgresqlConnection();
+                Statement stmt = conn.createStatement()) {
+            return stmt.executeUpdate(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to execute PostgreSQL update: " + sql, e);
+        }
+    }
 }
