@@ -59,11 +59,13 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantMatchClauses;
+import io.trino.sql.ir.optimizer.rule.RemoveRedundantTry;
 import io.trino.sql.ir.optimizer.rule.SimplifyCharLength;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCast;
+import io.trino.sql.ir.optimizer.rule.SimplifyRedundantTryCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
@@ -109,9 +111,11 @@ public class IrExpressionOptimizer
                 new EvaluateCallWithNullInput(),
                 new RemoveRedundantMatchClauses(context),
                 new RemoveRedundantCaseClauses(),
+                new RemoveRedundantTry(context),
                 new RemoveRedundantInItems(context),
                 new SimplifyContinuousInValues(context),
                 new SimplifyRedundantCast(),
+                new SimplifyRedundantTryCast(context),
                 new SimplifyCharLength(context),
                 new SimplifyStackedNot(),
                 new SimplifyStackedArithmeticNegation(),

@@ -23,7 +23,6 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.airlift.bytecode.control.IfStatement;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -48,7 +47,6 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.WhenClause;
 import io.trino.type.TypeCoercion;
 
 import java.util.List;
@@ -78,6 +76,7 @@ public class ExpressionBytecodeCompiler
     private final TypeCoercion typeCoercion;
     private final Map<Lambda, CompiledLambda> compiledLambdaMap;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods
+    private boolean conditionalPredicationEnabled;
 
     public ExpressionBytecodeCompiler(
             ClassDefinition classDefinition,
@@ -99,6 +98,12 @@ public class ExpressionBytecodeCompiler
         this.typeCoercion = new TypeCoercion(requireNonNull(typeManager, "typeManager is null")::getType);
         this.compiledLambdaMap = requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
         this.contextArguments = ImmutableList.copyOf(requireNonNull(contextArguments, "contextArguments is null"));
+    }
+
+    public ExpressionBytecodeCompiler enableConditionalPredication(boolean enabled)
+    {
+        this.conditionalPredicationEnabled = enabled;
+        return this;
     }
 
     public BytecodeNode compile(Expression expression, Scope scope)
@@ -127,7 +132,8 @@ public class ExpressionBytecodeCompiler
                 metadata,
                 classDefinition,
                 contextArguments,
-                lets);
+                lets,
+                conditionalPredicationEnabled);
     }
 
     private static final String TEMP_PREFIX = "$$TEMP$$";
@@ -259,26 +265,7 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitCase(Case node, Context context)
         {
-            // Generate nested IF bytecode: IF(cond1, val1, IF(cond2, val2, ... default))
-            BytecodeGeneratorContext generatorContext = generatorContext(context.scope(), context.lets());
-            BytecodeNode result = generatorContext.generate(node.defaultValue());
-
-            for (WhenClause clause : node.whenClauses().reversed()) {
-                Variable wasNull = generatorContext.wasNull();
-                BytecodeBlock conditionBlock = new BytecodeBlock()
-                        .append(generatorContext.generate(clause.getOperand()))
-                        .comment("... and condition value was not null")
-                        .append(wasNull)
-                        .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
-                        .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
-                        .append(wasNull.set(constantFalse()));
-
-                result = new IfStatement()
-                        .condition(conditionBlock)
-                        .ifTrue(generatorContext.generate(clause.getResult()))
-                        .ifFalse(result);
-            }
-            return result;
+            return new CaseCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override

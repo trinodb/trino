@@ -104,6 +104,7 @@ public class PageFunctionCompiler
     private final FunctionManager functionManager;
     private final Metadata metadata;
     private final TypeManager typeManager;
+    private boolean conditionalPredicationEnabled;
 
     private record CompiledProjection(MethodHandle constructor, boolean deterministic) {}
 
@@ -117,6 +118,7 @@ public class PageFunctionCompiler
     public PageFunctionCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager, CompilerConfig config)
     {
         this(functionManager, metadata, typeManager, config.getExpressionCacheSize());
+        this.conditionalPredicationEnabled = config.isConditionalPredicationEnabled();
     }
 
     public PageFunctionCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager, int expressionCacheSize)
@@ -372,7 +374,8 @@ public class PageFunctionCompiler
                 metadata,
                 typeManager,
                 compiledLambdaMap,
-                ImmutableList.of(session, position));
+                ImmutableList.of(session, position))
+                .enableConditionalPredication(conditionalPredicationEnabled);
 
         body.append(thisVariable.getField(blockBuilder))
                 .append(compiler.compile(projection, scope))
@@ -587,7 +590,8 @@ public class PageFunctionCompiler
                 metadata,
                 typeManager,
                 compiledLambdaMap,
-                ImmutableList.of(page, position));
+                ImmutableList.of(page, position))
+                .enableConditionalPredication(conditionalPredicationEnabled);
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(compiler.compile(filter, scope))
