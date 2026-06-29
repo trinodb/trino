@@ -1,4 +1,4 @@
-/*
+    /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -436,6 +436,30 @@ public class TestSnowflakeTypeMapping
                       "type": "Point"
                     }')
                     """);
+        }
+    }
+
+    @Test
+    public void testVariantMapping()
+    {
+        // variant value with array containing null and undefined values
+        try (TestTable table = new TestTable(
+                TestingSnowflakeServer::execute,
+                "tpch.test_variant_array",
+                "AS SELECT PARSE_JSON('[ 1, 2, null, 4, undefined, 6, , 8 ]') x")) {
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "VALUES ('[1,2,null,4,undefined,6,undefined,8]')");
+        }
+
+        // variant value with object containing null and undefined values
+        try (TestTable table = new TestTable(
+                TestingSnowflakeServer::execute,
+                "tpch.test_variant_object",
+                "AS SELECT PARSE_JSON('{\"a\": 1, \"b\": null, \"c\": undefined}') x")) {
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "VALUES ('{\"a\":1,\"b\":null,\"c\":null}')");
         }
     }
 
