@@ -24,6 +24,7 @@ import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;
@@ -113,10 +114,31 @@ public final class SolverExpressionShadow
         // Forms outside the checker — column references, subqueries, aggregate calls — take the
         // analyzer's computed type as given: their subtrees go unverified, but every enclosing
         // call, special form, and coercion still is
+        SolverExpressionTypeChecker.FunctionSchemes schemes = new SolverExpressionTypeChecker.FunctionSchemes()
+        {
+            @Override
+            public List<TypeScheme> functions(String name)
+            {
+                return schemes(session, plannerContext.getMetadata(), name);
+            }
+
+            @Override
+            public List<TypeScheme> instanceMethods(String name, String receiverBase)
+            {
+                return methodSchemes(session, plannerContext.getMetadata(), name, receiverBase, true);
+            }
+
+            @Override
+            public List<TypeScheme> staticMethods(String name, String receiverBase)
+            {
+                return methodSchemes(session, plannerContext.getMetadata(), name, receiverBase, false);
+            }
+        };
+
         SolverExpressionTypeChecker checker = new SolverExpressionTypeChecker(
                 SolverShadow.library().typeSystem(),
                 SolverShadow.resolver(),
-                name -> schemes(session, plannerContext.getMetadata(), name),
+                schemes,
                 plannerContext.getTypeManager(),
                 node -> Optional.ofNullable(analyzerTypes.get(NodeRef.of(node))));
 
@@ -187,6 +209,32 @@ public final class SolverExpressionShadow
             }
             schemes.add(SolverShadow.scheme(candidateMetadata)
                     .orElseThrow(() -> new UnsupportedOperationException("Signature not bridgeable: " + name)));
+        }
+        return schemes;
+    }
+
+    /// The method candidate schemes of `name` declared on `receiverBase` — instance methods when
+    /// `instance`, static methods otherwise. Mirrors the engine's receiver-scoped method resolution:
+    /// instance/static is selected by the receiver flag and the candidate's receiver base must match.
+    /// Empty results are out of scope (the engine resolved against a candidate set this source cannot
+    /// reproduce), signalled the same way an unbridgeable signature is.
+    private static List<TypeScheme> methodSchemes(Session session, Metadata metadata, String name, String receiverBase, boolean instance)
+    {
+        List<TypeScheme> schemes = new ArrayList<>();
+        for (CatalogFunctionMetadata candidate : metadata.getFunctions(session, builtinFunctionName(name))) {
+            FunctionMetadata candidateMetadata = candidate.functionMetadata();
+            if (candidateMetadata.isInstanceMethod() != instance
+                    || candidateMetadata.getReceiverType().map(TypeTemplate::baseName).filter(receiverBase::equals).isEmpty()) {
+                continue;
+            }
+            if (candidateMetadata.getKind() != FunctionKind.SCALAR) {
+                throw new UnsupportedOperationException("Not a scalar method: " + name);
+            }
+            schemes.add(SolverShadow.scheme(candidateMetadata)
+                    .orElseThrow(() -> new UnsupportedOperationException("Signature not bridgeable: " + name)));
+        }
+        if (schemes.isEmpty()) {
+            throw new UnsupportedOperationException("No %s method '%s' on %s".formatted(instance ? "instance" : "static", name, receiverBase));
         }
         return schemes;
     }

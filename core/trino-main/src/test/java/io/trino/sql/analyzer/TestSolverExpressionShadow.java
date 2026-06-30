@@ -98,6 +98,17 @@ class TestSolverExpressionShadow
             "CURRENT_DATE > DATE '2020-01-01'",
             "CASE WHEN TRY(1 / 0) IS NULL THEN 1.5 ELSE 2 END");
 
+    // Instance (receiver.method(args)) and static (Type::method(args)) method calls re-typed
+    // node-by-node: the receiver and arguments type as usual and the call's own type and coercions
+    // must agree, the same as a free-function call — exercised here within larger expressions
+    private static final List<String> METHOD_CORPUS = List.of(
+            "'abc'.length() + 1",
+            "'hello world'.substring(7)",
+            "'abc'.reverse() = 'cba'",
+            "CAST('a-b-c'.split('-') AS array(varchar)) [1]",
+            "varchar::chr(65)",
+            "length(varchar::from_utf8(to_utf8('hello')))");
+
     private final SqlParser parser = new SqlParser();
     private final TransactionManager transactionManager = createTestTransactionManager();
     private final PlannerContext plannerContext = plannerContextBuilder()
@@ -130,6 +141,16 @@ class TestSolverExpressionShadow
     void testAnalysisAgreesUnderShadow()
     {
         for (String sql : CORPUS) {
+            assertThatCode(() -> analyze(sql))
+                    .as(sql)
+                    .doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void testMethodCallsAgreeUnderShadow()
+    {
+        for (String sql : METHOD_CORPUS) {
             assertThatCode(() -> analyze(sql))
                     .as(sql)
                     .doesNotThrowAnyException();

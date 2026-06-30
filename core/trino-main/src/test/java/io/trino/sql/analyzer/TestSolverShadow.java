@@ -95,6 +95,19 @@ class TestSolverShadow
             "codepoint('a')",
             "strpos('haystack', 'hay')");
 
+    // Instance (receiver.method(args)) and static (Type::method(args)) method calls: the engine
+    // resolves these through receiver-scoped candidate sets — instance methods take the receiver as
+    // the implicit first argument, static methods treat the type as a selector only — and the shadow
+    // must reproduce the same candidate choice and bound signature on each path.
+    private static final List<String> METHOD_CORPUS = List.of(
+            "'abc'.length()",
+            "'hello world'.substring(7)",
+            "'hello world'.substring(1, 5)",
+            "'a-b-c'.split('-')",
+            "'abc'.reverse()",
+            "varchar::chr(65)",
+            "varchar::from_utf8(to_utf8('hello'))");
+
     private final SqlParser parser = new SqlParser();
     private final TransactionManager transactionManager = createTestTransactionManager();
     private final PlannerContext plannerContext = plannerContextBuilder()
@@ -127,6 +140,16 @@ class TestSolverShadow
     void testAnalysisAgreesUnderShadow()
     {
         for (String sql : CORPUS) {
+            assertThatCode(() -> analyze(sql))
+                    .as(sql)
+                    .doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void testMethodCallsAgreeUnderShadow()
+    {
+        for (String sql : METHOD_CORPUS) {
             assertThatCode(() -> analyze(sql))
                     .as(sql)
                     .doesNotThrowAnyException();

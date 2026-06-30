@@ -31,6 +31,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeTemplate;
 import org.weakref.solver.Expression;
 import org.weakref.solver.FunctionResolver;
 import org.weakref.solver.Specificity;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
@@ -82,11 +84,56 @@ public final class SolverShadow
         ENABLED.set(enabled);
     }
 
-    /// Verifies that the solver resolves the call the way the engine did. The argument types are
-    /// the pre-coercion actuals, with lambdas at their resolved function types.
+    /// Verifies that the solver resolves the free-function call the way the engine did. The argument
+    /// types are the pre-coercion actuals, with lambdas at their resolved function types. Only
+    /// candidates without a receiver type are considered — the engine resolves instance and static
+    /// methods through separate, receiver-scoped paths (see the method variants below).
     public static void verifyResolution(Session session, Metadata metadata, ResolvedFunction function, List<Type> actualArgumentTypes)
     {
-        BoundSignature signature = function.signature();
+        verify(session,
+                metadata,
+                function.signature(),
+                candidate -> candidate.getReceiverType().isEmpty(),
+                actualArgumentTypes);
+    }
+
+    /// Verifies the solver resolves an instance method call `receiver.name(args)` the way the engine
+    /// did. The argument types lead with the receiver (self): the bridged candidate carries the
+    /// receiver as its first formal, so it participates in resolution like any other argument. The
+    /// candidate set is the instance methods named `name` declared on the receiver's base type.
+    public static void verifyInstanceMethodResolution(Session session, Metadata metadata, ResolvedFunction function, String receiverBase, List<Type> argumentTypesWithReceiver)
+    {
+        verify(session,
+                metadata,
+                function.signature(),
+                candidate -> candidate.isInstanceMethod() && receiverBaseMatches(candidate, receiverBase),
+                argumentTypesWithReceiver);
+    }
+
+    /// Verifies the solver resolves a static method call `Type::name(args)` the way the engine did.
+    /// Unlike an instance method the receiver type is only a selector, not an argument, so the
+    /// argument types are exactly the call's arguments. The candidate set is the static methods
+    /// named `name` declared on the named type's base.
+    public static void verifyStaticMethodResolution(Session session, Metadata metadata, ResolvedFunction function, String receiverBase, List<Type> actualArgumentTypes)
+    {
+        verify(session,
+                metadata,
+                function.signature(),
+                candidate -> !candidate.isInstanceMethod() && candidate.getReceiverType().isPresent() && receiverBaseMatches(candidate, receiverBase),
+                actualArgumentTypes);
+    }
+
+    private static boolean receiverBaseMatches(FunctionMetadata candidate, String receiverBase)
+    {
+        return candidate.getReceiverType().map(TypeTemplate::baseName).equals(Optional.of(receiverBase));
+    }
+
+    /// Gathers the candidates the engine considered (those passing `candidateFilter`), resolves the
+    /// call against them through the solver, and verifies the outcome matches the engine's bound
+    /// signature. `solverArgumentTypes` are the pre-coercion actuals the solver resolves against —
+    /// for an instance method these lead with the receiver, matching the candidate's first formal.
+    private static void verify(Session session, Metadata metadata, BoundSignature signature, Predicate<FunctionMetadata> candidateFilter, List<Type> solverArgumentTypes)
+    {
         CatalogSchemaFunctionName name = signature.getName();
         if (!isBuiltinFunctionName(name)) {
             return;
@@ -95,10 +142,7 @@ public final class SolverShadow
         List<TypeScheme> candidates = new ArrayList<>();
         for (CatalogFunctionMetadata candidate : metadata.getFunctions(session, name)) {
             FunctionMetadata candidateMetadata = candidate.functionMetadata();
-            if (candidateMetadata.isMethod()) {
-                // Methods (instance and static, i.e. anything declaring a receiver type) resolve
-                // only through method-call syntax; the engine's free-function resolution keeps just
-                // candidates with an empty receiver type, so they are not candidates here
+            if (!candidateFilter.test(candidateMetadata)) {
                 continue;
             }
             if (candidateMetadata.getKind() != FunctionKind.SCALAR) {
@@ -117,7 +161,7 @@ public final class SolverShadow
 
         List<Expression> arguments;
         try {
-            arguments = actualArgumentTypes.stream()
+            arguments = solverArgumentTypes.stream()
                     .map(TypeBridge::toExpression)
                     .toList();
         }

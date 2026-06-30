@@ -17,6 +17,7 @@ import io.trino.lib.TypeBridge;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.BetweenPredicate;
@@ -36,6 +37,7 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -45,6 +47,7 @@ import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.WhenClause;
@@ -97,6 +100,23 @@ public final class SolverExpressionTypeChecker
     public interface FunctionSchemes
     {
         List<TypeScheme> functions(String name);
+
+        /// The instance methods named `name` declared on the given receiver base type — the
+        /// receiver-scoped candidate set for `receiver.name(args)`, with each scheme's first formal
+        /// being the receiver (self). A source that does not model methods leaves the default, which
+        /// puts method calls out of the checker's scope.
+        default List<TypeScheme> instanceMethods(String name, String receiverBase)
+        {
+            throw new UnsupportedOperationException("Instance method resolution is not supported by this source");
+        }
+
+        /// The static methods named `name` declared on the given receiver base type — the
+        /// candidate set for `Type::name(args)`, where the receiver type is a selector only and the
+        /// schemes' formals are exactly the call's arguments.
+        default List<TypeScheme> staticMethods(String name, String receiverBase)
+        {
+            throw new UnsupportedOperationException("Static method resolution is not supported by this source");
+        }
     }
 
     private final TypeSystem typeSystem;
@@ -330,6 +350,35 @@ public final class SolverExpressionTypeChecker
                         call.getArguments().stream().map(CallArgument::getValue).toList(),
                         call.getArguments().stream().map(argument -> argument.getName().map(Identifier::getValue)).toList(),
                         scope);
+            }
+            case MethodCall method -> {
+                // receiver.name(args): the receiver is the candidate's leading formal, so it joins
+                // the argument list ahead of the call's arguments; candidates are the instance
+                // methods declared on the receiver's base type
+                if (method.hasNamedArguments()) {
+                    throw new UnsupportedOperationException("Named arguments to method calls are unsupported: " + method.getMethod());
+                }
+                Type receiverType = typeOf(method.getReceiver(), scope);
+                List<io.trino.sql.tree.Expression> argumentNodes = new ArrayList<>();
+                argumentNodes.add(method.getReceiver());
+                method.getArguments().forEach(argument -> argumentNodes.add(argument.getValue()));
+                if (argumentNodes.stream().anyMatch(LambdaExpression.class::isInstance)) {
+                    throw new UnsupportedOperationException("Lambda arguments to method calls are unsupported: " + method.getMethod());
+                }
+                yield resolveMethodCall(functions.instanceMethods(method.getMethod().getValue(), receiverType.getTypeDescriptor().getBase()), argumentNodes, scope);
+            }
+            case StaticMethodCall method -> {
+                // Type::name(args): the receiver type is only a selector — the call's arguments are
+                // the candidate's formals; candidates are the static methods declared on that base
+                if (method.hasNamedArguments()) {
+                    throw new UnsupportedOperationException("Named arguments to static method calls are unsupported: " + method.getMethod());
+                }
+                List<io.trino.sql.tree.Expression> argumentNodes = method.getArguments().stream().map(CallArgument::getValue).toList();
+                if (argumentNodes.stream().anyMatch(LambdaExpression.class::isInstance)) {
+                    throw new UnsupportedOperationException("Lambda arguments to static method calls are unsupported: " + method.getMethod());
+                }
+                String receiverBase = new TypeDescriptor(method.getType().getSuffix()).getBase();
+                yield resolveMethodCall(functions.staticMethods(method.getMethod().getValue(), receiverBase), argumentNodes, scope);
             }
             case SubscriptExpression subscript -> {
                 // Row subscript is field access, special-cased in the analyzer — only the
@@ -641,12 +690,31 @@ public final class SolverExpressionTypeChecker
         return assignments;
     }
 
-    /// Resolves the call and transcribes the resolution's argument coercions onto the argument
-    /// nodes, the way the analyzer records them for the planner — skipping conversions that do
-    /// not change the Trino type (e.g. unbounded varchar re-encoded as its length sentinel)
+    /// Resolves a free-function call and transcribes the resolution's argument coercions onto the
+    /// argument nodes, the way the analyzer records them for the planner.
     private Type resolveRecordingCoercions(String name, List<io.trino.sql.tree.Expression> argumentNodes, List<FunctionResolver.Argument> arguments)
     {
-        if (resolveOutcome(name, arguments) instanceof FunctionResolver.Ambiguous ambiguous) {
+        return recordCoercions(resolveOutcome(name, arguments), argumentNodes);
+    }
+
+    /// Resolves a method call against its receiver-scoped candidate set. Instance methods carry the
+    /// receiver as the leading argument node; static methods take only the call's arguments. Lambda
+    /// arguments are out of scope (no builtin method takes one), so callers pass ground argument
+    /// nodes only and the resolution skips the lambda-probe path the free-function path uses.
+    private Type resolveMethodCall(List<TypeScheme> candidates, List<io.trino.sql.tree.Expression> argumentNodes, Map<String, Type> scope)
+    {
+        List<FunctionResolver.Argument> arguments = argumentNodes.stream()
+                .map(node -> FunctionResolver.Argument.positional(TypeBridge.toExpression(typeOf(node, scope))))
+                .toList();
+        return recordCoercions(resolver.resolveNamed(candidates, arguments), argumentNodes);
+    }
+
+    /// Transcribes a resolution outcome's argument coercions onto the argument nodes, the way the
+    /// analyzer records them for the planner — skipping conversions that do not change the Trino
+    /// type (e.g. unbounded varchar re-encoded as its length sentinel).
+    private Type recordCoercions(FunctionResolver.ResolutionOutcome outcome, List<io.trino.sql.tree.Expression> argumentNodes)
+    {
+        if (outcome instanceof FunctionResolver.Ambiguous ambiguous) {
             // The engine treats candidates that agree on the return type as semantically the
             // same and picks one arbitrarily (FunctionBinder's unknown-argument tie-break).
             // The pick decides the formals, so the arguments' coercions are unverifiable
@@ -658,7 +726,7 @@ public final class SolverExpressionTypeChecker
                 return toType(returnTypes.iterator().next());
             }
         }
-        FunctionResolver.Resolution resolution = resolve(name, arguments);
+        FunctionResolver.Resolution resolution = resolution(outcome, argumentNodes);
         for (FunctionResolver.ArgumentCoercion coercion : resolution.argumentCoercions()) {
             if (coercion.coercionNeeded()) {
                 Type formal = toType(coercion.formalType());
@@ -670,17 +738,17 @@ public final class SolverExpressionTypeChecker
         return toType(resolution.returnType());
     }
 
-    private FunctionResolver.Resolution resolve(String name, List<FunctionResolver.Argument> arguments)
+    private FunctionResolver.Resolution resolution(FunctionResolver.ResolutionOutcome outcome, List<io.trino.sql.tree.Expression> argumentNodes)
     {
-        return switch (resolveOutcome(name, arguments)) {
+        return switch (outcome) {
             case FunctionResolver.Resolved resolved -> resolved.resolution();
-            case FunctionResolver.Ambiguous ambiguous -> throw new TypeCheckFailure(TypeCheckFailure.Kind.AMBIGUOUS, "Ambiguous call to '%s': %s candidates".formatted(name, ambiguous.candidates().size()));
+            case FunctionResolver.Ambiguous ambiguous -> throw new TypeCheckFailure(TypeCheckFailure.Kind.AMBIGUOUS, "Ambiguous call %s: %s candidates".formatted(argumentNodes, ambiguous.candidates().size()));
             // Incomplete means no candidate fully bound, but some could not be refuted either —
             // the solver keeps them as near-misses for diagnostics. With ground arguments an
             // applicable candidate always binds fully, so this is a rejection like NoMatch,
             // just with better error-reporting material
-            case FunctionResolver.Incomplete incomplete -> throw new TypeCheckFailure(TypeCheckFailure.Kind.NO_MATCH, "No match for '%s' with arguments %s — near-miss candidates: %s".formatted(name, arguments, incomplete.candidates()));
-            case FunctionResolver.NoMatch _ -> throw new TypeCheckFailure(TypeCheckFailure.Kind.NO_MATCH, "No match for '%s' with arguments %s".formatted(name, arguments));
+            case FunctionResolver.Incomplete incomplete -> throw new TypeCheckFailure(TypeCheckFailure.Kind.NO_MATCH, "No match for %s — near-miss candidates: %s".formatted(argumentNodes, incomplete.candidates()));
+            case FunctionResolver.NoMatch _ -> throw new TypeCheckFailure(TypeCheckFailure.Kind.NO_MATCH, "No match for %s".formatted(argumentNodes));
         };
     }
 
