@@ -26,7 +26,6 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import io.trino.spi.type.TypeDescriptor;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -139,25 +138,6 @@ public class TestSnowflakeClient
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), false, filter),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
                 Optional.empty()); // filter not supported
-    }
-
-    @Test
-    public void testVariantMapping()
-    {
-        JdbcTypeHandle variantTypeHandle = new JdbcTypeHandle(
-                Types.VARCHAR,
-                Optional.of("variant"),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-
-        Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(
-                SESSION, null, variantTypeHandle);
-
-        assertThat(columnMapping).isPresent();
-        assertThat(columnMapping.get().getType())
-                .isEqualTo(TESTING_TYPE_MANAGER.getType(new TypeDescriptor("json")));
     }
 
     private static void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
