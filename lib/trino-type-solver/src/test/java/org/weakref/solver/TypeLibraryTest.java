@@ -64,6 +64,55 @@ public class TypeLibraryTest
     }
 
     @Test
+    void testResolvesInstanceMethod()
+    {
+        // A fabricated instance method on varchar (a name the preset does not register): the
+        // receiver is the candidate's leading formal
+        TypeLibrary library = TrinoPreset.install(TypeLibrary.builder())
+                .registerInstanceMethod("codeunits", "varchar", function(List.of(symbol("varchar")), symbol("bigint")))
+                .build();
+
+        assertThat(library.resolveInstanceMethod("codeunits", "varchar", List.of(symbol("varchar"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
+                        assertThat(outcome.resolution().returnType()).isEqualTo(symbol("bigint")));
+        // No instance method of that name on a different receiver base does not resolve
+        assertThat(library.resolveInstanceMethod("codeunits", "varbinary", List.of(symbol("varbinary"))))
+                .isInstanceOf(FunctionResolver.NoMatch.class);
+    }
+
+    @Test
+    void testResolvesStaticMethod()
+    {
+        // A fabricated static method on varchar: the receiver type is a selector only, not an argument
+        TypeLibrary library = TrinoPreset.install(TypeLibrary.builder())
+                .registerStaticMethod("decode", "varchar", function(List.of(symbol("varbinary")), symbol("varchar")))
+                .build();
+
+        assertThat(library.resolveStaticMethod("decode", "varchar", List.of(symbol("varbinary"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
+                        assertThat(outcome.resolution().returnType()).isEqualTo(symbol("varchar")));
+    }
+
+    @Test
+    void testInstanceAndStaticMethodsOfTheSameNameAreScopedSeparately()
+    {
+        // The same name registered both ways resolves to different candidates by call kind, and
+        // neither leaks into free-function resolution
+        TypeLibrary library = TrinoPreset.install(TypeLibrary.builder())
+                .registerInstanceMethod("m", "varchar", function(List.of(symbol("varchar")), symbol("bigint")))
+                .registerStaticMethod("m", "varchar", function(List.of(symbol("integer")), symbol("boolean")))
+                .build();
+
+        assertThat(library.resolveInstanceMethod("m", "varchar", List.of(symbol("varchar"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
+                        assertThat(outcome.resolution().returnType()).isEqualTo(symbol("bigint")));
+        assertThat(library.resolveStaticMethod("m", "varchar", List.of(symbol("integer"))))
+                .isInstanceOfSatisfying(FunctionResolver.Resolved.class, outcome ->
+                        assertThat(outcome.resolution().returnType()).isEqualTo(symbol("boolean")));
+        assertThat(library.functions("m")).isEmpty();
+    }
+
+    @Test
     void testLibrarySupportsCustomCoercionRegistration()
     {
         TypeLibrary library = TypeLibrary.builder()

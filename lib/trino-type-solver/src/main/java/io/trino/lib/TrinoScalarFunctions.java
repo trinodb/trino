@@ -144,6 +144,17 @@ public final class TrinoScalarFunctions
         builder.registerFunction("word_stem", function(List.of(symbol("varchar"), symbol("varchar")), symbol("varchar")));
         builder.registerFunction("word_stem", varcharLengthPreserving(List.of(apply("varchar", variable("@x"))), variable("@x")));
         builder.registerFunction("word_stem", varcharLengthPreserving(List.of(apply("varchar", variable("@x")), symbol("varchar")), variable("@x")));
+
+        // varchar string operations invoked through method-call syntax. An instance method
+        // (receiver.method(args)) carries the receiver varchar as its leading formal — the same
+        // schemes as the free functions above, where the first formal is the receiver. A static
+        // method (varchar::method(args)) takes only the call's arguments.
+        builder.registerInstanceMethod("length", "varchar", function(List.of(symbol("varchar")), symbol("bigint")));
+        builder.registerInstanceMethod("reverse", "varchar", varcharLengthPreserving(List.of(apply("varchar", variable("@x"))), variable("@x")));
+        builder.registerInstanceMethod("substring", "varchar", varcharLengthPreserving(List.of(apply("varchar", variable("@x")), symbol("bigint")), variable("@x")));
+        builder.registerInstanceMethod("substring", "varchar", varcharLengthPreserving(List.of(apply("varchar", variable("@x")), symbol("bigint"), symbol("bigint")), variable("@x")));
+        builder.registerStaticMethod("from_utf8", "varchar", function(List.of(symbol("varbinary")), symbol("varchar")));
+        builder.registerStaticMethod("from_utf8", "varchar", function(List.of(symbol("varbinary"), symbol("varchar")), symbol("varchar")));
     }
 
     private static TypeScheme varcharLengthPreserving(List<Expression> parameterTypes, Expression length)
