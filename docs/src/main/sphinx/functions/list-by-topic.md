@@ -17,14 +17,17 @@ For more details, see {doc}`aggregate`
 - {func}`bool_and`
 - {func}`bool_or`
 - {func}`checksum`
+- {func}`collect`
 - {func}`corr`
 - {func}`count`
 - {func}`count_if`
 - {func}`covar_pop`
 - {func}`covar_samp`
 - {func}`every`
+- {func}`fusion`
 - {func}`geometric_mean`
 - {func}`histogram`
+- {func}`intersection`
 - {func}`kurtosis`
 - {func}`map_agg`
 - {func}`map_union`
@@ -417,6 +420,17 @@ For more details, see {doc}`math`
 - {func}`width_bucket`
 - {func}`wilson_interval_lower`
 - {func}`wilson_interval_upper`
+
+## Multiset
+
+For more details, see {doc}`multiset`
+
+- {func}`cardinality`
+- {func}`collect`
+- {func}`element`
+- {func}`fusion`
+- {func}`intersection`
+- {func}`set`
 
 ## Quantile digest
 

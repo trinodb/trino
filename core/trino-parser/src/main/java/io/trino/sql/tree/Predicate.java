@@ -30,7 +30,10 @@ public abstract sealed class Predicate
                 IsNullPredicate,
                 LikePredicate,
                 MatchPredicate,
-                QuantifiedComparisonPredicate
+                MemberPredicate,
+                QuantifiedComparisonPredicate,
+                SetPredicate,
+                SubmultisetPredicate
 {
     protected Predicate(NodeLocation location)
     {

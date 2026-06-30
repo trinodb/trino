@@ -497,6 +497,31 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitMultisetConstructor(MultisetConstructor node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitMultisetSetOperation(MultisetSetOperation node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitSubmultisetPredicate(SubmultisetPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitMemberPredicate(MemberPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
+    protected R visitSetPredicate(SetPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
     {
         return visitExpression(node, context);
@@ -520,6 +545,11 @@ public abstract class AstVisitor<R, C>
     protected R visitSubqueryExpression(SubqueryExpression node, C context)
     {
         return visitExpression(node, context);
+    }
+
+    protected R visitMultisetSubquery(MultisetSubquery node, C context)
+    {
+        return visitSubqueryExpression(node, context);
     }
 
     protected R visitSortItem(SortItem node, C context)

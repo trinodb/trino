@@ -81,7 +81,11 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -96,6 +100,7 @@ import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SimpleIntervalQualifier;
@@ -103,6 +108,7 @@ import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -358,6 +364,41 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitMultisetConstructor(MultisetConstructor node, Void context)
+        {
+            return node.getValues().stream()
+                    .map(SqlFormatter::formatSql)
+                    .collect(joining(",", "MULTISET[", "]"));
+        }
+
+        @Override
+        protected String visitMultisetSetOperation(MultisetSetOperation node, Void context)
+        {
+            return process(node.getLeft(), context) +
+                    " MULTISET " + node.getOperator() +
+                    (node.isDistinct() ? " DISTINCT " : " ALL ") +
+                    process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitSubmultisetPredicate(SubmultisetPredicate node, Void context)
+        {
+            return (node.isNegated() ? "NOT SUBMULTISET OF " : "SUBMULTISET OF ") + process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitMemberPredicate(MemberPredicate node, Void context)
+        {
+            return (node.isNegated() ? "NOT MEMBER OF " : "MEMBER OF ") + process(node.getRight(), context);
+        }
+
+        @Override
+        protected String visitSetPredicate(SetPredicate node, Void context)
+        {
+            return node.isNegated() ? "IS NOT A SET" : "IS A SET";
+        }
+
+        @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
             return formatSql(node.getBase()) + "[" + formatSql(node.getIndex()) + "]";
@@ -448,6 +489,12 @@ public final class ExpressionFormatter
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
             return "(" + formatSql(node.getQuery()) + ")";
+        }
+
+        @Override
+        protected String visitMultisetSubquery(MultisetSubquery node, Void context)
+        {
+            return "MULTISET (" + formatSql(node.getQuery()) + ")";
         }
 
         @Override

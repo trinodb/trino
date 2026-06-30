@@ -16,11 +16,12 @@ package io.trino.sql.ir.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
-import io.trino.sql.ir.Array;
+import io.trino.spi.type.ArrayType;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.optimizer.rule.EvaluateArray;
+import io.trino.sql.ir.optimizer.rule.EvaluateCollection;
 import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
@@ -30,13 +31,13 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestEvaluateArray
+public class TestEvaluateCollection
 {
     @Test
     void test()
     {
         assertThat(optimize(
-                new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))))
+                new Collection(new ArrayType(BIGINT), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))))
                 .isPresent()
                 .satisfies(result -> {
                     Constant constant = (Constant) result.get();
@@ -45,12 +46,12 @@ public class TestEvaluateArray
                 });
 
         assertThat(optimize(
-                new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "x")))))
+                new Collection(new ArrayType(BIGINT), ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "x")))))
                 .isEmpty();
     }
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateArray().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new EvaluateCollection().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

@@ -95,6 +95,7 @@
 - [classifier](classifier-function)
 - [coalesce](coalesce-function)
 - {func}`codepoint`
+- {func}`collect`
 - {func}`color`
 - {func}`combinations`
 - {func}`concat`
@@ -141,6 +142,7 @@
 ## E
 
 - {func}`e`
+- {func}`element`
 - {func}`element_at`
 - {func}`empty_approx_set`
 - {func}`ends_with`
@@ -178,6 +180,7 @@
 - {func}`from_unixtime`
 - {func}`from_unixtime_nanos`
 - {func}`from_utf8`
+- {func}`fusion`
 
 ## G
 
@@ -208,6 +211,7 @@
 - [if](if-expression)
 - {func}`index`
 - {func}`infinity`
+- {func}`intersection`
 - {func}`intersection_cardinality`
 - {func}`inverse_beta_cdf`
 - {func}`inverse_normal_cdf`
@@ -374,6 +378,7 @@
 - {func}`second`
 - {func}`sequence` (scalar function)
 - [sequence()](sequence-table-function) (table function)
+- {func}`set`
 - {func}`sha1`
 - {func}`sha256`
 - {func}`sha512`

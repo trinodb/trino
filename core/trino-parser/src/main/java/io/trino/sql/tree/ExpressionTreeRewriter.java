@@ -160,6 +160,45 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitMultisetConstructor(MultisetConstructor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMultisetConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> values = rewrite(node.getValues(), context);
+
+            if (!sameElements(node.getValues(), values)) {
+                return new MultisetConstructor(node.getLocation().orElseThrow(), values);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitMultisetSetOperation(MultisetSetOperation node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMultisetSetOperation(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression left = rewrite(node.getLeft(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+
+            if (left != node.getLeft() || right != node.getRight()) {
+                return new MultisetSetOperation(node.getLocation().orElseThrow(), node.getOperator(), node.isDistinct(), left, right);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitAtTimeZone(AtTimeZone node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -312,6 +351,15 @@ public final class ExpressionTreeRewriter<C>
                     Expression subquery = rewrite(predicate.getSubquery(), context.get());
                     yield subquery == predicate.getSubquery() ? predicate : new QuantifiedComparisonPredicate(predicate.getLocation().orElseThrow(), predicate.getOperator(), predicate.getQuantifier(), subquery);
                 }
+                case SubmultisetPredicate predicate -> {
+                    Expression right = rewrite(predicate.getRight(), context.get());
+                    yield right == predicate.getRight() ? predicate : new SubmultisetPredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), right);
+                }
+                case MemberPredicate predicate -> {
+                    Expression right = rewrite(predicate.getRight(), context.get());
+                    yield right == predicate.getRight() ? predicate : new MemberPredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), right);
+                }
+                case SetPredicate predicate -> predicate;
             };
         }
 

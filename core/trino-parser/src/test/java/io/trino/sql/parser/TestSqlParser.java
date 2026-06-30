@@ -138,11 +138,15 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -166,6 +170,7 @@ import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
@@ -204,6 +209,7 @@ import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
@@ -229,6 +235,7 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -242,6 +249,7 @@ import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
@@ -758,6 +766,127 @@ public class TestSqlParser
                 .isEqualTo(new Array(location(1, 1), ImmutableList.of(new StringLiteral(location(1, 8), "hi"))));
         assertThat(expression("ARRAY ['hi', 'hello']"))
                 .isEqualTo(new Array(location(1, 1), ImmutableList.of(new StringLiteral(location(1, 8), "hi"), new StringLiteral(location(1, 14), "hello"))));
+    }
+
+    @Test
+    public void testMultisetConstructor()
+    {
+        assertThat(expression("MULTISET []"))
+                .isEqualTo(new MultisetConstructor(location(1, 1), ImmutableList.of()));
+        assertThat(expression("MULTISET [1, 2, 2]"))
+                .isEqualTo(new MultisetConstructor(location(1, 1), ImmutableList.of(
+                        new LongLiteral(location(1, 11), "1"),
+                        new LongLiteral(location(1, 14), "2"),
+                        new LongLiteral(location(1, 17), "2"))));
+        assertThat(expression("MULTISET ['hi', 'hello']"))
+                .isEqualTo(new MultisetConstructor(location(1, 1), ImmutableList.of(
+                        new StringLiteral(location(1, 11), "hi"),
+                        new StringLiteral(location(1, 17), "hello"))));
+    }
+
+    @Test
+    public void testMultisetType()
+    {
+        // the `<type> MULTISET` syntax names a multiset type, parsed as the parametric type multiset(E)
+        assertThat(expression("CAST(MULTISET[1] AS integer MULTISET)"))
+                .isEqualTo(new Cast(
+                        location(1, 1),
+                        new MultisetConstructor(location(1, 6), ImmutableList.of(new LongLiteral(location(1, 15), "1"))),
+                        new GenericDataType(
+                                location(1, 21),
+                                new Identifier(location(1, 29), "MULTISET", false),
+                                ImmutableList.of(new TypeParameter(simpleType(location(1, 21), "integer")))),
+                        false));
+    }
+
+    @Test
+    public void testMultisetSetOperation()
+    {
+        // INTERSECT binds tighter than UNION/EXCEPT: a UNION b INTERSECT c parses as a UNION (b INTERSECT c)
+        assertThat(expression("MULTISET[1] MULTISET UNION MULTISET[2] MULTISET INTERSECT MULTISET[3]"))
+                .isEqualTo(new MultisetSetOperation(
+                        location(1, 1),
+                        MultisetSetOperation.Operator.UNION,
+                        false,
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new MultisetSetOperation(
+                                location(1, 28),
+                                MultisetSetOperation.Operator.INTERSECT,
+                                false,
+                                new MultisetConstructor(location(1, 28), ImmutableList.of(new LongLiteral(location(1, 37), "2"))),
+                                new MultisetConstructor(location(1, 59), ImmutableList.of(new LongLiteral(location(1, 68), "3"))))));
+
+        // the quantifier defaults to ALL when neither ALL nor DISTINCT is written, and DISTINCT is carried on the node
+        assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION MULTISET[2]")).isDistinct()).isFalse();
+        assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION ALL MULTISET[2]")).isDistinct()).isFalse();
+        assertThat(((MultisetSetOperation) createExpression("MULTISET[1] MULTISET UNION DISTINCT MULTISET[2]")).isDistinct()).isTrue();
+    }
+
+    @Test
+    public void testSubmultisetPredicate()
+    {
+        assertThat(expression("MULTISET[1] SUBMULTISET OF MULTISET[2]"))
+                .isEqualTo(new Predicated(
+                        location(1, 13),
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new SubmultisetPredicate(
+                                location(1, 13),
+                                false,
+                                new MultisetConstructor(location(1, 28), ImmutableList.of(new LongLiteral(location(1, 37), "2"))))));
+        // OF is optional
+        assertThat(((Predicated) createExpression("MULTISET[1] SUBMULTISET MULTISET[2]")).getPredicate()).isInstanceOf(SubmultisetPredicate.class);
+        // NOT is captured as a flag on the predicate
+        assertThat(expression("MULTISET[1] NOT SUBMULTISET OF MULTISET[2]"))
+                .isEqualTo(new Predicated(
+                        location(1, 13),
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new SubmultisetPredicate(
+                                location(1, 13),
+                                true,
+                                new MultisetConstructor(location(1, 32), ImmutableList.of(new LongLiteral(location(1, 41), "2"))))));
+    }
+
+    @Test
+    public void testMemberPredicate()
+    {
+        Expression member = createExpression("1 MEMBER OF MULTISET[2]");
+        assertThat(member).isInstanceOf(Predicated.class);
+        assertThat(((Predicated) member).getValue()).isInstanceOf(LongLiteral.class);
+        Predicate clause = ((Predicated) member).getPredicate();
+        assertThat(clause).isInstanceOf(MemberPredicate.class);
+        assertThat(((MemberPredicate) clause).getRight()).isInstanceOf(MultisetConstructor.class);
+        assertThat(((MemberPredicate) clause).isNegated()).isFalse();
+        // OF is optional
+        assertThat(((Predicated) createExpression("1 MEMBER MULTISET[2]")).getPredicate()).isInstanceOf(MemberPredicate.class);
+        // NOT is captured as a flag on the predicate
+        Predicate negated = ((Predicated) createExpression("1 NOT MEMBER OF MULTISET[2]")).getPredicate();
+        assertThat(((MemberPredicate) negated).isNegated()).isTrue();
+    }
+
+    @Test
+    public void testSetPredicate()
+    {
+        assertThat(expression("MULTISET[1] IS A SET"))
+                .isEqualTo(new Predicated(
+                        location(1, 13),
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new SetPredicate(location(1, 13), false)));
+        // IS NOT A SET is captured as a flag on the predicate
+        assertThat(expression("MULTISET[1] IS NOT A SET"))
+                .isEqualTo(new Predicated(
+                        location(1, 13),
+                        new MultisetConstructor(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 10), "1"))),
+                        new SetPredicate(location(1, 13), true)));
+    }
+
+    @Test
+    public void testMultisetSubquery()
+    {
+        Expression multisetSubquery = createExpression("MULTISET(SELECT x FROM t)");
+        assertThat(multisetSubquery).isInstanceOf(MultisetSubquery.class);
+        // the wrapped query parses exactly as a standalone scalar subquery's query
+        assertThat(((MultisetSubquery) multisetSubquery).getQuery())
+                .isEqualTo(((SubqueryExpression) createExpression("(SELECT x FROM t)")).getQuery());
     }
 
     @Test

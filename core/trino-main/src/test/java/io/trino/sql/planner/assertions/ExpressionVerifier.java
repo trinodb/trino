@@ -13,11 +13,11 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -90,9 +90,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitArray(Array actual, Expression expectedExpression)
+    protected Boolean visitCollection(Collection actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof Array expected)) {
+        if (!(expectedExpression instanceof Collection expected)) {
             return false;
         }
 
