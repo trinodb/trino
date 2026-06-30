@@ -663,6 +663,8 @@ See also {doc}`/functions/datetime`
 
 Calendar date (year, month, day).
 
+Supported values range from `-5877641-06-23` to `+5881580-07-11`.
+
 Example: `DATE '2001-08-22'`
 
 ### `TIME`
@@ -698,6 +700,10 @@ SELECT TIME '01:02:03.456 -08:00';
 Calendar date and time of day without a time zone with `P` digits of precision
 for the fraction of seconds. A precision of up to 12 (picoseconds) is supported.
 This type is effectively a combination of the `DATE` and `TIME(P)` types.
+
+At maximum precision, supported values range from
+`-290308-12-21 19:59:05.224192000000` to
+`+294247-01-10 04:00:54.775807999999`.
 
 `TIMESTAMP(P) WITHOUT TIME ZONE` is an equivalent name.
 
@@ -740,8 +746,13 @@ SELECT cast(TIMESTAMP '2020-06-10 15:55:23.383345' as TIMESTAMP(12));
 
 Instant in time that includes the date and time of day with `P` digits of
 precision for the fraction of seconds and with a time zone. Values of this type
-are rendered using the time zone from the value. Time zones can be expressed in
-the following ways:
+are rendered using the time zone from the value.
+
+At maximum precision, supported instants range from
+`-69387-04-22 03:45:14.752000000000 UTC` to
+`+73326-09-11 20:14:45.247999999999 UTC`.
+
+Time zones can be expressed in the following ways:
 
 - `UTC`, with `GMT`, `Z`, or `UT` usable as aliases for UTC.
 - `+hh:mm` or `-hh:mm` with `hh:mm` as an hour and minute offset from UTC.
