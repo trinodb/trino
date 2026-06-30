@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.math.LongMath;
 import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
@@ -166,7 +167,15 @@ public final class ExpressionConverter
                 }
             }
             Expression ranges = or(rangeExpressions);
-            Expression values = icebergValues.isEmpty() ? alwaysFalse() : in(columnName, icebergValues);
+            Expression values;
+            if (icebergValues.isEmpty()) {
+                values = alwaysFalse();
+            }
+            else {
+                // Wrap with a notNull guard to prevent NPE in Iceberg's evaluator when manifest
+                // entries have null partition values.
+                values = and(ImmutableList.of(not(isNull(columnName)), in(columnName, icebergValues)));
+            }
             Expression nullExpression = domain.isNullAllowed() ? isNull(columnName) : alwaysFalse();
             return or(nullExpression, or(values, ranges));
         }

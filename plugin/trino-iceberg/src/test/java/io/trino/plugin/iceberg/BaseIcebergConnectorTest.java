@@ -6405,6 +6405,20 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    void testQueryWithInPredicateOnNullPartitionColumn()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/30087
+        try (TestTable table = newTrinoTable(
+                "test_in_predicate_null_partition",
+                "(id integer, part varchar) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b'), (3, NULL)", 3);
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE part IN ('a', 'b')"))
+                    .matches("VALUES 1, 2");
+        }
+    }
+
+    @Test
     void testPartitionHiddenColumnWithNonPartitionTable()
     {
         try (TestTable table = newTrinoTable("test_non_partition", " AS SELECT 1 id")) {
