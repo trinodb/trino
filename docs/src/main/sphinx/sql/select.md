@@ -1336,6 +1336,29 @@ CROSS JOIN UNNEST(scores) AS t(score);
 (6 rows)
 ```
 
+The argument to `UNNEST` can only reference columns provided by relations on the
+left side of the join. If a column from another relation needs to be unnested,
+that relation must be on the left side:
+
+```
+WITH items (id, letters) AS (
+  VALUES
+    (1, ARRAY['a', 'b', 'c'])
+)
+SELECT id, value
+FROM items
+CROSS JOIN UNNEST(items.letters) AS u(value);
+```
+
+```text
+ id | value
+----+-------
+  1 | a
+  1 | b
+  1 | c
+(3 rows)
+```
+
 `UNNEST` can also be used with multiple arguments, in which case they are expanded into multiple columns,
 with as many rows as the highest cardinality argument (the other columns are padded with nulls):
 
