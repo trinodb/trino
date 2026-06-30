@@ -47,6 +47,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.JsonType.JSON;
 import static java.time.ZoneOffset.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -442,25 +443,37 @@ public class TestSnowflakeTypeMapping
     @Test
     public void testVariantMapping()
     {
-        // variant value with array containing null and undefined values
-        try (TestTable table = new TestTable(
-                TestingSnowflakeServer::execute,
-                "tpch.test_variant_array",
-                "AS SELECT PARSE_JSON('[ 1, 2, null, 4, undefined, 6, , 8 ]') x")) {
-            assertQuery(
-                    "SELECT * FROM " + table.getName(),
-                    "VALUES ('[1,2,null,4,undefined,6,undefined,8]')");
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("variant", "PARSE_JSON('[ 1, 2, null, 4, undefined, 6, , 8 ]')", JSON, "JSON '[1,2,null,4,undefined,6,undefined,8]'")
+                .addRoundTrip("variant", "PARSE_JSON('{\"a\": 1, \"b\": null, \"c\": undefined}')", JSON, "JSON '{\"a\":1,\"b\":null,\"c\":null}'")
+                .addRoundTrip("variant", "PARSE_JSON('\"a string value\"')", JSON, "JSON '\"a string value\"'")
+                .addRoundTrip("variant", "PARSE_JSON('123')", JSON, "JSON '123'")
+                .addRoundTrip("variant", "PARSE_JSON('123.456')", JSON, "JSON '123.456'")
+                .addRoundTrip("variant", "PARSE_JSON('true')", JSON, "JSON 'true'")
+                .addRoundTrip("variant", "PARSE_JSON('false')", JSON, "JSON 'false'")
+                .addRoundTrip("variant", "PARSE_JSON('null')", JSON, "JSON 'null'")
+                .addRoundTrip("variant", "NULL", JSON, "CAST(NULL AS JSON)")
+                .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.test_variant"));
+    }
 
-        // variant value with object containing null and undefined values
-        try (TestTable table = new TestTable(
-                TestingSnowflakeServer::execute,
-                "tpch.test_variant_object",
-                "AS SELECT PARSE_JSON('{\"a\": 1, \"b\": null, \"c\": undefined}') x")) {
-            assertQuery(
-                    "SELECT * FROM " + table.getName(),
-                    "VALUES ('{\"a\":1,\"b\":null,\"c\":null}')");
-        }
+    @Test
+    public void testVariantMappingViaQueryPassthrough()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''[ 1, 2, null, 4, undefined, 6, , 8 ]'')'))",
+                "VALUES '[1,2,null,4,undefined,6,undefined,8]'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''{\"a\": 1, \"b\": null, \"c\": undefined}'')'))",
+                "VALUES '{\"a\":1,\"b\":null,\"c\":null}'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''\"a string value\"'')'))",
+                "VALUES '\"a string value\"'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''123'')'))",
+                "VALUES '123'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''true'')'))",
+                "VALUES 'true'");
     }
 
     private Session unsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
