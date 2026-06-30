@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
@@ -31,7 +32,6 @@ import io.trino.spi.spool.SpoolingContext;
 import io.trino.spi.spool.SpoolingManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -48,6 +48,7 @@ import java.util.function.ToLongFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.primitives.Ints.saturatedCast;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.spooling.DataAttribute.EXPIRES_AT;
@@ -331,13 +332,13 @@ public class OutputSpoolingOperatorFactory
         {
             inlinedSegmentsCount.incrementAndGet();
             OperationTimer overallTimer = new OperationTimer(false);
-            try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            try (DynamicSliceOutput output = new DynamicSliceOutput(saturatedCast(reduce(pages, Page::getSizeInBytes)))) {
                 DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
                         .toBuilder()
                         .set(ROWS_COUNT, reduce(pages, Page::getPositionCount))
                         .build();
                 inlinedEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
-                return ImmutableList.of(SpooledMetadataBlock.forInlineData(attributes, output.toByteArray()));
+                return ImmutableList.of(SpooledMetadataBlock.forInlineData(attributes, output.slice()));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
