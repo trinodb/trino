@@ -41,6 +41,7 @@ public class OAuth2Config
     private String clientSecret;
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
+    private String userField;
     private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
@@ -146,6 +147,19 @@ public class OAuth2Config
     public OAuth2Config setPrincipalField(String principalField)
     {
         this.principalField = principalField;
+        return this;
+    }
+
+    public String getUserField()
+    {
+        return userField;
+    }
+
+    @Config("http-server.authentication.oauth2.user-field")
+    @ConfigDescription("The claim to use as the user")
+    public OAuth2Config setUserField(String userField)
+    {
+        this.userField = userField;
         return this;
     }
 

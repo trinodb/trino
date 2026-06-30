@@ -151,6 +151,9 @@ The following configuration properties are available:
   - The field of the access token used for the Trino user principal. Defaults to
     `sub`. Other commonly used fields include `sAMAccountName`, `name`,
     `upn`, and `email`.
+* - `http-server.authentication.oauth2.user-field`
+  - The field of the access token used for the Trino username. Defaults to 
+    the value for `http-server.authentication.oauth2.principal-field`.
 * - `http-server.authentication.oauth2.oidc.discovery`
   - Enable reading the [OIDC provider metadata](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
     Default is `true`.
