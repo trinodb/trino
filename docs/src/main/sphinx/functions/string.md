@@ -107,16 +107,14 @@ to distinguish valid numbers from mistyped, incorrect numbers.
 
 Valid identification number:
 
-```
-select luhn_check('79927398713');
--- true
+```{try-sql}
+select luhn_check('79927398713')
 ```
 
 Invalid identification number:
 
-```
-select luhn_check('79927398714');
--- false
+```{try-sql}
+select luhn_check('79927398714')
 ```
 :::
 
@@ -136,9 +134,8 @@ Returns `string` with `length` characters beginning at position `start`
 (1-based, must be greater than `0`) replaced by `replacement`. A `length` of
 `0` or less inserts `replacement` without removing any characters. For example:
 
-```
-SELECT overlay('Txxxxas' PLACING 'hom' FROM 2 FOR 4);
--- Thomas
+```{try-sql}
+SELECT overlay('Txxxxas' PLACING 'hom' FROM 2 FOR 4)
 ```
 ::::
 
@@ -183,15 +180,10 @@ Removes trailing whitespace from `string`.
 : It is typically used to evaluate the similarity of two expressions phonetically, that is
   how the string sounds when spoken:
 
-  ```
+  ```{try-sql}
   SELECT name
-  FROM nation
-  WHERE SOUNDEX(name)  = SOUNDEX('CHYNA');
-
-   name  |
-  -------+----
-   CHINA |
-  (1 row)
+  FROM tpch.tiny.nation
+  WHERE SOUNDEX(name)  = SOUNDEX('CHYNA')
   ```
 :::
 
@@ -278,16 +270,16 @@ be omitted from the resulting string.
 
 Here are some examples illustrating the translate function:
 
-```
-SELECT translate('abcd', '', ''); -- 'abcd'
-SELECT translate('abcd', 'a', 'z'); -- 'zbcd'
-SELECT translate('abcda', 'a', 'z'); -- 'zbcdz'
-SELECT translate('Palhoça', 'ç','c'); -- 'Palhoca'
-SELECT translate('abcd', 'b', U&'\+01F600'); -- a😀cd
-SELECT translate('abcd', 'a', ''); -- 'bcd'
-SELECT translate('abcd', 'a', 'zy'); -- 'zbcd'
-SELECT translate('abcd', 'ac', 'z'); -- 'zbd'
-SELECT translate('abcd', 'aac', 'zq'); -- 'zbd'
+```{try-sql}
+SELECT translate('abcd', '', ''),
+       translate('abcd', 'a', 'z'),
+       translate('abcda', 'a', 'z'),
+       translate('Palhoça', 'ç','c'),
+       translate('abcd', 'b', U&'\+01F600'),
+       translate('abcd', 'a', ''),
+       translate('abcd', 'a', 'zy'),
+       translate('abcd', 'ac', 'z'),
+       translate('abcd', 'aac', 'zq')
 ```
 :::
 
@@ -301,11 +293,11 @@ Removes leading and trailing whitespace from `string`.
 Removes any leading and/or trailing characters as specified up to and
 including `string` from `source`:
 
-```
-SELECT trim('!' FROM '!foo!'); -- 'foo'
-SELECT trim(LEADING FROM '  abcd');  -- 'abcd'
-SELECT trim(BOTH '$' FROM '$var$'); -- 'var'
-SELECT trim(TRAILING 'ER' FROM upper('worker')); -- 'WORK'
+```{try-sql}
+SELECT trim('!' FROM '!foo!'),
+       trim(LEADING FROM '  abcd'),
+       trim(BOTH '$' FROM '$var$'),
+       trim(TRAILING 'ER' FROM upper('worker'))
 ```
 :::
 

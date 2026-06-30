@@ -102,7 +102,7 @@ are available for use in the rest of the query.
 
 The following example declares and uses two inline UDFs:
 
-```sql
+```{try-sql}
 WITH 
   FUNCTION hello(name varchar)
     RETURNS varchar
@@ -110,8 +110,7 @@ WITH
   FUNCTION bye(name varchar)
     RETURNS varchar
     RETURN format('Bye %s!', name)
-SELECT hello('Finn') || ' and ' || bye('Joe');
--- Hello Finn! and Bye Joe!
+SELECT hello('Finn') || ' and ' || bye('Joe')
 ```
 
 Find further information about UDFs in general, inline UDFs, all supported
@@ -287,41 +286,20 @@ relation or row type expression.
 If column aliases are specified, they override any preexisting column
 or row field names:
 
-```
-SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).* AS (alias1, alias2);
-```
-
-```text
- alias1 | alias2
---------+--------
-      1 | true
-(1 row)
+```{try-sql}
+SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).* AS (alias1, alias2)
 ```
 
 Otherwise, the existing names are used:
 
-```
-SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).*;
-```
-
-```text
- field1 | field2
---------+--------
-      1 | true
-(1 row)
+```{try-sql}
+SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).*
 ```
 
 and in their absence, anonymous columns are produced:
 
-```
-SELECT (ROW(1, true)).*;
-```
-
-```text
- _col0 | _col1
--------+-------
-     1 | true
-(1 row)
+```{try-sql}
+SELECT (ROW(1, true)).*
 ```
 
 ## GROUP BY clause
@@ -336,29 +314,20 @@ the `nationkey` input column with the first query using the ordinal
 position of the output column and the second query using the input
 column name:
 
+```{try-sql}
+SELECT count(*), nationkey FROM tpch.tiny.customer GROUP BY 2
 ```
-SELECT count(*), nationkey FROM customer GROUP BY 2;
 
-SELECT count(*), nationkey FROM customer GROUP BY nationkey;
+```{try-sql}
+SELECT count(*), nationkey FROM tpch.tiny.customer GROUP BY nationkey
 ```
 
 `GROUP BY` clauses can group output by input column names not appearing in
 the output of a select statement. For example, the following query generates
 row counts for the `customer` table using the input column `mktsegment`:
 
-```
-SELECT count(*) FROM customer GROUP BY mktsegment;
-```
-
-```text
- _col0
--------
- 29968
- 30142
- 30189
- 29949
- 29752
-(5 rows)
+```{try-sql}
+SELECT count(*) FROM tpch.tiny.customer GROUP BY mktsegment
 ```
 
 When a `GROUP BY` clause is used in a `SELECT` statement all output
@@ -390,19 +359,8 @@ This example query calculates the total account balance per market segment.
 The `AUTO` clause derives `mktsegment` as the grouping key, since it is not used
 in any aggregate function (i.e., `sum`).
 
-```sql
-SELECT mktsegment, sum(acctbal) FROM shipping GROUP BY AUTO;
-```
-
-```text
- mktsegment |       _col1
-------------+--------------------
- BUILDING   |          1444587.8
- MACHINERY  |         1296958.61
- HOUSEHOLD  |         1279340.66
- FURNITURE  |          1265282.8
- AUTOMOBILE | 1395695.7200000004
-(5 rows)
+```{try-sql}
+SELECT mktsegment, sum(acctbal) FROM tpch.tiny.customer GROUP BY AUTO
 ```
 
 ### GROUPING SETS
@@ -410,47 +368,35 @@ SELECT mktsegment, sum(acctbal) FROM shipping GROUP BY AUTO;
 Grouping sets allow users to specify multiple lists of columns to group on.
 The columns not part of a given sublist of grouping columns are set to `NULL`.
 
-```
-SELECT * FROM shipping;
-```
-
-```text
- origin_state | origin_zip | destination_state | destination_zip | package_weight
---------------+------------+-------------------+-----------------+----------------
- California   |      94131 | New Jersey        |            8648 |             13
- California   |      94131 | New Jersey        |            8540 |             42
- New Jersey   |       7081 | Connecticut       |            6708 |            225
- California   |      90210 | Connecticut       |            6927 |           1337
- California   |      94131 | Colorado          |           80302 |              5
- New York     |      10002 | New Jersey        |            8540 |              3
-(6 rows)
+```{try-sql}
+WITH shipping (origin_state, origin_zip, destination_state, destination_zip, package_weight) AS (
+  VALUES ('California', 94131, 'New Jersey',  8648, 13),
+         ('California', 94131, 'New Jersey',  8540, 42),
+         ('New Jersey',  7081, 'Connecticut', 6708, 225),
+         ('California', 90210, 'Connecticut', 6927, 1337),
+         ('California', 94131, 'Colorado',    80302, 5),
+         ('New York',   10002, 'New Jersey',  8540, 3)
+)
+SELECT * FROM shipping
 ```
 
 `GROUPING SETS` semantics are demonstrated by this example query:
 
-```
+```{try-sql}
+WITH shipping (origin_state, origin_zip, destination_state, destination_zip, package_weight) AS (
+  VALUES ('California', 94131, 'New Jersey',  8648, 13),
+         ('California', 94131, 'New Jersey',  8540, 42),
+         ('New Jersey',  7081, 'Connecticut', 6708, 225),
+         ('California', 90210, 'Connecticut', 6927, 1337),
+         ('California', 94131, 'Colorado',    80302, 5),
+         ('New York',   10002, 'New Jersey',  8540, 3)
+)
 SELECT origin_state, origin_zip, destination_state, sum(package_weight)
 FROM shipping
 GROUP BY GROUPING SETS (
     (origin_state),
     (origin_state, origin_zip),
-    (destination_state));
-```
-
-```text
- origin_state | origin_zip | destination_state | _col0
---------------+------------+-------------------+-------
- New Jersey   | NULL       | NULL              |   225
- California   | NULL       | NULL              |  1397
- New York     | NULL       | NULL              |     3
- California   |      90210 | NULL              |  1337
- California   |      94131 | NULL              |    60
- New Jersey   |       7081 | NULL              |   225
- New York     |      10002 | NULL              |     3
- NULL         | NULL       | Colorado          |     5
- NULL         | NULL       | New Jersey        |    58
- NULL         | NULL       | Connecticut       |  1562
-(10 rows)
+    (destination_state))
 ```
 
 The preceding query may be considered logically equivalent to a `UNION ALL` of
@@ -482,10 +428,18 @@ source is not deterministic.
 The `CUBE` operator generates all possible grouping sets (i.e. a power set)
 for a given set of columns. For example, the query:
 
-```
+```{try-sql}
+WITH shipping (origin_state, origin_zip, destination_state, destination_zip, package_weight) AS (
+  VALUES ('California', 94131, 'New Jersey',  8648, 13),
+         ('California', 94131, 'New Jersey',  8540, 42),
+         ('New Jersey',  7081, 'Connecticut', 6708, 225),
+         ('California', 90210, 'Connecticut', 6927, 1337),
+         ('California', 94131, 'Colorado',    80302, 5),
+         ('New York',   10002, 'New Jersey',  8540, 3)
+)
 SELECT origin_state, destination_state, sum(package_weight)
 FROM shipping
-GROUP BY CUBE (origin_state, destination_state);
+GROUP BY CUBE (origin_state, destination_state)
 ```
 
 is equivalent to:
@@ -501,47 +455,23 @@ GROUP BY GROUPING SETS (
 );
 ```
 
-```text
- origin_state | destination_state | _col0
---------------+-------------------+-------
- California   | New Jersey        |    55
- California   | Colorado          |     5
- New York     | New Jersey        |     3
- New Jersey   | Connecticut       |   225
- California   | Connecticut       |  1337
- California   | NULL              |  1397
- New York     | NULL              |     3
- New Jersey   | NULL              |   225
- NULL         | New Jersey        |    58
- NULL         | Connecticut       |  1562
- NULL         | Colorado          |     5
- NULL         | NULL              |  1625
-(12 rows)
-```
-
 ### ROLLUP
 
 The `ROLLUP` operator generates all possible subtotals for a given set of
 columns. For example, the query:
 
-```
+```{try-sql}
+WITH shipping (origin_state, origin_zip, destination_state, destination_zip, package_weight) AS (
+  VALUES ('California', 94131, 'New Jersey',  8648, 13),
+         ('California', 94131, 'New Jersey',  8540, 42),
+         ('New Jersey',  7081, 'Connecticut', 6708, 225),
+         ('California', 90210, 'Connecticut', 6927, 1337),
+         ('California', 94131, 'Colorado',    80302, 5),
+         ('New York',   10002, 'New Jersey',  8540, 3)
+)
 SELECT origin_state, origin_zip, sum(package_weight)
 FROM shipping
-GROUP BY ROLLUP (origin_state, origin_zip);
-```
-
-```text
- origin_state | origin_zip | _col2
---------------+------------+-------
- California   |      94131 |    60
- California   |      90210 |  1337
- New Jersey   |       7081 |   225
- New York     |      10002 |     3
- California   | NULL       |  1397
- New York     | NULL       |     3
- New Jersey   | NULL       |   225
- NULL         | NULL       |  1625
-(8 rows)
+GROUP BY ROLLUP (origin_state, origin_zip)
 ```
 
 is equivalent to:
@@ -718,26 +648,13 @@ clause eliminates groups that do not satisfy the given conditions.
 The following example queries the `customer` table and selects groups
 with an account balance greater than the specified value:
 
-```
+```{try-sql}
 SELECT count(*), mktsegment, nationkey,
        CAST(sum(acctbal) AS bigint) AS totalbal
-FROM customer
+FROM tpch.tiny.customer
 GROUP BY mktsegment, nationkey
 HAVING sum(acctbal) > 5700000
-ORDER BY totalbal DESC;
-```
-
-```text
- _col0 | mktsegment | nationkey | totalbal
--------+------------+-----------+----------
-  1272 | AUTOMOBILE |        19 |  5856939
-  1253 | FURNITURE  |        14 |  5794887
-  1248 | FURNITURE  |         9 |  5784628
-  1243 | FURNITURE  |        12 |  5757371
-  1231 | HOUSEHOLD  |         3 |  5753216
-  1251 | MACHINERY  |         2 |  5719140
-  1247 | FURNITURE  |         8 |  5701952
-(7 rows)
+ORDER BY totalbal DESC
 ```
 
 (window-clause)=
@@ -747,10 +664,10 @@ The `WINDOW` clause is used to define named window specifications. The defined n
 window specifications can be referred to in the `SELECT` and `ORDER BY` clauses
 of the enclosing query:
 
-```
+```{try-sql}
 SELECT orderkey, clerk, totalprice,
       rank() OVER w AS rnk
-FROM orders
+FROM tpch.tiny.orders
 WINDOW w AS (PARTITION BY clerk ORDER BY totalprice DESC)
 ORDER BY count() OVER w, clerk, rnk
 ```
@@ -830,81 +747,40 @@ The following is an example of one of the simplest possible `UNION` clauses.
 It selects the value `13` and combines this result set with a second query
 that selects the value `42`:
 
-```
+```{try-sql}
 SELECT 13
 UNION
-SELECT 42;
-```
-
-```text
- _col0
--------
-    13
-    42
-(2 rows)
+SELECT 42
 ```
 
 The following query demonstrates the difference between `UNION` and `UNION ALL`.
 It selects the value `13` and combines this result set with a second query that
 selects the values `42` and `13`:
 
-```
+```{try-sql}
 SELECT 13
 UNION
-SELECT * FROM (VALUES 42, 13);
+SELECT * FROM (VALUES 42, 13)
 ```
 
-```text
- _col0
--------
-    13
-    42
-(2 rows)
-```
-
-```
+```{try-sql}
 SELECT 13
 UNION ALL
-SELECT * FROM (VALUES 42, 13);
-```
-
-```text
- _col0
--------
-    13
-    42
-    13
-(2 rows)
+SELECT * FROM (VALUES 42, 13)
 ```
 
 `CORRESPONDING` matches columns by name instead of by position:
 
-```sql
+```{try-sql}
 SELECT * FROM (VALUES (1, 'alice')) AS t(id, name)
 UNION ALL CORRESPONDING
-SELECT * FROM (VALUES ('bob', 2)) AS t(name, id);
+SELECT * FROM (VALUES ('bob', 2)) AS t(name, id)
 ```
 
-```text
- id | name
-----+-------
-  1 | alice
-  2 | bob
-(2 rows)
-```
-
-```sql
+```{try-sql}
 SELECT * FROM (VALUES (DATE '2025-04-23', 'alice')) AS t(order_date, name)
 UNION ALL CORRESPONDING
-SELECT * FROM (VALUES ('bob', 123.45)) AS t(name, price);
-```
-
-```text
- name
--------
- alice
- bob
-(2 rows)
+SELECT * FROM (VALUES ('bob', 123.45)) AS t(name, price)
 ```
 
 ### INTERSECT clause
@@ -915,32 +791,18 @@ possible `INTERSECT` clauses. It selects the values `13` and `42` and combines
 this result set with a second query that selects the value `13`.  Since `42`
 is only in the result set of the first query, it is not included in the final results.:
 
-```
+```{try-sql}
 SELECT * FROM (VALUES 13, 42)
 INTERSECT
-SELECT 13;
-```
-
-```text
- _col0
--------
-    13
-(2 rows)
+SELECT 13
 ```
 
 `CORRESPONDING` matches columns by name instead of by position:
 
-```sql
+```{try-sql}
 SELECT * FROM (VALUES (1, 'alice')) AS t(id, name)
 INTERSECT CORRESPONDING
-SELECT * FROM (VALUES ('alice', 1)) AS t(name, id);
-```
-
-```text
- id | name
-----+-------
-  1 | alice
-(1 row)
+SELECT * FROM (VALUES ('alice', 1)) AS t(name, id)
 ```
 
 ### EXCEPT clause
@@ -951,32 +813,18 @@ possible `EXCEPT` clauses. It selects the values `13` and `42` and combines
 this result set with a second query that selects the value `13`.  Since `13`
 is also in the result set of the second query, it is not included in the final result.:
 
-```
+```{try-sql}
 SELECT * FROM (VALUES 13, 42)
 EXCEPT
-SELECT 13;
-```
-
-```text
- _col0
--------
-   42
-(2 rows)
+SELECT 13
 ```
 
 `CORRESPONDING` matches columns by name instead of by position:
 
-```sql
+```{try-sql}
 SELECT * FROM (VALUES (1, 'alice'), (2, 'bob')) AS t(id, name)
 EXCEPT CORRESPONDING
-SELECT * FROM (VALUES ('alice', 1)) AS t(name, id);
-```
-
-```text
- id | name
-----+------
-  2 | bob
-(1 row)
+SELECT * FROM (VALUES ('alice', 1)) AS t(name, id)
 ```
 
 (order-by-clause)=
@@ -1039,17 +887,8 @@ If the `ORDER BY` clause is present, the `OFFSET` clause is evaluated
 over a sorted result set, and the set remains sorted after the
 leading rows are discarded:
 
-```
-SELECT name FROM nation ORDER BY name OFFSET 22;
-```
-
-```text
-      name
-----------------
- UNITED KINGDOM
- UNITED STATES
- VIETNAM
-(3 rows)
+```{try-sql}
+SELECT name FROM tpch.tiny.nation ORDER BY name OFFSET 22
 ```
 
 Otherwise, it is arbitrary which rows are discarded.
@@ -1074,19 +913,8 @@ The following example queries a large table, but the `LIMIT` clause
 restricts the output to only have five rows (because the query lacks an `ORDER BY`,
 exactly which rows are returned is arbitrary):
 
-```
-SELECT orderdate FROM orders LIMIT 5;
-```
-
-```text
- orderdate
-------------
- 1994-07-25
- 1993-11-12
- 1992-10-06
- 1994-01-04
- 1997-12-28
-(5 rows)
+```{try-sql}
+SELECT orderdate FROM tpch.tiny.orders LIMIT 5
 ```
 
 `LIMIT ALL` is the same as omitting the `LIMIT` clause.
@@ -1097,30 +925,15 @@ the choice of keyword has no effect on query execution.
 
 If the count is not specified in the `FETCH FIRST` clause, it defaults to `1`:
 
-```
-SELECT orderdate FROM orders FETCH FIRST ROW ONLY;
-```
-
-```text
- orderdate
-------------
- 1994-02-12
-(1 row)
+```{try-sql}
+SELECT orderdate FROM tpch.tiny.orders FETCH FIRST ROW ONLY
 ```
 
 If the `OFFSET` clause is present, the `LIMIT` or `FETCH FIRST` clause
 is evaluated after the `OFFSET` clause:
 
-```
-SELECT * FROM (VALUES 5, 2, 4, 1, 3) t(x) ORDER BY x OFFSET 2 LIMIT 2;
-```
-
-```text
- x
----
- 3
- 4
-(2 rows)
+```{try-sql}
+SELECT * FROM (VALUES 5, 2, 4, 1, 3) t(x) ORDER BY x OFFSET 2 LIMIT 2
 ```
 
 For the `FETCH FIRST` clause, the argument `ONLY` or `WITH TIES`
@@ -1134,21 +947,10 @@ clause be present. The result set consists of the same set of leading rows
 and all of the rows in the same peer group as the last of them ('ties')
 as established by the ordering in the `ORDER BY` clause. The result set is sorted:
 
-```
+```{try-sql}
 SELECT name, regionkey
-FROM nation
-ORDER BY regionkey FETCH FIRST ROW WITH TIES;
-```
-
-```text
-    name    | regionkey
-------------+-----------
- ETHIOPIA   |         0
- MOROCCO    |         0
- KENYA      |         0
- ALGERIA    |         0
- MOZAMBIQUE |         0
-(5 rows)
+FROM tpch.tiny.nation
+ORDER BY regionkey FETCH FIRST ROW WITH TIES
 ```
 
 (tablesample)=
@@ -1198,11 +1000,11 @@ FROM users TABLESAMPLE SYSTEM (75);
 
 Using sampling with joins:
 
-```
+```{try-sql}
 SELECT o.*, i.*
-FROM orders o TABLESAMPLE SYSTEM (10)
-JOIN lineitem i TABLESAMPLE BERNOULLI (40)
-  ON o.orderkey = i.orderkey;
+FROM tpch.tiny.orders o TABLESAMPLE SYSTEM (10)
+JOIN tpch.tiny.lineitem i TABLESAMPLE BERNOULLI (40)
+  ON o.orderkey = i.orderkey
 ```
 
 (unnest)=
@@ -1211,21 +1013,13 @@ JOIN lineitem i TABLESAMPLE BERNOULLI (40)
 `UNNEST` can be used to expand an {ref}`array-type` or {ref}`map-type` into a relation.
 Arrays are expanded into a single column:
 
-```
-SELECT * FROM UNNEST(ARRAY[1,2]) AS t(number);
-```
-
-```text
- number
---------
-      1
-      2
-(2 rows)
+```{try-sql}
+SELECT * FROM UNNEST(ARRAY[1,2]) AS t(number)
 ```
 
 Maps are expanded into two columns (key, value):
 
-```
+```{try-sql}
 SELECT * FROM UNNEST(
         map_from_entries(
             ARRAY[
@@ -1233,21 +1027,13 @@ SELECT * FROM UNNEST(
                 ('Java', 1995)
             ]
         )
-) AS t(language, first_appeared_year);
-```
-
-```text
- language | first_appeared_year
-----------+---------------------
- SQL      |                1974
- Java     |                1995
-(2 rows)
+) AS t(language, first_appeared_year)
 ```
 
 `UNNEST` can be used in combination with an `ARRAY` of {ref}`row-type` structures for expanding each
 field of the `ROW` into a corresponding column:
 
-```
+```{try-sql}
 SELECT *
 FROM UNNEST(
         ARRAY[
@@ -1256,115 +1042,62 @@ FROM UNNEST(
         ARRAY[
             ROW(false),
             ROW(true)]
-) as t(language,first_appeared_year,declarative);
-```
-
-```text
- language | first_appeared_year | declarative
-----------+---------------------+-------------
- Java     |                1995 | false
- SQL      |                1974 | true
-(2 rows)
+) as t(language,first_appeared_year,declarative)
 ```
 
 `UNNEST` can optionally have a `WITH ORDINALITY` clause, in which case an additional ordinality column
 is added to the end:
 
-```
+```{try-sql}
 SELECT a, b, rownumber
 FROM UNNEST (
     ARRAY[2, 5],
     ARRAY[7, 8, 9]
-     ) WITH ORDINALITY AS t(a, b, rownumber);
-```
-
-```text
-  a   | b | rownumber
-------+---+-----------
-    2 | 7 |         1
-    5 | 8 |         2
- NULL | 9 |         3
-(3 rows)
+     ) WITH ORDINALITY AS t(a, b, rownumber)
 ```
 
 `UNNEST` returns zero entries when the array/map is empty:
 
-```
-SELECT * FROM UNNEST (ARRAY[]) AS t(value);
-```
-
-```text
- value
--------
-(0 rows)
+```{try-sql}
+SELECT * FROM UNNEST (ARRAY[]) AS t(value)
 ```
 
 `UNNEST` returns zero entries when the array/map is null:
 
-```
-SELECT * FROM UNNEST (CAST(null AS ARRAY(integer))) AS t(number);
-```
-
-```text
- number
---------
-(0 rows)
+```{try-sql}
+SELECT * FROM UNNEST (CAST(null AS ARRAY(integer))) AS t(number)
 ```
 
 `UNNEST` is normally used with a `JOIN`, and can reference columns
 from relations on the left side of the join:
 
-```
+```{try-sql}
 SELECT student, score
 FROM (
    VALUES
       ('John', ARRAY[7, 10, 9]),
       ('Mary', ARRAY[4, 8, 9])
 ) AS tests (student, scores)
-CROSS JOIN UNNEST(scores) AS t(score);
-```
-
-```text
- student | score
----------+-------
- John    |     7
- John    |    10
- John    |     9
- Mary    |     4
- Mary    |     8
- Mary    |     9
-(6 rows)
+CROSS JOIN UNNEST(scores) AS t(score)
 ```
 
 `UNNEST` can also be used with multiple arguments, in which case they are expanded into multiple columns,
 with as many rows as the highest cardinality argument (the other columns are padded with nulls):
 
-```
+```{try-sql}
 SELECT numbers, animals, n, a
 FROM (
   VALUES
     (ARRAY[2, 5], ARRAY['dog', 'cat', 'bird']),
     (ARRAY[7, 8, 9], ARRAY['cow', 'pig'])
 ) AS x (numbers, animals)
-CROSS JOIN UNNEST(numbers, animals) AS t (n, a);
-```
-
-```text
-  numbers  |     animals      |  n   |  a
------------+------------------+------+------
- [2, 5]    | [dog, cat, bird] |    2 | dog
- [2, 5]    | [dog, cat, bird] |    5 | cat
- [2, 5]    | [dog, cat, bird] | NULL | bird
- [7, 8, 9] | [cow, pig]       |    7 | cow
- [7, 8, 9] | [cow, pig]       |    8 | pig
- [7, 8, 9] | [cow, pig]       |    9 | NULL
-(6 rows)
+CROSS JOIN UNNEST(numbers, animals) AS t (n, a)
 ```
 
 `LEFT JOIN` is preferable in order to avoid losing the row containing the array/map field in question
 when referenced columns from relations on the left side of the join can be empty or have `NULL` values:
 
-```
+```{try-sql}
 SELECT runner, checkpoint
 FROM (
    VALUES
@@ -1373,20 +1106,7 @@ FROM (
       ('Dave', ARRAY[]),
       ('Levi', NULL)
 ) AS marathon (runner, checkpoints)
-LEFT JOIN UNNEST(checkpoints) AS t(checkpoint) ON TRUE;
-```
-
-```text
- runner | checkpoint
---------+------------
- Joe    |         10
- Joe    |         20
- Joe    |         30
- Joe    |         42
- Roger  |         10
- Dave   |       NULL
- Levi   |       NULL
-(7 rows)
+LEFT JOIN UNNEST(checkpoints) AS t(checkpoint) ON TRUE
 ```
 
 Note that in case of using `LEFT JOIN` the only condition supported by the current implementation is `ON TRUE`.
@@ -1411,37 +1131,25 @@ relations. Cross joins can either be specified using the explit
 
 Both of the following queries are equivalent:
 
+```{try-sql}
+SELECT *
+FROM tpch.tiny.nation
+CROSS JOIN tpch.tiny.region
 ```
-SELECT *
-FROM nation
-CROSS JOIN region;
 
+```{try-sql}
 SELECT *
-FROM nation, region;
+FROM tpch.tiny.nation, tpch.tiny.region
 ```
 
 The `nation` table contains 25 rows and the `region` table contains 5 rows,
 so a cross join between the two tables produces 125 rows:
 
-```
+```{try-sql}
 SELECT n.name AS nation, r.name AS region
-FROM nation AS n
-CROSS JOIN region AS r
-ORDER BY 1, 2;
-```
-
-```text
-     nation     |   region
-----------------+-------------
- ALGERIA        | AFRICA
- ALGERIA        | AMERICA
- ALGERIA        | ASIA
- ALGERIA        | EUROPE
- ALGERIA        | MIDDLE EAST
- ARGENTINA      | AFRICA
- ARGENTINA      | AMERICA
-...
-(125 rows)
+FROM tpch.tiny.nation AS n
+CROSS JOIN tpch.tiny.region AS r
+ORDER BY 1, 2
 ```
 
 ### LATERAL
@@ -1462,11 +1170,11 @@ This is repeated for set of rows from the column source tables.
 `LATERAL` is primarily useful when the cross-referenced column is necessary for
 computing the rows to be joined:
 
-```
+```{try-sql}
 SELECT name, x, y
-FROM nation
+FROM tpch.tiny.nation
 CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
-CROSS JOIN LATERAL (SELECT x || ')' AS y);
+CROSS JOIN LATERAL (SELECT x || ')' AS y)
 ```
 
 When `LATERAL` appears on the right side of a `FULL JOIN`, the only condition
@@ -1601,18 +1309,22 @@ When two relations in a join have columns with the same name, the column
 references must be qualified using the relation alias (if the relation
 has an alias), or with the relation name:
 
-```
+```{try-sql}
 SELECT nation.name, region.name
-FROM nation
-CROSS JOIN region;
+FROM tpch.tiny.nation
+CROSS JOIN tpch.tiny.region
+```
 
+```{try-sql}
 SELECT n.name, r.name
-FROM nation AS n
-CROSS JOIN region AS r;
+FROM tpch.tiny.nation AS n
+CROSS JOIN tpch.tiny.region AS r
+```
 
+```{try-sql}
 SELECT n.name, r.name
-FROM nation n
-CROSS JOIN region r;
+FROM tpch.tiny.nation n
+CROSS JOIN tpch.tiny.region r
 ```
 
 The following query will fail with the error `Column 'name' is ambiguous`:
@@ -1639,14 +1351,14 @@ Support for correlated subqueries is limited. Not every standard form is support
 
 The `EXISTS` predicate determines if a subquery returns any rows:
 
-```
+```{try-sql}
 SELECT name
-FROM nation
+FROM tpch.tiny.nation
 WHERE EXISTS (
      SELECT *
-     FROM region
+     FROM tpch.tiny.region
      WHERE region.regionkey = nation.regionkey
-);
+)
 ```
 
 ### IN
@@ -1655,14 +1367,14 @@ The `IN` predicate determines if any values produced by the subquery
 are equal to the provided expression. The result of `IN` follows the
 standard rules for nulls. The subquery must produce exactly one column:
 
-```
+```{try-sql}
 SELECT name
-FROM nation
+FROM tpch.tiny.nation
 WHERE regionkey IN (
      SELECT regionkey
-     FROM region
+     FROM tpch.tiny.region
      WHERE name = 'AMERICA' OR name = 'AFRICA'
-);
+)
 ```
 
 ### Scalar subquery
@@ -1671,10 +1383,10 @@ A scalar subquery is a non-correlated subquery that returns zero or
 one row. It is an error for the subquery to produce more than one
 row. The returned value is `NULL` if the subquery produces no rows:
 
-```
+```{try-sql}
 SELECT name
-FROM nation
-WHERE regionkey = (SELECT max(regionkey) FROM region);
+FROM tpch.tiny.nation
+WHERE regionkey = (SELECT max(regionkey) FROM tpch.tiny.region)
 ```
 
 :::{note}

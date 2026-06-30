@@ -31,46 +31,43 @@
 The `BETWEEN` operator tests if a value is within a specified range. It uses the
 syntax `value BETWEEN min AND max`:
 
-```sql
-SELECT 3 BETWEEN 2 AND 6;
+```{try-sql}
+SELECT 3 BETWEEN 2 AND 6
 ```
 
 The preceding statement is equivalent to the following statement:
 
-```sql
-SELECT 3 >= 2 AND 3 <= 6;
+```{try-sql}
+SELECT 3 >= 2 AND 3 <= 6
 ```
 
 To test if a value does not fall within the specified range use `NOT BETWEEN`:
 
-```sql
-SELECT 3 NOT BETWEEN 2 AND 6;
+```{try-sql}
+SELECT 3 NOT BETWEEN 2 AND 6
 ```
 
 The statement shown above is equivalent to the following statement:
 
-```sql
-SELECT 3 < 2 OR 3 > 6;
+```{try-sql}
+SELECT 3 < 2 OR 3 > 6
 ```
 
 A `NULL` in a `BETWEEN` or `NOT BETWEEN` statement is evaluated using the
 standard `NULL` evaluation rules applied to the equivalent expression above:
 
-```sql
-SELECT NULL BETWEEN 2 AND 4; -- null
-
-SELECT 2 BETWEEN NULL AND 6; -- null
-
-SELECT 2 BETWEEN 3 AND NULL; -- false
-
-SELECT 8 BETWEEN NULL AND 6; -- false
+```{try-sql}
+SELECT NULL BETWEEN 2 AND 4,
+       2 BETWEEN NULL AND 6,
+       2 BETWEEN 3 AND NULL,
+       8 BETWEEN NULL AND 6
 ```
 
 The `BETWEEN` and `NOT BETWEEN` operators can also be used to evaluate any
 orderable type. For example, a `VARCHAR`:
 
-```sql
-SELECT 'Paul' BETWEEN 'John' AND 'Ringo'; -- true
+```{try-sql}
+SELECT 'Paul' BETWEEN 'John' AND 'Ringo'
 ```
 
 Note that the value, min, and max parameters to `BETWEEN` and `NOT BETWEEN` must
@@ -83,9 +80,9 @@ By default the bounds are interpreted in order, so `value BETWEEN min AND max`
 only matches when `min <= max`. This default can be made explicit with
 `ASYMMETRIC`:
 
-```sql
-SELECT 3 BETWEEN ASYMMETRIC 2 AND 6; -- true
-SELECT 3 BETWEEN ASYMMETRIC 6 AND 2; -- false
+```{try-sql}
+SELECT 3 BETWEEN ASYMMETRIC 2 AND 6 AS in_order,
+       3 BETWEEN ASYMMETRIC 6 AND 2 AS reversed
 ```
 
 With `SYMMETRIC`, the two bounds are treated as an unordered pair, so the test
@@ -93,9 +90,9 @@ succeeds when the value lies between them in either order. `value BETWEEN
 SYMMETRIC min AND max` is equivalent to `value BETWEEN ASYMMETRIC min AND max OR
 value BETWEEN ASYMMETRIC max AND min`:
 
-```sql
-SELECT 3 BETWEEN SYMMETRIC 2 AND 6; -- true
-SELECT 3 BETWEEN SYMMETRIC 6 AND 2; -- true
+```{try-sql}
+SELECT 5 BETWEEN SYMMETRIC 10 AND 1 AS symmetric,
+       5 BETWEEN ASYMMETRIC 10 AND 1 AS asymmetric
 ```
 
 `SYMMETRIC` can be combined with `NOT`, and follows the same `NULL` evaluation
@@ -109,14 +106,14 @@ The `IS NULL` and `IS NOT NULL` operators test whether a value is null
 
 Using `NULL` with `IS NULL` evaluates to `true`:
 
-```sql
-SELECT NULL IS NULL; -- true
+```{try-sql}
+SELECT NULL IS NULL
 ```
 
 But any other constant does not:
 
-```sql
-SELECT 3.0 IS NULL; -- false
+```{try-sql}
+SELECT 3.0 IS NULL
 ```
 
 (is-boolean-test)=
@@ -128,14 +125,11 @@ three-valued result of a boolean expression. Unlike a direct comparison against
 `NULL` (unknown) operand as a known value. `IS UNKNOWN` is equivalent to `IS NULL`
 on a boolean operand:
 
-```sql
-SELECT (1 > 0) IS TRUE; -- true
-
-SELECT (1 > 2) IS FALSE; -- true
-
-SELECT (NULL > 0) IS UNKNOWN; -- true
-
-SELECT (NULL > 0) IS NOT TRUE; -- true
+```{try-sql}
+SELECT (1 > 0) IS TRUE,
+       (1 > 2) IS FALSE,
+       (NULL > 0) IS UNKNOWN,
+       (NULL > 0) IS NOT TRUE
 ```
 
 The following truth table demonstrates the handling of each truth value:
@@ -154,10 +148,9 @@ In SQL a `NULL` value signifies an unknown value, so any comparison involving a
 operators treat `NULL` as a known value and both operators guarantee either a
 true or false outcome even in the presence of `NULL` input:
 
-```sql
-SELECT NULL IS DISTINCT FROM NULL; -- false
-
-SELECT NULL IS NOT DISTINCT FROM NULL; -- true
+```{try-sql}
+SELECT NULL IS DISTINCT FROM NULL,
+       NULL IS NOT DISTINCT FROM NULL
 ```
 
 In the preceding example a `NULL` value is not considered distinct from `NULL`.
@@ -210,12 +203,10 @@ expression operator quantifier ( subquery )
 
 For example:
 
-```sql
-SELECT 'hello' = ANY (VALUES 'hello', 'world'); -- true
-
-SELECT 21 < ALL (VALUES 19, 20, 21); -- false
-
-SELECT 42 >= SOME (SELECT 41 UNION ALL SELECT 42 UNION ALL SELECT 43); -- true
+```{try-sql}
+SELECT 'hello' = ANY (VALUES 'hello', 'world'),
+       21 < ALL (VALUES 19, 20, 21),
+       42 >= SOME (SELECT 41 UNION ALL SELECT 42 UNION ALL SELECT 43)
 ```
 
 Following are the meanings of some quantifier and comparison operator
@@ -262,34 +253,34 @@ matching:
 Typically it is often used as a condition in `WHERE` statements. An example is
 a query to find all continents starting with `E`, which returns `Europe`:
 
-```sql
+```{try-sql}
 SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
-WHERE continent LIKE 'E%';
+WHERE continent LIKE 'E%'
 ```
 
 You can negate the result by adding `NOT`, and get all other continents, all
 not starting with `E`:
 
-```sql
+```{try-sql}
 SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
-WHERE continent NOT LIKE 'E%';
+WHERE continent NOT LIKE 'E%'
 ```
 
 If you only have one specific character to match, you can use the `_` symbol
 for each character. The following query uses two underscores and produces only
 `Asia` as result:
 
-```sql
+```{try-sql}
 SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
-WHERE continent LIKE 'A__a';
+WHERE continent LIKE 'A__a'
 ```
 
 The wildcard characters `_` and `%` must be escaped to allow you to match
 them as literals. This can be achieved by specifying the `ESCAPE` character to
 use:
 
-```sql
-SELECT 'South_America' LIKE 'South\_America' ESCAPE '\';
+```{try-sql}
+SELECT 'South_America' LIKE 'South\_America' ESCAPE '\'
 ```
 
 The above query returns `true` since the escaped underscore symbol matches. If
@@ -305,7 +296,7 @@ The `IN` operator can be used in a `WHERE` clause to compare column values with
 a list of values. The list of values can be supplied by a subquery or directly 
 as static values in an array:
 
-```sql
+```
 ... WHERE column [NOT] IN ('value1','value2');
 ... WHERE column [NOT] IN ( subquery );
 ```
@@ -314,22 +305,22 @@ Use the optional `NOT` keyword to negate the condition.
 
 The following example shows a simple usage with a static array:
 
-```sql
-SELECT * FROM region WHERE name IN ('AMERICA', 'EUROPE');
+```{try-sql}
+SELECT * FROM tpch.tiny.region WHERE name IN ('AMERICA', 'EUROPE')
 ```
 
 The values in the clause are used for multiple comparisons that are combined as
 a logical `OR`. The preceding query is equivalent to the following query:
 
-```sql
-SELECT * FROM region WHERE name = 'AMERICA' OR name = 'EUROPE';
+```{try-sql}
+SELECT * FROM tpch.tiny.region WHERE name = 'AMERICA' OR name = 'EUROPE'
 ```
 
 You can negate the comparisons by adding `NOT`, and get all other regions
 except the values in list:
 
-```sql
-SELECT * FROM region WHERE name NOT IN ('AMERICA', 'EUROPE');
+```{try-sql}
+SELECT * FROM tpch.tiny.region WHERE name NOT IN ('AMERICA', 'EUROPE')
 ```
 
 When using a subquery to determine the values to use in the comparison, the
@@ -337,15 +328,15 @@ subquery must return a single column and one or more rows. For example, the
 following query returns nation name of countries in regions starting with the
 letter `A`, specifically Africa, America, and Asia:
 
-```sql
+```{try-sql}
 SELECT nation.name
-FROM nation
+FROM tpch.tiny.nation
 WHERE regionkey IN (
   SELECT regionkey
-  FROM region
+  FROM tpch.tiny.region
   WHERE starts_with(name, 'A')
 )
-ORDER by nation.name;
+ORDER by nation.name
 ```
 
 ## Examples
@@ -356,22 +347,21 @@ types.
 
 Ordering:
 
-```sql
-SELECT 'M' BETWEEN 'A' AND 'Z'; -- true
-SELECT 'A' < 'B'; -- true
-SELECT 'A' < 'a'; -- true
-SELECT TRUE > FALSE; -- true
-SELECT 'M' BETWEEN 'A' AND 'Z'; -- true
-SELECT 'm' BETWEEN 'A' AND 'Z'; -- false
+```{try-sql}
+SELECT 'M' BETWEEN 'A' AND 'Z',
+       'A' < 'B',
+       'A' < 'a',
+       TRUE > FALSE,
+       'm' BETWEEN 'A' AND 'Z'
 ```
 
 The following queries show a subtle difference between `char` and `varchar`
 types. The length parameter for `varchar` is an optional maximum length
 parameter and comparison is based on the data only, ignoring the length:
 
-```sql
-SELECT cast('Test' as varchar(20)) = cast('Test' as varchar(25)); --true
-SELECT cast('Test' as varchar(20)) = cast('Test   ' as varchar(25)); --false
+```{try-sql}
+SELECT cast('Test' as varchar(20)) = cast('Test' as varchar(25)),
+       cast('Test' as varchar(20)) = cast('Test   ' as varchar(25))
 ```
 
 The length parameter for `char` defines a fixed length character array.
@@ -379,15 +369,15 @@ Comparison with different length automatically includes a cast to the same
 larger length. The cast is performed as automatic padding with spaces, and
 therefore both queries in the following return `true`:
 
-```sql
-SELECT cast('Test' as char(20)) = cast('Test' as char(25)); -- true
-SELECT cast('Test' as char(20)) = cast('Test   ' as char(25)); -- true
+```{try-sql}
+SELECT cast('Test' as char(20)) = cast('Test' as char(25)),
+       cast('Test' as char(20)) = cast('Test   ' as char(25))
 ```
 
 The following queries show how date types are ordered, and how date is
 implicitly cast to timestamp with zero time values:
 
-```sql
-SELECT DATE '2024-08-22' < DATE '2024-08-31';
-SELECT DATE '2024-08-22' < TIMESTAMP '2024-08-22 8:00:00';
+```{try-sql}
+SELECT DATE '2024-08-22' < DATE '2024-08-31',
+       DATE '2024-08-22' < TIMESTAMP '2024-08-22 8:00:00'
 ```

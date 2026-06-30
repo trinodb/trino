@@ -76,10 +76,10 @@ This function distinguishes a variant null value from SQL `NULL`.
 
 Example:
 
-```sql
-SELECT variant_is_null(CAST(JSON 'null' AS VARIANT)); -- true
-SELECT variant_is_null(CAST(42 AS VARIANT));          -- false
-SELECT variant_is_null(NULL);                         -- NULL
+```{try-sql}
+SELECT variant_is_null(CAST(JSON 'null' AS VARIANT)),
+       variant_is_null(CAST(42 AS VARIANT)),
+       variant_is_null(NULL)
 ```
 
 :::

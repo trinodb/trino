@@ -40,8 +40,9 @@ One or more `WHEN` clauses can be used.
 
 The following example shows a simple `CASE` statement usage:
 
-```sql
-FUNCTION simple_case(a bigint)
+```{try-sql}
+WITH
+  FUNCTION simple_case(a bigint)
   RETURNS varchar
   BEGIN
     CASE a
@@ -51,6 +52,9 @@ FUNCTION simple_case(a bigint)
     END CASE;
     RETURN NULL;
   END
+SELECT simple_case(0) AS zero,
+       simple_case(1) AS one,
+       simple_case(5) AS other
 ```
 
 Further examples of varying complexity that cover usage of the `CASE` statement
