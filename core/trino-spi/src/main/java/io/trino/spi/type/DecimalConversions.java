@@ -76,11 +76,10 @@ public final class DecimalConversions
 
     public static long shortDecimalToReal(long decimal, long tenToScale)
     {
-        // Divide in double to avoid double-rounding: ((float) decimal) / tenToScale first
-        // rounds the unscaled value to float (losing precision for |decimal| > 2^24),
-        // then divides — the composition can land on a different float than the correctly
-        // rounded mathematical result.
-        return floatToRawIntBits((float) ((double) decimal / tenToScale));
+        if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
+            return floatToRawIntBits((float) ((double) decimal / tenToScale));
+        }
+        return floatToRawIntBits(BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).floatValue());
     }
 
     public static long longDecimalToReal(Int128 decimal, long scale)
