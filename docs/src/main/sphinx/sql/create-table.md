@@ -32,6 +32,13 @@ suppressed if the table already exists.
 
 `OR REPLACE` and `IF NOT EXISTS` cannot be used together.
 
+(create-table-not-null)=
+The optional `NOT NULL` constraint declares that a column cannot contain null
+values. Support for `NOT NULL` column constraints varies by connector. It is
+available for Delta Lake, Faker, Iceberg, Lakehouse, Memory, Redshift, and the
+JDBC-based connectors, including ClickHouse, Druid, DuckDB, Exasol, Ignite,
+MariaDB, MySQL, Oracle, PostgreSQL, SingleStore, Snowflake, and SQL Server.
+
 The optional `WITH` clause can be used to set properties
 on the newly created table or on single columns.  To list all available table
 properties, run the following query:
