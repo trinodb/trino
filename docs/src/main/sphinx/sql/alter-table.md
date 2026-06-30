@@ -33,6 +33,9 @@ error to be suppressed if the column does not exist.
 The optional `IF NOT EXISTS` clause causes the error to be suppressed if the
 column already exists.
 
+Adding a column with a `NOT NULL` constraint requires connector support for
+{ref}`NOT NULL column constraints <create-table-not-null>`.
+
 (alter-table-set-properties)=
 ### SET PROPERTIES
 
