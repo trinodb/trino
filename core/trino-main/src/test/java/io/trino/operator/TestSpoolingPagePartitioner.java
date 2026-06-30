@@ -14,7 +14,9 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.spi.Page;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +26,7 @@ import java.util.function.ToLongFunction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestSpoolingPagePartitioner
@@ -65,6 +68,27 @@ class TestSpoolingPagePartitioner
                 .isEqualTo(3000);
 
         assertPartitionSizes(partitions, maxPartitionSize, expectedPartitions);
+    }
+
+    @Test
+    void testPartitionPagesWithVariableLengthRows()
+    {
+        // First row is very large (1000 chars), remaining 9 rows are tiny (1 char).
+        // averageSizePerPosition ≈ 100 bytes, so when remainingSize=120, takeFromHead
+        // picks 1 position — but that position is 1000 bytes, overshooting the target
+        // by far more than the 10% upper bound. Without the fix this causes
+        // verify(remainingSize >= 0) to fail on the next iteration.
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 10);
+        VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice("a".repeat(1000)));
+        for (int i = 0; i < 9; i++) {
+            VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice("a"));
+        }
+        Page page = new Page(blockBuilder.build());
+
+        List<List<Page>> partitions = SpoolingPagePartitioner.partition(ImmutableList.of(page), 120);
+
+        assertThat(size(partitions)).isEqualTo(page.getSizeInBytes());
+        assertThat(positions(partitions)).isEqualTo(page.getPositionCount());
     }
 
     private void assertPartitionSizes(List<List<Page>> partitions, long maxPartitionSize, int expectedPartitions)
