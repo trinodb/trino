@@ -401,21 +401,26 @@ public final class IcebergQueryRunner
         static void main()
                 throws Exception
         {
-            Path warehouseLocation = Files.createTempDirectory(null);
-            warehouseLocation.toFile().deleteOnExit();
+            String bucketName = "test-bucket";
+            String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
             @SuppressWarnings("resource")
-            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.toString());
+            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation, bucketName);
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
                     .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
+                    .addIcebergProperty("iceberg.rest-catalog.http-headers", TestingPolarisCatalog.POLARIS_REALM_HEADER + ": " + TestingPolarisCatalog.POLARIS_REALM_NAME)
+                    .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                    .addIcebergProperty("fs.s3.enabled", "true")
+                    .addIcebergProperty("s3.region", MINIO_REGION)
+                    .addIcebergProperty("s3.endpoint", polarisCatalog.minio().getMinioAddress())
+                    .addIcebergProperty("s3.path-style-access", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
