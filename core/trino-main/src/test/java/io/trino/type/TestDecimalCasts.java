@@ -1445,6 +1445,23 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "CAST(-16777217.0 AS DECIMAL(13,1))"))
                 .isEqualTo(-16777217.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '9007199791611905'"))
+                .isEqualTo(9.0072e15f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '-9007199791611905'"))
+                .isEqualTo(-9.0072e15f);
+
+        // Unscaled value far below 2^53 but still double-rounds when narrowing to real at scale 14
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '0.00391462049447'"))
+                .isEqualTo(0.0039146203f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '-0.00391462049447'"))
+                .isEqualTo(-0.0039146203f);
     }
 
     @Test
