@@ -13,28 +13,12 @@
  */
 package io.trino.execution.resourcegroups;
 
-import com.google.errorprone.annotations.Immutable;
-
-import java.util.Objects;
-
 import static com.google.common.math.LongMath.saturatedAdd;
 import static com.google.common.math.LongMath.saturatedSubtract;
 
-@Immutable
-final class ResourceUsage
+record ResourceUsage(long cpuUsageMillis, long memoryUsageBytes, long physicalInputDataUsageBytes)
 {
     public static final ResourceUsage ZERO = new ResourceUsage(0, 0, 0);
-
-    private final long cpuUsageMillis;
-    private final long memoryUsageBytes;
-    private final long physicalInputDataUsageBytes;
-
-    public ResourceUsage(long cpuUsageMillis, long memoryUsageBytes, long physicalInputDataUsageBytes)
-    {
-        this.cpuUsageMillis = cpuUsageMillis;
-        this.memoryUsageBytes = memoryUsageBytes;
-        this.physicalInputDataUsageBytes = physicalInputDataUsageBytes;
-    }
 
     public ResourceUsage add(ResourceUsage other)
     {
@@ -50,42 +34,5 @@ final class ResourceUsage
         long newMemoryUsageBytes = saturatedSubtract(this.memoryUsageBytes, other.memoryUsageBytes);
         long newPhysicalInputDataUsageBytes = saturatedSubtract(this.physicalInputDataUsageBytes, other.physicalInputDataUsageBytes);
         return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes, newPhysicalInputDataUsageBytes);
-    }
-
-    public long getCpuUsageMillis()
-    {
-        return cpuUsageMillis;
-    }
-
-    public long getMemoryUsageBytes()
-    {
-        return memoryUsageBytes;
-    }
-
-    public long getPhysicalInputDataUsageBytes()
-    {
-        return physicalInputDataUsageBytes;
-    }
-
-    @Override
-    public boolean equals(Object other)
-    {
-        if (this == other) {
-            return true;
-        }
-        if ((other == null) || (getClass() != other.getClass())) {
-            return false;
-        }
-
-        ResourceUsage otherUsage = (ResourceUsage) other;
-        return cpuUsageMillis == otherUsage.cpuUsageMillis
-                && memoryUsageBytes == otherUsage.memoryUsageBytes
-                && physicalInputDataUsageBytes == otherUsage.physicalInputDataUsageBytes;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(cpuUsageMillis, memoryUsageBytes, physicalInputDataUsageBytes);
     }
 }
