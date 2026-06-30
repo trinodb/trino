@@ -113,7 +113,7 @@ export const StageOperatorNode = (props: IStageOperatorNodeProps) => {
     const rowInputRate = totalWallTime === 0 ? 0 : stats.inputPositions / (totalWallTime / 1000.0)
     const byteInputRate = totalWallTime === 0 ? 0 : (parseDataSize(stats.inputDataSize) || 0) / (totalWallTime / 1000.0)
 
-    const rowOutputRate = totalWallTime === 0 ? 0 : stats.outputPositions / totalWallTime
+    const rowOutputRate = totalWallTime === 0 ? 0 : stats.outputPositions / (totalWallTime / 1000.0)
     const byteOutputRate =
         totalWallTime === 0 ? 0 : (parseDataSize(stats.outputDataSize) || 0) / (totalWallTime / 1000.0)
 
