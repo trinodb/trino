@@ -480,8 +480,16 @@ The `extract` function supports the following fields:
 | `TIMEZONE_HOUR`   | {func}`timezone_hour`   |
 | `TIMEZONE_MINUTE` | {func}`timezone_minute` |
 
-The types supported by the `extract` function vary depending on the
-field to be extracted. Most fields support all date and time types.
+The input types supported by the `extract` function depend on the field to be
+extracted:
+
+- `YEAR`, `QUARTER`, `MONTH`, `WEEK`, `DAY`, `DAY_OF_MONTH`,
+  `DAY_OF_WEEK`, `DOW`, `DAY_OF_YEAR`, `DOY`, `YEAR_OF_WEEK`, and `YOW`
+  support `date`, `timestamp`, and `timestamp with time zone`.
+- `HOUR`, `MINUTE`, and `SECOND` support `time`, `time with time zone`,
+  `timestamp`, and `timestamp with time zone`.
+- `TIMEZONE_HOUR` and `TIMEZONE_MINUTE` support `time with time zone` and
+  `timestamp with time zone`.
 
 ::::{function} extract(field FROM x) -> bigint
 Returns `field` from `x`:
