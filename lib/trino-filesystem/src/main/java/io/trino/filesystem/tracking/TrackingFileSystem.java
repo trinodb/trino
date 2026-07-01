@@ -96,6 +96,13 @@ public class TrackingFileSystem
     }
 
     @Override
+    public FileIterator listFilesByPrefix(Location location)
+            throws IOException
+    {
+        return delegate.listFilesByPrefix(location);
+    }
+
+    @Override
     public FileIterator listFilesStartingFrom(Location location, String startingFrom)
             throws IOException
     {
