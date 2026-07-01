@@ -38,7 +38,7 @@ public interface Type
 
     /// The serialized identity of this type, used for intra-cluster serialization (connector handles,
     /// predicates, block encoding, symbol keys). This is the SQL spelling, so it round-trips through
-    /// [TypeManager#getType(TypeId)] via [TypeManager#fromSqlType(String)].
+    /// [TypeManager#getType(TypeId)] via [TypeManager#fromPersistedSqlType(String)].
     @JsonValue
     default TypeId getTypeId()
     {

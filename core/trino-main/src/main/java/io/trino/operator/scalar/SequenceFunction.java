@@ -18,11 +18,13 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.DateTimeOperators;
+import io.trino.type.LongInterval;
 
 import java.util.concurrent.TimeUnit;
 
@@ -71,25 +73,12 @@ public final class SequenceFunction
     }
 
     @ScalarFunction("sequence")
-    @SqlType("array(date)")
-    public static Block sequenceDateDayToSecond(
-            @SqlType(StandardTypes.DATE) long start,
-            @SqlType(StandardTypes.DATE) long stop,
-            @SqlType("interval day to second") long step)
-    {
-        checkCondition(
-                step % TimeUnit.DAYS.toMillis(1) == 0,
-                INVALID_FUNCTION_ARGUMENT,
-                "sequence step must be a day interval if start and end values are dates");
-        return fixedWidthSequence(start, stop, step / TimeUnit.DAYS.toMillis(1), DATE);
-    }
-
-    @ScalarFunction("sequence")
+    @LiteralParameters("q")
     @SqlType("array(date)")
     public static Block sequenceDateYearToMonth(
             @SqlType(StandardTypes.DATE) long start,
             @SqlType(StandardTypes.DATE) long stop,
-            @SqlType("interval year to month") long step)
+            @SqlType("interval year(q) to month") long step)
     {
         checkValidStep(start, stop, step);
 
@@ -170,5 +159,39 @@ public final class SequenceFunction
                 MAX_RESULT_ENTRIES);
 
         return toIntExact(length);
+    }
+
+    @ScalarFunction("sequence")
+    public static final class SequenceDateDayToSecond
+    {
+        private SequenceDateDayToSecond() {}
+
+        @LiteralParameters({"q", "r"})
+        @SqlType("array(date)")
+        public static Block sequenceDateDayToSecond(
+                @SqlType(StandardTypes.DATE) long start,
+                @SqlType(StandardTypes.DATE) long stop,
+                @SqlType("interval day(q) to second(r)") long step)
+        {
+            checkCondition(
+                    step % TimeUnit.DAYS.toMicros(1) == 0,
+                    INVALID_FUNCTION_ARGUMENT,
+                    "sequence step must be a day interval if start and end values are dates");
+            return fixedWidthSequence(start, stop, step / TimeUnit.DAYS.toMicros(1), DATE);
+        }
+
+        @LiteralParameters({"q", "r"})
+        @SqlType("array(date)")
+        public static Block sequenceDateDayToSecond(
+                @SqlType(StandardTypes.DATE) long start,
+                @SqlType(StandardTypes.DATE) long stop,
+                @SqlType("interval day(q) to second(r)") LongInterval step)
+        {
+            checkCondition(
+                    step.getPicosOfMicro() == 0,
+                    INVALID_FUNCTION_ARGUMENT,
+                    "sequence step must be a day interval if start and end values are dates");
+            return sequenceDateDayToSecond(start, stop, step.getMicros());
+        }
     }
 }

@@ -341,8 +341,12 @@ requests, just like browser cookies.
     groups.
 * - `X-Trino-Client-Capabilities`
   - A comma-separated list of optional protocol features supported by the
-    client. Supported values include `PATH`, `PARAMETRIC_DATETIME`, `NUMBER`,
+    client. Supported values include `PATH`, `PARAMETRIC_DATETIME`, `PARAMETRIC_INTERVAL`, `NUMBER`,
     `VARIANT`, `VARIANT_BINARY`, and `SESSION_AUTHORIZATION`.
+    `PARAMETRIC_INTERVAL` enables interval qualifier and precision parameters in
+    type metadata and full-precision day-time values. Without it, interval types
+    use the legacy bare family names and day-time values are rounded to
+    milliseconds. This applies recursively to nested values and type metadata.
 * - `X-Trino-Resource-Estimate`
   - A comma-separated list of `resource=value` type assignments. The possible
     choices of `resource` are `EXECUTION_TIME`, `CPU_TIME`,  `PEAK_MEMORY` and

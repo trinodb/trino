@@ -30,6 +30,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.type.IntervalDayTimeType;
+import io.trino.type.LongInterval;
 
 import java.util.List;
 import java.util.Map;
@@ -120,6 +121,10 @@ public class SetTimeZoneTask
         else if (timeZoneValue instanceof Long value) {
             timeZoneKey = getTimeZoneKeyForOffset(getZoneOffsetMinutes(value));
         }
+        else if (timeZoneValue instanceof LongInterval value) {
+            checkCondition(value.getPicosOfMicro() == 0, INVALID_LITERAL, "Invalid TIME ZONE offset interval: interval contains seconds");
+            timeZoneKey = getTimeZoneKeyForOffset(getZoneOffsetMinutes(value.getMicros()));
+        }
         else {
             throw new IllegalStateException(format("TIME ZONE expression '%s' not supported", expression));
         }
@@ -128,7 +133,7 @@ public class SetTimeZoneTask
 
     private static long getZoneOffsetMinutes(long interval)
     {
-        checkCondition((interval % 60_000L) == 0L, INVALID_LITERAL, "Invalid TIME ZONE offset interval: interval contains seconds");
-        return interval / 60_000L;
+        checkCondition((interval % 60_000_000L) == 0L, INVALID_LITERAL, "Invalid TIME ZONE offset interval: interval contains seconds");
+        return interval / 60_000_000L;
     }
 }

@@ -57,12 +57,10 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.faker.DateTimeParsing.parseDate;
-import static io.trino.plugin.faker.DateTimeParsing.parseDayTimeInterval;
 import static io.trino.plugin.faker.DateTimeParsing.parseTime;
 import static io.trino.plugin.faker.DateTimeParsing.parseTimeWithTimeZone;
 import static io.trino.plugin.faker.DateTimeParsing.parseTimestamp;
 import static io.trino.plugin.faker.DateTimeParsing.parseTimestampWithTimeZone;
-import static io.trino.plugin.faker.DateTimeParsing.parseYearMonthInterval;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -75,7 +73,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
@@ -83,8 +80,6 @@ import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.floorDiv;
-import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 import static java.util.Locale.ENGLISH;
@@ -123,11 +118,8 @@ public class Literal
             return Double.parseDouble(value);
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
-            return parseDayTimeInterval(value);
-        }
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
-            return parseYearMonthInterval(value);
+        if (IntervalValues.isInterval(type)) {
+            return IntervalValues.parse(value, type);
         }
         if (type instanceof TimestampType timestampType) {
             return parseTimestamp(timestampType.getPrecision(), value);
@@ -347,9 +339,7 @@ public class Literal
             }
 
             if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
-                long epochSeconds = floorDiv(typedValue, (long) MILLISECONDS_PER_SECOND);
-                long fractionalSecond = floorMod(typedValue, (long) MILLISECONDS_PER_SECOND);
-                return "%d.%03d".formatted(epochSeconds, fractionalSecond);
+                return BigDecimal.valueOf(typedValue, 6).toPlainString();
             }
 
             if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {

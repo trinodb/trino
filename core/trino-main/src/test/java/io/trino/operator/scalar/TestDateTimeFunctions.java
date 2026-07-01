@@ -47,6 +47,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -333,8 +334,9 @@ public class TestDateTimeFunctions
         assertThat(assertions.function("millisecond", "INTERVAL '90061.234' SECOND"))
                 .isEqualTo(234L);
 
+        // SECOND is the leading field, so it holds the whole magnitude
         assertThat(assertions.function("second", "INTERVAL '90061.234' SECOND"))
-                .isEqualTo(1L);
+                .isEqualTo(90061L);
 
         assertThat(assertions.function("minute", "INTERVAL '90061.234' SECOND"))
                 .isEqualTo(1L);
@@ -437,47 +439,50 @@ public class TestDateTimeFunctions
     @Test
     public void testExtractFromInterval()
     {
+        // the leading field holds the whole magnitude of the interval
         assertThat(assertions.expression("extract(second FROM INTERVAL '5' SECOND)"))
                 .isEqualTo(5L);
 
         assertThat(assertions.expression("extract(second FROM INTERVAL '65' SECOND)"))
-                .isEqualTo(5L);
+                .isEqualTo(65L);
 
         assertThat(assertions.expression("extract(minute FROM INTERVAL '4' MINUTE)"))
                 .isEqualTo(4L);
 
         assertThat(assertions.expression("extract(minute FROM INTERVAL '64' MINUTE)"))
-                .isEqualTo(4L);
-
-        assertThat(assertions.expression("extract(minute FROM INTERVAL '247' SECOND)"))
-                .isEqualTo(4L);
+                .isEqualTo(64L);
 
         assertThat(assertions.expression("extract(hour FROM INTERVAL '3' HOUR)"))
                 .isEqualTo(3L);
 
         assertThat(assertions.expression("extract(hour FROM INTERVAL '27' HOUR)"))
-                .isEqualTo(3L);
-
-        assertThat(assertions.expression("extract(hour FROM INTERVAL '187' MINUTE)"))
-                .isEqualTo(3L);
+                .isEqualTo(27L);
 
         assertThat(assertions.expression("extract(day FROM INTERVAL '2' DAY)"))
-                .isEqualTo(2L);
-
-        assertThat(assertions.expression("extract(day FROM INTERVAL '55' HOUR)"))
                 .isEqualTo(2L);
 
         assertThat(assertions.expression("extract(month FROM INTERVAL '3' MONTH)"))
                 .isEqualTo(3L);
 
         assertThat(assertions.expression("extract(month FROM INTERVAL '15' MONTH)"))
-                .isEqualTo(3L);
+                .isEqualTo(15L);
 
         assertThat(assertions.expression("extract(year FROM INTERVAL '2' YEAR)"))
                 .isEqualTo(2L);
 
-        assertThat(assertions.expression("extract(year FROM INTERVAL '29' MONTH)"))
-                .isEqualTo(2L);
+        // a trailing field is bounded by the next larger field
+        assertThat(assertions.expression("extract(minute FROM INTERVAL '1:04' HOUR TO MINUTE)"))
+                .isEqualTo(4L);
+
+        // a field that the qualifier does not contain cannot be extracted
+        assertThatThrownBy(assertions.expression("extract(minute FROM INTERVAL '247' SECOND)")::evaluate)
+                .hasMessageContaining("Cannot extract MINUTE from interval second");
+        assertThatThrownBy(assertions.expression("extract(hour FROM INTERVAL '187' MINUTE)")::evaluate)
+                .hasMessageContaining("Cannot extract HOUR from interval minute");
+        assertThatThrownBy(assertions.expression("extract(day FROM INTERVAL '55' HOUR)")::evaluate)
+                .hasMessageContaining("Cannot extract DAY from interval hour");
+        assertThatThrownBy(assertions.expression("extract(year FROM INTERVAL '29' MONTH)")::evaluate)
+                .hasMessageContaining("Cannot extract YEAR from interval month");
     }
 
     @Test

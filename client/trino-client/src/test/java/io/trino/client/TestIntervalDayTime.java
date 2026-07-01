@@ -15,9 +15,11 @@ package io.trino.client;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.client.IntervalDayTime.formatMillis;
-import static io.trino.client.IntervalDayTime.parseMillis;
-import static io.trino.client.IntervalDayTime.toMillis;
+import static io.trino.client.IntervalDayTime.formatInterval;
+import static io.trino.client.IntervalDayTime.formatMicros;
+import static io.trino.client.IntervalDayTime.parseMicros;
+import static io.trino.client.IntervalDayTime.parseToPicos;
+import static io.trino.client.IntervalDayTime.toMicros;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -25,38 +27,98 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIntervalDayTime
 {
     @Test
-    public void testFormat()
+    public void testExcessFractionalPrecision()
     {
-        assertMillis(0, "0 00:00:00.000");
-        assertMillis(1, "0 00:00:00.001");
-        assertMillis(-1, "-0 00:00:00.001");
-
-        assertMillis(toMillis(12, 13, 45, 56, 789), "12 13:45:56.789");
-        assertMillis(toMillis(-12, -13, -45, -56, -789), "-12 13:45:56.789");
-
-        assertMillis(Long.MAX_VALUE, "106751991167 07:12:55.807");
-        assertMillis(Long.MIN_VALUE + 1, "-106751991167 07:12:55.807");
-        assertMillis(Long.MIN_VALUE, "-106751991167 07:12:55.808");
+        for (int length : new int[] {13, 18, 19, 30}) {
+            for (String sign : new String[] {"", "-"}) {
+                assertThatThrownBy(() -> parseToPicos(sign + "0 00:00:00." + "1".repeat(length)))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageStartingWith("Interval fractional precision exceeds 12");
+            }
+        }
+        assertThat(parseToPicos("0 00:00:00.000000000001")).containsExactly(0, 1);
+        assertThat(parseToPicos("0 00:00:01")).containsExactly(1_000_000, 0);
     }
 
-    private static void assertMillis(long millis, String formatted)
+    @Test
+    public void testFormat()
     {
-        assertThat(formatMillis(millis)).isEqualTo(formatted);
-        assertThat(parseMillis(formatted)).isEqualTo(millis);
+        assertMicros(0, "0 00:00:00.000000");
+        assertMicros(1, "0 00:00:00.000001");
+        assertMicros(-1, "-0 00:00:00.000001");
+
+        assertMicros(toMicros(12, 13, 45, 56, 789000), "12 13:45:56.789000");
+        assertMicros(toMicros(-12, -13, -45, -56, -789000), "-12 13:45:56.789000");
+
+        assertMicros(Long.MAX_VALUE, "106751991 04:00:54.775807");
+        assertMicros(Long.MIN_VALUE + 1, "-106751991 04:00:54.775807");
+        assertMicros(Long.MIN_VALUE, "-106751991 04:00:54.775808");
+    }
+
+    private static void assertMicros(long micros, String formatted)
+    {
+        assertThat(formatMicros(micros)).isEqualTo(formatted);
+        assertThat(parseMicros(formatted)).isEqualTo(micros);
+    }
+
+    @Test
+    public void testPicosecondRoundTrip()
+    {
+        // a value with picoseconds round-trips through the twelve-digit rendering and parse
+        assertPicos(1_123_456, 789_012, 12, "0 00:00:01.123456789012");
+        assertPicos(1_123_456, 789_000, 9, "0 00:00:01.123456789");
+        assertPicos(-1_123_457, 211_000, 9, "-0 00:00:01.123456789");
+
+        // a precision of zero renders and parses with no decimal point
+        assertPicos(2_000_000, 0, 0, "0 00:00:02");
+
+        // the sub-microsecond fraction is dropped when it falls below the rendered precision
+        assertThat(parseToPicos("0 00:00:01.123456")).containsExactly(1_123_456, 0);
+    }
+
+    private static void assertPicos(long micros, int picosOfMicro, int fractionalPrecision, String formatted)
+    {
+        assertThat(formatInterval(micros, picosOfMicro, fractionalPrecision)).isEqualTo(formatted);
+        assertThat(parseToPicos(formatted)).containsExactly(micros, picosOfMicro);
+    }
+
+    @Test
+    public void testMinimumValuePrecision()
+    {
+        String fraction = "775808000000";
+        for (int precision = 0; precision <= 12; precision++) {
+            String formatted = "-106751991 04:00:54" + (precision == 0 ? "" : "." + fraction.substring(0, precision));
+            assertThat(formatInterval(Long.MIN_VALUE, 0, precision)).isEqualTo(formatted);
+            if (precision >= 6) {
+                assertThat(parseToPicos(formatted)).containsExactly(Long.MIN_VALUE, 0);
+                assertThat(parseToPicos(formatted.replace("-106751991", "-0106751991"))).containsExactly(Long.MIN_VALUE, 0);
+                assertPicos(Long.MIN_VALUE + 1, 0, precision, "-106751991 04:00:54.775807" + "0".repeat(precision - 6));
+                assertPicos(Long.MAX_VALUE, 0, precision, "106751991 04:00:54.775807" + "0".repeat(precision - 6));
+            }
+        }
+        assertPicos(Long.MIN_VALUE, 1, 12, "-106751991 04:00:54.775807999999");
+        assertPicos(Long.MAX_VALUE, 999_999, 12, "106751991 04:00:54.775807999999");
+        for (String value : new String[] {
+                "-106751991 04:00:54.775808000001",
+                "-106751991 04:00:54.775809",
+                "106751991 04:00:54.775808000000",
+        }) {
+            assertThatThrownBy(() -> parseToPicos(value)).isInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Test
     public void textMaxDays()
     {
-        long days = Long.MAX_VALUE / DAYS.toMillis(1);
-        assertThat(toMillis(days, 0, 0, 0, 0)).isEqualTo(DAYS.toMillis(days));
+        long days = Long.MAX_VALUE / DAYS.toMicros(1);
+        assertThat(toMicros(days, 0, 0, 0, 0)).isEqualTo(DAYS.toMicros(days));
     }
 
     @Test
     public void testOverflow()
     {
-        long days = (Long.MAX_VALUE / DAYS.toMillis(1)) + 1;
-        assertThatThrownBy(() -> toMillis(days, 0, 0, 0, 0))
+        long days = (Long.MAX_VALUE / DAYS.toMicros(1)) + 1;
+        assertThatThrownBy(() -> toMicros(days, 0, 0, 0, 0))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("java.lang.ArithmeticException: long overflow");
     }

@@ -85,13 +85,14 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toPersistedTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.FunctionParametricType.FUNCTION;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.type.IntervalDayTimeParametricType.INTERVAL_DAY_TIME_PARAMETRIC;
+import static io.trino.type.IntervalYearMonthParametricType.INTERVAL_YEAR_MONTH_PARAMETRIC;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
@@ -115,6 +116,7 @@ public final class TypeRegistry
 
     private final NonEvictableCache<TypeDescriptor, Type> parametricTypeCache;
     private final NonEvictableCache<String, Type> sqlTypeCache;
+    private final NonEvictableCache<String, Type> persistedSqlTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
 
@@ -139,8 +141,6 @@ public final class TypeRegistry
         addType(NUMBER);
         addType(VARBINARY);
         addType(DATE);
-        addType(INTERVAL_YEAR_MONTH);
-        addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
         addType(SET_DIGEST);
         addType(P4_HYPER_LOG_LOG);
@@ -158,6 +158,8 @@ public final class TypeRegistry
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
+        addParametricType(INTERVAL_YEAR_MONTH_PARAMETRIC);
+        addParametricType(INTERVAL_DAY_TIME_PARAMETRIC);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
@@ -170,6 +172,7 @@ public final class TypeRegistry
 
         parametricTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         sqlTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
+        persistedSqlTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
         typeManager = new InternalTypeManager(this, typeOperators);
 
@@ -195,6 +198,22 @@ public final class TypeRegistry
     {
         try {
             return sqlTypeCache.get(sqlType, () -> getType(toTypeDescriptor(SQL_PARSER.createType(sqlType))));
+        }
+        catch (ParsingException e) {
+            throw new TypeNotFoundException(sqlType, e);
+        }
+        catch (ExecutionException e) {
+            if (e.getCause() instanceof ParsingException parsingException) {
+                throw new TypeNotFoundException(sqlType, parsingException);
+            }
+            throw new RuntimeException("Could not get type from cache", e);
+        }
+    }
+
+    public Type fromPersistedSqlType(String sqlType)
+    {
+        try {
+            return persistedSqlTypeCache.get(sqlType, () -> getType(toPersistedTypeDescriptor(SQL_PARSER.createType(sqlType))));
         }
         catch (ParsingException e) {
             throw new TypeNotFoundException(sqlType, e);
@@ -447,6 +466,12 @@ public final class TypeRegistry
         public Type fromSqlType(String type)
         {
             return typeRegistry.fromSqlType(type);
+        }
+
+        @Override
+        public Type fromPersistedSqlType(String type)
+        {
+            return typeRegistry.fromPersistedSqlType(type);
         }
 
         @Override

@@ -1722,4 +1722,17 @@ public class TestJdbcPreparedStatement
     {
         return zone.getRules().getValidOffsets(dateTime).isEmpty();
     }
+
+    @Test
+    public void testIntervalTypeMetadata()
+            throws Exception
+    {
+        for (String type : new String[] {"interval day(2) to second(6)", "interval second(13, 12)", "interval day(3)", "interval hour(4) to minute", "interval year(2) to month", "interval month(10)"}) {
+            assertThat(TrinoPreparedStatement.getClientTypeSignatureFromTypeString(type).toString()).isEqualTo(type);
+            try (Connection connection = createConnection(true);
+                    PreparedStatement statement = connection.prepareStatement("SELECT CAST(NULL AS " + type + ")")) {
+                assertThat(statement.getMetaData().getColumnTypeName(1)).isEqualTo(type);
+            }
+        }
+    }
 }

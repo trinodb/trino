@@ -16,6 +16,7 @@ package io.trino.sql.rewrite;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.type.Type;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.execution.ParameterExtractor.extractParameters;
+import static io.trino.server.protocol.ProtocolUtil.formatType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
@@ -162,7 +164,7 @@ public final class DescribeInputRewrite
                     limit);
         }
 
-        private static Row createDescribeInputRow(int position, Parameter parameter, Analysis queryAnalysis)
+        private Row createDescribeInputRow(int position, Parameter parameter, Analysis queryAnalysis)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {
@@ -171,7 +173,7 @@ public final class DescribeInputRewrite
 
             return row(
                     new LongLiteral(Integer.toString(position)),
-                    new StringLiteral(type.getDisplayName()));
+                    new StringLiteral(formatType(type, session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString()))));
         }
 
         @Override

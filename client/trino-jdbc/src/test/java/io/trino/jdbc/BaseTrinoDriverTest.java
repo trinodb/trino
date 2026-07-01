@@ -288,6 +288,7 @@ public abstract class BaseTrinoDriverTest
                         ", INTERVAL '11 22:33:44.555' DAY TO SECOND as i" +
                         ", REAL '123.45' as j" +
                         ", REAL 'Infinity' as k" +
+                        ", INTERVAL '11 22:33:44.555666777888' DAY TO SECOND(12) as l" +
                         "")) {
                     assertThat(rs.next()).isTrue();
 
@@ -349,6 +350,14 @@ public abstract class BaseTrinoDriverTest
                     assertThat(rs.getObject(9)).isEqualTo(new TrinoIntervalDayTime(11, 22, 33, 44, 555));
                     assertThat(rs.getObject("i")).isEqualTo(new TrinoIntervalDayTime(11, 22, 33, 44, 555));
 
+                    // the leading-field precision is inferred from each literal's value and surfaced in the metadata
+                    ResultSetMetaData metadata = rs.getMetaData();
+                    assertThat(metadata.getColumnTypeName(8)).isEqualTo("interval year(3) to month");
+                    assertThat(metadata.getPrecision(8)).isEqualTo(3);
+                    assertThat(metadata.getColumnTypeName(9)).isEqualTo("interval day(2) to second(6)");
+                    assertThat(metadata.getPrecision(9)).isEqualTo(2);
+                    assertThat(metadata.getScale(9)).isEqualTo(6);
+
                     assertThat(rs.getFloat(10)).isEqualTo(123.45f);
                     assertThat(rs.getObject(10)).isEqualTo(123.45f);
                     assertThat(rs.getFloat("j")).isEqualTo(123.45f);
@@ -358,6 +367,14 @@ public abstract class BaseTrinoDriverTest
                     assertThat(rs.getObject(11)).isEqualTo(POSITIVE_INFINITY);
                     assertThat(rs.getFloat("k")).isEqualTo(POSITIVE_INFINITY);
                     assertThat(rs.getObject("k")).isEqualTo(POSITIVE_INFINITY);
+
+                    // a fractional-seconds precision above 6 keeps its picoseconds through the JDBC value
+                    assertThat(rs.getObject(12)).isEqualTo(new TrinoIntervalDayTime(1_031_624_555_666L, 777_888, 12));
+                    assertThat(rs.getObject("l")).isEqualTo(new TrinoIntervalDayTime(1_031_624_555_666L, 777_888, 12));
+                    assertThat(rs.getObject(12).toString()).isEqualTo("11 22:33:44.555666777888");
+                    assertThat(metadata.getColumnTypeName(12)).isEqualTo("interval day(2) to second(12)");
+                    assertThat(metadata.getScale(12)).isEqualTo(12);
+
                     assertThat(rs.next()).isFalse();
                 }
             }

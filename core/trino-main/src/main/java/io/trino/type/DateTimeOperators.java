@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -28,57 +29,104 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 
 public final class DateTimeOperators
 {
-    private static final DateTimeField MILLIS_OF_DAY = ISOChronology.getInstanceUTC().millisOfDay();
     private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
 
     private DateTimeOperators() {}
 
     @ScalarOperator(ADD)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day to second") long interval)
-    {
-        if (MILLIS_OF_DAY.get(interval) != 0) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
-        }
-        return date + TimeUnit.MILLISECONDS.toDays(interval);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.DATE)
-    public static long intervalDayToSecondPlusDate(@SqlType("interval day to second") long interval, @SqlType(StandardTypes.DATE) long date)
-    {
-        return datePlusIntervalDayToSecond(date, interval);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year to month") long interval)
+    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year(q) to month") long interval)
     {
         long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(date), interval);
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long intervalYearToMonthPlusDate(@SqlType("interval year to month") long interval, @SqlType(StandardTypes.DATE) long date)
+    public static long intervalYearToMonthPlusDate(@SqlType("interval year(q) to month") long interval, @SqlType(StandardTypes.DATE) long date)
     {
         return datePlusIntervalYearToMonth(date, interval);
     }
 
     @ScalarOperator(SUBTRACT)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day to second") long interval)
+    public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year(q) to month") long interval)
     {
-        if (MILLIS_OF_DAY.get(interval) != 0) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
+        return datePlusIntervalYearToMonth(date, -interval);
+    }
+
+    @ScalarOperator(ADD)
+    public static final class DatePlusIntervalDayToSecond
+    {
+        private DatePlusIntervalDayToSecond() {}
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.DATE)
+        public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day(q) to second(r)") long interval)
+        {
+            if (interval % TimeUnit.DAYS.toMicros(1) != 0) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
+            }
+            return date + TimeUnit.MICROSECONDS.toDays(interval);
         }
-        return date - TimeUnit.MILLISECONDS.toDays(interval);
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.DATE)
+        public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            if (interval.getPicosOfMicro() != 0) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
+            }
+            return datePlusIntervalDayToSecond(date, interval.getMicros());
+        }
+    }
+
+    @ScalarOperator(ADD)
+    public static final class IntervalDayToSecondPlusDate
+    {
+        private IntervalDayToSecondPlusDate() {}
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.DATE)
+        public static long intervalDayToSecondPlusDate(@SqlType("interval day(q) to second(r)") long interval, @SqlType(StandardTypes.DATE) long date)
+        {
+            return DatePlusIntervalDayToSecond.datePlusIntervalDayToSecond(date, interval);
+        }
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.DATE)
+        public static long intervalDayToSecondPlusDate(@SqlType("interval day(q) to second(r)") LongInterval interval, @SqlType(StandardTypes.DATE) long date)
+        {
+            return DatePlusIntervalDayToSecond.datePlusIntervalDayToSecond(date, interval);
+        }
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year to month") long interval)
+    public static final class DateMinusIntervalDayToSecond
     {
-        return datePlusIntervalYearToMonth(date, -interval);
+        private DateMinusIntervalDayToSecond() {}
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.DATE)
+        public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day(q) to second(r)") long interval)
+        {
+            if (interval % TimeUnit.DAYS.toMicros(1) != 0) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
+            }
+            return date - TimeUnit.MICROSECONDS.toDays(interval);
+        }
+
+        @LiteralParameters({"q", "r"})
+        @SqlType(StandardTypes.DATE)
+        public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            if (interval.getPicosOfMicro() != 0) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
+            }
+            return dateMinusIntervalDayToSecond(date, interval.getMicros());
+        }
     }
 }

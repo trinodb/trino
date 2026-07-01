@@ -47,6 +47,12 @@ public final class InternalTypeManager
     }
 
     @Override
+    public Type fromPersistedSqlType(String type)
+    {
+        return typeRegistry.fromPersistedSqlType(type);
+    }
+
+    @Override
     public boolean isTypeRegistered(String name)
     {
         return typeRegistry.isTypeRegistered(name);
