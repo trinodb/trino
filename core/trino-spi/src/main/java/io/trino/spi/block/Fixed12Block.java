@@ -281,18 +281,18 @@ public final class Fixed12Block
         return values[offset + 2];
     }
 
-    int getRawOffset()
+    public int getRawOffset()
     {
         return positionOffset;
     }
 
     @Nullable
-    boolean[] getRawValueIsNull()
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }
 
-    int[] getRawValues()
+    public int[] getRawValues()
     {
         return values;
     }

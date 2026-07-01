@@ -279,17 +279,18 @@ public final class VariableWidthBlock
         return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
     }
 
-    int getRawArrayBase()
+    public int getRawArrayBase()
     {
         return arrayOffset;
     }
 
-    int[] getRawOffsets()
+    public int[] getRawOffsets()
     {
         return offsets;
     }
 
-    boolean[] getRawValueIsNull()
+    @Nullable
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }

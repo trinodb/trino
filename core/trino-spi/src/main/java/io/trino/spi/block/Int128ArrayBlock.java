@@ -243,18 +243,18 @@ public final class Int128ArrayBlock
         return BlockUtil.getNulls(valueIsNull, positionOffset, positionCount);
     }
 
-    int getRawOffset()
+    public int getRawOffset()
     {
         return positionOffset;
     }
 
     @Nullable
-    boolean[] getRawValueIsNull()
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }
 
-    long[] getRawValues()
+    public long[] getRawValues()
     {
         return values;
     }
