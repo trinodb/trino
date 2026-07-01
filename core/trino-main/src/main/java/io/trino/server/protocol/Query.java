@@ -141,6 +141,7 @@ class Query
     @GuardedBy("this")
     private boolean exchangeFinished;
     private final boolean supportsParametricDateTime;
+    private final boolean supportsParametricInterval;
     private final boolean supportsNumberType;
     private final boolean supportsVariant;
     private final boolean supportsVariantBinary;
@@ -271,6 +272,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        this.supportsParametricInterval = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString());
         this.supportsNumberType = session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString());
         this.supportsVariant = session.getClientCapabilities().contains(ClientCapabilities.VARIANT.toString());
         this.supportsVariantBinary = session.getClientCapabilities().contains(ClientCapabilities.VARIANT_BINARY.toString());
@@ -587,8 +589,8 @@ class Query
                 if ("CALL".equals(updateType)) {
                     types = ImmutableList.of(VARCHAR, BIGINT);
                     columns = ImmutableList.of(
-                            createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary),
-                            createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                            createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval),
+                            createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
                     queryDataProducer = QueryDataProducerFactory.create(session, types);
                     Optional<Map<String, Long>> callResult = queryManager.getCallResult(queryId);
                     if (callResult.isPresent() && !callResult.get().isEmpty()) {
@@ -744,7 +746,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();

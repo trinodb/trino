@@ -54,6 +54,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
@@ -139,6 +140,7 @@ import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -716,7 +718,14 @@ public final class ShowQueriesRewrite
             }
 
             List<Expression> rows = functions.stream()
-                    .map(function -> row(new StringLiteral("CREATE " + function.sql())))
+                    .map(function -> {
+                        try {
+                            return row(new StringLiteral("CREATE " + formatSql(parser.createFunctionSpecification(function.sql(), TypeDescriptorTranslator::normalizeStoredIntervalType))));
+                        }
+                        catch (ParsingException e) {
+                            throw semanticException(SYNTAX_ERROR, node, e, "Failed parsing stored function '%s': %s", functionName, e.getMessage());
+                        }
+                    })
                     .collect(toImmutableList());
 
             return simpleQuery(
@@ -910,7 +919,7 @@ public final class ShowQueriesRewrite
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                Statement statement = parser.createStatement(view);
+                Statement statement = parser.createStatement(view, TypeDescriptorTranslator::normalizeStoredIntervalType);
                 return (Query) statement;
             }
             catch (ParsingException e) {

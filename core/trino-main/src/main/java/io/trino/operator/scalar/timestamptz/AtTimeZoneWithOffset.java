@@ -17,6 +17,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.type.LongInterval;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -29,23 +30,43 @@ public final class AtTimeZoneWithOffset
 {
     private AtTimeZoneWithOffset() {}
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters({"x", "p", "q", "r"})
     @SqlType("timestamp(p) with time zone")
-    public static long atTimeZone(@SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("interval day to second") long zoneOffset)
+    public static long atTimeZone(@SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("interval day(q) to second(r)") long zoneOffset)
     {
         return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis), getTimeZoneKeyForOffset(getZoneOffsetMinutes(zoneOffset)));
     }
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters({"x", "p", "q", "r"})
     @SqlType("timestamp(p) with time zone")
-    public static LongTimestampWithTimeZone atTimeZone(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("interval day to second") long zoneOffset)
+    public static LongTimestampWithTimeZone atTimeZone(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("interval day(q) to second(r)") long zoneOffset)
     {
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKeyForOffset(getZoneOffsetMinutes(zoneOffset)));
     }
 
+    @LiteralParameters({"x", "p", "q", "r"})
+    @SqlType("timestamp(p) with time zone")
+    public static long atTimeZone(
+            @SqlType("timestamp(p) with time zone") long timestamp,
+            @SqlType("interval day(q) to second(r)") LongInterval zoneOffset)
+    {
+        checkCondition(zoneOffset.getPicosOfMicro() == 0, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
+        return atTimeZone(timestamp, zoneOffset.getMicros());
+    }
+
+    @LiteralParameters({"x", "p", "q", "r"})
+    @SqlType("timestamp(p) with time zone")
+    public static LongTimestampWithTimeZone atTimeZone(
+            @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp,
+            @SqlType("interval day(q) to second(r)") LongInterval zoneOffset)
+    {
+        checkCondition(zoneOffset.getPicosOfMicro() == 0, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
+        return atTimeZone(timestamp, zoneOffset.getMicros());
+    }
+
     private static long getZoneOffsetMinutes(long interval)
     {
-        checkCondition((interval % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
-        return interval / 60_000L;
+        checkCondition((interval % 60_000_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
+        return interval / 60_000_000L;
     }
 }

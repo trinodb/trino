@@ -945,7 +945,7 @@ public final class IcebergUtil
         List<NestedField> icebergColumns = new ArrayList<>();
         AtomicInteger nextFieldId = new AtomicInteger(1);
         for (ViewColumn column : columns) {
-            Type trinoType = typeManager.fromSqlType(column.getType().getId());
+            Type trinoType = typeManager.fromPersistedSqlType(column.getType().getId());
             org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(trinoType, nextFieldId);
             NestedField field = NestedField.required(nextFieldId.getAndIncrement(), column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);

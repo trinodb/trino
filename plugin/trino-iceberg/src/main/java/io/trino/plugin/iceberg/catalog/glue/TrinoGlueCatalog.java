@@ -683,7 +683,7 @@ public class TrinoGlueCatalog
             Map<String, String> columnParameters = glueColumn.parameters();
             String trinoTypeId = columnParameters.getOrDefault(COLUMN_TRINO_TYPE_ID_PROPERTY, glueColumn.type());
             boolean notNull = parseBoolean(columnParameters.getOrDefault(COLUMN_TRINO_NOT_NULL_PROPERTY, "false"));
-            Type type = typeManager.fromSqlType(trinoTypeId);
+            Type type = typeManager.fromPersistedSqlType(trinoTypeId);
             columns.add(ColumnMetadata.builder()
                     .setName(glueColumn.name())
                     .setType(type)

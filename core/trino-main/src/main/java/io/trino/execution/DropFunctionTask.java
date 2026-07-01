@@ -75,10 +75,14 @@ public class DropFunctionTask
         String signatureToken = languageFunctionManager.getSignatureToken(statement.getParameters());
 
         if (!metadata.languageFunctionExists(session, name, signatureToken)) {
-            if (!statement.isExists()) {
-                throw semanticException(NOT_FOUND, statement, "Function not found");
+            String legacyToken = languageFunctionManager.getLegacySignatureToken(statement.getParameters());
+            if (legacyToken.equals(signatureToken) || !metadata.languageFunctionExists(session, name, legacyToken)) {
+                if (!statement.isExists()) {
+                    throw semanticException(NOT_FOUND, statement, "Function not found");
+                }
+                return immediateVoidFuture();
             }
-            return immediateVoidFuture();
+            signatureToken = legacyToken;
         }
 
         metadata.dropLanguageFunction(session, name, signatureToken);

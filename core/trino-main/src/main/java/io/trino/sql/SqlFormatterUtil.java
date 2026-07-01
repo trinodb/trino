@@ -16,15 +16,27 @@ package io.trino.sql;
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.Statement;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toDataType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static java.lang.String.format;
 
 public final class SqlFormatterUtil
 {
     private SqlFormatterUtil() {}
+
+    /// Persists explicit interval defaults so subsequent readers can distinguish new SQL from
+    /// legacy stored bodies that used the historical unparameterized types.
+    public static String getFormattedSqlForStorage(Statement statement, SqlParser sqlParser)
+    {
+        return SqlFormatter.formatSql(sqlParser.createStatement(
+                getFormattedSql(statement, sqlParser),
+                type -> (IntervalDataType) toDataType(toTypeDescriptor(type))));
+    }
 
     public static String getFormattedSql(Statement statement, SqlParser sqlParser)
     {
