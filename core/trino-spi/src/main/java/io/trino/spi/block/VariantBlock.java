@@ -459,8 +459,8 @@ public final class VariantBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(isNull, startOffset, positionCount);
+        return Optional.ofNullable(Bitmap.compactBitmapFromNulls(isNull, startOffset, positionCount));
     }
 }

@@ -538,9 +538,9 @@ public final class MapBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(mapIsNull, startOffset, positionCount);
+        return Optional.ofNullable(Bitmap.compactBitmapFromNulls(mapIsNull, startOffset, positionCount));
     }
 
     // only visible for testing

@@ -219,9 +219,9 @@ public final class ShortArrayBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+        return Optional.ofNullable(Bitmap.compactBitmapFromNulls(valueIsNull, arrayOffset, positionCount));
     }
 
     public int getRawValuesOffset()

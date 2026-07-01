@@ -17,6 +17,7 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -384,6 +385,26 @@ public final class Bitmap
             compacted[wordIndex] = getAlignedWord(rawWords, rawBitOffset, position) & lowBitsMask(remaining);
         }
         return compacted;
+    }
+
+    static Bitmap compactBitmapFromNulls(@Nullable boolean[] isNull, int offset, int positionCount)
+    {
+        if (isNull == null) {
+            return null;
+        }
+        checkArrayRange(isNull, offset, positionCount);
+
+        long[] rawWords = new long[wordsForBits(positionCount)];
+        boolean foundAnyNull = false;
+        for (int position = 0; position < positionCount; position++) {
+            if (isNull[offset + position]) {
+                foundAnyNull = true;
+            }
+            else {
+                set(rawWords, 0, position);
+            }
+        }
+        return foundAnyNull ? new Bitmap(rawWords, 0, positionCount) : null;
     }
 
     /// Copies the logical range and appends one unset bit, preserving `rawBitOffset` in the returned bitmap.

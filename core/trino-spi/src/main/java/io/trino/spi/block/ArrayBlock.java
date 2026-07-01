@@ -361,9 +361,9 @@ public final class ArrayBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+        return Optional.ofNullable(Bitmap.compactBitmapFromNulls(valueIsNull, arrayOffset, positionCount));
     }
 
     public <T> T apply(ArrayBlockFunction<T> function, int position)

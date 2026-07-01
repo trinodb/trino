@@ -238,9 +238,9 @@ public final class Int128ArrayBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(valueIsNull, positionOffset, positionCount);
+        return Optional.ofNullable(Bitmap.compactBitmapFromNulls(valueIsNull, positionOffset, positionCount));
     }
 
     public int getRawOffset()
