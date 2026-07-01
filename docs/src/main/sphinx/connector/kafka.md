@@ -381,6 +381,60 @@ Each field definition is a JSON object:
 
 There is no limit on field descriptions for either key or message.
 
+For example, the following table definition maps the `kafka_key` column to a
+CSV-encoded Kafka message key, and maps `a`, `b`, and `c` to CSV-encoded message
+data:
+
+```json
+{
+  "tableName": "example_table_name",
+  "schemaName": "example_schema_name",
+  "topicName": "example_topic_name",
+  "key": {
+    "dataFormat": "csv",
+    "fields": [
+      {
+        "name": "kafka_key",
+        "type": "BIGINT",
+        "hidden": false,
+        "mapping": "0"
+      }
+    ]
+  },
+  "message": {
+    "dataFormat": "csv",
+    "fields": [
+      {
+        "name": "a",
+        "type": "VARCHAR",
+        "mapping": "0"
+      },
+      {
+        "name": "b",
+        "type": "VARCHAR",
+        "mapping": "1"
+      },
+      {
+        "name": "c",
+        "type": "VARCHAR",
+        "mapping": "2"
+      }
+    ]
+  }
+}
+```
+
+An `INSERT` statement must provide values for both the key and message fields.
+For this example, the value of `kafka_key` is written to the Kafka message key:
+
+```sql
+INSERT INTO example_table_name (kafka_key, a, b, c)
+  VALUES (42, 'good', 'better', 'best');
+```
+
+When the Kafka message includes a key, Kafka uses the key to select the target
+partition for the message.
+
 (confluent-table-description-supplier)=
 ### Confluent table description supplier
 
