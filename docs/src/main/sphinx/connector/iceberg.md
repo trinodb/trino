@@ -613,6 +613,12 @@ CALL example.system.register_table(
   metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json');
 ```
 
+The `table_location` argument must match the table location stored in the
+Iceberg metadata file. This procedure registers a table at the location where it
+was created, and is not intended for moving a table to a different location.
+Registering the same table location under multiple table names is not
+recommended because the registrations share the same metadata and data files.
+
 To prevent unauthorized users from accessing data, this procedure is disabled by
 default. The procedure is enabled only when
 `iceberg.register-table-procedure.enabled` is set to `true`.
