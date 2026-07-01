@@ -18,6 +18,9 @@ These functions and operators operate on {ref}`date and time data types <date-ti
 | `-`      | `timestamp '2012-10-31 01:00' - interval '1' month` | `2012-09-30 01:00:00.000` |
 | `-`      | `interval '2' day - interval '3' hour`              | `1 21:00:00.000`          |
 | `-`      | `interval '3' year - interval '5' month`            | `2-7`                     |
+| `*`      | `interval '2' day * 3`                              | `6 00:00:00.000`          |
+| `*`      | `3 * interval '2' day`                              | `6 00:00:00.000`          |
+| `*`      | `interval '3' year * 2`                             | `6-0`                     |
 
 (at-time-zone-operator)=
 ## Time zone conversion
