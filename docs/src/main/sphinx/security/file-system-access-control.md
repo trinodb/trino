@@ -374,12 +374,15 @@ These rules control the ability of a user to create, drop, and execute functions
 
 When these rules are present, the authorization is based on the first matching
 rule, processed from top to bottom. If no rules match, the authorization is
-denied. If function rules are not present, only functions in`system.builtin` can
+denied. If function rules are not present, only functions in `system.builtin` can
 be executed.
 
 :::{note}
-Users always have access to functions in the `system.builtin` schema, and
-you cannot override this behavior by adding a rule.
+Users always have access to built-in functions in the `system.builtin` schema,
+and you cannot override this behavior by adding a rule. User-defined functions
+in `system.builtin` are still controlled by function rules. To let a user run
+a user-defined function, add a function rule that grants the `EXECUTE`
+privilege.
 :::
 
 Each function rule is composed of the following fields:
