@@ -245,9 +245,9 @@ public final class Fixed12Block
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(valueIsNull, positionOffset, positionCount);
+        return Optional.ofNullable(Bitmap.compactBitmapFromNulls(valueIsNull, positionOffset, positionCount));
     }
 
     /**
