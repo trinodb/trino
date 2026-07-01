@@ -25,7 +25,7 @@ system support:
 * - `azure.auth-type`
   - Authentication type to use for Azure Storage access. Defaults to `DEFAULT` which
     loads from environment variables if configured or [](azure-user-assigned-managed-identity-authentication). 
-    Use `ACCESS_KEY` for [](azure-access-key-authentication) or and `OAUTH` 
+    Use `ACCESS_KEY` for [](azure-access-key-authentication) or `OAUTH`
     for [](azure-oauth-authentication).
 * - `azure.endpoint`
   - Hostname suffix of the Azure storage endpoint.
@@ -42,7 +42,8 @@ system support:
 * - `azure.max-write-concurrency`
   - Maximum number of concurrent write operations. Defaults to 8.
 * - `azure.max-single-upload-size`
-  - [Data size](prop-type-data-size) Defaults to `4MB`.
+  - Maximum [data size](prop-type-data-size) for a single upload. Defaults to
+    `4MB`.
 * - `azure.max-http-requests`
   - Maximum [integer](prop-type-integer) number of concurrent HTTP requests to
     Azure from every node. Defaults to double the number of processors on the
