@@ -92,6 +92,9 @@ import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.creat
 import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static io.trino.parquet.reader.PageReader.createPageReader;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
@@ -529,25 +532,30 @@ public class ParquetReader
         // position count and nulls are derived from metadata def levels
         int positionsCount = metadataChunk.getDefinitionLevels().length;
         int variantDefLevel = field.getDefinitionLevel();
-        boolean[] isNull = null;
+        long[] valueIsValid = null;
         for (int i = 0; i < positionsCount; i++) {
-            if (metadataChunk.getDefinitionLevels()[i] < variantDefLevel) {
-                if (isNull == null) {
-                    isNull = new boolean[positionsCount];
+            if (metadataChunk.getDefinitionLevels()[i] >= variantDefLevel) {
+                if (valueIsValid != null) {
+                    set(valueIsValid, 0, i);
                 }
-                isNull[i] = true;
+            }
+            else if (valueIsValid == null) {
+                valueIsValid = new long[wordsForBits(positionsCount)];
+                for (int position = 0; position < i; position++) {
+                    set(valueIsValid, 0, position);
+                }
             }
         }
 
         // if isNull is present, we need to convert the blocks to not-null-suppressed blocks
         Block metadataBlock = metadataChunk.getBlock();
         Block valueBlock = valueChunk.getBlock();
-        if (isNull != null) {
-            metadataBlock = toNotNullSupressedBlock(positionsCount, isNull, metadataBlock);
-            valueBlock = toNotNullSupressedBlock(positionsCount, isNull, valueBlock);
+        if (valueIsValid != null) {
+            metadataBlock = toNotNullSupressedBlock(positionsCount, valueIsValid, metadataBlock);
+            valueBlock = toNotNullSupressedBlock(positionsCount, valueIsValid, valueBlock);
         }
 
-        Block variantBlock = VariantBlock.create(positionsCount, metadataBlock, valueBlock, Optional.ofNullable(isNull));
+        Block variantBlock = VariantBlock.create(positionsCount, metadataBlock, valueBlock, Optional.ofNullable(valueIsValid));
         return new ColumnChunk(variantBlock, metadataChunk.getDefinitionLevels(), metadataChunk.getRepetitionLevels());
     }
 
@@ -668,6 +676,39 @@ public class ParquetReader
             else {
                 dictionaryIds[position] = nullSuppressedPosition;
                 nullSuppressedPosition++;
+            }
+        }
+        return DictionaryBlock.create(positionCount, fieldBlock, dictionaryIds);
+    }
+
+    private static Block toNotNullSupressedBlock(int positionCount, long[] rowIsValid, Block fieldBlock)
+    {
+        // find a existing position in the block that is null
+        int nullIndex = -1;
+        if (fieldBlock.mayHaveNull()) {
+            for (int position = 0; position < fieldBlock.getPositionCount(); position++) {
+                if (fieldBlock.isNull(position)) {
+                    nullIndex = position;
+                    break;
+                }
+            }
+        }
+        // if there are no null positions, append a null to the end of the block
+        if (nullIndex == -1) {
+            nullIndex = fieldBlock.getPositionCount();
+            fieldBlock = fieldBlock.copyWithAppendedNull();
+        }
+
+        // create a dictionary that maps null positions to the null index
+        int[] dictionaryIds = new int[positionCount];
+        int nullSuppressedPosition = 0;
+        for (int position = 0; position < positionCount; position++) {
+            if (isSet(rowIsValid, 0, position)) {
+                dictionaryIds[position] = nullSuppressedPosition;
+                nullSuppressedPosition++;
+            }
+            else {
+                dictionaryIds[position] = nullIndex;
             }
         }
         return DictionaryBlock.create(positionCount, fieldBlock, dictionaryIds);

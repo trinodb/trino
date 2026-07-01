@@ -17,8 +17,8 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
 
 public class VariantBlockEncoding
         implements BlockEncoding
@@ -47,7 +47,7 @@ public class VariantBlockEncoding
         blockEncodingSerde.writeBlock(sliceOutput, variantBlock.getMetadata());
         blockEncodingSerde.writeBlock(sliceOutput, variantBlock.getValues());
 
-        encodeNullsAsBitsScalar(sliceOutput, variantBlock.getRawIsNull(), variantBlock.getOffsetBase(), variantBlock.getPositionCount());
+        encodeValidityAsLongs(sliceOutput, variantBlock.getRawValueIsValid(), variantBlock.getOffsetBase(), variantBlock.getPositionCount());
     }
 
     @Override
@@ -58,8 +58,8 @@ public class VariantBlockEncoding
         Block metadataBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valuesBlock = blockEncodingSerde.readBlock(sliceInput);
 
-        boolean[] variantIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
 
-        return VariantBlock.createInternal(0, positionCount, variantIsNull, metadataBlock, valuesBlock);
+        return VariantBlock.createInternal(0, positionCount, valueIsValid, metadataBlock, valuesBlock);
     }
 }
