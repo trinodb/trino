@@ -48,6 +48,10 @@ system support:
     Azure from every node. Defaults to double the number of processors on the
     node. Minimum `1`. Use this property to reduce the number of requests when
     you encounter rate limiting issues.
+* - `azure.max-http-connections`
+  - Maximum [integer](prop-type-integer) number of pooled HTTP connections to
+    Azure from every node. Defaults to double the number of processors on the
+    node, with a minimum of `16`. Values must be between `16` and `1024`.
 * - `azure.connection-pool-max-idle-time`
   - [Duration](prop-type-duration) that a connection can remain idle in the
     connection pool before it is closed. Defaults to `5m`.
