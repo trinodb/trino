@@ -130,6 +130,48 @@ specified by one of the following options:
 If you want to use a plugin in a catalog, you must add a corresponding
 `<catalog_name>.properties` file to `testing/trino-server-dev/etc/catalog`.
 
+### Running a development server outside the IDE
+
+After building Trino, Maven creates a server tarball at
+`core/trino-server/target/trino-server-*-SNAPSHOT.tar.gz`. You can use this
+tarball to run a development build from the command line:
+
+```bash
+mkdir -p /tmp/trino-dev
+tar -xzf core/trino-server/target/trino-server-*-SNAPSHOT.tar.gz -C /tmp/trino-dev
+TRINO_DEV_HOME=$(echo /tmp/trino-dev/trino-server-*-SNAPSHOT)
+mkdir -p /tmp/trino-dev/data
+cp -R testing/trino-server-dev/etc "$TRINO_DEV_HOME/"
+cat > "$TRINO_DEV_HOME/etc/node.properties" <<EOF
+node.environment=test
+node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
+node.data-dir=/tmp/trino-dev/data
+EOF
+cat > "$TRINO_DEV_HOME/etc/jvm.config" <<EOF
+-server
+-Xmx4G
+-Djdk.attach.allowAttachSelf=true
+-Djdk.nio.maxCachedBufferSize=2000000
+--add-modules=jdk.incubator.vector
+EOF
+```
+
+Before starting the server, edit the copied `etc/config.properties` and remove
+the `plugin.bundles` property. The server tarball already contains the plugins,
+while the `plugin.bundles` entries are only valid when running
+`io.trino.server.DevelopmentServer` from the source tree.
+
+Adjust the `-Xmx` value in `etc/jvm.config` for the memory available on your
+machine.
+
+Start the server with the launcher from the extracted directory:
+
+```bash
+TRINO_DEV_HOME=$(echo /tmp/trino-dev/trino-server-*-SNAPSHOT)
+cd "$TRINO_DEV_HOME"
+bin/launcher run
+```
+
 ### Running the CLI
 
 Start the CLI to connect to the server and run SQL queries:
