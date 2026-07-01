@@ -324,7 +324,7 @@
                                 <exclude>**/TestRedshiftCastPushdown.java</exclude>
                                 <exclude>**/TestRedshiftConnectorTest.java</exclude>
                                 <exclude>**/TestRedshiftUnload.java</exclude>
-                                <exclude>**/TestRedshiftConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestRedshiftConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>
                                 <exclude>**/TestRedshiftTypeMapping.java</exclude>
                                 <exclude>**/TestRedshiftUnloadTypeMapping.java</exclude>
@@ -353,7 +353,7 @@
                                 <!-- locations of GitHub runners which can lead to increased client latency on the -->
                                 <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
                                 <include>**/TestRedshiftCastPushdown.java</include>
-                                <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                                <include>**/TestRedshiftConnectorSmokeCoverage.java</include>
                                 <include>**/TestRedshiftUnloadTypeMapping.java</include>
                                 <include>**/TestRedshiftUnload.java</include>
                             </includes>

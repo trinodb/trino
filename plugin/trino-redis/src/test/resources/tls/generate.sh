@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerates the TLS material in this directory used by TestRedisTlsConnectorSmokeTest.
+# Regenerates the TLS material in this directory used by TestRedisTlsConnectorSmokeCoverage.
 
 set -euo pipefail
 

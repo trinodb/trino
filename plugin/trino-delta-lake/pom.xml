@@ -571,10 +571,10 @@
                         <configuration>
                             <excludes combine.children="append">
                                 <exclude>**/TestDeltaLakeAdlsStorage.java</exclude>
-                                <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestDeltaLakeAdlsConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestDeltaLakeS3AndGlueAws.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
-                                <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestDeltaLakeGcsConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -594,8 +594,8 @@
                         <configuration>
                             <includes>
                                 <include>**/TestDeltaLakeAdlsStorage.java</include>
-                                <include>**/TestDeltaLakeAdlsConnectorSmokeTest.java</include>
-                                <include>**/TestDeltaLakeGcsConnectorSmokeTest.java</include>
+                                <include>**/TestDeltaLakeAdlsConnectorSmokeCoverage.java</include>
+                                <include>**/TestDeltaLakeGcsConnectorSmokeCoverage.java</include>
                             </includes>
                         </configuration>
                     </plugin>

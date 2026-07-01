@@ -88,7 +88,7 @@ import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * @see TestPostgreSqlConnectorSmokeTest
+ * @see TestPostgreSqlConnectorSmokeCoverage
  */
 public class TestPostgreSqlConnectorTest
         extends BaseJdbcConnectorTest

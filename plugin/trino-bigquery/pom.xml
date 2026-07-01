@@ -537,7 +537,7 @@
                             <excludes>
                                 <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
                                 <exclude>**/TestBigQueryAvroConnectorTest.java</exclude>
-                                <exclude>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestBigQueryMetadataCaching.java</exclude>
                                 <exclude>**/TestBigQueryAvroTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryArrowTypeMapping.java</exclude>
@@ -596,7 +596,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
+                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage.java</include>
                                 <include>**/TestBigQueryWithProxyTest.java</include>
                                 <include>**/TestBigQueryArrowSerialization.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>

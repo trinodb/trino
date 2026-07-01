@@ -55,7 +55,7 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// smoke test which covers ANALYZE compatibility with different filesystems is part of BaseDeltaLakeConnectorSmokeTest
+// smoke test which covers ANALYZE compatibility with different filesystems is part of BaseDeltaLakeConnectorSmokeCoverage
 public class TestDeltaLakeAnalyze
         extends AbstractTestQueryFramework
 {

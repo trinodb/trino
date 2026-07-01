@@ -842,7 +842,7 @@ public class BigQueryMetadata
             boolean replace,
             boolean ignoreExisting)
     {
-        // TODO Fix BaseBigQueryFailureRecoveryTest and TestBigQueryWithDifferentProjectIdConnectorSmokeTest when implementing this method
+        // TODO Fix BaseBigQueryFailureRecoveryTest and TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage when implementing this method
         ConnectorMetadata.super.createMaterializedView(session, viewName, definition, properties, replace, ignoreExisting);
     }
 
