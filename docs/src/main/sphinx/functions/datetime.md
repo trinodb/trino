@@ -22,7 +22,7 @@ These functions and operators operate on {ref}`date and time data types <date-ti
 (at-time-zone-operator)=
 ## Time zone conversion
 
-The `AT TIME ZONE` operator sets the time zone of a timestamp:
+The `AT TIME ZONE` operator sets the time zone of a timestamp or time:
 
 ```
 SELECT timestamp '2012-10-31 01:00 UTC';
@@ -30,7 +30,16 @@ SELECT timestamp '2012-10-31 01:00 UTC';
 
 SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
 -- 2012-10-30 18:00:00.000 America/Los_Angeles
+
+SELECT time '12:34:56-07:09' AT TIME ZONE '+08:35';
+-- 04:18:56.000 +08:35
+
+SELECT time '12:34:56-07:09' AT TIME ZONE INTERVAL '10' HOUR;
+-- 05:43:56.000 +10:00
 ```
+
+For `time with time zone` values, named time zones are converted to the
+matching fixed offset for the instant when the query starts.
 
 The `AT LOCAL` operator renders a datetime in the current session time zone:
 
