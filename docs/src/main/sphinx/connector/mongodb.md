@@ -419,8 +419,10 @@ this table:
   - `ObjectId`
   -
 * - `Object`
-  - `ROW`
-  -
+  - `ROW` or `JSON`
+  -  Schema inference maps objects to `ROW`. In manually edited schemas, use
+     `JSON` for flexible objects whose fields are not modeled as a fixed row
+     type.
 * - `Array`
   - `ARRAY`
   -  Map to `ROW` if the element type is not unique.
@@ -459,6 +461,8 @@ this table:
 * - `ObjectId`
   - `ObjectId`
 * - `ROW`
+  - `Object`
+* - `JSON`
   - `Object`
 * - `ARRAY`
   - `Array`
