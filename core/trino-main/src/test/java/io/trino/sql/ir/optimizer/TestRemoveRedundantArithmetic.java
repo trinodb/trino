@@ -26,6 +26,8 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantArithmetic;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.LongInterval;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -42,6 +44,8 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.IntervalField.DAY;
+import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -53,8 +57,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Reals.toReal;
+import static java.lang.Math.max;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoveRedundantArithmetic
@@ -92,30 +98,37 @@ public class TestRemoveRedundantArithmetic
     @Test
     void testAddZeroIntervalDayToSecond()
     {
-        List<Type> types = ImmutableList.of(
-                DATE,
-                createTimestampType(3),
-                createTimestampType(9),
-                createTimestampWithTimeZoneType(3),
-                createTimestampWithTimeZoneType(12),
-                createTimeType(3),
-                createTimeWithTimeZoneType(9),
-                INTERVAL_DAY_TIME);
+        for (int precision = 0; precision <= 12; precision++) {
+            IntervalDayTimeType intervalType = createIntervalDayTimeType(DAY, SECOND, 9, precision);
+            Constant zero = new Constant(intervalType, intervalType.isShort() ? 0L : new LongInterval(0, 0));
+            List<Type> types = ImmutableList.of(
+                    DATE,
+                    createTimestampType(max(3, precision)),
+                    createTimestampType(12),
+                    createTimestampWithTimeZoneType(max(3, precision)),
+                    createTimestampWithTimeZoneType(12),
+                    createTimeType(max(3, precision)),
+                    createTimeWithTimeZoneType(max(3, precision)),
+                    intervalType);
 
-        for (Type type : types) {
-            Reference value = new Reference(type, "x");
-            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_DAY_TIME, 0L))))
-                    .describedAs("%s + INTERVAL '0' DAY".formatted(type))
-                    .isEqualTo(Optional.of(value));
-            assertThat(optimize(operation(ADD, new Constant(INTERVAL_DAY_TIME, 0L), value)))
-                    .describedAs("INTERVAL '0' DAY + %s".formatted(type))
-                    .isEqualTo(Optional.of(value));
-            assertThat(optimize(operation(SUBTRACT, value, new Constant(INTERVAL_DAY_TIME, 0L))))
-                    .describedAs("%s - INTERVAL '0' DAY".formatted(type))
-                    .isEqualTo(Optional.of(value));
-            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_DAY_TIME, 1L))))
-                    .describedAs("%s + INTERVAL '0.001' SECOND".formatted(type))
-                    .isEmpty();
+            for (Type type : types) {
+                Reference value = new Reference(type, "x");
+                assertThat(optimize(operation(ADD, value, zero)))
+                        .describedAs("%s + zero %s".formatted(type, intervalType))
+                        .isEqualTo(Optional.of(value));
+                assertThat(optimize(operation(ADD, zero, value)))
+                        .describedAs("zero %s + %s".formatted(intervalType, type))
+                        .isEqualTo(Optional.of(value));
+                assertThat(optimize(operation(SUBTRACT, value, zero)))
+                        .describedAs("%s - zero %s".formatted(type, intervalType))
+                        .isEqualTo(Optional.of(value));
+                for (Object nonzero : intervalType.isShort() ? List.of(-1_000_000L, 1_000_000L) : List.of(new LongInterval(-1, 900_000), new LongInterval(0, 100_000))) {
+                    Constant interval = new Constant(intervalType, nonzero);
+                    assertThat(optimize(operation(ADD, value, interval))).isEmpty();
+                    assertThat(optimize(operation(ADD, interval, value))).isEmpty();
+                    assertThat(optimize(operation(SUBTRACT, value, interval))).isEmpty();
+                }
+            }
         }
     }
 
@@ -146,19 +159,22 @@ public class TestRemoveRedundantArithmetic
         }
     }
 
-    /**
-     * Interval arithmetic widens the temporal precision to at least 3, the precision of an interval.
-     */
+    /// Interval arithmetic preserves the interval precision and a minimum datetime precision of 3.
     @Test
     void testKeepIntervalArithmeticThatWidensType()
     {
-        for (Type type : ImmutableList.of(createTimestampType(0), createTimestampWithTimeZoneType(1), createTimeType(2), createTimeWithTimeZoneType(0))) {
-            Reference value = new Reference(type, "x");
-            assertThat(optimize(operation(ADD, value, new Constant(INTERVAL_DAY_TIME, 0L))))
-                    .describedAs("%s + INTERVAL '0' DAY is a timestamp(3)".formatted(type))
-                    .isEmpty();
-            assertThat(optimize(operation(SUBTRACT, value, new Constant(INTERVAL_DAY_TIME, 0L))))
-                    .isEmpty();
+        for (int precision : List.of(0, 6, 12)) {
+            IntervalDayTimeType intervalType = createIntervalDayTimeType(DAY, SECOND, 9, precision);
+            Constant zero = new Constant(intervalType, intervalType.isShort() ? 0L : new LongInterval(0, 0));
+            int datetimePrecision = max(3, precision) - 1;
+            for (Type type : ImmutableList.of(createTimestampType(datetimePrecision), createTimestampWithTimeZoneType(datetimePrecision), createTimeType(datetimePrecision), createTimeWithTimeZoneType(datetimePrecision))) {
+                Reference value = new Reference(type, "x");
+                assertThat(optimize(operation(ADD, value, zero)))
+                        .describedAs("%s + zero %s widens the datetime precision".formatted(type, intervalType))
+                        .isEmpty();
+                assertThat(optimize(operation(ADD, zero, value))).isEmpty();
+                assertThat(optimize(operation(SUBTRACT, value, zero))).isEmpty();
+            }
         }
     }
 

@@ -103,6 +103,7 @@ public class CreateFunctionTask
         languageFunctionManager.verifyForCreate(session, function, functionManager, accessControl);
 
         function = materializeFunctionProperties(session, function, bindParameters(statement, parameters));
+        function = LanguageFunctionManager.canonicalizeFunctionTypes(function);
 
         String signatureToken = languageFunctionManager.getSignatureToken(function.getParameters());
 

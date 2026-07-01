@@ -77,7 +77,7 @@ public class InternalMetadataProvider
                 .map(viewColumn ->
                         ColumnSchema.builder()
                                 .setName(viewColumn.name())
-                                .setType(typeManager.fromSqlType(viewColumn.type().getId()))
+                                .setType(typeManager.fromPersistedSqlType(viewColumn.type().getId()))
                                 .build())
                 .collect(toImmutableList());
     }

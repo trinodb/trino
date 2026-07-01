@@ -81,14 +81,14 @@ public final class ProtocolUtil
 
     private ProtocolUtil() {}
 
-    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
-        String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+        String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+        return new Column(name, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
     }
 
-    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
         return switch (type) {
             case DateTimeDataType dataTimeType -> {
@@ -111,7 +111,7 @@ public final class ProtocolUtil
             }
             case RowDataType rowDataType -> rowDataType.getFields().stream()
                     .map(field -> field.getName().map(name -> name + " ").orElse("") +
-                            formatType(field.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary))
+                            formatType(field.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
                     .collect(Collectors.joining(", ", ROW + "(", ")"));
             case GenericDataType dataType -> {
                 if (!supportsNumberType && dataType.getName().getValue().equalsIgnoreCase(NUMBER)) {
@@ -130,18 +130,23 @@ public final class ProtocolUtil
                                 return numericParameter.getValue();
                             }
                             if (parameter instanceof io.trino.sql.tree.TypeParameter typeParameter) {
-                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval);
                             }
                             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                         })
                         .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
             }
-            case IntervalDataType _ -> ExpressionFormatter.formatExpression(type);
+            case IntervalDataType intervalType -> supportsParametricInterval
+                    ? ExpressionFormatter.formatExpression(type)
+                    : toClientBase(TypeDescriptorTranslator.toTypeDescriptor(intervalType).getBase());
         };
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
+        if (!supportsParametricInterval && (signature.getBase().equalsIgnoreCase(INTERVAL_DAY_TO_SECOND) || signature.getBase().equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH))) {
+            return new ClientTypeSignature(toClientBase(signature.getBase()));
+        }
         if (!supportsParametricDateTime) {
             if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
                 return new ClientTypeSignature(TIMESTAMP);
@@ -164,7 +169,7 @@ public final class ProtocolUtil
         }
 
         return new ClientTypeSignature(toClientBase(signature.getBase()), signature.getParameters().stream()
-                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary))
+                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
                 .collect(toImmutableList()));
     }
 
@@ -188,16 +193,16 @@ public final class ProtocolUtil
         return base;
     }
 
-    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
         return switch (parameter) {
             case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> {
                 if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
                     yield ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             name.map(RowFieldName::new),
-                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary)));
+                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval)));
                 }
-                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
             }
             case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
         };

@@ -10,14 +10,31 @@ These functions and operators operate on {ref}`date and time data types <date-ti
 | `+`      | `time '01:00' + interval '3' hour`                  | `04:00:00.000`            |
 | `+`      | `timestamp '2012-08-08 01:00' + interval '29' hour` | `2012-08-09 06:00:00.000` |
 | `+`      | `timestamp '2012-10-31 01:00' + interval '1' month` | `2012-11-30 01:00:00.000` |
-| `+`      | `interval '2' day + interval '3' hour`              | `2 03:00:00.000`          |
+| `+`      | `interval '2' day + interval '3' hour`              | `2 03:00:00`              |
 | `+`      | `interval '3' year + interval '5' month`            | `3-5`                     |
 | `-`      | `date '2012-08-08' - interval '2' day`              | `2012-08-06`              |
 | `-`      | `time '01:00' - interval '3' hour`                  | `22:00:00.000`            |
 | `-`      | `timestamp '2012-08-08 01:00' - interval '29' hour` | `2012-08-06 20:00:00.000` |
 | `-`      | `timestamp '2012-10-31 01:00' - interval '1' month` | `2012-09-30 01:00:00.000` |
-| `-`      | `interval '2' day - interval '3' hour`              | `1 21:00:00.000`          |
+| `-`      | `interval '2' day - interval '3' hour`              | `1 21:00:00`              |
 | `-`      | `interval '3' year - interval '5' month`            | `2-7`                     |
+
+Subtracting two datetimes produces an interval with the {ref}`field-maximum
+leading precision <interval-leading-precision>` and the {ref}`fractional-seconds
+precision <interval-fractional-seconds-precision>` of the datetimes, with a minimum
+of six fractional digits, so
+`timestamp1 - timestamp2` of two `timestamp(9)` values has the type
+`INTERVAL DAY(9) TO SECOND(9)` and keeps all nine fractional digits.
+
+Adding or subtracting a day-time interval preserves the greater fractional
+precision of the datetime and interval, with a minimum of three digits.
+For example, `timestamp(3) + INTERVAL '1' DAY` returns `timestamp(3)`, while
+adding `INTERVAL '0.000001' SECOND` returns `timestamp(6)`.
+
+For intervals, `EXTRACT` requires a field present in the qualifier. The leading
+field is not wrapped: `hour(INTERVAL '36' HOUR)` returns `36`, while the hour
+component of a day-leading interval remains between 0 and 23 in magnitude.
+`day_of_month` remains an alias for `day` on intervals.
 
 (at-time-zone-operator)=
 ## Time zone conversion
@@ -31,6 +48,9 @@ SELECT timestamp '2012-10-31 01:00 UTC';
 SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
 -- 2012-10-30 18:00:00.000 America/Los_Angeles
 ```
+
+An interval offset for `AT TIME ZONE` must be an exact whole number of minutes.
+Fractional seconds are rejected at the interval's full precision.
 
 The `AT LOCAL` operator renders a datetime in the current session time zone:
 
@@ -260,7 +280,9 @@ The type of `x` can be `date`, `time`, `time with timezone`, `timestamp` or
 :::
 
 :::{function} to_milliseconds(interval) -> bigint
-Returns the day-to-second `interval` as milliseconds.
+Returns the day-to-second `interval` as milliseconds, truncating any fractional
+millisecond toward zero. Intervals with up to twelve fractional-second digits
+are accepted.
 :::
 
 :::{function} to_unixtime(timestamp) -> double
@@ -393,6 +415,9 @@ SELECT parse_duration('5m');
 -- 0 00:05:00.000
 ```
 :::
+
+`parse_duration` rejects durations that exceed the interval's signed 64-bit
+microsecond range.
 
 :::{function} human_readable_seconds(double) -> varchar
 Formats the double value of `seconds` into a human-readable string containing
