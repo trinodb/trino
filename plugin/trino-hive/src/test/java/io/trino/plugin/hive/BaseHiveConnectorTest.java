@@ -5242,13 +5242,18 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void testDropAndAddColumnWithSameName()
     {
-        // Override because Hive connector can access old data after dropping and adding a column with same name
-        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
-                .hasMessageContaining(
-                        """
-                        Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
-                            [1, 2]\
-                        """);
+        // Override because the Hive connector can access old data after dropping and adding a column
+        // with the same name. Uses Parquet explicitly because Orc doesn't support dropping columns.
+        // Inlines the parent test rather than delegating to super, because super creates a table without a format.
+        try (TestTable table = newTrinoTable("test_drop_add_column", "WITH (format = 'PARQUET') AS SELECT 1 x, 2 y, 3 z")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            // Old 'y' data (=2) is still visible after ADD COLUMN with the same name, rather than the
+            // expected NULL — the Hive-specific quirk this override documents.
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
+        }
     }
 
     @Test
