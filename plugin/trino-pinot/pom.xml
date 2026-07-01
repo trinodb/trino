@@ -14,7 +14,7 @@
     <description>Trino - Pinot connector</description>
 
     <properties>
-        <dep.pinot.version>1.5.0</dep.pinot.version>
+        <dep.pinot.version>1.5.1</dep.pinot.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <!-- additional JVM flags required by chronicle-hft which is used by pinot-segment spi -->
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}
