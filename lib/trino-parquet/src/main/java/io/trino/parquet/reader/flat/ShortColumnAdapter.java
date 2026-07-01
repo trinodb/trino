@@ -40,9 +40,9 @@ public class ShortColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, short[] values)
+    public Block createNullableBlock(long[] valueIsValid, short[] values)
     {
-        return new ShortArrayBlock(values.length, Optional.of(nulls), values);
+        return new ShortArrayBlock(values.length, Optional.of(valueIsValid), values);
     }
 
     @Override

@@ -78,7 +78,7 @@ public class BenchmarkAggregationMaskBuilder
 
         Block shortRleNoNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.empty(), new short[] {42}), positions);
         Block shortNoNulls = new ShortArrayBlock(new long[positions].length, Optional.empty(), new short[positions]);
-        Block shortSomeNulls = new ShortArrayBlock(new long[positions].length, someNulls(positions, 0.3), new short[positions]);
+        Block shortSomeNulls = new ShortArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new short[positions]);
 
         Block intRleNoNulls = RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {42}), positions);
         Block intNoNulls = new IntArrayBlock(new long[positions].length, Optional.empty(), new int[positions]);
@@ -88,7 +88,7 @@ public class BenchmarkAggregationMaskBuilder
         Block longNoNulls = new LongArrayBlock(new long[positions].length, Optional.empty(), new long[positions]);
         Block longSomeNulls = new LongArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new long[positions]);
 
-        Block rleAllNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.of(new boolean[] {true}), new short[] {42}), positions);
+        Block rleAllNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.of(new long[] {0}), new short[] {42}), positions);
 
         arguments = new Page(
                 shortRleNoNulls,
