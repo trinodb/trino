@@ -60,7 +60,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT(SUPPORTS_AGGREGATION_PUSHDOWN),
 
     SUPPORTS_JOIN_PUSHDOWN(
-            // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorTest
+            // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorCoverage
             // verifies truthfulness of SUPPORTS_JOIN_PUSHDOWN declaration, so it is a safe default.
             false),
     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN(SUPPORTS_JOIN_PUSHDOWN),

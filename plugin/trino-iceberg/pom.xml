@@ -836,17 +836,17 @@
                                 <exclude>**/Test*Avro*.java</exclude>
                                 <exclude>**/Test*Floci*.java</exclude>
                                 <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
-                                <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergS3TablesConnectorSmokeCoverage.java</exclude>
+                                <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeCoverage.java</exclude>
+                                <exclude>**/TestIcebergGcsConnectorSmokeCoverage.java</exclude>
+                                <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</exclude>
-                                <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
-                                <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
-                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
-                                <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergAbfsConnectorSmokeCoverage.java</exclude>
+                                <exclude>**/Test*FailureRecoveryCoverage.java</exclude>
+                                <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestTrinoSnowflakeCatalog.java</exclude>
                             </excludes>
                         </configuration>
@@ -864,7 +864,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/Test*FailureRecoveryTest.java</include>
+                                <include>**/Test*FailureRecoveryCoverage.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -899,16 +899,16 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergS3TablesConnectorSmokeCoverage.java</include>
+                                <include>**/TestIcebergBigLakeMetastoreConnectorSmokeCoverage.java</include>
+                                <include>**/TestIcebergGcsConnectorSmokeCoverage.java</include>
+                                <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeCoverage.java</include>
                                 <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
-                                <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeCoverage.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
-                                <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergAbfsConnectorSmokeCoverage.java</include>
+                                <include>**/TestIcebergSnowflakeCatalogConnectorSmokeCoverage.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>
                             </includes>
                         </configuration>

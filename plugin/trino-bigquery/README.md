@@ -29,7 +29,7 @@ You can follow the steps below to be able to run the integration tests locally.
    * To do this, run `bq show --connection $PROJECT_ID.us.$CONNECTION_ID`, which will display the service account ID.
    * Grant the service account GCS Object Viewer permissions. e.g.: `gsutil iam ch serviceAccount:bqcx-xxxx@gcp-sa-bigquery-condel.iam.gserviceaccount.com:objectViewer gs://DESTINATION_BUCKET_NAME`
 
-* The `TestBigQueryWithDifferentProjectIdConnectorSmokeTest` requires an alternate project ID which is different from the
+* The `TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage` requires an alternate project ID which is different from the
   project ID attached to the service account but the service account still has access to.
 * Set the VM options `testing.bigquery.credentials-key`, `testing.gcp-storage-bucket`, `testing.alternate-bq-project-id`, and `testing.bigquery-connection-id` in the IntelliJ "Run Configuration"
   (or on the CLI if using Maven directly). It should look something like

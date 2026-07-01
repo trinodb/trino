@@ -69,7 +69,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                 .build();
     }
 
-    // Copied from BaseDeltaLakeConnectorSmokeTest
+    // Copied from BaseDeltaLakeConnectorSmokeCoverage
     @Test
     public void testConcurrentInsertsReconciliationForBlindInserts()
             throws Exception
@@ -128,7 +128,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         }
     }
 
-    // Copied from BaseDeltaLakeConnectorSmokeTest
+    // Copied from BaseDeltaLakeConnectorSmokeCoverage
     @Test
     public void testConcurrentInsertsSelectingFromTheSameTable()
             throws Exception
@@ -393,7 +393,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         }
     }
 
-    // Copied from BaseDeltaLakeConnectorSmokeTest
+    // Copied from BaseDeltaLakeConnectorSmokeCoverage
     @Test
     @Disabled // TODO https://github.com/trinodb/trino/issues/22455 Fix flaky test
     public void testConcurrentInsertsReconciliationForMixedInserts()
@@ -677,7 +677,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         }
     }
 
-    // Copied from BaseDeltaLakeConnectorSmokeTest
+    // Copied from BaseDeltaLakeConnectorSmokeCoverage
     @Test
     public void testConcurrentDeletePushdownReconciliation()
             throws Exception
@@ -1210,7 +1210,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         }
     }
 
-    // Copied from BaseDeltaLakeSmokeConnectorTest
+    // Copied from BaseDeltaLakeConnectorSmokeCoverage
     @Test
     public void testConcurrentMergeReconciliation()
             throws Exception

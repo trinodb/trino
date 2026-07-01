@@ -36,7 +36,7 @@ public class TestingExasolServer
 {
     public static final String TEST_USER = "trino_test";
     /**
-     * Name of the test schema. Must not contain an underscore, required by {@link io.trino.plugin.exasol.TestExasolConnectorTest#testShowSchemasLikeWithEscape()}
+     * Name of the test schema. Must not contain an underscore, required by {@link io.trino.plugin.exasol.TestExasolConnectorCoverage#testShowSchemasLikeWithEscape()}
      */
     public static final String TEST_SCHEMA = "tpch";
     public static final String TEST_PASSWORD = "trino_test_password";

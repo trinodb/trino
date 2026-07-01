@@ -601,7 +601,7 @@
                                 <exclude>**/TestHiveS3AndGlueAws.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestParquetReader.java</exclude>
-                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/Test*FailureRecoveryCoverage.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -618,7 +618,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/Test*FailureRecoveryTest.java</include>
+                                <include>**/Test*FailureRecoveryCoverage.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -228,7 +228,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestSnowflakeConnectorTest.java</exclude>
+                                <exclude>**/TestSnowflakeConnectorCoverage.java</exclude>
                                 <exclude>**/TestSnowflakeTypeMapping.java</exclude>
                             </excludes>
                         </configuration>
@@ -250,7 +250,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestSnowflakeConnectorTest.java</include>
+                                <include>**/TestSnowflakeConnectorCoverage.java</include>
                                 <include>**/TestSnowflakeTypeMapping.java</include>
                             </includes>
                         </configuration>

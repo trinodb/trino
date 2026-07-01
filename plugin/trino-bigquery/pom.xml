@@ -536,8 +536,8 @@
                         <configuration>
                             <excludes>
                                 <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
-                                <exclude>**/TestBigQueryAvroConnectorTest.java</exclude>
-                                <exclude>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestBigQueryAvroConnectorCoverage.java</exclude>
+                                <exclude>**/TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestBigQueryMetadataCaching.java</exclude>
                                 <exclude>**/TestBigQueryAvroTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryArrowTypeMapping.java</exclude>
@@ -548,7 +548,7 @@
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingWithCache.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</exclude>
-                                <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestBigQuery*FailureRecoveryCoverage.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
                                 <exclude>**/TestBigQueryParentProjectId.java</exclude>
                                 <exclude>**/TestBigQueryWithBothProjectIdsSet.java</exclude>
@@ -571,7 +571,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestBigQueryAvroConnectorTest.java</include>
+                                <include>**/TestBigQueryAvroConnectorCoverage.java</include>
                                 <include>**/TestBigQueryParentProjectId.java</include>
                                 <include>**/TestBigQueryWithBothProjectIdsSet.java</include>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
@@ -596,7 +596,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
+                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage.java</include>
                                 <include>**/TestBigQueryWithProxyTest.java</include>
                                 <include>**/TestBigQueryArrowSerialization.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>
@@ -604,7 +604,7 @@
                                 <include>**/TestBigQueryMetadataCaching.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQuerySplitManager.java</include>
-                                <include>**/TestBigQuery*FailureRecoveryTest.java</include>
+                                <include>**/TestBigQuery*FailureRecoveryCoverage.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
                         </configuration>

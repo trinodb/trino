@@ -29,7 +29,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 
-import static io.trino.plugin.pinot.TestPinotConnectorSmokeTest.schemaRegistryAwareProducer;
+import static io.trino.plugin.pinot.TestPinotConnectorSmokeCoverage.schemaRegistryAwareProducer;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;

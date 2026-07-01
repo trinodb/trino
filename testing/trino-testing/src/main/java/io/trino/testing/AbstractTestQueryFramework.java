@@ -285,8 +285,8 @@ public abstract class AbstractTestQueryFramework
     {
         // Enforce a naming convention to make code navigation easier.
         assertThat(getClass().getName())
-                .doesNotEndWith("ConnectorTest")
-                .doesNotEndWith("ConnectorSmokeTest");
+                .doesNotEndWith("ConnectorCoverage")
+                .doesNotEndWith("ConnectorSmokeCoverage");
     }
 
     protected Session getSession()

@@ -322,14 +322,14 @@
                             <excludes>
                                 <exclude>**/TestRedshiftAutomaticJoinPushdown.java</exclude>
                                 <exclude>**/TestRedshiftCastPushdown.java</exclude>
-                                <exclude>**/TestRedshiftConnectorTest.java</exclude>
+                                <exclude>**/TestRedshiftConnectorCoverage.java</exclude>
                                 <exclude>**/TestRedshiftUnload.java</exclude>
-                                <exclude>**/TestRedshiftConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestRedshiftConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>
                                 <exclude>**/TestRedshiftTypeMapping.java</exclude>
                                 <exclude>**/TestRedshiftUnloadTypeMapping.java</exclude>
-                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
-                                <exclude>**/Test*FailureRecoverySmokeTest.java</exclude>
+                                <exclude>**/Test*FailureRecoveryCoverage.java</exclude>
+                                <exclude>**/Test*FailureRecoverySmokeCoverage.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -353,7 +353,7 @@
                                 <!-- locations of GitHub runners which can lead to increased client latency on the -->
                                 <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
                                 <include>**/TestRedshiftCastPushdown.java</include>
-                                <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                                <include>**/TestRedshiftConnectorSmokeCoverage.java</include>
                                 <include>**/TestRedshiftUnloadTypeMapping.java</include>
                                 <include>**/TestRedshiftUnload.java</include>
                             </includes>
@@ -377,7 +377,7 @@
                                 <!-- Run only the smoke tests of the connector for the fault-tolerant execution functionality -->
                                 <!-- on the CI environment due to unpredictable locations of GitHub runners which can lead -->
                                 <!-- to increased client latency on the JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
-                                <include>**/Test*FailureRecoverySmokeTest.java</include>
+                                <include>**/Test*FailureRecoverySmokeCoverage.java</include>
                             </includes>
                             <systemPropertyVariables>
                                 <junit.jupiter.execution.parallel.enabled>true</junit.jupiter.execution.parallel.enabled>

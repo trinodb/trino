@@ -566,7 +566,7 @@ public class TestDeltaLakeBasic
                     "timestamp with time zone",
                     ImmutableList.of("TIMESTAMP '1970-01-01 00:00:00 +00:00'", "TIMESTAMP '1970-01-02 00:00:00 +00:00'"),
                     ImmutableList.of(SqlTimestamp.newInstance(3, 0, 0), SqlTimestamp.newInstance(3, epochPlus1DayMillis, 0)));
-            // array, map, row, varbinary types are unsupported as partition column type. This is tested in TestDeltaLakeConnectorTest.testCreateTableWithUnsupportedPartitionType.
+            // array, map, row, varbinary types are unsupported as partition column type. This is tested in TestDeltaLakeConnectorCoverage.testCreateTableWithUnsupportedPartitionType.
         }
     }
 
