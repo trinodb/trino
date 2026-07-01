@@ -66,6 +66,41 @@ public class TestClientTypeSignature
         assertThat(row.toString()).isEqualTo("row(foo bigint,bar bigint)");
     }
 
+    @Test
+    public void testIntervalSerialization()
+    {
+        // a day-time interval has four arguments — start field, end field, leading precision, and
+        // fractional-seconds precision — that render as the SQL qualifier
+        assertThat(dayTime(2, 5, 9, 6).toString())
+                .isEqualTo("interval day(9) to second(6)");
+        assertThat(dayTime(5, 5, 13, 2).toString())
+                .isEqualTo("interval second(13, 2)");
+        assertThat(dayTime(3, 4, 10, 0).toString())
+                .isEqualTo("interval hour(10) to minute");
+        // a year-month interval has three arguments
+        assertThat(yearMonth(0, 1, 2).toString())
+                .isEqualTo("interval year(2) to month");
+        assertThat(yearMonth(1, 1, 10).toString())
+                .isEqualTo("interval month(10)");
+    }
+
+    private static ClientTypeSignature dayTime(long startField, long endField, long leadingPrecision, long fractionalPrecision)
+    {
+        return new ClientTypeSignature(ClientStandardTypes.INTERVAL_DAY_TO_SECOND, ImmutableList.of(
+                ClientTypeSignatureParameter.ofLong(startField),
+                ClientTypeSignatureParameter.ofLong(endField),
+                ClientTypeSignatureParameter.ofLong(leadingPrecision),
+                ClientTypeSignatureParameter.ofLong(fractionalPrecision)));
+    }
+
+    private static ClientTypeSignature yearMonth(long startField, long endField, long leadingPrecision)
+    {
+        return new ClientTypeSignature(ClientStandardTypes.INTERVAL_YEAR_TO_MONTH, ImmutableList.of(
+                ClientTypeSignatureParameter.ofLong(startField),
+                ClientTypeSignatureParameter.ofLong(endField),
+                ClientTypeSignatureParameter.ofLong(leadingPrecision)));
+    }
+
     private static void assertJsonRoundTrip(ClientTypeSignature signature)
     {
         String json = CLIENT_TYPE_SIGNATURE_CODEC.toJson(signature);

@@ -29,23 +29,23 @@ public final class AtTimeZoneWithOffset
 {
     private AtTimeZoneWithOffset() {}
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters({"x", "p", "q"})
     @SqlType("timestamp(p) with time zone")
-    public static long atTimeZone(@SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("interval day to second") long zoneOffset)
+    public static long atTimeZone(@SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("interval day(q) to second") long zoneOffset)
     {
         return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis), getTimeZoneKeyForOffset(getZoneOffsetMinutes(zoneOffset)));
     }
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters({"x", "p", "q"})
     @SqlType("timestamp(p) with time zone")
-    public static LongTimestampWithTimeZone atTimeZone(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("interval day to second") long zoneOffset)
+    public static LongTimestampWithTimeZone atTimeZone(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("interval day(q) to second") long zoneOffset)
     {
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKeyForOffset(getZoneOffsetMinutes(zoneOffset)));
     }
 
     private static long getZoneOffsetMinutes(long interval)
     {
-        checkCondition((interval % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
-        return interval / 60_000L;
+        checkCondition((interval % 60_000_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
+        return interval / 60_000_000L;
     }
 }

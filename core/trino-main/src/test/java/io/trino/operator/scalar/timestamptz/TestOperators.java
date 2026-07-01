@@ -369,6 +369,19 @@ public class TestOperators
     }
 
     @Test
+    public void testPicosecondIntervalDayToSecond()
+    {
+        // a picosecond interval widens the result and keeps its picoseconds
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' + INTERVAL '1.123456789' SECOND(13, 9)")).matches("TIMESTAMP '2020-05-01 12:34:57.123456789 Asia/Kathmandu'");
+        assertThat(assertions.expression("INTERVAL '1.123456789' SECOND(13, 9) + TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu'")).matches("TIMESTAMP '2020-05-01 12:34:57.123456789 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:57.123456789 Asia/Kathmandu' - INTERVAL '1.123456789' SECOND(13, 9)")).matches("TIMESTAMP '2020-05-01 12:34:56.000000000 Asia/Kathmandu'");
+
+        // the picoseconds carry across the millisecond, from a short and a long timestamp alike
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' + INTERVAL '0.999999999999' SECOND(13, 12)")).matches("TIMESTAMP '2020-05-01 12:34:56.999999999999 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000000000001 Asia/Kathmandu' + INTERVAL '0.999999999999' SECOND(13, 12)")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000000 Asia/Kathmandu'");
+    }
+
+    @Test
     public void testAddIntervalDayToSecond()
     {
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' + INTERVAL '1.123' SECOND")).matches("TIMESTAMP '2020-05-01 12:34:57.123 Asia/Kathmandu'");
@@ -543,56 +556,56 @@ public class TestOperators
     @Test
     public void testSubtract()
     {
-        // round down
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55 Asia/Kathmandu'")).matches("INTERVAL '1' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1 Asia/Kathmandu'")).matches("INTERVAL '1.1' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11 Asia/Kathmandu'")).matches("INTERVAL '1.11' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111111 Asia/Kathmandu'")).matches("INTERVAL '1.111' SECOND");
+        // round down -- the difference now keeps microseconds (and picoseconds past precision 6) instead of rounding to the millisecond
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.1' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.11' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.1111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.11111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.111111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.1111111' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.11111111' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.111111111' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.1111111111' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.11111111111' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.111111111111' DAY(9) TO SECOND(12)");
 
-        // round up
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1 Asia/Kathmandu'")).matches("INTERVAL '1.8' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11 Asia/Kathmandu'")).matches("INTERVAL '1.88' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111 Asia/Kathmandu'")).matches("INTERVAL '1.888' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111111 Asia/Kathmandu'")).matches("INTERVAL '1.889' SECOND");
+        // a larger sub-second fraction -- preserved, no longer rounded into the millisecond
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.8' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.88' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.8888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.88888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:01.888888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.8888888' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.88888888' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.888888888' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.1111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.8888888888' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.11111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.88888888888' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999999999999 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.111111111111 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:01.888888888888' DAY(9) TO SECOND(12)");
 
-        // negative difference in sub-millisecond fraction, round up
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0005 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00055 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000555 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0005555 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00055555 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000555555 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0005555555 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00055555555 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000555555555 Asia/Kathmandu'")).matches("INTERVAL '1.000' SECOND");
+        // negative difference in the sub-millisecond fraction -- the borrow keeps the microseconds and picoseconds
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0005 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:00.9997' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00055 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:00.99967' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000555 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:00.999667' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0005555 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.9996667' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00055555 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.99966667' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000555555 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.999666667' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0005555555 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.9996666667' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00055555555 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.99966666667' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000555555555 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.999666666667' DAY(9) TO SECOND(12)");
 
-        // negative difference in sub-millisecond fraction, round down
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
-        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
+        // a larger negative sub-millisecond fraction
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:00.9993' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:00.99923' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999 Asia/Kathmandu'")).matches("CAST(INTERVAL '0 00:00:00.999223' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009999 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.9992223' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099999 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.99922223' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999999 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.999222223' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009999999 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.9992222223' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099999999 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.99922222223' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999999999 Asia/Kathmandu'")).matches("INTERVAL '0 00:00:00.999222222223' DAY(9) TO SECOND(12)");
     }
 
     @Test

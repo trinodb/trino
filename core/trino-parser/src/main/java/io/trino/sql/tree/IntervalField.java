@@ -13,7 +13,7 @@
  */
 package io.trino.sql.tree;
 
-import java.util.OptionalInt;
+import java.util.Optional;
 
 public sealed interface IntervalField
         permits IntervalField.Day,
@@ -75,7 +75,7 @@ public sealed interface IntervalField
         }
     }
 
-    record Second(OptionalInt fractionalPrecision)
+    record Second(Optional<DataTypeParameter> fractionalPrecision)
             implements IntervalField
     {
         @Override

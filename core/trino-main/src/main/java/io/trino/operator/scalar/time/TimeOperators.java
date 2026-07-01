@@ -15,23 +15,27 @@ package io.trino.operator.scalar.time;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.type.LongInterval;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.type.StandardTypes.TIME;
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
-import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
@@ -39,6 +43,8 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.rescaleWithRounding;
 import static io.trino.type.DateTimes.scaleFactor;
+import static io.trino.type.IntervalDayTimeOperators.dateTimeDifference;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -47,16 +53,23 @@ public final class TimeOperators
 {
     private TimeOperators() {}
 
-    @ScalarOperator(SUBTRACT)
-    @LiteralParameters("p")
-    @SqlType("interval day to second")
-    public static long subtract(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
+    public static SqlScalarFunction timeMinusTime()
     {
-        long interval = left - right;
+        return dateTimeDifference(TimeOperators.class, TIME, "subtractShort", "subtractLong");
+    }
 
-        interval = rescaleWithRounding(interval, MAX_PRECISION, 3);
+    @UsedByGeneratedCode
+    public static long subtractShort(long left, long right)
+    {
+        // a time is a count of picoseconds; a difference whose precision is 6 or coarser is whole microseconds
+        return rescaleWithRounding(left - right, MAX_PRECISION, 6);
+    }
 
-        return interval;
+    @UsedByGeneratedCode
+    public static LongInterval subtractLong(long left, long right)
+    {
+        long picos = left - right;
+        return new LongInterval(floorDiv(picos, PICOSECONDS_PER_MICROSECOND), (int) floorMod(picos, PICOSECONDS_PER_MICROSECOND));
     }
 
     // fallible
@@ -90,31 +103,83 @@ public final class TimeOperators
         return round(time, (int) (MAX_PRECISION - targetPrecision)) % PICOSECONDS_PER_DAY;
     }
 
+    // The result keeps at least microsecond precision and the greater of the time's and the interval's
+    // fractional-seconds precisions, so a picosecond interval is preserved.
     @ScalarOperator(ADD)
-    @LiteralParameters({"p", "u"})
-    @SqlType("time(u)")
-    @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
-    public static long timePlusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType("interval day to second") long interval)
+    public static final class TimePlusIntervalDayToSecond
     {
-        return add(time, (long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
+        private TimePlusIntervalDayToSecond() {}
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("time(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static long add(@SqlType("time(p)") long time, @SqlType("interval day(q) to second(r)") long interval)
+        {
+            return TimeOperators.add(time, intervalPicos(interval));
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("time(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static long add(@SqlType("time(p)") long time, @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            return TimeOperators.add(time, intervalPicos(interval));
+        }
     }
 
     @ScalarOperator(ADD)
-    @LiteralParameters({"p", "u"})
-    @SqlType("time(u)")
-    @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
-    public static long intervalDayToSecondPlusTime(@SqlType("interval day to second") long interval, @SqlType("time(p)") long time)
+    public static final class IntervalDayToSecondPlusTime
     {
-        return timePlusIntervalDayToSecond(time, interval);
+        private IntervalDayToSecondPlusTime() {}
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("time(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static long add(@SqlType("interval day(q) to second(r)") long interval, @SqlType("time(p)") long time)
+        {
+            return TimeOperators.add(time, intervalPicos(interval));
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("time(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static long add(@SqlType("interval day(q) to second(r)") LongInterval interval, @SqlType("time(p)") long time)
+        {
+            return TimeOperators.add(time, intervalPicos(interval));
+        }
     }
 
     @ScalarOperator(SUBTRACT)
-    @LiteralParameters({"p", "u"})
-    @SqlType("time(u)")
-    @Constraint(variable = "u", expression = "max(3, p)") // interval is currently p = 3
-    public static long timeMinusIntervalDayToSecond(@SqlType("time(p)") long time, @SqlType("interval day to second") long interval)
+    public static final class TimeMinusIntervalDayToSecond
     {
-        return add(time, -(long) floorMod(interval, MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND);
+        private TimeMinusIntervalDayToSecond() {}
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("time(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static long subtract(@SqlType("time(p)") long time, @SqlType("interval day(q) to second(r)") long interval)
+        {
+            return TimeOperators.add(time, -intervalPicos(interval));
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("time(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static long subtract(@SqlType("time(p)") long time, @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            return TimeOperators.add(time, -intervalPicos(interval));
+        }
+    }
+
+    /// The interval's value in picoseconds, reduced modulo a day so the running time stays within 24 hours.
+    private static long intervalPicos(long intervalMicros)
+    {
+        return (long) floorMod(intervalMicros, MICROSECONDS_PER_DAY) * PICOSECONDS_PER_MICROSECOND;
+    }
+
+    private static long intervalPicos(LongInterval interval)
+    {
+        return (long) floorMod(interval.getMicros(), MICROSECONDS_PER_DAY) * PICOSECONDS_PER_MICROSECOND + interval.getPicosOfMicro();
     }
 
     // fallible

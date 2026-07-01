@@ -20,6 +20,7 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
@@ -42,7 +43,6 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -168,12 +168,33 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL '10' HOUR");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("10", POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 28), OptionalInt.empty(), new IntervalField.Hour()))));
+                Optional.of(new IntervalLiteral("10", POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 28), Optional.empty(), new IntervalField.Hour()))));
         executeSetTimeZone(setTimeZone, stateMachine);
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertThat(setSessionProperties).hasSize(1);
         assertThat(setSessionProperties).containsEntry(TIME_ZONE_ID, "+10:00");
+    }
+
+    @Test
+    public void testSetTimeZonePreciseInterval()
+    {
+        for (int precision : new int[] {6, 7, 9, 12}) {
+            for (int sign : new int[] {-1, 1}) {
+                String sql = "SET TIME ZONE INTERVAL '%s' SECOND(4,%s)".formatted(sign * 3600, precision);
+                QueryStateMachine stateMachine = createQueryStateMachine(sql);
+                executeSetTimeZone((SetTimeZone) new SqlParser().createStatement(sql), stateMachine);
+                assertThat(stateMachine.getSetSessionProperties()).containsEntry(TIME_ZONE_ID, sign < 0 ? "-01:00" : "+01:00");
+            }
+        }
+
+        for (String value : new String[] {"3600.000000000001", "-3599.999999999999", "3601", "-3601"}) {
+            String sql = "SET TIME ZONE INTERVAL '%s' SECOND(4,12)".formatted(value);
+            QueryStateMachine stateMachine = createQueryStateMachine(sql);
+            assertThatThrownBy(() -> executeSetTimeZone((SetTimeZone) new SqlParser().createStatement(sql), stateMachine))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessage("Invalid TIME ZONE offset interval: interval contains seconds");
+        }
     }
 
     @Test
@@ -220,7 +241,7 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL '15' HOUR");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("15", POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 28), OptionalInt.empty(), new IntervalField.Hour()))));
+                Optional.of(new IntervalLiteral("15", POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 28), Optional.empty(), new IntervalField.Hour()))));
         assertThatThrownBy(() -> executeSetTimeZone(setTimeZone, stateMachine))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Invalid offset minutes 900");
@@ -232,7 +253,7 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL -'15' HOUR");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("15", NEGATIVE, new SimpleIntervalQualifier(new NodeLocation(1, 29), OptionalInt.empty(), new IntervalField.Hour()))));
+                Optional.of(new IntervalLiteral("15", NEGATIVE, new SimpleIntervalQualifier(new NodeLocation(1, 29), Optional.empty(), new IntervalField.Hour()))));
         assertThatThrownBy(() -> executeSetTimeZone(setTimeZone, stateMachine))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Invalid offset minutes -900");
@@ -244,7 +265,7 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL -'08:00' HOUR TO MINUTE");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("8", NEGATIVE, new CompositeIntervalQualifier(new NodeLocation(1, 32), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute()))));
+                Optional.of(new IntervalLiteral("8", NEGATIVE, new CompositeIntervalQualifier(new NodeLocation(1, 32), Optional.empty(), new IntervalField.Hour(), new IntervalField.Minute()))));
         executeSetTimeZone(setTimeZone, stateMachine);
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();

@@ -52,6 +52,29 @@ class TestTypeSyntax
     }
 
     @Test
+    void testIntervalSurface()
+    {
+        // An interval's fields render as an SQL qualifier built from the start field, end field, and
+        // leading precision — not the generic interval day to second(2,5,9) parameter list.
+        assertThat(TypeSyntax.toSql(TypeTemplates.type(StandardTypes.INTERVAL_DAY_TO_SECOND, new NumericExpression.Literal(2), new NumericExpression.Literal(5), new NumericExpression.Literal(9))))
+                .isEqualTo("interval day(9) to second");
+        assertThat(TypeSyntax.toSql(TypeTemplates.type(StandardTypes.INTERVAL_DAY_TO_SECOND, new NumericExpression.Literal(5), new NumericExpression.Literal(5), new NumericExpression.Literal(13))))
+                .isEqualTo("interval second(13)");
+        assertThat(TypeSyntax.toSql(TypeTemplates.type(StandardTypes.INTERVAL_YEAR_TO_MONTH, new NumericExpression.Literal(0), new NumericExpression.Literal(1), new NumericExpression.Literal(2))))
+                .isEqualTo("interval year(2) to month");
+        // A variable precision renders symbolically, like decimal(p, s).
+        assertThat(TypeSyntax.toSql(TypeTemplates.type(StandardTypes.INTERVAL_DAY_TO_SECOND, new NumericExpression.Literal(2), new NumericExpression.Literal(5), new NumericExpression.Variable("p"))))
+                .isEqualTo("interval day(p) to second");
+        // Variable fields — a signature generic over every interval qualifier, as in the interval-field
+        // accessor functions — have no SQL field form, so they render the canonical full qualifier rather
+        // than leaking the internal base token.
+        assertThat(TypeSyntax.toSql(TypeTemplates.type(StandardTypes.INTERVAL_DAY_TO_SECOND, new NumericExpression.Variable("start"), new NumericExpression.Variable("end"), new NumericExpression.Variable("precision"), new NumericExpression.Variable("fractional"))))
+                .isEqualTo("interval day to second");
+        assertThat(TypeSyntax.toSql(TypeTemplates.type(StandardTypes.INTERVAL_YEAR_TO_MONTH, new NumericExpression.Variable("start"), new NumericExpression.Variable("end"), new NumericExpression.Variable("precision"))))
+                .isEqualTo("interval year to month");
+    }
+
+    @Test
     void testOpenTypeSurface()
     {
         // A bare type variable renders as its name.

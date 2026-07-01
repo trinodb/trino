@@ -19,6 +19,12 @@ These functions and operators operate on {ref}`date and time data types <date-ti
 | `-`      | `interval '2' day - interval '3' hour`              | `1 21:00:00.000`          |
 | `-`      | `interval '3' year - interval '5' month`            | `2-7`                     |
 
+Subtracting two datetimes produces an interval with the {ref}`field-maximum
+leading precision <interval-leading-precision>` and the {ref}`fractional-seconds
+precision <interval-fractional-seconds-precision>` of the datetimes, so
+`timestamp1 - timestamp2` of two `timestamp(9)` values has the type
+`INTERVAL DAY(9) TO SECOND(9)` and keeps all nine fractional digits.
+
 (at-time-zone-operator)=
 ## Time zone conversion
 

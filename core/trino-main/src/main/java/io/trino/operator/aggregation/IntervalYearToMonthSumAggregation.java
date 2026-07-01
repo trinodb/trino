@@ -30,8 +30,10 @@ public final class IntervalYearToMonthSumAggregation
 {
     private IntervalYearToMonthSumAggregation() {}
 
+    // The sum is a derived interval, so it carries the field-maximum leading precision — the canonical
+    // year-month interval that every operand widens to, and that the sum cannot spuriously overflow.
     @InputFunction
-    public static void sum(NullableLongState state, @SqlType("interval year to month") long value)
+    public static void sum(NullableLongState state, @SqlType("interval year(9) to month") long value)
     {
         state.setNull(false);
         state.setValue(BigintOperators.add(state.getValue(), value));
@@ -49,7 +51,7 @@ public final class IntervalYearToMonthSumAggregation
     }
 
     @SqlNullable
-    @OutputFunction("interval year to month")
+    @OutputFunction("interval year(9) to month")
     public static void output(NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(INTERVAL_YEAR_MONTH, state, out);
