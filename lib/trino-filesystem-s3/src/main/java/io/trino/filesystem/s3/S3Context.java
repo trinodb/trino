@@ -31,6 +31,7 @@ import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.KMS;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
 record S3Context(
@@ -62,14 +63,19 @@ record S3Context(
 
     public S3Context withCredentials(ConnectorIdentity identity)
     {
+        S3Context context = this;
         if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
             AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
-            return withCredentialsProviderOverride(credentialsProvider);
+            context = context.withCredentialsProviderOverride(credentialsProvider);
         }
-        return this;
+        String sseCustomerKey = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY);
+        if (sseCustomerKey != null) {
+            context = context.withSseCustomerKey(sseCustomerKey);
+        }
+        return context;
     }
 
     public S3Context withSseCustomerKey(String key)

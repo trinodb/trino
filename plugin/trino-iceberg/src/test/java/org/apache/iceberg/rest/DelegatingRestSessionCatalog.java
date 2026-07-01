@@ -13,11 +13,8 @@
  */
 package org.apache.iceberg.rest;
 
-import io.airlift.http.server.HttpServerConfig;
-import io.airlift.http.server.HttpServerInfo;
-import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.node.NodeInfo;
+import io.trino.plugin.iceberg.catalog.rest.RestCatalogTestingHttpServers;
 import org.apache.iceberg.catalog.Catalog;
 
 import java.io.Closeable;
@@ -56,21 +53,7 @@ public class DelegatingRestSessionCatalog
     public TestingHttpServer testServer()
             throws IOException
     {
-        NodeInfo nodeInfo = new NodeInfo("test");
-        HttpServerConfig config = new HttpServerConfig()
-                .setHttpPort(0)
-                .setMinThreads(4)
-                .setMaxThreads(8)
-                .setHttpAcceptorThreads(4)
-                .setHttpAcceptQueueSize(10)
-                .setHttpEnabled(true);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-        RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
-
-        return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
-                // Required due to URIs like: HEAD /v1/namespaces/level_1%1Flevel_2
-                .withLegacyUriCompliance(true)
-                .build());
+        return RestCatalogTestingHttpServers.create(new RESTCatalogServlet(adapter));
     }
 
     public static Builder builder()
