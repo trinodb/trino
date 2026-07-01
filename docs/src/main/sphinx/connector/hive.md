@@ -59,6 +59,13 @@ In the case of serializable formats, only specific
 - ESRI - using `com.esri.hadoop.hive.serde.EsriJsonSerDe`
 - ESRI_GEO_JSON - using `com.esri.hadoop.hive.serde.GeoJsonSerDe`
 
+:::{note}
+The `JSON` and `OPENX_JSON` storage formats use Hive SerDes for JSON-encoded
+text files. They do not indicate support for the Trino `JSON` SQL type as a
+Hive table column. For writes, including `CREATE TABLE AS` and `INSERT`, cast or
+format JSON values to a supported Hive type such as `VARCHAR`.
+:::
+
 (hive-configuration)=
 ## General configuration
 
