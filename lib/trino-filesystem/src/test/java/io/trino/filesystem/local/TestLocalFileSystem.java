@@ -196,16 +196,7 @@ public class TestLocalFileSystem
             }
         }
         finally {
-            Files.walk(outsideDirectory)
-                    .sorted(Comparator.reverseOrder())
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        }
-                        catch (IOException e) {
-                            throw new UncheckedIOException(e);
-                        }
-                    });
+            deleteRecursively(outsideDirectory);
         }
     }
 
