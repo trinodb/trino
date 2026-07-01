@@ -529,7 +529,9 @@ As a result, comparing a `CHAR` and a `VARCHAR` value follows `VARCHAR`
 semantics: the `CHAR` value is coerced to `VARCHAR` (trailing spaces trimmed)
 and the two are compared with **no blank padding**, so trailing spaces are
 significant. For example `CHAR 'a' = VARCHAR 'a '` is `false`. Comparisons
-between two `CHAR` values are unaffected and remain blank-padded.
+between two `CHAR` values are unaffected and remain blank-padded. For example,
+`CAST('a' AS CHAR(1)) = CAST('a' AS CHAR(2))` is `true` because the shorter
+`CHAR` value is padded with a trailing space before comparison.
 
 #### Methods
 
