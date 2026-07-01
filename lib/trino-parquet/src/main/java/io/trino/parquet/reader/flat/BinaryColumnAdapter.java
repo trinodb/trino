@@ -22,7 +22,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
 import static io.trino.spi.block.Bitmap.countTransitions;
 import static io.trino.spi.block.Bitmap.getBits;
 import static java.lang.Math.min;
@@ -53,9 +54,9 @@ public class BinaryColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, BinaryBuffer values)
+    public Block createNullableBlock(long[] valueIsValid, BinaryBuffer values)
     {
-        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(nulls));
+        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(valueIsValid));
     }
 
     @Override
@@ -73,38 +74,18 @@ public class BinaryColumnAdapter
                 "Dictionary buffer size %s did not match the expected value of %s",
                 dictionary.getValueCount(),
                 nonNullsCount + 1);
-        boolean[] nulls = new boolean[nonNullsCount + 1];
-        nulls[nonNullsCount] = true;
+        long[] valueIsValid = allocateWords(nonNullsCount + 1, true);
+        clear(valueIsValid, 0, nonNullsCount);
         // Overwrite the next after last position with an empty value. This will be used as null.
         int[] offsets = dictionary.getOffsets();
         offsets[nonNullsCount + 1] = offsets[nonNullsCount];
-        return new VariableWidthBlock(dictionary.getValueCount(), dictionary.asSlice(), offsets, Optional.of(nulls));
+        return new VariableWidthBlock(dictionary.getValueCount(), dictionary.asSlice(), offsets, Optional.of(valueIsValid));
     }
 
     @Override
     public Block createNonNullBlock(BinaryBuffer values)
     {
         return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.empty());
-    }
-
-    @Override
-    public void unpackNullValues(BinaryBuffer sourceBuffer, BinaryBuffer destinationBuffer, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
-    {
-        int endOffset = destOffset + totalValuesCount;
-        int srcOffset = 0;
-        int[] destination = destinationBuffer.getOffsets();
-        int[] source = sourceBuffer.getOffsets();
-
-        while (srcOffset < nonNullCount) {
-            destination[destOffset] = source[srcOffset];
-            srcOffset += castToByteNegate(isNull[destOffset]);
-            destOffset++;
-        }
-        // The last+1 offset is always a sentinel value equal to last offset + last position length.
-        // In case of null values at the end, the last offset value needs to be repeated for every null position
-        while (destOffset <= endOffset) {
-            destination[destOffset++] = source[nonNullCount];
-        }
     }
 
     @Override

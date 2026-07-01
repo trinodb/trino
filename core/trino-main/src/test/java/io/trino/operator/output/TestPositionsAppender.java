@@ -62,6 +62,8 @@ import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createSmallintsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
@@ -676,24 +678,24 @@ public class TestPositionsAppender
     {
         if (block instanceof RunLengthEncodedBlock) {
             checkArgument(block.getPositionCount() == 0 || block.isNull(0));
-            return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true})), block.getPositionCount());
+            return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new long[] {0})), block.getPositionCount());
         }
 
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
         int[] offsets = new int[variableWidthBlock.getPositionCount() + 1];
-        boolean[] valueIsNull = new boolean[variableWidthBlock.getPositionCount()];
+        long[] valueIsValid = new long[wordsForBits(variableWidthBlock.getPositionCount())];
         boolean hasNullValue = false;
         for (int i = 0; i < variableWidthBlock.getPositionCount(); i++) {
             if (variableWidthBlock.isNull(i)) {
-                valueIsNull[i] = true;
                 hasNullValue = true;
                 offsets[i + 1] = offsets[i];
             }
             else {
+                set(valueIsValid, 0, i);
                 offsets[i + 1] = offsets[i] + variableWidthBlock.getSliceLength(i);
             }
         }
 
-        return new VariableWidthBlock(variableWidthBlock.getPositionCount(), variableWidthBlock.getRawSlice(), offsets, hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
+        return new VariableWidthBlock(variableWidthBlock.getPositionCount(), variableWidthBlock.getRawSlice(), offsets, hasNullValue ? Optional.of(valueIsValid) : Optional.empty());
     }
 }
