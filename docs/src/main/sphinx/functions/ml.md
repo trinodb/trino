@@ -87,6 +87,17 @@ As a result you need to run the training process at the same time when predictin
 Internally, the model is trained by [libsvm](https://www.csie.ntu.edu.tw/~cjlin/libsvm/).
 You can use {func}`learn_libsvm_classifier` to control the internal parameters of the model.
 
+Use {func}`evaluate_classifier_predictions` to evaluate classification
+results that contain the expected labels and predicted labels:
+
+```
+SELECT evaluate_classifier_predictions(actual_label, predicted_label)
+FROM predictions;
+```
+
+The function returns a text summary with the overall accuracy, plus the
+precision and recall for each label.
+
 ## Regression
 
 Regression is another type of supervised learning problem, predicting continuous
@@ -141,6 +152,12 @@ You can control the training process by libsvm parameters.
 
 :::{function} classify(features, model) -> label
 Returns a label predicted by the given classifier SVM model.
+:::
+
+:::{function} evaluate_classifier_predictions(label, prediction) -> varchar
+Returns a text summary for classifier predictions, including accuracy,
+precision, and recall. The label and prediction arguments can be `bigint` or
+`varchar`.
 :::
 
 :::{function} learn_regressor(target, features) -> Regressor
