@@ -54,6 +54,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -239,16 +241,14 @@ public class BenchmarkColumnarFilter
     private static Block createLongsBlock(int positionsCount, int nullsPercentage)
     {
         long[] values = new long[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new LongArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new LongArrayBlock(positionsCount, Optional.of(validity), values);
     }
 
     static {

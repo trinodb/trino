@@ -46,7 +46,7 @@ public class TestDefinitionLevelWriter
     public void testWritePrimitiveDefinitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
-            Block block = new LongArrayBlock(POSITIONS, nullsProvider.getNulls(POSITIONS), new long[POSITIONS]);
+            Block block = new LongArrayBlock(POSITIONS, nullsProvider.getValidities(POSITIONS), new long[POSITIONS]);
             int maxDefinitionLevel = 3;
             // Write definition levels for all positions
             assertDefinitionLevels(block, ImmutableList.of(), maxDefinitionLevel);

@@ -75,6 +75,9 @@ import java.util.stream.Stream;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -629,6 +632,49 @@ public class TestColumnarFilters
             }
         };
 
+        Optional<long[]> getValidityWords(int positionCount)
+        {
+            if (this == NO_NULLS) {
+                return Optional.empty();
+            }
+
+            long[] validity = new long[wordsForBits(positionCount)];
+            if (this == NO_NULLS_WITH_MAY_HAVE_NULL) {
+                for (int position = 0; position < positionCount; position++) {
+                    set(validity, 0, position);
+                }
+                return Optional.of(validity);
+            }
+
+            if (this == ALL_NULLS) {
+                return Optional.of(validity);
+            }
+
+            if (this == RANDOM_NULLS) {
+                for (int position = 0; position < positionCount; position++) {
+                    if (!RANDOM.nextBoolean()) {
+                        set(validity, 0, position);
+                    }
+                }
+                return Optional.of(validity);
+            }
+
+            int maxGroupSize = 23;
+            int position = 0;
+            while (position < positionCount) {
+                int remaining = positionCount - position;
+                int groupSize = Math.min(RANDOM.nextInt(maxGroupSize) + 1, remaining);
+                boolean isNull = RANDOM.nextBoolean();
+                if (!isNull) {
+                    for (int index = position; index < position + groupSize; index++) {
+                        set(validity, 0, index);
+                    }
+                }
+                position += groupSize;
+            }
+            return Optional.of(validity);
+        }
+
         abstract Optional<boolean[]> getNulls(int positionCount);
     }
 
@@ -741,20 +787,33 @@ public class TestColumnarFilters
             for (int i = 0; i < nonNullDictionarySize; i++) {
                 dictionaryValues[i] = doubleToLongBits(CONSTANT - 100 + i);
             }
-            Optional<boolean[]> dictionaryIsNull = getDictionaryIsNull(nullsProvider, dictionarySize);
-            Block dictionary = new LongArrayBlock(dictionarySize, dictionaryIsNull, dictionaryValues);
+            Optional<long[]> dictionaryValidity = getDictionaryValidity(nullsProvider, dictionarySize);
+            Block dictionary = new LongArrayBlock(dictionarySize, dictionaryValidity, dictionaryValues);
             return createDictionaryBlock(positionsCount, nullsProvider, dictionary);
         }
 
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
-        assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
+        Optional<long[]> validity = nullsProvider.getValidityWords(positionsCount);
+        assertThat(validity.isEmpty() || validity.get().length == wordsForBits(positionsCount)).isTrue();
         long[] values = new long[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isEmpty() || !isNull.get()[i]) {
+            if (validity.isEmpty() || isSet(validity.get(), 0, i)) {
                 values[i] = doubleToLongBits(RANDOM.nextDouble(CONSTANT - 100, CONSTANT + 100));
             }
         }
-        return new LongArrayBlock(positionsCount, isNull, values);
+        return new LongArrayBlock(positionsCount, validity, values);
+    }
+
+    private static Optional<long[]> getDictionaryValidity(NullsProvider nullsProvider, int dictionarySize)
+    {
+        if (nullsProvider == NullsProvider.NO_NULLS) {
+            return Optional.empty();
+        }
+        long[] validity = new long[wordsForBits(dictionarySize)];
+        int validDictionarySize = nullsProvider == NullsProvider.NO_NULLS_WITH_MAY_HAVE_NULL ? dictionarySize : dictionarySize - 1;
+        for (int position = 0; position < validDictionarySize; position++) {
+            set(validity, 0, position);
+        }
+        return Optional.of(validity);
     }
 
     private static Block createStringsBlock(int positionsCount, NullsProvider nullsProvider, boolean dictionaryEncoded)

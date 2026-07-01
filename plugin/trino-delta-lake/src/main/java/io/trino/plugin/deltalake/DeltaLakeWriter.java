@@ -29,6 +29,7 @@ import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
@@ -408,16 +409,20 @@ public final class DeltaLakeWriter
             int positionCount = block.getPositionCount();
             long[] values = new long[positionCount];
             boolean mayHaveNulls = block.mayHaveNull();
-            boolean[] valueIsNull = mayHaveNulls ? new boolean[positionCount] : null;
+            long[] valueIsValid = mayHaveNulls ? new long[Bitmap.wordsForBits(positionCount)] : null;
+            boolean foundNull = false;
 
             for (int position = 0; position < positionCount; position++) {
                 if (mayHaveNulls && block.isNull(position)) {
-                    valueIsNull[position] = true;
+                    foundNull = true;
                     continue;
+                }
+                if (mayHaveNulls) {
+                    Bitmap.set(valueIsValid, 0, position);
                 }
                 values[position] = MILLISECONDS.toMicros(unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position)));
             }
-            return new LongArrayBlock(positionCount, Optional.ofNullable(valueIsNull), values);
+            return new LongArrayBlock(positionCount, foundNull ? Optional.of(valueIsValid) : Optional.empty(), values);
         }
     }
 }

@@ -43,6 +43,7 @@ import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.unpackLongNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.util.Objects.requireNonNull;
 
@@ -121,13 +122,14 @@ public class DoubleColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
             if (nullCount == 0) {
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
@@ -149,7 +151,7 @@ public class DoubleColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -161,9 +163,9 @@ public class DoubleColumnReader
 
         dataStream.next(nonNullValueTemp, nonNullCount);
 
-        long[] result = unpackLongNulls(nonNullValueTemp, isNull);
+        long[] result = unpackLongNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new LongArrayBlock(isNull.length, Optional.of(isNull), result);
+        return new LongArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
     private void openRowGroup()

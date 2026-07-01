@@ -44,7 +44,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,6 +61,10 @@ import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.block.MapBlock.fromKeyValueBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -224,19 +227,19 @@ public class ParquetTestUtils
         // TODO test with nested null fields and without nulls
         Block[] fieldBlocks = new Block[4];
         // no nulls block
-        fieldBlocks[0] = new LongArrayBlock(positionCount, rowIsNull, new long[positionCount]);
+        fieldBlocks[0] = new LongArrayBlock(positionCount, toValidities(rowIsNull, positionCount), new long[positionCount]);
         // no nulls with mayHaveNull block
-        fieldBlocks[1] = new LongArrayBlock(positionCount, rowIsNull.or(() -> Optional.of(new boolean[positionCount])), new long[positionCount]);
+        fieldBlocks[1] = new LongArrayBlock(positionCount, toValidities(rowIsNull, positionCount).or(() -> Optional.of(allValid(positionCount))), new long[positionCount]);
         // all nulls block
-        boolean[] allNulls = new boolean[positionCount];
-        Arrays.fill(allNulls, true);
-        fieldBlocks[2] = new LongArrayBlock(positionCount, Optional.of(allNulls), new long[positionCount]);
+        fieldBlocks[2] = new LongArrayBlock(positionCount, Optional.of(new long[wordsForBits(positionCount)]), new long[positionCount]);
         // random nulls block
-        boolean[] valueIsNull = rowIsNull.map(boolean[]::clone).orElseGet(() -> new boolean[positionCount]);
+        long[] valueIsValid = toValidities(rowIsNull, positionCount).orElseGet(() -> allValid(positionCount));
         for (int i = 0; i < positionCount; i++) {
-            valueIsNull[i] |= RANDOM.nextBoolean();
+            if (RANDOM.nextBoolean()) {
+                clear(valueIsValid, 0, i);
+            }
         }
-        fieldBlocks[3] = new LongArrayBlock(positionCount, Optional.of(valueIsNull), new long[positionCount]);
+        fieldBlocks[3] = new LongArrayBlock(positionCount, Optional.of(valueIsValid), new long[positionCount]);
 
         return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
     }
@@ -273,11 +276,32 @@ public class ParquetTestUtils
 
     private static Block createLongsBlockWithRandomNulls(int positionCount)
     {
-        boolean[] valueIsNull = new boolean[positionCount];
+        long[] valueIsValid = new long[wordsForBits(positionCount)];
         for (int i = 0; i < positionCount; i++) {
-            valueIsNull[i] = RANDOM.nextBoolean();
+            if (!RANDOM.nextBoolean()) {
+                set(valueIsValid, 0, i);
+            }
         }
-        return new LongArrayBlock(positionCount, Optional.of(valueIsNull), new long[positionCount]);
+        return new LongArrayBlock(positionCount, Optional.of(valueIsValid), new long[positionCount]);
+    }
+
+    private static Optional<long[]> toValidities(Optional<boolean[]> isNull, int positionCount)
+    {
+        if (isNull.isEmpty()) {
+            return Optional.empty();
+        }
+        long[] valueIsValid = allValid(positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            if (isNull.get()[position]) {
+                clear(valueIsValid, 0, position);
+            }
+        }
+        return Optional.of(valueIsValid);
+    }
+
+    private static long[] allValid(int positionCount)
+    {
+        return allocateWords(positionCount, true);
     }
 
     private static Block generateBlock(Type type, int positions)
