@@ -35,6 +35,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
@@ -74,9 +75,23 @@ public class HiveMetastoreTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         Table currentTable = getTable();
-        commitTableUpdate(currentTable, metadata, (table, newMetadataLocation) -> Table.builder(table)
-                .apply(builder -> updateMetastoreTable(builder, metadata, newMetadataLocation, Optional.of(currentMetadataLocation)))
-                .build());
+        // Deliberately do NOT call setDataColumns() here. For Iceberg tables, HMS column
+        // definitions are not used for reads — the real schema lives in the Iceberg metadata
+        // file. Preserving the existing Hive column types avoids HMS type-compatibility
+        // validation, which rejects any column type changes (e.g., INT -> ARRAY(INT)) that
+        // are valid for CREATE OR REPLACE TABLE or for subsequent writes after such a replace.
+        commitTableUpdate(currentTable, metadata, (table, newMetadataLocation) -> {
+            Table.Builder builder = Table.builder(table)
+                    .withStorage(storage -> storage.setLocation(metadata.location()))
+                    .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                    .setParameter(PREVIOUS_METADATA_LOCATION_PROP, Optional.of(currentMetadataLocation))
+                    .setParameter(TABLE_COMMENT, Optional.ofNullable(metadata.properties().get(TABLE_COMMENT)));
+            if (metadata.currentSnapshot() != null) {
+                builder.setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
+                        .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis()));
+            }
+            return builder.build();
+        });
     }
 
     @Override
