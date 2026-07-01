@@ -329,7 +329,7 @@
                                 <exclude>**/TestRedshiftTypeMapping.java</exclude>
                                 <exclude>**/TestRedshiftUnloadTypeMapping.java</exclude>
                                 <exclude>**/Test*FailureRecoveryCoverage.java</exclude>
-                                <exclude>**/Test*FailureRecoverySmokeTest.java</exclude>
+                                <exclude>**/Test*FailureRecoverySmokeCoverage.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -377,7 +377,7 @@
                                 <!-- Run only the smoke tests of the connector for the fault-tolerant execution functionality -->
                                 <!-- on the CI environment due to unpredictable locations of GitHub runners which can lead -->
                                 <!-- to increased client latency on the JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
-                                <include>**/Test*FailureRecoverySmokeTest.java</include>
+                                <include>**/Test*FailureRecoverySmokeCoverage.java</include>
                             </includes>
                             <systemPropertyVariables>
                                 <junit.jupiter.execution.parallel.enabled>true</junit.jupiter.execution.parallel.enabled>

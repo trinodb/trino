@@ -20,10 +20,10 @@ import java.util.Optional;
 
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
 
-public class TestRedshiftQueryFailureRecoverySmokeTest
+public class TestRedshiftQueryFailureRecoverySmokeCoverage
         extends BaseRedshiftFailureRecoveryCoverage
 {
-    public TestRedshiftQueryFailureRecoverySmokeTest()
+    public TestRedshiftQueryFailureRecoverySmokeCoverage()
     {
         super(RetryPolicy.QUERY);
     }
