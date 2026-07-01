@@ -8,6 +8,9 @@
 
 - 64-bit required
 
+- Supported processor architectures are `amd64`, `aarch64`, and `ppc64le`.
+  Support for `ppc64le` is experimental.
+
 - newer release preferred, especially when running on containers
 
 - adequate ulimits for the user that runs the Trino process. These limits may
