@@ -81,11 +81,11 @@ public class TestFixed12Block
                 0, 0, 3,
                 0, 0, 4,
         };
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        long[] valueIsValid = {0b111101};
 
         testCompactBlock(new Fixed12Block(0, Optional.empty(), new int[0]));
-        testCompactBlock(new Fixed12Block(valueIsNull.length, Optional.of(valueIsNull), intArray));
-        testNotCompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
+        testCompactBlock(new Fixed12Block(6, Optional.of(valueIsValid), intArray));
+        testNotCompactBlock(new Fixed12Block(4, Optional.of(valueIsValid), intArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
