@@ -271,6 +271,9 @@ implementation is used:
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
   - `true`
+* - `iceberg.equality-deletes-blocks-hash-enabled`
+  - Enable a hash table optimization when applying equality delete files.
+  - `true`
 :::
 
 (iceberg-fte-support)=
