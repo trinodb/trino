@@ -1210,7 +1210,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         }
     }
 
-    // Copied from BaseDeltaLakeSmokeConnectorTest
+    // Copied from BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testConcurrentMergeReconciliation()
             throws Exception
