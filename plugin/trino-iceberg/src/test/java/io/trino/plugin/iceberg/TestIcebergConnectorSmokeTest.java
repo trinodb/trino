@@ -33,7 +33,7 @@ import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-// Redundant over TestIcebergOrcConnectorTest, but exists to exercise BaseConnectorSmokeTest
+// Redundant over BaseIcebergFlociOrcConnectorTest, but exists to exercise BaseConnectorSmokeTest
 // Some features like materialized views may be supported by Iceberg only.
 @TestInstance(PER_CLASS)
 public class TestIcebergConnectorSmokeTest
