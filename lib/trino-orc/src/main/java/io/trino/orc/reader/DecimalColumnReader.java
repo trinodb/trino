@@ -49,6 +49,7 @@ import static io.trino.orc.reader.ReaderUtils.unpackInt128Nulls;
 import static io.trino.orc.reader.ReaderUtils.unpackLongNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.util.Objects.requireNonNull;
 
 public class DecimalColumnReader
@@ -119,6 +120,21 @@ public class DecimalColumnReader
         else if (presentStream == null) {
             checkDataStreamsArePresent();
             block = readNonNullBlock();
+        }
+        else if (type.isShort()) {
+            checkDataStreamsArePresent();
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = readShortNullBlock(valueIsValid, nonNullCount);
+            }
+            else {
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            }
         }
         else {
             checkDataStreamsArePresent();
@@ -204,17 +220,13 @@ public class DecimalColumnReader
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        Block block;
-        if (type.isShort()) {
-            block = readShortNullBlock(isNull, nonNullCount);
+        if (!type.isShort()) {
+            return readLongNullBlock(isNull, nonNullCount);
         }
-        else {
-            block = readLongNullBlock(isNull, nonNullCount);
-        }
-        return block;
+        throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block readShortNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readShortNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(decimalStream);
@@ -235,9 +247,9 @@ public class DecimalColumnReader
             }
         }
 
-        long[] result = unpackLongNulls(nonNullValueTemp, isNull);
+        long[] result = unpackLongNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new LongArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        return new LongArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
     private Block readLongNullBlock(boolean[] isNull, int nonNullCount)

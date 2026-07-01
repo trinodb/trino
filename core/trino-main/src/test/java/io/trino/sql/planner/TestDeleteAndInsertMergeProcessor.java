@@ -103,12 +103,13 @@ public class TestDeleteAndInsertMergeProcessor
         // expected: ('Aaron', 17, 'Arches/Arches'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire/Darbyshire'), ('Ed', 14, 'Etherville/Etherville'), ('Fred', 30, 'Franklin')
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
         boolean[] rowIdNulls = {false, true, false, false, false};
+        long[] rowIdValidity = {0b11101};
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
                 new Block[] {
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {2, 0, 1, 2, 2}), // TransactionId
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {0, 0, 3, 1, 2}), // rowId
+                        new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {2, 0, 1, 2, 2}), // TransactionId
+                        new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {0, 0, 3, 1, 2}), // rowId
                         new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
                 },
                 new Block[] {
@@ -160,12 +161,13 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
          */
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
         boolean[] rowIdNulls = {false, true, false, false, false};
+        long[] rowIdValidity = {0b11101};
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
                 new Block[] {
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {2, 0, 1, 2, 2}), // TransactionId
-                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {0, 0, 3, 1, 2}), // rowId
+                        new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {2, 0, 1, 2, 2}), // TransactionId
+                        new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {0, 0, 3, 1, 2}), // rowId
                         new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
                 },
                 new Block[] {

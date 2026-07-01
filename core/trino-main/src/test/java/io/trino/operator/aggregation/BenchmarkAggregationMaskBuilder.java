@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 @State(Scope.Thread)
@@ -84,7 +86,7 @@ public class BenchmarkAggregationMaskBuilder
 
         Block longRleNoNulls = RunLengthEncodedBlock.create(new LongArrayBlock(1, Optional.empty(), new long[] {42}), positions);
         Block longNoNulls = new LongArrayBlock(new long[positions].length, Optional.empty(), new long[positions]);
-        Block longSomeNulls = new LongArrayBlock(new long[positions].length, someNulls(positions, 0.3), new long[positions]);
+        Block longSomeNulls = new LongArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new long[positions]);
 
         Block rleAllNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.of(new boolean[] {true}), new short[] {42}), positions);
 
@@ -109,6 +111,17 @@ public class BenchmarkAggregationMaskBuilder
             nulls[i] = ThreadLocalRandom.current().nextDouble() < nullRatio;
         }
         return Optional.of(nulls);
+    }
+
+    private static Optional<long[]> someNullValidity(int positions, double nullRatio)
+    {
+        long[] validity = new long[wordsForBits(positions)];
+        for (int position = 0; position < positions; position++) {
+            if (ThreadLocalRandom.current().nextDouble() >= nullRatio) {
+                set(validity, 0, position);
+            }
+        }
+        return Optional.of(validity);
     }
 
     @Benchmark

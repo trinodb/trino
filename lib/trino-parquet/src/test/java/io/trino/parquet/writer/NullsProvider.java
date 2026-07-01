@@ -17,6 +17,9 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
 
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
+
 enum NullsProvider
 {
     NO_NULLS {
@@ -74,6 +77,11 @@ enum NullsProvider
 
     abstract Optional<boolean[]> getNulls(int positionCount);
 
+    Optional<long[]> getValidities(int positionCount)
+    {
+        return toValidities(getNulls(positionCount), positionCount);
+    }
+
     Optional<boolean[]> getNulls(int positionCount, Optional<boolean[]> forcedNulls)
     {
         Optional<boolean[]> nulls = getNulls(positionCount);
@@ -92,5 +100,19 @@ enum NullsProvider
             }
         }
         return Optional.of(nullPositions);
+    }
+
+    private static Optional<long[]> toValidities(Optional<boolean[]> isNull, int positionCount)
+    {
+        if (isNull.isEmpty()) {
+            return Optional.empty();
+        }
+        long[] valueIsValid = allocateWords(positionCount, true);
+        for (int position = 0; position < positionCount; position++) {
+            if (isNull.get()[position]) {
+                clear(valueIsValid, 0, position);
+            }
+        }
+        return Optional.of(valueIsValid);
     }
 }
