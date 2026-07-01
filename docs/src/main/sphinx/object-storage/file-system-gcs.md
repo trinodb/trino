@@ -46,7 +46,7 @@ Storage file system support:
     to `2MiB`. See `com.google.cloud.BaseStorageReadChannel`.
 * - `gcs.write-block-size`
   - Minimum [data size](prop-type-data-size) for blocks written per RPC. The
-    Defaults to `16MiB`. See `com.google.cloud.BaseStorageWriteChannel`.
+    default is `16MiB`. See `com.google.cloud.BaseStorageWriteChannel`.
 * - `gcs.page-size`
   - Maximum number of blobs to return per page. Defaults to 100.
 * - `gcs.batch-size`
@@ -69,7 +69,7 @@ Cloud Storage:
 * - Property
   - Description
 * - `gcs.auth-type`
-  - Authentication type to use for Google Cloud Storage access. Default to `SERVICE_ACCOUNT`.
+  - Authentication type to use for Google Cloud Storage access. Defaults to `SERVICE_ACCOUNT`.
   Supported values are:
     * `SERVICE_ACCOUNT`: loads credentials from the environment. Either `gcs.json-key` or
       `gcs.json-key-file-path` can be set in addition to override the default
