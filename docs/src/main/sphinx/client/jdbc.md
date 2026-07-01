@@ -18,7 +18,8 @@ The Trino JDBC driver has the following requirements:
   query tables in the `system.jdbc` schema.
 - Network access over HTTP/HTTPS to the coordinator of the Trino cluster.
 - Network access to the configured object storage, if the
-  [](jdbc-spooling-protocol) is enabled.
+  [](jdbc-spooling-protocol) uses the `STORAGE` or
+  `COORDINATOR_STORAGE_REDIRECT` retrieval mode.
 
 The JDBC driver version should be identical to the version of the Trino cluster,
 or newer. Older versions typically work, but only a subset is regularly tested.
@@ -296,4 +297,7 @@ Optionally use the `encoding` parameter to configure a different desired
 encoding, compared to the default on the cluster.
 
 The JVM process using the JDBC driver must have network access to the spooling
-object storage.
+object storage only when `protocol.spooling.retrieval-mode` is `STORAGE` or
+`COORDINATOR_STORAGE_REDIRECT`. With `COORDINATOR_PROXY` and `WORKER_PROXY`,
+the coordinator or a worker retrieves spooled segments from storage for the
+client.
