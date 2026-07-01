@@ -210,7 +210,7 @@ public class TestDeltaLakeMetadata
                 new DeltaLakeSecurityModule(),
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
-                new TestingDeltaLakeExtensionsModule(),
+                new TestingDeltaLakeExtensionsModule(false),
                 // test setup
                 binder -> {
                     binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);

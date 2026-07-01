@@ -30,8 +30,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.stream.Stream;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Predicate.not;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,12 +50,6 @@ public class TestLocalFileSystem
     {
         tempDirectory = Files.createTempDirectory("test");
         fileSystem = new LocalFileSystem(tempDirectory);
-    }
-
-    @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return false;
     }
 
     @AfterEach
@@ -139,6 +135,129 @@ public class TestLocalFileSystem
                 builder.add(iterator.next().location());
             }
             assertThat(builder.build()).containsExactlyInAnyOrder(file1, file2);
+        }
+    }
+
+    @Test
+    void testFileSchemeIsLiteralAbsolutePath()
+            throws IOException
+    {
+        Location location = Location.of("file://" + tempDirectory + "/sub/dir/file");
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> fileSystem.deleteFile(location));
+            fileSystem.newOutputFile(location).createOrOverwrite("hello".getBytes(UTF_8));
+
+            assertThat(Files.readString(tempDirectory.resolve("sub/dir/file"))).isEqualTo("hello");
+        }
+    }
+
+    @Test
+    void testFileSchemeOutsideRootRejected()
+            throws IOException
+    {
+        Path outsideDirectory = Files.createTempDirectory("outside");
+        try {
+            Location location = Location.of("file://" + outsideDirectory + "/file");
+            assertThatThrownBy(() -> fileSystem.newOutputFile(location).createOrOverwrite("hello".getBytes(UTF_8)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("outside of the root");
+        }
+        finally {
+            Files.delete(outsideDirectory);
+        }
+    }
+
+    @Test
+    void testFileSchemeTraversalOutsideRootRejected()
+    {
+        Location location = Location.of("file://" + tempDirectory + "/sub/../../escape");
+        assertThatThrownBy(() -> fileSystem.newOutputFile(location).createOrOverwrite("hello".getBytes(UTF_8)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("outside of the root");
+    }
+
+    @Test
+    void testSymlinkEscapingRootRejected()
+            throws IOException
+    {
+        Path outsideDirectory = Files.createTempDirectory("outside");
+        try {
+            Path outsideFile = Files.writeString(outsideDirectory.resolve("secret"), "secret");
+            Path link = tempDirectory.resolve("link-to-outside");
+            Files.createSymbolicLink(link, outsideFile);
+            try {
+                Location location = Location.of("local:///link-to-outside");
+                assertThatThrownBy(() -> fileSystem.newInputFile(location).newStream())
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("outside of the root");
+            }
+            finally {
+                Files.delete(link);
+            }
+        }
+        finally {
+            Files.walk(outsideDirectory)
+                    .sorted(Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        }
+                        catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    });
+        }
+    }
+
+    @Test
+    void testLegacyPrefixRebasesUnderNewRoot()
+            throws IOException
+    {
+        Path oldMount = Files.createTempDirectory("old-mount");
+        Path newRoot = Files.createTempDirectory("new-root");
+        try {
+            LocalFileSystem migrated = new LocalFileSystem(newRoot, Optional.of(oldMount));
+            Location location = Location.of("file://" + oldMount + "/schema/table/data.parquet");
+
+            migrated.newOutputFile(location).createOrOverwrite("hello".getBytes(UTF_8));
+
+            assertThat(Files.readString(newRoot.resolve("schema/table/data.parquet"))).isEqualTo("hello");
+            assertThat(Files.exists(oldMount.resolve("schema/table/data.parquet"))).isFalse();
+        }
+        finally {
+            deleteRecursively(newRoot);
+            Files.delete(oldMount);
+        }
+    }
+
+    @Test
+    void testFileSchemeNotMatchingLegacyPrefixIsLiteral()
+            throws IOException
+    {
+        Path oldMount = Files.createTempDirectory("old-mount");
+        Path newRoot = Files.createTempDirectory("new-root");
+        try {
+            LocalFileSystem migrated = new LocalFileSystem(newRoot, Optional.of(oldMount));
+            Location location = Location.of("file://" + newRoot + "/schema/table/data.parquet");
+
+            migrated.newOutputFile(location).createOrOverwrite("hello".getBytes(UTF_8));
+
+            assertThat(Files.readString(newRoot.resolve("schema/table/data.parquet"))).isEqualTo("hello");
+        }
+        finally {
+            deleteRecursively(newRoot);
+            Files.delete(oldMount);
+        }
+    }
+
+    private static void deleteRecursively(Path root)
+            throws IOException
+    {
+        try (Stream<Path> walk = Files.walk(root)) {
+            Iterator<Path> iterator = walk.sorted(Comparator.reverseOrder()).iterator();
+            while (iterator.hasNext()) {
+                Files.delete(iterator.next());
+            }
         }
     }
 

@@ -24,10 +24,21 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 public class TestingDeltaLakeExtensionsModule
         implements Module
 {
+    private final boolean nativeLocalFileSystemEnabled;
+
+    public TestingDeltaLakeExtensionsModule(boolean nativeLocalFileSystemEnabled)
+    {
+        this.nativeLocalFileSystemEnabled = nativeLocalFileSystemEnabled;
+    }
+
     @Override
     public void configure(Binder binder)
     {
-        MapBinder<String, TransactionLogSynchronizer> logSynchronizerMapBinder = newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
-        logSynchronizerMapBinder.addBinding("file").to(FileTestingTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        // Only claims "file" for catalogs where fs.local.enabled is not set, since
+        // DeltaLakeSynchronizerModule claims it itself once that flag is on (see its javadoc).
+        if (!nativeLocalFileSystemEnabled) {
+            MapBinder<String, TransactionLogSynchronizer> logSynchronizerMapBinder = newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
+            logSynchronizerMapBinder.addBinding("file").to(FileTestingTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        }
     }
 }

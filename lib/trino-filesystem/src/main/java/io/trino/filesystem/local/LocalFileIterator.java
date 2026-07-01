@@ -37,10 +37,11 @@ class LocalFileIterator
 {
     private final Iterator<FileEntry> iterator;
 
-    public LocalFileIterator(Location location, Path rootPath, Path path)
+    public LocalFileIterator(Location location, LocalPathCanonicalizer canonicalizer, Path path)
             throws IOException
     {
-        requireNonNull(rootPath, "rootPath is null");
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        String scheme = location.scheme().orElseThrow();
         if (Files.isRegularFile(path)) {
             throw new IOException("Location is a file: " + location);
         }
@@ -56,12 +57,12 @@ class LocalFileIterator
                         throws IOException
                 {
                     if (Files.isRegularFile(file)) {
-                        if (!file.startsWith(rootPath)) {
+                        if (!canonicalizer.isWithinRoot(file)) {
                             throw new IOException("entry is not inside of filesystem root");
                         }
 
                         files.add(new FileEntry(
-                                Location.of("local:///" + rootPath.relativize(file)),
+                                canonicalizer.toLocation(scheme, file),
                                 attributes.size(),
                                 attributes.lastModifiedTime().toInstant(),
                                 Optional.empty()));

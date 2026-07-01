@@ -18,8 +18,10 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.filesystem.manager.FileSystemConfig;
 import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.GcsTransactionLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.LocalTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3ConditionalWriteLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3LockBasedTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
@@ -41,6 +43,14 @@ public class DeltaLakeSynchronizerModule
 
         // GCS
         synchronizerBinder.addBinding("gs").to(GcsTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+
+        // Local / NFS. The "local" scheme is exclusively served by the native LocalFileSystem, but "file" is
+        // also used by the legacy Hadoop-based file system bridge when fs.local.enabled is not set for this
+        // catalog, so only claim "file" here when it is guaranteed to be backed by the native LocalFileSystem.
+        synchronizerBinder.addBinding("local").to(LocalTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        if (buildConfigObject(FileSystemConfig.class).isLocalEnabled()) {
+            synchronizerBinder.addBinding("file").to(LocalTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        }
 
         // S3
         jsonCodecBinder(binder).bindJsonCodec(S3LockBasedTransactionLogSynchronizer.LockFileContents.class);

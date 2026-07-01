@@ -16,14 +16,22 @@ package io.trino.filesystem.local;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.nio.file.Path;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
 
 public class LocalFileSystemConfig
 {
+    // Path.of() collapses repeated slashes, so a value like "local:///storage/datalake" ends up
+    // as "local:/storage/datalake" here; detect a URI scheme prefix rather than looking for "://".
+    private static final Pattern URI_SCHEME_PREFIX = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]+:.*");
+
     private Path location = Path.of(System.getProperty(JAVA_IO_TMPDIR.key()));
+    private Optional<Path> legacyPrefix = Optional.empty();
 
     public @FileExists Path getLocation()
     {
@@ -35,6 +43,26 @@ public class LocalFileSystemConfig
     public LocalFileSystemConfig setLocation(Path location)
     {
         this.location = location;
+        return this;
+    }
+
+    @AssertTrue(message = "local.location must be a plain filesystem path (e.g. /storage/datalake), not a URI")
+    public boolean isLocationValid()
+    {
+        return !URI_SCHEME_PREFIX.matcher(location.toString()).matches();
+    }
+
+    public Optional<Path> getLegacyPrefix()
+    {
+        return legacyPrefix;
+    }
+
+    @ConfigDescription("Absolute path prefix to strip from file:// locations before resolving them under local.location; " +
+            "for migrating tables whose stored locations still reference a previous mount point")
+    @Config("local.legacy-prefix")
+    public LocalFileSystemConfig setLegacyPrefix(Path legacyPrefix)
+    {
+        this.legacyPrefix = Optional.ofNullable(legacyPrefix);
         return this;
     }
 }

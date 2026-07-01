@@ -19,9 +19,10 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.nio.file.Path;
+import java.util.Optional;
 
 /**
- * A hierarchical file system for testing.
+ * A hierarchical file system backed by a local (or locally-mounted, e.g. NFS) directory tree.
  */
 public class LocalFileSystemFactory
         implements TrinoFileSystemFactory
@@ -30,13 +31,18 @@ public class LocalFileSystemFactory
 
     public LocalFileSystemFactory(Path rootPath)
     {
-        fileSystem = new LocalFileSystem(rootPath);
+        this(rootPath, Optional.empty());
+    }
+
+    public LocalFileSystemFactory(Path rootPath, Optional<Path> legacyPrefix)
+    {
+        fileSystem = new LocalFileSystem(rootPath, legacyPrefix);
     }
 
     @Inject
     public LocalFileSystemFactory(LocalFileSystemConfig config)
     {
-        this(config.getLocation());
+        this(config.getLocation(), config.getLegacyPrefix());
     }
 
     @Override
