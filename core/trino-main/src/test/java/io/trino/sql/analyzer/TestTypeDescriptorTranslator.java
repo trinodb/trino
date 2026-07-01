@@ -13,18 +13,17 @@
  */
 package io.trino.sql.analyzer;
 
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
 import java.util.Locale;
-import java.util.Set;
 
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toDataType;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.trino.sql.parser.ParserAssert.type;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -104,15 +103,15 @@ public class TestTypeDescriptorTranslator
     }
 
     @Test
-    public void testParseTypeSignaturePreservesRowFieldNameCase()
+    public void testParseTypeDescriptorPreservesRowFieldNameCase()
     {
         // Regression test for a cache poisoning bug where DATA_TYPE_CACHE was keyed by the lowercased signature
         // while storing the DataType parsed from the original-cased signature. The first case-variant of a row
         // signature would then win for every later lookup, returning field names with the wrong casing.
         // Downstream, NamedTypeSignature.equals is case-sensitive on field names, so function dependency
         // resolution would miss and throw UndeclaredDependencyException at filter compile time.
-        TypeSignature camelCaseFirst = parseTypeSignature("row(\"memberId\" integer, \"viewerUrn\" varchar)", Set.of());
-        TypeSignature lowerCaseAfter = parseTypeSignature("row(\"memberid\" integer, \"viewerurn\" varchar)", Set.of());
+        TypeDescriptor camelCaseFirst = parseTypeDescriptor("row(\"memberId\" integer, \"viewerUrn\" varchar)");
+        TypeDescriptor lowerCaseAfter = parseTypeDescriptor("row(\"memberid\" integer, \"viewerurn\" varchar)");
 
         assertThat(camelCaseFirst.toString())
                 .isEqualTo("row(\"memberId\" integer,\"viewerUrn\" varchar)");
@@ -121,8 +120,8 @@ public class TestTypeDescriptorTranslator
         assertThat(camelCaseFirst).isNotEqualTo(lowerCaseAfter);
 
         // Reverse order: lowercase first, camelCase second. Both must still preserve their input casing.
-        TypeSignature lowerCaseFirst = parseTypeSignature("row(\"actorurn\" varchar, \"appname\" varchar)", Set.of());
-        TypeSignature camelCaseAfter = parseTypeSignature("row(\"actorUrn\" varchar, \"appName\" varchar)", Set.of());
+        TypeDescriptor lowerCaseFirst = parseTypeDescriptor("row(\"actorurn\" varchar, \"appname\" varchar)");
+        TypeDescriptor camelCaseAfter = parseTypeDescriptor("row(\"actorUrn\" varchar, \"appName\" varchar)");
 
         assertThat(lowerCaseFirst.toString())
                 .isEqualTo("row(\"actorurn\" varchar,\"appname\" varchar)");
