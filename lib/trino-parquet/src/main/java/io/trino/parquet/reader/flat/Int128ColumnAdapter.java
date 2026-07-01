@@ -39,9 +39,9 @@ public class Int128ColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, long[] values)
+    public Block createNullableBlock(long[] valueIsValid, long[] values)
     {
-        return new Int128ArrayBlock(values.length / 2, Optional.of(nulls), values);
+        return new Int128ArrayBlock(values.length / 2, Optional.of(valueIsValid), values);
     }
 
     @Override

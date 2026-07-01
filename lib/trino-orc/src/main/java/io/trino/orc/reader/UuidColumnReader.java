@@ -42,6 +42,8 @@ import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -105,11 +107,12 @@ public class UuidColumnReader
             return nullValueBlock;
         }
 
-        boolean[] isNullVector = null;
+        long[] valueIsValid = null;
         int nullCount = 0;
         if (presentStream != null) {
-            isNullVector = new boolean[nextBatchSize];
-            nullCount = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            nullCount = nextBatchSize - nonNullCount;
             if (nullCount == nextBatchSize) {
                 // all nulls
                 Block nullValueBlock = createAllNullsBlock();
@@ -118,7 +121,7 @@ public class UuidColumnReader
             }
 
             if (nullCount == 0) {
-                isNullVector = null;
+                valueIsValid = null;
             }
         }
 
@@ -139,14 +142,14 @@ public class UuidColumnReader
             throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is missing");
         }
 
-        if (isNullVector == null) {
+        if (valueIsValid == null) {
             long[] values = readNonNullLongs(numberOfLongValues);
             return new Int128ArrayBlock(currentBatchSize, Optional.empty(), values);
         }
 
         int nonNullCount = currentBatchSize - nullCount;
-        long[] values = readNullableLongs(isNullVector, nonNullCount);
-        return new Int128ArrayBlock(currentBatchSize, Optional.of(isNullVector), values);
+        long[] values = readNullableLongs(valueIsValid, currentBatchSize, nonNullCount);
+        return new Int128ArrayBlock(currentBatchSize, Optional.of(valueIsValid), values);
     }
 
     @Override
@@ -216,26 +219,23 @@ public class UuidColumnReader
         }
     }
 
-    private long[] readNullableLongs(boolean[] isNullVector, int nonNullCount)
+    private long[] readNullableLongs(long[] valueIsValid, int positionCount, int nonNullCount)
             throws IOException
     {
         byte[] data = new byte[nonNullCount * 2 * Long.BYTES];
 
         dataStream.next(data, 0, data.length);
 
-        int[] offsets = new int[isNullVector.length];
-        int offsetPosition = 0;
-        for (int i = 0; i < isNullVector.length; i++) {
-            offsets[i] = Math.min(offsetPosition * 2 * Long.BYTES, data.length - Long.BYTES * 2);
-            offsetPosition += isNullVector[i] ? 0 : 1;
-        }
+        long[] values = new long[positionCount * 2];
 
-        long[] values = new long[isNullVector.length * 2];
-
-        for (int i = 0; i < isNullVector.length; i++) {
-            int isNonNull = isNullVector[i] ? 0 : 1;
-            values[i * 2] = (long) LONG_ARRAY_HANDLE.get(data, offsets[i]) * isNonNull;
-            values[i * 2 + 1] = (long) LONG_ARRAY_HANDLE.get(data, offsets[i] + Long.BYTES) * isNonNull;
+        int inputPosition = 0;
+        for (int i = 0; i < positionCount; i++) {
+            if (isSet(valueIsValid, 0, i)) {
+                int offset = inputPosition * 2 * Long.BYTES;
+                values[i * 2] = (long) LONG_ARRAY_HANDLE.get(data, offset);
+                values[i * 2 + 1] = (long) LONG_ARRAY_HANDLE.get(data, offset + Long.BYTES);
+                inputPosition++;
+            }
         }
         return values;
     }
