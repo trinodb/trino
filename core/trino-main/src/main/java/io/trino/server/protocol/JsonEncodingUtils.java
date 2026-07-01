@@ -92,15 +92,16 @@ public final class JsonEncodingUtils
 
         Set<String> clientCapabilities = session.getClientCapabilities();
         boolean supportsParametricDateTime = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        boolean supportsParametricInterval = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_INTERVAL.toString());
         boolean supportsVariant = clientCapabilities.contains(ClientCapabilities.VARIANT.toString());
         boolean supportsVariantBinary = clientCapabilities.contains(ClientCapabilities.VARIANT_BINARY.toString());
 
         return types.stream()
-                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsVariant, boolean supportsVariantBinary)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsParametricInterval, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -115,13 +116,13 @@ public final class JsonEncodingUtils
             case CharType charType -> new CharEncoder(charType.getLength());
             case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary))
                     .toArray(TypeEncoder[]::new));
-            case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
+            case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime, supportsParametricInterval);
         };
     }
 
@@ -463,11 +464,13 @@ public final class JsonEncodingUtils
     {
         private final Type type;
         private final boolean supportsParametricDateTime;
+        private final boolean supportsParametricInterval;
 
-        public TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime)
+        public TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime, boolean supportsParametricInterval)
         {
             this.type = requireNonNull(type, "type is null");
             this.supportsParametricDateTime = supportsParametricDateTime;
+            this.supportsParametricInterval = supportsParametricInterval;
         }
 
         @Override
@@ -501,15 +504,12 @@ public final class JsonEncodingUtils
 
         private Object roundParametricTypes(Object value)
         {
-            if (supportsParametricDateTime) {
-                return value;
-            }
-
             return switch (value) {
-                case SqlTimestamp sqlTimestamp -> sqlTimestamp.roundTo(3);
-                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.roundTo(3);
-                case SqlTime sqlTime -> sqlTime.roundTo(3);
-                case SqlTimeWithTimeZone sqlTimeWithTimeZone -> sqlTimeWithTimeZone.roundTo(3);
+                case SqlTimestamp sqlTimestamp when !supportsParametricDateTime -> sqlTimestamp.roundTo(3);
+                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone when !supportsParametricDateTime -> sqlTimestampWithTimeZone.roundTo(3);
+                case SqlTime sqlTime when !supportsParametricDateTime -> sqlTime.roundTo(3);
+                case SqlTimeWithTimeZone sqlTimeWithTimeZone when !supportsParametricDateTime -> sqlTimeWithTimeZone.roundTo(3);
+                case SqlIntervalDayTime interval when !supportsParametricInterval -> interval.roundTo(3);
                 default -> value;
             };
         }

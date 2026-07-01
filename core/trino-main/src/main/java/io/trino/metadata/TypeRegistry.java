@@ -90,8 +90,8 @@ import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.FunctionParametricType.FUNCTION;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.type.IntervalDayTimeParametricType.INTERVAL_DAY_TIME_PARAMETRIC;
+import static io.trino.type.IntervalYearMonthParametricType.INTERVAL_YEAR_MONTH_PARAMETRIC;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.Json2016Type.JSON_2016;
@@ -140,8 +140,6 @@ public final class TypeRegistry
         addType(NUMBER);
         addType(VARBINARY);
         addType(DATE);
-        addType(INTERVAL_YEAR_MONTH);
-        addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
         addType(SET_DIGEST);
         addType(P4_HYPER_LOG_LOG);
@@ -160,6 +158,8 @@ public final class TypeRegistry
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
+        addParametricType(INTERVAL_YEAR_MONTH_PARAMETRIC);
+        addParametricType(INTERVAL_DAY_TIME_PARAMETRIC);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);

@@ -95,10 +95,10 @@ public class TestTypeDescriptor
                 rowSignature(namedParameter("time", signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(interval interval day to second)",
-                rowSignature(namedParameter("interval", signature(StandardTypes.INTERVAL_DAY_TO_SECOND))));
+                rowSignature(namedParameter("interval", interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
         assertRowSignature(
                 "row(interval interval year to month)",
-                rowSignature(namedParameter("interval", signature(StandardTypes.INTERVAL_YEAR_TO_MONTH))));
+                rowSignature(namedParameter("interval", interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
         assertRowSignature(
                 "row(double double precision)",
                 rowSignature(namedParameter("double", signature("double"))));
@@ -112,10 +112,10 @@ public class TestTypeDescriptor
                 rowSignature(unnamedParameter(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
         assertRowSignature(
                 "row(interval day to second)",
-                rowSignature(unnamedParameter(signature(StandardTypes.INTERVAL_DAY_TO_SECOND))));
+                rowSignature(unnamedParameter(interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
         assertRowSignature(
                 "row(interval year to month)",
-                rowSignature(unnamedParameter(signature(StandardTypes.INTERVAL_YEAR_TO_MONTH))));
+                rowSignature(unnamedParameter(interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
         assertRowSignature(
                 "row(double precision)",
                 rowSignature(unnamedParameter(signature("double"))));
@@ -124,7 +124,7 @@ public class TestTypeDescriptor
                 rowSignature(unnamedParameter(array(signature(StandardTypes.TIME_WITH_TIME_ZONE)))));
         assertRowSignature(
                 "row(map(timestamp with time zone,interval day to second))",
-                rowSignature(unnamedParameter(map(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE), signature(StandardTypes.INTERVAL_DAY_TO_SECOND)))));
+                rowSignature(unnamedParameter(map(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE), interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5)))));
 
         // quoted field names
         assertRowSignature(
@@ -137,8 +137,8 @@ public class TestTypeDescriptor
         assertSignature(
                 "row( time  time with time zone, array( interval day to second ) )",
                 "row",
-                ImmutableList.of("\"time\" time with time zone", "array(interval day to second)"),
-                "row(\"time\" time with time zone,array(interval day to second))");
+                ImmutableList.of("\"time\" time with time zone", "array(interval day(2) to second(6))"),
+                "row(\"time\" time with time zone,array(interval day(2) to second(6)))");
 
         // preserve base name case
         assertRowSignature(
@@ -188,6 +188,17 @@ public class TestTypeDescriptor
     private TypeDescriptor signature(String name)
     {
         return new TypeDescriptor(name);
+    }
+
+    // An interval signature is parametric: the parser fills a bare qualifier with the start and end
+    // field codes (year=0 .. second=5) and the implicit leading precision of 2. A day-time interval
+    // also carries the implicit fractional-seconds precision of 6 in a fourth parameter.
+    private static TypeDescriptor interval(String base, long startField, long endField)
+    {
+        if (base.equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+            return new TypeDescriptor(base, numericParameter(startField), numericParameter(endField), numericParameter(2));
+        }
+        return new TypeDescriptor(base, numericParameter(startField), numericParameter(endField), numericParameter(2), numericParameter(6));
     }
 
     @Test
