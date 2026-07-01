@@ -42,23 +42,23 @@ public class TestAggregationMask
             assertAggregationMaskAll(aggregationMask, positionCount);
 
             boolean[] nullFlags = new boolean[positionCount];
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
             Arrays.fill(nullFlags, true);
             nullFlags[1] = false;
             nullFlags[3] = false;
             nullFlags[5] = false;
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 3, 5);
 
             nullFlags[3] = true;
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 5);
 
             nullFlags[1] = true;
             nullFlags[5] = true;
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount);
 
             aggregationMask.reset(positionCount);
@@ -67,10 +67,10 @@ public class TestAggregationMask
             aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[1]), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new boolean[] {false}), new int[1]), positionCount));
+            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new long[] {1}), new int[1]), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new boolean[] {true}), new int[1]), positionCount));
+            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new long[] {0}), new int[1]), positionCount));
             assertAggregationMaskPositions(aggregationMask, positionCount);
         }
     }

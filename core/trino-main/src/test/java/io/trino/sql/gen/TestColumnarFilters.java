@@ -761,20 +761,20 @@ public class TestColumnarFilters
             for (int i = 0; i < nonNullDictionarySize; i++) {
                 dictionaryValues[i] = toIntExact(CONSTANT - 10 + i);
             }
-            Optional<boolean[]> dictionaryIsNull = getDictionaryIsNull(nullsProvider, dictionarySize);
-            Block dictionary = new IntArrayBlock(dictionarySize, dictionaryIsNull, dictionaryValues);
+            Optional<long[]> dictionaryValidity = getDictionaryValidity(nullsProvider, dictionarySize);
+            Block dictionary = new IntArrayBlock(dictionarySize, dictionaryValidity, dictionaryValues);
             return createDictionaryBlock(positionsCount, nullsProvider, dictionary);
         }
 
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
-        assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
+        Optional<long[]> validity = nullsProvider.getValidityWords(positionsCount);
+        assertThat(validity.isEmpty() || validity.get().length == wordsForBits(positionsCount)).isTrue();
         int[] values = new int[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isEmpty() || !isNull.get()[i]) {
+            if (validity.isEmpty() || isSet(validity.get(), 0, i)) {
                 values[i] = toIntExact(RANDOM.nextLong(CONSTANT - 10, CONSTANT + 10));
             }
         }
-        return new IntArrayBlock(positionsCount, isNull, values);
+        return new IntArrayBlock(positionsCount, validity, values);
     }
 
     private static Block createDoublesBlock(int positionsCount, NullsProvider nullsProvider, boolean dictionaryEncoded)
@@ -869,18 +869,6 @@ public class TestColumnarFilters
             }
         }
         return builder.build();
-    }
-
-    private static Optional<boolean[]> getDictionaryIsNull(NullsProvider nullsProvider, int dictionarySize)
-    {
-        Optional<boolean[]> dictionaryIsNull = Optional.empty();
-        if (nullsProvider != NullsProvider.NO_NULLS) {
-            dictionaryIsNull = Optional.of(new boolean[dictionarySize]);
-            if (nullsProvider != NullsProvider.NO_NULLS_WITH_MAY_HAVE_NULL) {
-                dictionaryIsNull.get()[dictionarySize - 1] = true;
-            }
-        }
-        return dictionaryIsNull;
     }
 
     private static Block createDictionaryBlock(int positionsCount, NullsProvider nullsProvider, Block dictionary)

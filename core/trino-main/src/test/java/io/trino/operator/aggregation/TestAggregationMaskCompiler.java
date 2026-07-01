@@ -250,7 +250,7 @@ public class TestAggregationMaskCompiler
         return new Page(
                 new ShortArrayBlock(positionCount, Optional.of(toValidity(ignoredColumnNulls)), new short[positionCount]),
                 // provide a null array to ensure the generated code for null checks does not fail
-                new IntArrayBlock(positionCount, Optional.of(new boolean[positionCount]), new int[positionCount]));
+                new IntArrayBlock(positionCount, Optional.of(toValidity(new boolean[positionCount])), new int[positionCount]));
     }
 
     private static Page buildSingleColumnPage(boolean[] nulls)
@@ -260,12 +260,12 @@ public class TestAggregationMaskCompiler
         Arrays.fill(ignoredColumnNulls, true);
         return new Page(
                 new ShortArrayBlock(positionCount, Optional.of(toValidity(ignoredColumnNulls)), new short[positionCount]),
-                new IntArrayBlock(positionCount, Optional.of(nulls), new int[positionCount]));
+                new IntArrayBlock(positionCount, Optional.of(toValidity(nulls)), new int[positionCount]));
     }
 
     private static Page buildSingleColumnPageRle(int positionCount, Optional<Boolean> nullValue)
     {
-        Optional<boolean[]> nulls = nullValue.map(value -> new boolean[] {value});
+        Optional<long[]> nulls = nullValue.map(value -> toValidity(new boolean[] {value}));
         boolean[] ignoredColumnNulls = new boolean[positionCount];
         Arrays.fill(ignoredColumnNulls, true);
         return new Page(

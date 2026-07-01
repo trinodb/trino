@@ -40,9 +40,9 @@ public class IntColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, int[] values)
+    public Block createNullableBlock(long[] valueIsValid, int[] values)
     {
-        return new IntArrayBlock(values.length, Optional.of(nulls), values);
+        return new IntArrayBlock(values.length, Optional.of(valueIsValid), values);
     }
 
     @Override
