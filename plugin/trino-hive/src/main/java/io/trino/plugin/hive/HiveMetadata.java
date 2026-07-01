@@ -416,6 +416,7 @@ public class HiveMetadata
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean translateHiveViews;
     private final boolean hiveViewsRunAsInvoker;
+    private final boolean trinoViewsRunAsInvoker;
     private final boolean hideDeltaLakeTables;
     private final String trinoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -440,6 +441,7 @@ public class HiveMetadata
             boolean createsOfNonManagedTablesEnabled,
             boolean translateHiveViews,
             boolean hiveViewsRunAsInvoker,
+            boolean trinoViewsRunAsInvoker,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
             MetadataProvider metadataProvider,
@@ -471,6 +473,7 @@ public class HiveMetadata
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
         this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
+        this.trinoViewsRunAsInvoker = trinoViewsRunAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -2973,8 +2976,20 @@ public class HiveMetadata
 
                     ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker, hiveViewsTimestampPrecision)
                             .decodeViewData(view.getViewOriginalText(), view, catalogName);
+                    if (trinoViewsRunAsInvoker && isTrinoView(view) && !definition.isRunAsInvoker()) {
+                        // Ignore the stored view owner and execute the Trino view with the permissions of the invoker
+                        definition = new ConnectorViewDefinition(
+                                definition.getOriginalSql(),
+                                definition.getCatalog(),
+                                definition.getSchema(),
+                                definition.getColumns(),
+                                definition.getComment(),
+                                Optional.empty(),
+                                true,
+                                definition.getPath());
+                    }
                     // use owner field from table metadata if it exists
-                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
+                    else if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                         definition = new ConnectorViewDefinition(
                                 definition.getOriginalSql(),
                                 definition.getCatalog(),

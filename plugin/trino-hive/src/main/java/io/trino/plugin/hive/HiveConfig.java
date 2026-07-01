@@ -149,6 +149,7 @@ public class HiveConfig
     private boolean translateHiveViews;
     private boolean legacyHiveViewTranslation;
     private boolean hiveViewsRunAsInvoker;
+    private boolean trinoViewsRunAsInvoker;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
@@ -829,6 +830,19 @@ public class HiveConfig
     public HiveConfig setHiveViewsRunAsInvoker(boolean hiveViewsRunAsInvoker)
     {
         this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
+        return this;
+    }
+
+    public boolean isTrinoViewsRunAsInvoker()
+    {
+        return trinoViewsRunAsInvoker;
+    }
+
+    @Config("hive.trino-views.run-as-invoker")
+    @ConfigDescription("Execute Trino views with permissions of invoker, ignoring the stored view owner")
+    public HiveConfig setTrinoViewsRunAsInvoker(boolean trinoViewsRunAsInvoker)
+    {
+        this.trinoViewsRunAsInvoker = trinoViewsRunAsInvoker;
         return this;
     }
 
