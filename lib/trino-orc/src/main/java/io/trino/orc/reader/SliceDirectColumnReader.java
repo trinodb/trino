@@ -49,6 +49,8 @@ import static io.trino.orc.reader.ReaderUtils.unpackLengthNulls;
 import static io.trino.orc.reader.SliceColumnReader.computeTruncatedLength;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -134,8 +136,8 @@ public class SliceDirectColumnReader
             return nullValueBlock;
         }
 
-        // create new isNullVector and offsetVector for VariableWidthBlock
-        boolean[] isNullVector = null;
+        // create new valueIsValid and offsetVector for VariableWidthBlock
+        long[] valueIsValid = null;
 
         // We will use the offsetVector as the buffer to read the length values from lengthStream,
         // and the length values will be converted in-place to an offset vector.
@@ -145,8 +147,9 @@ public class SliceDirectColumnReader
             lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
-            isNullVector = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
             if (nullCount == nextBatchSize) {
                 // all nulls
                 Block nullValueBlock = readAllNullsBlock();
@@ -159,12 +162,12 @@ public class SliceDirectColumnReader
                 throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but length stream is missing");
             }
             if (nullCount == 0) {
-                isNullVector = null;
+                valueIsValid = null;
                 lengthStream.next(offsetVector, nextBatchSize);
             }
             else {
-                lengthStream.next(offsetVector, nextBatchSize - nullCount);
-                unpackLengthNulls(offsetVector, isNullVector, nextBatchSize - nullCount);
+                lengthStream.next(offsetVector, nonNullCount);
+                unpackLengthNulls(offsetVector, valueIsValid, nextBatchSize, nonNullCount);
             }
         }
 
@@ -178,7 +181,7 @@ public class SliceDirectColumnReader
         readOffset = 0;
         nextBatchSize = 0;
         if (totalLength == 0) {
-            return new VariableWidthBlock(currentBatchSize, EMPTY_SLICE, offsetVector, Optional.ofNullable(isNullVector));
+            return new VariableWidthBlock(currentBatchSize, EMPTY_SLICE, offsetVector, Optional.ofNullable(valueIsValid));
         }
         if (totalLength > ONE_GIGABYTE) {
             throw new TrinoException(
@@ -206,7 +209,7 @@ public class SliceDirectColumnReader
             offsetVector[0] = 0;
             for (int i = 1; i <= currentBatchSize; i++) {
                 int nextLength = offsetVector[i];
-                if (isNullVector != null && isNullVector[i - 1]) {
+                if (valueIsValid != null && !isSet(valueIsValid, 0, i - 1)) {
                     checkState(currentLength == 0, "Corruption in slice direct stream: length is non-zero for null entry");
                     offsetVector[i] = offsetVector[i - 1];
                     currentLength = nextLength;
@@ -227,12 +230,12 @@ public class SliceDirectColumnReader
         }
 
         // this can lead to over-retention but unlikely to happen given truncation rarely happens
-        return new VariableWidthBlock(currentBatchSize, slice, offsetVector, Optional.ofNullable(isNullVector));
+        return new VariableWidthBlock(currentBatchSize, slice, offsetVector, Optional.ofNullable(valueIsValid));
     }
 
     private Block readAllNullsBlock()
     {
-        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new long[] {0})), nextBatchSize);
     }
 
     private void openRowGroup()

@@ -19,8 +19,10 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
+import static io.trino.spi.block.Bitmap.checkBitRange;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
 import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 
@@ -51,12 +53,11 @@ public class VariableWidthBlockEncoding
 
         int arrayBaseOffset = variableWidthBlock.getRawArrayBase();
         @Nullable
-        boolean[] isNull = variableWidthBlock.getRawValueIsNull();
-
-        encodeNullsAsBitsScalar(sliceOutput, isNull, arrayBaseOffset, positionCount);
+        long[] valueIsValid = variableWidthBlock.getRawValueIsValid();
+        encodeValidityAsLongs(sliceOutput, valueIsValid, arrayBaseOffset, positionCount);
 
         int[] rawOffsets = variableWidthBlock.getRawOffsets();
-        writeOffsetsWithNullsCompacted(sliceOutput, rawOffsets, isNull, arrayBaseOffset, positionCount);
+        writeOffsetsWithNullsCompacted(sliceOutput, rawOffsets, valueIsValid, arrayBaseOffset, positionCount);
 
         int startingOffset = rawOffsets[arrayBaseOffset];
         int totalLength = rawOffsets[positionCount + arrayBaseOffset] - startingOffset;
@@ -69,23 +70,23 @@ public class VariableWidthBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
 
-        int[] offsets = readOffsetsWithNullsCompacted(sliceInput, valueIsNull, positionCount);
+        int[] offsets = readOffsetsWithNullsCompacted(sliceInput, valueIsValid, positionCount);
 
         int sliceSize = offsets[offsets.length - 1];
         Slice slice = Slices.allocate(sliceSize);
         sliceInput.readBytes(slice);
 
-        return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsNull);
+        return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsValid);
     }
 
-    private static void writeOffsetsWithNullsCompacted(SliceOutput sliceOutput, int[] rawOffsets, @Nullable boolean[] valueIsNull, int baseOffset, int positionCount)
+    private static void writeOffsetsWithNullsCompacted(SliceOutput sliceOutput, int[] rawOffsets, @Nullable long[] valueIsValid, int baseOffset, int positionCount)
     {
         checkFromIndexSize(baseOffset, positionCount + 1, rawOffsets.length);
 
         int startingOffset = rawOffsets[baseOffset];
-        if (valueIsNull == null && startingOffset == 0) {
+        if (valueIsValid == null && startingOffset == 0) {
             // No translation of offsets required, write the range of raw offsets directly to the output
             sliceOutput
                     .appendInt(positionCount)
@@ -94,7 +95,7 @@ public class VariableWidthBlockEncoding
         else {
             int[] nonNullOffsets;
             int nonNullOffsetsCount;
-            if (valueIsNull == null) {
+            if (valueIsValid == null) {
                 // Subtract starting offset from each ending offset to translate them to start from zero, no null suppression required
                 nonNullOffsets = new int[positionCount];
                 for (int i = 0; i < nonNullOffsets.length; i++) {
@@ -108,7 +109,7 @@ public class VariableWidthBlockEncoding
                 nonNullOffsetsCount = 0;
                 for (int i = 0; i < positionCount; i++) {
                     nonNullOffsets[nonNullOffsetsCount] = rawOffsets[i + baseOffset + 1] - startingOffset;
-                    nonNullOffsetsCount += valueIsNull[i + baseOffset] ? 0 : 1;
+                    nonNullOffsetsCount += isSet(valueIsValid, baseOffset, i) ? 1 : 0;
                 }
             }
             sliceOutput
@@ -117,11 +118,9 @@ public class VariableWidthBlockEncoding
         }
     }
 
-    private static int[] readOffsetsWithNullsCompacted(SliceInput sliceInput, @Nullable boolean[] valueIsNull, int positionCount)
+    private static int[] readOffsetsWithNullsCompacted(SliceInput sliceInput, @Nullable long[] valueIsValid, int positionCount)
     {
-        if (valueIsNull != null && valueIsNull.length != positionCount) {
-            throw new IllegalArgumentException(format("valueIsNull length must match positionCount, found %s <> %s", valueIsNull.length, positionCount));
-        }
+        checkBitRange(valueIsValid, 0, positionCount);
         int nonNullOffsetCount = sliceInput.readInt();
         if (nonNullOffsetCount > positionCount) {
             throw new IllegalArgumentException(format("nonNullOffsetCount must be <= positionCount, found: %s > %s", nonNullOffsetCount, positionCount));
@@ -130,7 +129,7 @@ public class VariableWidthBlockEncoding
         int[] offsets = new int[positionCount + 1];
         int compactIndex = offsets.length - nonNullOffsetCount;
         sliceInput.readInts(offsets, compactIndex, nonNullOffsetCount);
-        if (valueIsNull == null || compactIndex == 1) {
+        if (valueIsValid == null || compactIndex == 1) {
             if (positionCount != nonNullOffsetCount) {
                 throw new IllegalArgumentException(format("nonNullOffsetCount must match positionCount, found %s <> %s", nonNullOffsetCount, positionCount));
             }
@@ -141,7 +140,7 @@ public class VariableWidthBlockEncoding
         int readFrom = compactIndex - 1;
         for (int position = 0; position < readFrom; position++) {
             offsets[position] = offsets[readFrom];
-            readFrom += valueIsNull[position] ? 0 : 1;
+            readFrom += isSet(valueIsValid, 0, position) ? 1 : 0;
         }
         return offsets;
     }

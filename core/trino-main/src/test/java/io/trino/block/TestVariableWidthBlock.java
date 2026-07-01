@@ -130,14 +130,14 @@ public class TestVariableWidthBlock
         Slice compactSlice = createExpectedValue(16).copy();
         Slice incompactSlice = createExpectedValue(20).copy().slice(0, 16);
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        long[] valueIsValid = {0b111101};
 
         testCompactBlock(new VariableWidthBlock(0, EMPTY_SLICE, new int[1], Optional.empty()));
-        testCompactBlock(new VariableWidthBlock(valueIsNull.length, compactSlice, offsets, Optional.of(valueIsNull)));
+        testCompactBlock(new VariableWidthBlock(6, compactSlice, offsets, Optional.of(valueIsValid)));
 
-        testNotCompactBlock(new VariableWidthBlock(valueIsNull.length - 1, compactSlice, offsets, Optional.of(valueIsNull)));
+        testNotCompactBlock(new VariableWidthBlock(5, compactSlice, offsets, Optional.of(valueIsValid)));
         // underlying slice is not compact
-        testNotCompactBlock(new VariableWidthBlock(valueIsNull.length, incompactSlice, offsets, Optional.of(valueIsNull)));
+        testNotCompactBlock(new VariableWidthBlock(6, incompactSlice, offsets, Optional.of(valueIsValid)));
     }
 
     private void assertVariableWithValues(Slice[] expectedValues)
