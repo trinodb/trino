@@ -30,6 +30,9 @@ After a plugin that implements `EventListener` and
 configured using an `etc/event-listener.properties` file. All the
 properties other than `event-listener.name` are specific to the
 `EventListener` implementation.
+Event listeners run on the coordinator for query creation and completion
+events, so this file is required in the coordinator's `etc` directory rather
+than on workers.
 
 The `event-listener.name` property is used by Trino to find a registered
 `EventListenerFactory` based on the name returned by
@@ -50,7 +53,8 @@ custom-property2=custom-value2
 Trino supports multiple instances of the same or different event listeners.
 Install and configure multiple instances by setting
 `event-listener.config-files` in {ref}`config-properties` to a comma-separated
-list of the event listener configuration files:
+list of the event listener configuration files in the coordinator
+configuration:
 
 ```text
 event-listener.config-files=etc/event-listener.properties,etc/event-listener-second.properties
