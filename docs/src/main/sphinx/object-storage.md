@@ -87,6 +87,8 @@ Trino also provides the following additional support and features for object
 storage:
 
 * [](/object-storage/file-system-cache)
+* [](/object-storage/file-system-native-cache)
+* [](/object-storage/file-system-alluxio)
 * [](/object-storage/metastores)
 * [](/object-storage/file-formats)
 
@@ -99,8 +101,9 @@ storage:
 /object-storage/file-system-s3
 /object-storage/file-system-local
 /object-storage/file-system-hdfs
-/object-storage/file-system-alluxio
 /object-storage/file-system-cache
+/object-storage/file-system-native-cache
+/object-storage/file-system-alluxio
 /object-storage/metastores
 /object-storage/file-formats
 ```

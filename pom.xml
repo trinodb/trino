@@ -44,6 +44,7 @@
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
         <module>lib/trino-filesystem-azure</module>
+        <module>lib/trino-filesystem-cache</module>
         <module>lib/trino-filesystem-cache-alluxio</module>
         <module>lib/trino-filesystem-gcs</module>
         <module>lib/trino-filesystem-manager</module>
@@ -1006,6 +1007,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-azure</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-cache</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
