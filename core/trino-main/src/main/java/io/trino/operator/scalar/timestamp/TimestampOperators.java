@@ -13,24 +13,25 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.type.LongInterval;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.StandardTypes.TIMESTAMP;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
-import static io.trino.type.DateTimes.rescale;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
-import static java.lang.Math.multiplyExact;
+import static io.trino.type.IntervalDayTimeOperators.dateTimeDifference;
 
 public final class TimestampOperators
 {
@@ -42,27 +43,46 @@ public final class TimestampOperators
     {
         private TimestampPlusIntervalDayToSecond() {}
 
-        @LiteralParameters({"p", "u"})
+        // The result keeps at least microsecond precision (the historical interval resolution) and the
+        // greater of the timestamp's and the interval's fractional-seconds precisions.
+        @LiteralParameters({"p", "q", "r", "u"})
         @SqlType("timestamp(u)")
-        @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
         public static long add(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType("interval day to second") long interval)
+                @SqlType("interval day(q) to second(r)") long interval)
         {
-            // scale to micros
-            interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
-
             return timestamp + interval;
         }
 
-        @LiteralParameters({"p", "u"})
+        @LiteralParameters({"p", "q", "r", "u"})
         @SqlType("timestamp(u)")
-        @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
         public static LongTimestamp add(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType("interval day to second") long interval)
+                @SqlType("interval day(q) to second(r)") long interval)
         {
-            return new LongTimestamp(timestamp.getEpochMicros() + multiplyExact(interval, MICROSECONDS_PER_MILLISECOND), timestamp.getPicosOfMicro());
+            return new LongTimestamp(timestamp.getEpochMicros() + interval, timestamp.getPicosOfMicro());
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("timestamp(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static LongTimestamp add(
+                @SqlType("timestamp(p)") long timestamp,
+                @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            return addLongInterval(timestamp, 0, interval);
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("timestamp(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static LongTimestamp add(
+                @SqlType("timestamp(p)") LongTimestamp timestamp,
+                @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            return addLongInterval(timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), interval);
         }
     }
 
@@ -72,25 +92,71 @@ public final class TimestampOperators
     {
         private IntervalDayToSecondPlusTimestamp() {}
 
-        @LiteralParameters({"p", "u"})
+        @LiteralParameters({"p", "q", "r", "u"})
         @SqlType("timestamp(u)")
-        @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
         public static long add(
-                @SqlType("interval day to second") long interval,
+                @SqlType("interval day(q) to second(r)") long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
         }
 
-        @LiteralParameters({"p", "u"})
+        @LiteralParameters({"p", "q", "r", "u"})
         @SqlType("timestamp(u)")
-        @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
         public static LongTimestamp add(
-                @SqlType("interval day to second") long interval,
+                @SqlType("interval day(q) to second(r)") long interval,
                 @SqlType("timestamp(p)") LongTimestamp timestamp)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
         }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("timestamp(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static LongTimestamp add(
+                @SqlType("interval day(q) to second(r)") LongInterval interval,
+                @SqlType("timestamp(p)") long timestamp)
+        {
+            return addLongInterval(timestamp, 0, interval);
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("timestamp(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static LongTimestamp add(
+                @SqlType("interval day(q) to second(r)") LongInterval interval,
+                @SqlType("timestamp(p)") LongTimestamp timestamp)
+        {
+            return addLongInterval(timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), interval);
+        }
+    }
+
+    /// Adds a long (picosecond) interval to a timestamp's microseconds and picoseconds, carrying the
+    /// sub-microsecond fraction.
+    private static LongTimestamp addLongInterval(long epochMicros, int picosOfMicro, LongInterval interval)
+    {
+        long micros = epochMicros + interval.getMicros();
+        int picos = picosOfMicro + interval.getPicosOfMicro();
+        if (picos >= PICOSECONDS_PER_MICROSECOND) {
+            micros++;
+            picos -= PICOSECONDS_PER_MICROSECOND;
+        }
+        return new LongTimestamp(micros, picos);
+    }
+
+    /// Subtracts a long (picosecond) interval from a timestamp's microseconds and picoseconds, borrowing
+    /// across the microsecond boundary.
+    private static LongTimestamp subtractLongInterval(long epochMicros, int picosOfMicro, LongInterval interval)
+    {
+        long micros = epochMicros - interval.getMicros();
+        int picos = picosOfMicro - interval.getPicosOfMicro();
+        if (picos < 0) {
+            micros--;
+            picos += PICOSECONDS_PER_MICROSECOND;
+        }
+        return new LongTimestamp(micros, picos);
     }
 
     @ScalarOperator(ADD)
@@ -100,22 +166,22 @@ public final class TimestampOperators
 
         private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
 
-        @LiteralParameters("p")
+        @LiteralParameters({"p", "q"})
         @SqlType("timestamp(p)")
         public static long add(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType("interval year to month") long interval)
+                @SqlType("interval year(q) to month") long interval)
         {
             long fractionMicros = getMicrosOfMilli(timestamp);
             long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
             return scaleEpochMillisToMicros(result) + fractionMicros;
         }
 
-        @LiteralParameters("p")
+        @LiteralParameters({"p", "q"})
         @SqlType("timestamp(p)")
         public static LongTimestamp add(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType("interval year to month") long interval)
+                @SqlType("interval year(q) to month") long interval)
         {
             return new LongTimestamp(
                     add(timestamp.getEpochMicros(), interval),
@@ -128,19 +194,19 @@ public final class TimestampOperators
     {
         private IntervalYearToMonthPlusTimestamp() {}
 
-        @LiteralParameters("p")
+        @LiteralParameters({"p", "q"})
         @SqlType("timestamp(p)")
         public static long add(
-                @SqlType("interval year to month") long interval,
+                @SqlType("interval year(q) to month") long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
         }
 
-        @LiteralParameters("p")
+        @LiteralParameters({"p", "q"})
         @SqlType("timestamp(p)")
         public static LongTimestamp add(
-                @SqlType("interval year to month") long interval,
+                @SqlType("interval year(q) to month") long interval,
                 @SqlType("timestamp(p)") LongTimestamp timestamp)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
@@ -152,20 +218,20 @@ public final class TimestampOperators
     {
         private TimestampMinusIntervalYearToMonth() {}
 
-        @LiteralParameters("p")
+        @LiteralParameters({"p", "q"})
         @SqlType("timestamp(p)")
         public static long subtract(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType("interval year to month") long interval)
+                @SqlType("interval year(q) to month") long interval)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
 
-        @LiteralParameters("p")
+        @LiteralParameters({"p", "q"})
         @SqlType("timestamp(p)")
         public static LongTimestamp subtract(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType("interval year to month") long interval)
+                @SqlType("interval year(q) to month") long interval)
         {
             return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
@@ -177,53 +243,67 @@ public final class TimestampOperators
     {
         private TimestampMinusIntervalDayToSecond() {}
 
-        @LiteralParameters({"p", "u"})
+        @LiteralParameters({"p", "q", "r", "u"})
         @SqlType("timestamp(u)")
-        @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
         public static long subtract(
                 @SqlType("timestamp(p)") long timestamp,
-                @SqlType("interval day to second") long interval)
+                @SqlType("interval day(q) to second(r)") long interval)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
         }
 
-        @LiteralParameters({"p", "u"})
+        @LiteralParameters({"p", "q", "r", "u"})
         @SqlType("timestamp(u)")
-        @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
         public static LongTimestamp subtract(
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
-                @SqlType("interval day to second") long interval)
+                @SqlType("interval day(q) to second(r)") long interval)
         {
             return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("timestamp(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static LongTimestamp subtract(
+                @SqlType("timestamp(p)") long timestamp,
+                @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            return subtractLongInterval(timestamp, 0, interval);
+        }
+
+        @LiteralParameters({"p", "q", "r", "u"})
+        @SqlType("timestamp(u)")
+        @Constraint(variable = "u", expression = "max(6, max(r, p))")
+        public static LongTimestamp subtract(
+                @SqlType("timestamp(p)") LongTimestamp timestamp,
+                @SqlType("interval day(q) to second(r)") LongInterval interval)
+        {
+            return subtractLongInterval(timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), interval);
         }
     }
 
-    @ScalarOperator(SUBTRACT)
-    public static final class TimestampMinusTimestamp
+    public static SqlScalarFunction timestampMinusTimestamp()
     {
-        private TimestampMinusTimestamp() {}
+        return dateTimeDifference(TimestampOperators.class, TIMESTAMP, "subtractTimestampsShort", "subtractTimestampsLong");
+    }
 
-        @LiteralParameters("p")
-        @SqlType("interval day to second")
-        public static long subtract(
-                @SqlType("timestamp(p)") long left,
-                @SqlType("timestamp(p)") long right)
-        {
-            long interval = left - right;
+    @UsedByGeneratedCode
+    public static long subtractTimestampsShort(long left, long right)
+    {
+        return left - right;
+    }
 
-            interval = round(interval, 3);
-            interval = rescale(interval, MAX_SHORT_PRECISION, 3);
-
-            return interval;
+    @UsedByGeneratedCode
+    public static LongInterval subtractTimestampsLong(LongTimestamp left, LongTimestamp right)
+    {
+        long micros = left.getEpochMicros() - right.getEpochMicros();
+        int picos = left.getPicosOfMicro() - right.getPicosOfMicro();
+        if (picos < 0) {
+            micros--;
+            picos += PICOSECONDS_PER_MICROSECOND;
         }
-
-        @LiteralParameters("p")
-        @SqlType("interval day to second")
-        public static long subtract(
-                @SqlType("timestamp(p)") LongTimestamp left,
-                @SqlType("timestamp(p)") LongTimestamp right)
-        {
-            return subtract(left.getEpochMicros(), right.getEpochMicros());
-        }
+        return new LongInterval(micros, picos);
     }
 }

@@ -31,7 +31,7 @@ public final class IntervalYearToMonthAverageAggregation
     private IntervalYearToMonthAverageAggregation() {}
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType("interval year to month") long value)
+    public static void input(LongAndDoubleState state, @SqlType("interval year(9) to month") long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
@@ -45,7 +45,7 @@ public final class IntervalYearToMonthAverageAggregation
     }
 
     @SqlNullable
-    @OutputFunction("interval year to month")
+    @OutputFunction("interval year(9) to month")
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

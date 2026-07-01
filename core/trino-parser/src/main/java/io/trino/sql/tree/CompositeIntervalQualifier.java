@@ -17,19 +17,19 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.OptionalInt;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public final class CompositeIntervalQualifier
         extends IntervalQualifier
 {
-    private final OptionalInt precision;
+    private final Optional<DataTypeParameter> precision;
     private final IntervalField from;
     private final IntervalField to;
 
     @Deprecated
-    public CompositeIntervalQualifier(OptionalInt precision, IntervalField from, IntervalField to)
+    public CompositeIntervalQualifier(Optional<DataTypeParameter> precision, IntervalField from, IntervalField to)
     {
         super();
 
@@ -38,7 +38,7 @@ public final class CompositeIntervalQualifier
         this.to = requireNonNull(to, "to is null");
     }
 
-    public CompositeIntervalQualifier(NodeLocation location, OptionalInt precision, IntervalField from, IntervalField to)
+    public CompositeIntervalQualifier(NodeLocation location, Optional<DataTypeParameter> precision, IntervalField from, IntervalField to)
     {
         super(location);
 
@@ -47,7 +47,7 @@ public final class CompositeIntervalQualifier
         this.to = requireNonNull(to, "to is null");
     }
 
-    public OptionalInt getPrecision()
+    public Optional<DataTypeParameter> getPrecision()
     {
         return precision;
     }
@@ -65,7 +65,7 @@ public final class CompositeIntervalQualifier
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return precision.map(parameter -> ImmutableList.<Node>of(parameter)).orElseGet(ImmutableList::of);
     }
 
     @Override
@@ -96,15 +96,15 @@ public final class CompositeIntervalQualifier
         builder.append(from.name());
         if (precision.isPresent()) {
             builder.append('(')
-                    .append(precision.getAsInt())
+                    .append(precision.get())
                     .append(')');
         }
         builder.append(" TO ")
                 .append(to.name());
 
-        if (to instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
+        if (to instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
             builder.append("(")
-                    .append(fractionalPrecision.getAsInt())
+                    .append(fractionalPrecision.get())
                     .append(")");
         }
 

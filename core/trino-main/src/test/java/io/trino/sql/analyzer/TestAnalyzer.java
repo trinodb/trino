@@ -1853,7 +1853,8 @@ public class TestAnalyzer
 
         assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE INTERVAL '1' day PRECEDING) FROM (VALUES INTERVAL '1' year) t(x)")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:44: Window frame RANGE value type (interval day to second) not compatible with sort item type (interval year to month)");
+                .hasMessageContaining("Window frame RANGE value type (interval day")
+                .hasMessageContaining("not compatible with sort item type (interval year");
 
         // window frame other than <expression> PRECEDING or <expression> FOLLOWING has no requirements regarding window ORDER BY clause
         // ORDER BY is not required
@@ -3838,73 +3839,23 @@ public class TestAnalyzer
     @Test
     void testInterval()
     {
-        assertFails("SELECT INTERVAL '1' YEAR(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+        // a fractional-seconds precision up to 12 (picoseconds) is accepted on a trailing SECOND
+        analyze("SELECT INTERVAL '1' DAY(1) TO SECOND(2)");
+        analyze("SELECT INTERVAL '1' HOUR(1) TO SECOND(2)");
+        analyze("SELECT INTERVAL '1' MINUTE(1) TO SECOND(2)");
+        analyze("SELECT INTERVAL '1' SECOND(1, 2)");
+        analyze("SELECT INTERVAL '1' SECOND(1, 12)");
+        analyze("SELECT CAST(NULL AS INTERVAL DAY TO SECOND(9))");
 
-        assertFails("SELECT INTERVAL '1' YEAR(1) TO MONTH")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+        // an out-of-range leading precision is rejected
+        assertFails("SELECT INTERVAL '1' DAY(10)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("INTERVAL day leading precision must be in range [1, 9]: 10");
 
-        assertFails("SELECT INTERVAL '1' MONTH(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO HOUR")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO MINUTE")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO SECOND")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' DAY(1) TO SECOND(2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1) TO MINUTE")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1) TO SECOND")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' HOUR(1) TO SECOND(2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' MINUTE(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' MINUTE(1) TO SECOND")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' MINUTE(1) TO SECOND(2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' SECOND(1)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
-
-        assertFails("SELECT INTERVAL '1' SECOND(1, 2)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+        // an out-of-range fractional-seconds precision is rejected
+        assertFails("SELECT INTERVAL '1' SECOND(1, 13)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("INTERVAL fractional seconds precision must be in range [0, 12]: 13");
     }
 
     @Test

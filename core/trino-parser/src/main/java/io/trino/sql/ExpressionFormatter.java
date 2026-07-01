@@ -40,6 +40,7 @@ import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
+import io.trino.sql.tree.DataTypeParameter;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
@@ -123,7 +124,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -421,12 +421,12 @@ public final class ExpressionFormatter
         @Override
         protected String visitSimpleIntervalQualifier(SimpleIntervalQualifier node, Void context)
         {
-            if (node.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
+            if (node.getField() instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
                 checkArgument(node.getPrecision().isPresent(), "Leading precision is required when fractional precision is specified");
-                return "SECOND(" + node.getPrecision().getAsInt() + ", " + fractionalPrecision.getAsInt() + ")";
+                return "SECOND(" + node.getPrecision().get() + ", " + fractionalPrecision.get() + ")";
             }
 
-            return node.getField().name() + (node.getPrecision().isPresent() ? "(" + node.getPrecision().getAsInt() + ")" : "");
+            return node.getField().name() + node.getPrecision().map(precision -> "(" + precision + ")").orElse("");
         }
 
         @Override
@@ -435,12 +435,12 @@ public final class ExpressionFormatter
             StringBuilder result = new StringBuilder();
             result.append(node.getFrom().name());
             if (node.getPrecision().isPresent()) {
-                result.append("(").append(node.getPrecision().getAsInt()).append(")");
+                result.append("(").append(node.getPrecision().get()).append(")");
             }
             result.append(" TO ");
             result.append(node.getTo().name());
-            if (node.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
-                result.append("(").append(fractionalPrecision.getAsInt()).append(")");
+            if (node.getTo() instanceof IntervalField.Second(Optional<DataTypeParameter> fractionalPrecision) && fractionalPrecision.isPresent()) {
+                result.append("(").append(fractionalPrecision.get()).append(")");
             }
             return result.toString();
         }

@@ -29,6 +29,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -37,8 +38,11 @@ import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.LongInterval;
 
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +65,6 @@ import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_WHE
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -145,10 +148,12 @@ public class CreateMaterializedViewTask
                     }
 
                     Type type = analysis.getType(expression);
-                    if (type != INTERVAL_DAY_TIME) {
-                        throw new TrinoException(TYPE_MISMATCH, "Unsupported grace period type %s, expected %s".formatted(type.getDisplayName(), INTERVAL_DAY_TIME.getDisplayName()));
+                    // Any day-time interval qualifier is a valid duration (e.g. INTERVAL '1' HOUR is
+                    // interval hour(1)); a year-month interval has no fixed length.
+                    if (!(type instanceof IntervalDayTimeType)) {
+                        throw new TrinoException(TYPE_MISMATCH, "Unsupported grace period type %s, expected a day-time interval".formatted(TypeSyntax.toSql(type.getTypeDescriptor())));
                     }
-                    Long milliseconds = (Long) evaluateConstant(
+                    Object value = evaluateConstant(
                             expression,
                             type,
                             parameterLookup,
@@ -156,8 +161,10 @@ public class CreateMaterializedViewTask
                             session,
                             accessControl);
                     // Sanity check. Impossible per grammar.
-                    verify(milliseconds != null, "Grace period cannot be null");
-                    return Duration.ofMillis(milliseconds);
+                    verify(value != null, "Grace period cannot be null");
+                    // A day-time interval holds microseconds, in a long (short form) or a LongInterval (long form).
+                    long microseconds = value instanceof LongInterval longInterval ? longInterval.getMicros() : (long) (Long) value;
+                    return Duration.of(microseconds, ChronoUnit.MICROS);
                 });
 
         WhenStaleBehavior whenStale = toConnectorWhenStaleBehavior(statement.getWhenStaleBehavior());

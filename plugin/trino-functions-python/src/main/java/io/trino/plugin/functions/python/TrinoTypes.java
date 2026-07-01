@@ -262,7 +262,9 @@ final class TrinoTypes
             case StandardTypes.DATE -> output.writeInt(toIntExact((long) value));
             case StandardTypes.TIME -> output.writeLong(picosToMicros((long) value));
             case StandardTypes.INTERVAL_YEAR_TO_MONTH -> output.writeInt(toIntExact((long) value));
-            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong((long) value);
+            // The Python guest represents a day-time interval as a millisecond count (datetime.timedelta);
+            // the engine value is microseconds, so truncate to milliseconds at the boundary.
+            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong((long) value / MICROSECONDS_PER_MILLISECOND);
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> output.writeBytes((Slice) value);
             case StandardTypes.VARCHAR,
@@ -345,7 +347,7 @@ final class TrinoTypes
     {
         switch (type.getBaseName()) {
             case StandardTypes.INTERVAL_YEAR_TO_MONTH -> output.writeInt(toIntExact(type.getLong(block, position)));
-            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong(type.getLong(block, position));
+            case StandardTypes.INTERVAL_DAY_TO_SECOND -> output.writeLong(type.getLong(block, position) / MICROSECONDS_PER_MILLISECOND);
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> output.writeBytes(type.getSlice(block, position));
             case StandardTypes.VARCHAR,
@@ -504,7 +506,7 @@ final class TrinoTypes
             case StandardTypes.REAL -> (long) input.readInt();
             case StandardTypes.DATE -> (long) input.readInt();
             case StandardTypes.INTERVAL_YEAR_TO_MONTH -> (long) input.readInt();
-            case StandardTypes.INTERVAL_DAY_TO_SECOND -> input.readLong();
+            case StandardTypes.INTERVAL_DAY_TO_SECOND -> input.readLong() * MICROSECONDS_PER_MILLISECOND;
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> input.readSlice(16);
             case StandardTypes.VARCHAR,

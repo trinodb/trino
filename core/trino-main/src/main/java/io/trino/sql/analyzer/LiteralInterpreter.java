@@ -46,20 +46,27 @@ import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
+import io.trino.type.LongInterval;
 
 import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
 import static io.trino.type.DateTimes.parseTimestamp;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.type.IntervalCasts.checkLeadingFieldPrecision;
+import static io.trino.type.IntervalCasts.negatePicos;
+import static io.trino.type.IntervalCasts.roundToLongInterval;
+import static io.trino.type.IntervalDayTimeType.MAX_SHORT_FRACTIONAL_PRECISION;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
+import static io.trino.util.DateTimeUtils.parseDayTimeIntervalToPicos;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
@@ -161,12 +168,8 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
+        protected Object visitIntervalLiteral(IntervalLiteral node, Void context)
         {
-            // TODO: the value should be interpreted according to the analyzed type. However, currently the analyzed type
-            //       is hard-coded to either INTERVAL DAY TO SECOND or INTERVAL YEAR TO MONTH, as arbitrary precision
-            //       invervals are not yet supported in the underlying type system.
-
             IntervalField start = switch (node.qualifier()) {
                 case SimpleIntervalQualifier simple -> simple.getField();
                 case CompositeIntervalQualifier composite -> composite.getFrom();
@@ -177,11 +180,32 @@ public final class LiteralInterpreter
                 case CompositeIntervalQualifier composite -> Optional.of(composite.getTo());
             };
 
-            return switch (type) {
-                case IntervalDayTimeType _ -> node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), start, end);
-                case IntervalYearMonthType _ -> node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), start, end);
+            int sign = node.getSign().multiplier();
+            // The value must fit the qualifier's leading precision: an inferred precision fits by
+            // construction, but an explicitly written one (INTERVAL '340' DAY(2)) can be exceeded.
+            switch (type) {
+                case IntervalDayTimeType intervalType -> {
+                    if (intervalType.isShort()) {
+                        // round the parsed microseconds to the precision, so INTERVAL '1.5678' SECOND(2) keeps two digits
+                        long value = round(sign * parseDayTimeInterval(node.getValue(), start, end), MAX_SHORT_FRACTIONAL_PRECISION - intervalType.getFractionalPrecision());
+                        checkLeadingFieldPrecision(value, type);
+                        return value;
+                    }
+                    long[] picos = parseDayTimeIntervalToPicos(node.getValue(), start, end);
+                    if (sign < 0) {
+                        picos = negatePicos(picos[0], picos[1]);
+                    }
+                    LongInterval value = roundToLongInterval(picos[0], picos[1], intervalType.getFractionalPrecision());
+                    checkLeadingFieldPrecision(value.getMicros(), value.getPicosOfMicro(), type);
+                    return value;
+                }
+                case IntervalYearMonthType _ -> {
+                    long value = sign * parseYearMonthInterval(node.getValue(), start, end);
+                    checkLeadingFieldPrecision(value, type);
+                    return value;
+                }
                 default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
-            };
+            }
         }
 
         @Override

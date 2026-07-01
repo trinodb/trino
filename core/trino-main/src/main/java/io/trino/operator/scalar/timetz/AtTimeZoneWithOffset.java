@@ -36,22 +36,22 @@ public final class AtTimeZoneWithOffset
 {
     private AtTimeZoneWithOffset() {}
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters({"x", "p", "q"})
     @SqlType("time(p) with time zone")
     public static long atTimeZone(
             @SqlType("time(p) with time zone") long packedTime,
-            @SqlType("interval day to second") long zoneOffset)
+            @SqlType("interval day(q) to second") long zoneOffset)
     {
         int offsetMinutes = getZoneOffsetMinutes(zoneOffset);
         long nanos = unpackTimeNanos(packedTime) - (unpackOffsetMinutes(packedTime) - offsetMinutes) * NANOSECONDS_PER_MINUTE;
         return packTimeWithTimeZone(floorMod(nanos, NANOSECONDS_PER_DAY), offsetMinutes);
     }
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters({"x", "p", "q"})
     @SqlType("time(p) with time zone")
     public static LongTimeWithTimeZone atTimeZone(
             @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
-            @SqlType("interval day to second") long zoneOffset)
+            @SqlType("interval day(q) to second") long zoneOffset)
     {
         int offsetMinutes = getZoneOffsetMinutes(zoneOffset);
         long picos = time.getPicoseconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;
@@ -60,7 +60,7 @@ public final class AtTimeZoneWithOffset
 
     private static int getZoneOffsetMinutes(long interval)
     {
-        checkCondition((interval % 60_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
-        return toIntExact(interval / 60_000L);
+        checkCondition((interval % 60_000_000L) == 0L, INVALID_FUNCTION_ARGUMENT, "Invalid time zone offset interval: interval contains seconds");
+        return toIntExact(interval / 60_000_000L);
     }
 }

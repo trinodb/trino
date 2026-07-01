@@ -26,8 +26,6 @@ import static io.trino.operator.scalar.SequenceFunction.checkValidStep;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampTypes.writeLongTimestamp;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static java.lang.Math.multiplyExact;
 
 @ScalarFunction("sequence")
 public final class SequenceIntervalDayToSecond
@@ -38,15 +36,14 @@ public final class SequenceIntervalDayToSecond
 
     private SequenceIntervalDayToSecond() {}
 
-    @LiteralParameters("p")
+    @LiteralParameters({"p", "q"})
     @SqlType("array(timestamp(p))")
     public static Block sequence(
             @SqlType("timestamp(p)") long start,
             @SqlType("timestamp(p)") long stop,
-            @SqlType("interval day to second") long step)
+            @SqlType("interval day(q) to second") long step)
     {
         // scale to micros
-        step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND);
 
         checkValidStep(start, stop, step);
 
@@ -59,15 +56,13 @@ public final class SequenceIntervalDayToSecond
         return blockBuilder.build();
     }
 
-    @LiteralParameters("p")
+    @LiteralParameters({"p", "q"})
     @SqlType("array(timestamp(p))")
     public static Block sequence(
             @SqlType("timestamp(p)") LongTimestamp start,
             @SqlType("timestamp(p)") LongTimestamp stop,
-            @SqlType("interval day to second") long step)
+            @SqlType("interval day(q) to second") long step)
     {
-        step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND); // scale to micros
-
         long startMicros = start.getEpochMicros();
         long stopMicros = stop.getEpochMicros();
         checkValidStep(startMicros, stopMicros, step);
