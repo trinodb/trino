@@ -121,7 +121,7 @@ public class DecimalColumnReader
             checkDataStreamsArePresent();
             block = readNonNullBlock();
         }
-        else if (type.isShort()) {
+        else {
             checkDataStreamsArePresent();
             long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
             int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
@@ -130,21 +130,7 @@ public class DecimalColumnReader
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readShortNullBlock(valueIsValid, nonNullCount);
-            }
-            else {
-                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
-            }
-        }
-        else {
-            checkDataStreamsArePresent();
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
-            if (nullCount == 0) {
-                block = readNonNullBlock();
-            }
-            else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -217,13 +203,17 @@ public class DecimalColumnReader
         return new Int128ArrayBlock(nextBatchSize, Optional.empty(), data);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
-        if (!type.isShort()) {
-            return readLongNullBlock(isNull, nonNullCount);
+        Block block;
+        if (type.isShort()) {
+            block = readShortNullBlock(valueIsValid, nonNullCount);
         }
-        throw new VerifyError("Unsupported type " + type);
+        else {
+            block = readLongNullBlock(valueIsValid, nonNullCount);
+        }
+        return block;
     }
 
     private Block readShortNullBlock(long[] valueIsValid, int nonNullCount)
@@ -252,7 +242,7 @@ public class DecimalColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
-    private Block readLongNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readLongNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(decimalStream);
@@ -274,9 +264,9 @@ public class DecimalColumnReader
             }
         }
 
-        long[] result = unpackInt128Nulls(nonNullValueTemp, isNull);
+        long[] result = unpackInt128Nulls(nonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new Int128ArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        return new Int128ArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
     private void openRowGroup()
