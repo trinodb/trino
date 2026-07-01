@@ -14,7 +14,7 @@
 package io.trino.faulttolerant.hive;
 
 import io.trino.Session;
-import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
+import io.trino.faulttolerant.BaseFaultTolerantExecutionCoverage;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -25,10 +25,10 @@ import org.junit.jupiter.api.Timeout;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
-public class TestHiveFaultTolerantExecutionTest
-        extends BaseFaultTolerantExecutionTest
+public class TestHiveFaultTolerantExecutionCoverage
+        extends BaseFaultTolerantExecutionCoverage
 {
-    public TestHiveFaultTolerantExecutionTest()
+    public TestHiveFaultTolerantExecutionCoverage()
     {
         super("partitioned_by");
     }

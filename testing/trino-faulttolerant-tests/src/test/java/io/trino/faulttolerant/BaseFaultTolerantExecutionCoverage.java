@@ -21,12 +21,12 @@ import org.junit.jupiter.api.Test;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseFaultTolerantExecutionTest
+public abstract class BaseFaultTolerantExecutionCoverage
         extends AbstractTestQueryFramework
 {
     private final String partitioningTablePropertyName;
 
-    protected BaseFaultTolerantExecutionTest(String partitioningTablePropertyName)
+    protected BaseFaultTolerantExecutionCoverage(String partitioningTablePropertyName)
     {
         this.partitioningTablePropertyName = requireNonNull(partitioningTablePropertyName, "partitioningTablePropertyName is null");
     }

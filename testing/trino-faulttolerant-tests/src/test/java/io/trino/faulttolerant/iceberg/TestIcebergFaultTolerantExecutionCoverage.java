@@ -11,43 +11,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.faulttolerant.delta;
+package io.trino.faulttolerant.iceberg;
 
-import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
-import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
+import io.trino.faulttolerant.BaseFaultTolerantExecutionCoverage;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
-public class TestDeltaFaultTolerantExecutionTest
-        extends BaseFaultTolerantExecutionTest
+public class TestIcebergFaultTolerantExecutionCoverage
+        extends BaseFaultTolerantExecutionCoverage
 {
-    private final String bucketName = "test-fte-preferred-write-partitioning-" + randomNameSuffix();
-
-    public TestDeltaFaultTolerantExecutionTest()
+    public TestIcebergFaultTolerantExecutionCoverage()
     {
-        super("partitioned_by");
+        super("partitioning");
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Hive3FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
-        hiveFlociDataLake.start();
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
+        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
         minioStorage.start();
 
-        return DeltaLakeQueryRunner.builder()
-                .addExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
                 .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
-                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
-                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
-                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .build();
     }
 }
