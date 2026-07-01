@@ -413,12 +413,7 @@ public class CompressingEncryptingPageSerializer
             boolean compressed = uncompressedSize * MINIMUM_COMPRESSION_RATIO > compressedSize;
             int blockSize;
             if (!compressed) {
-                System.arraycopy(
-                        sourceBuffer.getSlice().byteArray(),
-                        sourceBuffer.getSlice().byteArrayOffset(),
-                        sinkBuffer.getSlice().byteArray(),
-                        sinkBuffer.getSlice().byteArrayOffset() + sinkBuffer.getPosition() + Integer.BYTES,
-                        uncompressedSize);
+                sourceBuffer.getSlice().getBytes(0, sinkBuffer.getSlice(), sinkBuffer.getPosition() + Integer.BYTES, uncompressedSize);
                 blockSize = uncompressedSize;
             }
             else {

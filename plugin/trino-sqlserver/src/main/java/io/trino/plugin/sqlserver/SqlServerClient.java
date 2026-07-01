@@ -1138,7 +1138,11 @@ public class SqlServerClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> format("SELECT TOP %s * FROM (%s) o", limit, sql));
+        // Use OFFSET/FETCH rather than wrapping in `SELECT TOP n * FROM (...)`: the wrapping `SELECT *` re-applies
+        // SQL Server's rule that HIDDEN columns (e.g. temporal period columns) are excluded from `SELECT *`, which
+        // drops columns the inner projection selected explicitly and misaligns ordinal-based reads.
+        // ORDER BY (SELECT NULL) satisfies the OFFSET/FETCH requirement for an ORDER BY without imposing an ordering.
+        return Optional.of((sql, limit) -> format("%s ORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY", sql, limit));
     }
 
     @Override

@@ -248,7 +248,8 @@ public final class ByteArrayBlock
         return Slices.wrappedBuffer(values, arrayOffset, positionCount);
     }
 
-    boolean[] getRawValueIsNull()
+    @Nullable
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }

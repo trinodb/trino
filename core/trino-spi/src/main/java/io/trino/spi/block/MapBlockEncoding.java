@@ -61,7 +61,7 @@ public class MapBlockEncoding
         int positionCount = mapBlock.getPositionCount();
 
         int offsetBase = mapBlock.getOffsetBase();
-        int[] offsets = mapBlock.getOffsets();
+        int[] offsets = mapBlock.getRawOffsets();
         Optional<int[]> hashTable = mapBlock.getHashTables().tryGet();
 
         int entriesStartOffset = offsets[offsetBase];

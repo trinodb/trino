@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>391</version>
+        <version>392</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -207,7 +207,7 @@
         <dep.protobuf.version>4.35.1</dep.protobuf.version>
         <dep.swagger.version>2.2.52</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
-        <dep.tcnative.version>2.0.79.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.80.Final</dep.tcnative.version>
         <dep.tempto.version>204</dep.tempto.version>
         <dep.testng.version>7.8.0</dep.testng.version>
         <dep.zookeeper.version>3.9.5</dep.zookeeper.version>

@@ -351,7 +351,7 @@ public interface TrinoFileSystem
 
     /**
      * Returns the direct pre-signed URI location for the given storage location.
-     * <p></p>
+     * <p>
      * Pre-signed URIs allow for retrieval of the files directly from the storage location.
      * This is useful for large files where the server would be a bottleneck.
      *

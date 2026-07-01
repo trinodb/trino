@@ -242,7 +242,7 @@ public class LocalFileSystemExchangeStorage
         public ListenableFuture<Void> write(Slice slice)
         {
             try {
-                outputStream.write(slice.getBytes());
+                outputStream.write(slice.byteArray(), slice.byteArrayOffset(), slice.length());
             }
             catch (IOException | RuntimeException e) {
                 return immediateFailedFuture(e);

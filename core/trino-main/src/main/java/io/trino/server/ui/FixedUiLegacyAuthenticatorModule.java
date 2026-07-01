@@ -19,7 +19,7 @@ import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class FixedUiAuthenticatorModule
+public class FixedUiLegacyAuthenticatorModule
         implements Module
 {
     @Override

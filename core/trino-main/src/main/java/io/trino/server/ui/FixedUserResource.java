@@ -22,18 +22,18 @@ import jakarta.ws.rs.Produces;
 import java.util.Optional;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_PREVIEW_AUTH_INFO;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_AUTH_INFO;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
 
-@Path(UI_PREVIEW_AUTH_INFO)
+@Path(UI_AUTH_INFO)
 @ResourceSecurity(WEB_UI)
-public class FixedUserPreviewResource
+public class FixedUserResource
 {
     private final String username;
 
     @Inject
-    public FixedUserPreviewResource(FixedUserWebUiConfig config)
+    public FixedUserResource(FixedUserWebUiConfig config)
     {
         this.username = requireNonNull(config, "config is null").getUsername();
     }
