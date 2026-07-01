@@ -2475,7 +2475,7 @@ public abstract class BaseDeltaLakeConnectorSmokeCoverage
     }
 
     @RepeatedTest(3)
-    // Test from BaseConnectorTest
+    // Test from BaseConnectorCoverage
     public void testCreateOrReplaceTableConcurrently()
             throws Exception
     {

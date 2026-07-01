@@ -54,7 +54,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * A connector smoke test exercising various connector functionalities without going in depth on any of them.
- * A connector should implement {@link BaseConnectorTest} and use this class to exercise some configuration variants.
+ * A connector should implement {@link BaseConnectorCoverage} and use this class to exercise some configuration variants.
  */
 public abstract class BaseConnectorSmokeCoverage
         extends AbstractTestQueryFramework

@@ -23,7 +23,7 @@ import java.util.Map;
 import static com.google.common.base.Verify.verify;
 
 /**
- * Duplicates {@link TestPostgreSqlConnectorTest} but also verifies {@link BaseJdbcConnectorSmokeCoverage}
+ * Duplicates {@link TestPostgreSqlConnectorCoverage} but also verifies {@link BaseJdbcConnectorSmokeCoverage}
  * with a JDBC connector that is feature-reach.
  */
 public class TestPostgreSqlConnectorSmokeCoverage

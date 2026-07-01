@@ -22,7 +22,7 @@ import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABL
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-// Redundant over TestHiveConnectorTest, but exists to exercise BaseConnectorSmokeCoverage
+// Redundant over TestHiveConnectorCoverage, but exists to exercise BaseConnectorSmokeCoverage
 // Some features like views may be supported by Hive only.
 public class TestHiveConnectorSmokeCoverage
         extends BaseConnectorSmokeCoverage

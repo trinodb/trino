@@ -322,7 +322,7 @@
                             <excludes>
                                 <exclude>**/TestRedshiftAutomaticJoinPushdown.java</exclude>
                                 <exclude>**/TestRedshiftCastPushdown.java</exclude>
-                                <exclude>**/TestRedshiftConnectorTest.java</exclude>
+                                <exclude>**/TestRedshiftConnectorCoverage.java</exclude>
                                 <exclude>**/TestRedshiftUnload.java</exclude>
                                 <exclude>**/TestRedshiftConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>

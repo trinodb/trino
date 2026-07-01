@@ -99,7 +99,7 @@ create ephemeral Amazon Redshift clusters:
 
 ### AWS Lambda setup
 
-The test `io.trino.plugin.redshift.TestRedshiftConnectorTest.testCancellation` relies on an AWS Lambda function to simulate a long running query 
+The test `io.trino.plugin.redshift.TestRedshiftConnectorCoverage.testCancellation` relies on an AWS Lambda function to simulate a long running query 
 in Redshift and test the cancellation of it.
 Below are the steps to create and configure the AWS Lambda function:
 

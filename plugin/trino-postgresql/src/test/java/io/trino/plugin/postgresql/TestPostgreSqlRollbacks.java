@@ -32,7 +32,7 @@ import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.base.TemporaryTables.TEMPORARY_TABLE_NAME_PREFIX;
-import static io.trino.plugin.jdbc.BaseJdbcConnectorTest.getQueryId;
+import static io.trino.plugin.jdbc.BaseJdbcConnectorCoverage.getQueryId;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;

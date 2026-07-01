@@ -856,7 +856,7 @@ public class BigQueryMetadata
     @Override
     public Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
     {
-        // TODO Enable BaseBigQueryConnectorTest.testTableSampleBernoulli when supporting this pushdown
+        // TODO Enable BaseBigQueryConnectorCoverage.testTableSampleBernoulli when supporting this pushdown
         return ConnectorMetadata.super.applySample(session, handle, sampleType, sampleRatio);
     }
 
