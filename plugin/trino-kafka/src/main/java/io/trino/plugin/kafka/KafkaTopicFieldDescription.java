@@ -13,10 +13,7 @@
  */
 package io.trino.plugin.kafka;
 
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
-
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -51,15 +48,5 @@ public record KafkaTopicFieldDescription(
                 keyCodec,
                 hidden(),
                 false);
-    }
-
-    ColumnMetadata columnMetadata()
-    {
-        return ColumnMetadata.builder()
-                .setName(name())
-                .setType(type())
-                .setComment(Optional.ofNullable(comment()))
-                .setHidden(hidden())
-                .build();
     }
 }

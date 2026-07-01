@@ -28,6 +28,8 @@ import static java.util.Objects.requireNonNull;
 public final class KafkaColumnHandle
         implements EncoderColumnHandle, DecoderColumnHandle
 {
+    public static final String PREFIX_KEY = "key_";
+    public static final String PREFIX_VALUE = "value_";
     /**
      * Column Name
      */
@@ -79,7 +81,7 @@ public final class KafkaColumnHandle
             @JsonProperty("hidden") boolean hidden,
             @JsonProperty("internal") boolean internal)
     {
-        this.name = requireNonNull(name, "name is null");
+        requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.mapping = mapping;
         this.dataFormat = dataFormat;
@@ -87,13 +89,26 @@ public final class KafkaColumnHandle
         this.keyCodec = keyCodec;
         this.hidden = hidden;
         this.internal = internal;
+
+        if (!internal && keyCodec && name.startsWith(PREFIX_KEY)) {
+            this.name = name.substring(PREFIX_KEY.length());
+        }
+        else if (!internal && !keyCodec && name.startsWith(PREFIX_VALUE)) {
+            this.name = name.substring(PREFIX_VALUE.length());
+        }
+        else {
+            this.name = name;
+        }
     }
 
     @Override
     @JsonProperty
     public String getName()
     {
-        return name;
+        if (internal) {
+            return name;
+        }
+        return (keyCodec ? PREFIX_KEY : PREFIX_VALUE) + name;
     }
 
     @Override
@@ -146,7 +161,7 @@ public final class KafkaColumnHandle
     ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
-                .setName(name)
+                .setName(getName())
                 .setType(type)
                 .setHidden(hidden)
                 .build();

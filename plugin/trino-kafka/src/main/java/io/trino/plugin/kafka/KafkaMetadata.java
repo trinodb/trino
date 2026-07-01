@@ -221,7 +221,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = key.fields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.columnMetadata());
+                    builder.add(fieldDescription.columnHandle(true).getColumnMetadata());
                 }
             }
         });
@@ -230,7 +230,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = message.fields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.columnMetadata());
+                    builder.add(fieldDescription.columnHandle(false).getColumnMetadata());
                 }
             }
         });
