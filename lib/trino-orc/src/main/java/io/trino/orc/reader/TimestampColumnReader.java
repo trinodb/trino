@@ -202,7 +202,7 @@ public class TimestampColumnReader
         else if (presentStream == null) {
             block = readNonNullBlock();
         }
-        else if (usesLongArrayBlock()) {
+        else {
             long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
             int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
             int nullCount = nextBatchSize - nonNullCount;
@@ -210,20 +210,7 @@ public class TimestampColumnReader
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readNullLongBlock(valueIsValid);
-            }
-            else {
-                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
-            }
-        }
-        else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
-            if (nullCount == 0) {
-                block = readNonNullBlock();
-            }
-            else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull);
+                block = readNullBlock(valueIsValid);
             }
             else {
                 block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -261,28 +248,7 @@ public class TimestampColumnReader
         };
     }
 
-    private boolean usesLongArrayBlock()
-    {
-        return switch (timestampKind) {
-            case TIMESTAMP_MILLIS, TIMESTAMP_MICROS, INSTANT_MILLIS -> true;
-            case TIMESTAMP_NANOS, INSTANT_MICROS, INSTANT_NANOS -> false;
-        };
-    }
-
-    private Block readNullBlock(boolean[] isNull)
-            throws IOException
-    {
-        verifyStreamsPresent();
-
-        return switch (timestampKind) {
-            case TIMESTAMP_NANOS -> readNullTimestampNanos(isNull);
-            case INSTANT_MICROS -> readNullInstantMicros(isNull);
-            case INSTANT_NANOS -> readNullInstantNanos(isNull);
-            case TIMESTAMP_MILLIS, TIMESTAMP_MICROS, INSTANT_MILLIS -> throw new VerifyError("Unsupported type " + type);
-        };
-    }
-
-    private Block readNullLongBlock(long[] valueIsValid)
+    private Block readNullBlock(long[] valueIsValid)
             throws IOException
     {
         verifyStreamsPresent();
@@ -290,8 +256,10 @@ public class TimestampColumnReader
         return switch (timestampKind) {
             case TIMESTAMP_MILLIS -> readNullTimestampMillis(valueIsValid);
             case TIMESTAMP_MICROS -> readNullTimestampMicros(valueIsValid);
+            case TIMESTAMP_NANOS -> readNullTimestampNanos(valueIsValid);
             case INSTANT_MILLIS -> readNullInstantMillis(valueIsValid);
-            case TIMESTAMP_NANOS, INSTANT_MICROS, INSTANT_NANOS -> throw new VerifyError("Unsupported type " + type);
+            case INSTANT_MICROS -> readNullInstantMicros(valueIsValid);
+            case INSTANT_NANOS -> readNullInstantNanos(valueIsValid);
         };
     }
 
@@ -497,16 +465,16 @@ public class TimestampColumnReader
         return new Fixed12Block(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullTimestampNanos(boolean[] isNull)
+    private Block readNullTimestampNanos(long[] valueIsValid)
             throws IOException
     {
         int[] values = new int[nextBatchSize * 3];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isSet(valueIsValid, 0, i)) {
                 readTimestampNanos(i, values);
             }
         }
-        return new Fixed12Block(nextBatchSize, Optional.of(isNull), values);
+        return new Fixed12Block(nextBatchSize, Optional.of(valueIsValid), values);
     }
 
     private void readTimestampNanos(int i, int[] values)
@@ -599,16 +567,16 @@ public class TimestampColumnReader
         return new Fixed12Block(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullInstantMicros(boolean[] isNull)
+    private Block readNullInstantMicros(long[] valueIsValid)
             throws IOException
     {
         int[] values = new int[nextBatchSize * 3];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isSet(valueIsValid, 0, i)) {
                 readInstantMicros(i, values);
             }
         }
-        return new Fixed12Block(nextBatchSize, Optional.of(isNull), values);
+        return new Fixed12Block(nextBatchSize, Optional.of(valueIsValid), values);
     }
 
     private void readInstantMicros(int i, int[] values)
@@ -655,16 +623,16 @@ public class TimestampColumnReader
         return new Fixed12Block(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullInstantNanos(boolean[] isNull)
+    private Block readNullInstantNanos(long[] valueIsValid)
             throws IOException
     {
         int[] values = new int[nextBatchSize * 3];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isSet(valueIsValid, 0, i)) {
                 readInstantNanos(i, values);
             }
         }
-        return new Fixed12Block(nextBatchSize, Optional.of(isNull), values);
+        return new Fixed12Block(nextBatchSize, Optional.of(valueIsValid), values);
     }
 
     private void readInstantNanos(int i, int[] values)
