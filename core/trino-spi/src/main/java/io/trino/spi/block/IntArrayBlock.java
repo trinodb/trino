@@ -225,7 +225,8 @@ public final class IntArrayBlock
         return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
     }
 
-    boolean[] getRawValueIsNull()
+    @Nullable
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }

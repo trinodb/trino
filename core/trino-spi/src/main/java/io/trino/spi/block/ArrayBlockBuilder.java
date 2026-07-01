@@ -169,7 +169,7 @@ public class ArrayBlockBuilder
         }
 
         int offsetBase = arrayBlock.getOffsetBase();
-        int[] offsets = arrayBlock.getOffsets();
+        int[] offsets = arrayBlock.getRawOffsets();
         int startOffset = offsets[offsetBase + position];
         int length = offsets[offsetBase + position + 1] - startOffset;
 
@@ -200,7 +200,7 @@ public class ArrayBlockBuilder
         ArrayBlock arrayBlock = (ArrayBlock) block;
 
         int rawOffsetBase = arrayBlock.getOffsetBase();
-        int[] rawOffsets = arrayBlock.getOffsets();
+        int[] rawOffsets = arrayBlock.getRawOffsets();
         int startOffset = rawOffsets[rawOffsetBase + offset];
         int endOffset = rawOffsets[rawOffsetBase + offset + length];
 

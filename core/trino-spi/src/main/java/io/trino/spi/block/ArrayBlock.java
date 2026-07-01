@@ -166,23 +166,23 @@ public final class ArrayBlock
         return values.getRegion(start, end - start);
     }
 
-    Block getRawElementBlock()
+    public Block getRawElementBlock()
     {
         return values;
     }
 
-    int[] getOffsets()
+    public int[] getRawOffsets()
     {
         return offsets;
     }
 
     @Nullable
-    boolean[] getRawValueIsNull()
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }
 
-    int getOffsetBase()
+    public int getOffsetBase()
     {
         return arrayOffset;
     }

@@ -225,17 +225,18 @@ public final class LongArrayBlock
         return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
     }
 
-    int getRawValuesOffset()
+    public int getRawValuesOffset()
     {
         return arrayOffset;
     }
 
-    long[] getRawValues()
+    public long[] getRawValues()
     {
         return values;
     }
 
-    boolean[] getRawValueIsNull()
+    @Nullable
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }
