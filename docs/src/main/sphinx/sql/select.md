@@ -1000,6 +1000,11 @@ affects the order of rows for queries that immediately contain the clause.
 Trino follows that specification, and drops redundant usage of the clause to
 avoid negative performance impacts.
 
+A query enclosed in parentheses is also a separate query for this rule. When
+the final statement is a parenthesized query, an `ORDER BY` inside the
+parentheses is not treated as the final result ordering. Remove the redundant
+parentheses or place `ORDER BY` outside them to order the returned rows.
+
 In the following example, the clause only applies to the select statement.
 
 ```SQL
