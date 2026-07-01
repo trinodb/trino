@@ -14,6 +14,7 @@ cluster. Queries that exceed this limit are killed.
 
 - **Type:** {ref}`prop-type-heap-size`
 - **Default value:** (30% of maximum heap size on the node)
+- **Session property:** `query_max_memory_per_node`
 
 This is the max amount of user memory a query can use on a worker.
 User memory is allocated during execution for things that are directly
@@ -21,6 +22,9 @@ attributable to, or controllable by, a user query. For example, memory used
 by the hash tables built during execution, memory used during sorting, etc.
 When the user memory allocation of a query on any worker hits this limit,
 it is killed.
+
+The session property can only decrease the configured per-node memory limit,
+not increase it.
 
 :::{warning}
 The sum of {ref}`prop-resource-query-max-memory-per-node` and
