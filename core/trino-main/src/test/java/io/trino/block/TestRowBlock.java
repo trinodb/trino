@@ -73,8 +73,9 @@ public class TestRowBlock
                 new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes()),
         }).mayHaveNull()).isTrue();
         rowIsNull[rowIsNull.length - 1] = true;
+        long[] rowValidity = {0b01111};
         assertThat(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowIsNull), new Block[] {
-                new ByteArrayBlock(5, Optional.of(rowIsNull), createExpectedValue(5).getBytes()),
+                new ByteArrayBlock(5, Optional.of(rowValidity), createExpectedValue(5).getBytes()),
         }).mayHaveNull()).isTrue();
 
         // Empty blocks have no nulls and can also discard their null mask
@@ -102,12 +103,13 @@ public class TestRowBlock
     {
         Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
         boolean[] rowIsNull = {false, true, false, false, false, false};
+        long[] rowValidity = {0b111101};
 
         // NOTE: nested row blocks are required to have the exact same size so they are always compact
         assertCompact(fromFieldBlocks(0, new Block[] {emptyBlock, emptyBlock}));
         assertCompact(fromNotNullSuppressedFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {
-                new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes()),
-                new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes()),
+                new ByteArrayBlock(6, Optional.of(rowValidity), createExpectedValue(6).getBytes()),
+                new ByteArrayBlock(6, Optional.of(rowValidity), createExpectedValue(6).getBytes()),
         }));
     }
 

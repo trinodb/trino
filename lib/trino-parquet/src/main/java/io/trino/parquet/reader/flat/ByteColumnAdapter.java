@@ -40,9 +40,9 @@ public class ByteColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, byte[] values)
+    public Block createNullableBlock(long[] valueIsValid, byte[] values)
     {
-        return new ByteArrayBlock(values.length, Optional.of(nulls), values);
+        return new ByteArrayBlock(values.length, Optional.of(valueIsValid), values);
     }
 
     @Override

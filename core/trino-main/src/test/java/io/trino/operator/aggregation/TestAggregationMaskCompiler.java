@@ -28,6 +28,8 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -222,12 +224,23 @@ public class TestAggregationMaskCompiler
         int positionCount = nulls.length;
         byte[] mask = new byte[positionCount];
         Arrays.fill(mask, (byte) 1);
-        return new ByteArrayBlock(positionCount, Optional.of(nulls), mask);
+        return new ByteArrayBlock(positionCount, Optional.of(toValidity(nulls)), mask);
     }
 
     private static Block createMaskBlockNullsRle(int positionCount, boolean nullValue)
     {
         return RunLengthEncodedBlock.create(createMaskBlockNulls(new boolean[] {nullValue}), positionCount);
+    }
+
+    private static long[] toValidity(boolean[] isNull)
+    {
+        long[] validity = new long[wordsForBits(isNull.length)];
+        for (int position = 0; position < isNull.length; position++) {
+            if (!isNull[position]) {
+                set(validity, 0, position);
+            }
+        }
+        return validity;
     }
 
     private static Page buildSingleColumnPage(int positionCount)
