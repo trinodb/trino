@@ -67,8 +67,8 @@ public class TestDeleteAndInsertMergeProcessor
                 makeVarcharArrayBlock(null, "Dave"), // customer
                 new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 11}), // purchases
                 makeVarcharArrayBlock(null, "Devon"), // address
-                new ByteArrayBlock(2, Optional.of(new boolean[] {true, false}), new byte[] {0, 1}), // "present" boolean
-                new ByteArrayBlock(2, Optional.of(new boolean[] {true, false}), new byte[] {0, DELETE_OPERATION_NUMBER}), // "present" boolean
+                new ByteArrayBlock(2, Optional.of(new long[] {0b10}), new byte[] {0, 1}), // "present" boolean
+                new ByteArrayBlock(2, Optional.of(new long[] {0b10}), new byte[] {0, DELETE_OPERATION_NUMBER}), // "present" boolean
                 new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 0}),
         };
         Page inputPage = new Page(

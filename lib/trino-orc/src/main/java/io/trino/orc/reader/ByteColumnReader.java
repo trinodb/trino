@@ -42,6 +42,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
@@ -123,6 +124,20 @@ public class ByteColumnReader
         else if (presentStream == null) {
             block = readNonNullBlock();
         }
+        else if (type == TINYINT) {
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = byteReadNullBlock(valueIsValid, nonNullCount);
+            }
+            else {
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            }
+        }
         else {
             boolean[] isNull = new boolean[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
@@ -158,6 +173,22 @@ public class ByteColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
+    private Block byteReadNullBlock(long[] valueIsValid, int nonNullCount)
+            throws IOException
+    {
+        verifyNotNull(dataStream);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (nonNullValueTemp.length < minNonNullValueSize) {
+            nonNullValueTemp = new byte[minNonNullValueSize];
+            memoryContext.setBytes(sizeOf(nonNullValueTemp));
+        }
+
+        dataStream.next(nonNullValueTemp, nonNullCount);
+
+        byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
+        return new ByteArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
+    }
+
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
@@ -171,9 +202,6 @@ public class ByteColumnReader
         dataStream.next(nonNullValueTemp, nonNullCount);
 
         byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, isNull);
-        if (type == TINYINT) {
-            return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
-        }
         if (type == INTEGER) {
             return new IntArrayBlock(nextBatchSize, Optional.of(isNull), convertToIntArray(result));
         }
