@@ -41,12 +41,12 @@ public final class SequenceIntervalYearToMonth
 
     private SequenceIntervalYearToMonth() {}
 
-    @LiteralParameters("p")
+    @LiteralParameters({"p", "q"})
     @SqlType("array(timestamp(p))")
     public static Block sequence(
             @SqlType("timestamp(p)") long start,
             @SqlType("timestamp(p)") long stop,
-            @SqlType("interval year to month") long step)
+            @SqlType("interval year(q) to month") long step)
     {
         checkValidStep(start, stop, step);
 
@@ -64,13 +64,13 @@ public final class SequenceIntervalYearToMonth
         return blockBuilder.build();
     }
 
-    @LiteralParameters("p")
+    @LiteralParameters({"p", "q"})
     @SqlType("array(timestamp(p))")
     public static Block sequence(
             ConnectorSession session,
             @SqlType("timestamp(p)") LongTimestamp start,
             @SqlType("timestamp(p)") LongTimestamp stop,
-            @SqlType("interval year to month") long step)
+            @SqlType("interval year(q) to month") long step)
     {
         checkValidStep(start.getEpochMicros(), stop.getEpochMicros(), step);
 

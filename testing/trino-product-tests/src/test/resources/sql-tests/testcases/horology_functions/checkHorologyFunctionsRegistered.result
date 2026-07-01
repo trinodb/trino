@@ -20,11 +20,10 @@
  date_trunc | timestamp(p) | varchar(x), timestamp(p) | scalar | true | Truncate to the specified precision in the session timezone |
  date_trunc | timestamp(p) with time zone | varchar(x), timestamp(p) with time zone | scalar | true | Truncate to the specified precision |
  day | bigint | date | scalar | true | Day of the month of the given date |
- day | bigint | interval day to second | scalar | true | Day of the month of the given interval |
+ day | bigint | interval day to second | scalar | true | Day of the given interval |
  day | bigint | timestamp(p) | scalar | true | Day of the month of the given timestamp |
  day | bigint | timestamp(p) with time zone | scalar | true | Day of the month of the given timestamp |
  day_of_month | bigint | date | scalar | true | Day of the month of the given date |
- day_of_month | bigint | interval day to second | scalar | true | Day of the month of the given interval |
  day_of_month | bigint | timestamp(p) | scalar | true | Day of the month of the given timestamp |
  day_of_month | bigint | timestamp(p) with time zone | scalar | true | Day of the month of the given timestamp |
  day_of_week | bigint | date | scalar | true | Day of the week of the given date |

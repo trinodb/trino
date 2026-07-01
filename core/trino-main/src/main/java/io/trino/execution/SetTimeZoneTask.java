@@ -128,7 +128,7 @@ public class SetTimeZoneTask
 
     private static long getZoneOffsetMinutes(long interval)
     {
-        checkCondition((interval % 60_000L) == 0L, INVALID_LITERAL, "Invalid TIME ZONE offset interval: interval contains seconds");
-        return interval / 60_000L;
+        checkCondition((interval % 60_000_000L) == 0L, INVALID_LITERAL, "Invalid TIME ZONE offset interval: interval contains seconds");
+        return interval / 60_000_000L;
     }
 }

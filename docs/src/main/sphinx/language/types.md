@@ -767,15 +767,91 @@ SELECT TIMESTAMP '2001-08-22 03:04:05.321 America/New_York';
 
 ### `INTERVAL YEAR TO MONTH`
 
-Span of years and months.
+Span of years and months. The qualifier is one of `YEAR`, `MONTH`, or
+`YEAR TO MONTH`.
 
 Example: `INTERVAL '3' MONTH`
 
 ### `INTERVAL DAY TO SECOND`
 
-Span of days, hours, minutes, seconds and milliseconds.
+Span of days, hours, minutes, and seconds, down to picosecond resolution. The
+qualifier is a single field — `DAY`, `HOUR`, `MINUTE`, or `SECOND` — or a range
+such as `DAY TO SECOND` or `HOUR TO MINUTE`. The leading field carries a
+[](interval-leading-precision), and a trailing `SECOND` field carries a
+[](interval-fractional-seconds-precision).
 
 Example: `INTERVAL '2' DAY`
+
+(interval-leading-precision)=
+### Interval leading precision
+
+The leading field of an interval has a *precision*: the maximum number of decimal
+digits it may hold, written in parentheses after the field, much like the
+precision of a `DECIMAL`.
+
+```
+INTERVAL DAY(3)             -- holds up to 999 days
+INTERVAL DAY(9) TO SECOND
+INTERVAL YEAR(2) TO MONTH
+```
+
+The precision comes from one of three sources:
+
+- A **bare qualifier** — written without parentheses, as in `INTERVAL DAY`, an
+  interval column type, or a cast target — has the implicit precision `2`, so it
+  holds up to 99 of the leading field.
+- An **interval literal** infers its precision from the value, so
+  `INTERVAL '340' DAY` has the type `INTERVAL DAY(3)`.
+- A **derived interval** — the result of interval arithmetic, or of subtracting
+  two datetimes — uses the *field maximum*, the precision sufficient to represent
+  any value the field can store: `DAY(9)`, `HOUR(10)`, `MINUTE(12)`, `SECOND(13)`,
+  `YEAR(9)`, or `MONTH(10)`. For example, `current_timestamp - ts` has the type
+  `INTERVAL DAY(9) TO SECOND`.
+
+A value that does not fit the declared leading precision is rejected with an
+*interval field overflow* error. For instance, `INTERVAL '340' DAY(2)` and
+`CAST('340' AS INTERVAL DAY(2))` both fail because 340 does not fit two digits,
+and `CAST(x AS INTERVAL DAY)` fails for any value of 100 days or more.
+
+(interval-fractional-seconds-precision)=
+### Interval fractional-seconds precision
+
+When the trailing field of a day-time interval is `SECOND`, it also carries a
+*fractional-seconds precision*: the number of digits kept after the decimal point,
+from `0` to `12` (picoseconds). It is the second argument of `SECOND`, written
+after the leading precision:
+
+```
+INTERVAL SECOND(13, 2)        -- two fractional digits
+INTERVAL DAY(9) TO SECOND(6)  -- microsecond precision
+INTERVAL DAY TO SECOND(12)    -- picosecond precision
+```
+
+A `SECOND` *type* written without a fractional precision — a column type or a
+cast target such as `CAST(x AS INTERVAL DAY TO SECOND)` — defaults to `6`
+(microseconds), so `INTERVAL DAY TO SECOND` is `INTERVAL DAY(2) TO SECOND(6)`. A
+qualifier whose trailing field is not `SECOND`, such as `DAY TO MINUTE`, has no
+fractional-seconds precision.
+
+An interval *literal* written without a fractional precision instead infers it
+from the number of fractional digits in the value, so the rendered text round-trips
+unchanged: `INTERVAL '1.123' SECOND` is `INTERVAL SECOND(1, 3)` and `INTERVAL '5'
+SECOND` is `INTERVAL SECOND(1, 0)`. (The leading precision is likewise inferred
+from the value's whole-part digits.)
+
+A value is rounded half-up to its declared precision, and renders with exactly
+that many fractional digits:
+
+```sql
+SELECT CAST(INTERVAL '1.2345' SECOND(13, 2) AS VARCHAR);  -- 0 00:00:01.23
+SELECT CAST(INTERVAL '1.9'    SECOND(13, 0) AS VARCHAR);  -- 0 00:00:02
+SELECT CAST(INTERVAL '1.5'    SECOND       AS VARCHAR);   -- 0 00:00:01.5
+```
+
+A **derived interval** keeps the fractional-seconds precision of its operands —
+the wider of the two for interval arithmetic, and the datetime's own precision
+when subtracting two datetimes — so `timestamp(9)` values yield a difference of
+type `INTERVAL DAY(9) TO SECOND(9)` that preserves all nine digits.
 
 (structural-data-types)=
 ## Structural

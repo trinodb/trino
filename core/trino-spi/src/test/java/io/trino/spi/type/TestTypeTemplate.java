@@ -56,6 +56,11 @@ class TestTypeTemplate
                 "row",
                 List.of(new TemplateParameter.TypeArgument(Optional.of("a\"b"), new TypeTemplate.TypeApplication("bigint", List.of())))).render())
                 .isEqualTo("row(\"a\"\"b\" bigint)");
+
+        // an interval renders generically too — its fields and precisions are just numeric parameters;
+        // the SQL qualifier spelling (`interval day(9) to second`) is the surface layer's job
+        assertThat(TypeTemplates.type("interval day to second", new NumericExpression.Literal(2), new NumericExpression.Literal(5), new NumericExpression.Literal(9)).render())
+                .isEqualTo("interval day to second(2,5,9)");
     }
 
     @Test

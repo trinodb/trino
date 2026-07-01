@@ -250,7 +250,7 @@ public class TestJsonValueFunction
         // parameter cast to varchar
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter' PASSING INTERVAL '2' DAY AS \"parameter\")"))
-                .matches("VALUES cast('2 00:00:00.000' AS varchar)");
+                .matches("VALUES cast('2 00:00:00' AS varchar)");
 
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter' PASSING UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59' AS \"parameter\")"))

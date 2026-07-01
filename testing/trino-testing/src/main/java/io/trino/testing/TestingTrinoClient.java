@@ -39,6 +39,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.variant.Metadata;
 import io.trino.spi.variant.Variant;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantWriter;
@@ -77,8 +79,6 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.MoreLists.mappedCopy;
@@ -327,10 +327,10 @@ public class TestingTrinoClient
             }
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
         }
-        if (type == INTERVAL_DAY_TIME) {
-            return new SqlIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
+        if (type instanceof IntervalDayTimeType) {
+            return new SqlIntervalDayTime(IntervalDayTime.parseMicros(String.valueOf(value)));
         }
-        if (type == INTERVAL_YEAR_MONTH) {
+        if (type instanceof IntervalYearMonthType) {
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
         if (type == JSON) {

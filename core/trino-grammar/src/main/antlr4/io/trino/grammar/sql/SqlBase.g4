@@ -830,15 +830,15 @@ type
     ;
 
 intervalQualifier
-  : YEAR ('(' precision=INTEGER_VALUE ')')? TO MONTH                                              #compositeYearToMonthInterval
-  | field=(YEAR | MONTH) ('(' precision=INTEGER_VALUE ')')?                                       #simpleYearMonthInterval
-  | start=(DAY | HOUR | MINUTE) ('(' leadingPrecision=INTEGER_VALUE ')')?
+  : YEAR ('(' precision=typeParameter ')')? TO MONTH                                              #compositeYearToMonthInterval
+  | field=(YEAR | MONTH) ('(' precision=typeParameter ')')?                                       #simpleYearMonthInterval
+  | start=(DAY | HOUR | MINUTE) ('(' leadingPrecision=typeParameter ')')?
     TO (
       end=HOUR |
       end=MINUTE |
-      end=SECOND ('(' fractionalPrecision=INTEGER_VALUE ')')?)                                    #compositeDayTimeInterval
-  | field=(DAY | HOUR | MINUTE) ('(' precision=INTEGER_VALUE ')')?                                #simpleDayTimeInterval
-  | SECOND ('(' leadingPrecision=INTEGER_VALUE (',' fractionalPrecision=INTEGER_VALUE)? ')')?     #secondsDayTimeInterval
+      end=SECOND ('(' fractionalPrecision=typeParameter ')')?)                                    #compositeDayTimeInterval
+  | field=(DAY | HOUR | MINUTE) ('(' precision=typeParameter ')')?                                #simpleDayTimeInterval
+  | SECOND ('(' leadingPrecision=typeParameter (',' fractionalPrecision=typeParameter)? ')')?     #secondsDayTimeInterval
   ;
 
 rowField

@@ -102,6 +102,16 @@ public final class TypeSyntax
                 && parameters.get(0).equals(Long.toString(VarcharType.UNBOUNDED_LENGTH))) {
             return base;
         }
+        // An interval's fields are spelled as an SQL qualifier (`day to second`), not generic parameters.
+        // In a function signature the fields may instead be numeric variables — a signature generic over
+        // every interval qualifier — which has no SQL field form; spell the canonical full qualifier, the
+        // same form the bare, unparameterized interval takes above.
+        if (base.equalsIgnoreCase(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
+            return isFieldCode(parameters.get(0)) && isFieldCode(parameters.get(1)) ? renderInterval(parameters) : "interval day to second";
+        }
+        if (base.equalsIgnoreCase(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+            return isFieldCode(parameters.get(0)) && isFieldCode(parameters.get(1)) ? renderInterval(parameters) : "interval year to month";
+        }
         return base + "(" + join(",", parameters) + ")";
     }
 
@@ -110,5 +120,32 @@ public final class TypeSyntax
         return parameters.isEmpty()
                 ? kind + " " + zone
                 : kind + "(" + parameters.get(0) + ") " + zone;
+    }
+
+    /// Renders an interval qualifier. The first two parameters are the start and end [IntervalField]
+    /// codes (always literal, so the keyword comes from the single [IntervalField] table); the third,
+    /// when present, is the leading-field precision and the fourth, for a `SECOND` trailing field, the
+    /// fractional-seconds precision. Precisions render verbatim — they may be a literal or, in a
+    /// [TypeTemplate], a variable name.
+    private static String renderInterval(List<String> parameters)
+    {
+        String start = IntervalField.fromCode(Integer.parseInt(parameters.get(0))).keyword();
+        String end = IntervalField.fromCode(Integer.parseInt(parameters.get(1))).keyword();
+        // The leading precision is omitted when unspecified (rendered as the zero sentinel); a declared
+        // precision is at least 1.
+        boolean hasLeading = parameters.size() > 2 && !parameters.get(2).equals("0");
+        String leading = hasLeading ? "interval " + start + "(" + parameters.get(2) + ")" : "interval " + start;
+        boolean secondEnd = end.equals("second") && parameters.size() > 3;
+        if (start.equals(end)) {
+            return secondEnd ? "interval second(" + parameters.get(2) + ", " + parameters.get(3) + ")" : leading;
+        }
+        return secondEnd ? leading + " to second(" + parameters.get(3) + ")" : leading + " to " + end;
+    }
+
+    /// Whether a rendered parameter is a concrete interval field code (digits) rather than a numeric
+    /// variable in a function signature.
+    private static boolean isFieldCode(String parameter)
+    {
+        return !parameter.isEmpty() && parameter.chars().allMatch(Character::isDigit);
     }
 }
