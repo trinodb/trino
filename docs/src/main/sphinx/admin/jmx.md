@@ -42,7 +42,9 @@ A small subset of the available metrics are described below.
 ## Trino cluster and nodes
 
 - Active nodes:
-  `trino.failuredetector:name=HeartbeatFailureDetector:ActiveCount`
+  `trino.node:name=CoordinatorNodeManager:ActiveNodeCount`
+- Inactive nodes:
+  `trino.node:name=CoordinatorNodeManager:InactiveNodeCount`
 - Free memory (general pool):
   `trino.memory:type=ClusterMemoryPool:name=general:FreeDistributedBytes`
 - Cumulative count (since Trino started) of queries that ran out of memory and were killed:
