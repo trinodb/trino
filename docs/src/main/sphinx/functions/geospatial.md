@@ -180,6 +180,9 @@ Returns the closure of the combinatorial boundary of this geometry.
 Returns the geometry that represents all points whose distance from the specified geometry
 is less than or equal to the specified distance. If the points of the geometry are extremely
 close together (``delta < 1e-8``), this might return an empty geometry.
+The distance value uses the coordinate units of the input `Geometry`. For example,
+if a geometry stores longitude and latitude coordinates, the distance is in degrees,
+not meters.
 :::
 
 :::{function} ST_Difference(first: Geometry, second: Geometry) -> Geometry
