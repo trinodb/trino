@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.testing.BaseDynamicPartitionPruningTest;
+import io.trino.testing.BaseDynamicPartitionPruningCoverage;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
@@ -24,8 +24,8 @@ import java.util.Map;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
-public class TestIcebergDynamicPartitionPruningTest
-        extends BaseDynamicPartitionPruningTest
+public class TestIcebergDynamicPartitionPruningCoverage
+        extends BaseDynamicPartitionPruningCoverage
 {
     @Override
     protected QueryRunner createQueryRunner()

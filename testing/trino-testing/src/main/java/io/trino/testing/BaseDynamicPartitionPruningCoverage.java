@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
 @Isolated
-public abstract class BaseDynamicPartitionPruningTest
+public abstract class BaseDynamicPartitionPruningCoverage
         extends AbstractTestQueryFramework
 {
     private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";

@@ -11,50 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake;
+package io.trino.plugin.hive;
 
-import io.trino.testing.BaseDynamicPartitionPruningTest;
+import com.google.common.collect.ImmutableMap;
+import io.trino.testing.BaseDynamicPartitionPruningCoverage;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.Test;
+import org.intellij.lang.annotations.Language;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.net.URI;
-import java.nio.file.Files;
 import java.util.List;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
-import static org.junit.jupiter.api.Assumptions.abort;
 
-public class TestDeltaLakeDynamicPartitionPruningTest
-        extends BaseDynamicPartitionPruningTest
+public class TestHiveDynamicPartitionPruningCoverage
+        extends BaseDynamicPartitionPruningCoverage
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return DeltaLakeQueryRunner.builder()
-                .addDeltaProperty("fs.hadoop.enabled", "true")
+        return HiveQueryRunner.builder()
                 .setExtraProperties(EXTRA_PROPERTIES)
-                .addDeltaProperty("delta.dynamic-filtering.wait-timeout", "1h")
-                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering.wait-timeout", "1h"))
                 .setInitialTables(REQUIRED_TABLES)
                 .build();
-    }
-
-    @Test
-    @Override
-    public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
-    {
-        abort("Delta Lake does not support bucketing");
     }
 
     @Override
     protected void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        String sql = format(
-                "CREATE TABLE %s WITH (partitioned_by=ARRAY[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
+        @Language("SQL") String sql = format(
+                "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
                 tableName,
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
                 String.join(",", columns));
@@ -64,11 +51,10 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     @Override
     protected void createPartitionedTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        String sql = format(
-                "CREATE TABLE %s (%s) WITH (location='%s', partitioned_by=ARRAY[%s])",
+        @Language("SQL") String sql = format(
+                "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s])",
                 tableName,
                 String.join(",", columns),
-                createTableLocation(tableName),
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")));
         getQueryRunner().execute(sql);
     }
@@ -76,16 +62,12 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     @Override
     protected void createPartitionedAndBucketedTable(String tableName, List<String> columns, List<String> partitionColumns, List<String> bucketColumns)
     {
-        throw new UnsupportedOperationException();
-    }
-
-    private static URI createTableLocation(String tableName)
-    {
-        try {
-            return Files.createTempDirectory(tableName).toFile().toURI();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        @Language("SQL") String sql = format(
+                "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s], bucketed_by=array[%s], bucket_count=10)",
+                tableName,
+                String.join(",", columns),
+                partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
+                bucketColumns.stream().map(column -> "'" + column + "'").collect(joining(",")));
+        getQueryRunner().execute(sql);
     }
 }

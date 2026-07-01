@@ -11,37 +11,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.BaseDynamicPartitionPruningTest;
+import io.trino.testing.BaseDynamicPartitionPruningCoverage;
 import io.trino.testing.QueryRunner;
-import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.nio.file.Files;
 import java.util.List;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
+import static org.junit.jupiter.api.Assumptions.abort;
 
-public class TestHiveDynamicPartitionPruningTest
-        extends BaseDynamicPartitionPruningTest
+public class TestDeltaLakeDynamicPartitionPruningCoverage
+        extends BaseDynamicPartitionPruningCoverage
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.builder()
+        return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .setExtraProperties(EXTRA_PROPERTIES)
-                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering.wait-timeout", "1h"))
+                .addDeltaProperty("delta.dynamic-filtering.wait-timeout", "1h")
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .setInitialTables(REQUIRED_TABLES)
                 .build();
+    }
+
+    @Test
+    @Override
+    public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
+    {
+        abort("Delta Lake does not support bucketing");
     }
 
     @Override
     protected void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
+        String sql = format(
+                "CREATE TABLE %s WITH (partitioned_by=ARRAY[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
                 tableName,
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
                 String.join(",", columns));
@@ -51,10 +64,11 @@ public class TestHiveDynamicPartitionPruningTest
     @Override
     protected void createPartitionedTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s])",
+        String sql = format(
+                "CREATE TABLE %s (%s) WITH (location='%s', partitioned_by=ARRAY[%s])",
                 tableName,
                 String.join(",", columns),
+                createTableLocation(tableName),
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")));
         getQueryRunner().execute(sql);
     }
@@ -62,12 +76,16 @@ public class TestHiveDynamicPartitionPruningTest
     @Override
     protected void createPartitionedAndBucketedTable(String tableName, List<String> columns, List<String> partitionColumns, List<String> bucketColumns)
     {
-        @Language("SQL") String sql = format(
-                "CREATE TABLE %s (%s) WITH (partitioned_by=array[%s], bucketed_by=array[%s], bucket_count=10)",
-                tableName,
-                String.join(",", columns),
-                partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
-                bucketColumns.stream().map(column -> "'" + column + "'").collect(joining(",")));
-        getQueryRunner().execute(sql);
+        throw new UnsupportedOperationException();
+    }
+
+    private static URI createTableLocation(String tableName)
+    {
+        try {
+            return Files.createTempDirectory(tableName).toFile().toURI();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
