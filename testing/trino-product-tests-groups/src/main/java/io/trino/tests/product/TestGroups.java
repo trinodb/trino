@@ -106,6 +106,7 @@ public final class TestGroups
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
     public static final String IGNITE = "ignite";
+    public static final String INFLUXDB = "influxdb";
     public static final String FAULT_TOLERANT = "fault-tolerant";
 
     private TestGroups() {}
