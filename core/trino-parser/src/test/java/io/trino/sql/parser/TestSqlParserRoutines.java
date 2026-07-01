@@ -25,12 +25,15 @@ import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DeterministicCharacteristic;
 import io.trino.sql.tree.ElseIfClause;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ForStatement;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfStatement;
+import io.trino.sql.tree.IterateStatement;
 import io.trino.sql.tree.LanguageCharacteristic;
+import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
@@ -221,6 +224,104 @@ class TestSqlParserRoutines
     }
 
     @Test
+    void testForFunction()
+    {
+        assertThat(statement(
+                """
+                CREATE FUNCTION sum_range(n bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE total bigint DEFAULT 0;
+                  FOR i IN 1 TO n DO
+                    SET total = total + i;
+                  END FOR;
+                  RETURN total;
+                END
+                """))
+                .ignoringLocation()
+                .isEqualTo(new CreateFunction(
+                        location(),
+                        new FunctionSpecification(
+                                location(),
+                                QualifiedName.of("sum_range"),
+                                ImmutableList.of(parameter("n", type("bigint"))),
+                                returns(type("bigint")),
+                                ImmutableList.of(),
+                                Optional.of(beginEnd(
+                                        ImmutableList.of(declare("total", type("bigint"), literal(0))),
+                                        new ForStatement(
+                                                location(),
+                                                Optional.empty(),
+                                                new Identifier("i"),
+                                                literal(1),
+                                                identifier("n"),
+                                                Optional.empty(),
+                                                ImmutableList.of(
+                                                        assign("total", plus(identifier("total"), identifier("i"))))),
+                                        new ReturnStatement(location(), identifier("total")))),
+                                Optional.empty()),
+                        false));
+    }
+
+    @Test
+    void testForFunctionWithLabelStepAndIterate()
+    {
+        assertThat(statement(
+                """
+                CREATE FUNCTION sum_odd(n bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE total bigint DEFAULT 0;
+                  loop_label: FOR i IN 1 TO n BY 2 DO
+                    IF i = 5 THEN
+                      ITERATE loop_label;
+                    END IF;
+                    IF i > 10 THEN
+                      LEAVE loop_label;
+                    END IF;
+                    SET total = total + i;
+                  END FOR;
+                  RETURN total;
+                END
+                """))
+                .ignoringLocation()
+                .isEqualTo(new CreateFunction(
+                        location(),
+                        new FunctionSpecification(
+                                location(),
+                                QualifiedName.of("sum_odd"),
+                                ImmutableList.of(parameter("n", type("bigint"))),
+                                returns(type("bigint")),
+                                ImmutableList.of(),
+                                Optional.of(beginEnd(
+                                        ImmutableList.of(declare("total", type("bigint"), literal(0))),
+                                        new ForStatement(
+                                                location(),
+                                                Optional.of(new Identifier("loop_label")),
+                                                new Identifier("i"),
+                                                literal(1),
+                                                identifier("n"),
+                                                Optional.of(literal(2)),
+                                                ImmutableList.of(
+                                                        new IfStatement(
+                                                                location(),
+                                                                eq("i", literal(5)),
+                                                                ImmutableList.of(new IterateStatement(location(), new Identifier("loop_label"))),
+                                                                ImmutableList.of(),
+                                                                Optional.empty()),
+                                                        new IfStatement(
+                                                                location(),
+                                                                gt("i", literal(10)),
+                                                                ImmutableList.of(new LeaveStatement(location(), new Identifier("loop_label"))),
+                                                                ImmutableList.of(),
+                                                                Optional.empty()),
+                                                        assign("total", plus(identifier("total"), identifier("i"))))),
+                                        new ReturnStatement(location(), identifier("total")))),
+                                Optional.empty()),
+                        false));
+    }
+
+    @Test
     void testFunctionWithIfElseIf()
     {
         assertThat(statement(
@@ -309,6 +410,11 @@ class TestSqlParserRoutines
     private static ArithmeticBinaryExpression minus(Expression left, Expression right)
     {
         return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT, left, right);
+    }
+
+    private static Predicated eq(String name, Expression expression)
+    {
+        return new Predicated(null, identifier(name), new ComparisonPredicate(null, ComparisonPredicate.Operator.EQUAL, expression));
     }
 
     private static Predicated lt(String name, Expression expression)

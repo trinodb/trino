@@ -72,6 +72,7 @@ import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.FetchFirst;
+import io.trino.sql.tree.ForStatement;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantObject;
@@ -2741,6 +2742,27 @@ public final class SqlFormatter
                     .append(formatExpression(node.getCondition()))
                     .append("\n");
             append(indent, "END REPEAT");
+            return null;
+        }
+
+        @Override
+        protected Void visitForStatement(ForStatement node, Integer indent)
+        {
+            builder.append(indentString(indent));
+            appendBeginLabel(node.getLabel());
+            builder.append("FOR ")
+                    .append(formatName(node.getVariable()))
+                    .append(" IN ")
+                    .append(formatExpression(node.getLowerBound()))
+                    .append(" TO ")
+                    .append(formatExpression(node.getUpperBound()));
+            node.getStep().ifPresent(step -> builder.append(" BY ").append(formatExpression(step)));
+            builder.append(" DO\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END FOR");
             return null;
         }
 

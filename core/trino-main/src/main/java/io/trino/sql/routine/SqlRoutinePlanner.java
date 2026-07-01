@@ -16,6 +16,7 @@ package io.trino.sql.routine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -26,8 +27,11 @@ import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonOperator;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.Symbol;
@@ -55,6 +59,7 @@ import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.ElseIfClause;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ForStatement;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfStatement;
 import io.trino.sql.tree.IterateStatement;
@@ -78,7 +83,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.LogicalPlanner.buildLambdaDeclarationToSymbolMap;
 import static java.util.Locale.ENGLISH;
@@ -109,7 +116,7 @@ public final class SqlRoutinePlanner
         });
 
         StatementVisitor visitor = new StatementVisitor(session, allVariables, analysis.analysis());
-        IrStatement body = visitor.process(analysis.statement(), new Context(scopeVariables, Map.of()));
+        IrStatement body = visitor.process(analysis.statement(), new Context(scopeVariables, Map.of(), Map.of()));
 
         return new IrRoutine(analysis.returnType(), parameters.build(), body);
     }
@@ -256,6 +263,73 @@ public final class SqlRoutinePlanner
         }
 
         @Override
+        protected IrStatement visitForStatement(ForStatement node, Context context)
+        {
+            Metadata metadata = plannerContext.getMetadata();
+
+            io.trino.sql.ir.Expression lowerExpression = toExpression(context, node.getLowerBound());
+            io.trino.sql.ir.Expression upperExpression = toExpression(context, node.getUpperBound());
+            Type type = lowerExpression.type();
+            io.trino.sql.ir.Expression stepExpression = node.getStep()
+                    .map(step -> toExpression(context, step))
+                    .orElseGet(() -> castConstant(1, type));
+
+            IrVariable counterVariable = new IrVariable(allVariables.size(), type, lowerExpression);
+            allVariables.add(counterVariable);
+            IrVariable upperVariable = new IrVariable(allVariables.size(), type, upperExpression);
+            allVariables.add(upperVariable);
+            IrVariable stepVariable = new IrVariable(allVariables.size(), type, stepExpression);
+            allVariables.add(stepVariable);
+
+            io.trino.sql.ir.Expression counterReference = new Reference(type, variableReferenceName(counterVariable));
+            io.trino.sql.ir.Expression upperReference = new Reference(type, variableReferenceName(upperVariable));
+            io.trino.sql.ir.Expression stepReference = new Reference(type, variableReferenceName(stepVariable));
+            io.trino.sql.ir.Expression zero = castConstant(0, type);
+
+            // Direction is derived from the sign of the step: ascending while counter <= upper if step > 0,
+            // descending while counter >= upper if step < 0. A step of zero (or one whose sign contradicts
+            // the bounds) satisfies neither branch, so the loop simply runs zero times.
+            io.trino.sql.ir.Expression condition = new Logical(Logical.Operator.OR, ImmutableList.of(
+                    new Logical(Logical.Operator.AND, ImmutableList.of(
+                            comparison(metadata, ComparisonOperator.GREATER_THAN, stepReference, zero),
+                            comparison(metadata, ComparisonOperator.LESS_THAN_OR_EQUAL, counterReference, upperReference))),
+                    new Logical(Logical.Operator.AND, ImmutableList.of(
+                            comparison(metadata, ComparisonOperator.LESS_THAN, stepReference, zero),
+                            comparison(metadata, ComparisonOperator.GREATER_THAN_OR_EQUAL, counterReference, upperReference)))));
+
+            Context newContext = context.newScope();
+            verify(newContext.variables().put(identifierValue(node.getVariable()), counterVariable) == null, "Variable already declared in scope: %s", node.getVariable());
+
+            Optional<IrLabel> outerLabel = getSqlLabel(newContext, node.getLabel());
+            IrLabel innerLabel = new IrLabel("for_body_" + labelCounter.getAndIncrement());
+            node.getLabel().ifPresent(name ->
+                    verify(newContext.iterateTargets().put(identifierValue(name), innerLabel) == null, "Label already declared in this scope: %s", name));
+
+            List<IrStatement> bodyStatements = statements(node.getStatements(), newContext);
+            IrStatement innerLoop = new IrLoop(Optional.of(innerLabel), block(ImmutableList.<IrStatement>builder()
+                    .addAll(bodyStatements)
+                    .add(new IrBreak(innerLabel))
+                    .build()));
+
+            ResolvedFunction add = metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(type, type));
+            IrStatement increment = new IrSet(counterVariable, call(add, counterReference, stepReference));
+
+            IrStatement loop = new IrWhile(outerLabel, condition, block(ImmutableList.of(innerLoop, increment)));
+
+            return new IrBlock(ImmutableList.of(counterVariable, upperVariable, stepVariable), ImmutableList.of(loop));
+        }
+
+        private io.trino.sql.ir.Expression castConstant(long value, Type type)
+        {
+            Constant literal = new Constant(BIGINT, value);
+            if (type.equals(BIGINT)) {
+                return literal;
+            }
+            ResolvedFunction cast = plannerContext.getMetadata().getCoercion(BIGINT, type);
+            return call(cast, literal);
+        }
+
+        @Override
         protected IrStatement visitReturnStatement(ReturnStatement node, Context context)
         {
             return new IrReturn(toExpression(context, node.getValue()));
@@ -273,6 +347,13 @@ public final class SqlRoutinePlanner
         @Override
         protected IrStatement visitIterateStatement(IterateStatement node, Context context)
         {
+            // FOR loops are desugared to a WHILE loop wrapping a single-pass inner IrLoop; ITERATE must
+            // break out of that inner wrapper (falling through to the increment) rather than continuing
+            // the outer WHILE directly, which would skip the increment and loop forever.
+            IrLabel iterateTarget = context.iterateTargets().get(identifierValue(node.getLabel()));
+            if (iterateTarget != null) {
+                return new IrBreak(iterateTarget);
+            }
             return new IrContinue(label(context, node.getLabel()));
         }
 
@@ -381,17 +462,18 @@ public final class SqlRoutinePlanner
         }
     }
 
-    private record Context(Map<String, IrVariable> variables, Map<String, IrLabel> labels)
+    private record Context(Map<String, IrVariable> variables, Map<String, IrLabel> labels, Map<String, IrLabel> iterateTargets)
     {
         public Context
         {
             variables = new LinkedHashMap<>(variables);
             labels = new LinkedHashMap<>(labels);
+            iterateTargets = new LinkedHashMap<>(iterateTargets);
         }
 
         public Context newScope()
         {
-            return new Context(variables, labels);
+            return new Context(variables, labels, iterateTargets);
         }
     }
 

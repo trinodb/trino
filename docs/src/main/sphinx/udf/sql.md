@@ -13,6 +13,7 @@ operators](/functions) and other UDFs:
 * [](/udf/sql/begin)
 * [](/udf/sql/case)
 * [](/udf/sql/declare)
+* [](/udf/sql/for)
 * [](/udf/sql/if)
 * [](/udf/sql/iterate)
 * [](/udf/sql/leave)
@@ -30,6 +31,7 @@ sql/examples
 sql/begin
 sql/case
 sql/declare
+sql/for
 sql/if
 sql/iterate
 sql/leave
@@ -93,6 +95,7 @@ SQL UDFs can contain labels as markers for a specific block in the declaration
 before the following keywords:
 
 * `CASE`
+* `FOR`
 * `IF`
 * `LOOP`
 * `REPEAT`

@@ -45,6 +45,7 @@ import io.trino.type.TypeDeserializer;
 import org.assertj.core.api.ThrowingConsumer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.lang.invoke.MethodHandle;
 import java.time.temporal.ChronoField;
@@ -432,6 +433,120 @@ class TestSqlFunctions
                 END
                 """;
         assertFunction(sql, handle -> assertThat(handle.invoke()).isEqualTo(5L));
+    }
+
+    @Test
+    void testForLoop()
+    {
+        @Language("SQL") String sql =
+                """
+                FUNCTION sum_range(n bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE total bigint DEFAULT 0;
+                  FOR i IN 1 TO n DO
+                    SET total = total + i;
+                  END FOR;
+                  RETURN total;
+                END
+                """;
+        assertFunction(sql, handle -> {
+            assertThat(handle.invoke(0L)).isEqualTo(0L);
+            assertThat(handle.invoke(1L)).isEqualTo(1L);
+            assertThat(handle.invoke(10L)).isEqualTo(55L);
+        });
+    }
+
+    @Test
+    void testForLoopDescendingStep()
+    {
+        @Language("SQL") String sql =
+                """
+                FUNCTION countdown(n bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE total bigint DEFAULT 0;
+                  DECLARE iterations bigint DEFAULT 0;
+                  FOR i IN n TO 1 BY -1 DO
+                    SET total = total + i;
+                    SET iterations = iterations + 1;
+                  END FOR;
+                  RETURN total * 1000 + iterations;
+                END
+                """;
+        assertFunction(sql, handle -> {
+            // sum 5..1 descending = 15, over 5 iterations
+            assertThat(handle.invoke(5L)).isEqualTo(15L * 1000 + 5);
+        });
+    }
+
+    @Test
+    @Timeout(10)
+    void testForLoopZeroIterations()
+    {
+        @Language("SQL") String sql =
+                """
+                FUNCTION test(step bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE iterations bigint DEFAULT 0;
+                  FOR i IN 1 TO 10 BY step DO
+                    SET iterations = iterations + 1;
+                  END FOR;
+                  RETURN iterations;
+                END
+                """;
+        assertFunction(sql, handle -> {
+            // step of zero, or a step whose sign contradicts the bounds, yields zero iterations
+            assertThat(handle.invoke(0L)).isEqualTo(0L);
+            assertThat(handle.invoke(-1L)).isEqualTo(0L);
+        });
+    }
+
+    @Test
+    void testForLoopIterateStillAdvancesCounter()
+    {
+        // Regression test: a naive desugaring of FOR to a WHILE loop with the increment as the
+        // last body statement would let ITERATE skip the increment entirely and loop forever.
+        @Language("SQL") String sql =
+                """
+                FUNCTION test()
+                RETURNS bigint
+                BEGIN
+                  DECLARE total bigint DEFAULT 0;
+                  top: FOR i IN 1 TO 10 DO
+                    IF i % 2 = 0 THEN
+                      ITERATE top;
+                    END IF;
+                    SET total = total + i;
+                  END FOR;
+                  RETURN total;
+                END
+                """;
+        // sum of odd numbers from 1 to 10 = 1 + 3 + 5 + 7 + 9 = 25
+        assertFunction(sql, handle -> assertThat(handle.invoke()).isEqualTo(25L));
+    }
+
+    @Test
+    void testForLoopLeave()
+    {
+        @Language("SQL") String sql =
+                """
+                FUNCTION test()
+                RETURNS bigint
+                BEGIN
+                  DECLARE total bigint DEFAULT 0;
+                  top: FOR i IN 1 TO 100 DO
+                    IF i > 5 THEN
+                      LEAVE top;
+                    END IF;
+                    SET total = total + i;
+                  END FOR;
+                  RETURN total;
+                END
+                """;
+        // sum of 1 to 5 = 15
+        assertFunction(sql, handle -> assertThat(handle.invoke()).isEqualTo(15L));
     }
 
     @Test
