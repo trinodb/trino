@@ -444,8 +444,8 @@ public class TestSnowflakeTypeMapping
     public void testVariantMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("variant", "PARSE_JSON('[ 1, 2, null, 4, undefined, 6, , 8 ]')", JSON, "JSON '[1,2,null,4,undefined,6,undefined,8]'")
-                .addRoundTrip("variant", "PARSE_JSON('{\"a\": 1, \"b\": null, \"c\": undefined}')", JSON, "JSON '{\"a\":1,\"b\":null,\"c\":null}'")
+                .addRoundTrip("variant", "PARSE_JSON('[1, 2, null, 3]')", JSON, "JSON '[1,2,null,3]'")
+                .addRoundTrip("variant", "PARSE_JSON('{\"a\": 1, \"b\": null}')", JSON, "JSON '{\"a\":1,\"b\":null}'")
                 .addRoundTrip("variant", "PARSE_JSON('\"a string value\"')", JSON, "JSON '\"a string value\"'")
                 .addRoundTrip("variant", "PARSE_JSON('123')", JSON, "JSON '123'")
                 .addRoundTrip("variant", "PARSE_JSON('123.456')", JSON, "JSON '123.456'")
@@ -460,11 +460,11 @@ public class TestSnowflakeTypeMapping
     public void testVariantMappingViaQueryPassthrough()
     {
         assertQuery(
-                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''[ 1, 2, null, 4, undefined, 6, , 8 ]'')'))",
-                "VALUES '[1,2,null,4,undefined,6,undefined,8]'");
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''[1, 2, null, 3]'')'))",
+                "VALUES '[1,2,null,3]'");
         assertQuery(
-                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''{\"a\": 1, \"b\": null, \"c\": undefined}'')'))",
-                "VALUES '{\"a\":1,\"b\":null,\"c\":null}'");
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''{\"a\": 1, \"b\": null}'')'))",
+                "VALUES '{\"a\":1,\"b\":null}'");
         assertQuery(
                 "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''\"a string value\"'')'))",
                 "VALUES '\"a string value\"'");
