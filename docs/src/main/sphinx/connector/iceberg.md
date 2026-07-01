@@ -249,6 +249,13 @@ implementation is used:
      `fs.hadoop.enabled` is not enabled, using this feature requires setup of 
      [local file system](/object-storage/file-system-local)
   -  
+* - `iceberg.writer-sort-buffer-size`
+  -  Buffer size used by each writer when writing sorted files.
+  -  `64MB`
+* - `iceberg.max-open-sort-files`
+  -  Maximum number of writer temporary files to read in one pass when writing
+     sorted files.
+  -  `50`
 * - `iceberg.allowed-extra-properties`
   -  List of extra properties that are allowed to be set on Iceberg tables.
      Use `*` to allow all properties.
@@ -1948,6 +1955,11 @@ WITH (
 
 You can disable sorted writing with the session property
 `sorted_writing_enabled` set to `false`.
+
+When writing sorted files, you can tune the writer memory buffer with the
+`iceberg.writer-sort-buffer-size` catalog configuration property. If sorting
+spills to temporary files, you can tune the number of files read in each merge
+pass with the `iceberg.max-open-sort-files` catalog configuration property.
 
 #### Using snapshots
 
