@@ -65,11 +65,11 @@ public class TestDeleteAndInsertMergeProcessor
         };
         Block[] mergeCaseBlocks = {
                 makeVarcharArrayBlock(null, "Dave"), // customer
-                new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 11}), // purchases
+                new IntArrayBlock(2, Optional.of(new long[] {0b10}), new int[] {0, 11}), // purchases
                 makeVarcharArrayBlock(null, "Devon"), // address
                 new ByteArrayBlock(2, Optional.of(new long[] {0b10}), new byte[] {0, 1}), // "present" boolean
                 new ByteArrayBlock(2, Optional.of(new long[] {0b10}), new byte[] {0, DELETE_OPERATION_NUMBER}), // "present" boolean
-                new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 0}),
+                new IntArrayBlock(2, Optional.of(new long[] {0b10}), new int[] {0, 0}),
         };
         Page inputPage = new Page(
                 RowBlock.fromNotNullSuppressedFieldBlocks(2, Optional.empty(), rowIdBlocks),
@@ -110,7 +110,7 @@ public class TestDeleteAndInsertMergeProcessor
                 new Block[] {
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {2, 0, 1, 2, 2}), // TransactionId
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {0, 0, 3, 1, 2}), // rowId
-                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
+                        new IntArrayBlock(5, Optional.of(rowIdValidity), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
                 },
                 new Block[] {
                         // customer
@@ -168,7 +168,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
                 new Block[] {
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {2, 0, 1, 2, 2}), // TransactionId
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {0, 0, 3, 1, 2}), // rowId
-                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
+                        new IntArrayBlock(5, Optional.of(rowIdValidity), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
                 },
                 new Block[] {
                         // customer

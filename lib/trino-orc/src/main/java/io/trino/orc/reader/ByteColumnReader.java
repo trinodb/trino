@@ -124,7 +124,7 @@ public class ByteColumnReader
         else if (presentStream == null) {
             block = readNonNullBlock();
         }
-        else if (type == TINYINT) {
+        else {
             long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
             int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
             int nullCount = nextBatchSize - nonNullCount;
@@ -132,20 +132,7 @@ public class ByteColumnReader
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = byteReadNullBlock(valueIsValid, nonNullCount);
-            }
-            else {
-                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
-            }
-        }
-        else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
-            if (nullCount == 0) {
-                block = readNonNullBlock();
-            }
-            else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -173,7 +160,7 @@ public class ByteColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block byteReadNullBlock(long[] valueIsValid, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -186,24 +173,11 @@ public class ByteColumnReader
         dataStream.next(nonNullValueTemp, nonNullCount);
 
         byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
-        return new ByteArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
-    }
-
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
-            throws IOException
-    {
-        verifyNotNull(dataStream);
-        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
-        if (nonNullValueTemp.length < minNonNullValueSize) {
-            nonNullValueTemp = new byte[minNonNullValueSize];
-            memoryContext.setBytes(sizeOf(nonNullValueTemp));
+        if (type == TINYINT) {
+            return new ByteArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
         }
-
-        dataStream.next(nonNullValueTemp, nonNullCount);
-
-        byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, isNull);
         if (type == INTEGER) {
-            return new IntArrayBlock(nextBatchSize, Optional.of(isNull), convertToIntArray(result));
+            return new IntArrayBlock(nextBatchSize, Optional.of(valueIsValid), convertToIntArray(result));
         }
         throw new VerifyError("Unsupported type " + type);
     }

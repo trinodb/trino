@@ -224,16 +224,14 @@ public class BenchmarkColumnarFilter
     private static Block createIntsBlock(int positionsCount, int nullsPercentage)
     {
         int[] values = new int[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new IntArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new IntArrayBlock(positionsCount, Optional.of(validity), values);
     }
 
     private static Block createLongsBlock(int positionsCount, int nullsPercentage)

@@ -133,7 +133,7 @@ public class LongColumnReader
         else if (presentStream == null) {
             block = readNonNullBlock();
         }
-        else if (usesBitmapNulls()) {
+        else {
             long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
             int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
             int nullCount = nextBatchSize - nonNullCount;
@@ -142,19 +142,6 @@ public class LongColumnReader
             }
             else if (nullCount != nextBatchSize) {
                 block = readNullBlock(valueIsValid, nonNullCount);
-            }
-            else {
-                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
-            }
-        }
-        else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
-            if (nullCount == 0) {
-                block = readNonNullBlock();
-            }
-            else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -195,11 +182,6 @@ public class LongColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private boolean usesBitmapNulls()
-    {
-        return type instanceof BigintType || type instanceof TimeType || type instanceof SmallintType;
-    }
-
     protected void maybeTransformValues(long[] values, int nextBatchSize) {}
 
     private Block readNullBlock(long[] valueIsValid, int nonNullCount)
@@ -211,17 +193,11 @@ public class LongColumnReader
         if (type instanceof TimeType) {
             return longReadNullBlock(valueIsValid, nonNullCount);
         }
+        if (type instanceof IntegerType || type instanceof DateType) {
+            return intReadNullBlock(valueIsValid, nonNullCount);
+        }
         if (type instanceof SmallintType) {
             return shortReadNullBlock(valueIsValid, nonNullCount);
-        }
-        throw new VerifyError("Unsupported type " + type);
-    }
-
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
-            throws IOException
-    {
-        if (type instanceof IntegerType || type instanceof DateType) {
-            return intReadNullBlock(isNull, nonNullCount);
         }
         throw new VerifyError("Unsupported type " + type);
     }
@@ -244,7 +220,7 @@ public class LongColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
-    private Block intReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block intReadNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -256,9 +232,9 @@ public class LongColumnReader
 
         dataStream.next(intNonNullValueTemp, nonNullCount);
 
-        int[] result = unpackIntNulls(intNonNullValueTemp, isNull);
+        int[] result = unpackIntNulls(intNonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new IntArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        return new IntArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
     private Block shortReadNullBlock(long[] valueIsValid, int nonNullCount)

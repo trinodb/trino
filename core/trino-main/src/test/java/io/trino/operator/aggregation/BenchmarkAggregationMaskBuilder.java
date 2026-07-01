@@ -82,7 +82,7 @@ public class BenchmarkAggregationMaskBuilder
 
         Block intRleNoNulls = RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {42}), positions);
         Block intNoNulls = new IntArrayBlock(new long[positions].length, Optional.empty(), new int[positions]);
-        Block intSomeNulls = new IntArrayBlock(new long[positions].length, someNulls(positions, 0.3), new int[positions]);
+        Block intSomeNulls = new IntArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new int[positions]);
 
         Block longRleNoNulls = RunLengthEncodedBlock.create(new LongArrayBlock(1, Optional.empty(), new long[] {42}), positions);
         Block longNoNulls = new LongArrayBlock(new long[positions].length, Optional.empty(), new long[positions]);
@@ -101,16 +101,6 @@ public class BenchmarkAggregationMaskBuilder
                 longNoNulls,
                 longSomeNulls,
                 rleAllNulls);
-    }
-
-    private static Optional<boolean[]> someNulls(int positions, double nullRatio)
-    {
-        boolean[] nulls = new boolean[positions];
-        for (int i = 0; i < nulls.length; i++) {
-            // 0.7 ^ 3 = 0.343
-            nulls[i] = ThreadLocalRandom.current().nextDouble() < nullRatio;
-        }
-        return Optional.of(nulls);
     }
 
     private static Optional<long[]> someNullValidity(int positions, double nullRatio)
