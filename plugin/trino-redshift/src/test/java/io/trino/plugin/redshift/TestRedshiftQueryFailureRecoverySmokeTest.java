@@ -21,7 +21,7 @@ import java.util.Optional;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
 
 public class TestRedshiftQueryFailureRecoverySmokeTest
-        extends BaseRedshiftFailureRecoveryTest
+        extends BaseRedshiftFailureRecoveryCoverage
 {
     public TestRedshiftQueryFailureRecoverySmokeTest()
     {

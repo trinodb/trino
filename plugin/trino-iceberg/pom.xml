@@ -845,7 +845,7 @@
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeCoverage.java</exclude>
-                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/Test*FailureRecoveryCoverage.java</exclude>
                                 <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeCoverage.java</exclude>
                                 <exclude>**/TestTrinoSnowflakeCatalog.java</exclude>
                             </excludes>
@@ -864,7 +864,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/Test*FailureRecoveryTest.java</include>
+                                <include>**/Test*FailureRecoveryCoverage.java</include>
                             </includes>
                         </configuration>
                     </plugin>

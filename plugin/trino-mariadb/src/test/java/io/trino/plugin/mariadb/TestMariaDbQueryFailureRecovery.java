@@ -16,7 +16,7 @@ package io.trino.plugin.mariadb;
 import io.trino.operator.RetryPolicy;
 
 public class TestMariaDbQueryFailureRecovery
-        extends BaseMariaDbFailureRecoveryTest
+        extends BaseMariaDbFailureRecoveryCoverage
 {
     public TestMariaDbQueryFailureRecovery()
     {

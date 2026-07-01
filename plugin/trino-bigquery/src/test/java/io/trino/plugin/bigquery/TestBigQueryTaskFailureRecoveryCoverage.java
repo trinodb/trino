@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.mariadb;
+package io.trino.plugin.bigquery;
 
 import io.trino.operator.RetryPolicy;
 
-public class TestMariaDbTaskFailureRecovery
-        extends BaseMariaDbFailureRecoveryCoverage
+public class TestBigQueryTaskFailureRecoveryCoverage
+        extends BaseBigQueryFailureRecoveryCoverage
 {
-    public TestMariaDbTaskFailureRecovery()
+    public TestBigQueryTaskFailureRecoveryCoverage()
     {
         super(RetryPolicy.TASK);
     }

@@ -328,7 +328,7 @@
                                 <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>
                                 <exclude>**/TestRedshiftTypeMapping.java</exclude>
                                 <exclude>**/TestRedshiftUnloadTypeMapping.java</exclude>
-                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/Test*FailureRecoveryCoverage.java</exclude>
                                 <exclude>**/Test*FailureRecoverySmokeTest.java</exclude>
                             </excludes>
                         </configuration>

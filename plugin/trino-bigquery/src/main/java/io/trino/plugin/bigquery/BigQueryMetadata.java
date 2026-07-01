@@ -829,7 +829,7 @@ public class BigQueryMetadata
     @Override
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
     {
-        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        // TODO Fix BaseBigQueryFailureRecoveryCoverage when implementing this method
         return ConnectorMetadata.super.beginMerge(session, tableHandle, updateCaseColumns, retryMode);
     }
 
@@ -842,14 +842,14 @@ public class BigQueryMetadata
             boolean replace,
             boolean ignoreExisting)
     {
-        // TODO Fix BaseBigQueryFailureRecoveryTest and TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage when implementing this method
+        // TODO Fix BaseBigQueryFailureRecoveryCoverage and TestBigQueryWithDifferentProjectIdConnectorSmokeCoverage when implementing this method
         ConnectorMetadata.super.createMaterializedView(session, viewName, definition, properties, replace, ignoreExisting);
     }
 
     @Override
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
-        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        // TODO Fix BaseBigQueryFailureRecoveryCoverage when implementing this method
         return ConnectorMetadata.super.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties);
     }
 

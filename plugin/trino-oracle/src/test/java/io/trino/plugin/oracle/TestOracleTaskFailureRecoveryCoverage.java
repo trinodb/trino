@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.mariadb;
+package io.trino.plugin.oracle;
 
 import io.trino.operator.RetryPolicy;
 
-public class TestMariaDbTaskFailureRecovery
-        extends BaseMariaDbFailureRecoveryCoverage
+public class TestOracleTaskFailureRecoveryCoverage
+        extends BaseOracleFailureRecoveryCoverage
 {
-    public TestMariaDbTaskFailureRecovery()
+    public TestOracleTaskFailureRecoveryCoverage()
     {
         super(RetryPolicy.TASK);
     }

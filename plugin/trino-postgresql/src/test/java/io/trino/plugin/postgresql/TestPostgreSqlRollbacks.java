@@ -69,7 +69,7 @@ public class TestPostgreSqlRollbacks
     }
 
     /**
-     * @see BasePostgresFailureRecoveryTest#testRollbackCreateTableAsSelect()
+     * @see BasePostgresFailureRecoveryCoverage#testRollbackCreateTableAsSelect()
      */
     @Test
     @Timeout(60)

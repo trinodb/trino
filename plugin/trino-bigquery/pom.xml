@@ -548,7 +548,7 @@
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingWithCache.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</exclude>
-                                <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestBigQuery*FailureRecoveryCoverage.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
                                 <exclude>**/TestBigQueryParentProjectId.java</exclude>
                                 <exclude>**/TestBigQueryWithBothProjectIdsSet.java</exclude>
@@ -604,7 +604,7 @@
                                 <include>**/TestBigQueryMetadataCaching.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQuerySplitManager.java</include>
-                                <include>**/TestBigQuery*FailureRecoveryTest.java</include>
+                                <include>**/TestBigQuery*FailureRecoveryCoverage.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
                         </configuration>

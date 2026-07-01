@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.mariadb;
+package io.trino.plugin.deltalake;
 
 import io.trino.operator.RetryPolicy;
 
-public class TestMariaDbTaskFailureRecovery
-        extends BaseMariaDbFailureRecoveryCoverage
+public class TestDeltaTaskFailureRecoveryCoverage
+        extends BaseDeltaFailureRecoveryCoverage
 {
-    public TestMariaDbTaskFailureRecovery()
+    protected TestDeltaTaskFailureRecoveryCoverage()
     {
         super(RetryPolicy.TASK);
     }
