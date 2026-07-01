@@ -18,10 +18,16 @@ import io.airlift.slice.Slice;
 import io.trino.spi.variant.Variant;
 import jakarta.annotation.Nullable;
 
-import java.util.Arrays;
-
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.clearBits;
+import static io.trino.spi.block.Bitmap.copyBits;
+import static io.trino.spi.block.Bitmap.hasSetBit;
+import static io.trino.spi.block.Bitmap.hasUnsetBit;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.setBits;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +39,7 @@ public class VariantBlockBuilder
     private static final VariantBlock NULL_VALUE_BLOCK = VariantBlock.createInternal(
             0,
             1,
-            new boolean[] {true},
+            new long[] {0},
             VariableWidthBlockBuilder.NULL_VALUE_BLOCK,
             VariableWidthBlockBuilder.NULL_VALUE_BLOCK);
 
@@ -41,7 +47,9 @@ public class VariantBlockBuilder
     private final BlockBuilderStatus blockBuilderStatus;
 
     private int positionCount;
-    private boolean[] variantIsNull;
+    private int positionCapacity;
+    @Nullable
+    private long[] valueIsValid;
     private final VariableWidthBlockBuilder metadataBlockBuilder;
     private final VariableWidthBlockBuilder valuesBlockBuilder;
 
@@ -58,18 +66,21 @@ public class VariantBlockBuilder
         this(blockBuilderStatus,
                 new VariableWidthBlockBuilder(blockBuilderStatus, expectedEntries, 64),
                 new VariableWidthBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytes),
-                new boolean[expectedEntries]);
+                expectedEntries,
+                null);
     }
 
     private VariantBlockBuilder(
             @Nullable BlockBuilderStatus blockBuilderStatus,
             VariableWidthBlockBuilder metadataBlockBuilder,
             VariableWidthBlockBuilder valuesBlockBuilder,
-            boolean[] variantIsNull)
+            int positionCapacity,
+            @Nullable long[] valueIsValid)
     {
         this.blockBuilderStatus = blockBuilderStatus;
         this.positionCount = 0;
-        this.variantIsNull = requireNonNull(variantIsNull, "variantIsNull is null");
+        this.positionCapacity = positionCapacity;
+        this.valueIsValid = valueIsValid;
         this.metadataBlockBuilder = requireNonNull(metadataBlockBuilder, "metadataBlockBuilder is null");
         this.valuesBlockBuilder = requireNonNull(valuesBlockBuilder, "valuesBlockBuilder is null");
     }
@@ -92,7 +103,7 @@ public class VariantBlockBuilder
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + sizeOf(variantIsNull);
+        long size = INSTANCE_SIZE + sizeOf(valueIsValid);
         size += metadataBlockBuilder.getRetainedSizeInBytes();
         size += valuesBlockBuilder.getRetainedSizeInBytes();
         if (blockBuilderStatus != null) {
@@ -159,24 +170,18 @@ public class VariantBlockBuilder
         appendRangeToField(rawMetadataBlock, startOffset + offset, length, metadataBlockBuilder);
         appendRangeToField(rawValuesBlock, startOffset + offset, length, valuesBlockBuilder);
 
-        boolean[] rawVariantIsNull = variantBlock.getRawIsNull();
-        if (rawVariantIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                boolean isNull = rawVariantIsNull[startOffset + offset + i];
-                hasNullVariant |= isNull;
-                hasNonNullVariant |= !isNull;
-                if (hasNullVariant & hasNonNullVariant) {
-                    System.arraycopy(rawVariantIsNull, startOffset + offset + i, variantIsNull, positionCount + i, length - i);
-                    break;
-                }
-                else {
-                    variantIsNull[positionCount + i] = isNull;
-                }
+        long[] rawValueIsValid = variantBlock.getRawValueIsValid();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, startOffset + offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
             }
+            hasNonNullVariant = true;
         }
         else {
-            Arrays.fill(variantIsNull, positionCount, positionCount + length, false);
-            hasNonNullVariant = true;
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, startOffset + offset, valueIsValid, positionCount, length);
+            hasNullVariant = true;
+            hasNonNullVariant |= hasSetBit(rawValueIsValid, startOffset + offset, length);
         }
         positionCount += length;
 
@@ -216,11 +221,14 @@ public class VariantBlockBuilder
         appendRepeatedToField(rawValuesBlock, startOffset + position, count, valuesBlockBuilder);
 
         if (variantBlock.isNull(position)) {
-            Arrays.fill(variantIsNull, positionCount, positionCount + count, true);
+            initializeValidityForFirstNull();
+            clearBits(valueIsValid, 0, positionCount, count);
             hasNullVariant = true;
         }
         else {
-            Arrays.fill(variantIsNull, positionCount, positionCount + count, false);
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, count);
+            }
             hasNonNullVariant = true;
         }
 
@@ -268,22 +276,18 @@ public class VariantBlockBuilder
             appendPositionsToField(rawValuesBlock, adjustedPositions, 0, length, valuesBlockBuilder);
         }
 
-        boolean[] rawVariantIsNull = variantBlock.getRawIsNull();
-        if (rawVariantIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                if (rawVariantIsNull[startOffset + positions[offset + i]]) {
-                    variantIsNull[positionCount + i] = true;
-                    hasNullVariant = true;
-                }
-                else {
-                    variantIsNull[positionCount + i] = false;
-                    hasNonNullVariant = true;
-                }
+        long[] rawValueIsValid = variantBlock.getRawValueIsValid();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, startOffset, positions, offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
             }
+            hasNonNullVariant = true;
         }
         else {
-            Arrays.fill(variantIsNull, positionCount, positionCount + length, false);
-            hasNonNullVariant = true;
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, startOffset, positions, offset, valueIsValid, positionCount, length);
+            hasNullVariant = true;
+            hasNonNullVariant |= hasSetBit(rawValueIsValid, startOffset, positions, offset, length);
         }
         positionCount += length;
 
@@ -333,8 +337,9 @@ public class VariantBlockBuilder
         hasNullVariant = false;
         hasNonNullVariant = false;
         for (int index = 0; index < position; index++) {
-            hasNullVariant |= variantIsNull[index];
-            hasNonNullVariant |= !variantIsNull[index];
+            boolean isNull = valueIsValid != null && !isSet(valueIsValid, 0, index);
+            hasNullVariant |= isNull;
+            hasNonNullVariant |= !isNull;
         }
     }
 
@@ -342,7 +347,13 @@ public class VariantBlockBuilder
     {
         ensureCapacity(positionCount + 1);
 
-        variantIsNull[positionCount] = isNull;
+        if (isNull) {
+            initializeValidityForFirstNull();
+            clear(valueIsValid, 0, positionCount);
+        }
+        else if (valueIsValid != null) {
+            set(valueIsValid, 0, positionCount);
+        }
         hasNullVariant |= isNull;
         hasNonNullVariant |= !isNull;
         positionCount++;
@@ -366,17 +377,30 @@ public class VariantBlockBuilder
     {
         Block metadataBlock = metadataBlockBuilder.buildValueBlock();
         Block valuesBlock = valuesBlockBuilder.buildValueBlock();
-        return VariantBlock.createInternal(0, positionCount, hasNullVariant ? variantIsNull : null, metadataBlock, valuesBlock);
+        return VariantBlock.createInternal(0, positionCount, hasNullVariant ? valueIsValid : null, metadataBlock, valuesBlock);
     }
 
     private void ensureCapacity(int capacity)
     {
-        if (variantIsNull.length >= capacity) {
+        if (positionCapacity >= capacity) {
             return;
         }
 
-        int newSize = BlockUtil.calculateNewArraySize(variantIsNull.length, capacity);
-        variantIsNull = Arrays.copyOf(variantIsNull, newSize);
+        int newSize = BlockUtil.calculateNewArraySize(positionCapacity, capacity);
+        positionCapacity = newSize;
+        if (valueIsValid != null) {
+            valueIsValid = Bitmap.ensureCapacity(valueIsValid, newSize);
+        }
+    }
+
+    private boolean initializeValidityForFirstNull()
+    {
+        if (valueIsValid != null) {
+            return false;
+        }
+        valueIsValid = Bitmap.allocateWords(positionCapacity, false);
+        setBits(valueIsValid, 0, 0, positionCount);
+        return true;
     }
 
     @Override
@@ -392,6 +416,7 @@ public class VariantBlockBuilder
                 blockBuilderStatus,
                 (VariableWidthBlockBuilder) metadataBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 (VariableWidthBlockBuilder) valuesBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
-                new boolean[expectedEntries]);
+                expectedEntries,
+                null);
     }
 }
