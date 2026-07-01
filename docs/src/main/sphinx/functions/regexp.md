@@ -101,6 +101,9 @@ match the entire string by anchoring the pattern using `^` and `$`:
 
 ```
 SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
+SELECT regexp_like('Stephen', 'Ste(v|ph)en'); -- true
+SELECT regexp_like('Stevens', '^Ste(v|ph)en$'); -- false
+SELECT regexp_like('Hello', '^(?i)[a-z]+$'); -- true
 ```
 :::
 
