@@ -239,7 +239,7 @@ public class QueryStateMachine
         this.planOptimizersStatsCollector = requireNonNull(queryStatsCollector, "queryStatsCollector is null");
         this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
 
-        this.queryState = new StateMachine<>("query " + query, stateMachineExecutor, QUEUED, TERMINAL_QUERY_STATES);
+        this.queryState = new StateMachine<>("query-" + queryId, stateMachineExecutor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, stateMachineExecutor, Optional.empty());
         this.outputManager = new QueryOutputManager(stateMachineExecutor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
