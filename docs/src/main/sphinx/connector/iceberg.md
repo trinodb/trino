@@ -99,6 +99,10 @@ implementation is used:
     * `ORC`
     * `AVRO`
   - `PARQUET`
+* - `iceberg.format-version`
+  - Define the default Iceberg table format version for new tables. Possible
+    values are `1`, `2`, and `3`. Version `3` support is experimental.
+  - `2`
 * - `iceberg.compression-codec`
   - The compression codec used when writing files. Possible values are:
 
