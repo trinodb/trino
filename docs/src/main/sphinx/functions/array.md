@@ -269,6 +269,13 @@ If `index` > 0, this function provides the same functionality as the SQL-standar
 except that the function returns `NULL` when accessing an `index` larger than array length, whereas
 the subscript operator would fail in such a case.
 If `index` \< 0, `element_at` accesses elements from the last to the first.
+
+For an array of rows, access a field after retrieving the row:
+
+```
+SELECT element_at(ARRAY[CAST(ROW('Alice', 42) AS ROW(name VARCHAR, score INTEGER))], 1).score;
+-- 42
+```
 :::
 
 :::{function} filter(array(T), function(T,boolean)) -> array(T)
