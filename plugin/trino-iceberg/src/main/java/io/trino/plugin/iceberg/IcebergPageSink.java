@@ -49,6 +49,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -88,6 +89,7 @@ import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -585,6 +587,8 @@ public class IcebergPageSink
 
         closedWriterRollbackActions.add(writer.commit());
 
+        verifyNotNullConstraint(writer.getFileMetrics().metrics(), outputSchema);
+
         validationCpuNanos += writer.getValidationCpuNanos();
         writtenBytes += (writer.getWrittenBytes() - currentWritten);
         memoryUsage -= currentMemory;
@@ -606,6 +610,19 @@ public class IcebergPageSink
                 Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+    }
+
+    private static void verifyNotNullConstraint(Metrics metrics, Schema schema)
+    {
+        if (metrics.nullValueCounts() == null) {
+            return;
+        }
+
+        for (Types.NestedField field : schema.columns()) {
+            if (field.isRequired() && metrics.nullValueCounts().getOrDefault(field.fieldId(), 0L) > 0) {
+                throw new TrinoException(CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + field.name());
+            }
+        }
     }
 
     private WriteContext createWriter(String outputPath, Optional<PartitionData> partitionData)

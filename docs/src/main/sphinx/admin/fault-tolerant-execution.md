@@ -518,6 +518,21 @@ the property may be configured for:
     retry a request.
   - `10`
   - Azure Blob Storage
+* - `exchange.azure.max-connections`
+  - Maximum number of concurrent HTTP connections in the Azure storage
+    connection pool.
+  - `500`
+  - Azure Blob Storage
+* - `exchange.azure.pending-acquire-max-count`
+  - Maximum number of pending connection acquire requests in the Azure
+    storage connection pool.
+  - `1000`
+  - Azure Blob Storage
+* - `exchange.azure.connection-acquisition-timeout`
+  - Maximum time to wait for a connection to be acquired from the Azure
+    storage connection pool.
+  - `1m`
+  - Azure Blob Storage
 * - `exchange.hdfs.block-size`
   - Block [data size](prop-type-data-size) for HDFS storage.
   - `4MB`

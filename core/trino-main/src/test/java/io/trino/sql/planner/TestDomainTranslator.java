@@ -191,6 +191,9 @@ public class TestDomainTranslator
                         greaterThanOrEqual(new Reference(BIGINT, "v"), bigintLiteral(1L)),
                         lessThanOrEqual(new Reference(BIGINT, "v"), bigintLiteral(10L))));
         assertPredicateTranslates(let, TupleDomain.all(), let);
+
+        Expression notLet = not(let);
+        assertPredicateTranslates(notLet, TupleDomain.all(), notLet);
     }
 
     @Test

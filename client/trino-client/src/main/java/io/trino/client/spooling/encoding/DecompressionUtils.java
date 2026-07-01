@@ -25,61 +25,75 @@ import static java.lang.invoke.MethodType.methodType;
 public class DecompressionUtils
 {
     private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
-    private static final Optional<MethodHandle> LZ4_DECOMPRESSOR_CONSTRUCTOR =
-            getDecompressorConstructor("io.airlift.compress.v3.lz4.Lz4NativeDecompressor");
-    private static final Optional<MethodHandle> ZSTD_DECOMPRESSOR_CONSTRUCTOR =
-            getDecompressorConstructor("io.airlift.compress.v3.zstd.ZstdNativeDecompressor");
+    private static final Optional<NativeDecompressor> LZ4_NATIVE_DECOMPRESSOR =
+            createNativeDecompressor("io.airlift.compress.v3.lz4.Lz4NativeDecompressor");
+    private static final Optional<NativeDecompressor> ZSTD_NATIVE_DECOMPRESSOR =
+            createNativeDecompressor("io.airlift.compress.v3.zstd.ZstdNativeDecompressor");
 
     private DecompressionUtils() {}
 
     public static int decompressLZ4(byte[] input, byte[] output)
     {
-        if (LZ4_DECOMPRESSOR_CONSTRUCTOR.isEmpty()) {
+        if (LZ4_NATIVE_DECOMPRESSOR.isEmpty()) {
             Lz4Decompressor decompressor = new Lz4Decompressor();
             return decompressor.decompress(input, 0, input.length, output, 0, output.length);
         }
 
-        return decompressNative(LZ4_DECOMPRESSOR_CONSTRUCTOR.get(), input, output);
+        return LZ4_NATIVE_DECOMPRESSOR.get().decompress(input, output);
     }
 
     public static int decompressZstd(byte[] input, byte[] output)
     {
-        if (ZSTD_DECOMPRESSOR_CONSTRUCTOR.isEmpty()) {
+        if (ZSTD_NATIVE_DECOMPRESSOR.isEmpty()) {
             ZstdDecompressor decompressor = new ZstdDecompressor();
             return decompressor.decompress(input, 0, input.length, output, 0, output.length);
         }
 
-        return decompressNative(ZSTD_DECOMPRESSOR_CONSTRUCTOR.get(), input, output);
+        return ZSTD_NATIVE_DECOMPRESSOR.get().decompress(input, output);
     }
 
-    private static int decompressNative(MethodHandle constructor, byte[] input, byte[] output)
-    {
-        try {
-            Object decompressor = constructor.invoke();
-            // int decompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
-            MethodHandle decompress = LOOKUP.findVirtual(decompressor.getClass(), "decompress", methodType(
-                    int.class, byte[].class, int.class, int.class, byte[].class, int.class, int.class));
-            return (int) decompress.invoke(decompressor, input, 0, input.length, output, 0, output.length);
-        }
-        catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Optional<MethodHandle> getDecompressorConstructor(String clazzName)
+    private static Optional<NativeDecompressor> createNativeDecompressor(String clazzName)
     {
         try {
             Class<?> clazz = Class.forName(clazzName);
-            MethodHandle constructor = LOOKUP.findConstructor(clazz, methodType(void.class));
             MethodHandle isEnabled = LOOKUP.findStatic(clazz, "isEnabled", methodType(boolean.class));
             if (!(boolean) isEnabled.invoke()) {
                 // isEnabled return true only if the native library was loaded properly and all symbols are resolved
                 return Optional.empty();
             }
-            return Optional.of(constructor);
+            MethodHandle constructor = LOOKUP.findConstructor(clazz, methodType(void.class));
+            // int decompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
+            MethodHandle decompress = LOOKUP.findVirtual(clazz, "decompress", methodType(
+                    int.class, byte[].class, int.class, int.class, byte[].class, int.class, int.class));
+            return Optional.of(new NativeDecompressor(constructor, decompress));
         }
         catch (Throwable e) {
             return Optional.empty();
+        }
+    }
+
+    // Holds the method handles resolved once at class initialization to avoid a virtual lookup on every segment decode.
+    private static final class NativeDecompressor
+    {
+        private final MethodHandle constructor;
+        private final MethodHandle decompress;
+
+        private NativeDecompressor(MethodHandle constructor, MethodHandle decompress)
+        {
+            this.constructor = constructor;
+            this.decompress = decompress;
+        }
+
+        public int decompress(byte[] input, byte[] output)
+        {
+            try {
+                // The native decompressors are not guaranteed to be thread-safe, so a fresh instance is created per call
+                Object decompressor = constructor.invoke();
+                return (int) decompress.invoke(decompressor, input, 0, input.length, output, 0, output.length);
+            }
+            catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

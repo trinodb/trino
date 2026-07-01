@@ -54,7 +54,7 @@ public class ArrayBlockEncoding
         int positionCount = arrayBlock.getPositionCount();
 
         int offsetBase = arrayBlock.getOffsetBase();
-        int[] offsets = arrayBlock.getOffsets();
+        int[] offsets = arrayBlock.getRawOffsets();
 
         int valuesStartOffset = offsets[offsetBase];
         int valuesEndOffset = offsets[offsetBase + positionCount];

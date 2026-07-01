@@ -230,6 +230,107 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.ArrayBlock::getOffsetBase()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::getRawElementBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.ArrayBlock::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.ByteArrayBlock::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.Fixed12Block::getRawOffset()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.Fixed12Block::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int[] io.trino.spi.block.Fixed12Block::getRawValues()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.Int128ArrayBlock::getRawOffset()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.Int128ArrayBlock::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long[] io.trino.spi.block.Int128ArrayBlock::getRawValues()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.IntArrayBlock::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.LongArrayBlock::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.LongArrayBlock::getRawValuesOffset()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.MapBlock::getOffsetBase()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawKeyBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.MapBlock::getRawMapIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawValueBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.ShortArrayBlock::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method short[] io.trino.spi.block.ShortArrayBlock::getRawValues()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.ShortArrayBlock::getRawValuesOffset()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.trino.spi.block.VariableWidthBlock::getRawArrayBase()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int[] io.trino.spi.block.VariableWidthBlock::getRawOffsets()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.VariableWidthBlock::getRawValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
@@ -25,6 +26,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
 import java.util.Optional;
@@ -39,6 +41,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
+import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -53,6 +56,8 @@ import static org.apache.iceberg.TableProperties.CURRENT_SNAPSHOT_TIMESTAMP;
 public abstract class AbstractMetastoreTableOperations
         extends AbstractIcebergTableOperations
 {
+    private static final Logger log = Logger.get(AbstractMetastoreTableOperations.class);
+
     protected final CachingHiveMetastore metastore;
 
     protected AbstractMetastoreTableOperations(
@@ -126,11 +131,67 @@ public abstract class AbstractMetastoreTableOperations
             metastore.createTable(table, privileges);
         }
         catch (Exception e) {
-            // clean up metadata file corresponding to the current transaction
-            io().deleteFile(newMetadataLocation);
-            // wrap exception in CleanableFailure to ensure that manifest list Avro files are also cleaned up
-            throw new CreateTableException(e, getSchemaTableName());
+            // The metastore call can fail even though the table was actually created, e.g. when the response is lost
+            // on a timeout, or when a retried request observes the table that the first (successful) attempt created
+            // and reports AlreadyExists. Deleting the new metadata file in that case would corrupt the just-created
+            // table, so the actual commit outcome is verified before any cleanup is performed.
+            switch (checkNewTableCommitStatus(newMetadataLocation)) {
+                // The table exists and references the metadata we wrote: the commit succeeded despite the exception.
+                case SUCCESS -> {
+                    log.warn(e, "Received an error from metastore while creating table %s, but the table was actually created; treating the commit as successful", getSchemaTableName());
+                    return;
+                }
+                // Cannot determine whether the create was applied. Preserve every new file (metadata file, manifest
+                // list, manifests, data) so the table remains recoverable; CommitStateUnknownException stops the
+                // Iceberg transaction layer from cleaning them up.
+                case UNKNOWN -> throw new CommitStateUnknownException(e);
+                // The create did not happen (or another writer owns the name); the new metadata file is orphaned.
+                // Clean it up and wrap the failure in CleanableFailure so Iceberg also removes the manifest list
+                // and any data files.
+                case FAILURE -> {
+                    io().deleteFile(newMetadataLocation);
+                    throw new CreateTableException(e, getSchemaTableName());
+                }
+            }
         }
+    }
+
+    /**
+     * Determines whether a failed {@code createTable} call actually applied the commit, by re-reading the table from
+     * the metastore and comparing its metadata location against the one this operation wrote. {@code newMetadataLocation}
+     * carries a freshly generated UUID, so an equal value can only mean this very operation created the table.
+     * <p>
+     * The check is biased towards {@link CommitStatus#UNKNOWN}: an orphaned metadata file is cheap to clean up later
+     * (e.g. via {@code remove_orphan_files}), whereas deleting a file the metastore still references is an
+     * unrecoverable data-integrity issue. A single read is enough because the metastore client already retries
+     * transient failures internally.
+     */
+    private CommitStatus checkNewTableCommitStatus(String newMetadataLocation)
+    {
+        Optional<Table> table;
+        try {
+            metastore.invalidateTable(database, tableName);
+            table = metastore.getTable(database, tableName);
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not determine commit status for new table %s; treating commit state as unknown", getSchemaTableName());
+            return CommitStatus.UNKNOWN;
+        }
+        if (table.isEmpty()) {
+            // The metastore is reachable and the table is absent: the create was not applied.
+            return CommitStatus.FAILURE;
+        }
+        String committedLocation = table.get().getParameters().get(METADATA_LOCATION_PROP);
+        // A matching location proves this operation committed; a different (or missing) location means another writer owns the name.
+        boolean committed = committedLocation != null && newMetadataLocation.equals(fixBrokenMetadataLocation(committedLocation));
+        return committed ? CommitStatus.SUCCESS : CommitStatus.FAILURE;
+    }
+
+    private enum CommitStatus
+    {
+        SUCCESS,
+        FAILURE,
+        UNKNOWN,
     }
 
     protected Table.Builder updateMetastoreTable(Table.Builder builder, TableMetadata metadata, String metadataLocation, Optional<String> previousMetadataLocation)

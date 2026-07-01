@@ -199,18 +199,18 @@ public final class MapBlock
         return valueBlock.getRegion(start, end - start);
     }
 
-    Block getRawKeyBlock()
+    public Block getRawKeyBlock()
     {
         return keyBlock;
     }
 
-    Block getRawValueBlock()
+    public Block getRawValueBlock()
     {
         return valueBlock;
     }
 
     @Nullable
-    boolean[] getRawMapIsNull()
+    public boolean[] getRawMapIsNull()
     {
         return mapIsNull;
     }
@@ -220,12 +220,12 @@ public final class MapBlock
         return hashTables;
     }
 
-    int[] getOffsets()
+    public int[] getRawOffsets()
     {
         return offsets;
     }
 
-    int getOffsetBase()
+    public int getOffsetBase()
     {
         return startOffset;
     }

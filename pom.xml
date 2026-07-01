@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>391</version>
+        <version>392</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -195,7 +195,7 @@
         <dep.frontend-maven-plugin.version>2.0.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.7.0</dep.frontend-npm.version>
-        <dep.httpcore5.version>5.4.2</dep.httpcore5.version>
+        <dep.httpcore5.version>5.4.3</dep.httpcore5.version>
         <dep.iceberg.version>1.11.0</dep.iceberg.version>
         <dep.jna.version>5.19.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
@@ -207,7 +207,7 @@
         <dep.protobuf.version>4.35.1</dep.protobuf.version>
         <dep.swagger.version>2.2.52</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
-        <dep.tcnative.version>2.0.79.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.80.Final</dep.tcnative.version>
         <dep.tempto.version>204</dep.tempto.version>
         <dep.testng.version>7.8.0</dep.testng.version>
         <dep.zookeeper.version>3.9.5</dep.zookeeper.version>

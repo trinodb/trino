@@ -165,7 +165,6 @@ public class PositionDeleteWriter
         void reset()
         {
             size = 0;
-            positions = new long[positions.length];
         }
     }
 }
