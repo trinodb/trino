@@ -623,7 +623,11 @@ encoding, compared to the default on the cluster. The available values are
 `json+zstd` (recommended) for JSON with Zstandard compression, and `json+lz4`
 for JSON with LZ4 compression, and `json` for uncompressed JSON. 
 
-The CLI process must have network access to the spooling object storage.
+The CLI process must have network access to the spooling object storage only
+when `protocol.spooling.retrieval-mode` is `STORAGE` or
+`COORDINATOR_STORAGE_REDIRECT`. With `COORDINATOR_PROXY` and `WORKER_PROXY`,
+the coordinator or a worker retrieves spooled segments from storage for the
+client.
 
 (cli-output-format)=
 ## Output formats
