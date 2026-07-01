@@ -250,6 +250,13 @@ recognizes these certificates.
 Use the options from the following table to further configure TLS and
 certificate usage:
 
+The CLI can use {doc}`PEM </security/inspect-pem>`,
+{doc}`JKS </security/inspect-jks>`, or PKCS #12 files. The `keystore` options
+provide a client certificate when the cluster requests one. The `truststore`
+options configure the certificate authorities used to verify the coordinator's
+certificate, such as when a load balancer terminates TLS with a private
+certificate authority.
+
 :::{list-table}
 :widths: 40, 60
 :header-rows: 1
@@ -260,29 +267,29 @@ certificate usage:
   - Skip certificate validation when connecting with TLS/HTTPS (should only be
     used for debugging).
 * - `--keystore-path`
-  - The location of the Java Keystore file that contains the certificate of the
-    server to connect with TLS.
+  - Path to a PEM, JKS, or PKCS #12 keystore that provides a client certificate.
 * - `--keystore-password`
-  - The password for the keystore. This must match the password you specified
-    when creating the keystore.
+  - Password for the keystore or encrypted key, if required.
 * - `--keystore-type`
-  - Determined by the keystore file format. The default keystore type is JKS.
-    This advanced option is only necessary if you use a custom Java Cryptography
-    Architecture (JCA) provider implementation.
+  - Keystore format for Java keystores. The default keystore type is JKS.
+    PEM files are detected automatically. This advanced option is only
+    necessary if you use a custom Java Cryptography Architecture (JCA) provider
+    implementation.
 * - `--use-system-keystore`
   - Use a client certificate obtained from the system keystore of the operating
     system. Windows and macOS are supported. For other operating systems, the
     default Java keystore is used. The keystore type can be overridden using
     `--keystore-type`.
 * - `--truststore-password`
-  - The password for the truststore. This must match the password you specified
-    when creating the truststore.
+  - Password for the truststore, if required.
 * - `--truststore-path`
-  - The location of the Java truststore file that will be used to secure TLS.
+  - Path to a PEM, JKS, or PKCS #12 truststore used to verify the coordinator's
+    TLS certificate.
 * - `--truststore-type`
-  - Determined by the truststore file format. The default keystore type is JKS.
-    This advanced option is only necessary if you use a custom Java Cryptography
-    Architecture (JCA) provider implementation.
+  - Truststore format for Java truststores. The default truststore type is JKS.
+    PEM files are detected automatically. This advanced option is only
+    necessary if you use a custom Java Cryptography Architecture (JCA) provider
+    implementation.
 * - `--use-system-truststore`
   - Verify the server certificate using the system truststore of the operating
     system. Windows and macOS are supported. For other operating systems, the
