@@ -19,7 +19,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.isOptionalFieldValueNull;
-import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 
@@ -83,21 +82,7 @@ public final class ListColumnReader
         return new BlockPositions(Optional.of(collectionIsValid), offsets.toIntArray());
     }
 
-    public record BlockPositions(Optional<long[]> valueIsValid, int[] offsets)
-    {
-        public Optional<boolean[]> isNull()
-        {
-            if (valueIsValid.isEmpty()) {
-                return Optional.empty();
-            }
-
-            boolean[] isNull = new boolean[offsets.length - 1];
-            for (int position = 0; position < isNull.length; position++) {
-                isNull[position] = !isSet(valueIsValid.get(), 0, position);
-            }
-            return Optional.of(isNull);
-        }
-    }
+    public record BlockPositions(Optional<long[]> valueIsValid, int[] offsets) {}
 
     private static int getNextCollectionStartIndex(int[] repetitionLevels, int maxRepetitionLevel, int elementIndex)
     {

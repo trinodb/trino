@@ -164,7 +164,7 @@ public class TestRepetitionLevelWriter
         int entriesCount = offsets[positionCount];
         Block keyBlock = createArrayBlock(Optional.empty(), entriesCount);
         Block valueBlock = createArrayBlock(RANDOM_NULLS.getNulls(entriesCount), entriesCount);
-        return fromKeyValueBlock(mapIsNull, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, new TypeOperators()));
+        return fromKeyValueBlock(toValidities(mapIsNull, positionCount), offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, new TypeOperators()));
     }
 
     private static void assertRepetitionLevels(

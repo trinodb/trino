@@ -433,13 +433,11 @@ public final class CoercionUtils
             ColumnarMap mapBlock = toColumnarMap(block);
             Block keysBlock = keyCoercer.isEmpty() ? mapBlock.getKeysBlock() : keyCoercer.get().apply(mapBlock.getKeysBlock());
             Block valuesBlock = valueCoercer.isEmpty() ? mapBlock.getValuesBlock() : valueCoercer.get().apply(mapBlock.getValuesBlock());
-            boolean[] valueIsNull = new boolean[mapBlock.getPositionCount()];
             int[] offsets = new int[mapBlock.getPositionCount() + 1];
             for (int i = 0; i < mapBlock.getPositionCount(); i++) {
-                valueIsNull[i] = mapBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
-            return toType.createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+            return toType.createBlockFromKeyValue(getValidityBitmap(mapBlock.getPositionCount(), mapBlock::isNull), offsets, keysBlock, valuesBlock);
         }
 
         @Override
