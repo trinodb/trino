@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
 
+import static io.trino.block.BlockAssertions.toValidityArray;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -175,10 +176,12 @@ public class TestArrayBlock
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
         testCompactBlock(fromElementBlock(0, Optional.empty(), new int[1], emptyValueBlock));
-        testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, compactValueBlock));
-        testNotCompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsNull), offsets, compactValueBlock));
+        long[] valueIsValid = toValidityArray(valueIsNull);
+
+        testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsValid), offsets, compactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsValid), offsets, compactValueBlock));
         // underlying value block is not compact
-        testNotCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, inCompactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsValid), offsets, inCompactValueBlock));
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)

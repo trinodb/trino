@@ -247,7 +247,7 @@ public class ParquetTestUtils
     public static Block createArrayBlock(Optional<boolean[]> valueIsNull, int positionCount)
     {
         int[] arrayOffset = generateOffsets(valueIsNull, positionCount);
-        return fromElementBlock(positionCount, valueIsNull, arrayOffset, createLongsBlockWithRandomNulls(arrayOffset[positionCount]));
+        return fromElementBlock(positionCount, toValidities(valueIsNull, positionCount), arrayOffset, createLongsBlockWithRandomNulls(arrayOffset[positionCount]));
     }
 
     public static Block createMapBlock(Optional<boolean[]> mapIsNull, int positionCount)
@@ -285,7 +285,7 @@ public class ParquetTestUtils
         return new LongArrayBlock(positionCount, Optional.of(valueIsValid), new long[positionCount]);
     }
 
-    private static Optional<long[]> toValidities(Optional<boolean[]> isNull, int positionCount)
+    public static Optional<long[]> toValidities(Optional<boolean[]> isNull, int positionCount)
     {
         if (isNull.isEmpty()) {
             return Optional.empty();
