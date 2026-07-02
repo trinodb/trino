@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.opa;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -168,10 +167,9 @@ public class OpaConfig
 
     @Config("opa.identity.extra-credentials-keys")
     @ConfigDescription("Comma-separated list of extra credential keys from client connections to forward to OPA in the identity context")
-    public OpaConfig setExtraCredentialsKeys(String extraCredentialsKeys)
+    public OpaConfig setExtraCredentialsKeys(Set<String> extraCredentialsKeys)
     {
-        this.extraCredentialsKeys = extraCredentialsKeys == null ? ImmutableSet.of() :
-                ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(extraCredentialsKeys));
+        this.extraCredentialsKeys = ImmutableSet.copyOf(extraCredentialsKeys);
         return this;
     }
 }

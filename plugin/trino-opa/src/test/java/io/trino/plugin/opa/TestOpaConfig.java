@@ -14,6 +14,7 @@
 package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -39,7 +40,7 @@ final class TestOpaConfig
                 .setLogResponses(false)
                 .setAllowPermissionManagementOperations(false)
                 .setAdditionalContextFile(null)
-                .setExtraCredentialsKeys(null));
+                .setExtraCredentialsKeys(ImmutableSet.of()));
     }
 
     @Test
@@ -68,7 +69,7 @@ final class TestOpaConfig
                 .setLogResponses(true)
                 .setAllowPermissionManagementOperations(true)
                 .setAdditionalContextFile(Path.of("src/test/resources/additional-context.properties"))
-                .setExtraCredentialsKeys("ai-service,ai-scope");
+                .setExtraCredentialsKeys(ImmutableSet.of("ai-service", "ai-scope"));
 
         assertFullMapping(properties, expected);
     }
