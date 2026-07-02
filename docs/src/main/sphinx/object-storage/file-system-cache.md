@@ -37,14 +37,15 @@ separately, following the TTL and size configuration, and cached files are
 evicted from the cache.
 
 You can limit the number of hosts that are preferred to process these tasks with
-`fs.cache.preferred-hosts-count`. Query processing still uses all other nodes as
-required for the parallel processing of tasks, and therefore potentially caches
-files on more nodes than the preferred hosts only. A low setting, such as the
-default 2, can reduce the overall size of the cache because it can reduce how
-often the same file is cached on multiple nodes. A higher setting, up to the
-number of nodes in the cluster, distributes the workload across more workers by
-default, and leads to more resilience against node failures at the expense of
-effective cache size.
+the `node-scheduler.cache-preferred-hosts-count` property in the coordinator's
+`etc/config.properties`.
+Query processing still uses all other nodes as required for the parallel
+processing of tasks, and therefore potentially caches files on more nodes than
+the preferred hosts only. A low setting, such as the default 2, can reduce the
+overall size of the cache because it can reduce how often the same file is
+cached on multiple nodes. A higher setting, up to the number of nodes in the
+cluster, distributes the workload across more workers by default, and leads to
+more resilience against node failures at the expense of effective cache size.
 
 (fs-cache-benefits)=
 ## Benefits
@@ -127,12 +128,6 @@ enable and configure caching for the specific catalogs.
   -  The maximum [duration](prop-type-duration) for objects to remain in the cache
      before eviction. Defaults to `7d`. The minimum value of `0s` means that caching
      is effectively turned off.
-* - `fs.cache.preferred-hosts-count`
-  - The number of preferred nodes for caching files. Defaults to 2. Processing
-    identifies and subsequently prefers using specific nodes. If the preferred
-    nodes identified for caching a split are unavailable or too busy, then an
-    available node is chosen at random from the cluster. More information in
-    [](fs-cache-distributed).
 * - `fs.cache.page-size`
   - The page [data size](prop-type-data-size) used for caching data. Each transfer of files
     uses at least this amount of data. Defaults to `1MB`. Values must be between
