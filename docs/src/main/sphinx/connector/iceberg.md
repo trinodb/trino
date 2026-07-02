@@ -2094,19 +2094,35 @@ underlying system, each materialized view consists of a view definition and an
 Iceberg storage table. The storage table name is stored as a materialized view
 property. The data is stored in that storage table.
 
-You can use the {ref}`iceberg-table-properties` to control the created storage
-table and therefore the layout and performance. For example, you can use the
-following clause with {doc}`/sql/create-materialized-view` to use the ORC format
-for the data files and partition the storage per day using the column
-`event_date`:
+(iceberg-materialized-view-properties)=
+#### Materialized view properties
+
+Materialized view properties can be used with
+{doc}`/sql/create-materialized-view` to control behavior specific to the
+materialized view. Materialized view properties are passed to the connector
+using a {doc}`WITH </sql/create-materialized-view>` clause.
+
+:::{list-table} Iceberg materialized view properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `storage_schema`
+  - Schema for creating the materialized view storage table. Defaults to the
+    schema of the materialized view definition.
+:::
+
+In addition to the above, all {ref}`iceberg-table-properties` are supported and
+control the layout and performance of the underlying storage table.
+
+For example, you can use the following clause with
+{doc}`/sql/create-materialized-view` to use the ORC format for the data files
+and partition the storage per day using the column `event_date`:
 
 ```sql
 WITH ( format = 'ORC', partitioning = ARRAY['event_date'] )
 ```
-
-By default, the storage table is created in the same schema as the materialized
-view definition. The `storage_schema` materialized view property can be
-used to specify the schema where the storage table is created.
 
 Creating a materialized view does not automatically populate it with data. You
 must run {doc}`/sql/refresh-materialized-view` to populate data in the
