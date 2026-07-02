@@ -98,6 +98,7 @@ import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
@@ -1155,7 +1156,7 @@ public final class SqlFormatter
         @Override
         protected Void visitMergeInsert(MergeInsert node, Integer indent)
         {
-            appendMergeCaseWhen(false, node.getExpression());
+            appendMergeCaseWhen(node.getMergeCaseKind(), node.getExpression());
             append(indent + 1, "THEN INSERT ");
 
             if (!node.getColumns().isEmpty()) {
@@ -1175,7 +1176,7 @@ public final class SqlFormatter
         @Override
         protected Void visitMergeUpdate(MergeUpdate node, Integer indent)
         {
-            appendMergeCaseWhen(true, node.getExpression());
+            appendMergeCaseWhen(node.getMergeCaseKind(), node.getExpression());
             append(indent + 1, "THEN UPDATE SET");
 
             boolean first = true;
@@ -1194,14 +1195,18 @@ public final class SqlFormatter
         @Override
         protected Void visitMergeDelete(MergeDelete node, Integer indent)
         {
-            appendMergeCaseWhen(true, node.getExpression());
+            appendMergeCaseWhen(node.getMergeCaseKind(), node.getExpression());
             append(indent + 1, "THEN DELETE");
             return null;
         }
 
-        private void appendMergeCaseWhen(boolean matched, Optional<Expression> expression)
+        private void appendMergeCaseWhen(MergeCaseKind kind, Optional<Expression> expression)
         {
-            builder.append(matched ? "WHEN MATCHED" : "WHEN NOT MATCHED");
+            switch (kind) {
+                case MATCHED -> builder.append("WHEN MATCHED");
+                case NOT_MATCHED_BY_TARGET -> builder.append("WHEN NOT MATCHED");
+                case NOT_MATCHED_BY_SOURCE -> builder.append("WHEN NOT MATCHED BY SOURCE");
+            }
             expression.ifPresent(value -> builder
                     .append(" AND ")
                     .append(formatExpression(value)));

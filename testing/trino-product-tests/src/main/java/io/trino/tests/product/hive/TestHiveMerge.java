@@ -776,6 +776,121 @@ public class TestHiveMerge
         });
     }
 
+    // -------------------------------------------------------------------------
+    // WHEN NOT MATCHED BY SOURCE
+    // -------------------------------------------------------------------------
+
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testMergeNotMatchedBySourceDelete()
+    {
+        withTemporaryTable("merge_by_source_delete_target", false, NONE, targetTable -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("merge_by_source_delete_source", false, NONE, sourceTable -> {
+                onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR) WITH (transactional = true)", sourceTable));
+                // Source matches only Aaron and Carol; Bill and Dave become NOT MATCHED BY SOURCE → deleted.
+                onTrino().executeQuery(format("INSERT INTO %s VALUES ('Aaron'), ('Carol')", sourceTable));
+
+                onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN NOT MATCHED BY SOURCE THEN DELETE");
+
+                verifySelectForTrinoAndHive(
+                        "SELECT * FROM " + targetTable,
+                        row("Aaron", 5, "Antioch"),
+                        row("Carol", 3, "Cambridge"));
+            });
+        });
+    }
+
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testMergeNotMatchedBySourceUpdate()
+    {
+        // SCD-2 style: rows that disappeared from the source side get archived.
+        withTemporaryTable("merge_by_source_update_target", false, NONE, targetTable -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("merge_by_source_update_source", false, NONE, sourceTable -> {
+                onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR) WITH (transactional = true)", sourceTable));
+                onTrino().executeQuery(format("INSERT INTO %s VALUES ('Aaron'), ('Carol')", sourceTable));
+
+                onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN NOT MATCHED BY SOURCE THEN UPDATE SET address = 'ARCHIVED'");
+
+                verifySelectForTrinoAndHive(
+                        "SELECT * FROM " + targetTable,
+                        row("Aaron", 5, "Antioch"),
+                        row("Bill", 7, "ARCHIVED"),
+                        row("Carol", 3, "Cambridge"),
+                        row("Dave", 11, "ARCHIVED"));
+            });
+        });
+    }
+
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testMergeAllThreeClauseKinds()
+    {
+        // MATCHED + BY TARGET + BY SOURCE → FULL OUTER join end-to-end against Hive ACID.
+        withTemporaryTable("merge_all_three_target", false, NONE, targetTable -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("merge_all_three_source", false, NONE, sourceTable -> {
+                onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+                // Aaron matches (UPDATE), Ed is new (INSERT), Bill/Carol/Dave absent → BY SOURCE DELETE.
+                onTrino().executeQuery(format("INSERT INTO %s VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville')", sourceTable));
+
+                onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES (s.customer, s.purchases, s.address)" +
+                        "    WHEN NOT MATCHED BY SOURCE THEN DELETE");
+
+                verifySelectForTrinoAndHive(
+                        "SELECT * FROM " + targetTable,
+                        row("Aaron", 11, "Arches"),
+                        row("Ed", 7, "Etherville"));
+            });
+        });
+    }
+
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = 60 * 60 * 1000)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testMergeNotMatchedBySourcePartitionedWithPredicate()
+    {
+        // Partitioned ACID target + BY SOURCE predicate restricted to one partition.
+        // Exercises the §5.4 predicate pushdown end-to-end on Hive ACID.
+        withTemporaryTable("merge_by_source_partitioned_target", true, NONE, targetTable -> {
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) " +
+                            "WITH (transactional = true, partitioned_by = ARRAY['address'])",
+                    targetTable));
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s VALUES " +
+                            "('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), " +
+                            "('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')",
+                    targetTable));
+
+            withTemporaryTable("merge_by_source_partitioned_source", false, NONE, sourceTable -> {
+                onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR) WITH (transactional = true)", sourceTable));
+                // Source covers no target row; predicate restricts the DELETE to a single partition.
+                onTrino().executeQuery(format("INSERT INTO %s VALUES ('NotPresent')", sourceTable));
+
+                onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN NOT MATCHED BY SOURCE AND t.address = 'Buena' THEN DELETE");
+
+                verifySelectForTrinoAndHive(
+                        "SELECT * FROM " + targetTable,
+                        row("Aaron", 5, "Antioch"),
+                        row("Carol", 3, "Cambridge"),
+                        row("Dave", 11, "Devon"));
+            });
+        });
+    }
+
     @DataProvider
     public Object[][] insertersProvider()
     {

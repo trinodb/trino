@@ -21,19 +21,27 @@ import static java.util.Objects.requireNonNull;
 public abstract class MergeCase
         extends Node
 {
+    protected final MergeCaseKind mergeCaseKind;
     protected final Optional<Expression> expression;
 
-    protected MergeCase(NodeLocation location, Optional<Expression> expression)
+    protected MergeCase(NodeLocation location, MergeCaseKind mergeCaseKind, Optional<Expression> expression)
     {
         super(location);
+        this.mergeCaseKind = requireNonNull(mergeCaseKind, "mergeCaseKind is null");
         this.expression = requireNonNull(expression, "expression is null");
     }
 
     @Deprecated
-    protected MergeCase(Optional<NodeLocation> location, Optional<Expression> expression)
+    protected MergeCase(Optional<NodeLocation> location, MergeCaseKind mergeCaseKind, Optional<Expression> expression)
     {
         super(location);
+        this.mergeCaseKind = requireNonNull(mergeCaseKind, "mergeCaseKind is null");
         this.expression = requireNonNull(expression, "expression is null");
+    }
+
+    public MergeCaseKind getMergeCaseKind()
+    {
+        return mergeCaseKind;
     }
 
     public Optional<Expression> getExpression()

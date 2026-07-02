@@ -187,6 +187,7 @@ import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
@@ -782,20 +783,46 @@ class AstBuilder
     @Override
     public Node visitMergeUpdate(SqlBaseParser.MergeUpdateContext context)
     {
-        ImmutableList.Builder<MergeUpdate.Assignment> assignments = ImmutableList.builder();
-        for (int i = 0; i < context.targets.size(); i++) {
-            assignments.add(new MergeUpdate.Assignment(
-                    (Identifier) visit(context.targets.get(i)),
-                    (Expression) visit(context.values.get(i))));
-        }
-
-        return new MergeUpdate(getLocation(context), visitIfPresent(context.condition, Expression.class), assignments.build());
+        return new MergeUpdate(
+                getLocation(context),
+                MergeCaseKind.MATCHED,
+                visitIfPresent(context.condition, Expression.class),
+                buildMergeAssignments(context.targets, context.values));
     }
 
     @Override
     public Node visitMergeDelete(SqlBaseParser.MergeDeleteContext context)
     {
-        return new MergeDelete(getLocation(context), visitIfPresent(context.condition, Expression.class));
+        return new MergeDelete(getLocation(context), MergeCaseKind.MATCHED, visitIfPresent(context.condition, Expression.class));
+    }
+
+    @Override
+    public Node visitMergeUpdateBySource(SqlBaseParser.MergeUpdateBySourceContext context)
+    {
+        return new MergeUpdate(
+                getLocation(context),
+                MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                visitIfPresent(context.condition, Expression.class),
+                buildMergeAssignments(context.targets, context.values));
+    }
+
+    @Override
+    public Node visitMergeDeleteBySource(SqlBaseParser.MergeDeleteBySourceContext context)
+    {
+        return new MergeDelete(getLocation(context), MergeCaseKind.NOT_MATCHED_BY_SOURCE, visitIfPresent(context.condition, Expression.class));
+    }
+
+    private ImmutableList<MergeUpdate.Assignment> buildMergeAssignments(
+            List<SqlBaseParser.IdentifierContext> targets,
+            List<SqlBaseParser.ExpressionContext> values)
+    {
+        ImmutableList.Builder<MergeUpdate.Assignment> assignments = ImmutableList.builder();
+        for (int i = 0; i < targets.size(); i++) {
+            assignments.add(new MergeUpdate.Assignment(
+                    (Identifier) visit(targets.get(i)),
+                    (Expression) visit(values.get(i))));
+        }
+        return assignments.build();
     }
 
     @Override
