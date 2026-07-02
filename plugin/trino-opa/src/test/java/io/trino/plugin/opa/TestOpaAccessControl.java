@@ -1062,7 +1062,7 @@ final class TestOpaAccessControl
                 .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "my-ai-app", "ai-scope", "read-only", "otherKey", "other-value"))
                 .build();
 
-        OpaConfig configWithWhitelist = simpleOpaConfig().setExtraCredentialsKeys("ai-service,ai-scope");
+        OpaConfig configWithWhitelist = simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service", "ai-scope"));
         InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
         OpaAccessControl authorizer = createOpaAuthorizer(configWithWhitelist, mockClient);
         authorizer.checkCanExecuteQuery(identityWithCredentials, TEST_QUERY_ID);
