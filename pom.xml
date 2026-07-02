@@ -66,6 +66,7 @@
         <module>plugin/trino-clickhouse</module>
         <module>plugin/trino-datasketches</module>
         <module>plugin/trino-delta-lake</module>
+        <module>plugin/trino-doris</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-duckdb</module>
         <module>plugin/trino-elasticsearch</module>
