@@ -29,7 +29,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
-import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listOperationalCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -74,7 +74,7 @@ public class SchemaJdbcTable
             return table.build().cursor();
         }
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
+        for (String catalog : listOperationalCatalogNames(session, metadata, accessControl, catalogDomain)) {
             for (String schema : listSchemas(session, metadata, accessControl, catalog)) {
                 table.addRow(schema, catalog);
             }

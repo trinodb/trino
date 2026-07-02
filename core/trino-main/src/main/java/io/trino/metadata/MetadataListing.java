@@ -74,6 +74,21 @@ public final class MetadataListing
         return ImmutableSortedSet.copyOf(accessControl.filterCatalogs(session.toSecurityContext(), catalogs));
     }
 
+    /**
+     * Like {@link #listCatalogNames(Session, Metadata, AccessControl, Domain)} but excludes catalogs that
+     * failed to load. Use this when the caller will subsequently access a catalog's connector
+     * which is not possible for a failed catalog.
+     */
+    public static SortedSet<String> listOperationalCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Domain catalogDomain)
+    {
+        Set<String> catalogs = metadata.listCatalogs(session).stream()
+                .filter(CatalogInfo::isActive)
+                .map(CatalogInfo::catalogName)
+                .filter(stringFilter(catalogDomain))
+                .collect(toImmutableSet());
+        return ImmutableSortedSet.copyOf(accessControl.filterCatalogs(session.toSecurityContext(), catalogs));
+    }
+
     public static List<CatalogInfo> listCatalogs(Session session, Metadata metadata, AccessControl accessControl)
     {
         List<CatalogInfo> catalogs = metadata.listCatalogs(session);
