@@ -176,6 +176,285 @@ Example type definitions: `DECIMAL(10,3)`, `DECIMAL(20)`
 
 Example literals: `DECIMAL '10.3'`, `DECIMAL '1234567890'`, `1.1`
 
+(numeric-methods)=
+## Numeric methods
+
+The core {doc}`math functions </functions/math>` are also available as SQL:2023
+methods on numeric receivers, so `value.abs()`, `value.round(2)`, and
+`(2e0).sqrt()` resolve to the same implementations as the plain functions.
+Methods and functions resolve in separate namespaces, so every existing function
+call keeps working, and each method returns a new value without modifying the
+receiver.
+
+A method is matched on the *exact* base type of its receiver, with no implicit
+cross-type coercion of the receiver. A function defined only for `DOUBLE`, such
+as {func}`sqrt`, is therefore a method on `DOUBLE` receivers only; use the plain
+function or cast the receiver — for example `(CAST(16 AS double)).sqrt()` or
+`(16e0).sqrt()` — to apply it to another numeric type. Because a bare decimal
+literal such as `2.0` is itself a method receiver candidate, wrap the receiver in
+parentheses, as in `(2.0).floor()`.
+
+### Methods on every numeric type
+
+These methods are available on all numeric receivers (`TINYINT`, `SMALLINT`,
+`INTEGER`, `BIGINT`, `REAL`, `DOUBLE`, `DECIMAL`, and `NUMBER`).
+
+:::{function} number.abs() -> [same as input]
+:noindex: true
+
+Returns the absolute value of `number`. Related: {func}`abs`.
+
+```
+SELECT (DECIMAL '-7.50').abs();
+-- 7.50
+```
+:::
+
+:::{function} number.ceiling() -> [same as input]
+:noindex: true
+
+Returns `number` rounded up to the nearest integer. Also available as
+`number.ceil()`. Related: {func}`ceiling`.
+
+```
+SELECT (2.1).ceiling();
+-- 3
+```
+:::
+
+:::{function} number.floor() -> [same as input]
+:noindex: true
+
+Returns `number` rounded down to the nearest integer. Related: {func}`floor`.
+
+```
+SELECT (2.9).floor();
+-- 2
+```
+:::
+
+:::{function} number.round() -> [same as input]
+:noindex: true
+
+Returns `number` rounded to the nearest integer. Related: {func}`round`.
+:::
+
+:::{function} number.round(decimals) -> [same as input]
+:noindex: true
+
+Returns `number` rounded to `decimals` decimal places. Related: {func}`round`.
+
+```
+SELECT (3.14159).round(2);
+-- 3.14
+```
+:::
+
+:::{function} number.sign() -> [same as input]
+:noindex: true
+
+Returns the signum of `number`. Related: {func}`sign`.
+:::
+
+### Methods on REAL, DOUBLE, DECIMAL, and NUMBER
+
+:::{function} number.truncate() -> [same as input]
+:noindex: true
+
+Returns `number` rounded toward zero to an integer. Related: {func}`truncate`.
+
+```
+SELECT (DOUBLE '-42.7').truncate();
+-- -42.0
+```
+:::
+
+`DECIMAL` receivers additionally support `number.truncate(decimals)`, which drops
+digits beyond `decimals` decimal places.
+
+### Methods on integer, floating-point, and NUMBER types
+
+:::{function} number.mod(divisor) -> [same as input]
+:noindex: true
+
+Returns the remainder of `number` divided by `divisor`. Available on `TINYINT`,
+`SMALLINT`, `INTEGER`, `BIGINT`, `REAL`, `DOUBLE`, and `NUMBER` receivers.
+Related: {func}`mod`.
+
+```
+SELECT (10).mod(3);
+-- 1
+```
+:::
+
+### Methods on DOUBLE values
+
+The following methods are available on `DOUBLE` receivers, matching the
+floating-point math functions.
+
+:::{function} double.sqrt() -> double
+:noindex: true
+
+Returns the square root of the receiver. Related: {func}`sqrt`.
+
+```
+SELECT (16e0).sqrt();
+-- 4.0
+```
+:::
+
+:::{function} double.cbrt() -> double
+:noindex: true
+
+Returns the cube root of the receiver. Related: {func}`cbrt`.
+:::
+
+:::{function} double.exp() -> double
+:noindex: true
+
+Returns Euler's number raised to the receiver. Related: {func}`exp`.
+:::
+
+:::{function} double.ln() -> double
+:noindex: true
+
+Returns the natural logarithm of the receiver. Related: {func}`ln`.
+:::
+
+:::{function} double.log2() -> double
+:noindex: true
+
+Returns the base-2 logarithm of the receiver. Related: {func}`log2`.
+:::
+
+:::{function} double.log10() -> double
+:noindex: true
+
+Returns the base-10 logarithm of the receiver. Related: {func}`log10`.
+:::
+
+:::{function} double.log(number) -> double
+:noindex: true
+
+Returns the logarithm of `number` to the base of the receiver. Related:
+{func}`log`.
+
+```
+SELECT (2e0).log(8e0);
+-- 3.0
+```
+:::
+
+:::{function} double.power(exponent) -> double
+:noindex: true
+
+Returns the receiver raised to the power of `exponent`. Also available as
+`double.pow(exponent)`. Related: {func}`power`.
+
+```
+SELECT (2e0).power(10e0);
+-- 1024.0
+```
+:::
+
+:::{function} double.sin() -> double
+:noindex: true
+
+Returns the sine of the receiver. The methods `cos`, `tan`, `sinh`, `cosh`,
+`tanh`, `asin`, `acos`, and `atan` are available in the same way. Related:
+{func}`sin`.
+:::
+
+:::{function} double.atan2(x) -> double
+:noindex: true
+
+Returns the arc tangent of the receiver divided by `x`. Related: {func}`atan2`.
+:::
+
+:::{function} double.degrees() -> double
+:noindex: true
+
+Converts the receiver from radians to degrees. Related: {func}`degrees`.
+:::
+
+:::{function} double.radians() -> double
+:noindex: true
+
+Converts the receiver from degrees to radians. Related: {func}`radians`.
+:::
+
+:::{function} double.is_nan() -> boolean
+:noindex: true
+
+Returns whether the receiver is not-a-number. Also available on `REAL` and
+`NUMBER` receivers. Related: {func}`is_nan`.
+:::
+
+:::{function} double.is_finite() -> boolean
+:noindex: true
+
+Returns whether the receiver is finite. Also available on `REAL` and `NUMBER`
+receivers. Related: {func}`is_finite`.
+:::
+
+:::{function} double.is_infinite() -> boolean
+:noindex: true
+
+Returns whether the receiver is infinite. Also available on `NUMBER` receivers.
+Related: {func}`is_infinite`.
+:::
+
+:::{function} double.width_bucket(bound1, bound2, n) -> bigint
+:noindex: true
+
+Returns the bin number of the receiver for `n` equi-width bins between `bound1`
+and `bound2`. An overload taking a sorted `array(double)` of bins is also
+available. Related: {func}`width_bucket`.
+:::
+
+### Methods on BIGINT values
+
+:::{function} bigint.to_base(radix) -> varchar
+:noindex: true
+
+Returns the base-`radix` string representation of the receiver. Related:
+{func}`to_base`.
+
+```
+SELECT (255).to_base(16);
+-- ff
+```
+:::
+
+### Static methods
+
+The numeric constructors and constants are available as static methods, invoked
+with the `type::method(...)` syntax.
+
+:::{function} double::pi() -> double
+:noindex: true
+
+Returns the constant Pi. The constants `e`, `nan`, and `infinity` are available
+the same way. Related: {func}`pi`.
+
+```
+SELECT double::pi();
+-- 3.141592653589793
+```
+:::
+
+:::{function} bigint::from_base(string, radix) -> bigint
+:noindex: true
+
+Returns the value of `string` interpreted as a base-`radix` number. Related:
+{func}`from_base`.
+
+```
+SELECT bigint::from_base('ff', 16);
+-- 255
+```
+:::
+
 (string-data-types)=
 ## String
 
