@@ -79,8 +79,11 @@ public class ParametricScalar
         }
         if (details.isInstanceMethod()) {
             checkCondition(!signature.getArgumentTypes().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Instance method %s must declare a self argument", details.getName());
-            functionMetadata.receiverType(signature.getArgumentTypes().getFirst());
+            int selfArgumentIndex = details.getSelfArgumentIndex().orElseThrow();
+            checkCondition(selfArgumentIndex < signature.getArgumentTypes().size(), FUNCTION_IMPLEMENTATION_ERROR, "Instance method %s @Self argument index %s is out of bounds", details.getName(), selfArgumentIndex);
+            functionMetadata.receiverType(signature.getArgumentTypes().get(selfArgumentIndex));
             functionMetadata.instanceMethod();
+            functionMetadata.receiverArgumentIndex(selfArgumentIndex);
         }
         else {
             details.getReceiverType().ifPresent(functionMetadata::receiverType);

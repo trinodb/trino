@@ -877,10 +877,7 @@ public class TranslationMap
         if (methodReceiver.isPresent()) {
             return new Call(
                     resolvedFunction.get(),
-                    ImmutableList.<io.trino.sql.ir.Expression>builder()
-                            .add(translateExpression(methodReceiver.get()))
-                            .addAll(translated)
-                            .build());
+                    insertReceiver(translated, translateExpression(methodReceiver.get()), analysis.getMethodReceiverIndex(expression)));
         }
 
         return new Call(resolvedFunction.get(), translated);
@@ -901,10 +898,22 @@ public class TranslationMap
 
         return new Call(
                 resolvedFunction.get(),
-                ImmutableList.<io.trino.sql.ir.Expression>builder()
-                        .add(translateExpression(expression.getReceiver()))
-                        .addAll(translateMethodArguments(expression, expression.getArguments()))
-                        .build());
+                insertReceiver(
+                        translateMethodArguments(expression, expression.getArguments()),
+                        translateExpression(expression.getReceiver()),
+                        analysis.getMethodReceiverIndex(expression)));
+    }
+
+    /// Rebuilds the full call argument list in signature order by inserting the receiver at the
+    /// slot it occupies (slot 0 for the common case, any slot when declared with `@Self`).
+    private static List<io.trino.sql.ir.Expression> insertReceiver(List<io.trino.sql.ir.Expression> arguments, io.trino.sql.ir.Expression receiver, int receiverIndex)
+    {
+        int index = Math.min(receiverIndex, arguments.size());
+        return ImmutableList.<io.trino.sql.ir.Expression>builder()
+                .addAll(arguments.subList(0, index))
+                .add(receiver)
+                .addAll(arguments.subList(index, arguments.size()))
+                .build();
     }
 
     // Emit arguments in resolved signature order: for positional calls the binding
