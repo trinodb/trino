@@ -76,7 +76,7 @@ public class InternalConnectorExpressionEvaluator
             // $engine_expression calls are translated by deserializing their payload, so the
             // resulting IR contains the wrapped predicate inlined
             irExpression = ConnectorExpressionTranslator.translate(
-                    session, connectorExpression, plannerContext, variableMappings, new SymbolAllocator());
+                    session, connectorExpression, plannerContext, variableMappings, new SymbolAllocator(variableMappings.values()));
 
             columnSymbols = SymbolsExtractor.extractUnique(irExpression);
         }

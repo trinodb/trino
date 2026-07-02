@@ -18,12 +18,12 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,6 +49,6 @@ public class TestFlattenCoalesce
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new FlattenCoalesce().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new FlattenCoalesce().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

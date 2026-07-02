@@ -102,7 +102,7 @@ public class FilterStatsCalculator
     private Expression simplifyExpression(Session session, Expression predicate)
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
-        Expression value = plannerContext.getExpressionOptimizer().process(predicate, session, new SymbolAllocator(), ImmutableMap.of()).orElse(predicate);
+        Expression value = plannerContext.getExpressionOptimizer().process(predicate, session, new SymbolAllocator(extractUnique(predicate)), ImmutableMap.of()).orElse(predicate);
 
         if (value instanceof Constant constant && constant.value() == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).

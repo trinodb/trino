@@ -48,7 +48,6 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
@@ -74,6 +73,7 @@ import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrExpressions.nullIf;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -356,7 +356,7 @@ public class TestPostgreSqlClient
                         translateToConnectorExpression(
                                 between(
                                         FUNCTIONS.getMetadata(),
-                                        new SymbolAllocator(),
+                                        emptySymbolAllocator(),
                                         new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "c_bigint_symbol"))),
                                         new Constant(BIGINT, 1L),
                                         new Constant(BIGINT, 10L))),
@@ -374,7 +374,7 @@ public class TestPostgreSqlClient
                 translateToConnectorExpression(
                         between(
                                 FUNCTIONS.getMetadata(),
-                                new SymbolAllocator(),
+                                emptySymbolAllocator(),
                                 new Coalesce(
                                         new Reference(VARCHAR, "a_varchar_symbol"),
                                         new Reference(VARCHAR, "b_varchar_symbol")),
@@ -422,7 +422,7 @@ public class TestPostgreSqlClient
                         translateToConnectorExpression(
                                 nullIf(
                                         FUNCTIONS.getMetadata(),
-                                        new SymbolAllocator(),
+                                        emptySymbolAllocator(),
                                         new Reference(VARCHAR, "a_varchar_symbol"),
                                         new Reference(VARCHAR, "b_varchar_symbol"))),
                         ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN))
