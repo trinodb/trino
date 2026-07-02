@@ -30,6 +30,7 @@ import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoe
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
@@ -57,6 +58,7 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metastore.HiveType.HIVE_BOOLEAN;
@@ -394,13 +396,11 @@ public final class CoercionUtils
         {
             ColumnarArray arrayBlock = toColumnarArray(block);
             Block elementsBlock = elementCoercer.apply(arrayBlock.getElementsBlock());
-            boolean[] valueIsNull = new boolean[arrayBlock.getPositionCount()];
             int[] offsets = new int[arrayBlock.getPositionCount() + 1];
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                valueIsNull[i] = arrayBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
             }
-            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), Optional.of(valueIsNull), offsets, elementsBlock);
+            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), getValidityBitmap(arrayBlock.getPositionCount(), arrayBlock::isNull), offsets, elementsBlock);
         }
 
         @Override
@@ -529,6 +529,24 @@ public final class CoercionUtils
         {
             throw new UnsupportedOperationException("Not supported");
         }
+    }
+
+    private static Optional<long[]> getValidityBitmap(int positionCount, IntPredicate isNull)
+    {
+        long[] valueIsValid = new long[Bitmap.wordsForBits(positionCount)];
+        boolean foundNull = false;
+        for (int position = 0; position < positionCount; position++) {
+            if (isNull.test(position)) {
+                foundNull = true;
+            }
+            else {
+                Bitmap.set(valueIsValid, 0, position);
+            }
+        }
+        if (!foundNull) {
+            return Optional.empty();
+        }
+        return Optional.of(valueIsValid);
     }
 
     public record CoercionContext(HiveTimestampPrecision timestampPrecision, HiveStorageFormat storageFormat)

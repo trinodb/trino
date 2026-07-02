@@ -58,6 +58,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.forEachPair;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -226,7 +228,7 @@ public final class BlockAssertions
         // Builds the nested block of size offsets[positionCount].
         if (type instanceof ArrayType arrayType) {
             ValueBlock valuesBlock = createRandomBlockForType(arrayType.getElementType(), offsets[positionCount], nullRate);
-            return fromElementBlock(positionCount, Optional.ofNullable(isNull), offsets, valuesBlock);
+            return fromElementBlock(positionCount, toValidity(isNull), offsets, valuesBlock);
         }
         if (type instanceof MapType mapType) {
             ValueBlock keyBlock = createRandomBlockForType(mapType.getKeyType(), offsets[positionCount], 0.0f);
@@ -262,6 +264,25 @@ public final class BlockAssertions
         }
 
         throw new IllegalArgumentException(format("type %s is not supported.", type));
+    }
+
+    private static Optional<long[]> toValidity(boolean[] isNull)
+    {
+        if (isNull == null) {
+            return Optional.empty();
+        }
+        return Optional.of(toValidityArray(isNull));
+    }
+
+    static long[] toValidityArray(boolean[] isNull)
+    {
+        long[] validity = new long[wordsForBits(isNull.length)];
+        for (int position = 0; position < isNull.length; position++) {
+            if (!isNull[position]) {
+                set(validity, 0, position);
+            }
+        }
+        return validity;
     }
 
     public static ValueBlock createRandomBooleansBlock(int positionCount, float nullRate)

@@ -34,6 +34,7 @@ import static io.trino.parquet.ParquetTestUtils.createMapBlock;
 import static io.trino.parquet.ParquetTestUtils.createRowBlock;
 import static io.trino.parquet.ParquetTestUtils.generateGroupSizes;
 import static io.trino.parquet.ParquetTestUtils.generateOffsets;
+import static io.trino.parquet.ParquetTestUtils.toValidities;
 import static io.trino.parquet.writer.NullsProvider.RANDOM_NULLS;
 import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.getRootRepetitionLevelWriter;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
@@ -58,7 +59,7 @@ public class TestRepetitionLevelWriter
             int[] arrayOffsets = generateOffsets(valueIsNull, POSITIONS);
             int rowBlockPositions = arrayOffsets[POSITIONS];
             RowBlock rowBlock = createRowBlock(nullsProvider.getNulls(rowBlockPositions), rowBlockPositions);
-            ArrayBlock arrayBlock = fromElementBlock(POSITIONS, valueIsNull, arrayOffsets, rowBlock);
+            ArrayBlock arrayBlock = fromElementBlock(POSITIONS, toValidities(valueIsNull, POSITIONS), arrayOffsets, rowBlock);
 
             ColumnarArray columnarArray = toColumnarArray(arrayBlock);
             Block row = columnarArray.getElementsBlock();

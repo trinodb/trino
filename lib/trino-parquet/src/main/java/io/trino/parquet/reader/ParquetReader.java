@@ -593,7 +593,7 @@ public class ParquetReader
 
         ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
         int positionsCount = collectionPositions.offsets().length - 1;
-        Block arrayBlock = ArrayBlock.fromElementBlock(positionsCount, collectionPositions.isNull(), collectionPositions.offsets(), columnChunk.getBlock());
+        Block arrayBlock = ArrayBlock.fromElementBlock(positionsCount, collectionPositions.valueIsValid(), collectionPositions.offsets(), columnChunk.getBlock());
         return new ColumnChunk(arrayBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
