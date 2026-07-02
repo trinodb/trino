@@ -27,6 +27,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.admission.ResourceAwareAdmissionController;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -59,6 +61,7 @@ public class LocalDispatchQuery
 
     private final QueryMonitor queryMonitor;
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final ResourceAwareAdmissionController admissionController;
 
     private final Executor queryExecutor;
 
@@ -72,6 +75,7 @@ public class LocalDispatchQuery
             ListenableFuture<QueryExecution> queryExecutionFuture,
             QueryMonitor queryMonitor,
             ClusterSizeMonitor clusterSizeMonitor,
+            ResourceAwareAdmissionController admissionController,
             Executor queryExecutor,
             Consumer<QueryExecution> querySubmitter)
     {
@@ -79,6 +83,7 @@ public class LocalDispatchQuery
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.admissionController = requireNonNull(admissionController, "admissionController is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
@@ -130,9 +135,14 @@ public class LocalDispatchQuery
             if (queryExecution.shouldWaitForMinWorkers()) {
                 executionMinCount = getRequiredWorkers(session);
             }
-            ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
+            int requiredWorkers = executionMinCount;
+            // gate on resource-aware admission first (a no-op future when disabled), then wait for minimum workers
+            ListenableFuture<Void> minimumWorkerFuture = transformAsync(admissionController.awaitAdmission(session), _ -> clusterSizeMonitor.waitForMinimumWorkers(requiredWorkers, getRequiredWorkersMaxWait(session)), queryExecutor);
             // when worker requirement is met, start the execution
-            addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
+            addSuccessCallback(minimumWorkerFuture, () -> {
+                admissionController.recordOnCompletion(queryExecution);
+                startExecution(queryExecution);
+            }, queryExecutor);
             addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed, queryExecutor);
 
             // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user

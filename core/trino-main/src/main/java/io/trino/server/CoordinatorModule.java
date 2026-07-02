@@ -66,6 +66,7 @@ import io.trino.execution.StagesInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.admission.AdmissionModule;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
@@ -222,6 +223,9 @@ public class CoordinatorModule
 
         // local dispatcher
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
+
+        // Resource-aware query admission gate (off by default; see ResourceAwareAdmissionConfig)
+        install(new AdmissionModule());
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);

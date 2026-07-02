@@ -38,6 +38,7 @@ import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.StagesInfo;
+import io.trino.execution.admission.ResourceAwareAdmissionController;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
@@ -159,6 +160,7 @@ public class TestLocalDispatchQuery
                 Futures.immediateFuture(dataDefinitionExecution),
                 queryMonitor,
                 new TestClusterSizeMonitor(TestingInternalNodeManager.createDefault(), new NodeSchedulerConfig()),
+                ResourceAwareAdmissionController.createNoOpForTesting(),
                 executor,
                 _ -> dataDefinitionExecution.start());
         queryStateMachine.addStateChangeListener(state -> {
