@@ -39,17 +39,27 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.util.UUID.randomUUID;
 
 /**
- * A hierarchical file system for testing.
+ * A hierarchical file system backed by a local (or locally-mounted, e.g. NFS) directory tree.
+ * <p>
+ * {@code local://} locations are resolved relative to the configured root, forming a virtual
+ * namespace that never exposes the real absolute path. {@code file://} locations are resolved as
+ * the literal absolute POSIX path they name (matching Hadoop's {@code file:} scheme and RFC 8089);
+ * the configured root is enforced purely as an access-control boundary in that case.
  */
 public class LocalFileSystem
         implements TrinoFileSystem
 {
-    private final Path rootPath;
+    private final LocalPathCanonicalizer canonicalizer;
 
     public LocalFileSystem(Path rootPath)
     {
-        this.rootPath = rootPath;
+        this(rootPath, Optional.empty());
+    }
+
+    public LocalFileSystem(Path rootPath, Optional<Path> legacyPrefix)
+    {
         checkArgument(Files.isDirectory(rootPath), "root is not a directory: %s", rootPath);
+        this.canonicalizer = new LocalPathCanonicalizer(rootPath, legacyPrefix);
     }
 
     @Override
@@ -124,7 +134,7 @@ public class LocalFileSystem
                                 throw exception;
                             }
                             // do not delete the root of this file system
-                            if (!directory.equals(rootPath)) {
+                            if (!directory.equals(canonicalizer.rootPath())) {
                                 Files.delete(directory);
                             }
                             return FileVisitResult.CONTINUE;
@@ -164,7 +174,7 @@ public class LocalFileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
-        return new LocalFileIterator(location, rootPath, toDirectoryPath(location));
+        return new LocalFileIterator(location, canonicalizer, toDirectoryPath(location));
     }
 
     @Override
@@ -261,7 +271,7 @@ public class LocalFileSystem
         Path localPath = toPath(location);
 
         // local file path can not be empty as this would create a file for the root entry
-        checkArgument(!localPath.equals(rootPath), "Local file location must contain a path: %s", localPath);
+        checkArgument(!localPath.equals(canonicalizer.rootPath()), "Local file location must contain a path: %s", localPath);
         return localPath;
     }
 
@@ -280,9 +290,8 @@ public class LocalFileSystem
 
     private Path toPath(Location location)
     {
-        // ensure path isn't something like '../../data'
-        Path localPath = rootPath.resolve(location.path()).normalize();
-        checkArgument(localPath.startsWith(rootPath), "Location references data outside of the root: %s", location);
+        Path localPath = canonicalizer.toRealPath(location.scheme().orElseThrow(), location.path());
+        checkArgument(canonicalizer.isWithinRoot(localPath), "Location references data outside of the root: %s", location);
         return localPath;
     }
 }

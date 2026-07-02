@@ -51,12 +51,12 @@ public class TestForwardingFileIo
         long actualLength = Files.size(filePath);
 
         try (ForwardingFileIo ignoringFileIo = new ForwardingFileIo(fileSystem, false)) {
-            assertThat(ignoringFileIo.newInputFile("file:///data.txt", 1).getLength())
+            assertThat(ignoringFileIo.newInputFile("local:///data.txt", 1).getLength())
                     .isEqualTo(actualLength);
         }
 
         try (ForwardingFileIo usingFileIo = new ForwardingFileIo(fileSystem, true)) {
-            assertThat(usingFileIo.newInputFile("file:///data.txt", 1).getLength())
+            assertThat(usingFileIo.newInputFile("local:///data.txt", 1).getLength())
                     .isEqualTo(1);
         }
         deleteRecursively(tempDir, ALLOW_INSECURE);

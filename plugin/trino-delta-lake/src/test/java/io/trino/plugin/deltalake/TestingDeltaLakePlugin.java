@@ -16,8 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Module;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.plugin.deltalake.transactionlog.writer.TestingLocalTransactionLogSynchronizer;
-import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -38,7 +36,6 @@ public class TestingDeltaLakePlugin
         extends DeltaLakePlugin
 {
     private final LocalFileSystemFactory localFileSystemFactory;
-    private final TestingLocalTransactionLogSynchronizer localTransactionLogSynchronizer;
     private final Supplier<Optional<Module>> metastoreModule;
 
     public TestingDeltaLakePlugin(Path localFileSystemRootPath)
@@ -50,7 +47,6 @@ public class TestingDeltaLakePlugin
     {
         localFileSystemRootPath.toFile().mkdirs();
         localFileSystemFactory = new LocalFileSystemFactory(localFileSystemRootPath);
-        localTransactionLogSynchronizer = new TestingLocalTransactionLogSynchronizer(new DefaultDeltaLakeFileSystemFactory(localFileSystemFactory, new NoOpTableCredentialsProvider()));
         this.metastoreModule = requireNonNull(metastoreModule, "metastoreModule is null");
     }
 
@@ -74,11 +70,11 @@ public class TestingDeltaLakePlugin
                         context,
                         metastoreModule.get(),
                         binder -> {
-                            binder.install(new TestingDeltaLakeExtensionsModule());
+                            boolean nativeLocalFileSystemEnabled = Boolean.parseBoolean(
+                                    config.getOrDefault("fs.local.enabled", config.getOrDefault("fs.native-local.enabled", "false")));
+                            binder.install(new TestingDeltaLakeExtensionsModule(nativeLocalFileSystemEnabled));
                             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                                     .addBinding("local").toInstance(localFileSystemFactory);
-                            newMapBinder(binder, String.class, TransactionLogSynchronizer.class)
-                                    .addBinding("local").toInstance(localTransactionLogSynchronizer);
                             configBinder(binder).bindConfigDefaults(
                                     FileHiveMetastoreConfig.class,
                                     metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));

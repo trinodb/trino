@@ -14,6 +14,7 @@
 package io.trino.filesystem.local;
 
 import com.google.common.collect.ImmutableMap;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -24,6 +25,7 @@ import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
 final class TestLocalFileSystemConfig
 {
@@ -31,7 +33,8 @@ final class TestLocalFileSystemConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(LocalFileSystemConfig.class)
-                .setLocation(Path.of(System.getProperty(JAVA_IO_TMPDIR.key()))));
+                .setLocation(Path.of(System.getProperty(JAVA_IO_TMPDIR.key())))
+                .setLegacyPrefix(null));
     }
 
     @Test
@@ -39,11 +42,23 @@ final class TestLocalFileSystemConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("local.location", tempDirectory.toString())
+                .put("local.legacy-prefix", "/mnt/old-nfs-share")
                 .buildOrThrow();
 
         LocalFileSystemConfig expected = new LocalFileSystemConfig()
-                .setLocation(tempDirectory);
+                .setLocation(tempDirectory)
+                .setLegacyPrefix(Path.of("/mnt/old-nfs-share"));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    void testValidation()
+    {
+        assertFailsValidation(
+                new LocalFileSystemConfig().setLocation(Path.of("local:///storage/datalake")),
+                "locationValid",
+                "local.location must be a plain filesystem path (e.g. /storage/datalake), not a URI",
+                AssertTrue.class);
     }
 }
