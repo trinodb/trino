@@ -72,6 +72,9 @@
   to a number of decimal places that causes underflow. ({issue}`29808`)
 * Fix `DESCRIBE OUTPUT` returning the `number` type to clients that do not
   support it. ({issue}`29671`)
+* Add JMX gauges for monitoring queries waiting for resources:
+  `WaitingForResourcesQueries` and `LongestWaitingForResourcesQueryDurationSeconds`
+  under `trino.execution:name=QueryManager`. ({issue}`29940`)
 
 ## Security
 
