@@ -13,13 +13,14 @@
  */
 package io.trino.json.ir;
 
+import io.trino.json.JsonDateTimeTemplate;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record IrDatetimeMethod(IrPathNode base, Optional<String> format, Optional<Type> type)
+public record IrDatetimeMethod(IrPathNode base, Optional<JsonDateTimeTemplate> format, Optional<Type> type)
         implements IrPathNode
 {
     public IrDatetimeMethod

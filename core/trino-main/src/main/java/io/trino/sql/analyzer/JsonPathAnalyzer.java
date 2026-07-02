@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
+import io.trino.json.JsonDateTimeTemplate;
 import io.trino.json.XQueryRegex;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
@@ -72,7 +73,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.INVALID_PATH;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -97,6 +97,7 @@ public class JsonPathAnalyzer
     private final ExpressionAnalyzer literalAnalyzer;
     private final Map<PathNodeRef<PathNode>, Type> types = new LinkedHashMap<>();
     private final Set<PathNodeRef<PathNode>> jsonParameters = new LinkedHashSet<>();
+    private final Map<PathNodeRef<PathNode>, JsonDateTimeTemplate> datetimeTemplates = new LinkedHashMap<>();
 
     public JsonPathAnalyzer(Metadata metadata, ExpressionAnalyzer literalAnalyzer)
     {
@@ -111,14 +112,14 @@ public class JsonPathAnalyzer
                 .orElseThrow(() -> new IllegalStateException("missing NodeLocation in path"));
         PathNode root = PathParser.withRelativeErrorLocation(pathStart).parseJsonPath(path.getValue());
         new Visitor(parameterTypes, path).process(root);
-        return new JsonPathAnalysis((JsonPath) root, types, jsonParameters);
+        return new JsonPathAnalysis((JsonPath) root, types, jsonParameters, datetimeTemplates);
     }
 
     public JsonPathAnalysis analyzeImplicitJsonPath(String path, NodeLocation location)
     {
         PathNode root = PathParser.withFixedErrorLocation(new Location(location.getLineNumber(), location.getColumnNumber())).parseJsonPath(path);
         new Visitor(ImmutableMap.of(), new StringLiteral(path)).process(root);
-        return new JsonPathAnalysis((JsonPath) root, types, jsonParameters);
+        return new JsonPathAnalysis((JsonPath) root, types, jsonParameters, datetimeTemplates);
     }
 
     /**
@@ -257,8 +258,20 @@ public class JsonPathAnalyzer
             if (sourceType != null && !isCharacterStringType(sourceType)) {
                 throw semanticException(INVALID_PATH, pathNode, "JSON path datetime() method requires character string argument (found %s)", sourceType.getDisplayName());
             }
-            // TODO process the format template, record the processed format, and deduce the returned type
-            throw semanticException(NOT_SUPPORTED, pathNode, "datetime method in JSON path is not yet supported");
+            if (node.getFormat().isPresent()) {
+                JsonDateTimeTemplate template;
+                try {
+                    template = JsonDateTimeTemplate.parse(node.getFormat().get());
+                }
+                catch (IllegalArgumentException e) {
+                    throw semanticException(INVALID_PATH, pathNode, e, "invalid datetime() format template in JSON path: %s", e.getMessage());
+                }
+                types.put(PathNodeRef.of(node), template.getType());
+                datetimeTemplates.put(PathNodeRef.of(node), template);
+                return template.getType();
+            }
+
+            return null;
         }
 
         @Override
@@ -543,12 +556,14 @@ public class JsonPathAnalyzer
         private final JsonPath path;
         private final Map<PathNodeRef<PathNode>, Type> types;
         private final Set<PathNodeRef<PathNode>> jsonParameters;
+        private final Map<PathNodeRef<PathNode>, JsonDateTimeTemplate> datetimeTemplates;
 
-        public JsonPathAnalysis(JsonPath path, Map<PathNodeRef<PathNode>, Type> types, Set<PathNodeRef<PathNode>> jsonParameters)
+        public JsonPathAnalysis(JsonPath path, Map<PathNodeRef<PathNode>, Type> types, Set<PathNodeRef<PathNode>> jsonParameters, Map<PathNodeRef<PathNode>, JsonDateTimeTemplate> datetimeTemplates)
         {
             this.path = requireNonNull(path, "path is null");
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.jsonParameters = ImmutableSet.copyOf(requireNonNull(jsonParameters, "jsonParameters is null"));
+            this.datetimeTemplates = ImmutableMap.copyOf(requireNonNull(datetimeTemplates, "datetimeTemplates is null"));
         }
 
         public JsonPath getPath()
@@ -569,6 +584,14 @@ public class JsonPathAnalyzer
         public Set<PathNodeRef<PathNode>> getJsonParameters()
         {
             return jsonParameters;
+        }
+
+        /// Returns the validated [JsonDateTimeTemplate] for a `datetime(<template>)`
+        /// method node, populated during analysis. Lets the translator skip the
+        /// second `JsonDateTimeTemplate.parse` of the same template string.
+        public JsonDateTimeTemplate getDatetimeTemplate(PathNode pathNode)
+        {
+            return datetimeTemplates.get(PathNodeRef.of(pathNode));
         }
     }
 }

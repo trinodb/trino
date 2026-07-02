@@ -26,6 +26,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrComparisonPredicate;
 import io.trino.json.ir.IrConjunctionPredicate;
 import io.trino.json.ir.IrContextVariable;
+import io.trino.json.ir.IrDatetimeMethod;
 import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrDoubleMethod;
@@ -122,7 +123,7 @@ class JsonPathTranslator
     public IrJsonPath rewriteToIr(JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
     {
         PathNode root = pathAnalysis.getPath().getRoot();
-        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis.getTypes(), pathAnalysis.getJsonParameters(), parametersOrder).process(root);
+        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis, parametersOrder).process(root);
 
         return new IrJsonPath(pathAnalysis.getPath().isLax(), rewritten);
     }
@@ -131,22 +132,22 @@ class JsonPathTranslator
             extends JsonPathTreeVisitor<IrPathNode, Void>
     {
         private final LiteralInterpreter literalInterpreter;
+        private final JsonPathAnalysis pathAnalysis;
         private final Map<PathNodeRef<PathNode>, Type> types;
         private final Set<PathNodeRef<PathNode>> jsonParameters;
         private final List<String> parametersOrder;
 
-        public Rewriter(Session session, PlannerContext plannerContext, Map<PathNodeRef<PathNode>, Type> types, Set<PathNodeRef<PathNode>> jsonParameters, List<String> parametersOrder)
+        public Rewriter(Session session, PlannerContext plannerContext, JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
         {
             requireNonNull(session, "session is null");
             requireNonNull(plannerContext, "plannerContext is null");
-            requireNonNull(types, "types is null");
-            requireNonNull(jsonParameters, "jsonParameters is null");
-            requireNonNull(jsonParameters, "jsonParameters is null");
+            requireNonNull(pathAnalysis, "pathAnalysis is null");
             requireNonNull(parametersOrder, "parametersOrder is null");
 
             this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
-            this.types = types;
-            this.jsonParameters = jsonParameters;
+            this.pathAnalysis = pathAnalysis;
+            this.types = pathAnalysis.getTypes();
+            this.jsonParameters = pathAnalysis.getJsonParameters();
             this.parametersOrder = parametersOrder;
         }
 
@@ -223,11 +224,11 @@ class JsonPathTranslator
         @Override
         protected IrPathNode visitDatetimeMethod(DatetimeMethod node, Void context)
         {
-            // TODO
-            throw new IllegalStateException("datetime method is not yet supported. The query should have failed in JsonPathAnalyzer.");
-
-//            IrPathNode base = process(node.getBase());
-//            return new IrDatetimeMethod(base, /*parsed format*/, Optional.ofNullable(types.get(PathNodeRef.of(node))));
+            IrPathNode base = process(node.getBase());
+            return new IrDatetimeMethod(
+                    base,
+                    Optional.ofNullable(pathAnalysis.getDatetimeTemplate(node)),
+                    Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override
