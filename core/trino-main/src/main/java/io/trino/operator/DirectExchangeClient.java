@@ -25,6 +25,7 @@ import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
 import io.trino.memory.context.LocalMemoryContext;
@@ -39,6 +40,8 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -66,6 +69,8 @@ public class DirectExchangeClient
     private final boolean acknowledgePages;
     private final HttpClient httpClient;
     private final ScheduledExecutorService scheduledExecutor;
+    private final Optional<URI> localNodeUri;
+    private final Optional<SqlTaskManager> localTaskManager;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -112,7 +117,9 @@ public class DirectExchangeClient
             ScheduledExecutorService scheduledExecutor,
             LocalMemoryContext memoryContext,
             Executor pageBufferClientCallbackExecutor,
-            TaskFailureListener taskFailureListener)
+            TaskFailureListener taskFailureListener,
+            Optional<URI> localNodeUri,
+            Optional<SqlTaskManager> localTaskManager)
     {
         this.selfAddress = requireNonNull(selfAddress, "selfAddress is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
@@ -126,6 +133,8 @@ public class DirectExchangeClient
         this.memoryContext = memoryContext;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
+        this.localNodeUri = requireNonNull(localNodeUri, "localNodeUri is null");
+        this.localTaskManager = requireNonNull(localTaskManager, "localTaskManager is null");
     }
 
     public DirectExchangeClientStatus getStatus()
@@ -167,6 +176,11 @@ public class DirectExchangeClient
 
         checkState(!noMoreLocations, "No more locations already set");
         buffer.addTask(taskId);
+        boolean local = localNodeUri
+                .map(nodeUri -> Objects.equals(location.getScheme(), nodeUri.getScheme())
+                        && Objects.equals(location.getHost(), nodeUri.getHost())
+                        && location.getPort() == nodeUri.getPort())
+                .orElse(false);
         HttpPageBufferClient client = new HttpPageBufferClient(
                 selfAddress,
                 httpClient,
@@ -178,7 +192,8 @@ public class DirectExchangeClient
                 location,
                 new ExchangeClientCallback(),
                 scheduledExecutor,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                local ? localTaskManager : Optional.empty());
         allClients.put(location, client);
         queuedClients.add(client);
 

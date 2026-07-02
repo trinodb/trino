@@ -21,6 +21,7 @@ import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.http.client.HttpClient;
@@ -36,8 +37,12 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.SqlTaskManager;
+import io.trino.execution.SqlTaskManager.SqlTaskWithResults;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PagesSerdeUtil;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
@@ -63,6 +68,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
@@ -102,6 +110,9 @@ public final class HttpPageBufferClient
 {
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
 
+    // matches the maximum wait used by TaskResource.getResults for remote requests
+    private static final Duration LOCAL_MAX_WAIT = new Duration(2, SECONDS);
+
     /**
      * For each request, the addPage method will be called zero or more times,
      * followed by either requestComplete or clientFinished (if buffer complete).  If the client is
@@ -131,11 +142,16 @@ public final class HttpPageBufferClient
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduledExecutor;
     private final Backoff backoff;
+    // present when the results are produced by a task running on this node; enables fetching
+    // pages directly from the output buffers instead of going through the HTTP stack
+    private final Optional<SqlTaskManager> localTaskManager;
+    @Nullable
+    private final OutputBufferId localBufferId;
 
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
-    private HttpResponseFuture<?> future;
+    private ListenableFuture<?> future;
     @GuardedBy("this")
     private Instant lastUpdate = Instant.now();
     @GuardedBy("this")
@@ -176,7 +192,8 @@ public final class HttpPageBufferClient
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduledExecutor,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            Optional<SqlTaskManager> localTaskManager)
     {
         this(selfAddress,
                 httpClient,
@@ -189,7 +206,8 @@ public final class HttpPageBufferClient
                 clientCallback,
                 scheduledExecutor,
                 Ticker.systemTicker(),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                localTaskManager);
     }
 
     public HttpPageBufferClient(
@@ -204,7 +222,8 @@ public final class HttpPageBufferClient
             ClientCallback clientCallback,
             ScheduledExecutorService scheduledExecutor,
             Ticker ticker,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            Optional<SqlTaskManager> localTaskManager)
     {
         this.selfAddress = requireNonNull(selfAddress, "selfAddress is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -220,6 +239,15 @@ public final class HttpPageBufferClient
         requireNonNull(ticker, "ticker is null");
         this.backoff = new Backoff(maxErrorDuration, ticker);
         this.ticker = ticker;
+        this.localTaskManager = requireNonNull(localTaskManager, "localTaskManager is null");
+        if (localTaskManager.isPresent()) {
+            // location format: {baseUri}/v1/task/{taskId}/results/{bufferId}
+            String path = location.getPath();
+            this.localBufferId = new OutputBufferId(Integer.parseInt(path.substring(path.lastIndexOf('/') + 1)));
+        }
+        else {
+            this.localBufferId = null;
+        }
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -241,8 +269,11 @@ public final class HttpPageBufferClient
             state = "queued";
         }
         String httpRequestState = "not scheduled";
-        if (future != null) {
-            httpRequestState = future.getState();
+        if (future instanceof HttpResponseFuture<?> httpResponseFuture) {
+            httpRequestState = httpResponseFuture.getState();
+        }
+        else if (future != null) {
+            httpRequestState = "local";
         }
 
         long rejectedRows = rowsRejected.get();
@@ -355,11 +386,17 @@ public final class HttpPageBufferClient
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         lastRequestStartNanos = ticker.read();
-        HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
-                prepareGet()
-                        .setHeader(TRINO_MAX_SIZE_HEADER, maxResponseSize.toString())
-                        .setUri(uri).build(),
-                new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
+        ListenableFuture<PagesResponse> resultFuture;
+        if (localTaskManager.isPresent()) {
+            resultFuture = getLocalResults(localTaskManager.get(), token);
+        }
+        else {
+            resultFuture = httpClient.executeAsync(
+                    prepareGet()
+                            .setHeader(TRINO_MAX_SIZE_HEADER, maxResponseSize.toString())
+                            .setUri(uri).build(),
+                    new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
+        }
 
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<>()
@@ -407,25 +444,35 @@ public final class HttpPageBufferClient
                         // Acknowledge token without handling the response.
                         // The next request will also make sure the token is acknowledged.
                         // This is to fast release the pages on the buffer side.
-                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
-                        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
-                        {
-                            @Override
-                            public Void handleException(Request request, Exception exception)
-                            {
-                                log.debug(exception, "Acknowledge request failed: %s", uri);
-                                return null;
+                        if (localTaskManager.isPresent()) {
+                            try {
+                                localTaskManager.get().acknowledgeTaskResults(remoteTaskId, localBufferId, result.getNextToken());
                             }
-
-                            @Override
-                            public Void handle(Request request, Response response)
+                            catch (RuntimeException e) {
+                                log.debug(e, "Acknowledge failed for task %s buffer %s", remoteTaskId, localBufferId);
+                            }
+                        }
+                        else {
+                            URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
+                            httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
                             {
-                                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                                    log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
+                                @Override
+                                public Void handleException(Request request, Exception exception)
+                                {
+                                    log.debug(exception, "Acknowledge request failed: %s", uri);
+                                    return null;
                                 }
-                                return null;
-                            }
-                        });
+
+                                @Override
+                                public Void handle(Request request, Response response)
+                                {
+                                    if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+                                        log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
+                                    }
+                                    return null;
+                                }
+                            });
+                        }
                     }
 
                     // add pages:
@@ -508,6 +555,44 @@ public final class HttpPageBufferClient
         }, pageBufferClientCallbackExecutor);
     }
 
+    /**
+     * Fetches results directly from the output buffers of a task running on this node,
+     * bypassing the HTTP stack. The serialized pages are passed by reference instead of
+     * being written to and read back from an HTTP stream. Mirrors the behavior of
+     * {@code TaskResource#getResults}.
+     */
+    private ListenableFuture<PagesResponse> getLocalResults(SqlTaskManager taskManager, long token)
+    {
+        SqlTaskWithResults taskWithResults;
+        try {
+            taskWithResults = taskManager.getTaskResults(remoteTaskId, localBufferId, token, maxResponseSize);
+        }
+        catch (RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
+        ListenableFuture<BufferResult> resultFuture = taskWithResults.getResultsFuture();
+        if (!resultFuture.isDone()) {
+            // Bound the wait so that a failure of the producer task is detected even if the buffer never completes
+            BufferResult emptyResults = BufferResult.emptyResults(taskWithResults.getTaskInstanceId(), token, false);
+            resultFuture = addTimeout(resultFuture, () -> emptyResults, LOCAL_MAX_WAIT, scheduledExecutor);
+        }
+        return Futures.transform(
+                resultFuture,
+                result -> {
+                    // This response may have been created as the result of a timeout, so refresh the task heartbeat
+                    taskWithResults.recordHeartbeat();
+                    return createPagesResponse(
+                            String.valueOf(result.taskInstanceId()),
+                            result.token(),
+                            result.nextToken(),
+                            result.serializedPages(),
+                            result.bufferComplete(),
+                            // check for task failure after getting the result to ensure it's consistent with bufferComplete
+                            taskWithResults.isTaskFailedOrFailing());
+                },
+                directExecutor());
+    }
+
     @VisibleForTesting
     synchronized void requestSucceeded(long responseSize)
     {
@@ -518,20 +603,27 @@ public final class HttpPageBufferClient
 
     private synchronized void destroyTaskResults()
     {
-        HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        ListenableFuture<?> resultFuture;
+        if (localTaskManager.isPresent()) {
+            SqlTaskManager taskManager = localTaskManager.get();
+            resultFuture = Futures.submit(() -> taskManager.destroyTaskResults(remoteTaskId, localBufferId), pageBufferClientCallbackExecutor);
+        }
+        else {
+            resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        }
         future = resultFuture;
-        Futures.addCallback(resultFuture, new FutureCallback<>()
+        Futures.addCallback(resultFuture, new FutureCallback<Object>()
         {
             @Override
-            public void onSuccess(@Nullable StatusResponse result)
+            public void onSuccess(@Nullable Object result)
             {
                 assertNotHoldsLock(HttpPageBufferClient.this);
 
-                if (result != null && result.getStatusCode() != NO_CONTENT.code()) {
+                if (result instanceof StatusResponse response && response.getStatusCode() != NO_CONTENT.code()) {
                     onFailure(new TrinoTransportException(
                             REMOTE_BUFFER_CLOSE_FAILED,
                             fromUri(location),
-                            format("Error closing remote buffer, expected %s got %s", NO_CONTENT.code(), result.getStatusCode())));
+                            format("Error closing remote buffer, expected %s got %s", NO_CONTENT.code(), response.getStatusCode())));
                     return;
                 }
 
@@ -575,7 +667,7 @@ public final class HttpPageBufferClient
         assert !Thread.holdsLock(lock) : "Cannot execute this method while holding a lock";
     }
 
-    private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
+    private void handleFailure(Throwable t, ListenableFuture<?> expectedFuture)
     {
         assertNotHoldsLock(HttpPageBufferClient.this);
 
