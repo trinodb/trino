@@ -17,14 +17,10 @@ import io.trino.spi.block.Block;
 
 import java.util.List;
 
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 import static io.trino.spi.block.Bitmap.allocateWords;
 import static io.trino.spi.block.Bitmap.clear;
 import static io.trino.spi.block.Bitmap.countTransitions;
 import static io.trino.spi.block.Bitmap.getBits;
-import static io.trino.spi.block.Bitmap.isSet;
-import static io.trino.spi.block.Bitmap.set;
-import static io.trino.spi.block.Bitmap.wordsForBits;
 
 public interface ColumnAdapter<BufferType>
 {
@@ -43,56 +39,19 @@ public interface ColumnAdapter<BufferType>
 
     void copyValues(BufferType source, int sourceIndex, BufferType destination, int destinationIndex, int length);
 
-    default boolean usesValidityBitmap()
-    {
-        return false;
-    }
-
-    default Block createNullableBlock(boolean[] nulls, BufferType values)
-    {
-        return createNullableBlock(toValidityBitmap(nulls), values);
-    }
-
     /// Creates a block from values and a validity bitmap using the [io.trino.spi.block.Bitmap] encoding.
-    default Block createNullableBlock(long[] valueIsValid, BufferType values)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default Block createNullableBlock(long[] valueIsValid, BufferType values, int positionCount)
-    {
-        if (usesValidityBitmap()) {
-            return createNullableBlock(valueIsValid, values);
-        }
-        return createNullableBlock(toNulls(valueIsValid, positionCount), values);
-    }
+    Block createNullableBlock(long[] valueIsValid, BufferType values);
 
     /// Creates a dictionary block with one trailing null entry. The validity bitmap uses the
     /// [io.trino.spi.block.Bitmap] encoding.
     default Block createNullableDictionaryBlock(BufferType dictionary, int nonNullsCount)
     {
-        if (usesValidityBitmap()) {
-            long[] valueIsValid = allocateWords(nonNullsCount + 1, true);
-            clear(valueIsValid, 0, nonNullsCount);
-            return createNullableBlock(valueIsValid, dictionary, nonNullsCount + 1);
-        }
-        boolean[] nulls = new boolean[nonNullsCount + 1];
-        nulls[nonNullsCount] = true;
-        return createNullableBlock(nulls, dictionary);
+        long[] valueIsValid = allocateWords(nonNullsCount + 1, true);
+        clear(valueIsValid, 0, nonNullsCount);
+        return createNullableBlock(valueIsValid, dictionary);
     }
 
     Block createNonNullBlock(BufferType values);
-
-    default void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
-    {
-        int srcOffset = 0;
-        while (srcOffset < nonNullCount) {
-            copyValue(source, srcOffset, destination, destOffset);
-            // Avoid branching
-            srcOffset += castToByteNegate(isNull[destOffset]);
-            destOffset++;
-        }
-    }
 
     /// Expands packed non-null values into a destination shaped by a validity bitmap using the
     /// [io.trino.spi.block.Bitmap] encoding.
@@ -157,24 +116,4 @@ public interface ColumnAdapter<BufferType>
     long getSizeInBytes(BufferType values);
 
     BufferType merge(List<BufferType> buffers);
-
-    private static boolean[] toNulls(long[] valueIsValid, int positionCount)
-    {
-        boolean[] isNull = new boolean[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            isNull[position] = !isSet(valueIsValid, 0, position);
-        }
-        return isNull;
-    }
-
-    private static long[] toValidityBitmap(boolean[] isNull)
-    {
-        long[] valueIsValid = new long[wordsForBits(isNull.length)];
-        for (int position = 0; position < isNull.length; position++) {
-            if (!isNull[position]) {
-                set(valueIsValid, 0, position);
-            }
-        }
-        return valueIsValid;
-    }
 }
