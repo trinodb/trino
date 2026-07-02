@@ -57,6 +57,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 
@@ -101,6 +102,7 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -111,6 +113,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
@@ -362,7 +365,12 @@ public abstract class AbstractTrinoCatalog
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false, ImmutableList.of());
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
-        transaction.commitTransaction();
+        try {
+            transaction.commitTransaction();
+        }
+        catch (CommitFailedException e) {
+            throw new TrinoException(TRANSACTION_CONFLICT, format("Failed to commit the transaction: %s", requireNonNullElse(e.getMessage(), e)), e);
+        }
         return storageTable;
     }
 
@@ -552,6 +560,9 @@ public abstract class AbstractTrinoCatalog
                 .commit();
         try {
             transaction.commitTransaction();
+        }
+        catch (CommitFailedException e) {
+            throw new TrinoException(TRANSACTION_CONFLICT, format("Failed to commit the transaction: %s", requireNonNullElse(e.getMessage(), e)), e);
         }
         finally {
             if (isMaterializedViewStorage(storageTableName.getTableName())) {
