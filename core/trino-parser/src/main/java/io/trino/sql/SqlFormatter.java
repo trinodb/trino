@@ -841,6 +841,14 @@ public final class SqlFormatter
                     .append("."));
             builder.append("*");
 
+            if (!node.getExcludedColumns().isEmpty()) {
+                builder.append(" (EXCLUDE (")
+                        .append(Joiner.on(", ").join(node.getExcludedColumns().stream()
+                                .map(SqlFormatter::formatName)
+                                .collect(toImmutableList())))
+                        .append("))");
+            }
+
             if (!node.getAliases().isEmpty()) {
                 builder.append(" AS (")
                         .append(Joiner.on(", ").join(node.getAliases().stream()

@@ -741,6 +741,14 @@ public final class ExpressionFormatter
                 builder.append("*");
             }
 
+            if (!node.getExcludedColumns().isEmpty()) {
+                builder.append(" (EXCLUDE (");
+                Joiner.on(", ").appendTo(builder, node.getExcludedColumns().stream()
+                        .map(col -> process(col, context))
+                        .collect(toList()));
+                builder.append("))");
+            }
+
             if (!node.getAliases().isEmpty()) {
                 builder.append(" AS (");
                 Joiner.on(", ").appendTo(builder, node.getAliases().stream()
