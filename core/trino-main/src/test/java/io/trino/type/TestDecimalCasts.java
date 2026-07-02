@@ -1445,6 +1445,14 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "CAST(-16777217.0 AS DECIMAL(13,1))"))
                 .isEqualTo(-16777217.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '9007199791611905'"))
+                .isEqualTo(9.0072e15f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '-9007199791611905'"))
+                .isEqualTo(-9.0072e15f);
     }
 
     @Test
