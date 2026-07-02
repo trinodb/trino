@@ -1483,6 +1483,7 @@ public class SemiTransactionalHiveMetastore
         AcidTransaction transaction = getOptionalAcidTransaction();
 
         Committer committer = new Committer(transaction);
+        boolean commitSucceeded = false;
         try {
             for (Entry<SchemaTableName, Action<TableAndMore>> entry : tableActions.entrySet()) {
                 SchemaTableName schemaTableName = entry.getKey();
@@ -1521,7 +1522,7 @@ public class SemiTransactionalHiveMetastore
             committer.executeAlterTableOperations();
             committer.executeAlterPartitionOperations();
             committer.executeAddPartitionOperations(transaction);
-            committer.executeUpdateStatisticsOperations(transaction);
+            commitSucceeded = true;
         }
         catch (Throwable t) {
             log.warn("Rolling back due to metastore commit failure: %s", t.getMessage());
@@ -1553,6 +1554,15 @@ public class SemiTransactionalHiveMetastore
         }
         finally {
             committer.executeTableInvalidationCallback();
+        }
+
+        if (commitSucceeded) {
+            try {
+                committer.executeUpdateStatisticsOperations(transaction);
+            }
+            catch (Throwable t) {
+                log.warn("Failed to update statistics; continuing without rollback: %s", t.getMessage());
+            }
         }
 
         try {
@@ -1750,9 +1760,9 @@ public class SemiTransactionalHiveMetastore
             Location targetPath = Location.of(table.getStorage().getLocation());
             tablesToInvalidate.add(table);
             Location currentPath = tableAndMore.getCurrentLocation().orElseThrow();
-            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
 
             if (!targetPath.equals(currentPath)) {
+                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
                 // if staging directory is used, we cherry-pick files to be moved
                 TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
                 asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, tableAndMore.getFileNames().orElseThrow());
@@ -1971,9 +1981,9 @@ public class SemiTransactionalHiveMetastore
             partitionsToInvalidate.add(partition);
             Location targetPath = Location.of(partition.getStorage().getLocation());
             Location currentPath = partitionAndMore.currentLocation();
-            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
 
             if (!targetPath.equals(currentPath)) {
+                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
                 // if staging directory is used, we cherry-pick files to be moved
                 TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
                 asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, partitionAndMore.getFileNames());
