@@ -43,6 +43,7 @@ public class OAuth2Authenticator
     private static final Logger log = Logger.get(OAuth2Authenticator.class);
     private final OAuth2Client client;
     private final String principalField;
+    private final String userField;
     private final UserMapping userMapping;
     private final TokenPairSerializer tokenPairSerializer;
     private final TokenRefresher tokenRefresher;
@@ -52,6 +53,7 @@ public class OAuth2Authenticator
     {
         this.client = requireNonNull(client, "service is null");
         this.principalField = config.getPrincipalField();
+        this.userField = config.getUserField();
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
@@ -78,7 +80,13 @@ public class OAuth2Authenticator
         if (principal.isEmpty()) {
             return Optional.empty();
         }
-        Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
+        // When no userField is set, use the principalField for backwards compatibility
+        Optional<String> user = userField == null ? principal : Optional.ofNullable((String) claims.get().get(userField));
+        if (user.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Identity.Builder builder = Identity.forUser(userMapping.mapUser(user.get()));
         builder.withPrincipal(new BasicPrincipal(principal.get()));
         return Optional.of(builder.build());
     }
