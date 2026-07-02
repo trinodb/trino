@@ -21,10 +21,13 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.sql.SQLException;
+import java.util.Optional;
 
 public class MysqlEventListenerConfig
 {
     private String url;
+    private String user;
+    private String password;
     private boolean terminateOnInitializationFailure = true;
 
     @NotNull
@@ -35,6 +38,7 @@ public class MysqlEventListenerConfig
 
     @ConfigSecuritySensitive
     @Config("mysql-event-listener.db.url")
+    @ConfigDescription("JDBC connection URL for the MySQL event listener database")
     public MysqlEventListenerConfig setUrl(String url)
     {
         this.url = url;
@@ -50,6 +54,33 @@ public class MysqlEventListenerConfig
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Optional<String> getUser()
+    {
+        return Optional.ofNullable(user);
+    }
+
+    @Config("mysql-event-listener.db.user")
+    @ConfigDescription("User name for the MySQL event listener database")
+    public MysqlEventListenerConfig setUser(String user)
+    {
+        this.user = user;
+        return this;
+    }
+
+    public Optional<String> getPassword()
+    {
+        return Optional.ofNullable(password);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("mysql-event-listener.db.password")
+    @ConfigDescription("Password for the MySQL event listener database")
+    public MysqlEventListenerConfig setPassword(String password)
+    {
+        this.password = password;
+        return this;
     }
 
     public boolean getTerminateOnInitializationFailure()

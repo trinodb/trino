@@ -33,11 +33,15 @@ as an example:
 ```properties
 event-listener.name=mysql
 mysql-event-listener.db.url=jdbc:mysql://example.net:3306
+mysql-event-listener.db.user=root
+mysql-event-listener.db.password=secret
 ```
 
 The `mysql-event-listener.db.url` defines the connection to a MySQL database
-available at the domain `example.net` on port 3306. You can pass further
-parameters to the MySQL JDBC driver. The supported parameters for the URL are
+available at the domain `example.net` on port 3306. You can provide the
+connection user and password with `mysql-event-listener.db.user` and
+`mysql-event-listener.db.password`, or as parameters in the JDBC URL. You can
+pass further parameters to the MySQL JDBC driver. The supported parameters are
 documented in the [MySQL Developer
 Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
@@ -66,7 +70,11 @@ string, user, catalog, and others with information about the query processing.
 * - Property name
   - Description
 * - `mysql-event-listener.db.url`
-  - JDBC connection URL to the database including credentials
+  - JDBC connection URL to the database
+* - `mysql-event-listener.db.user`
+  - User name for the JDBC connection
+* - `mysql-event-listener.db.password`
+  - Password for the JDBC connection
 * - `mysql-event-listener.terminate-on-initialization-failure`
   - MySQL event listener initialization can fail if the database is unavailable.
     This [boolean](prop-type-boolean) switch controls whether to throw an 
