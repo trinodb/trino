@@ -2362,6 +2362,10 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, table, "Views do not support versioning");
                 }
 
+                if (viewRedirection.redirectedTableName().isPresent() && getBranchName(table).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, table, "View redirection is not supported for branch references");
+                }
+
                 QualifiedObjectName targetViewName = viewRedirection.redirectedTableName().orElse(name);
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetViewName, getBranchName(table));
                 return createScopeForView(table, targetViewName, scope, optionalView.get());
