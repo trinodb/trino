@@ -121,25 +121,6 @@ public abstract class AbstractColumnReader<BufferType>
     protected static void unpackDictionaryNullId(
             int[] source,
             int[] destination,
-            boolean[] isNull,
-            int destOffset,
-            int chunkSize,
-            int nullId)
-    {
-        int srcOffset = 0;
-        for (int i = destOffset; i < destOffset + chunkSize; i++) {
-            if (isNull[i]) {
-                destination[i] = nullId;
-            }
-            else {
-                destination[i] = source[srcOffset++];
-            }
-        }
-    }
-
-    protected static void unpackDictionaryNullId(
-            int[] source,
-            int[] destination,
             long[] valueIsValid,
             int destOffset,
             int chunkSize,

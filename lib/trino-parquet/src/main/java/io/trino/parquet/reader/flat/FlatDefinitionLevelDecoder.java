@@ -22,12 +22,6 @@ public interface FlatDefinitionLevelDecoder
 {
     void init(Slice input);
 
-    /**
-     * Populate 'values' with true for nulls and return the number of non-nulls encountered.
-     * 'values' array is assumed to be empty at the start of reading a batch, i.e. contain only false values.
-     */
-    int readNext(boolean[] values, int offset, int length);
-
     /// Populate `values` with set bits for non-nulls and return the number of non-nulls encountered.
     ///
     /// The `values` array is a validity bitmap using the [io.trino.spi.block.Bitmap] encoding. It is assumed to contain

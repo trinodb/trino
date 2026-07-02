@@ -22,12 +22,6 @@ public class ZeroDefinitionLevelDecoder
     public void init(Slice input) {}
 
     @Override
-    public int readNext(boolean[] values, int offset, int length)
-    {
-        return 0;
-    }
-
-    @Override
     public int readNext(long[] values, int offset, int length)
     {
         return 0;
