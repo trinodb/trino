@@ -23,6 +23,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
+import static io.trino.spi.block.Bitmap.getAlignedWord;
+import static io.trino.spi.block.Bitmap.lowBitsMask;
+import static io.trino.spi.block.Bitmap.wordsForBits;
+
 final class EncoderUtil
 {
     private static final ByteVector NULL_BIT_SHIFTS = ByteVector.fromArray(ByteVector.SPECIES_64, new byte[] {7, 6, 5, 4, 3, 2, 1, 0}, 0);
@@ -194,5 +198,36 @@ final class EncoderUtil
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static void encodeValidityAsLongs(SliceOutput sliceOutput, @Nullable long[] validity, int offset, int positionCount)
+    {
+        sliceOutput.writeBoolean(validity != null);
+        if (validity == null) {
+            return;
+        }
+
+        int wordCount = wordsForBits(positionCount);
+        for (int wordIndex = 0; wordIndex < wordCount; wordIndex++) {
+            int position = wordIndex << 6;
+            long word = getAlignedWord(validity, offset, position);
+            int remaining = positionCount - position;
+            if (remaining < Long.SIZE) {
+                word &= lowBitsMask(remaining);
+            }
+            sliceOutput.writeLong(word);
+        }
+    }
+
+    @Nullable
+    public static long[] decodeValidityAsLongs(SliceInput sliceInput, int positionCount)
+    {
+        if (!sliceInput.readBoolean()) {
+            return null;
+        }
+
+        long[] validity = new long[wordsForBits(positionCount)];
+        sliceInput.readLongs(validity);
+        return validity;
     }
 }
