@@ -14,6 +14,7 @@
 * Add support for persisting external authentication tokens to disk (in `~/.trino/`), allowing reuse across separate JDBC client processes. Set `externalAuthenticationTokenCache=SYSTEM` to enable. ({issue}`28783`)
 * Include connector split source metrics in 
   `io.trino.spi.eventlistener.QueryInputMetadata#connectorMetrics`. ({issue}`28870`)
+* Add support for configuring HTTP event listener headers in a properties file. ({issue}`26187`)
 * Replace the Esri geometry library with JTS to improve interoperability with the broader spatial ecosystem. ({issue}`27881`)
 * {{breaking}} Reject WKT input that does not conform to OGC standards. Some inputs that were silently accepted before will now fail. ({issue}`27881`)
 * {{breaking}} Change {func}`ST_Union` to return an empty geometry collection instead of `NULL` for empty inputs. ({issue}`27881`)
