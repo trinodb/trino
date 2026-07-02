@@ -39,7 +39,7 @@ import org.joda.time.format.PeriodParser;
 
 import java.time.DateTimeException;
 import java.time.Duration;
-import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -107,8 +107,25 @@ public final class DateTimeUtils
             return OptionalInt.empty();
         }
 
-        LocalDate date = LocalDate.of(year.getAsInt(), month.getAsInt(), day.getAsInt());
-        return OptionalInt.of(toIntExact(date.toEpochDay()));
+        int y = year.getAsInt();
+        int m = month.getAsInt();
+        int d = day.getAsInt();
+        // Mirror LocalDate.of's validation order and exception messages so that callers
+        // observing DateTimeException.getMessage() see the same text.
+        if (m < 1 || m > 12) {
+            throw new DateTimeException("Invalid value for MonthOfYear (valid values 1 - 12): " + m);
+        }
+        if (d < 1 || d > 31) {
+            throw new DateTimeException("Invalid value for DayOfMonth (valid values 1 - 28/31): " + d);
+        }
+        int monthLength = FastDate.daysInMonth(y, m);
+        if (d > monthLength) {
+            if (d == 29 && m == 2) {
+                throw new DateTimeException("Invalid date 'February 29' as '" + y + "' is not a leap year");
+            }
+            throw new DateTimeException("Invalid date '" + Month.of(m).name() + " " + d + "'");
+        }
+        return OptionalInt.of(FastDate.daysFromYmd(y, m, d));
     }
 
     /**
@@ -133,7 +150,25 @@ public final class DateTimeUtils
 
     public static String printDate(int days)
     {
-        return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
+        long ymd = FastDate.ymdFromEpochDay(days);
+        int year = (int) (ymd >> 32);
+        if (year < 0 || year > 9999) {
+            return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
+        }
+        int month = (int) ((ymd >> 8) & 0xFF);
+        int day = (int) (ymd & 0xFF);
+        char[] buf = new char[10];
+        buf[0] = (char) ('0' + year / 1000);
+        buf[1] = (char) ('0' + (year / 100) % 10);
+        buf[2] = (char) ('0' + (year / 10) % 10);
+        buf[3] = (char) ('0' + year % 10);
+        buf[4] = '-';
+        buf[5] = (char) ('0' + month / 10);
+        buf[6] = (char) ('0' + month % 10);
+        buf[7] = '-';
+        buf[8] = (char) ('0' + day / 10);
+        buf[9] = (char) ('0' + day % 10);
+        return new String(buf);
     }
 
     private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
