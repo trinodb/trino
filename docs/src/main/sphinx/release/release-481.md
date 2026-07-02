@@ -27,6 +27,9 @@
 * Fix failure when executing `ALTER TABLE EXECUTE OPTIMIZE` with `OR` predicates on partitioned `timestamp with time zone` columns. ({issue}`27136`)
 * Fix incorrect freshness check for materialized views whose definition contains non-deterministic functions. ({issue}`28682`)
 * Fix failure when executing `DESCRIBE OUTPUT` with `[VERSION | TIMESTAMP] AS OF` clauses. ({issue}`29077`)
+* {{breaking}} Rename the `fs.cache.preferred-hosts-count` catalog property to
+  the coordinator-wide `node-scheduler.cache-preferred-hosts-count`
+  configuration property. ({issue}`29182`)
 
 ## JDBC driver
 
