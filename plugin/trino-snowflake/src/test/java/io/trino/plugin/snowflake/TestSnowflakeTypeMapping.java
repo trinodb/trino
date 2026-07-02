@@ -47,6 +47,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.JsonType.JSON;
 import static java.time.ZoneOffset.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -437,6 +438,42 @@ public class TestSnowflakeTypeMapping
                     }')
                     """);
         }
+    }
+
+    @Test
+    public void testVariantMapping()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("variant", "PARSE_JSON('[1, 2, null, 3]')", JSON, "JSON '[1,2,null,3]'")
+                .addRoundTrip("variant", "PARSE_JSON('{\"a\": 1, \"b\": null}')", JSON, "JSON '{\"a\":1,\"b\":null}'")
+                .addRoundTrip("variant", "PARSE_JSON('\"a string value\"')", JSON, "JSON '\"a string value\"'")
+                .addRoundTrip("variant", "PARSE_JSON('123')", JSON, "JSON '123'")
+                .addRoundTrip("variant", "PARSE_JSON('123.456')", JSON, "JSON '123.456'")
+                .addRoundTrip("variant", "PARSE_JSON('true')", JSON, "JSON 'true'")
+                .addRoundTrip("variant", "PARSE_JSON('false')", JSON, "JSON 'false'")
+                .addRoundTrip("variant", "PARSE_JSON('null')", JSON, "JSON 'null'")
+                .addRoundTrip("variant", "NULL", JSON, "CAST(NULL AS JSON)")
+                .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.test_variant"));
+    }
+
+    @Test
+    public void testVariantMappingViaQueryPassthrough()
+    {
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''[1, 2, null, 3]'')'))",
+                "VALUES '[1,2,null,3]'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''{\"a\": 1, \"b\": null}'')'))",
+                "VALUES '{\"a\":1,\"b\":null}'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''\"a string value\"'')'))",
+                "VALUES '\"a string value\"'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''123'')'))",
+                "VALUES '123'");
+        assertQuery(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT PARSE_JSON(''true'')'))",
+                "VALUES 'true'");
     }
 
     private Session unsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
