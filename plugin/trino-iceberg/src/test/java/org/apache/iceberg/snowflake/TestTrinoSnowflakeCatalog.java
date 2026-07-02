@@ -368,6 +368,22 @@ public class TestTrinoSnowflakeCatalog
 
     @Test
     @Override
+    public void testTableNamespaceFilter()
+    {
+        assertThatThrownBy(super::testTableNamespaceFilter)
+                .hasMessageContaining("Iceberg Snowflake catalog schemas do not support modifications");
+    }
+
+    @Test
+    @Override
+    public void testViewNamespaceFilter()
+    {
+        assertThatThrownBy(super::testViewNamespaceFilter)
+                .hasMessageContaining("Iceberg Snowflake catalog schemas do not support modifications");
+    }
+
+    @Test
+    @Override
     public void testListTables()
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
