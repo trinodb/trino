@@ -20,9 +20,7 @@ import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 
@@ -30,13 +28,6 @@ public class VariableWidthBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "VARIABLE_WIDTH";
-
-    private final boolean vectorizeNullBitPacking;
-
-    public VariableWidthBlockEncoding(boolean vectorizeNullBitPacking)
-    {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
-    }
 
     @Override
     public String getName()
@@ -62,12 +53,7 @@ public class VariableWidthBlockEncoding
         @Nullable
         boolean[] isNull = variableWidthBlock.getRawValueIsNull();
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, arrayBaseOffset, positionCount);
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, arrayBaseOffset, positionCount);
-        }
+        encodeNullsAsBitsScalar(sliceOutput, isNull, arrayBaseOffset, positionCount);
 
         int[] rawOffsets = variableWidthBlock.getRawOffsets();
         writeOffsetsWithNullsCompacted(sliceOutput, rawOffsets, isNull, arrayBaseOffset, positionCount);
@@ -83,13 +69,7 @@ public class VariableWidthBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
-        }
+        boolean[] valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
 
         int[] offsets = readOffsetsWithNullsCompacted(sliceInput, valueIsNull, positionCount);
 

@@ -22,9 +22,7 @@ import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.checkFromIndexSize;
@@ -35,13 +33,11 @@ public class ByteArrayBlockEncoding
     private static final VectorSpecies<Byte> BYTE_SPECIES = ByteVector.SPECIES_PREFERRED;
     public static final String NAME = "BYTE_ARRAY";
 
-    private final boolean vectorizeNullBitPacking;
     private final boolean vectorizeNullCompress;
     private final boolean vectorizeNullExpand;
 
-    public ByteArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean vectorizeNullCompress, boolean vectorizeNullExpand)
+    public ByteArrayBlockEncoding(boolean vectorizeNullCompress, boolean vectorizeNullExpand)
     {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
         this.vectorizeNullCompress = vectorizeNullCompress;
         this.vectorizeNullExpand = vectorizeNullExpand;
     }
@@ -70,12 +66,7 @@ public class ByteArrayBlockEncoding
         boolean[] isNull = byteArrayBlock.getRawValueIsNull();
         byte[] rawValues = byteArrayBlock.getRawValues();
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawOffset, positionCount);
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, rawOffset, positionCount);
-        }
+        encodeNullsAsBitsScalar(sliceOutput, isNull, rawOffset, positionCount);
 
         if (isNull == null) {
             sliceOutput.writeBytes(rawValues, rawOffset, positionCount);
@@ -103,13 +94,7 @@ public class ByteArrayBlockEncoding
             return new ByteArrayBlock(0, positionCount, null, values);
         }
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(valueIsNullPacked, positionCount);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(valueIsNullPacked, positionCount);
-        }
+        boolean[] valueIsNull = decodeNullBitsScalar(valueIsNullPacked, positionCount);
         if (vectorizeNullExpand) {
             return expandBytesWithNullsVectorized(sliceInput, positionCount, valueIsNull);
         }

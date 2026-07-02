@@ -18,22 +18,13 @@ import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static java.util.Objects.checkFromIndexSize;
 
 public class Fixed12BlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "FIXED12";
-
-    private final boolean vectorizeNullBitPacking;
-
-    public Fixed12BlockEncoding(boolean vectorizeNullBitPacking)
-    {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
-    }
 
     @Override
     public String getName()
@@ -60,12 +51,7 @@ public class Fixed12BlockEncoding
         int[] rawValues = fixed12Block.getRawValues();
         checkFromIndexSize(rawArrayOffset * 3, positionCount * 3, rawValues.length);
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawArrayOffset, positionCount);
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, rawArrayOffset, positionCount);
-        }
+        encodeNullsAsBitsScalar(sliceOutput, isNull, rawArrayOffset, positionCount);
 
         if (isNull == null) {
             sliceOutput.writeInts(rawValues, rawArrayOffset * 3, positionCount * 3);
@@ -91,13 +77,7 @@ public class Fixed12BlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
-        }
+        boolean[] valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
 
         int[] values = new int[positionCount * 3];
         if (valueIsNull == null) {

@@ -18,22 +18,13 @@ import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static java.util.Objects.checkFromIndexSize;
 
 public class Int128ArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "INT128_ARRAY";
-
-    private final boolean vectorizeNullBitPacking;
-
-    public Int128ArrayBlockEncoding(boolean vectorizeNullBitPacking)
-    {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
-    }
 
     @Override
     public String getName()
@@ -60,12 +51,7 @@ public class Int128ArrayBlockEncoding
         long[] rawValues = int128ArrayBlock.getRawValues();
         checkFromIndexSize(rawArrayOffset * 2, positionCount * 2, rawValues.length);
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawArrayOffset, positionCount);
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, rawArrayOffset, positionCount);
-        }
+        encodeNullsAsBitsScalar(sliceOutput, isNull, rawArrayOffset, positionCount);
 
         if (isNull == null) {
             sliceOutput.writeLongs(rawValues, rawArrayOffset * 2, positionCount * 2);
@@ -90,13 +76,7 @@ public class Int128ArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
-        }
+        boolean[] valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
 
         long[] values = new long[positionCount * 2];
         if (valueIsNull == null) {

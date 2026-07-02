@@ -33,7 +33,6 @@ import static io.trino.simd.SimdCapability.EXPAND_BYTE;
 import static io.trino.simd.SimdCapability.EXPAND_INT;
 import static io.trino.simd.SimdCapability.EXPAND_LONG;
 import static io.trino.simd.SimdCapability.EXPAND_SHORT;
-import static io.trino.simd.SimdCapability.NULL_BIT_PACKING;
 import static io.trino.util.MachineInfo.readCpuFlags;
 import static java.util.Locale.ENGLISH;
 
@@ -157,8 +156,7 @@ public final class BlockEncodingSimdSupport
             return SimdSupport.NONE;
         }
 
-        // Always vectorize valueIsNull bit packing, no known x86_64 platforms regress with this approach
-        EnumSet<SimdCapability> capabilities = EnumSet.of(NULL_BIT_PACKING);
+        EnumSet<SimdCapability> capabilities = EnumSet.noneOf(SimdCapability.class);
         if (x86Flags.contains(X86SimdInstructionSet.avx512vbmi2)) {
             capabilities.add(COMPRESS_BYTE);
             capabilities.add(EXPAND_BYTE);
@@ -197,8 +195,7 @@ public final class BlockEncodingSimdSupport
             return SimdSupport.NONE;
         }
 
-        // Vectorized null bit packing has no known aarch64 platforms that regress compared to scalar code
-        EnumSet<SimdCapability> capabilities = EnumSet.of(NULL_BIT_PACKING);
+        EnumSet<SimdCapability> capabilities = EnumSet.noneOf(SimdCapability.class);
         // SVE 1 is sufficient to have Vector#compress(VectorMask) intrinsics for all primitive types
         capabilities.add(COMPRESS_BYTE);
         capabilities.add(COMPRESS_SHORT);
