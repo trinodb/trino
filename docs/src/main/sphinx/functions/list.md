@@ -472,6 +472,7 @@
 - {func}`timezone`
 - {func}`timezone_hour`
 - {func}`timezone_minute`
+- {func}`title_case`
 - {func}`to_base`
 - {func}`to_base32`
 - {func}`to_base64`
