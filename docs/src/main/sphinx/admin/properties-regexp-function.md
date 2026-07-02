@@ -5,13 +5,19 @@ These properties allow tuning the {doc}`/functions/regexp`.
 ## `regex-library`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `JONI`, `RE2J`
+- **Allowed values:** `JONI`, `RE2J`, `SAFERE`
 - **Default value:** `JONI`
 
 Which library to use for regular expression functions.
 `JONI` is generally faster for common usage, but can require exponential
-time for certain expression patterns. `RE2J` uses a different algorithm,
-which guarantees linear time, but is often slower.
+time for certain expression patterns, and supports the full
+`java.util.regex` syntax including backreferences and lookahead/lookbehind.
+`RE2J` uses a different algorithm, which guarantees linear time, but is
+often slower.
+`SAFERE` ([SafeRE](https://github.com/eaftan/safere)) also guarantees linear
+time while keeping `java.util.regex` syntax and semantics, and rejects
+unsupported constructs, such as backreferences and lookahead/lookbehind, at
+compile time.
 
 ## `re2j.dfa-states-limit`
 

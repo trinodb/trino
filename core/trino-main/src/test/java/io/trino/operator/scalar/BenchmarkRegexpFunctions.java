@@ -19,6 +19,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.type.JoniRegexp;
 import io.trino.type.Re2JRegexp;
+import io.trino.type.SafeReRegexp;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -60,6 +61,12 @@ public class BenchmarkRegexpFunctions
         return Re2JRegexpFunctions.regexpLike(data.getSource(), data.getRe2JPattern());
     }
 
+    @Benchmark
+    public boolean benchmarkLikeSafeRe(DotStarAroundData data)
+    {
+        return SafeReRegexpFunctions.regexpLike(data.getSource(), data.getSafeRePattern());
+    }
+
     @State(Thread)
     public static class DotStarAroundData
     {
@@ -71,6 +78,7 @@ public class BenchmarkRegexpFunctions
 
         private JoniRegexp joniPattern;
         private Re2JRegexp re2JPattern;
+        private SafeReRegexp safeRePattern;
         private Slice source;
 
         @Setup
@@ -106,6 +114,7 @@ public class BenchmarkRegexpFunctions
 
             joniPattern = joniRegexp(pattern);
             re2JPattern = re2JRegexp(pattern);
+            safeRePattern = new SafeReRegexp(pattern);
             source = sliceOutput.slice();
             checkState(source.length() == sourceLength, "source.length=%s, sourceLength=%s", source.length(), sourceLength);
         }
@@ -123,6 +132,11 @@ public class BenchmarkRegexpFunctions
         public Re2JRegexp getRe2JPattern()
         {
             return re2JPattern;
+        }
+
+        public SafeReRegexp getSafeRePattern()
+        {
+            return safeRePattern;
         }
     }
 
