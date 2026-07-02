@@ -24,19 +24,15 @@ These functions and operators operate on {ref}`date and time data types <date-ti
 
 The `AT TIME ZONE` operator sets the time zone of a timestamp:
 
-```
-SELECT timestamp '2012-10-31 01:00 UTC';
--- 2012-10-31 01:00:00.000 UTC
-
-SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
--- 2012-10-30 18:00:00.000 America/Los_Angeles
+```{try-sql}
+SELECT timestamp '2012-10-31 01:00 UTC',
+       timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'
 ```
 
 The `AT LOCAL` operator renders a datetime in the current session time zone:
 
-```
-SELECT timestamp '2012-10-31 01:00 UTC' AT LOCAL;
--- 2012-10-30 18:00:00.000 America/Los_Angeles  (session zone)
+```{try-sql}
+SELECT timestamp '2012-10-31 01:00 UTC' AT LOCAL
 ```
 
 ## Date and time functions
@@ -61,9 +57,8 @@ Returns the current {ref}`timestamp with time zone
 <timestamp-with-time-zone-data-type>` as of the start of the query, with
 `p` digits of subsecond precision:
 
-```
-SELECT current_timestamp(6);
--- 2020-06-24 08:25:31.759993 America/Los_Angeles
+```{try-sql}
+SELECT current_timestamp(6)
 ```
 :::
 
@@ -87,15 +82,10 @@ Parses the ISO 8601 formatted date `string`, optionally with time and time
 zone, into a `timestamp(3) with time zone`. The time defaults to
 `00:00:00.000`, and the time zone defaults to the session time zone:
 
-```
-SELECT from_iso8601_timestamp('2020-05-11');
--- 2020-05-11 00:00:00.000 America/Vancouver
-
-SELECT from_iso8601_timestamp('2020-05-11T11:15:05');
--- 2020-05-11 11:15:05.000 America/Vancouver
-
-SELECT from_iso8601_timestamp('2020-05-11T11:15:05.055+01:00');
--- 2020-05-11 11:15:05.055 +01:00
+```{try-sql}
+SELECT from_iso8601_timestamp('2020-05-11'),
+       from_iso8601_timestamp('2020-05-11T11:15:05'),
+       from_iso8601_timestamp('2020-05-11T11:15:05.055+01:00')
 ```
 :::
 
@@ -103,12 +93,9 @@ SELECT from_iso8601_timestamp('2020-05-11T11:15:05.055+01:00');
 Parses the ISO 8601 formatted date and time `string`. The time zone
 defaults to the session time zone:
 
-```
-SELECT from_iso8601_timestamp_nanos('2020-05-11T11:15:05');
--- 2020-05-11 11:15:05.000000000 America/Vancouver
-
-SELECT from_iso8601_timestamp_nanos('2020-05-11T11:15:05.123456789+01:00');
--- 2020-05-11 11:15:05.123456789 +01:00
+```{try-sql}
+SELECT from_iso8601_timestamp_nanos('2020-05-11T11:15:05'),
+       from_iso8601_timestamp_nanos('2020-05-11T11:15:05.123456789+01:00')
 ```
 :::
 
@@ -117,15 +104,10 @@ Parses the ISO 8601 formatted date `string` into a `date`. The date can
 be a calendar date, a week date using ISO week numbering, or year and day
 of year combined:
 
-```
-SELECT from_iso8601_date('2020-05-11');
--- 2020-05-11
-
-SELECT from_iso8601_date('2020-W10');
--- 2020-03-02
-
-SELECT from_iso8601_date('2020-123');
--- 2020-05-02
+```{try-sql}
+SELECT from_iso8601_date('2020-05-11'),
+       from_iso8601_date('2020-W10'),
+       from_iso8601_date('2020-123')
 ```
 :::
 
@@ -137,9 +119,8 @@ The type of `x` can be `time with time zone` or `timestamp with time zone`.
 In the following example, the input timezone is `GMT`, which is seven hours
 ahead of `America/Los_Angeles` in November 2022:
 
-```sql
+```{try-sql}
 SELECT at_timezone(TIMESTAMP '2022-11-01 09:08:07.321 GMT', 'America/Los_Angeles')
--- 2022-11-01 02:08:07.321 America/Los_Angeles
 ```
 :::
 
@@ -147,12 +128,9 @@ SELECT at_timezone(TIMESTAMP '2022-11-01 09:08:07.321 GMT', 'America/Los_Angeles
 Returns the timestamp specified in `timestamp` with the time zone
 specified in `zone` with precision `p`:
 
-```
-SELECT current_timezone()
--- America/New_York
-
-SELECT with_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
--- 2022-11-01 09:08:07.321 America/Los_Angeles
+```{try-sql}
+SELECT current_timezone(),
+       with_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
 ```
 :::
 
@@ -181,18 +159,11 @@ the number of seconds since `1970-01-01 00:00:00` in `double` data type.
 Returns the UNIX timestamp `unixtime` as a timestamp with time zone. `unixtime` is the
 number of nanoseconds since `1970-01-01 00:00:00.000000000 UTC`:
 
-```
-SELECT from_unixtime_nanos(100);
--- 1970-01-01 00:00:00.000000100 UTC
-
-SELECT from_unixtime_nanos(DECIMAL '1234');
--- 1970-01-01 00:00:00.000001234 UTC
-
-SELECT from_unixtime_nanos(DECIMAL '1234.499');
--- 1970-01-01 00:00:00.000001234 UTC
-
-SELECT from_unixtime_nanos(DECIMAL '-1234');
--- 1969-12-31 23:59:59.999998766 UTC
+```{try-sql}
+SELECT from_unixtime_nanos(100),
+       from_unixtime_nanos(DECIMAL '1234'),
+       from_unixtime_nanos(DECIMAL '1234.499'),
+       from_unixtime_nanos(DECIMAL '-1234')
 ```
 :::
 
@@ -211,9 +182,8 @@ digits of subsecond precision.
 Returns the current {ref}`timestamp <timestamp-data-type>` as of the start
 of the query, with `p` digits of subsecond precision:
 
-```
-SELECT localtimestamp(6);
--- 2020-06-10 15:55:23.383628
+```{try-sql}
+SELECT localtimestamp(6)
 ```
 :::
 
@@ -267,15 +237,10 @@ The above examples use the timestamp `2001-08-22 03:04:05.321` as the input.
 :::{function} date_trunc(unit, x) -> [same as input]
 Returns `x` truncated to `unit`:
 
-```
-SELECT date_trunc('day' , TIMESTAMP '2022-10-20 05:10:00');
--- 2022-10-20 00:00:00.000
-
-SELECT date_trunc('month' , TIMESTAMP '2022-10-20 05:10:00');
--- 2022-10-01 00:00:00.000
-
-SELECT date_trunc('year', TIMESTAMP '2022-10-20 05:10:00');
--- 2022-01-01 00:00:00.000
+```{try-sql}
+SELECT date_trunc('day' , TIMESTAMP '2022-10-20 05:10:00'),
+       date_trunc('month' , TIMESTAMP '2022-10-20 05:10:00'),
+       date_trunc('year', TIMESTAMP '2022-10-20 05:10:00')
 ```
 :::
 
@@ -300,36 +265,22 @@ The functions in this section support the following interval units:
 Adds an interval `value` of type `unit` to `timestamp`.
 Subtraction can be performed by using a negative value:
 
-```
-SELECT date_add('second', 86, TIMESTAMP '2020-03-01 00:00:00');
--- 2020-03-01 00:01:26.000
-
-SELECT date_add('hour', 9, TIMESTAMP '2020-03-01 00:00:00');
--- 2020-03-01 09:00:00.000
-
-SELECT date_add('day', -1, TIMESTAMP '2020-03-01 00:00:00 UTC');
--- 2020-02-29 00:00:00.000 UTC
+```{try-sql}
+SELECT date_add('second', 86, TIMESTAMP '2020-03-01 00:00:00'),
+       date_add('hour', 9, TIMESTAMP '2020-03-01 00:00:00'),
+       date_add('day', -1, TIMESTAMP '2020-03-01 00:00:00 UTC')
 ```
 :::
 
 :::{function} date_diff(unit, timestamp1, timestamp2) -> bigint
 Returns `timestamp2 - timestamp1` expressed in terms of `unit`:
 
-```
-SELECT date_diff('second', TIMESTAMP '2020-03-01 00:00:00', TIMESTAMP '2020-03-02 00:00:00');
--- 86400
-
-SELECT date_diff('hour', TIMESTAMP '2020-03-01 00:00:00 UTC', TIMESTAMP '2020-03-02 00:00:00 UTC');
--- 24
-
-SELECT date_diff('day', DATE '2020-03-01', DATE '2020-03-02');
--- 1
-
-SELECT date_diff('second', TIMESTAMP '2020-06-01 12:30:45.000000000', TIMESTAMP '2020-06-02 12:30:45.123456789');
--- 86400
-
-SELECT date_diff('millisecond', TIMESTAMP '2020-06-01 12:30:45.000000000', TIMESTAMP '2020-06-02 12:30:45.123456789');
--- 86400123
+```{try-sql}
+SELECT date_diff('second', TIMESTAMP '2020-03-01 00:00:00', TIMESTAMP '2020-03-02 00:00:00'),
+       date_diff('hour', TIMESTAMP '2020-03-01 00:00:00 UTC', TIMESTAMP '2020-03-02 00:00:00 UTC'),
+       date_diff('day', DATE '2020-03-01', DATE '2020-03-02'),
+       date_diff('second', TIMESTAMP '2020-06-01 12:30:45.000000000', TIMESTAMP '2020-06-02 12:30:45.123456789'),
+       date_diff('millisecond', TIMESTAMP '2020-06-01 12:30:45.000000000', TIMESTAMP '2020-06-02 12:30:45.123456789')
 ```
 :::
 
@@ -351,15 +302,10 @@ The `parse_duration` function supports the following units:
 Parses `string` of format `value unit` into an interval, where
 `value` is fractional number of `unit` values:
 
-```
-SELECT parse_duration('42.8ms');
--- 0 00:00:00.043
-
-SELECT parse_duration('3.81 d');
--- 3 19:26:24.000
-
-SELECT parse_duration('5m');
--- 0 00:05:00.000
+```{try-sql}
+SELECT parse_duration('42.8ms'),
+       parse_duration('3.81 d'),
+       parse_duration('5m')
 ```
 :::
 
@@ -367,15 +313,10 @@ SELECT parse_duration('5m');
 Formats the double value of `seconds` into a human-readable string containing
 `weeks`, `days`, `hours`, `minutes`, and `seconds`:
 
-```
-SELECT human_readable_seconds(96);
--- 1 minute, 36 seconds
-
-SELECT human_readable_seconds(3762);
--- 1 hour, 2 minutes, 42 seconds
-
-SELECT human_readable_seconds(56363463);
--- 93 weeks, 1 day, 8 hours, 31 minutes, 3 seconds
+```{try-sql}
+SELECT human_readable_seconds(96),
+       human_readable_seconds(3762),
+       human_readable_seconds(56363463)
 ```
 :::
 
@@ -428,18 +369,16 @@ The following specifiers are not currently supported: `%D %U %u %V %w %X`
 :::{function} date_format(timestamp, format) -> varchar
 Formats `timestamp` as a string using `format`:
 
-```
-SELECT date_format(TIMESTAMP '2022-10-20 05:10:00', '%m-%d-%Y %H');
--- 10-20-2022 05
+```{try-sql}
+SELECT date_format(TIMESTAMP '2022-10-20 05:10:00', '%m-%d-%Y %H')
 ```
 :::
 
 :::{js:function} date_parse(string, format) → timestamp(3)
 Parses `string` into a timestamp using `format`:
 
-```sql
-SELECT date_parse('2022/10/20/05', '%Y/%m/%d/%H');
--- 2022-10-20 05:00:00.000
+```{try-sql}
+SELECT date_parse('2022/10/20/05', '%Y/%m/%d/%H')
 ```
 :::
 
@@ -486,9 +425,8 @@ field to be extracted. Most fields support all date and time types.
 ::::{function} extract(field FROM x) -> bigint
 Returns `field` from `x`:
 
-```
-SELECT extract(YEAR FROM TIMESTAMP '2022-10-20 05:10:00');
--- 2022
+```{try-sql}
+SELECT extract(YEAR FROM TIMESTAMP '2022-10-20 05:10:00')
 ```
 
 :::{note}
@@ -613,10 +551,10 @@ Returns the timezone identifier from `timestamp(p) with time zone`. The format
 of the returned identifier is identical to the [format used in the input
 timestamp](timestamp-p-with-time-zone-data-type):
 
-```sql
-SELECT timezone(TIMESTAMP '2024-01-01 12:00:00 Asia/Tokyo'); -- Asia/Tokyo
-SELECT timezone(TIMESTAMP '2024-01-01 12:00:00 +01:00'); -- +01:00
-SELECT timezone(TIMESTAMP '2024-02-29 12:00:00 UTC'); -- UTC
+```{try-sql}
+SELECT timezone(TIMESTAMP '2024-01-01 12:00:00 Asia/Tokyo'),
+       timezone(TIMESTAMP '2024-01-01 12:00:00 +01:00'),
+       timezone(TIMESTAMP '2024-02-29 12:00:00 UTC')
 ```
 :::
 
@@ -626,8 +564,8 @@ Returns the timezone identifier from a `time(p) with time zone`. The format
 of the returned identifier is identical to the [format used in the input
 time](time-with-time-zone-data-type):
 
-```sql
-SELECT timezone(TIME '12:00:00+09:00'); -- +09:00
+```{try-sql}
+SELECT timezone(TIME '12:00:00+09:00')
 ```
 :::
 

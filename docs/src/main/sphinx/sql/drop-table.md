@@ -18,14 +18,18 @@ exists.
 
 Drop the table `orders_by_date`:
 
-```
-DROP TABLE orders_by_date
+```{try-sql}
+CREATE TABLE memory.default.orders_by_date (orderdate date, price double);
+---
+DROP TABLE memory.default.orders_by_date
 ```
 
 Drop the table `orders_by_date` if it exists:
 
-```
-DROP TABLE IF EXISTS orders_by_date
+```{try-sql}
+CREATE TABLE memory.default.orders_by_date (orderdate date, price double);
+---
+DROP TABLE IF EXISTS memory.default.orders_by_date
 ```
 
 ## See also

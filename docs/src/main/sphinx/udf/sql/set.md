@@ -21,8 +21,9 @@ the `expression`.
 The following functions returns the value `1` after setting the counter variable
 multiple times to different values:
 
-```sql
-FUNCTION one()
+```{try-sql}
+WITH
+  FUNCTION one()
   RETURNS int
   BEGIN
     DECLARE counter int DEFAULT 1;
@@ -31,6 +32,7 @@ FUNCTION one()
     SET counter = counter / counter;
     RETURN counter;
   END
+SELECT one()
 ```
 
 Further examples of varying complexity that cover usage of the `SET` statement

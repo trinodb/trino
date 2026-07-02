@@ -36,9 +36,9 @@ aggregate_function(...) FILTER (WHERE <condition>)
 A common and very useful example is to use `FILTER` to remove nulls from
 consideration when using `array_agg`:
 
-```
+```{try-sql}
 SELECT array_agg(name) FILTER (WHERE name IS NOT NULL)
-FROM region;
+FROM tpch.tiny.region
 ```
 
 As another example, imagine you want to add a condition on the count for Iris
@@ -106,14 +106,14 @@ column, and returns the sum of all total prices as customer spend. The
 aggregation however uses the rows grouped by the customer identifier
 `custkey` a required, since only that column is guaranteed to be unique:
 
-```
+```{try-sql}
 SELECT sum(o.totalprice) as spend,
     any_value(c.name)
 FROM tpch.tiny.orders o
 JOIN tpch.tiny.customer c
 ON o.custkey  = c.custkey
-GROUP BY c.custkey;
-ORDER BY spend;
+GROUP BY c.custkey
+ORDER BY spend
 ```
 :::
 
@@ -206,56 +206,44 @@ If `separator` is not specified, the empty string will be used as `separator`.
 
 In its simplest form the function looks like:
 
-```
+```{try-sql}
 SELECT listagg(value, ',') WITHIN GROUP (ORDER BY value) csv_value
-FROM (VALUES 'a', 'c', 'b') t(value);
+FROM (VALUES 'a', 'c', 'b') t(value)
 ```
 
 and results in:
 
-```
-csv_value
------------
-'a,b,c'
-```
-
 The following example casts the `v` column to `varchar`:
 
-```
+```{try-sql}
 SELECT listagg(CAST(v AS VARCHAR), ',') WITHIN GROUP (ORDER BY v) csv_value
-FROM (VALUES 1, 3, 2) t(v);
+FROM (VALUES 1, 3, 2) t(v)
 ```
 
 and results in
 
-```
-csv_value
------------
-'1,2,3'
-```
-
 The overflow behaviour is by default to throw an error in case that the length of the output
 of the function exceeds `1048576` bytes:
 
-```
+```{try-sql}
 SELECT listagg(value, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY value) csv_value
-FROM (VALUES 'a', 'b', 'c') t(value);
+FROM (VALUES 'a', 'b', 'c') t(value)
 ```
 
 There exists also the possibility to truncate the output `WITH COUNT` or `WITHOUT COUNT`
 of omitted non-null values in case that the length of the output of the
 function exceeds `1048576` bytes:
 
-```
+```{try-sql}
 SELECT listagg(value, ',' ON OVERFLOW TRUNCATE '.....' WITH COUNT) WITHIN GROUP (ORDER BY value)
-FROM (VALUES 'a', 'b', 'c') t(value);
+FROM (VALUES 'a', 'b', 'c') t(value)
 ```
 
 If not specified, the truncation filler string is by default `'...'`.
 
 This aggregation function can be also used in a scenario involving grouping:
 
-```
+```{try-sql}
 SELECT id, listagg(value, ',') WITHIN GROUP (ORDER BY o) csv_value
 FROM (VALUES
     (100, 1, 'a'),
@@ -263,16 +251,7 @@ FROM (VALUES
     (200, 2, 'b')
 ) t(id, o, value)
 GROUP BY id
-ORDER BY id;
-```
-
-results in:
-
-```text
- id  | csv_value
------+-----------
- 100 | a
- 200 | b,c
+ORDER BY id
 ```
 
 This aggregation function supports
@@ -280,7 +259,7 @@ This aggregation function supports
 for scenarios where the aggregation for the data not matching the filter
 condition still needs to show up in the output:
 
-```
+```{try-sql}
 SELECT 
     country,
     listagg(city, ',')
@@ -294,17 +273,7 @@ FROM (VALUES
     ('Poland', 'Warsaw', 1_765_000)
 ) t(country, city, population)
 GROUP BY country
-ORDER BY country;
-```
-
-results in:
-
-```text
- country |    megacities     
----------+-------------------
- Austria | NULL              
- India   | Bangalore,Chennai 
- Poland  | NULL
+ORDER BY country
 ```
 
 The current implementation of `listagg` function does not support window frames.
@@ -647,7 +616,7 @@ takes the current state, initially `initialState`, and returns the new state.
 `combineFunction` will be invoked to combine two states into a new state.
 The final state is returned:
 
-```
+```{try-sql}
 SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
 FROM (
     VALUES
@@ -657,10 +626,10 @@ FROM (
         (2, 6),
         (2, 7)
 ) AS t(id, value)
-GROUP BY id;
--- (1, 12)
--- (2, 13)
+GROUP BY id
+```
 
+```{try-sql}
 SELECT id, reduce_agg(value, 1, (a, b) -> a * b, (a, b) -> a * b)
 FROM (
     VALUES
@@ -670,9 +639,7 @@ FROM (
         (2, 6),
         (2, 7)
 ) AS t(id, value)
-GROUP BY id;
--- (1, 60)
--- (2, 42)
+GROUP BY id
 ```
 
 The state type must be a boolean, integer, floating-point, char, varchar or date/time/interval.

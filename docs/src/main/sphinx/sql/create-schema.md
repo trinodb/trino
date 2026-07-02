@@ -31,8 +31,8 @@ SELECT * FROM system.metadata.schema_properties
 
 Create a new schema `web` in the current catalog:
 
-```
-CREATE SCHEMA web
+```{try-sql}
+CREATE SCHEMA memory.web
 ```
 
 Create a new schema `sales` in the `hive` catalog:
@@ -43,8 +43,8 @@ CREATE SCHEMA hive.sales
 
 Create the schema `traffic` if it does not already exist:
 
-```
-CREATE SCHEMA IF NOT EXISTS traffic
+```{try-sql}
+CREATE SCHEMA IF NOT EXISTS memory.traffic
 ```
 
 Create a new schema `web` and set the owner to user `alice`:
