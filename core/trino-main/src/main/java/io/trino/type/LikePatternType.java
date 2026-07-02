@@ -55,7 +55,7 @@ public class LikePatternType
         int valuePosition = block.getUnderlyingValuePosition(position);
         Slice slice = valueBlock.getSlice(valuePosition);
 
-        // layout is: <patternLength> <pattern> <hasEscape> <escape>?
+        // layout is: <patternLength> <pattern> <hasEscape> <escape>? <caseSensitive>
         int length = slice.getInt(0);
         String pattern = slice.toString(4, length, UTF_8);
 
@@ -80,18 +80,22 @@ public class LikePatternType
         int valuePosition = block.getUnderlyingValuePosition(position);
         Slice slice = valueBlock.getSlice(valuePosition);
 
-        // layout is: <patternLength> <pattern> <hasEscape> <escape>?
+        // layout is: <patternLength> <pattern> <hasEscape> <escape>? <caseSensitive>
         int length = slice.getInt(0);
         String pattern = slice.toString(4, length, UTF_8);
 
         boolean hasEscape = slice.getByte(4 + length) != 0;
 
         Optional<Character> escape = Optional.empty();
+        int caseSensitiveOffset = 4 + length + 1;
         if (hasEscape) {
             escape = Optional.of((char) slice.getInt(4 + length + 1));
+            caseSensitiveOffset += Integer.BYTES;
         }
 
-        return LikePattern.compile(pattern, escape);
+        boolean caseSensitive = slice.getByte(caseSensitiveOffset) != 0;
+
+        return LikePattern.compile(pattern, escape, true, caseSensitive);
     }
 
     @Override
@@ -104,18 +108,22 @@ public class LikePatternType
                 Integer.BYTES +
                         pattern.length() +
                         Byte.BYTES +
-                        (likePattern.getEscape().isPresent() ? Integer.BYTES : 0));
+                        (likePattern.getEscape().isPresent() ? Integer.BYTES : 0) +
+                        Byte.BYTES);
 
-        // layout is: <pattern_length> <pattern> <hasEscape> <escape>?
+        // layout is: <pattern_length> <pattern> <hasEscape> <escape>? <caseSensitive>
         slice.setInt(0, pattern.length());
         slice.setBytes(4, pattern);
+        int caseSensitiveOffset = 4 + pattern.length() + 1;
         if (likePattern.getEscape().isEmpty()) {
             slice.setByte(4 + pattern.length(), (byte) 0);
         }
         else {
             slice.setByte(4 + pattern.length(), (byte) 1);
             slice.setInt(4 + pattern.length() + 1, likePattern.getEscape().get());
+            caseSensitiveOffset += Integer.BYTES;
         }
+        slice.setByte(caseSensitiveOffset, likePattern.isCaseSensitive() ? (byte) 1 : (byte) 0);
 
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice);
     }

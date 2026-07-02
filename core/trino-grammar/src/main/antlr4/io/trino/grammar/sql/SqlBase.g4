@@ -584,7 +584,7 @@ predicate[ParserRuleContext value]
     | NOT? BETWEEN (ASYMMETRIC | SYMMETRIC)? lower=valueExpression AND upper=valueExpression #between
     | NOT? IN '(' expression (',' expression)* ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
-    | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
+    | NOT? kind=(LIKE | ILIKE) pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? truthValue=(TRUE | FALSE | UNKNOWN)                         #booleanTest
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
@@ -1077,7 +1077,7 @@ nonReserved
     | FAIL | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INLINE | INPUT | INTERVAL | INVOKER | IO | ITERATE | ISOLATION
+    | IF | IGNORE | ILIKE | IMMEDIATE | INCLUDING | INITIAL | INLINE | INPUT | INTERVAL | INVOKER | IO | ITERATE | ISOLATION
     | JSON
     | KEEP | KEY | KEYS
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
@@ -1208,6 +1208,7 @@ HAVING: 'HAVING';
 HOUR: 'HOUR';
 IF: 'IF';
 IGNORE: 'IGNORE';
+ILIKE: 'ILIKE';
 IMMEDIATE: 'IMMEDIATE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';

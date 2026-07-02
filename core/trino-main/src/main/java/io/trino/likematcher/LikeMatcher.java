@@ -57,6 +57,15 @@ public class LikeMatcher
 
     public static LikeMatcher compile(String pattern, Optional<Character> escape, boolean optimize)
     {
+        return compile(pattern, escape, optimize, true);
+    }
+
+    public static LikeMatcher compile(String pattern, Optional<Character> escape, boolean optimize, boolean caseSensitive)
+    {
+        if (!caseSensitive) {
+            return compileCaseInsensitive(pattern, escape);
+        }
+
         List<Pattern> parsed = parse(pattern, escape);
 
         // Calculate minimum and maximum size for candidate strings
@@ -136,7 +145,7 @@ public class LikeMatcher
                     matcher = Optional.of(new DenseDfaMatcher(parsed, patternStart, patternEnd, exact));
                 }
                 else {
-                    matcher = Optional.of(new NfaMatcher(parsed, patternStart, patternEnd, exact));
+                    matcher = Optional.of(new NfaMatcher(parsed, patternStart, patternEnd, exact, true));
                 }
             }
             else {
@@ -150,6 +159,43 @@ public class LikeMatcher
                 prefix,
                 suffix,
                 matcher);
+    }
+
+    /// Compiles a case-insensitive matcher. Case folding cannot be applied to the byte-level
+    /// prefix/suffix, FJS, and DFA fast paths, because folding a codepoint can change its UTF-8 byte
+    /// length, so those optimizations are skipped. The whole pattern is matched by a single
+    /// [NfaMatcher], which decodes codepoints and folds each one as it compares -- the input value is
+    /// never rewritten. Without a byte prefix/suffix to bound the input, the byte-length
+    /// short-circuit is only safe when no literal content participates (an empty pattern matches only
+    /// the empty input; an all-`%` pattern matches anything); otherwise the NFA enforces the length.
+    private static LikeMatcher compileCaseInsensitive(String pattern, Optional<Character> escape)
+    {
+        List<Pattern> parsed = parse(pattern, escape);
+
+        boolean unbounded = parsed.stream().anyMatch(Pattern.ZeroOrMore.class::isInstance);
+
+        // Match the entire pattern with the NFA. A trailing % lets the match accept before consuming
+        // the rest of the input, mirroring the non-exact handling of the case-sensitive path.
+        int patternStart = 0;
+        int patternEnd = parsed.size() - 1;
+        boolean exact = true;
+        if (patternEnd >= patternStart && parsed.get(patternEnd) instanceof Pattern.ZeroOrMore) {
+            exact = false;
+            patternEnd--;
+        }
+
+        Optional<Matcher> matcher = Optional.empty();
+        int minSize = 0;
+        OptionalInt maxSize = OptionalInt.empty();
+        if (patternStart <= patternEnd) {
+            matcher = Optional.of(new NfaMatcher(parsed, patternStart, patternEnd, exact, false));
+        }
+        else if (!unbounded) {
+            // The remaining pattern is empty (no literals, no %), so it matches only the empty input.
+            maxSize = OptionalInt.of(0);
+        }
+
+        return new LikeMatcher(minSize, maxSize, new byte[0], new byte[0], matcher);
     }
 
     public boolean match(byte[] input)

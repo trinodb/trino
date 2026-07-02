@@ -302,7 +302,7 @@ public final class ExpressionTreeRewriter<C>
                     Optional<Expression> rewrittenEscape = predicate.getEscape().map(escape -> rewrite(escape, context.get()));
                     yield pattern == predicate.getPattern() && sameElements(predicate.getEscape(), rewrittenEscape)
                             ? predicate
-                            : new LikePredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), pattern, rewrittenEscape);
+                            : new LikePredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), pattern, rewrittenEscape, predicate.isCaseInsensitive());
                 }
                 case MatchPredicate predicate -> {
                     Expression subquery = rewrite(predicate.getSubquery(), context.get());

@@ -24,15 +24,17 @@ final class NfaMatcher
     private static final int INVALID_CODEPOINT = -1;
 
     private final boolean exact;
+    private final boolean caseSensitive;
 
     private final boolean[] loopback;
     private final int[] match;
     private final int acceptState;
     private final int stateCount;
 
-    public NfaMatcher(List<Pattern> pattern, int start, int end, boolean exact)
+    public NfaMatcher(List<Pattern> pattern, int start, int end, boolean exact, boolean caseSensitive)
     {
         this.exact = exact;
+        this.caseSensitive = caseSensitive;
 
         stateCount = calculateStateCount(pattern, start, end);
 
@@ -47,7 +49,10 @@ final class NfaMatcher
             switch (element) {
                 case Pattern.Literal literal -> {
                     for (int i = 0; i < literal.value().length(); i++) {
-                        match[state++] = literal.value().charAt(i);
+                        // For case-insensitive matching the expected codepoint is stored folded, and the
+                        // decoded input codepoint is folded the same way before comparison, so neither the
+                        // pattern nor the input value is rewritten -- only the per-codepoint comparison folds.
+                        match[state++] = fold(literal.value().charAt(i));
                     }
                 }
                 case Pattern.Any any -> {
@@ -60,6 +65,11 @@ final class NfaMatcher
                 }
             }
         }
+    }
+
+    private int fold(int codepoint)
+    {
+        return caseSensitive ? codepoint : Character.toLowerCase(codepoint);
     }
 
     private static int calculateStateCount(List<Pattern> pattern, int start, int end)
@@ -128,6 +138,8 @@ final class NfaMatcher
                 return false;
             }
 
+            int folded = fold(codepoint);
+
             accept = false;
             nextStatesIndex = 0;
             Arrays.fill(seen, false);
@@ -139,7 +151,7 @@ final class NfaMatcher
                     seen[state] = true;
                 }
                 int next = state + 1;
-                if (!seen[next] && (match[state] == ANY || match[state] == codepoint)) {
+                if (!seen[next] && (match[state] == ANY || match[state] == folded)) {
                     nextStates[nextStatesIndex++] = next;
                     accept |= next == acceptState;
                     seen[next] = true;

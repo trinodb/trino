@@ -1253,6 +1253,54 @@ public class TestSqlParser
     }
 
     @Test
+    public void testLikeAndIlike()
+    {
+        assertThat(expression("a LIKE 'b%'"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new LikePredicate(
+                                location(1, 3),
+                                false,
+                                new StringLiteral(location(1, 8), "b%"),
+                                Optional.empty(),
+                                false)));
+
+        assertThat(expression("a ILIKE 'b%'"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new LikePredicate(
+                                location(1, 3),
+                                false,
+                                new StringLiteral(location(1, 9), "b%"),
+                                Optional.empty(),
+                                true)));
+
+        assertThat(expression("a NOT ILIKE 'b%'"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new LikePredicate(
+                                location(1, 3),
+                                true,
+                                new StringLiteral(location(1, 13), "b%"),
+                                Optional.empty(),
+                                true)));
+
+        assertThat(expression("a ILIKE 'b%' ESCAPE '!'"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new LikePredicate(
+                                location(1, 3),
+                                false,
+                                new StringLiteral(location(1, 9), "b%"),
+                                Optional.of(new StringLiteral(location(1, 21), "!")),
+                                true)));
+    }
+
+    @Test
     public void testSelectWithLimit()
     {
         assertStatement("SELECT * FROM table1 LIMIT 2",
