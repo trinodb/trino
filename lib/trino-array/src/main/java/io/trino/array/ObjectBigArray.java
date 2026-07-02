@@ -120,6 +120,24 @@ public final class ObjectBigArray<T>
     }
 
     /**
+     * Invokes {@code consumer} for the elements in the range {@code [from, to)}, one contiguous run
+     * per backing segment. This lets callers iterate a contiguous range without recomputing the
+     * segment and offset for every element, processing each run directly against the backing array.
+     * Elements are provided as {@code Object[]}; cast each to {@code T}.
+     */
+    public void forEachSegment(long from, long to, ObjectSegmentConsumer consumer)
+    {
+        long index = from;
+        while (index < to) {
+            Object[] segment = array[segment(index)];
+            int offset = offset(index);
+            int length = (int) Math.min(to - index, SEGMENT_SIZE - offset);
+            consumer.accept(segment, offset, length);
+            index += length;
+        }
+    }
+
+    /**
      * Ensures this big array is at least the specified length.  If the array is smaller, segments
      * are added until the array is larger then the specified length.
      */
@@ -137,11 +155,8 @@ public final class ObjectBigArray<T>
      */
     public void fill(T value)
     {
-        for (Object[] segment : array) {
-            if (segment == null) {
-                return;
-            }
-            Arrays.fill(segment, value);
+        for (int i = 0; i < segments; i++) {
+            Arrays.fill(array[i], value);
         }
     }
 
@@ -184,7 +199,7 @@ public final class ObjectBigArray<T>
 
         // grow base array if necessary
         if (array.length < requiredSegments) {
-            array = Arrays.copyOf(array, requiredSegments);
+            array = Arrays.copyOf(array, Math.max(requiredSegments, array.length * 2));
         }
 
         // add new segments

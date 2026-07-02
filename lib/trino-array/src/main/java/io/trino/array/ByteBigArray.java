@@ -99,11 +99,8 @@ public final class ByteBigArray
      */
     public void fill(byte value)
     {
-        for (byte[] segment : array) {
-            if (segment == null) {
-                return;
-            }
-            Arrays.fill(segment, value);
+        for (int i = 0; i < segments; i++) {
+            Arrays.fill(array[i], value);
         }
     }
 
@@ -146,7 +143,7 @@ public final class ByteBigArray
 
         // grow base array if necessary
         if (array.length < requiredSegments) {
-            array = Arrays.copyOf(array, requiredSegments);
+            array = Arrays.copyOf(array, Math.max(requiredSegments, array.length * 2));
         }
 
         // add new segments
