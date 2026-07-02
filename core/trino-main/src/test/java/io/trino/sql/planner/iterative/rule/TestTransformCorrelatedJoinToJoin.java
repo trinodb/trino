@@ -22,6 +22,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinType;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SystemSessionProperties.USE_LEGACY_DECORRELATOR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -42,6 +43,7 @@ public class TestTransformCorrelatedJoinToJoin
     public void testRewriteInnerCorrelatedJoin()
     {
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -65,6 +67,7 @@ public class TestTransformCorrelatedJoinToJoin
                                                 values("b")))));
 
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> {
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
@@ -97,6 +100,7 @@ public class TestTransformCorrelatedJoinToJoin
     public void testRewriteLeftCorrelatedJoin()
     {
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -122,6 +126,7 @@ public class TestTransformCorrelatedJoinToJoin
                                                 values("b")))));
 
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> {
                     Symbol a = p.symbol("a", BIGINT);
                     Symbol b = p.symbol("b", BIGINT);
@@ -154,6 +159,7 @@ public class TestTransformCorrelatedJoinToJoin
     public void doesNotFireForEnforceSingleRow()
     {
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -170,6 +176,7 @@ public class TestTransformCorrelatedJoinToJoin
     public void doesNotFireOnUncorrelated()
     {
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),

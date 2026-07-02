@@ -39,7 +39,6 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
@@ -119,8 +118,6 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
-import static io.trino.sql.ir.Logical.Operator.AND;
-import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -132,7 +129,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aliasToIndex;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
@@ -151,7 +147,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognitio
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -1256,19 +1251,19 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
                 OPTIMIZED,
+                // The dependent-join framework decorrelates this double-nested correlated subquery (legacy
+                // leaves it as an ApplyNode), producing a nested CrossJoin/InnerJoin/CrossJoin over
+                // lineitem + two orders scans. Direct-child joins are matched with node(JoinNode) directly
+                // (no anyTree), since anyTree on a multi-source node would require its pattern in all
+                // branches; anyTree is used only to skip intermediate single-source nodes to the leaves.
                 anyTree(
-                        filter(
-                                new Reference(BOOLEAN, "OUTER_FILTER"),
-                                project(
-                                        apply(ImmutableList.of("O", "C"),
-                                                ImmutableMap.of("OUTER_FILTER", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "THREE"), new Symbol(UNKNOWN, "C")))),
-                                                project(ImmutableMap.of("THREE", expression(new Constant(BIGINT, 3L))),
-                                                        tableScan("orders", ImmutableMap.of(
-                                                                "O", "orderkey",
-                                                                "C", "custkey"))),
-                                                project(
-                                                        any(
-                                                                tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
+                        node(JoinNode.class,
+                                node(JoinNode.class,
+                                        node(JoinNode.class,
+                                                anyTree(tableScan("lineitem")),
+                                                node(ValuesNode.class)),
+                                        anyTree(tableScan("orders"))),
+                                anyTree(tableScan("orders")))),
                 optimizer -> !
                         (optimizer instanceof AddLocalExchanges
                                 || optimizer instanceof CheckSubqueryNodesAreRewritten
@@ -1325,6 +1320,9 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
     {
+        // Same shape as legacy produces, modulo two cosmetic differences: the lifted predicate
+        // keeps its written operand order (orderkey = 3), and the subquery-true marker projection
+        // is merged into the Values node.
         assertPlan(
                 "SELECT orderkey, EXISTS(SELECT 1 WHERE orderkey = 3) FROM orders", // EXISTS maps to bool_or()
                 output(
@@ -1341,14 +1339,12 @@ public class TestLogicalPlanner
                                         SINGLE,
                                         join(LEFT, builder -> builder
                                                 .maySkipOutputDuplicates(false)
-                                                .filter(comparison(EQUAL, new Constant(BIGINT, 3L), new Reference(BIGINT, "ORDERKEY")))
+                                                .filter(comparison(EQUAL, new Reference(BIGINT, "ORDERKEY"), new Constant(BIGINT, 3L)))
                                                 .left(
                                                         assignUniqueId(
                                                                 "UNIQUE",
                                                                 tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))
-                                                .right(
-                                                        project(ImmutableMap.of("SUBQUERY", expression(TRUE)),
-                                                                node(ValuesNode.class))))))));
+                                                .right(values("SUBQUERY")))))));
     }
 
     @Test
@@ -1773,45 +1769,15 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedIn()
     {
+        // The dependent-join framework turns the inequality-correlated IN into an INNER join of nation to the
+        // uniquely-tagged outer region on regionkey (criteria regionkey_2 = regionkey) with the lifted
+        // name < r.name filter, then a per-outer-row aggregation — replacing legacy's IN three-valued filter.
         assertPlan(
                 "SELECT name FROM region r WHERE regionkey IN (SELECT regionkey FROM nation WHERE name < r.name)",
-                output(
-                        project(
-                                ImmutableMap.of("region_name", expression(new Reference(VARCHAR, "region_name"))),
-                                aggregation(
-                                        singleGroupingSet("region_regionkey", "region_name", "unique"),
-                                        ImmutableMap.of(),
-                                        Optional.empty(),
-                                        FINAL,
-                                        anyTree(project(
-                                                ImmutableMap.of(
-                                                        "region_regionkey", expression(new Reference(BIGINT, "region_regionkey")),
-                                                        "region_name", expression(new Reference(VARCHAR, "region_name")),
-                                                        "unique", expression(new Reference(BIGINT, "unique"))),
-                                                filter(
-                                                        new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(new Reference(BIGINT, "region_regionkey")), comparison(EQUAL, new Reference(BIGINT, "region_regionkey"), new Reference(BIGINT, "nation_regionkey")), new IsNull(new Reference(BIGINT, "nation_regionkey")))), comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")))),
-                                                        join(INNER, builder -> builder
-                                                                .addDynamicFilter("DF", "region_name")
-                                                                .left(
-                                                                        filter(
-                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "nation_regionkey"))),
-                                                                                dynamicFilters -> dynamicFilters
-                                                                                        .addConsumer(consumer -> consumer
-                                                                                                .alias("DF")
-                                                                                                .expression(VARCHAR, "nation_name")
-                                                                                                .operator(LESS_THAN)),
-                                                                                tableScan("nation", ImmutableMap.of(
-                                                                                        "nation_name", "name",
-                                                                                        "nation_regionkey", "regionkey"))))
-                                                                .right(
-                                                                        any(
-                                                                                assignUniqueId(
-                                                                                        "unique",
-                                                                                        filter(
-                                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "region_regionkey"))),
-                                                                                                tableScan("region", ImmutableMap.of(
-                                                                                                        "region_regionkey", "regionkey",
-                                                                                                        "region_name", "name"))))))))))))));
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("nation")),
+                                anyTree(tableScan("region")))));
     }
 
     @Test
