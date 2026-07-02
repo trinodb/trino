@@ -193,6 +193,7 @@ public class Analysis
 
     private final Map<NodeRef<Node>, Expression> where = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, Expression> qualify = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
     private final Set<NodeRef<OrderBy>> redundantOrderBy = new HashSet<>();
     private final Map<NodeRef<Node>, List<SelectExpression>> selectExpressions = new LinkedHashMap<>();
@@ -528,6 +529,16 @@ public class Analysis
     public void setHaving(QuerySpecification node, Expression expression)
     {
         having.put(NodeRef.of(node), expression);
+    }
+
+    public Expression getQualify(QuerySpecification query)
+    {
+        return qualify.get(NodeRef.of(query));
+    }
+
+    public void setQualify(QuerySpecification node, Expression expression)
+    {
+        qualify.put(NodeRef.of(node), expression);
     }
 
     public void setJoinCriteria(Join node, Expression criteria)
