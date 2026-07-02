@@ -129,7 +129,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -217,7 +218,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -261,7 +263,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -334,7 +337,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -393,7 +397,8 @@ public class TestHttpPageBufferClient
                 callback,
                 scheduler,
                 ticker,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -457,7 +462,8 @@ public class TestHttpPageBufferClient
                 new TestingClientCallback(new CyclicBarrier(1)),
                 scheduler,
                 new TestingTicker(),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
 
         assertThat(client.getAverageRequestSizeInBytes()).isEqualTo(0);
 
@@ -502,7 +508,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
 
         // attempt to fetch a page
         processor.addPage(location, page);
