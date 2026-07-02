@@ -145,6 +145,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
@@ -961,6 +962,7 @@ public class ExpressionAnalyzer
                 case IsNullPredicate _ -> analyzeIsNull(node.getValue(), node, context);
                 case LikePredicate predicate -> analyzeLike(node.getValue(), predicate, node, context);
                 case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
+                case OverlapsPredicate predicate -> analyzeOverlaps(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
             };
         }
@@ -1115,6 +1117,7 @@ public class ExpressionAnalyzer
                         case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
                         case LikePredicate fragment -> analyzeLike(operand, fragment, whenClause, context);
                         case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
+                        case OverlapsPredicate fragment -> analyzeOverlaps(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
                     }
                 }
@@ -2781,6 +2784,83 @@ public class ExpressionAnalyzer
             };
 
             return setExpressionType(node, resultType);
+        }
+
+        private Type analyzeOverlaps(Expression value, OverlapsPredicate predicate, Expression anchor, Context context)
+        {
+            RowType leftRow = validatePeriod(value, process(value, context));
+            RowType rightRow = validatePeriod(predicate.getRight(), process(predicate.getRight(), context));
+
+            Type leftStart = leftRow.getFields().get(0).getType();
+            Type leftEnd = leftRow.getFields().get(1).getType();
+            Type rightStart = rightRow.getFields().get(0).getType();
+            Type rightEnd = rightRow.getFields().get(1).getType();
+
+            Optional<Type> commonStart = typeCoercion.getCommonSuperType(leftStart, rightStart);
+            Optional<Type> commonEnd = typeCoercion.getCommonSuperType(leftEnd, rightEnd);
+            if (commonStart.isEmpty() || commonEnd.isEmpty()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Cannot apply OVERLAPS to %s and %s", leftRow, rightRow);
+            }
+
+            // SR 3: a period's two fields must be mutually comparable. An interval end first resolves
+            // to its (start + interval) datetime, which must then share a common super type with the
+            // start. Validate here so an incompatible shape (e.g. (DATE, TIME)) raises TYPE_MISMATCH
+            // rather than failing inside the planner.
+            Type effectiveEnd;
+            if (isInterval(commonEnd.get())) {
+                try {
+                    effectiveEnd = plannerContext.getMetadata().resolveOperator(ADD, ImmutableList.of(commonStart.get(), commonEnd.get())).signature().getReturnType();
+                }
+                catch (TrinoException e) {
+                    throw semanticException(TYPE_MISMATCH, anchor, "Cannot apply OVERLAPS to %s and %s", leftRow, rightRow);
+                }
+            }
+            else {
+                effectiveEnd = commonEnd.get();
+            }
+            if (typeCoercion.getCommonSuperType(commonStart.get(), effectiveEnd).isEmpty()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Cannot apply OVERLAPS to %s and %s", leftRow, rightRow);
+            }
+
+            RowType commonRow = RowType.anonymous(ImmutableList.of(commonStart.get(), commonEnd.get()));
+            if (!leftRow.equals(commonRow)) {
+                addOrReplaceExpressionCoercion(value, commonRow);
+            }
+            if (!rightRow.equals(commonRow)) {
+                addOrReplaceExpressionCoercion(predicate.getRight(), commonRow);
+            }
+
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private RowType validatePeriod(Expression source, Type type)
+        {
+            if (!(type instanceof RowType row) || row.getFields().size() != 2) {
+                throw semanticException(TYPE_MISMATCH, source, "OVERLAPS operand must be a row of two elements (actual %s)", type);
+            }
+            Type start = row.getFields().get(0).getType();
+            Type end = row.getFields().get(1).getType();
+            if (!isDatetime(start)) {
+                throw semanticException(TYPE_MISMATCH, source, "OVERLAPS period start must be a datetime (actual %s)", start);
+            }
+            if (!isDatetime(end) && !isInterval(end)) {
+                throw semanticException(TYPE_MISMATCH, source, "OVERLAPS period end must be a datetime or interval (actual %s)", end);
+            }
+            return row;
+        }
+
+        private static boolean isDatetime(Type type)
+        {
+            return type instanceof DateType
+                    || type instanceof TimeType
+                    || type instanceof TimeWithTimeZoneType
+                    || type instanceof TimestampType
+                    || type instanceof TimestampWithTimeZoneType;
+        }
+
+        private static boolean isInterval(Type type)
+        {
+            return type == INTERVAL_DAY_TIME || type == INTERVAL_YEAR_MONTH;
         }
 
         @Override

@@ -487,6 +487,11 @@ public abstract class AstVisitor<R, C>
         return visitPredicate(node, context);
     }
 
+    protected R visitOverlapsPredicate(OverlapsPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
     {
         return visitPredicate(node, context);
