@@ -186,7 +186,7 @@ the name of the catalog. For example, the properties file
 You can configure and use many catalogs, with different or identical connectors,
 to access different data sources. For example, if you have two data lakes, you
 can configure two catalogs in a single Trino cluster that both use the Hive
-connector, allowing you to query data from both clusters, even within the same
+connector, allowing you to query data from both data lakes, even within the same
 SQL query. You can also use a Hive connector for one catalog to access a data
 lake, and use the Iceberg connector for another catalog to access the data
 lakehouse. Or, you can configure different catalogs to access different
