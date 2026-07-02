@@ -2,7 +2,7 @@
 
 The Delta Lake connector can be used to interact with [Delta Lake](https://delta.io/) tables.
 
-Trino has product tests in place for testing its compatibility with the 
+Trino has product tests in place for testing its compatibility with the
 following Delta Lake implementations:
 
 - Delta Lake OSS
@@ -23,7 +23,7 @@ testing/bin/ptl env up --environment singlenode-delta-lake-oss
 
 At the time of this writing, Databricks Delta Lake and OSS Delta Lake differ in functionality provided.
 
-In order to setup a Databricks testing environment there are several steps to be performed.
+To set up a Databricks testing environment, perform the following steps.
 
 ### Delta Lake Databricks on AWS
 

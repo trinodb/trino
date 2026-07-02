@@ -2,7 +2,7 @@
 
 The REST API allows clients to submit SQL queries to Trino and receive the
 results. Clients include the CLI, the JDBC driver, and others provided by
-the community. The preferred method to interact with Trino is using these
+the community. The preferred method to interact with Trino is to use these
 existing clients. This document provides details about the API for reference.
 It can also be used to implement your own client, if necessary.
 

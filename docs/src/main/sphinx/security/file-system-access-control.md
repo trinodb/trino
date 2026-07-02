@@ -773,8 +773,8 @@ When these rules are present, the authorization is based on the first matching
 rule, processed from top to bottom. If no rules match, the authorization is
 denied.
 
-Notice that in order to execute `ALTER` command on schema, table or view user requires `OWNERSHIP`
-privilege.
+To execute an `ALTER` command on a schema, table, or view, the user requires
+the `OWNERSHIP` privilege.
 
 Each authorization rule is composed of the following fields:
 

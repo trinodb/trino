@@ -119,8 +119,8 @@ executed as the OS user who runs the Trino process, regardless of which user
 submits the query.
 
 Before running any `CREATE TABLE` or `CREATE TABLE AS` statements for Hive
-tables in Trino, you must check that the user Trino is using to access HDFS has
-access to the Hive warehouse directory. The Hive warehouse directory is
+tables in Trino, you must check that the user that Trino uses to access HDFS
+has access to the Hive warehouse directory. The Hive warehouse directory is
 specified by the configuration variable `hive.metastore.warehouse.dir` in
 `hive-site.xml`, and the default value is `/user/hive/warehouse`.
 
