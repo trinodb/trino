@@ -54,18 +54,14 @@ def build(input_file, output_file):
     logging.info("input_file: %s", input_file)
     logging.info("output_file: %s", output_file)
     reader = csv.reader(input_file)
-    entries = list(reader)
+    entries = [entry for entry in reader if len(entry) == 3]
     logging.info("entries: %s", entries)
     commits = []
     for i, entry in enumerate(entries):
-        try:
-            commit_hash, _, subject = entry
-            # TODO: add filtering based on GitHub Actions cache entries
-            if not has_followup(entries, i, commit_hash, subject):
-                commits.append(commit_hash)
-        except ValueError:
-            # ignore lines which don't match the expected CSV pattern
-            pass
+        commit_hash, _, subject = entry
+        # TODO: add filtering based on GitHub Actions cache entries
+        if not has_followup(entries, i, subject):
+            commits.append(commit_hash)
     if len(commits) > 0:
         json.dump(
             {"include": [{"commit": commit} for commit in commits]}, output_file, separators=(",", ":"), sort_keys=True
@@ -78,7 +74,7 @@ def build(input_file, output_file):
         )
 
 
-def has_followup(entries, i, commit_hash, subject):
+def has_followup(entries, i, subject):
     for later_entry in entries[i + 1 :]:
         _, _, later_subject = later_entry
         if later_subject.startswith(("fixup! ", "squash! ", "amend! ")) and (
@@ -95,6 +91,15 @@ class TestBuild(unittest.TestCase):
         cases = [
             ("Empty test", (), ['{"include":[{"commit":""}]}']),
             ("Malformed input test", ("c1,t1\n"), ['{"include":[{"commit":""}]}']),
+            (
+                "Malformed input between valid entries test",
+                (
+                    "c1,t1,Hello World\n",
+                    "c2,t2\n",
+                    "c3,t3,Quick brown fox\n",
+                ),
+                ['{"include":[{"commit":"c1"},{"commit":"c3"}]}'],
+            ),
             ("Basic test", ("c1,t1,Hello World\n",), ['{"include":[{"commit":"c1"}]}']),
             (
                 "Add a new entry",
