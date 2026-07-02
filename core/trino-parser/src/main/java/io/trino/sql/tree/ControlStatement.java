@@ -18,6 +18,7 @@ public abstract sealed class ControlStatement
         permits AssignmentStatement,
                 CaseStatement,
                 CompoundStatement,
+                ForStatement,
                 IfStatement,
                 IterateStatement,
                 LeaveStatement,

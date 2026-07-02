@@ -347,6 +347,28 @@ BEGIN
 END
 ```
 
+This SQL UDF uses a `FOR` loop with the `top` label to sum the odd numbers
+from `1` to `10`. For every even value of `i` the `ITERATE` call moves the
+flow up to `top`, skipping the addition to `total`, before the counter `i` is
+still advanced by the loop itself. The result is `1 + 3 + 5 + 7 + 9 = 25`:
+
+```sql
+WITH
+  FUNCTION sum_odd(n bigint)
+  RETURNS bigint
+  BEGIN
+    DECLARE total bigint DEFAULT 0;
+    top: FOR i IN 1 TO n DO
+      IF i % 2 = 0 THEN
+        ITERATE top;
+      END IF;
+      SET total = total + i;
+    END FOR;
+    RETURN total;
+  END
+SELECT sum_odd(10)
+```
+
 ## SQL UDFs and built-in functions
 
 This SQL UDF shows that multiple data types and built-in functions like

@@ -44,6 +44,7 @@ import io.trino.sql.tree.DeterministicCharacteristic;
 import io.trino.sql.tree.ElseClause;
 import io.trino.sql.tree.ElseIfClause;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ForStatement;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfStatement;
@@ -84,6 +85,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static java.lang.String.format;
@@ -505,6 +507,43 @@ public class SqlRoutineAnalyzer
         {
             Context newContext = context.newScope();
             node.getLabel().ifPresent(name -> defineLabel(newContext, name));
+            analyzeNodes(newContext, node.getStatements());
+            return null;
+        }
+
+        @Override
+        protected Void visitForStatement(ForStatement node, Context context)
+        {
+            Type lowerType = analyzeExpression(context, node.getLowerBound());
+            Type upperType = analyzeExpression(context, node.getUpperBound());
+            Optional<Type> stepType = node.getStep().map(step -> analyzeExpression(context, step));
+
+            Type boundsType = typeCoercion.getCommonSuperType(lowerType, upperType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, node.getUpperBound(), "FOR loop bounds must have a common type (lower: %s, upper: %s)", lowerType, upperType));
+            Type type = boundsType;
+            if (stepType.isPresent()) {
+                type = typeCoercion.getCommonSuperType(boundsType, stepType.get())
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, node.getStep().get(), "FOR loop step must have a common type with the loop bounds (bounds: %s, step: %s)", boundsType, stepType.get()));
+            }
+            if (!isNumericType(type)) {
+                throw semanticException(TYPE_MISMATCH, node, "FOR loop bounds must be numeric (actual: %s)", type);
+            }
+
+            if (!lowerType.equals(type)) {
+                addCoercion(node.getLowerBound(), type);
+            }
+            if (!upperType.equals(type)) {
+                addCoercion(node.getUpperBound(), type);
+            }
+            if (stepType.isPresent() && !stepType.get().equals(type)) {
+                addCoercion(node.getStep().get(), type);
+            }
+
+            Context newContext = context.newScope();
+            node.getLabel().ifPresent(name -> defineLabel(newContext, name));
+            if (newContext.variables().put(identifierValue(node.getVariable()), type) != null) {
+                throw semanticException(ALREADY_EXISTS, node.getVariable(), "Variable already declared in this scope: %s", node.getVariable());
+            }
             analyzeNodes(newContext, node.getStatements());
             return null;
         }

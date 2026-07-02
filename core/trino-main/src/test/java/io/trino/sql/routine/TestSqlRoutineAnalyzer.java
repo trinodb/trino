@@ -26,6 +26,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.MISSING_RETURN;
@@ -497,6 +498,97 @@ class TestSqlRoutineAnalyzer
                 """)
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("line 3:9: Label not defined: abc");
+    }
+
+    @Test
+    void testForBoundsNotNumeric()
+    {
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  FOR i IN 'a' TO 'z' DO
+                    RETURN 0;
+                  END FOR;
+                  RETURN 0;
+                END
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 3:3: FOR loop bounds must be numeric (actual: varchar(1))");
+    }
+
+    @Test
+    void testForBoundsIncompatibleTypes()
+    {
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  FOR i IN 1 TO true DO
+                    RETURN 0;
+                  END FOR;
+                  RETURN 0;
+                END
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 3:17: FOR loop bounds must have a common type (lower: integer, upper: boolean)");
+    }
+
+    @Test
+    void testForVariableAlreadyDeclared()
+    {
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  DECLARE i int DEFAULT 0;
+                  FOR i IN 1 TO 10 DO
+                    RETURN 0;
+                  END FOR;
+                  RETURN 0;
+                END
+                """)
+                .hasErrorCode(ALREADY_EXISTS)
+                .hasMessage("line 4:7: Variable already declared in this scope: i");
+    }
+
+    @Test
+    void testForVariableNotVisibleAfterLoop()
+    {
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  FOR i IN 1 TO 10 DO
+                    RETURN 0;
+                  END FOR;
+                  RETURN i;
+                END
+                """)
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessageContaining("Column 'i' cannot be resolved");
+    }
+
+    @Test
+    void testForIterateAndLeave()
+    {
+        analyze(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  DECLARE total int DEFAULT 0;
+                  loop_label: FOR i IN 1 TO 10 BY 2 DO
+                    IF i = 5 THEN
+                      ITERATE loop_label;
+                    END IF;
+                    IF i > 8 THEN
+                      LEAVE loop_label;
+                    END IF;
+                    SET total = total + i;
+                  END FOR;
+                  RETURN total;
+                END
+                """);
     }
 
     @Test

@@ -976,6 +976,8 @@ controlStatement
     | (label=identifier ':')? LOOP sqlStatementList END LOOP                        #loopStatement
     | (label=identifier ':')? WHILE expression DO sqlStatementList END WHILE        #whileStatement
     | (label=identifier ':')? REPEAT sqlStatementList UNTIL expression END REPEAT   #repeatStatement
+    | (label=identifier ':')? FOR variable=identifier IN lower=valueExpression
+        TO upper=valueExpression (BY step=valueExpression)? DO sqlStatementList END FOR   #forStatement
     ;
 
 caseStatementWhenClause

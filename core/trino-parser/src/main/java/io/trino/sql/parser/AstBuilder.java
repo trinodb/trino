@@ -120,6 +120,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Extract;
 import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.FetchFirst;
+import io.trino.sql.tree.ForStatement;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
@@ -4297,6 +4298,19 @@ class AstBuilder
                 getIdentifierIfPresent(context.label),
                 visit(context.sqlStatementList().controlStatement(), ControlStatement.class),
                 (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitForStatement(SqlBaseParser.ForStatementContext context)
+    {
+        return new ForStatement(
+                getLocation(context),
+                getIdentifierIfPresent(context.label),
+                (Identifier) visit(context.variable),
+                (Expression) visit(context.lower),
+                (Expression) visit(context.upper),
+                visitIfPresent(context.step, Expression.class),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class));
     }
 
     // ***************** helpers *****************
