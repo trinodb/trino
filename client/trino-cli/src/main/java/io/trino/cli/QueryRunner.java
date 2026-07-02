@@ -51,8 +51,9 @@ public class QueryRunner
     private final OkHttpClient segmentHttpClient;
     private final int maxQueuedRows;
     private final int maxBufferedRows;
+    private final Theme theme;
 
-    public QueryRunner(TrinoUri uri, ClientSession session, boolean debug, int maxQueuedRows, int maxBufferedRows)
+    public QueryRunner(TrinoUri uri, ClientSession session, boolean debug, int maxQueuedRows, int maxBufferedRows, Theme theme)
     {
         this(session,
                 debug,
@@ -77,6 +78,7 @@ public class QueryRunner
         this.debug = debug;
         this.maxQueuedRows = maxQueuedRows;
         this.maxBufferedRows = maxBufferedRows;
+        this.theme = requireNonNull(theme, "theme is null");
     }
 
     public ClientSession getSession()
@@ -94,9 +96,14 @@ public class QueryRunner
         return debug;
     }
 
+    public Theme theme()
+    {
+        return theme;
+    }
+
     public Query startQuery(String query)
     {
-        return new Query(startInternalQuery(session.get(), query), debug, maxQueuedRows, maxBufferedRows);
+        return new Query(startInternalQuery(session.get(), query), debug, maxQueuedRows, maxBufferedRows, theme);
     }
 
     public StatementClient startInternalQuery(String query)

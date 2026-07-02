@@ -173,7 +173,8 @@ public class TestQueryRunner
                 clientSession,
                 false,
                 1000,
-                500);
+                500,
+                Theme.DARK);
     }
 
     static PrintStream nullPrintStream()
