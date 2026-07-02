@@ -55,6 +55,21 @@ public class TestSession
     }
 
     @Test
+    public void testWithTransactionId()
+    {
+        Session session = Session.builder(testSessionBuilder().build())
+                .setCatalogSessionProperty("some_catalog", "some_property", "some_value")
+                .build();
+
+        TransactionId transactionId = TransactionId.create();
+        Session transactionSession = session.withTransactionId(transactionId);
+
+        assertThat(transactionSession.getTransactionId()).isEqualTo(Optional.of(transactionId));
+        // catalog properties are not validated/propagated for transaction control statements
+        assertThat(transactionSession.getCatalogProperties()).isEmpty();
+    }
+
+    @Test
     public void testAddSecondCatalogProperty()
     {
         Session session = Session.builder(testSessionBuilder().build())

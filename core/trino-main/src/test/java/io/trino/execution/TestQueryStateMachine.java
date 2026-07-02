@@ -734,6 +734,55 @@ public class TestQueryStateMachine
         }
     }
 
+    @Test
+    public void testBeginWithTickerSkipsValidationForTransactionControl()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setCatalogSessionProperty("some_catalog", "some_property", "some_value")
+                .build();
+
+        TransactionManager transactionManager = createTestTransactionManager();
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+
+        AccessControlManager accessControl = new AccessControlManager(
+                NodeVersion.UNKNOWN,
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig(),
+                OpenTelemetry.noop(),
+                new SecretsResolver(ImmutableMap.of()),
+                DefaultSystemAccessControl.NAME);
+        accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
+
+        Metadata metadata = TestingMetadataManager.builder()
+                .withTransactionManager(transactionManager)
+                .build();
+
+        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                Optional.of(transactionId),
+                "ROLLBACK",
+                Optional.empty(),
+                session,
+                LOCATION,
+                new ResourceGroupId("test"),
+                true,
+                transactionManager,
+                accessControl,
+                executor,
+                Ticker.systemTicker(),
+                metadata,
+                WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
+                Optional.empty(),
+                false,
+                Optional.empty(),
+                new NodeVersion("test"));
+
+        assertThat(stateMachine.getSession().getTransactionId()).isEqualTo(Optional.of(transactionId));
+        assertThat(stateMachine.getSession().getCatalogProperties()).isEmpty();
+    }
+
     private QueryStateMachine createQueryStateMachine()
     {
         return queryStateMachine().build();
