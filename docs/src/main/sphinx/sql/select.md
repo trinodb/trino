@@ -327,6 +327,60 @@ SELECT (ROW(1, true)).*;
 (1 row)
 ```
 
+### Excluding columns
+
+The `EXCLUDE` clause can be used with `*` or `relation.*` to select all
+columns except those listed:
+
+```text
+* (EXCLUDE ( column_name [, ...] ))
+relation.* (EXCLUDE ( column_name [, ...] ))
+```
+
+This avoids enumerating every column when only a few need to be omitted.
+Column names in the `EXCLUDE` list are matched case-insensitively. If
+the same name matches multiple columns (for example, due to a join or an
+aliased relation with duplicate names), all matching columns are excluded.
+
+The following query returns all columns of `t` except `a`:
+
+```sql
+SELECT * (EXCLUDE (a)) FROM (VALUES (1, 2, 3)) t(a, b, c);
+```
+
+```text
+ b | c
+---+---
+ 2 | 3
+(1 row)
+```
+
+Multiple columns can be excluded:
+
+```sql
+SELECT * (EXCLUDE (a, b)) FROM (VALUES (1, 2, 3)) t(a, b, c);
+```
+
+```text
+ c
+---
+ 3
+(1 row)
+```
+
+The qualified-asterisk form also supports `EXCLUDE`:
+
+```sql
+SELECT t.* (EXCLUDE (a)) FROM (VALUES (1, 2, 3)) t(a, b, c);
+```
+
+```text
+ b | c
+---+---
+ 2 | 3
+(1 row)
+```
+
 ## GROUP BY clause
 
 The `GROUP BY` clause divides the output of a `SELECT` statement into

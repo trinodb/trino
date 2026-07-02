@@ -5027,6 +5027,7 @@ class StatementAnalyzer
                         RelationType relationType = identifierChainBasis.get().getRelationType().orElseThrow();
                         List<Field> requestedFields = relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix));
                         List<Field> fields = filterInaccessibleFields(requestedFields);
+                        fields = excludeColumns(allColumns, fields);
                         if (fields.isEmpty()) {
                             if (!requestedFields.isEmpty()) {
                                 throw semanticException(TABLE_NOT_FOUND, allColumns, "Relation not found or not allowed");
@@ -5066,6 +5067,7 @@ class StatementAnalyzer
 
                 List<Field> requestedFields = (List<Field>) scope.getRelationType().getVisibleFields();
                 List<Field> fields = filterInaccessibleFields(requestedFields);
+                fields = excludeColumns(allColumns, fields);
                 if (fields.isEmpty()) {
                     if (node.getFrom().isEmpty()) {
                         throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed in queries without FROM clause");
@@ -5118,6 +5120,29 @@ class StatementAnalyzer
             return fields.stream()
                     .filter(accessibleFields.build()::contains)
                     .collect(toImmutableList());
+        }
+
+        private static List<Field> excludeColumns(AllColumns allColumns, List<Field> fields)
+        {
+            List<QualifiedName> excludeColumns = allColumns.getExcludedColumns();
+            if (excludeColumns.isEmpty()) {
+                return fields;
+            }
+
+            // Validate that all excluded names actually exist in the expanded field list
+            for (QualifiedName excluded : excludeColumns) {
+                boolean found = fields.stream().anyMatch(field -> field.canResolve(excluded));
+                if (!found) {
+                    throw semanticException(COLUMN_NOT_FOUND, allColumns, "Column '%s' not found in SELECT * expansion", excluded);
+                }
+            }
+            List<Field> outputFields = fields.stream()
+                    .filter(field -> excludeColumns.stream().noneMatch(field::canResolve))
+                    .collect(toImmutableList());
+            if (outputFields.isEmpty()) {
+                throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT list is empty after excluding all columns");
+            }
+            return outputFields;
         }
 
         private void analyzeAllColumnsFromTable(

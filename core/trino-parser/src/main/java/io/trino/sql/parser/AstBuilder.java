@@ -1520,10 +1520,18 @@ class AstBuilder
             aliases = visit(context.columnAliases().identifier(), Identifier.class);
         }
 
+        List<QualifiedName> excludedColumns = ImmutableList.of();
+        if (context.excludeClause() != null) {
+            excludedColumns = context.excludeClause().qualifiedName().stream()
+                    .map(this::getQualifiedName)
+                    .collect(toImmutableList());
+        }
+
         return new AllColumns(
                 getLocation(context),
                 visitIfPresent(context.primaryExpression(), Expression.class),
-                aliases);
+                aliases,
+                excludedColumns);
     }
 
     @Override

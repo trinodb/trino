@@ -907,6 +907,108 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+
+        // EXCLUDE clause on bare *
+        assertThat(statement("SELECT * (EXCLUDE (a, b)) FROM t"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(
+                                        location(1, 1),
+                                        false,
+                                        ImmutableList.of(
+                                                new AllColumns(
+                                                        location(1, 8),
+                                                        Optional.empty(),
+                                                        ImmutableList.of(),
+                                                        ImmutableList.of(qualifiedName(location(1, 20), "a"), qualifiedName(location(1, 23), "b"))))),
+                                Optional.of(new Table(location(1, 32), qualifiedName(location(1, 32), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // EXCLUDE clause on qualified *
+        assertThat(statement("SELECT r.* (EXCLUDE (x)) FROM t"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(
+                                        location(1, 1),
+                                        false,
+                                        ImmutableList.of(
+                                                new AllColumns(
+                                                        location(1, 8),
+                                                        Optional.of(new Identifier(location(1, 8), "r", false)),
+                                                        ImmutableList.of(),
+                                                        ImmutableList.of(qualifiedName(location(1, 22), "x"))))),
+                                Optional.of(new Table(location(1, 31), qualifiedName(location(1, 31), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // EXCLUDE clause with qualified column name
+        assertThat(statement("SELECT * (EXCLUDE (t.a)) FROM t"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(
+                                        location(1, 1),
+                                        false,
+                                        ImmutableList.of(
+                                                new AllColumns(
+                                                        location(1, 8),
+                                                        Optional.empty(),
+                                                        ImmutableList.of(),
+                                                        ImmutableList.of(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 20), "t", false), new Identifier(location(1, 22), "a", false))))))),
+                                Optional.of(new Table(location(1, 31), qualifiedName(location(1, 31), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // EXCLUDE has an empty list
+        assertStatementIsInvalid("SELECT * (EXCLUDE ()) FROM t1")
+                .withMessage("line 1:20: mismatched input ')'. Expecting: <identifier>");
+
+        // EXCLUDE always requires () for column names
+        assertStatementIsInvalid("SELECT * (EXCLUDE x) FROM t1")
+                .withMessage("line 1:19: mismatched input 'x'. Expecting: '('");
+
+        // EXCLUDE can only be used with *
+        assertStatementIsInvalid("SELECT a (EXCLUDE (b)) FROM t1")
+                .withMessage("line 1:11: mismatched input 'EXCLUDE'. Expecting: ')', '*', 'ALL', 'DISTINCT', 'ORDER', <expression>, <identifier>");
     }
 
     @Test
