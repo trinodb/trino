@@ -66,11 +66,16 @@ import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+import static org.testcontainers.mysql.MySQLContainer.MYSQL_PORT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
 final class TestMysqlEventListener
 {
+    private static final Instant FULL_QUERY_CREATE_TIME = Instant.parse("2025-07-08T09:10:11.123Z");
+    private static final Instant MINIMAL_QUERY_CREATE_TIME = Instant.parse("2025-07-09T10:11:12.456Z");
+    private static final Instant MIGRATION_QUERY_CREATE_TIME = Instant.parse("2025-07-10T11:12:13.789Z");
+
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
             "full_query",
             Optional.of("transactionId"),
@@ -239,7 +244,7 @@ final class TestMysqlEventListener
             List.of(new TrinoWarning(
                     StandardWarningCode.TOO_MANY_STAGES,
                     "too many stages")),
-            Instant.now(),
+            FULL_QUERY_CREATE_TIME,
             Instant.now(),
             Instant.now());
 
@@ -354,7 +359,7 @@ final class TestMysqlEventListener
             Optional.empty(),
             Optional.empty(),
             List.of(),
-            Instant.now(),
+            MINIMAL_QUERY_CREATE_TIME,
             Instant.now(),
             Instant.now());
 
@@ -365,9 +370,14 @@ final class TestMysqlEventListener
 
     @BeforeAll
     void setup()
+            throws SQLException
     {
         mysqlContainer = new MySQLContainer("mysql:8.0.36");
         mysqlContainer.start();
+        try (Connection connection = DriverManager.getConnection(getJdbcUrlWithoutDatabase(mysqlContainer), "root", mysqlContainer.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", mysqlContainer.getUsername()));
+        }
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         eventListener = new MysqlEventListenerFactory()
                 .create(Map.of("mysql-event-listener.db.url", mysqlContainerUrl), new TestingEventListenerContext());
@@ -388,11 +398,23 @@ final class TestMysqlEventListener
 
     private static String getJdbcUrl(MySQLContainer container)
     {
+        return getJdbcUrl(container, container.getDatabaseName());
+    }
+
+    private static String getJdbcUrl(MySQLContainer container, String database)
+    {
         return format(
-                "%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
-                container.getJdbcUrl(),
+                "jdbc:mysql://%s:%s/%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
+                container.getHost(),
+                container.getMappedPort(MYSQL_PORT),
+                database,
                 container.getUsername(),
                 container.getPassword());
+    }
+
+    private static String getJdbcUrlWithoutDatabase(MySQLContainer container)
+    {
+        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getHost(), container.getMappedPort(MYSQL_PORT));
     }
 
     @Test
@@ -407,6 +429,7 @@ final class TestMysqlEventListener
                 try (ResultSet resultSet = statement.getResultSet()) {
                     assertThat(resultSet.next()).isTrue();
                     assertThat(resultSet.getString("query_id")).isEqualTo("full_query");
+                    assertThat(resultSet.getString("create_time")).isEqualTo("2025-07-08 09:10:11.123");
                     assertThat(resultSet.getString("transaction_id")).isEqualTo("transactionId");
                     assertThat(resultSet.getString("query")).isEqualTo("query");
                     assertThat(resultSet.getString("update_type")).isEqualTo("updateType");
@@ -492,6 +515,7 @@ final class TestMysqlEventListener
                 try (ResultSet resultSet = statement.getResultSet()) {
                     assertThat(resultSet.next()).isTrue();
                     assertThat(resultSet.getString("query_id")).isEqualTo("minimal_query");
+                    assertThat(resultSet.getString("create_time")).isEqualTo("2025-07-09 10:11:12.456");
                     assertThat(resultSet.getString("transaction_id")).isNull();
                     assertThat(resultSet.getString("query")).isEqualTo("query");
                     assertThat(resultSet.getString("update_type")).isNull();
@@ -559,6 +583,65 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getString("operator_summaries_json")).isEqualTo("[]");
                     assertThat(resultSet.next()).isFalse();
                 }
+            }
+        }
+    }
+
+    @Test
+    void testCreateTimeColumnAddedToExistingTable()
+            throws SQLException
+    {
+        String database = "migration_test";
+        try (Connection connection = DriverManager.getConnection(mysqlContainerUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE DATABASE IF NOT EXISTS " + database);
+        }
+
+        String migrationUrl = getJdbcUrl(mysqlContainer, database);
+        new MysqlEventListenerFactory()
+                .create(Map.of("mysql-event-listener.db.url", migrationUrl), new TestingEventListenerContext());
+
+        try (Connection connection = DriverManager.getConnection(migrationUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE trino_queries DROP COLUMN create_time");
+        }
+
+        new MysqlEventListenerFactory()
+                .create(Map.of("mysql-event-listener.db.url", migrationUrl), new TestingEventListenerContext());
+        EventListener migratedEventListener = new MysqlEventListenerFactory()
+                .create(Map.of("mysql-event-listener.db.url", migrationUrl), new TestingEventListenerContext());
+        migratedEventListener.queryCompleted(new QueryCompletedEvent(
+                new QueryMetadata(
+                        "migration_query",
+                        Optional.empty(),
+                        Optional.empty(),
+                        "query",
+                        Optional.empty(),
+                        Optional.empty(),
+                        "queryState",
+                        List.of(),
+                        List.of(),
+                        URI.create("http://localhost"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                MINIMAL_QUERY_STATISTICS,
+                MINIMAL_QUERY_CONTEXT,
+                MINIMAL_QUERY_IO_METADATA,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                MIGRATION_QUERY_CREATE_TIME,
+                Instant.now(),
+                Instant.now()));
+
+        try (Connection connection = DriverManager.getConnection(migrationUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT * FROM trino_queries WHERE query_id = 'migration_query'");
+            try (ResultSet resultSet = statement.getResultSet()) {
+                assertThat(resultSet.next()).isTrue();
+                assertThat(resultSet.getString("create_time")).isEqualTo("2025-07-10 11:12:13.789");
+                assertThat(resultSet.next()).isFalse();
             }
         }
     }
