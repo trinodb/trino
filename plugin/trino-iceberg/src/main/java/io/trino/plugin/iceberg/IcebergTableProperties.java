@@ -53,6 +53,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
@@ -109,6 +110,7 @@ public class IcebergTableProperties
             .add(FORMAT_VERSION)
             .add(WRITE_TARGET_FILE_SIZE_BYTES)
             .add(PARQUET_ROW_GROUP_SIZE_BYTES)
+            .add(ENCRYPTION_TABLE_KEY)
             .build();
 
     private final List<PropertyMetadata<?>> tableProperties;

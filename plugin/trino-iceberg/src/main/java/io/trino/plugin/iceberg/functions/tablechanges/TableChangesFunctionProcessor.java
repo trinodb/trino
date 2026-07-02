@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
@@ -42,7 +41,6 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_ORDINAL_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TIMESTAMP_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TYPE_ID;
@@ -119,8 +117,6 @@ public class TableChangesFunctionProcessor
             }
         }
 
-        // TODO (https://github.com/trinodb/trino/issues/29958) memory usage reporting
-        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         this.pageSource = icebergPageSourceProvider.createPageSource(
                 session,
                 functionHandle.columns(),
@@ -141,7 +137,7 @@ public class TableChangesFunctionProcessor
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 functionHandle.nameMappingJson().map(NameMappingParser::fromJson),
-                memoryContext);
+                split.parquetFileDecryptionData());
         this.delegateColumnMap = delegateColumnMap;
 
         this.changeTypeIndex = changeTypeIndex;

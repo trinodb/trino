@@ -22,6 +22,7 @@ import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.iceberg.IcebergExceptions;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,6 +30,10 @@ import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.encryption.EncryptedKey;
+import org.apache.iceberg.encryption.EncryptingFileIO;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
@@ -85,12 +90,16 @@ public abstract class AbstractIcebergTableOperations
     protected final Optional<String> owner;
     protected final Optional<String> location;
     private final FileIO fileIo;
+    private final EncryptionManagerFactory encryptionManagerFactory;
 
     protected TableMetadata currentMetadata;
     protected String currentMetadataLocation;
     protected boolean shouldRefresh = true;
     protected OptionalInt version = OptionalInt.empty();
     protected Optional<MaterializedViewCommitData> materializedViewCommitData = Optional.empty();
+    private Map<String, String> encryptionProperties = Map.of();
+    private EncryptionManager encryptionManager = PlaintextEncryptionManager.instance();
+    private FileIO effectiveFileIo;
 
     protected AbstractIcebergTableOperations(
             FileIO fileIo,
@@ -98,7 +107,8 @@ public abstract class AbstractIcebergTableOperations
             String database,
             String table,
             Optional<String> owner,
-            Optional<String> location)
+            Optional<String> location,
+            EncryptionManagerFactory encryptionManagerFactory)
     {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
         this.session = requireNonNull(session, "session is null");
@@ -106,6 +116,8 @@ public abstract class AbstractIcebergTableOperations
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.location = requireNonNull(location, "location is null");
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
+        this.effectiveFileIo = fileIo;
     }
 
     @Override
@@ -116,6 +128,7 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = tableMetadata.metadataFileLocation();
         shouldRefresh = false;
         version = OptionalInt.of(parseVersion(Location.of(currentMetadataLocation).fileName()));
+        updateEncryptionManager(tableMetadata);
     }
 
     @Override
@@ -198,7 +211,13 @@ public abstract class AbstractIcebergTableOperations
     @Override
     public FileIO io()
     {
-        return fileIo;
+        return effectiveFileIo;
+    }
+
+    @Override
+    public EncryptionManager encryption()
+    {
+        return encryptionManager;
     }
 
     @Override
@@ -292,6 +311,7 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = newLocation;
         version = OptionalInt.of(parseVersion(Location.of(newLocation).fileName()));
         shouldRefresh = false;
+        updateEncryptionManager(newMetadata);
     }
 
     protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)
@@ -318,5 +338,24 @@ public abstract class AbstractIcebergTableOperations
                         Optional.empty(),
                         Map.of()))
                 .collect(toImmutableList());
+    }
+
+    private void updateEncryptionManager(TableMetadata metadata)
+    {
+        Map<String, String> newEncryptionProperties = metadata.properties();
+        if (encryptionProperties.equals(newEncryptionProperties)) {
+            return;
+        }
+
+        List<EncryptedKey> encryptedKeys = current().encryptionKeys();
+
+        encryptionProperties = newEncryptionProperties;
+        encryptionManager = encryptionManagerFactory.create(encryptedKeys, newEncryptionProperties);
+        if (encryptionManager instanceof PlaintextEncryptionManager) {
+            effectiveFileIo = fileIo;
+        }
+        else {
+            effectiveFileIo = EncryptingFileIO.combine(fileIo, encryptionManager);
+        }
     }
 }
