@@ -24,6 +24,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.net.URI;
 import java.util.List;
@@ -73,7 +74,7 @@ public class AnthropicClient
     }
 
     @Override
-    protected String generateCompletion(String model, String prompt)
+    protected String generateCompletion(ConnectorIdentity identity, String model, String prompt)
     {
         URI uri = uriBuilderFrom(endpoint)
                 .appendPath("/v1/messages")

@@ -80,6 +80,7 @@ public class OAuth2Authenticator
         }
         Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
         builder.withPrincipal(new BasicPrincipal(principal.get()));
+        builder.withExtraCredentials(Map.of("oauth_access_token", token)); // TODO configurable exposing
         return Optional.of(builder.build());
     }
 
