@@ -12,6 +12,7 @@ SELECT [ ALL | DISTINCT ] select_expression [, ...]
 [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
 [ HAVING condition]
 [ WINDOW window_definition_list]
+[ QUALIFY condition ]
 [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
 [ ORDER BY expression [ ASC | DESC ] [, ...] ]
 [ OFFSET count [ ROW | ROWS ] ]
@@ -793,6 +794,45 @@ the window specification referenced by the `existing window name`, or from
 another window specification in the reference chain. In case when there is no
 `existing window name` specified, or none of the referenced window
 specifications contains the component, the default value is used.
+
+(qualify-clause)=
+## QUALIFY clause
+
+The `QUALIFY` clause filters rows after window functions have been evaluated.
+It is analogous to `HAVING` for aggregate functions, but applies to window
+function results:
+
+```text
+QUALIFY condition
+```
+
+The `condition` must evaluate to a boolean and may reference window functions
+directly. The `QUALIFY` clause is evaluated after `WHERE`, `GROUP BY`,
+`HAVING`, and window function computation, but before `ORDER BY` and `LIMIT`.
+
+This allows filtering based on window function results without requiring a
+subquery:
+
+```sql
+-- Keep only the top-ranked customer by account balance per market segment
+SELECT name, mktsegment, acctbal
+FROM customer
+QUALIFY rank() OVER (PARTITION BY mktsegment ORDER BY acctbal DESC) = 1;
+```
+
+```sql
+-- Keep customers whose account balance exceeds the average for their nation
+SELECT name, nationkey, acctbal
+FROM customer
+QUALIFY acctbal > avg(acctbal) OVER (PARTITION BY nationkey);
+```
+
+```sql
+-- Top 3 customers by account balance per market segment
+SELECT name, mktsegment, acctbal
+FROM customer
+QUALIFY row_number() OVER (PARTITION BY mktsegment ORDER BY acctbal DESC) <= 3;
+```
 
 ## Set operations
 
