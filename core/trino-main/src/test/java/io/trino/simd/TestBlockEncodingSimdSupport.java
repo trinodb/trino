@@ -25,7 +25,6 @@ import static io.trino.simd.SimdCapability.COMPRESS_LONG;
 import static io.trino.simd.SimdCapability.COMPRESS_SHORT;
 import static io.trino.simd.SimdCapability.EXPAND_INT;
 import static io.trino.simd.SimdCapability.EXPAND_LONG;
-import static io.trino.simd.SimdCapability.NULL_BIT_PACKING;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestBlockEncodingSimdSupport
@@ -38,7 +37,6 @@ final class TestBlockEncodingSimdSupport
         // Only compress and expand int and long, no byte or short support with only avx512f
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, Set.of("avx512f")))
                 .isEqualTo(new BlockEncodingSimdSupport.SimdSupport(EnumSet.of(
-                        NULL_BIT_PACKING,
                         COMPRESS_INT,
                         EXPAND_INT,
                         COMPRESS_LONG,
@@ -56,7 +54,6 @@ final class TestBlockEncodingSimdSupport
         Set<String> flags = Set.of("sve");
         // SVE 1 supports compress for all primitive types, but no expand intrinsics in JDK 25
         BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(EnumSet.of(
-                NULL_BIT_PACKING,
                 COMPRESS_BYTE,
                 COMPRESS_SHORT,
                 COMPRESS_INT,
@@ -72,7 +69,6 @@ final class TestBlockEncodingSimdSupport
         Set<String> flags = Set.of("sve", "sve2");
         // SVE 2 adds expand for int; long compress/expand stay off because they are not worthwhile on 128 bit vectors
         BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(EnumSet.of(
-                NULL_BIT_PACKING,
                 COMPRESS_BYTE,
                 COMPRESS_SHORT,
                 COMPRESS_INT,

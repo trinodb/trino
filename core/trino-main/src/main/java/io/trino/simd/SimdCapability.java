@@ -19,7 +19,6 @@ package io.trino.simd;
  */
 public enum SimdCapability
 {
-    NULL_BIT_PACKING,
     COMPRESS_BYTE,
     EXPAND_BYTE,
     COMPRESS_SHORT,

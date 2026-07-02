@@ -21,9 +21,7 @@ import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.checkFromIndexSize;
@@ -34,13 +32,11 @@ public class LongArrayBlockEncoding
     private static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED;
     public static final String NAME = "LONG_ARRAY";
 
-    private final boolean vectorizeNullBitPacking;
     private final boolean vectorizeNullCompress;
     private final boolean vectorizeNullExpand;
 
-    public LongArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean vectorizeNullCompress, boolean vectorizeNullExpand)
+    public LongArrayBlockEncoding(boolean vectorizeNullCompress, boolean vectorizeNullExpand)
     {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
         this.vectorizeNullCompress = vectorizeNullCompress;
         this.vectorizeNullExpand = vectorizeNullExpand;
     }
@@ -69,12 +65,7 @@ public class LongArrayBlockEncoding
         boolean[] isNull = longArrayBlock.getRawValueIsNull();
         long[] rawValues = longArrayBlock.getRawValues();
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawOffset, positionCount);
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, isNull, rawOffset, positionCount);
-        }
+        encodeNullsAsBitsScalar(sliceOutput, isNull, rawOffset, positionCount);
 
         if (isNull == null) {
             sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
@@ -101,13 +92,7 @@ public class LongArrayBlockEncoding
             return new LongArrayBlock(0, positionCount, null, values);
         }
 
-        boolean[] valueIsNull;
-        if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(valueIsNullPacked, positionCount);
-        }
-        else {
-            valueIsNull = decodeNullBitsScalar(valueIsNullPacked, positionCount);
-        }
+        boolean[] valueIsNull = decodeNullBitsScalar(valueIsNullPacked, positionCount);
         if (vectorizeNullExpand) {
             return expandLongsWithNullsVectorized(sliceInput, positionCount, valueIsNull);
         }

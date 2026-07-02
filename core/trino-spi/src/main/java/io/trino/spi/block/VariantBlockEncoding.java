@@ -18,21 +18,12 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 
 public class VariantBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "VARIANT";
-
-    private final boolean vectorizeNullBitPacking;
-
-    public VariantBlockEncoding(boolean vectorizeNullBitPacking)
-    {
-        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
-    }
 
     @Override
     public String getName()
@@ -56,12 +47,7 @@ public class VariantBlockEncoding
         blockEncodingSerde.writeBlock(sliceOutput, variantBlock.getMetadata());
         blockEncodingSerde.writeBlock(sliceOutput, variantBlock.getValues());
 
-        if (vectorizeNullBitPacking) {
-            encodeNullsAsBitsVectorized(sliceOutput, variantBlock.getRawIsNull(), variantBlock.getOffsetBase(), variantBlock.getPositionCount());
-        }
-        else {
-            encodeNullsAsBitsScalar(sliceOutput, variantBlock.getRawIsNull(), variantBlock.getOffsetBase(), variantBlock.getPositionCount());
-        }
+        encodeNullsAsBitsScalar(sliceOutput, variantBlock.getRawIsNull(), variantBlock.getOffsetBase(), variantBlock.getPositionCount());
     }
 
     @Override
@@ -72,13 +58,7 @@ public class VariantBlockEncoding
         Block metadataBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valuesBlock = blockEncodingSerde.readBlock(sliceInput);
 
-        boolean[] variantIsNull;
-        if (vectorizeNullBitPacking) {
-            variantIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
-        }
-        else {
-            variantIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
-        }
+        boolean[] variantIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
 
         return VariantBlock.createInternal(0, positionCount, variantIsNull, metadataBlock, valuesBlock);
     }
