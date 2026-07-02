@@ -296,7 +296,7 @@ public class OpenSearchMetadata
                 case "short" -> new TypeAndDecoder(SMALLINT, new SmallintDecoder.Descriptor(path));
                 case "integer" -> new TypeAndDecoder(INTEGER, new IntegerDecoder.Descriptor(path));
                 case "long" -> new TypeAndDecoder(BIGINT, new BigintDecoder.Descriptor(path));
-                case "text", "keyword" -> new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
+                case "text", "match_only_text", "keyword" -> new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
                 case "ip" -> new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
                 case "boolean" -> new TypeAndDecoder(BOOLEAN, new BooleanDecoder.Descriptor(path));
                 case "binary" -> new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
