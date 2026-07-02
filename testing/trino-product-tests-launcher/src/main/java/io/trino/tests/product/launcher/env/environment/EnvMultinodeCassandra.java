@@ -61,7 +61,7 @@ public final class EnvMultinodeCassandra
                 .withCommand(
                         "bash",
                         "-cxeu",
-                        "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f")
+                        "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /usr/local/bin/docker-entrypoint.sh cassandra -f")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(CASSANDRA_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
