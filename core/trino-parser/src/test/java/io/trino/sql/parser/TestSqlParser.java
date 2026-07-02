@@ -838,6 +838,30 @@ public class TestSqlParser
                                         Optional.empty(),
                                         Optional.of(row(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
                                         ImmutableList.of(new Identifier("f1"), new Identifier("f2"), new Identifier("f3")))))));
+
+        // EXCLUDE clause on bare *
+        assertStatement("SELECT * (EXCLUDE (a, b)) FROM t", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new Identifier("a"), new Identifier("b"))))),
+                table(QualifiedName.of("t"))));
+
+        // EXCLUDE clause on qualified *
+        assertStatement("SELECT r.* (EXCLUDE (x)) FROM t", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.of(new Identifier("r")),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new Identifier("x"))))),
+                table(QualifiedName.of("t"))));
     }
 
     @Test

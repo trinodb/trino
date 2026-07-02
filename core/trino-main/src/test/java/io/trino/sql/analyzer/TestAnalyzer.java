@@ -470,6 +470,25 @@ public class TestAnalyzer
         assertFails("SELECT t.a FROM (SELECT t.* FROM (VALUES 1) t(a))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:8: Column 't.a' cannot be resolved");
+
+        // EXCLUDE valid usage
+        analyze("SELECT * (EXCLUDE (a)) FROM t1");
+        analyze("SELECT * (EXCLUDE (a, b)) FROM t1");
+        analyze("SELECT t1.* (EXCLUDE (c)) FROM t1");
+
+        // EXCLUDE nonexistent column
+        assertFails("SELECT * (EXCLUDE (nonexistent)) FROM t1")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:20: Column 'nonexistent' not found in SELECT * expansion");
+
+        assertFails("SELECT t1.* (EXCLUDE (nonexistent)) FROM t1")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:23: Column 'nonexistent' not found in SELECT * expansion");
+
+        // EXCLUDE all columns
+        assertFails("SELECT * (EXCLUDE (a, b, c, d)) FROM t1")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: SELECT list is empty after excluding all columns");
     }
 
     @Test

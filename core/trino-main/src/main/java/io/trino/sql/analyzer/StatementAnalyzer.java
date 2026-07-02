@@ -5026,6 +5026,7 @@ class StatementAnalyzer
                         RelationType relationType = identifierChainBasis.getRelationType().orElseThrow();
                         List<Field> requestedFields = relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix));
                         List<Field> fields = filterInaccessibleFields(requestedFields);
+                        fields = excludeColumns(allColumns, fields);
                         if (fields.isEmpty()) {
                             if (!requestedFields.isEmpty()) {
                                 throw semanticException(TABLE_NOT_FOUND, allColumns, "Relation not found or not allowed");
@@ -5056,6 +5057,7 @@ class StatementAnalyzer
 
                 List<Field> requestedFields = (List<Field>) scope.getRelationType().getVisibleFields();
                 List<Field> fields = filterInaccessibleFields(requestedFields);
+                fields = excludeColumns(allColumns, fields);
                 if (fields.isEmpty()) {
                     if (node.getFrom().isEmpty()) {
                         throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed in queries without FROM clause");
@@ -5108,6 +5110,35 @@ class StatementAnalyzer
             return fields.stream()
                     .filter(accessibleFields.build()::contains)
                     .collect(toImmutableList());
+        }
+
+        private static List<Field> excludeColumns(AllColumns allColumns, List<Field> fields)
+        {
+            List<Identifier> excludeColumns = allColumns.getExcludedColumns();
+            if (excludeColumns.isEmpty()) {
+                return fields;
+            }
+
+            Set<String> excludedNames = excludeColumns.stream()
+                    .map(identifier -> identifier.getValue().toLowerCase(ENGLISH))
+                    .collect(toImmutableSet());
+            // Validate that all excluded names actually exist in the expanded field list
+            Set<String> fieldNames = fields.stream()
+                    .flatMap(field -> field.getName().stream())
+                    .map(name -> name.toLowerCase(ENGLISH))
+                    .collect(toImmutableSet());
+            for (Identifier excluded : excludeColumns) {
+                if (!fieldNames.contains(excluded.getValue().toLowerCase(ENGLISH))) {
+                    throw semanticException(COLUMN_NOT_FOUND, excluded, "Column '%s' not found in SELECT * expansion", excluded.getValue());
+                }
+            }
+            List<Field> outputFields = fields.stream()
+                    .filter(field -> field.getName().isEmpty() || !excludedNames.contains(field.getName().get().toLowerCase(ENGLISH)))
+                    .collect(toImmutableList());
+            if (outputFields.isEmpty()) {
+                throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT list is empty after excluding all columns");
+            }
+            return outputFields;
         }
 
         private void analyzeAllColumnsFromTable(
