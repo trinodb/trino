@@ -2029,6 +2029,293 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testSearchMatchQuery()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey, name FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match\": {\"name\": \"ALGERIA\"}}'))",
+                catalogName)))
+                .matches("VALUES (BIGINT '0', VARCHAR 'ALGERIA')");
+    }
+
+    @Test
+    public void testSearchCombinedWithPredicate()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match_all\": {}}')) " +
+                        "WHERE name = 'ALGERIA'",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchWithLimit()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT count(*) FROM (" +
+                        "  SELECT * FROM TABLE(%s.system.search(" +
+                        "    schema => 'tpch', " +
+                        "    index => 'nation', " +
+                        "    query => '{\"match_all\": {}}')) " +
+                        "  LIMIT 3" +
+                        ")",
+                catalogName)))
+                .matches("VALUES BIGINT '3'");
+    }
+
+    @Test
+    public void testSearchCount()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT count(*) FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"range\": {\"nationkey\": {\"gte\": 0, \"lte\": 3}}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '4'");
+    }
+
+    @Test
+    public void testSearchBoolQuery()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"bool\": {\"must\": [" +
+                        "{\"match\": {\"name\": \"ALGERIA\"}}, " +
+                        "{\"range\": {\"regionkey\": {\"gte\": 0}}}" +
+                        "]}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchMatchPhrase()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match_phrase\": {\"name\": \"ALGERIA\"}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchQueryString()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"query_string\": {\"query\": \"name:ALGERIA\"}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchEmitsDefaultRelevanceSort()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        // With a scored query (match), `_score` on the result row must be non-null and positive.
+        // That only happens when OpenSearch does NOT use sort=_doc (which would set _score=null).
+        // BuiltinColumns.SCORE is typed as REAL → surfaces in materialized rows as Float.
+        MaterializedResult result = computeActual(format(
+                "SELECT nationkey, \"_score\" FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match\": {\"name\": \"ALGERIA\"}}'))",
+                catalogName));
+        assertThat(result.getRowCount()).isEqualTo(1);
+        Float score = (Float) result.getMaterializedRows().get(0).getField(1);
+        assertThat(score).isNotNull();
+        assertThat(score).isGreaterThan(0.0f);
+    }
+
+    @Test
+    public void testSearchInvalidJson()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nation', query => 'not json'))",
+                catalogName)))
+                .failure().hasMessageContaining("'query' must be a valid JSON object");
+    }
+
+    @Test
+    public void testSearchQueryNotObject()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nation', query => '[1, 2, 3]'))",
+                catalogName)))
+                .failure().hasMessageContaining("'query' must be a JSON object");
+    }
+
+    @Test
+    public void testSearchEmptyQuery()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nation', query => '{}'))",
+                catalogName)))
+                .failure().hasMessageContaining("'query' must not be empty");
+    }
+
+    @Test
+    public void testSearchInvalidIndex()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        // If this substring check proves unstable across OpenSearch versions, drop the specific
+        // substring and just assert the query fails.
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nonexistent_index_xyz', query => '{\"match_all\":{}}'))",
+                catalogName)))
+                .failure().hasMessageContaining("nonexistent_index_xyz");
+    }
+
+    @Test
+    public void testSearchRejectsTopLevelSearchBodyKeys()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        for (String key : List.of("size", "from", "sort", "aggs", "aggregations", "highlight", "_source", "track_total_hits")) {
+            String json = format("{\"%s\": {}}", key);
+            assertThat(query(format(
+                    "SELECT * FROM TABLE(%s.system.search(" +
+                            "schema => 'tpch', index => 'nation', query => '%s'))",
+                    catalogName,
+                    json)))
+                    .as("reserved key: %s", key)
+                    .failure()
+                    .hasMessageContaining("use raw_query for full _search bodies")
+                    .hasMessageContaining(key);
+        }
+    }
+
+    @Test
+    public void testSearchReturnsMoreThanMaxResultWindow()
+            throws IOException
+    {
+        String indexName = "search_scroll_test_" + randomNameSuffix();
+        @Language("JSON")
+        String body = "" +
+                "{" +
+                "  \"settings\": {\"index\": {\"max_result_window\": 100}}," +
+                "  \"mappings\": {" +
+                "    \"properties\": {" +
+                "      \"id\": {\"type\": \"long\"}," +
+                "      \"body\": {\"type\": \"text\"}" +
+                "    }" +
+                "  }" +
+                "}";
+        Request createIndexRequest = new Request("PUT", "/" + indexName);
+        createIndexRequest.setJsonEntity(body);
+        client.getLowLevelClient().performRequest(createIndexRequest);
+
+        for (int i = 0; i < 250; i++) {
+            index(indexName, ImmutableMap.<String, Object>builder()
+                    .put("id", i)
+                    .put("body", "common")
+                    .buildOrThrow());
+        }
+        client.getLowLevelClient().performRequest(new Request("POST", "/" + indexName + "/_refresh"));
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        assertThat(query(format(
+                "SELECT count(*) FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => '%s', " +
+                        "query => '{\"match\": {\"body\": \"common\"}}'))",
+                catalogName,
+                indexName)))
+                .matches("VALUES BIGINT '250'");
+    }
+
+    @Test
+    public void testSearchWithCaseSensitiveField()
+            throws IOException
+    {
+        // Regression test: the search PTF must handle indexes whose fields use mixed-case names.
+        // ConnectorTableMetadata lowercases column names, while OpenSearch preserves the mapping
+        // case, so any lookup that joins the schema names against the column-handle map by the
+        // lowercased name fails and the query aborts with GENERIC_INTERNAL_ERROR.
+        String indexName = "search_case_sensitive_" + randomNameSuffix();
+        @Language("JSON")
+        String properties =
+                """
+                {
+                    "properties": {
+                        "id": {"type": "long"},
+                        "createdAt": {"type": "keyword"},
+                        "labelText": {"type": "keyword"}
+                    }
+                }
+                """;
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("id", 1L)
+                .put("createdAt", "2026-04-23")
+                .put("labelText", "alpha")
+                .buildOrThrow());
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        assertThat(query(format(
+                "SELECT id, createdat, labeltext FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => '%s', " +
+                        "query => '{\"match_all\": {}}'))",
+                catalogName,
+                indexName)))
+                .matches("VALUES (BIGINT '1', VARCHAR '2026-04-23', VARCHAR 'alpha')");
+
+        deleteIndex(indexName);
+    }
+
+    @Test
+    public void testRawQueryStillWorks()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        MaterializedResult result = computeActual(format(
+                "SELECT result FROM TABLE(%s.system.raw_query(" +
+                        "schema => 'tpch', index => 'nation', " +
+                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}'))",
+                catalogName));
+        assertThat(result.getRowCount()).isEqualTo(1);
+        assertThat(result.getTypes().getFirst()).isInstanceOf(VarcharType.class);
+    }
+
+    @Test
     public void testSimpleProjectionPushdown()
             throws IOException
     {
