@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.Session;
+import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.testing.DistributedQueryRunner;
@@ -215,6 +216,12 @@ public class TestMinWorkerRequirement
             assertThat(queryFuture1.isDone()).isFalse();
             assertThat(queryFuture2.isDone()).isFalse();
             assertThat(queryFuture3.isDone()).isFalse();
+
+            // All three queries are gated in WAITING_FOR_RESOURCES; the DispatchManager
+            // JMX gauges should reflect the in-state set.
+            DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+            assertThat(dispatchManager.getWaitingForResourcesQueries()).isEqualTo(3);
+            assertThat(dispatchManager.getLongestWaitingForResourcesQueryDurationSeconds()).isGreaterThan(0.0);
 
             queryRunner.addServers(1);
             assertThat(queryRunner.getCoordinator().getWorkerCount()).isEqualTo(1);
