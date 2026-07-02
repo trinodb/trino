@@ -37,7 +37,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.CLIENT_INFO;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.CLIENT_TAGS_JSON;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.FAILURES_JSON;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.FAILURE_MESSAGE;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.INPUTS_JSON;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.OPERATOR_SUMMARIES_JSON;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.OUTPUT_JSON;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.PLAN;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.PREPARED_QUERY;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.QUERY;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.SESSION_PROPERTIES_JSON;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.STAGE_INFO_JSON;
+import static io.trino.plugin.eventlistener.mysql.ExcludableColumn.WARNINGS_JSON;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -51,6 +67,7 @@ public class MysqlEventListener
     private static final long MAX_OPERATOR_SUMMARIES_JSON_LENGTH = 16 * 1024 * 1024;
 
     private final boolean terminateOnInitializationFailure;
+    private final Set<ExcludableColumn> excludedColumns;
     private final QueryDao dao;
     private final JsonCodec<Set<String>> clientTagsJsonCodec;
     private final JsonCodec<Map<String, String>> sessionPropertiesJsonCodec;
@@ -69,6 +86,9 @@ public class MysqlEventListener
             JsonCodec<List<TrinoWarning>> warningsJsonCodec)
     {
         this.terminateOnInitializationFailure = config.getTerminateOnInitializationFailure();
+        this.excludedColumns = config.getExcludedColumns().stream()
+                .map(ExcludableColumn::fromColumnName)
+                .collect(toImmutableSet());
         this.dao = requireNonNull(dao, "dao is null");
         this.clientTagsJsonCodec = requireNonNull(clientTagsJsonCodec, "clientTagsJsonCodec is null");
         this.sessionPropertiesJsonCodec = requireNonNull(sessionPropertiesJsonCodec, "sessionPropertiesJsonCodec is null");
@@ -102,38 +122,38 @@ public class MysqlEventListener
         QueryEntity entity = new QueryEntity(
                 metadata.getQueryId(),
                 metadata.getTransactionId(),
-                metadata.getQuery(),
+                requiredColumn(QUERY, metadata::getQuery),
                 metadata.getUpdateType(),
-                metadata.getPreparedQuery(),
+                optionalColumn(PREPARED_QUERY, metadata::getPreparedQuery),
                 metadata.getQueryState(),
-                metadata.getPlan(),
-                metadata.getPayload(),
+                optionalColumn(PLAN, metadata::getPlan),
+                optionalColumn(STAGE_INFO_JSON, metadata::getPayload),
                 context.getUser(),
                 context.getPrincipal(),
                 context.getTraceToken(),
                 context.getRemoteClientAddress(),
                 context.getUserAgent(),
-                context.getClientInfo(),
-                clientTagsJsonCodec.toJson(context.getClientTags()),
+                optionalColumn(CLIENT_INFO, context::getClientInfo),
+                requiredColumn(CLIENT_TAGS_JSON, () -> clientTagsJsonCodec.toJson(context.getClientTags())),
                 context.getSource(),
                 context.getCatalog(),
                 context.getSchema(),
                 context.getResourceGroupId().map(ResourceGroupId::toString),
-                sessionPropertiesJsonCodec.toJson(context.getSessionProperties()),
+                requiredColumn(SESSION_PROPERTIES_JSON, () -> sessionPropertiesJsonCodec.toJson(context.getSessionProperties())),
                 context.getServerAddress(),
                 context.getServerVersion(),
                 context.getEnvironment(),
                 context.getQueryType().map(QueryType::name),
-                inputsJsonCodec.toJson(event.getIoMetadata().getInputs()),
-                event.getIoMetadata().getOutput().map(outputJsonCodec::toJson),
+                requiredColumn(INPUTS_JSON, () -> inputsJsonCodec.toJson(event.getIoMetadata().getInputs())),
+                optionalColumn(OUTPUT_JSON, () -> event.getIoMetadata().getOutput().map(outputJsonCodec::toJson)),
                 failureInfo.map(QueryFailureInfo::getErrorCode).map(ErrorCode::getName),
                 failureInfo.map(QueryFailureInfo::getErrorCode).map(ErrorCode::getType).map(ErrorType::name),
                 failureInfo.flatMap(QueryFailureInfo::getFailureType),
-                failureInfo.flatMap(QueryFailureInfo::getFailureMessage),
+                optionalColumn(FAILURE_MESSAGE, () -> failureInfo.flatMap(QueryFailureInfo::getFailureMessage)),
                 failureInfo.flatMap(QueryFailureInfo::getFailureTask),
                 failureInfo.flatMap(QueryFailureInfo::getFailureHost),
-                failureInfo.map(QueryFailureInfo::getFailuresJson),
-                warningsJsonCodec.toJson(event.getWarnings()),
+                optionalColumn(FAILURES_JSON, () -> failureInfo.map(QueryFailureInfo::getFailuresJson)),
+                requiredColumn(WARNINGS_JSON, () -> warningsJsonCodec.toJson(event.getWarnings())),
                 stats.getCpuTime().toMillis(),
                 stats.getFailedCpuTime().toMillis(),
                 stats.getWallTime().toMillis(),
@@ -167,8 +187,25 @@ public class MysqlEventListener
                 stats.getFailedCumulativeMemory(),
                 stats.getCompletedSplits(),
                 context.getRetryPolicy(),
-                createOperatorSummariesJson(metadata.getQueryId(), stats.getOperatorSummaries()));
+                optionalColumn(OPERATOR_SUMMARIES_JSON, () -> createOperatorSummariesJson(metadata.getQueryId(), stats.getOperatorSummaries())));
         dao.store(entity);
+    }
+
+    private Optional<String> optionalColumn(ExcludableColumn column, Supplier<Optional<String>> valueSupplier)
+    {
+        if (excludedColumns.contains(column)) {
+            return column.excludedValue();
+        }
+        return requireNonNull(valueSupplier.get(), "value is null");
+    }
+
+    private String requiredColumn(ExcludableColumn column, Supplier<String> valueSupplier)
+    {
+        if (excludedColumns.contains(column)) {
+            return column.excludedValue()
+                    .orElseThrow(() -> new IllegalArgumentException(format("Excluded column %s does not have a replacement value", column.columnName())));
+        }
+        return requireNonNull(valueSupplier.get(), "value is null");
     }
 
     private Optional<String> createOperatorSummariesJson(String queryId, List<String> summaries)
