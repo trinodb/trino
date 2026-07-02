@@ -1054,6 +1054,41 @@ final class TestOpaAccessControl
         assertStringRequestsEqual(ImmutableSet.of(expectedActionRequest), mockClient.getRequests(), "/input/action");
     }
 
+    @Test
+    public void testExtraCredentialsPropagation()
+    {
+        Identity identityWithCredentials = Identity.forUser("source-user")
+                .withGroups(ImmutableSet.of("some-group"))
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "my-ai-app", "ai-scope", "read-only", "otherKey", "other-value"))
+                .build();
+
+        OpaConfig configWithWhitelist = simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service", "ai-scope"));
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(configWithWhitelist, mockClient);
+        authorizer.checkCanExecuteQuery(identityWithCredentials, TEST_QUERY_ID);
+
+        JsonNode extraCredentials = mockClient.getRequests().get(0).path("input").path("context").path("identity").path("extraCredentials");
+        assertThat(extraCredentials.path("ai-service").asText()).isEqualTo("my-ai-app");
+        assertThat(extraCredentials.path("ai-scope").asText()).isEqualTo("read-only");
+        assertThat(extraCredentials.has("otherKey")).isFalse();
+    }
+
+    @Test
+    public void testExtraCredentialsNotForwardedByDefault()
+    {
+        Identity identityWithCredentials = Identity.forUser("source-user")
+                .withGroups(ImmutableSet.of("some-group"))
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "my-ai-app"))
+                .build();
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+        authorizer.checkCanExecuteQuery(identityWithCredentials, TEST_QUERY_ID);
+
+        JsonNode identityNode = mockClient.getRequests().get(0).path("input").path("context").path("identity");
+        assertThat(identityNode.has("extraCredentials")).isFalse();
+    }
+
     private void testGetColumnMasks(Map<ColumnSchema, String> columnResponseContent, Map<ColumnSchema, OpaViewExpression> expectedResult)
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
