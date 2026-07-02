@@ -611,7 +611,7 @@ public class ParquetReader
         Optional<Field> valueField = field.getChildren().get(1);
         blocks[1] = valueField.isPresent() ? readColumnChunk(valueField.get()).getBlock() : mapType.getValueType().createNullBlock();
         ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(collectionPositions.isNull(), collectionPositions.offsets(), blocks[0], blocks[1]);
+        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(collectionPositions.valueIsValid(), collectionPositions.offsets(), blocks[0], blocks[1]);
         return new ColumnChunk(mapBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 

@@ -23,6 +23,9 @@ import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
@@ -42,8 +45,10 @@ public class MapBlockBuilder
 
     private int positionCount;
     private int[] offsets;
-    private boolean[] mapIsNull;
+    @Nullable
+    private long[] valueIsValid;
     private boolean hasNullValue;
+    private boolean hasNonNullValue;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
 
@@ -57,7 +62,7 @@ public class MapBlockBuilder
                 mapType.getKeyType().createBlockBuilder(blockBuilderStatus, expectedEntries),
                 mapType.getValueType().createBlockBuilder(blockBuilderStatus, expectedEntries),
                 new int[expectedEntries + 1],
-                new boolean[expectedEntries]);
+                null);
     }
 
     private MapBlockBuilder(
@@ -66,7 +71,7 @@ public class MapBlockBuilder
             BlockBuilder keyBlockBuilder,
             BlockBuilder valueBlockBuilder,
             int[] offsets,
-            boolean[] mapIsNull)
+            @Nullable long[] valueIsValid)
     {
         this.mapType = requireNonNull(mapType, "mapType is null");
 
@@ -74,7 +79,7 @@ public class MapBlockBuilder
 
         this.positionCount = 0;
         this.offsets = requireNonNull(offsets, "offsets is null");
-        this.mapIsNull = requireNonNull(mapIsNull, "mapIsNull is null");
+        this.valueIsValid = valueIsValid;
         this.keyBlockBuilder = requireNonNull(keyBlockBuilder, "keyBlockBuilder is null");
         this.valueBlockBuilder = requireNonNull(valueBlockBuilder, "valueBlockBuilder is null");
     }
@@ -112,7 +117,7 @@ public class MapBlockBuilder
                 + keyBlockBuilder.getRetainedSizeInBytes()
                 + valueBlockBuilder.getRetainedSizeInBytes()
                 + sizeOf(offsets)
-                + sizeOf(mapIsNull);
+                + sizeOf(valueIsValid);
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -216,14 +221,23 @@ public class MapBlockBuilder
         if (keyBlockBuilder.getPositionCount() != valueBlockBuilder.getPositionCount()) {
             throw new IllegalStateException(format("keyBlock and valueBlock has different size: %s %s", keyBlockBuilder.getPositionCount(), valueBlockBuilder.getPositionCount()));
         }
-        if (mapIsNull.length <= positionCount) {
-            int newSize = calculateNewArraySize(mapIsNull.length);
-            mapIsNull = Arrays.copyOf(mapIsNull, newSize);
+        if (offsets.length <= positionCount + 1) {
+            int newSize = calculateNewArraySize(offsets.length);
+            if (valueIsValid != null) {
+                valueIsValid = Bitmap.ensureCapacity(valueIsValid, newSize);
+            }
             offsets = Arrays.copyOf(offsets, newSize + 1);
         }
         offsets[positionCount + 1] = keyBlockBuilder.getPositionCount();
-        mapIsNull[positionCount] = isNull;
+        if (isNull) {
+            initializeValidityForFirstNull();
+            clear(valueIsValid, 0, positionCount);
+        }
+        else if (valueIsValid != null) {
+            set(valueIsValid, 0, positionCount);
+        }
         hasNullValue |= isNull;
+        hasNonNullValue |= !isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -236,25 +250,21 @@ public class MapBlockBuilder
     public Block build()
     {
         if (positionCount > 1 && hasNullValue) {
-            boolean hasNonNull = false;
-            for (int i = 0; i < positionCount; i++) {
-                hasNonNull |= !mapIsNull[i];
-            }
-            if (!hasNonNull) {
+            if (!hasNonNullValue) {
                 Block emptyKeyBlock = mapType.getKeyType().createBlockBuilder(null, 0).build();
                 Block emptyValueBlock = mapType.getValueType().createBlockBuilder(null, 0).build();
                 int[] emptyOffsets = {0, 0};
-                boolean[] nulls = {true};
+                long[] valueIsValid = {0};
                 return RunLengthEncodedBlock.create(
                         createMapBlockInternal(
                                 mapType,
                                 0,
                                 1,
-                                Optional.of(nulls),
+                                Optional.of(valueIsValid),
                                 emptyOffsets,
                                 emptyKeyBlock,
                                 emptyValueBlock,
-                                MapHashTables.create(hashBuildMode, mapType, 0, emptyKeyBlock, emptyOffsets, nulls)),
+                                MapHashTables.create(hashBuildMode, mapType, 0, emptyKeyBlock, emptyOffsets, valueIsValid)),
                         positionCount);
             }
         }
@@ -270,13 +280,13 @@ public class MapBlockBuilder
 
         Block keyBlock = keyBlockBuilder.build();
         Block valueBlock = valueBlockBuilder.build();
-        MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, positionCount, keyBlock, offsets, mapIsNull);
+        MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, positionCount, keyBlock, offsets, valueIsValid);
 
         return createMapBlockInternal(
                 mapType,
                 0,
                 positionCount,
-                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
+                hasNullValue ? Optional.of(valueIsValid) : Optional.empty(),
                 offsets,
                 keyBlock,
                 valueBlock,
@@ -300,6 +310,16 @@ public class MapBlockBuilder
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 new int[expectedEntries + 1],
-                new boolean[expectedEntries]);
+                null);
+    }
+
+    private boolean initializeValidityForFirstNull()
+    {
+        if (valueIsValid != null) {
+            return false;
+        }
+        valueIsValid = Bitmap.allocateWords(offsets.length - 1, false);
+        setBits(valueIsValid, 0, 0, positionCount);
+        return true;
     }
 }

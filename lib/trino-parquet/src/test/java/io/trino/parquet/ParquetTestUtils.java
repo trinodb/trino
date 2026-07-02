@@ -256,7 +256,7 @@ public class ParquetTestUtils
         int entriesCount = offsets[positionCount];
         Block keyBlock = new LongArrayBlock(entriesCount, Optional.empty(), new long[entriesCount]);
         Block valueBlock = createLongsBlockWithRandomNulls(entriesCount);
-        return fromKeyValueBlock(mapIsNull, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, TYPE_OPERATORS));
+        return fromKeyValueBlock(toValidities(mapIsNull, positionCount), offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, TYPE_OPERATORS));
     }
 
     public static int[] generateOffsets(Optional<boolean[]> valueIsNull, int positionCount)

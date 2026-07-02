@@ -234,7 +234,7 @@ public final class BlockAssertions
             ValueBlock keyBlock = createRandomBlockForType(mapType.getKeyType(), offsets[positionCount], 0.0f);
             ValueBlock valueBlock = createRandomBlockForType(mapType.getValueType(), offsets[positionCount], nullRate);
 
-            return mapType.createBlockFromKeyValue(Optional.ofNullable(isNull), offsets, keyBlock, valueBlock);
+            return mapType.createBlockFromKeyValue(toValidity(isNull), offsets, keyBlock, valueBlock);
         }
         if (type instanceof RowType rowType) {
             Block[] fieldBlocks = new Block[rowType.getFields().size()];
