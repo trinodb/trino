@@ -13,6 +13,7 @@
  */
 package io.trino.server.ui;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -34,6 +35,7 @@ import jakarta.ws.rs.core.Response;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -52,7 +54,7 @@ public class OAuth2WebUiAuthenticationFilter
 {
     private static final Logger LOG = Logger.get(OAuth2WebUiAuthenticationFilter.class);
 
-    private final String principalField;
+    private final List<String> principalFields;
     private final OAuth2Service service;
     private final OAuth2Client client;
     private final TokenPairSerializer tokenPairSerializer;
@@ -67,7 +69,7 @@ public class OAuth2WebUiAuthenticationFilter
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
-        this.principalField = oauth2Config.getPrincipalField();
+        this.principalFields = ImmutableList.copyOf(oauth2Config.getPrincipalFields());
     }
 
     @Override
@@ -99,13 +101,13 @@ public class OAuth2WebUiAuthenticationFilter
         }
 
         try {
-            Object principal = claims.get().get(principalField);
-            if (!isValidPrincipal(principal)) {
-                LOG.debug("Invalid principal field: %s. Expected principal to be non-empty", principalField);
+            Optional<String> principal = firstValidPrincipal(claims.get(), principalFields);
+            if (principal.isEmpty()) {
+                LOG.debug("None of the configured principal fields %s yielded a non-empty principal", principalFields);
                 sendErrorMessage(request, UNAUTHORIZED, "Unauthorized");
                 return;
             }
-            String principalName = (String) principal;
+            String principalName = principal.get();
             Identity.Builder builder = Identity.forUser(userMapping.mapUser(principalName));
             builder.withPrincipal(new BasicPrincipal(principalName));
             setAuthenticatedIdentity(request, builder.build());
@@ -185,8 +187,14 @@ public class OAuth2WebUiAuthenticationFilter
                 Optional.empty()));
     }
 
-    private static boolean isValidPrincipal(Object principal)
+    private static Optional<String> firstValidPrincipal(Map<String, Object> claims, List<String> fields)
     {
-        return principal instanceof String string && !string.isEmpty();
+        for (String field : fields) {
+            Object value = claims.get(field);
+            if (value instanceof String string && !string.isEmpty()) {
+                return Optional.of(string);
+            }
+        }
+        return Optional.empty();
     }
 }

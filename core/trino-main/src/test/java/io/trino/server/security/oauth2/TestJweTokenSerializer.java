@@ -30,6 +30,7 @@ import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -189,7 +190,7 @@ public class TestJweTokenSerializer
                 new Oauth2ClientStub(),
                 "trino_coordinator_test_version",
                 "trino_coordinator",
-                "sub",
+                List.of("sub"),
                 clock,
                 tokenExpiration);
     }

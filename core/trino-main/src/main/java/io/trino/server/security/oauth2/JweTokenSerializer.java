@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableList;
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWEAlgorithm;
@@ -36,6 +37,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Clock;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -59,21 +61,21 @@ public class JweTokenSerializer
     private final String audience;
     private final Duration tokenExpiration;
     private final JwtParser parser;
-    private final String principalField;
+    private final List<String> principalFields;
 
     public JweTokenSerializer(
             RefreshTokensConfig config,
             OAuth2Client client,
             String issuer,
             String audience,
-            String principalField,
+            List<String> principalFields,
             Clock clock,
             Duration tokenExpiration)
     {
         this.jweSerializer = new JweEncryptedSerializer(getOrGenerateKey(config));
         this.client = requireNonNull(client, "client is null");
         this.issuer = requireNonNull(issuer, "issuer is null");
-        this.principalField = requireNonNull(principalField, "principalField is null");
+        this.principalFields = ImmutableList.copyOf(requireNonNull(principalFields, "principalFields is null"));
         this.audience = requireNonNull(audience, "issuer is null");
         this.clock = requireNonNull(clock, "clock is null");
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
@@ -113,12 +115,13 @@ public class JweTokenSerializer
         requireNonNull(tokenPair, "tokenPair is null");
 
         Map<String, Object> claims = client.getAccessTokenClaims(tokenPair.accessToken()).orElseThrow(() -> new IllegalArgumentException("Access Token claims are missing"));
-        if (!claims.containsKey(principalField)) {
-            throw new IllegalArgumentException(format("%s field is missing", principalField));
-        }
+        String matchedField = principalFields.stream()
+                .filter(field -> claims.get(field) != null)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(format("None of the configured principal fields %s are present in the access token claims", principalFields)));
         JwtBuilder jwt = newJwtBuilder()
                 .expiration(Date.from(clock.instant().plusMillis(tokenExpiration.toMillis())))
-                .claim(principalField, claims.get(principalField).toString())
+                .claim(matchedField, claims.get(matchedField).toString())
                 .audience().add(audience).and()
                 .issuer(issuer)
                 .claim(ACCESS_TOKEN_KEY, tokenPair.accessToken())

@@ -13,12 +13,16 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 
 public class JwtAuthenticatorConfig
@@ -26,7 +30,7 @@ public class JwtAuthenticatorConfig
     private String keyFile;
     private String requiredIssuer;
     private String requiredAudience;
-    private String principalField = "sub";
+    private List<String> principalFields = ImmutableList.of("sub");
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
 
@@ -71,15 +75,17 @@ public class JwtAuthenticatorConfig
     }
 
     @NotNull
-    public String getPrincipalField()
+    @Size(min = 1)
+    public List<String> getPrincipalFields()
     {
-        return principalField;
+        return principalFields;
     }
 
     @Config("http-server.authentication.jwt.principal-field")
-    public JwtAuthenticatorConfig setPrincipalField(String principalField)
+    @ConfigDescription("Comma-separated list of JWT claim names to use as the principal; the first claim present and non-empty wins")
+    public JwtAuthenticatorConfig setPrincipalFields(List<String> principalFields)
     {
-        this.principalField = principalField;
+        this.principalFields = ImmutableList.copyOf(principalFields);
         return this;
     }
 

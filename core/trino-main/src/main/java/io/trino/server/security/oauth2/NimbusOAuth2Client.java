@@ -92,7 +92,6 @@ public class NimbusOAuth2Client
     private final ClientID clientId;
     private final ClientSecretBasic clientAuth;
     private final Scope scope;
-    private final String principalField;
     private final Set<String> accessTokenAudiences;
     private final Duration maxClockSkew;
     private final Optional<String> jwtType;
@@ -114,7 +113,6 @@ public class NimbusOAuth2Client
         clientId = new ClientID(oauthConfig.getClientId());
         clientAuth = new ClientSecretBasic(clientId, new Secret(oauthConfig.getClientSecret()));
         scope = Scope.parse(oauthConfig.getScopes());
-        principalField = oauthConfig.getPrincipalField();
         maxClockSkew = oauthConfig.getMaxClockSkew();
         jwtType = oauthConfig.getJwtType();
 
@@ -153,7 +151,9 @@ public class NimbusOAuth2Client
                 new JWTClaimsSet.Builder()
                         .issuer(config.accessTokenIssuer().orElse(issuer.getValue()))
                         .build(),
-                ImmutableSet.of(principalField),
+                // Principal claim presence is enforced by the authenticator: with multiple
+                // configured principal fields, an at-least-one rule can't be expressed here.
+                ImmutableSet.of(),
                 ImmutableSet.of());
         accessTokenVerifier.setMaxClockSkew((int) maxClockSkew.roundTo(SECONDS));
         processor.setJWTClaimsSetVerifier(accessTokenVerifier);

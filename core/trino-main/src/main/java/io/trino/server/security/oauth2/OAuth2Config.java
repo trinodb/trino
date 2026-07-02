@@ -23,6 +23,7 @@ import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Collections;
@@ -40,7 +41,7 @@ public class OAuth2Config
     private String clientId;
     private String clientSecret;
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
-    private String principalField = "sub";
+    private List<String> principalFields = ImmutableList.of("sub");
     private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
@@ -136,16 +137,17 @@ public class OAuth2Config
     }
 
     @NotNull
-    public String getPrincipalField()
+    @Size(min = 1)
+    public List<String> getPrincipalFields()
     {
-        return principalField;
+        return principalFields;
     }
 
     @Config("http-server.authentication.oauth2.principal-field")
-    @ConfigDescription("The claim to use as the principal")
-    public OAuth2Config setPrincipalField(String principalField)
+    @ConfigDescription("Comma-separated list of access-token claim names to use as the principal; the first claim present and non-empty wins")
+    public OAuth2Config setPrincipalFields(List<String> principalFields)
     {
-        this.principalField = principalField;
+        this.principalFields = ImmutableList.copyOf(principalFields);
         return this;
     }
 
