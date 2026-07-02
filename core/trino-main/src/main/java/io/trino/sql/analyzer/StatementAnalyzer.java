@@ -93,6 +93,7 @@ import io.trino.spi.function.table.TableFunctionAnalysis;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
@@ -2705,7 +2706,7 @@ class StatementAnalyzer
                 }
 
                 analysis.registerTableForView(table, name, isMaterializedView);
-                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table, isMaterializedView ? IdentitySwitchReason.MATERIALIZED_VIEW_OWNER : IdentitySwitchReason.VIEW_OWNER);
                 analysis.unregisterTableForView();
 
                 checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
@@ -5311,7 +5312,8 @@ class StatementAnalyzer
                 Optional<String> schema,
                 Optional<Identity> owner,
                 List<CatalogSchemaName> path,
-                Table node)
+                Table node,
+                IdentitySwitchReason reason)
         {
             try {
                 // run view as view owner if set; otherwise, run as session user
@@ -5321,6 +5323,7 @@ class StatementAnalyzer
                     identity = Identity.from(owner.get())
                             .withGroups(groupProvider.getGroups(owner.get().getUser()))
                             .build();
+                    accessControl.checkCanSetEffectiveIdentity(session.getOriginalIdentity(), identity, reason);
                     if (owner.get().getUser().equals(session.getIdentity().getUser())) {
                         // View owner does not need GRANT OPTION to grant access themselves
                         viewAccessControl = accessControl;
@@ -5464,6 +5467,9 @@ class StatementAnalyzer
                                 .withGroups(groupProvider.getGroups(filterUser))
                                 .build())
                         .orElseGet(session::getIdentity);
+                if (filter.getSecurityIdentity().isPresent()) {
+                    accessControl.checkCanSetEffectiveIdentity(session.getOriginalIdentity(), filterIdentity, IdentitySwitchReason.ROW_FILTER);
+                }
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         session.createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, filter.getPath()),
                         plannerContext,
@@ -5474,6 +5480,9 @@ class StatementAnalyzer
                         expression,
                         warningCollector,
                         correlationSupport);
+            }
+            catch (AccessDeniedException e) {
+                throw e;
             }
             catch (TrinoException e) {
                 throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
@@ -5587,6 +5596,9 @@ class StatementAnalyzer
                                 .withGroups(groupProvider.getGroups(maskUser))
                                 .build())
                         .orElseGet(session::getIdentity);
+                if (mask.getSecurityIdentity().isPresent()) {
+                    accessControl.checkCanSetEffectiveIdentity(session.getOriginalIdentity(), maskIdentity, IdentitySwitchReason.COLUMN_MASK);
+                }
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         session.createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, mask.getPath()),
                         plannerContext,
@@ -5597,6 +5609,9 @@ class StatementAnalyzer
                         expression,
                         warningCollector,
                         correlationSupport);
+            }
+            catch (AccessDeniedException e) {
+                throw e;
             }
             catch (TrinoException e) {
                 throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);

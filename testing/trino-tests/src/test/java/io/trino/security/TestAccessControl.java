@@ -527,6 +527,73 @@ public class TestAccessControl
     }
 
     @Test
+    public void testDefinerViewWithDeniedEffectiveIdentity()
+    {
+        reset();
+
+        String viewOwner = "view_owner";
+        TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
+        String viewName = "test_definer_view_denied_identity_" + randomNameSuffix();
+
+        systemSecurityMetadata.setEntityOwner(
+                getSession(),
+                new EntityKindAndName("VIEW", List.of("blackhole", "default", viewName)),
+                viewOwnerPrincipal);
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(viewOwner).build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + viewName + " AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // deny the owner switch, as security.impersonation-enabled=false would
+        getQueryRunner().getAccessControl().denyEffectiveIdentity((_, _) -> false);
+
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + viewName))
+                .hasMessageContaining("cannot run as user " + viewOwner);
+
+        getQueryRunner().getAccessControl().reset();
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testDefinerViewEffectiveIdentityActorIsOriginalUser()
+    {
+        reset();
+
+        String viewOwner = "view_owner";
+        TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
+        String viewName = "test_definer_view_actor_" + randomNameSuffix();
+
+        systemSecurityMetadata.setEntityOwner(
+                getSession(),
+                new EntityKindAndName("VIEW", List.of("blackhole", "default", viewName)),
+                viewOwnerPrincipal);
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(viewOwner).build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + viewName + " AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // the actor authorized for the owner switch must be the original querying user, not the view owner
+        getQueryRunner().getAccessControl()
+                .denyEffectiveIdentity((actor, _) -> actor.getUser().equals(getSession().getIdentity().getUser()));
+        getQueryRunner().execute(getSession(), "SELECT * FROM " + viewName);
+
+        getQueryRunner().getAccessControl().reset();
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
+    }
+
+    @Test
     public void testJoinBaseTableWithView()
     {
         reset();

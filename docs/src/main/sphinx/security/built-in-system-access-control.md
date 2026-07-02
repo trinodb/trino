@@ -83,6 +83,41 @@ Access control must be configured on the coordinator. Authorization for
 operations on specific worker nodes, such a triggering
 {doc}`/admin/graceful-shutdown`, must also be configured on all workers.
 
+(disabling-impersonation)=
+## Disabling impersonation
+
+Trino can evaluate parts of a query under an identity other than the user who
+authenticated to the coordinator. This includes explicit
+[user impersonation](/security/user-mapping) and `SET SESSION AUTHORIZATION`, as
+well as engine-controlled identity switches such as `SECURITY DEFINER` views and
+SQL routines, and the explicit identity used to evaluate row filters and column
+masks.
+
+Use the following property in the [`config.properties`](config-properties) file
+on the coordinator to control whether the query identity can be switched to a
+different user:
+
+### `security.impersonation-enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+
+When set to `false`, any attempt to switch the effective identity of a query to
+a *different* user is denied, for all of the mechanisms listed above. The
+effective identity of every query then always matches the authenticated user.
+
+This is useful when group membership is supplied by the authentication layer,
+for example through group claims in an [OAuth 2.0](/security/oauth2) or
+[JWT](/security/jwt) token. Such groups are only valid for the authenticated
+user and cannot be derived for an impersonated user, so forbidding identity
+switches keeps group-based authorization decisions consistent.
+
+:::{note}
+This property only governs switching to a *different* user. Resolving the groups
+of the same user through a configured [group provider](/security/group-mapping)
+is a separate concern and is not affected by this property.
+:::
+
 ## Read only system access control
 
 This access control allows any operation that reads data or

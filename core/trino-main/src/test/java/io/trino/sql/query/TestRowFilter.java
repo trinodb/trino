@@ -338,6 +338,26 @@ public class TestRowFilter
     }
 
     @Test
+    public void testFilterWithDeniedEffectiveIdentity()
+    {
+        // deny the identity switch, as security.impersonation-enabled=false would
+        accessControl.reset();
+        accessControl.denyEffectiveIdentity((_, _) -> false);
+        accessControl.rowFilter(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                USER,
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("orderkey = 1")
+                        .build());
+        assertThat(assertions.query("SELECT count(*) FROM orders"))
+                .failure()
+                .hasMessageContaining("cannot run as user " + RUN_AS_USER);
+    }
+
+    @Test
     public void testRecursion()
     {
         accessControl.reset();

@@ -43,6 +43,7 @@ import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
@@ -100,6 +101,32 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
         accessControlManager.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanImpersonateUser(Identity.forUser("test").build(), "foo");
+    }
+
+    @Test
+    public void testSetEffectiveIdentityAllowedByDefault()
+    {
+        AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
+        accessControlManager.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.forUser("test").build(), Identity.forUser("owner").build(), IdentitySwitchReason.VIEW_OWNER);
+    }
+
+    @Test
+    public void testImpersonationDisabled()
+    {
+        AccessControlManager accessControlManager = createAccessControlManager(emptyEventListenerManager(), new AccessControlConfig().setImpersonationEnabled(false));
+        accessControlManager.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.forUser("test").build(), "foo"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("cannot impersonate user foo");
+
+        assertThatThrownBy(() -> accessControlManager.checkCanSetEffectiveIdentity(Identity.forUser("test").build(), Identity.forUser("owner").build(), IdentitySwitchReason.VIEW_OWNER))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("cannot run as user owner");
+
+        // switching to the same identity is not impersonation and remains allowed
+        accessControlManager.checkCanSetEffectiveIdentity(Identity.forUser("test").build(), Identity.forUser("test").build(), IdentitySwitchReason.VIEW_OWNER);
     }
 
     @Test
