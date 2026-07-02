@@ -43,6 +43,7 @@ public class DeltaLakeTableProperties
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
     public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
     public static final String DELETION_VECTORS_ENABLED_PROPERTY = "deletion_vectors_enabled";
+    public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -94,6 +95,11 @@ public class DeltaLakeTableProperties
                         "Enables deletion vectors",
                         config.isDeletionVectorsEnabled(),
                         false))
+                .add(booleanProperty(
+                        OBJECT_STORE_LAYOUT_ENABLED_PROPERTY,
+                        "Enables the Delta Lake object store file layout",
+                        config.isObjectStoreLayoutEnabled(),
+                        false))
                 .build();
     }
 
@@ -138,5 +144,10 @@ public class DeltaLakeTableProperties
     public static boolean getDeletionVectorsEnabled(Map<String, Object> tableProperties)
     {
         return (boolean) tableProperties.getOrDefault(DELETION_VECTORS_ENABLED_PROPERTY, false);
+    }
+
+    public static boolean getObjectStoreLayoutEnabled(Map<String, Object> tableProperties)
+    {
+        return (boolean) tableProperties.getOrDefault(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, false);
     }
 }

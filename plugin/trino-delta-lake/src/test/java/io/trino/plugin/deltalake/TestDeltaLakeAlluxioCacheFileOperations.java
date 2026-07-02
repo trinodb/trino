@@ -86,7 +86,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 816))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 854))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 658))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
@@ -108,7 +108,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 816))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 854))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 658))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
@@ -126,7 +126,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 816))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 854))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 658))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
@@ -159,7 +159,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 816))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 854))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 658))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
@@ -637,10 +637,10 @@ public class TestDeltaLakeAlluxioCacheFileOperations
 
         assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 821))
-                        .add(new CacheOperation("Alluxio.readExternalStream", "00000000000000000000.json", 0, 821))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 859))
+                        .add(new CacheOperation("Alluxio.readExternalStream", "00000000000000000000.json", 0, 859))
                         .add(new CacheOperation("InputFile.newStream", "00000000000000000000.json"))
-                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 821))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 859))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.crc"))
                         .add(new CacheOperation("InputFile.exists", "00000000000000000001.json"))
@@ -665,9 +665,9 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1063))
-                        .add(new CacheOperation("Alluxio.readExternalStream", "00000000000000000000.json", 0, 1063))
-                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 1063))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1101))
+                        .add(new CacheOperation("Alluxio.readExternalStream", "00000000000000000000.json", 0, 1101))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 1101))
                         .add(new CacheOperation("InputFile.newStream", "00000000000000000000.json"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.crc"))
@@ -698,7 +698,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 session,
                 "SELECT * FROM test_cache_file_operations_without_checksum",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 816))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 854))
                         .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 658))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))

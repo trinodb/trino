@@ -49,6 +49,8 @@ public class MetadataEntry
     public static final String DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY = "delta.checkpoint.writeStatsAsJson";
     public static final String DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY = "delta.checkpoint.writeStatsAsStruct";
     public static final String DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY = "delta.enableChangeDataFeed";
+    public static final String DELTA_RANDOMIZE_FILE_PREFIXES_PROPERTY = "delta.randomizeFilePrefixes";
+    public static final String DELTA_RANDOM_PREFIX_LENGTH_PROPERTY = "delta.randomPrefixLength";
 
     private static final String DELTA_CHECKPOINT_INTERVAL_PROPERTY = "delta.checkpointInterval";
 
@@ -175,6 +177,7 @@ public class MetadataEntry
             Optional<Long> checkpointInterval,
             Optional<Boolean> changeDataFeedEnabled,
             boolean deletionVectorsEnabled,
+            boolean objectStoreLayoutEnabled,
             ColumnMappingMode columnMappingMode,
             OptionalInt maxFieldId)
     {
@@ -182,6 +185,7 @@ public class MetadataEntry
         checkpointInterval.ifPresent(interval -> configurationMapBuilder.put(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(interval)));
         changeDataFeedEnabled.ifPresent(enabled -> configurationMapBuilder.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(enabled)));
         configurationMapBuilder.put(DELETION_VECTORS_CONFIGURATION_KEY, Boolean.toString(deletionVectorsEnabled));
+        configurationMapBuilder.put(DELTA_RANDOMIZE_FILE_PREFIXES_PROPERTY, Boolean.toString(objectStoreLayoutEnabled));
         switch (columnMappingMode) {
             case NONE -> {}
             case ID, NAME -> {
