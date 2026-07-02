@@ -68,6 +68,7 @@ import io.trino.plugin.iceberg.system.HistoryTable;
 import io.trino.plugin.iceberg.system.ManifestsTable;
 import io.trino.plugin.iceberg.system.MetadataLogEntriesTable;
 import io.trino.plugin.iceberg.system.PartitionsView;
+import io.trino.plugin.iceberg.system.PositionDeletesTable;
 import io.trino.plugin.iceberg.system.PropertiesTable;
 import io.trino.plugin.iceberg.system.RefsTable;
 import io.trino.plugin.iceberg.system.SnapshotsTable;
@@ -924,6 +925,7 @@ public class IcebergMetadata
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
             case ALL_ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ALL_ENTRIES, icebergScanExecutor));
             case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ENTRIES, icebergScanExecutor));
+            case POSITION_DELETES -> Optional.of(new PositionDeletesTable(typeManager, tableName, table));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
             case REFS -> Optional.of(new RefsTable(tableName, table, icebergScanExecutor));
             default -> Optional.empty();
