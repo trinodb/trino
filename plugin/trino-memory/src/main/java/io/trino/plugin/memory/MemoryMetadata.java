@@ -528,15 +528,15 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
         checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
         checkSchemaExists(viewName.getSchemaName());
-        if (tableIds.containsKey(viewName) && !replace) {
+        if (tableIds.containsKey(viewName) && saveMode != REPLACE) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
 
-        if (replace) {
+        if (saveMode == REPLACE) {
             views.put(viewName, definition);
         }
         else if (views.putIfAbsent(viewName, definition) != null) {

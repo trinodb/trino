@@ -995,6 +995,8 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                 .contains(testView);
+        assertUpdate("CREATE VIEW IF NOT EXISTS " + testView + " AS SELECT 456 x");
+        assertThat(query("SELECT * FROM " + testView)).matches("VALUES 123");
         assertUpdate("CREATE OR REPLACE VIEW " + testView + " AS " + query);
 
         assertUpdate("CREATE VIEW " + testViewWithComment + " COMMENT 'orders' AS SELECT 123 x");
@@ -1212,6 +1214,29 @@ public abstract class BaseConnectorTest
         }
         finally {
             assertUpdate(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
+        }
+    }
+
+    @Test
+    public void testCreateViewIfNotExist()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+        String viewName = "test_create_view_if_not_exists_" + randomNameSuffix();
+        String otherViewName = "test_create_view_if_not_exists_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE VIEW " + viewName + " AS SELECT 1 AS c1");
+            assertQuery("SELECT * FROM " + viewName, "SELECT 1");
+            assertUpdate("CREATE VIEW IF NOT EXISTS " + viewName + " AS SELECT 1 AS c1");
+            assertQuery("SELECT * FROM " + viewName, "SELECT 1");
+            assertUpdate("DROP VIEW " + viewName);
+
+            assertUpdate("CREATE VIEW IF NOT EXISTS " + otherViewName + " AS SELECT 1 AS c1");
+            assertQuery("SELECT * FROM " + otherViewName, "SELECT 1");
+            assertUpdate("DROP VIEW " + otherViewName);
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
+            assertUpdate("DROP VIEW IF EXISTS " + otherViewName);
         }
     }
 
