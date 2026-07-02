@@ -1586,6 +1586,17 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testQualifyClause()
+    {
+        analyze("SELECT a FROM t1 QUALIFY rank() OVER (ORDER BY a) = 1");
+        analyze("SELECT a FROM t1 QUALIFY row_number() OVER () > 0");
+
+        assertFails("SELECT a FROM t1 QUALIFY a")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageMatching("line 1:26: QUALIFY clause must evaluate to a boolean: actual type bigint");
+    }
+
+    @Test
     public void testPatternRecognitionWithGroupBy()
     {
         analyze("SELECT m OVER( " +
