@@ -92,7 +92,7 @@ public class DeltaLakeConfig
     private boolean projectionPushdownEnabled = true;
     private boolean queryPartitionFilterRequired;
     private boolean deletionVectorsEnabled;
-    private boolean deltaLogFileSystemCacheDisabled;
+    private boolean deltaLogBlobCacheDisabled;
     private int metadataParallelism = 8;
     private int checkpointProcessingParallelism = 4;
     private boolean loadMetadataFromChecksumFile = true;
@@ -548,16 +548,16 @@ public class DeltaLakeConfig
         return this;
     }
 
-    public boolean isDeltaLogFileSystemCacheDisabled()
+    public boolean isDeltaLogBlobCacheDisabled()
     {
-        return deltaLogFileSystemCacheDisabled;
+        return deltaLogBlobCacheDisabled;
     }
 
     @Config("delta.fs.cache.disable-transaction-log-caching")
-    @ConfigDescription("Disable filesystem caching of the _delta_log directory (effective only when fs.cache.enabled=true)")
-    public DeltaLakeConfig setDeltaLogFileSystemCacheDisabled(boolean deltaLogFileSystemCacheDisabled)
+    @ConfigDescription("Disable blob caching of the _delta_log directory (effective only when fs.cache.enabled=true)")
+    public DeltaLakeConfig setDeltaLogBlobCacheDisabled(boolean deltaLogBlobCacheDisabled)
     {
-        this.deltaLogFileSystemCacheDisabled = deltaLogFileSystemCacheDisabled;
+        this.deltaLogBlobCacheDisabled = deltaLogBlobCacheDisabled;
         return this;
     }
 

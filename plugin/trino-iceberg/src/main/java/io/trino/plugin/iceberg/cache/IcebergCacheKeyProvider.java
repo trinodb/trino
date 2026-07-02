@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.cache;
 
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.spi.cache.CacheKey;
 
 import java.util.Optional;
 
@@ -22,14 +23,16 @@ public class IcebergCacheKeyProvider
         implements CacheKeyProvider
 {
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile inputFile)
+    public Optional<CacheKey> getCacheKey(TrinoInputFile inputFile)
     {
         String path = inputFile.location().path();
         if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
             // Needed to avoid caching files from FileHiveMetastore on coordinator during tests
             return Optional.empty();
         }
-        // Iceberg data and metadata files are immutable
-        return Optional.of(path);
+        // Use the full location (scheme + authority + path) so that two files with the same path
+        // in different buckets/accounts do not collide on the same cache key.
+        // Iceberg data and metadata files are immutable, so the location is a stable identifier.
+        return Optional.of(new CacheKey(inputFile.location().toString()));
     }
 }

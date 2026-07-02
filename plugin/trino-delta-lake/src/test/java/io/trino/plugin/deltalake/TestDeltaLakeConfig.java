@@ -73,7 +73,7 @@ public class TestDeltaLakeConfig
                 .setProjectionPushdownEnabled(true)
                 .setQueryPartitionFilterRequired(false)
                 .setDeletionVectorsEnabled(false)
-                .setDeltaLogFileSystemCacheDisabled(false)
+                .setDeltaLogBlobCacheDisabled(false)
                 .setMetadataParallelism(8)
                 .setCheckpointProcessingParallelism(4)
                 .setLoadMetadataFromChecksumFile(true));
@@ -156,7 +156,7 @@ public class TestDeltaLakeConfig
                 .setProjectionPushdownEnabled(false)
                 .setQueryPartitionFilterRequired(true)
                 .setDeletionVectorsEnabled(true)
-                .setDeltaLogFileSystemCacheDisabled(true)
+                .setDeltaLogBlobCacheDisabled(true)
                 .setMetadataParallelism(10)
                 .setCheckpointProcessingParallelism(8)
                 .setLoadMetadataFromChecksumFile(false);

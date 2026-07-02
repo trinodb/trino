@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import io.trino.blob.cache.alluxio.AlluxioBlobCachePlugin;
 import io.trino.filesystem.tracing.CacheFileSystemTraceUtils;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -48,11 +49,14 @@ public class TestDeltaLakeAlluxioCacheMutableTransactionLog
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("fs.cache.enabled", "true")
-                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                        .put("fs.cache.max-sizes", "100MB")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("delta.fs.cache.disable-transaction-log-caching", "true")
+                        .buildOrThrow())
+                .withPlugin(new AlluxioBlobCachePlugin())
+                .withBlobCache("alluxio", ImmutableMap.<String, String>builder()
+                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                        .put("fs.cache.max-sizes", "100MB")
                         .buildOrThrow())
                 .setWorkerCount(1)
                 .build();
@@ -80,12 +84,12 @@ public class TestDeltaLakeAlluxioCacheMutableTransactionLog
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "00000000000000000002.crc"))
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.length", "00000000000000000003.json"))
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p1/", 0, 230))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p2/", 0, 230))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readFully", "key=p1/", 0, 230))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readFully", "key=p2/", 0, 230))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCache", "key=p1/", 0, 230))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCache", "key=p2/", 0, 230))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCachedTail", "key=p1/"))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCachedTail", "key=p2/"))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readTail", "key=p1/"))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readTail", "key=p2/"))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCacheTail", "key=p1/"))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCacheTail", "key=p2/"))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_transaction_log_not_cached",
@@ -95,8 +99,8 @@ public class TestDeltaLakeAlluxioCacheMutableTransactionLog
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "00000000000000000002.crc"))
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.length", "00000000000000000003.json"))
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p1/", 0, 230))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p2/", 0, 230))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCachedTail", "key=p1/"))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCachedTail", "key=p2/"))
                         .build());
     }
 
