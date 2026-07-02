@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
@@ -180,8 +181,20 @@ public final class MemoryFileSystemCache
         if (fileSize > maxContentLengthBytes) {
             return Optional.empty();
         }
-        try (TrinoInput trinoInput = delegate.newInput()) {
-            return Optional.of(trinoInput.readTail(toIntExact(fileSize)));
+        // Read from the start of the file, capped at maxContentLengthBytes + 1.
+        // The declared file length is treated as a hint only: callers may pass a
+        // stale (smaller) length (see https://github.com/trinodb/trino/issues/25702).
+        // Reading the tail in that case would miss bytes at the beginning of the
+        // file (e.g., Avro magic bytes). Reading from position 0 preserves file
+        // headers regardless of how accurate the declared length is. The +1 detects
+        // files whose actual size exceeds the max content length, in which case we
+        // skip caching.
+        try (TrinoInputStream stream = delegate.newStream()) {
+            byte[] buffer = stream.readNBytes(maxContentLengthBytes + 1);
+            if (buffer.length > maxContentLengthBytes) {
+                return Optional.empty();
+            }
+            return Optional.of(Slices.wrappedBuffer(buffer));
         }
     }
 
