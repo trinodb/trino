@@ -36,6 +36,7 @@ import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.security.oauth2.ChallengeFailedException;
+import io.trino.server.security.oauth2.OAuth2Authenticator;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.security.oauth2.TokenPairSerializer;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
@@ -106,6 +107,7 @@ import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
+import static io.trino.spi.security.ExtraCredentials.authenticatedExtraCredentialName;
 import static jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static jakarta.servlet.http.HttpServletResponse.SC_SEE_OTHER;
@@ -630,6 +632,57 @@ public class TestResourceSecurity
         verifyOAuth2Authenticator(true, false, Optional.of("custom-principal"));
         verifyOAuth2Authenticator(false, false, Optional.of("custom-principal"));
         verifyOAuth2Authenticator(false, true, Optional.empty());
+    }
+
+    @Test
+    public void testOAuth2AccessTokenExtraCredential()
+            throws Exception
+    {
+        assertOAuth2AccessTokenExtraCredential("token");
+        assertOAuth2AccessTokenExtraCredential("credential");
+    }
+
+    private void assertOAuth2AccessTokenExtraCredential(String credentialName)
+            throws Exception
+    {
+        CookieManager cookieManager = new CookieManager();
+        OkHttpClient client = this.client.newBuilder()
+                .cookieJar(new JavaNetCookieJar(cookieManager))
+                .build();
+
+        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(ImmutableMap.<String, String>builder()
+                                .putAll(SECURE_PROPERTIES)
+                                .put("web-ui.enabled", "false")
+                                .put("http-server.authentication.type", "oauth2")
+                                .putAll(getOAuth2Properties(tokenServer))
+                                .put("http-server.authentication.oauth2.access-token-extra-credential-name", credentialName)
+                                .buildOrThrow())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                        .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            URI baseUri = httpServerInfo.getHttpsUri();
+
+            OAuthBearer bearer = assertAuthenticateOAuth2Bearer(client, getAuthorizedUserLocation(baseUri), "http://example.com/authorize");
+            assertOk(
+                    client,
+                    uriBuilderFrom(baseUri)
+                            .replacePath("/oauth2/callback/")
+                            .addParameter("code", "TEST_CODE")
+                            .addParameter("state", bearer.state())
+                            .toString());
+
+            String oauthToken = getOauthToken(client, bearer.tokenServer());
+            List<Authenticator> authenticators = server.getInstance(new Key<>() {});
+            assertThat(authenticators).hasSize(1);
+            assertThat(authenticators.get(0)).isInstanceOf(OAuth2Authenticator.class);
+            Identity identity = ((OAuth2Authenticator) authenticators.get(0)).authenticate(null, oauthToken);
+            assertThat(identity.getExtraCredentials())
+                    .containsEntry(credentialName, tokenServer.getAccessToken())
+                    .containsEntry(authenticatedExtraCredentialName(credentialName), tokenServer.getAccessToken());
+        }
     }
 
     private void verifyOAuth2Authenticator(boolean webUiEnabled, boolean refreshTokensEnabled, Optional<String> principalField)

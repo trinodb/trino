@@ -151,6 +151,11 @@ The following configuration properties are available:
   - The field of the access token used for the Trino user principal. Defaults to
     `sub`. Other commonly used fields include `sAMAccountName`, `name`,
     `upn`, and `email`.
+* - `http-server.authentication.oauth2.access-token-extra-credential-name`
+  - Extra credential name used to store the authenticated OAuth2 access token
+    in the session `Identity`. The value must not use the reserved `internal$`
+    prefix, and must not contain whitespace, commas, or equals signs. Disabled
+    by default.
 * - `http-server.authentication.oauth2.oidc.discovery`
   - Enable reading the [OIDC provider metadata](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
     Default is `true`.
@@ -168,6 +173,36 @@ The following configuration properties are available:
     browser is redirected to so that End-User is logged out from the
     authentication server when logging out from Trino.
 :::
+
+### Access token extra credential
+
+
+Some connectors can use an end-user OAuth2 access token when they communicate
+with downstream services. This supports deployments where the downstream service
+authorizes the user token directly, or uses it as input to a token exchange
+flow. Trino stores and forwards the authenticated access token; it does not
+perform token exchange itself. Set
+`http-server.authentication.oauth2.access-token-extra-credential-name` to add
+the authenticated OAuth2 access token to the session `Identity` extra
+credentials using the configured name. Use `token` when a connector forwards
+the access token directly. Use `credential` when a connector uses the token as
+input to a token exchange flow:
+
+```properties
+http-server.authentication.oauth2.access-token-extra-credential-name=token
+```
+
+```properties
+http-server.authentication.oauth2.access-token-extra-credential-name=credential
+```
+
+Only enable this for deployments where the configured connectors are trusted to
+receive the user's OAuth2 access token. If a client also supplies an extra
+credential with the same name, the authenticated OAuth2 token takes precedence.
+
+Connectors can retrieve the token from extra credentials using the
+``internal$authenticated:`` prefix via the
+``ExtraCredentials.authenticatedExtraCredentialName()`` SPI utility.
 
 (trino-oauth2-refresh-tokens)=
 ### Refresh tokens

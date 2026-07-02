@@ -22,6 +22,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
@@ -31,7 +32,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Strings.emptyToNull;
 import static io.trino.server.security.oauth2.OAuth2Service.OPENID_SCOPE;
+import static io.trino.spi.security.ExtraCredentials.isInternalExtraCredential;
 
 public class OAuth2Config
 {
@@ -47,6 +50,7 @@ public class OAuth2Config
     private Optional<String> jwtType = Optional.empty();
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
+    private Optional<String> accessTokenExtraCredentialName = Optional.empty();
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
 
@@ -216,6 +220,36 @@ public class OAuth2Config
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
+    }
+
+    public Optional<String> getAccessTokenExtraCredentialName()
+    {
+        return accessTokenExtraCredentialName;
+    }
+
+    @Config("http-server.authentication.oauth2.access-token-extra-credential-name")
+    @ConfigDescription("Extra credential name for storing the authenticated OAuth2 access token")
+    public OAuth2Config setAccessTokenExtraCredentialName(String accessTokenExtraCredentialName)
+    {
+        this.accessTokenExtraCredentialName = Optional.ofNullable(emptyToNull(accessTokenExtraCredentialName));
+        return this;
+    }
+
+    @AssertTrue(message = "OAuth2 access token extra credential name must not start with internal$")
+    public boolean isAccessTokenExtraCredentialNameNotInternal()
+    {
+        return accessTokenExtraCredentialName
+                .map(name -> !isInternalExtraCredential(name))
+                .orElse(true);
+    }
+
+    @AssertTrue(message = "OAuth2 access token extra credential name must not contain whitespace, comma, or equals")
+    public boolean isAccessTokenExtraCredentialNameValid()
+    {
+        return accessTokenExtraCredentialName
+                .map(name -> name.chars().noneMatch(character ->
+                        Character.isWhitespace(character) || character == ',' || character == '='))
+                .orElse(true);
     }
 
     public boolean isEnableRefreshTokens()

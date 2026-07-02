@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.AbstractBearerAuthenticator;
@@ -34,6 +35,7 @@ import java.util.UUID;
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getInitiateUri;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getTokenUri;
+import static io.trino.spi.security.ExtraCredentials.authenticatedExtraCredentialName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -46,14 +48,17 @@ public class OAuth2Authenticator
     private final UserMapping userMapping;
     private final TokenPairSerializer tokenPairSerializer;
     private final TokenRefresher tokenRefresher;
+    private final Optional<String> accessTokenExtraCredentialName;
 
     @Inject
     public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer)
     {
+        requireNonNull(config, "config is null");
         this.client = requireNonNull(client, "service is null");
         this.principalField = config.getPrincipalField();
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
+        this.accessTokenExtraCredentialName = config.getAccessTokenExtraCredentialName();
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
     }
 
@@ -80,6 +85,9 @@ public class OAuth2Authenticator
         }
         Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
         builder.withPrincipal(new BasicPrincipal(principal.get()));
+        accessTokenExtraCredentialName.ifPresent(name -> builder.withAdditionalExtraCredentials(ImmutableMap.of(
+                name, tokenPair.accessToken(),
+                authenticatedExtraCredentialName(name), tokenPair.accessToken())));
         return Optional.of(builder.build());
     }
 
