@@ -33,6 +33,7 @@ public class TestS3Location
         assertS3Uri("s3://abc///what", "abc", "//what");
         assertS3Uri("s3://abc///what//", "abc", "//what//");
         assertS3Uri("s3a://hello/what/xxx", "hello", "what/xxx");
+        assertS3Uri("oss://hello/what/xxx", "hello", "what/xxx");
     }
 
     @Test

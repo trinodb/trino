@@ -38,6 +38,7 @@ import io.trino.filesystem.local.LocalFileSystemConfig;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemCache;
 import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
+import io.trino.filesystem.s3.FileSystemOSS;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
@@ -101,6 +102,7 @@ public class FileSystemModule
             factories.addBinding("s3").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
             factories.addBinding("s3a").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
             factories.addBinding("s3n").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
+            factories.addBinding("oss").to(Key.get(TrinoFileSystemFactory.class, FileSystemOSS.class));
         }
 
         if (config.isGcsEnabled()) {
