@@ -15,6 +15,10 @@ Trino supports three functions for querying JSON data:
 is based on the same mechanism of exploring and processing JSON input using
 JSON path.
 
+For convenient navigation of `JSON`-typed columns, Trino also supports the
+{ref}`JSON simplified accessor <json-simplified-accessor>` syntax, which lets
+you reach into JSON values using familiar dotted/subscripted notation.
+
 Trino also supports two functions for generating JSON data --
 {ref}`json_array<json-array>`, and {ref}`json_object<json-object>`.
 
@@ -659,6 +663,111 @@ method, the item `"a"` causes type mismatch.
 ```text
 <path>.floor() --> ERROR
 ```
+
+(json-simplified-accessor)=
+## JSON simplified accessor
+
+For convenient navigation of a `JSON`-typed value, Trino lets you write
+dotted/subscripted accessor chains that read as if you were navigating a row
+or array. The receiver of the chain must be a value of declared type `JSON`;
+each step extends a JSON path applied to that value.
+
+| Syntax | Equivalent to |
+|--------|---------------|
+| `j.name` | `JSON_QUERY(j, 'lax $.name' WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)` |
+| `j."FooBar"` | `JSON_QUERY(j, 'lax $."FooBar"' …)` — delimited identifier, case-sensitive |
+| `j.'foo bar'` | same as the delimited form |
+| `j[3]` | `JSON_QUERY(j, 'lax $[3]' …)` — integer subscript |
+| `j[*]` | `JSON_QUERY(j, 'lax $[*]' …)` — array wildcard |
+| `j.*` (in `SELECT`) | `JSON_QUERY(j, 'lax $.*' …)` — member wildcard, produces one `VARCHAR` column |
+| `j.name.bigint()` | `JSON_VALUE(j, 'lax $.name' RETURNING BIGINT …)` — item method |
+| `j.payload.amount.decimal(18,2)` | `JSON_VALUE(j, 'lax $.payload.amount' RETURNING DECIMAL(18,2) …)` |
+
+Member, index, wildcard, and item-method steps compose freely:
+`j.rows[1].cells[*]`, `j.items[0].label`, `j.payload.*`, etc.
+
+### Case sensitivity
+
+Member-name identifiers are matched case-sensitively against the JSON keys
+they reference:
+
+* `j.Foo` matches the member literally named `Foo`.
+* `j."Foo"` and `j.'Foo'` are the same path — both quote the member name.
+
+This is different from regular SQL identifier handling, where `j.foo` and
+`j.FOO` refer to the same column. The JSON path language is case-sensitive,
+and the simplified accessor preserves the source case so JSON keys match
+exactly as written.
+
+Item-method names (`bigint`, `time`, `decimal`, …) are SQL identifiers and
+remain case-insensitive — `j.x.BIGINT()`, `j.x.Bigint()`, and `j.x.bigint()`
+all resolve to the same item method.
+
+### Item methods
+
+Item methods cover the same set of casts that `json_value`'s `RETURNING`
+clause does. The supported names and the type they return:
+
+| Method | Returns |
+|--------|---------|
+| `bigint()` | `BIGINT` |
+| `boolean()` | `BOOLEAN` |
+| `date()` | `DATE` |
+| `decimal()` | `DECIMAL` (unparameterized) |
+| `decimal(p)` | `DECIMAL(p)` |
+| `decimal(p, s)` | `DECIMAL(p, s)` |
+| `integer()` | `INTEGER` |
+| `number()` | `DOUBLE` |
+| `string()` | `VARCHAR` |
+| `time()` | `TIME(3)` |
+| `time(p)` | `TIME(p)` |
+| `time_tz()` | `TIME(3) WITH TIME ZONE` |
+| `time_tz(p)` | `TIME(p) WITH TIME ZONE` |
+| `timestamp()` | `TIMESTAMP(3)` |
+| `timestamp(p)` | `TIMESTAMP(p)` |
+| `timestamp_tz()` | `TIMESTAMP(3) WITH TIME ZONE` |
+| `timestamp_tz(p)` | `TIMESTAMP(p) WITH TIME ZONE` |
+
+The `ON EMPTY` and `ON ERROR` clauses default to `NULL`.
+
+### Member wildcard in `SELECT`
+
+`SELECT j.*` is shorthand for `SELECT JSON_QUERY(j, 'lax $.*' …)`. It
+produces one `VARCHAR` output column whose value is a JSON array of the
+top-level members of `j`. An optional `AS (column_alias)` may supply the
+output column's name:
+
+```
+SELECT j.* AS (payload) FROM (VALUES (CAST('{"a":1,"b":2}' AS JSON))) AS t(j);
+```
+
+```text
+  payload
+-----------
+ [1,2]
+(1 row)
+```
+
+The same wildcard is also recognized inside subscripted chains in a value-
+expression position, where it expands the path under that prefix:
+`j.payload.*`, `j.items[*]`, `j.items[*].label`, etc.
+
+### Outer scope
+
+The receiver of the chain may reference a column from an outer scope, for
+correlated subqueries:
+
+```
+SELECT (SELECT o.j.foo)
+FROM (VALUES (CAST('{"foo":1}' AS JSON))) AS o(j);
+```
+
+An outer-scope receiver is supported for member access (`o.j.foo`),
+subscripts (`o.j.items[0]`), item methods on a subscripted chain
+(`o.j.items[0].bigint()`), and the member wildcard (`o.j.*`). Item methods
+applied directly to a dotted member chain without an intervening subscript —
+e.g. `o.j.foo.bigint()` — are not supported on outer-scope columns; query
+the column locally or insert an explicit `JSON_VALUE` call in those cases.
 
 (json-exists)=
 ## json_exists
