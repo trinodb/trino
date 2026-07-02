@@ -1224,6 +1224,36 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testOptimizeSingleFileWithDeletionVector()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_single_file_dv_",
+                "(x int) WITH (deletion_vectors_enabled = true)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + tableName + " WHERE x = 1", 1);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(1)
+                    .doesNotContainAnyElementsOf(initialFiles);
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2), (3)");
+        }
+    }
+
+    @Test
     public void testFileSizeHiddenColumn()
     {
         try (TestTable table = newTrinoTable("test_file_size_column", "(val VARCHAR)")) {
