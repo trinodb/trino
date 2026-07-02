@@ -52,6 +52,12 @@ public class ShortColumnAdapter
     }
 
     @Override
+    public void copyValues(short[] source, int sourceIndex, short[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
+    }
+
+    @Override
     public void decodeDictionaryIds(short[] values, int offset, int length, int[] ids, short[] dictionary)
     {
         for (int i = 0; i < length; i++) {

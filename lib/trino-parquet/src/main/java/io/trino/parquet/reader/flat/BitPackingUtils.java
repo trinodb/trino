@@ -14,6 +14,8 @@
 package io.trino.parquet.reader.flat;
 
 import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
+import static io.trino.spi.block.Bitmap.orPackedBits;
+import static io.trino.spi.block.Bitmap.set;
 
 public class BitPackingUtils
 {
@@ -50,6 +52,32 @@ public class BitPackingUtils
         values[offset + 7] = ((packedByte >>> 7) & 1) == 1;
 
         return Byte.SIZE - bitCount(packedByte);
+    }
+
+    /**
+     * @return number of set bits (non-nulls)
+     */
+    public static int unpack(long[] values, int offset, byte packedByte, int startBit, int endBit)
+    {
+        int nonNullCount = 0;
+        for (int i = 0; i < endBit - startBit; i++) {
+            if (((packedByte >>> (startBit + i)) & 1) != 0) {
+                set(values, 0, offset + i);
+                nonNullCount++;
+            }
+        }
+
+        return nonNullCount;
+    }
+
+    /**
+     * @return number of set bits (non-nulls)
+     */
+    public static int unpack(long[] values, int offset, byte packedByte)
+    {
+        orPackedBits(values, 0, offset, packedByte & 0xFF, Byte.SIZE);
+
+        return bitCount(packedByte);
     }
 
     public static void unpack(byte[] values, int offset, byte packedByte, int startBit, int endBit)

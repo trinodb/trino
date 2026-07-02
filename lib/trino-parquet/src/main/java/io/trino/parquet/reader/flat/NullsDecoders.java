@@ -23,17 +23,17 @@ import static io.trino.parquet.ParquetReaderUtils.readUleb128Int;
 import static io.trino.parquet.reader.flat.BitPackingUtils.bitCount;
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
 import static io.trino.parquet.reader.flat.VectorBitPackingUtils.vectorUnpackAndInvert8;
+import static io.trino.spi.block.Bitmap.orPackedBits;
+import static io.trino.spi.block.Bitmap.setBits;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-/**
- * The hybrid RLE/bit-packing encoding consists of multiple groups.
- * Each group is either encoded as RLE or bit-packed
- * <p>
- * For a primitive column, the definition level is always either 0 (null) or 1 (non-null).
- * Therefore, every value is decoded from a single bit and stored into a boolean array
- * which stores false for non-null and true for null.
- */
+/// The hybrid RLE/bit-packing encoding consists of multiple groups.
+/// Each group is either encoded as RLE or bit-packed.
+///
+/// For a primitive column, the definition level is always either 0 (null) or 1 (non-null). Bitmap decoding stores each
+/// value into a validity bitmap using the [io.trino.spi.block.Bitmap] encoding. Parquet stores set bits for non-null
+/// values, matching block validity bitmaps.
 public class NullsDecoders
 {
     private NullsDecoders() {}
@@ -87,9 +87,7 @@ public class NullsDecoders
                     int remainingBits = Byte.SIZE - bitPackedValueOffset;
                     int chunkSize = min(remainingBits, length);
                     int remainingPackedValue = (bitPackedValue & 0xFF) >>> bitPackedValueOffset;
-                    // In bitPackedValue 1's are nulls, so the number of non-nulls is
-                    // chunkSize - bitCount(remainingBits up to chunkSize)
-                    nonNullCount += chunkSize - bitCount((byte) (remainingPackedValue & ((1 << chunkSize) - 1)));
+                    nonNullCount += bitCount((byte) (remainingPackedValue & ((1 << chunkSize) - 1)));
                     valuesLeftInGroup -= chunkSize;
                     bitPackedValueOffset = (bitPackedValueOffset + chunkSize) % Byte.SIZE;
 
@@ -112,8 +110,7 @@ public class NullsDecoders
                         byte packedValue = input.readByte();
                         nonNullCount += bitCount((byte) (packedValue & ((1 << leftToRead) - 1)));
 
-                        // Inverting packedValue as readNext expects 1 for null
-                        bitPackedValue = (byte) ~packedValue;
+                        bitPackedValue = packedValue;
                         bitPackedValueOffset += leftToRead;
                     }
                     valuesLeftInGroup -= chunkSize;
@@ -170,7 +167,7 @@ public class NullsDecoders
                 else if (bitPackedValueOffset != 0) { // bit-packed - read remaining bits of current byte
                     int remainingBits = Byte.SIZE - bitPackedValueOffset;
                     int chunkSize = min(remainingBits, length);
-                    nonNullCount += unpack(values, offset, bitPackedValue, bitPackedValueOffset, bitPackedValueOffset + chunkSize);
+                    nonNullCount += unpack(values, offset, (byte) ~bitPackedValue, bitPackedValueOffset, bitPackedValueOffset + chunkSize);
                     valuesLeftInGroup -= chunkSize;
                     bitPackedValueOffset = (bitPackedValueOffset + chunkSize) % Byte.SIZE;
 
@@ -188,7 +185,70 @@ public class NullsDecoders
                         leftToRead -= Byte.SIZE;
                     }
                     if (leftToRead > 0) {
-                        bitPackedValue = (byte) ~input.readByte();
+                        bitPackedValue = input.readByte();
+                        nonNullCount += unpack(values, offset, (byte) ~bitPackedValue, 0, leftToRead);
+                        bitPackedValueOffset += leftToRead;
+                        offset += leftToRead;
+                    }
+                    valuesLeftInGroup -= chunkSize;
+                    length -= chunkSize;
+                }
+            }
+            return nonNullCount;
+        }
+
+        /**
+         * 'values' bitmap needs to be empty, i.e. contain only unset bits.
+         */
+        @Override
+        public int readNext(long[] values, int offset, int length)
+        {
+            int nonNullCount = 0;
+            while (length > 0) {
+                if (valuesLeftInGroup == 0) {
+                    readGroupHeader();
+                }
+
+                if (isRle) {
+                    int chunkSize = min(length, valuesLeftInGroup);
+                    // The contract of the method requires values bitmap to be empty, so action is required only for non-null values.
+                    if (!rleValue) {
+                        setBits(values, 0, offset, chunkSize);
+                    }
+                    nonNullCount += castToByteNegate(rleValue) * chunkSize;
+                    valuesLeftInGroup -= chunkSize;
+
+                    length -= chunkSize;
+                    offset += chunkSize;
+                }
+                else if (bitPackedValueOffset != 0) { // bit-packed - read remaining bits of current byte
+                    int remainingBits = Byte.SIZE - bitPackedValueOffset;
+                    int chunkSize = min(remainingBits, length);
+                    nonNullCount += unpack(values, offset, bitPackedValue, bitPackedValueOffset, bitPackedValueOffset + chunkSize);
+                    valuesLeftInGroup -= chunkSize;
+                    bitPackedValueOffset = (bitPackedValueOffset + chunkSize) % Byte.SIZE;
+
+                    offset += chunkSize;
+                    length -= chunkSize;
+                }
+                else { // bit-packed
+                    // At this point we have only full bytes to read and valuesLeft is a multiplication of 8
+                    int chunkSize = min(length, valuesLeftInGroup);
+                    int leftToRead = chunkSize;
+                    while (leftToRead >= Long.SIZE) {
+                        long packedValue = input.readLong();
+                        nonNullCount += Long.bitCount(packedValue);
+                        orPackedBits(values, 0, offset, packedValue, Long.SIZE);
+                        offset += Long.SIZE;
+                        leftToRead -= Long.SIZE;
+                    }
+                    while (leftToRead >= Byte.SIZE) {
+                        nonNullCount += unpack(values, offset, input.readByte());
+                        offset += Byte.SIZE;
+                        leftToRead -= Byte.SIZE;
+                    }
+                    if (leftToRead > 0) {
+                        bitPackedValue = input.readByte();
                         nonNullCount += unpack(values, offset, bitPackedValue, 0, leftToRead);
                         bitPackedValueOffset += leftToRead;
                         offset += leftToRead;
@@ -232,7 +292,7 @@ public class NullsDecoders
                 else if (bitPackedValueOffset != 0) { // bit-packed - read remaining bits of current byte
                     int remainingBits = Byte.SIZE - bitPackedValueOffset;
                     int chunkSize = min(remainingBits, length);
-                    nonNullCount += unpack(values, offset, bitPackedValue, bitPackedValueOffset, bitPackedValueOffset + chunkSize);
+                    nonNullCount += unpack(values, offset, (byte) ~bitPackedValue, bitPackedValueOffset, bitPackedValueOffset + chunkSize);
                     valuesLeftInGroup -= chunkSize;
                     bitPackedValueOffset = (bitPackedValueOffset + chunkSize) % Byte.SIZE;
 
@@ -256,7 +316,78 @@ public class NullsDecoders
                     input.skip(inputBytesRead);
 
                     if (leftToRead > 0) {
-                        bitPackedValue = (byte) ~input.readByte();
+                        bitPackedValue = input.readByte();
+                        nonNullCount += unpack(values, offset, (byte) ~bitPackedValue, 0, leftToRead);
+                        bitPackedValueOffset += leftToRead;
+                        offset += leftToRead;
+                    }
+                    valuesLeftInGroup -= chunkSize;
+                    length -= chunkSize;
+                }
+            }
+            return nonNullCount;
+        }
+
+        /**
+         * 'values' bitmap needs to be empty, i.e. contain only unset bits.
+         */
+        @Override
+        public int readNext(long[] values, int offset, int length)
+        {
+            int nonNullCount = 0;
+            while (length > 0) {
+                if (valuesLeftInGroup == 0) {
+                    readGroupHeader();
+                }
+
+                if (isRle) {
+                    int chunkSize = min(length, valuesLeftInGroup);
+                    // The contract of the method requires values bitmap to be empty, so action is required only for non-null values.
+                    if (!rleValue) {
+                        setBits(values, 0, offset, chunkSize);
+                    }
+                    nonNullCount += castToByteNegate(rleValue) * chunkSize;
+                    valuesLeftInGroup -= chunkSize;
+
+                    length -= chunkSize;
+                    offset += chunkSize;
+                }
+                else if (bitPackedValueOffset != 0) { // bit-packed - read remaining bits of current byte
+                    int remainingBits = Byte.SIZE - bitPackedValueOffset;
+                    int chunkSize = min(remainingBits, length);
+                    nonNullCount += unpack(values, offset, bitPackedValue, bitPackedValueOffset, bitPackedValueOffset + chunkSize);
+                    valuesLeftInGroup -= chunkSize;
+                    bitPackedValueOffset = (bitPackedValueOffset + chunkSize) % Byte.SIZE;
+
+                    offset += chunkSize;
+                    length -= chunkSize;
+                }
+                else { // bit-packed
+                    // At this point we have only full bytes to read and valuesLeft is a multiplication of 8
+                    int chunkSize = min(length, valuesLeftInGroup);
+                    int leftToRead = chunkSize;
+                    while (leftToRead >= Long.SIZE) {
+                        long value = input.readLong();
+                        nonNullCount += Long.bitCount(value);
+                        orPackedBits(values, 0, offset, value, Long.SIZE);
+                        offset += Long.SIZE;
+                        leftToRead -= Long.SIZE;
+                    }
+                    byte[] inputArray = input.getByteArray();
+                    int inputOffset = input.getByteArrayOffset();
+                    int inputBytesRead = 0;
+                    while (leftToRead >= Byte.SIZE) {
+                        byte value = inputArray[inputOffset + inputBytesRead];
+                        nonNullCount += bitCount(value);
+                        orPackedBits(values, 0, offset, value & 0xFF, Byte.SIZE);
+                        offset += Byte.SIZE;
+                        leftToRead -= Byte.SIZE;
+                        inputBytesRead++;
+                    }
+                    input.skip(inputBytesRead);
+
+                    if (leftToRead > 0) {
+                        bitPackedValue = input.readByte();
                         nonNullCount += unpack(values, offset, bitPackedValue, 0, leftToRead);
                         bitPackedValueOffset += leftToRead;
                         offset += leftToRead;

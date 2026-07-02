@@ -24,6 +24,8 @@ import java.util.Random;
 
 import static io.trino.parquet.reader.TestData.generateMixedData;
 import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.min;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -62,14 +64,12 @@ public class TestNullsDecoder
                 byte[] encoded = encode(values);
                 FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
                 decoder.init(Slices.wrappedBuffer(encoded));
-                boolean[] result = new boolean[N];
+                long[] result = new long[wordsForBits(N)];
                 int nonNullCount = 0;
                 for (int i = 0; i < N; i += batchSize) {
                     nonNullCount += decoder.readNext(result, i, min(batchSize, N - i));
                 }
-                // Parquet encodes whether value exists, Trino whether value is null
-                boolean[] byteResult = flip(result);
-                assertThat(byteResult).containsExactly(values);
+                assertThat(toBooleanArray(result, N)).containsExactly(values);
                 int expectedNonNull = nonNullCount(values);
                 assertThat(nonNullCount).isEqualTo(expectedNonNull);
             }
@@ -105,7 +105,7 @@ public class TestNullsDecoder
                 }
                 assertThat(nonNullCount).isEqualTo(nonNullCount(values, alreadyRead));
 
-                boolean[] result = new boolean[N - alreadyRead];
+                long[] result = new long[wordsForBits(N - alreadyRead)];
                 boolean[] expected = Arrays.copyOfRange(values, alreadyRead, values.length);
                 int offset = 0;
                 while (alreadyRead < N) {
@@ -114,9 +114,7 @@ public class TestNullsDecoder
                     alreadyRead += chunkSize;
                     offset += chunkSize;
                 }
-                // Parquet encodes whether value exists, Trino whether value is null
-                boolean[] byteResult = flip(result);
-                assertThat(byteResult).containsExactly(expected);
+                assertThat(toBooleanArray(result, expected.length)).containsExactly(expected);
 
                 assertThat(nonNullCount).isEqualTo(nonNullCount(values));
             }
@@ -167,11 +165,11 @@ public class TestNullsDecoder
         return encoder.toBytes().toByteArray();
     }
 
-    private static boolean[] flip(boolean[] values)
+    private static boolean[] toBooleanArray(long[] values, int length)
     {
-        boolean[] result = new boolean[values.length];
-        for (int i = 0; i < values.length; i++) {
-            result[i] = !values[i];
+        boolean[] result = new boolean[length];
+        for (int i = 0; i < length; i++) {
+            result[i] = isSet(values, 0, i);
         }
         return result;
     }

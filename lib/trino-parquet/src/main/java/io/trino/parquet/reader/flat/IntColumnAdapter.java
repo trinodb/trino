@@ -52,6 +52,12 @@ public class IntColumnAdapter
     }
 
     @Override
+    public void copyValues(int[] source, int sourceIndex, int[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
+    }
+
+    @Override
     public void decodeDictionaryIds(int[] values, int offset, int length, int[] ids, int[] dictionary)
     {
         for (int i = 0; i < length; i++) {
