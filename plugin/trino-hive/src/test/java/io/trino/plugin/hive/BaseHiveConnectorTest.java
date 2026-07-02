@@ -155,7 +155,6 @@ import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
 import static io.trino.plugin.hive.HiveStorageFormat.ESRI;
 import static io.trino.plugin.hive.HiveStorageFormat.ESRI_GEO_JSON;
-import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE_PROTOBUF;
@@ -5183,10 +5182,14 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDropColumnHiveSpecific()
     {
-        // Additional tests for hive partition columns invariants
+        // Additional tests for hive partition columns invariants. Uses PARQUET because the connector's
+        // default format (ORC) has a SerDe that is not in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES; this
+        // test's later assertions (partition column, only-non-partition column) need the DROP to reach
+        // those checks rather than being short-circuited by the SerDe guard.
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_drop_column\n" +
                 "WITH (\n" +
+                "  format = 'PARQUET',\n" +
                 "  partitioned_by = ARRAY ['orderstatus']\n" +
                 ")\n" +
                 "AS\n" +
@@ -5205,16 +5208,52 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testDropColumnUnsupportedSerdeFormats()
+    {
+        // Formats whose SerDe is NOT in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES — every iteration
+        // must reject ALTER TABLE ... DROP COLUMN. ADD COLUMN is asserted to still work, since the
+        // guard is narrowly scoped to DROP (a future regression that adds a SerDe guard to addColumn
+        // will turn the ADD assertion red here).
+        // Columns are VARCHAR-only so the same CREATE template works for CSV (which only supports VARCHAR).
+        List<HiveStorageFormat> unsupportedFormats = ImmutableList.of(
+                HiveStorageFormat.ORC,
+                HiveStorageFormat.AVRO,
+                HiveStorageFormat.JSON,
+                HiveStorageFormat.RCBINARY,
+                HiveStorageFormat.CSV,
+                HiveStorageFormat.OPENX_JSON);
+        for (HiveStorageFormat format : unsupportedFormats) {
+            String tableName = "test_drop_col_unsupported_" + format.name().toLowerCase(Locale.ROOT) + "_" + randomNameSuffix();
+            assertUpdate(format("CREATE TABLE %s (a VARCHAR, b VARCHAR) WITH (format = '%s')", tableName, format));
+            try {
+                // ADD COLUMN must still succeed — guard is DROP-only.
+                assertUpdate(format("ALTER TABLE %s ADD COLUMN c VARCHAR", tableName));
+                assertQueryFails(
+                        format("ALTER TABLE %s DROP COLUMN b", tableName),
+                        "Dropping columns is not supported by table SerDe:.*");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    @Test
     @Override
     public void testDropAndAddColumnWithSameName()
     {
-        // Override because Hive connector can access old data after dropping and adding a column with same name
-        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
-                .hasMessageContaining(
-                        """
-                        Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
-                            [1, 2]\
-                        """);
+        // Override because the Hive connector can access old data after dropping and adding a column
+        // with the same name. Uses Parquet explicitly because Orc doesn't support dropping columns.
+        // Inlines the parent test rather than delegating to super, because super creates a table without a format.
+        try (TestTable table = newTrinoTable("test_drop_add_column", "WITH (format = 'PARQUET') AS SELECT 1 x, 2 y, 3 z")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            // Old 'y' data (=2) is still visible after ADD COLUMN with the same name, rather than the
+            // expected NULL — the Hive-specific quirk this override documents.
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
+        }
     }
 
     @Test
@@ -5674,6 +5713,11 @@ public abstract class BaseHiveConnectorTest
 
     private void testSchemaMismatchesWithDereferenceProjections(Session session, HiveStorageFormat format)
     {
+        // The schema-mismatch scenarios below all require DROP COLUMN followed by ADD COLUMN to set up
+        // the mismatch; skip formats whose SerDe is not in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES.
+        if (!dropColumnSupported(format)) {
+            return;
+        }
         // Verify reordering of subfields between a partition column and a table column is not supported
         // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
         String tableName = "evolve_test_" + randomNameSuffix();
@@ -5722,11 +5766,10 @@ public abstract class BaseHiveConnectorTest
     {
         testWithAllStorageFormats(this::testReadWithPartitionSchemaMismatch);
 
-        // test ORC in non-default configuration with by-name column mapping
-        Session orcUsingColumnNames = Session.builder(getSession())
-                .setCatalogSessionProperty(catalog, "orc_use_column_names", "true")
-                .build();
-        testWithStorageFormat(new TestingHiveStorageFormat(orcUsingColumnNames, ORC), this::testReadWithPartitionSchemaMismatchByName);
+        // The previous "ORC in non-default by-name configuration" coverage was removed when the
+        // DROP COLUMN allowlist landed: ORC's SerDe (OrcSerde) is not in
+        // HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES, so the by-name helper's DROP COLUMN step
+        // would always fail. testDropColumnUnsupportedSerdeFormats now asserts that rejection.
 
         // test PARQUET in non-default configuration with by-index column mapping
         Session parquetUsingColumnIndex = Session.builder(getSession())
@@ -5737,7 +5780,10 @@ public abstract class BaseHiveConnectorTest
 
     private void testReadWithPartitionSchemaMismatch(Session session, HiveStorageFormat format)
     {
-        if (isMappingByName(format)) {
+        // testReadWithPartitionSchemaMismatchByName runs DROP COLUMN; route formats whose SerDe is
+        // not in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES through the index-based helper instead,
+        // which only exercises ADD COLUMN semantics.
+        if (isMappingByName(format) && dropColumnSupported(format)) {
             testReadWithPartitionSchemaMismatchByName(session, format);
         }
         else {
@@ -5763,6 +5809,11 @@ public abstract class BaseHiveConnectorTest
             case ESRI -> true;
             case ESRI_GEO_JSON -> true;
         };
+    }
+
+    private static boolean dropColumnSupported(HiveStorageFormat format)
+    {
+        return HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES.contains(format.getSerde());
     }
 
     private void testReadWithPartitionSchemaMismatchByName(Session session, HiveStorageFormat format)
@@ -5814,8 +5865,11 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testSubfieldReordering()
     {
-        // Validate for formats for which subfield access is name based
-        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
+        // Validate for formats for which subfield access is name based. ORC and AVRO were previously
+        // covered here but were removed when the DROP COLUMN allowlist landed: their SerDes are not in
+        // HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES, and this test's body relies on DROP COLUMN + ADD COLUMN
+        // to set up the subfield reorder. testDropColumnUnsupportedSerdeFormats asserts that rejection.
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.PARQUET);
         String tableName = "evolve_test_" + randomNameSuffix();
 
         for (HiveStorageFormat format : formats) {
@@ -9224,13 +9278,11 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUseColumnAddDrop()
     {
-        testUseColumnAddDrop(HiveStorageFormat.ORC, true);
-        testUseColumnAddDrop(HiveStorageFormat.ORC, false);
+        // Only formats whose SerDe is in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES are exercised here.
+        // ORC, AVRO, JSON, and RCBINARY were previously covered but were removed when the allowlist landed;
+        // testDropColumnUnsupportedSerdeFormats now asserts the rejection for those formats.
         testUseColumnAddDrop(HiveStorageFormat.PARQUET, true);
         testUseColumnAddDrop(HiveStorageFormat.PARQUET, false);
-        testUseColumnAddDrop(HiveStorageFormat.AVRO, false);
-        testUseColumnAddDrop(HiveStorageFormat.JSON, false);
-        testUseColumnAddDrop(HiveStorageFormat.RCBINARY, false);
         testUseColumnAddDrop(HiveStorageFormat.RCTEXT, false);
         testUseColumnAddDrop(HiveStorageFormat.SEQUENCEFILE, false);
         testUseColumnAddDrop(HiveStorageFormat.TEXTFILE, false);
