@@ -17,9 +17,11 @@ module trino.spi {
     requires transitive io.opentelemetry.api;
     requires jakarta.annotation;
     requires transitive slice;
+    requires transitive org.airlift.units;
     requires jdk.incubator.vector;
 
     exports io.trino.spi;
+    exports io.trino.spi.admission;
     exports io.trino.spi.block;
     exports io.trino.spi.catalog;
     exports io.trino.spi.classloader;

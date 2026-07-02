@@ -38,6 +38,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
+import io.trino.spi.admission.AdmissionPolicy;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.tree.Statement;
@@ -66,6 +67,7 @@ public class LocalDispatchQueryFactory
     private final LocationFactory locationFactory;
 
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final AdmissionPolicy admissionPolicy;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
@@ -90,6 +92,7 @@ public class LocalDispatchQueryFactory
             WarningCollectorFactory warningCollectorFactory,
             ExchangeMetricsCollector exchangeMetricsCollector,
             ClusterSizeMonitor clusterSizeMonitor,
+            AdmissionPolicy admissionPolicy,
             DispatchExecutor dispatchExecutor,
             FeaturesConfig featuresConfig,
             NodeVersion version)
@@ -105,6 +108,7 @@ public class LocalDispatchQueryFactory
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.admissionPolicy = requireNonNull(admissionPolicy, "admissionPolicy is null");
         this.executor = dispatchExecutor.getExecutor();
         this.maxStateMachineThreadsPerQuery = queryManagerConfig.getMaxStateMachineCallbackThreads();
         this.queryReportedRuleStatsLimit = queryManagerConfig.getQueryReportedRuleStatsLimit();
@@ -186,6 +190,7 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 queryMonitor,
                 clusterSizeMonitor,
+                admissionPolicy,
                 executor,
                 queryManager::createQuery);
     }

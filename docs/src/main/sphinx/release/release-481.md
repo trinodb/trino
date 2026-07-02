@@ -140,6 +140,10 @@
 
 ## SPI
 
+* Add a pluggable admission policy SPI (`io.trino.spi.admission.AdmissionPolicy`)
+  that lets plugins decide whether a query should wait for cluster capacity
+  before dispatch. The default `min-workers` policy preserves existing behavior.
+  See [](/develop/admission-policy).
 * Add `variant` type defined by the Iceberg specification. ({issue}`24538`)
 * Add a `tableBranch` parameter to the `ConnectorAccessControl.checkCanXxx` table-level methods. ({issue}`29179`)
 * Add support for pushing down `COALESCE` expressions in connectors. ({issue}`28984`)
