@@ -28,8 +28,11 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.InOut;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
@@ -41,6 +44,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -258,6 +262,87 @@ public class TestStateCompiler
         assertThat(singleState.getEstimatedSize())
                 .isEqualTo(instanceSize(singleState.getClass()))
                 .isEqualTo(24);
+    }
+
+    @Test
+    public void testInOutSingleStateAccountsForRetainedObjectValueMemory()
+    {
+        // VARCHAR (Slice) and a nested row (Block/SqlRow) keep a reference into the source block; the single
+        // state must account for the retained size of the stored value, which is not part of the instance size.
+        BlockBuilder varcharBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeSlice(varcharBuilder, utf8Slice("x".repeat(1024)));
+        assertThat(assertInOutSingleStateAccountsForValue(VARCHAR, varcharBuilder.build())).isGreaterThan(1024);
+
+        RowType rowType = RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR);
+        BlockBuilder rowBuilder = rowType.createBlockBuilder(null, 1);
+        rowType.writeObject(rowBuilder, sqlRowOf(rowType, "x".repeat(1024), 777, "y".repeat(1024)));
+        assertThat(assertInOutSingleStateAccountsForValue(rowType, rowBuilder.build())).isGreaterThan(2048);
+
+        // DECIMAL(38) is backed by the self-contained Int128 value object: it retains nothing beyond itself,
+        // so the state charges its flat instance size rather than an inflated single-value block size.
+        DecimalType decimalType = createDecimalType(38);
+        BlockBuilder decimalBuilder = decimalType.createBlockBuilder(null, 1);
+        decimalType.writeObject(decimalBuilder, Int128.valueOf(1234567890123456789L, 987654321L));
+        assertThat(assertInOutSingleStateAccountsForValue(decimalType, decimalBuilder.build())).isEqualTo(Int128.INSTANCE_SIZE);
+    }
+
+    private static long assertInOutSingleStateAccountsForValue(Type type, Block valueBlock)
+    {
+        AccumulatorStateFactory<InOut> factory = StateCompiler.generateInOutStateFactory(type);
+        InOut single = factory.createSingleState();
+        long emptySingle = single.getEstimatedSize();
+        single.set(valueBlock, 0);
+        long perValue = single.getEstimatedSize() - emptySingle;
+        assertThat(perValue).isPositive();
+
+        // The stored value round-trips through the output path.
+        BlockBuilder out = type.createBlockBuilder(null, 1);
+        single.get(out);
+        Block outBlock = out.build();
+        assertThat(outBlock.isNull(0)).isFalse();
+        assertThat(type.getObjectValue(outBlock, 0)).isEqualTo(type.getObjectValue(valueBlock, 0));
+
+        // Setting back to null releases the accounted bytes.
+        BlockBuilder nullBuilder = type.createBlockBuilder(null, 1);
+        nullBuilder.appendNull();
+        single.set(nullBuilder.build(), 0);
+        assertThat(single.getEstimatedSize()).isEqualTo(emptySingle);
+        return perValue;
+    }
+
+    @Test
+    public void testInOutStateCompactsSelectedValueInsteadOfRetainingSourcePage()
+    {
+        // A wide source page: many positions sharing backing arrays. Storing one position must not pin the whole page.
+        int positions = 1000;
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, positions);
+        for (int i = 0; i < positions; i++) {
+            VARCHAR.writeSlice(builder, utf8Slice("x".repeat(1024)));
+        }
+        Block sourcePage = builder.build();
+        long sourceRetained = sourcePage.getRetainedSizeInBytes();
+        // The state charges the retained size of the compacted stored value, far smaller than the whole source page.
+        long perValue = VARCHAR.getSlice(sourcePage.getSingleValueBlock(7), 0).getRetainedSize();
+        assertThat(perValue).isLessThan(sourceRetained / 100);
+
+        AccumulatorStateFactory<InOut> factory = StateCompiler.generateInOutStateFactory(VARCHAR);
+
+        // Single state: accounts for one compacted value, not the source page it was selected from.
+        InOut single = factory.createSingleState();
+        long emptySingle = single.getEstimatedSize();
+        single.set(sourcePage, 7);
+        assertThat(single.getEstimatedSize() - emptySingle)
+                .isEqualTo(perValue)
+                .isLessThan(sourceRetained / 100);
+
+        // Grouped state (specialized BigArray) likewise charges only the compacted value, not the source page.
+        InOut groupedInOut = factory.createGroupedState();
+        GroupedAccumulatorState grouped = (GroupedAccumulatorState) groupedInOut;
+        grouped.ensureCapacity(1);
+        long emptyGrouped = groupedInOut.getEstimatedSize();
+        grouped.setGroupId(0);
+        groupedInOut.set(sourcePage, 7);
+        assertThat(groupedInOut.getEstimatedSize() - emptyGrouped).isLessThan(sourceRetained / 100);
     }
 
     @Test
