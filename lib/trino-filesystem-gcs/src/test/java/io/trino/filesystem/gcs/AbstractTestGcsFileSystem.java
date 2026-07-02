@@ -55,6 +55,12 @@ public abstract class AbstractTestGcsFileSystem
     protected void initialize(String gcpCredentialKey)
             throws IOException
     {
+        initialize(gcpCredentialKey, new GcsFileSystemConfig());
+    }
+
+    protected void initialize(String gcpCredentialKey, GcsFileSystemConfig config)
+            throws IOException
+    {
         // Note: the account needs the following permissions:
         // create/get/delete bucket
         // create/get/list/delete blob
@@ -132,6 +138,11 @@ public abstract class AbstractTestGcsFileSystem
     protected Location getRootLocation()
     {
         return rootLocation;
+    }
+
+    protected Storage getStorage()
+    {
+        return storage;
     }
 
     @Override
