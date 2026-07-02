@@ -176,6 +176,7 @@ public final class QueryUtil
                 ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty()));
     }
 
@@ -235,6 +236,7 @@ public final class QueryUtil
                 groupBy,
                 having,
                 windows,
+                Optional.empty(),
                 orderBy,
                 offset,
                 limit));
