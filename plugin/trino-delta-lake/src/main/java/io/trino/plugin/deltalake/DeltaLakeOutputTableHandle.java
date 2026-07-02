@@ -14,12 +14,14 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -44,9 +46,47 @@ public record DeltaLakeOutputTableHandle(
         boolean replace,
         Optional<List<DeltaLakeColumnHandle>> existingColumns,
         OptionalLong readVersion,
-        ProtocolEntry protocolEntry)
+        ProtocolEntry protocolEntry,
+        Map<String, String> extraProperties)
         implements ConnectorOutputTableHandle
 {
+    public DeltaLakeOutputTableHandle(
+            String schemaName,
+            String tableName,
+            List<DeltaLakeColumnHandle> inputColumns,
+            String location,
+            Optional<Long> checkpointInterval,
+            boolean external,
+            Optional<String> comment,
+            Optional<Boolean> changeDataFeedEnabled,
+            boolean deletionVectorsEnabled,
+            String schemaString,
+            ColumnMappingMode columnMappingMode,
+            OptionalInt maxColumnId,
+            boolean replace,
+            Optional<List<DeltaLakeColumnHandle>> existingColumns,
+            OptionalLong readVersion,
+            ProtocolEntry protocolEntry)
+    {
+        this(schemaName,
+                tableName,
+                inputColumns,
+                location,
+                checkpointInterval,
+                external,
+                comment,
+                changeDataFeedEnabled,
+                deletionVectorsEnabled,
+                schemaString,
+                columnMappingMode,
+                maxColumnId,
+                replace,
+                existingColumns,
+                readVersion,
+                protocolEntry,
+                ImmutableMap.of());
+    }
+
     public DeltaLakeOutputTableHandle
     {
         requireNonNull(schemaName, "schemaName is null");
@@ -62,6 +102,7 @@ public record DeltaLakeOutputTableHandle(
         requireNonNull(existingColumns, "existingColumns is null");
         requireNonNull(readVersion, "readVersion is null");
         requireNonNull(protocolEntry, "protocolEntry is null");
+        extraProperties = ImmutableMap.copyOf(requireNonNull(extraProperties, "extraProperties is null"));
     }
 
     public List<String> partitionedBy()

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -33,6 +34,8 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeConfig
 {
@@ -76,7 +79,8 @@ public class TestDeltaLakeConfig
                 .setDeltaLogFileSystemCacheDisabled(false)
                 .setMetadataParallelism(8)
                 .setCheckpointProcessingParallelism(4)
-                .setLoadMetadataFromChecksumFile(true));
+                .setLoadMetadataFromChecksumFile(true)
+                .setAllowedExtraProperties(ImmutableList.of()));
     }
 
     @Test
@@ -120,6 +124,7 @@ public class TestDeltaLakeConfig
                 .put("delta.metadata.parallelism", "10")
                 .put("delta.checkpoint-processing.parallelism", "8")
                 .put("delta.load-metadata-from-checksum-file", "false")
+                .put("delta.allowed-extra-properties", "propX,propY")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -159,8 +164,21 @@ public class TestDeltaLakeConfig
                 .setDeltaLogFileSystemCacheDisabled(true)
                 .setMetadataParallelism(10)
                 .setCheckpointProcessingParallelism(8)
-                .setLoadMetadataFromChecksumFile(false);
+                .setLoadMetadataFromChecksumFile(false)
+                .setAllowedExtraProperties(ImmutableList.of("propX", "propY"));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testAllowedExtraPropertiesWildcard()
+    {
+        new DeltaLakeConfig().setAllowedExtraProperties(ImmutableList.of("*"));
+
+        DeltaLakeConfig config = new DeltaLakeConfig().setAllowedExtraProperties(ImmutableList.of("property"));
+        assertThatThrownBy(() -> config.setAllowedExtraProperties(ImmutableList.of("*", "property")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Wildcard * should be the only element in the list");
+        assertThat(config.getAllowedExtraProperties()).containsExactly("property");
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigHidden;
@@ -31,10 +32,12 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTimeZone;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -96,6 +99,7 @@ public class DeltaLakeConfig
     private int metadataParallelism = 8;
     private int checkpointProcessingParallelism = 4;
     private boolean loadMetadataFromChecksumFile = true;
+    private List<String> allowedExtraProperties = ImmutableList.of();
 
     public Duration getMetadataCacheTtl()
     {
@@ -599,6 +603,21 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setLoadMetadataFromChecksumFile(boolean loadMetadataFromChecksumFile)
     {
         this.loadMetadataFromChecksumFile = loadMetadataFromChecksumFile;
+        return this;
+    }
+
+    public List<String> getAllowedExtraProperties()
+    {
+        return allowedExtraProperties;
+    }
+
+    @Config("delta.allowed-extra-properties")
+    @ConfigDescription("List of extra properties that are allowed to be set on Delta Lake tables")
+    public DeltaLakeConfig setAllowedExtraProperties(List<String> allowedExtraProperties)
+    {
+        checkArgument(!allowedExtraProperties.contains("*") || allowedExtraProperties.size() == 1,
+                "Wildcard * should be the only element in the list");
+        this.allowedExtraProperties = ImmutableList.copyOf(allowedExtraProperties);
         return this;
     }
 }
