@@ -31,6 +31,7 @@ import org.apache.ignite.IgniteJdbcThinDriver;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class IgniteClientModule
@@ -43,7 +44,7 @@ public class IgniteClientModule
         newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(IgniteJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(IgniteJdbcConfig.class);
         bindTablePropertiesProvider(binder, IgniteTableProperties.class);
-        binder.install(new DecimalModule());
+        binder.install(DecimalModule.withNumberMapping(ON_BY_DEFAULT));
     }
 
     @Provides

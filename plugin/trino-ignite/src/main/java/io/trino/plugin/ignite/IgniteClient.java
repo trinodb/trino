@@ -91,7 +91,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.ignite.IgniteTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.jdbc.ColumnMapping.longMapping;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -107,6 +106,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
@@ -118,6 +118,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -230,23 +232,36 @@ public class IgniteClient
             case Types.FLOAT -> Optional.of(realColumnMapping());
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
             case Types.DECIMAL -> {
-                int decimalDigits = typeHandle.requiredDecimalDigits();
-                int precision = typeHandle.requiredColumnSize();
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = min(decimalDigits, getDecimalDefaultScale(session));
-                    yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                int scale = typeHandle.requiredDecimalDigits();
+                // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                // Map decimal(p, s) with s>p, to decimal(s, s).
+                int precision = max(typeHandle.requiredColumnSize() + max(-scale, 0), scale);
+                scale = max(scale, 0);
+                if (precision <= Decimals.MAX_PRECISION) {
+                    yield Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
                 }
-                precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    yield Optional.empty();
-                }
-                yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                yield switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> Optional.of(numberColumnMapping());
+                    case STRICT -> unsupportedTypeMapping(session, typeHandle);
+                    case ALLOW_OVERFLOW -> {
+                        int overflowScale = min(scale, getDecimalDefaultScale(session));
+                        yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, overflowScale), getDecimalRoundingMode(session)));
+                    }
+                };
             }
             case Types.VARCHAR -> Optional.of(varcharColumnMapping(typeHandle.columnSize()));
             case Types.DATE -> Optional.of(longMapping(DATE, dateReadFunction(), dateWriteFunction()));
             case Types.BINARY -> Optional.of(varbinaryColumnMapping());
             default -> Optional.empty();
         };
+    }
+
+    private Optional<ColumnMapping> unsupportedTypeMapping(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+        return Optional.empty();
     }
 
     @Override
