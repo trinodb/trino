@@ -73,7 +73,7 @@ public class TestDeleteAndInsertMergeProcessor
         };
         Page inputPage = new Page(
                 RowBlock.fromNotNullSuppressedFieldBlocks(2, Optional.empty(), rowIdBlocks),
-                RowBlock.fromNotNullSuppressedFieldBlocks(2, Optional.of(new boolean[] {true, false}), mergeCaseBlocks));
+                RowBlock.fromNotNullSuppressedFieldBlocks(2, Optional.of(new long[] {0b10}), mergeCaseBlocks));
 
         Page outputPage = processor.transformPage(inputPage);
         assertThat(outputPage.getPositionCount()).isEqualTo(1);
@@ -102,11 +102,10 @@ public class TestDeleteAndInsertMergeProcessor
         //           THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
         // expected: ('Aaron', 17, 'Arches/Arches'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire/Darbyshire'), ('Ed', 14, 'Etherville/Etherville'), ('Fred', 30, 'Franklin')
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
-        boolean[] rowIdNulls = {false, true, false, false, false};
         long[] rowIdValidity = {0b11101};
         Page inputPage = makePageFromBlocks(
                 5,
-                Optional.of(rowIdNulls),
+                Optional.of(rowIdValidity),
                 new Block[] {
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {2, 0, 1, 2, 2}), // TransactionId
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {0, 0, 3, 1, 2}), // rowId
@@ -160,11 +159,10 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
           Expected row count to be <5>, but was <7>; rows=[[Bill, 7, Buena], [Dave, 11, Devon], [Aaron, 11, Arches], [Aaron, 17, Arches/Arches], [Carol, 9, Centreville], [Dave, 22, Darbyshire/Darbyshire], [Ed, 14, Etherville/Etherville]]
          */
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
-        boolean[] rowIdNulls = {false, true, false, false, false};
         long[] rowIdValidity = {0b11101};
         Page inputPage = makePageFromBlocks(
                 5,
-                Optional.of(rowIdNulls),
+                Optional.of(rowIdValidity),
                 new Block[] {
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {2, 0, 1, 2, 2}), // TransactionId
                         new LongArrayBlock(5, Optional.of(rowIdValidity), new long[] {0, 0, 3, 1, 2}), // rowId
@@ -192,10 +190,10 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
         assertThat(getString(outputPage.getBlock(2), 1)).isEqualTo("Arches/Arches");
     }
 
-    private static Page makePageFromBlocks(int positionCount, Optional<boolean[]> rowIdNulls, Block[] rowIdBlocks, Block[] mergeCaseBlocks)
+    private static Page makePageFromBlocks(int positionCount, Optional<long[]> rowIdValidity, Block[] rowIdBlocks, Block[] mergeCaseBlocks)
     {
         Block[] pageBlocks = {
-                RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIdNulls, rowIdBlocks),
+                RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIdValidity, rowIdBlocks),
                 RowBlock.fromFieldBlocks(positionCount, mergeCaseBlocks),
         };
         return new Page(pageBlocks);

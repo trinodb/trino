@@ -64,7 +64,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -581,56 +580,11 @@ public class TestColumnarFilters
 
     public enum NullsProvider
     {
-        NO_NULLS {
-            @Override
-            Optional<boolean[]> getNulls(int positionCount)
-            {
-                return Optional.empty();
-            }
-        },
-        NO_NULLS_WITH_MAY_HAVE_NULL {
-            @Override
-            Optional<boolean[]> getNulls(int positionCount)
-            {
-                return Optional.of(new boolean[positionCount]);
-            }
-        },
-        ALL_NULLS {
-            @Override
-            Optional<boolean[]> getNulls(int positionCount)
-            {
-                boolean[] nulls = new boolean[positionCount];
-                Arrays.fill(nulls, true);
-                return Optional.of(nulls);
-            }
-        },
-        RANDOM_NULLS {
-            @Override
-            Optional<boolean[]> getNulls(int positionCount)
-            {
-                boolean[] nulls = new boolean[positionCount];
-                for (int i = 0; i < positionCount; i++) {
-                    nulls[i] = RANDOM.nextBoolean();
-                }
-                return Optional.of(nulls);
-            }
-        },
-        GROUPED_NULLS {
-            @Override
-            Optional<boolean[]> getNulls(int positionCount)
-            {
-                boolean[] nulls = new boolean[positionCount];
-                int maxGroupSize = 23;
-                int position = 0;
-                while (position < positionCount) {
-                    int remaining = positionCount - position;
-                    int groupSize = Math.min(RANDOM.nextInt(maxGroupSize) + 1, remaining);
-                    Arrays.fill(nulls, position, position + groupSize, RANDOM.nextBoolean());
-                    position += groupSize;
-                }
-                return Optional.of(nulls);
-            }
-        };
+        NO_NULLS,
+        NO_NULLS_WITH_MAY_HAVE_NULL,
+        ALL_NULLS,
+        RANDOM_NULLS,
+        GROUPED_NULLS;
 
         Optional<long[]> getValidityWords(int positionCount)
         {
@@ -674,8 +628,6 @@ public class TestColumnarFilters
             }
             return Optional.of(validity);
         }
-
-        abstract Optional<boolean[]> getNulls(int positionCount);
     }
 
     private static Object[][] inputProviders()
@@ -832,11 +784,11 @@ public class TestColumnarFilters
             return createDictionaryBlock(positionsCount, nullsProvider, builder.build());
         }
 
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
-        assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
+        Optional<long[]> validity = nullsProvider.getValidityWords(positionsCount);
+        assertThat(validity.isEmpty() || validity.get().length == wordsForBits(positionsCount)).isTrue();
         VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, positionsCount, positionsCount * 10);
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isPresent() && isNull.get()[i]) {
+            if (validity.isPresent() && !isSet(validity.get(), 0, i)) {
                 builder.appendNull();
             }
             else {
@@ -849,10 +801,10 @@ public class TestColumnarFilters
     private static Block createArraysBlock(int positionsCount, NullsProvider nullsProvider)
     {
         ArrayBlockBuilder builder = new ArrayBlockBuilder(INTEGER, null, positionsCount);
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
-        assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
+        Optional<long[]> validity = nullsProvider.getValidityWords(positionsCount);
+        assertThat(validity.isEmpty() || validity.get().length == wordsForBits(positionsCount)).isTrue();
         for (int position = 0; position < positionsCount; position++) {
-            if (isNull.isPresent() && isNull.get()[position]) {
+            if (validity.isPresent() && !isSet(validity.get(), 0, position)) {
                 builder.appendNull();
             }
             else {
@@ -873,14 +825,14 @@ public class TestColumnarFilters
 
     private static Block createDictionaryBlock(int positionsCount, NullsProvider nullsProvider, Block dictionary)
     {
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
-        assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
+        Optional<long[]> validity = nullsProvider.getValidityWords(positionsCount);
+        assertThat(validity.isEmpty() || validity.get().length == wordsForBits(positionsCount)).isTrue();
         boolean containsNulls = nullsProvider != NullsProvider.NO_NULLS && nullsProvider != NullsProvider.NO_NULLS_WITH_MAY_HAVE_NULL;
         int dictionarySize = dictionary.getPositionCount();
         int nonNullDictionarySize = dictionarySize - (containsNulls ? 1 : 0);
         int[] ids = new int[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isPresent() && isNull.get()[i]) {
+            if (validity.isPresent() && !isSet(validity.get(), 0, i)) {
                 ids[i] = dictionarySize - 1;
             }
             else {

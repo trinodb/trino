@@ -39,6 +39,8 @@ import static io.trino.plugin.hive.TestHivePageSourceProvider.RowData.rowData;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,7 +108,8 @@ class TestHivePageSourceProvider
     {
         int positionCount = data.size();
 
-        boolean[] isNull = new boolean[positionCount];
+        long[] valueIsValid = new long[wordsForBits(positionCount)];
+        boolean foundNull = false;
         int fieldCount = rowType.getFields().size();
 
         List<List<Object>> fieldsData = new ArrayList<>();
@@ -118,12 +121,13 @@ class TestHivePageSourceProvider
         for (int position = 0; position < data.size(); position++) {
             RowData row = (RowData) data.get(position);
             if (row == null) {
-                isNull[position] = true;
+                foundNull = true;
                 for (int field = 0; field < fieldCount; field++) {
                     fieldsData.get(field).add(null);
                 }
             }
             else {
+                set(valueIsValid, 0, position);
                 for (int field = 0; field < fieldCount; field++) {
                     fieldsData.get(field).add(row.getField(field));
                 }
@@ -135,7 +139,7 @@ class TestHivePageSourceProvider
             fieldBlocks[field] = createInputBlock(fieldsData.get(field), rowType.getFields().get(field).getType());
         }
 
-        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.of(isNull), fieldBlocks);
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, foundNull ? Optional.of(valueIsValid) : Optional.empty(), fieldBlocks);
     }
 
     private static Block createLongArrayBlock(List<Object> data)

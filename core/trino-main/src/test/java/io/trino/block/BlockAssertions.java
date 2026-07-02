@@ -260,7 +260,7 @@ public final class BlockAssertions
                 }
             }
 
-            return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
+            return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, toValidity(isNull), fieldBlocks);
         }
 
         throw new IllegalArgumentException(format("type %s is not supported.", type));

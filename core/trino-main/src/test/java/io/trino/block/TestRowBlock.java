@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.block.BlockAssertions.toValidityArray;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -69,17 +70,17 @@ public class TestRowBlock
     {
         // Blocks does not discard the null mask during creation if no values are null
         boolean[] rowIsNull = new boolean[5];
-        assertThat(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowIsNull), new Block[] {
+        assertThat(fromNotNullSuppressedFieldBlocks(5, Optional.of(toValidityArray(rowIsNull)), new Block[] {
                 new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes()),
         }).mayHaveNull()).isTrue();
         rowIsNull[rowIsNull.length - 1] = true;
         long[] rowValidity = {0b01111};
-        assertThat(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowIsNull), new Block[] {
+        assertThat(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowValidity), new Block[] {
                 new ByteArrayBlock(5, Optional.of(rowValidity), createExpectedValue(5).getBytes()),
         }).mayHaveNull()).isTrue();
 
         // Empty blocks have no nulls and can also discard their null mask
-        assertThat(fromNotNullSuppressedFieldBlocks(0, Optional.of(new boolean[0]), new Block[] {new ByteArrayBlock(0, Optional.empty(), new byte[0])}).mayHaveNull()).isFalse();
+        assertThat(fromNotNullSuppressedFieldBlocks(0, Optional.of(new long[0]), new Block[] {new ByteArrayBlock(0, Optional.empty(), new byte[0])}).mayHaveNull()).isFalse();
 
         // Normal blocks should have null masks preserved
         List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
@@ -102,12 +103,11 @@ public class TestRowBlock
     public void testCompactBlock()
     {
         Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
-        boolean[] rowIsNull = {false, true, false, false, false, false};
         long[] rowValidity = {0b111101};
 
         // NOTE: nested row blocks are required to have the exact same size so they are always compact
         assertCompact(fromFieldBlocks(0, new Block[] {emptyBlock, emptyBlock}));
-        assertCompact(fromNotNullSuppressedFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {
+        assertCompact(fromNotNullSuppressedFieldBlocks(6, Optional.of(rowValidity), new Block[] {
                 new ByteArrayBlock(6, Optional.of(rowValidity), createExpectedValue(6).getBytes()),
                 new ByteArrayBlock(6, Optional.of(rowValidity), createExpectedValue(6).getBytes()),
         }));

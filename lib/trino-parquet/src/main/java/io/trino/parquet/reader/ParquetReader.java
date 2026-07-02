@@ -635,50 +635,17 @@ public class ParquetReader
         }
 
         StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Optional<boolean[]> isNull = structIsNull.isNull();
+        Optional<long[]> valueIsValid = structIsNull.valueIsValid();
         for (int i = 0; i < blocks.length; i++) {
             if (blocks[i] == null) {
                 blocks[i] = RunLengthEncodedBlock.create(rowType.getFields().get(i).getType(), null, structIsNull.positionsCount());
             }
-            else if (isNull.isPresent()) {
-                blocks[i] = toNotNullSupressedBlock(structIsNull.positionsCount(), isNull.get(), blocks[i]);
+            else if (valueIsValid.isPresent()) {
+                blocks[i] = toNotNullSupressedBlock(structIsNull.positionsCount(), valueIsValid.get(), blocks[i]);
             }
         }
-        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(structIsNull.positionsCount(), structIsNull.isNull(), blocks);
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(structIsNull.positionsCount(), structIsNull.valueIsValid(), blocks);
         return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-    }
-
-    private static Block toNotNullSupressedBlock(int positionCount, boolean[] rowIsNull, Block fieldBlock)
-    {
-        // find a existing position in the block that is null
-        int nullIndex = -1;
-        if (fieldBlock.mayHaveNull()) {
-            for (int position = 0; position < fieldBlock.getPositionCount(); position++) {
-                if (fieldBlock.isNull(position)) {
-                    nullIndex = position;
-                    break;
-                }
-            }
-        }
-        // if there are no null positions, append a null to the end of the block
-        if (nullIndex == -1) {
-            nullIndex = fieldBlock.getPositionCount();
-            fieldBlock = fieldBlock.copyWithAppendedNull();
-        }
-
-        // create a dictionary that maps null positions to the null index
-        int[] dictionaryIds = new int[positionCount];
-        int nullSuppressedPosition = 0;
-        for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull[position]) {
-                dictionaryIds[position] = nullIndex;
-            }
-            else {
-                dictionaryIds[position] = nullSuppressedPosition;
-                nullSuppressedPosition++;
-            }
-        }
-        return DictionaryBlock.create(positionCount, fieldBlock, dictionaryIds);
     }
 
     private static Block toNotNullSupressedBlock(int positionCount, long[] rowIsValid, Block fieldBlock)
