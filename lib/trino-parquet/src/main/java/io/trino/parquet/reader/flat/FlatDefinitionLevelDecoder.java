@@ -28,6 +28,12 @@ public interface FlatDefinitionLevelDecoder
      */
     int readNext(boolean[] values, int offset, int length);
 
+    /// Populate `values` with set bits for non-nulls and return the number of non-nulls encountered.
+    ///
+    /// The `values` array is a validity bitmap using the [io.trino.spi.block.Bitmap] encoding. It is assumed to contain
+    /// only unset bits at the start of reading a batch.
+    int readNext(long[] values, int offset, int length);
+
     /**
      * Skip 'length' values and return the number of non-nulls encountered
      */

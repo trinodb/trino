@@ -52,6 +52,12 @@ public class ByteColumnAdapter
     }
 
     @Override
+    public void copyValues(byte[] source, int sourceIndex, byte[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
+    }
+
+    @Override
     public void decodeDictionaryIds(byte[] values, int offset, int length, int[] ids, byte[] dictionary)
     {
         for (int i = 0; i < length; i++) {

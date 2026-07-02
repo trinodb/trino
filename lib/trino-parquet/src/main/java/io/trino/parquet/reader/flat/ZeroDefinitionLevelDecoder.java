@@ -28,6 +28,12 @@ public class ZeroDefinitionLevelDecoder
     }
 
     @Override
+    public int readNext(long[] values, int offset, int length)
+    {
+        return 0;
+    }
+
+    @Override
     public int skip(int length)
     {
         return 0;
