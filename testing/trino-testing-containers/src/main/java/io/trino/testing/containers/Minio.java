@@ -23,6 +23,7 @@ import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.testing.minio.MinioClient;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -90,6 +91,10 @@ public class Minio
                         "--console-address",
                         "0.0.0.0:" + MINIO_CONSOLE_PORT,
                         "/data"));
+        // The Chainguard minio image is distroless on amd64 (no /bin/sh), so the default
+        // Wait.forListeningPort() fails because Testcontainers 2.x also execs a shell inside
+        // the container to verify the port. Use the HTTP health endpoint instead.
+        waitingFor(Wait.forHttp("/minio/health/live").forPort(MINIO_API_PORT));
     }
 
     @Override

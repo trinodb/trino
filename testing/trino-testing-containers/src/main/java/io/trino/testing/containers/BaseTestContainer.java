@@ -28,6 +28,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.WaitStrategy;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -118,6 +119,11 @@ public abstract class BaseTestContainer
     protected void mountDirectory(String hostPath, String dockerPath)
     {
         container.addFileSystemBind(hostPath, dockerPath, BindMode.READ_WRITE);
+    }
+
+    protected void waitingFor(WaitStrategy waitStrategy)
+    {
+        container.waitingFor(waitStrategy);
     }
 
     protected void withCreateContainerModifier(Consumer<CreateContainerCmd> modifier)
