@@ -11,7 +11,7 @@ The Cassandra connector allows querying data stored in
 
 To connect to Cassandra, you need:
 
-- Cassandra version 3.0 or higher.
+- Cassandra version 4.0 or higher.
 - Network access from the Trino coordinator and workers to Cassandra.
   Port 9042 is the default port.
 

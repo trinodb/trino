@@ -55,13 +55,13 @@ public final class EnvMultinodeCassandra
 
     private DockerContainer createCassandra()
     {
-        DockerContainer container = new DockerContainer("cassandra:3.9", "cassandra")
-                .withEnv("HEAP_NEWSIZE", "128M")
-                .withEnv("MAX_HEAP_SIZE", "512M")
+        DockerContainer container = new DockerContainer("cassandra:4.0", "cassandra")
+                .withEnv("HEAP_NEWSIZE", "256M")
+                .withEnv("MAX_HEAP_SIZE", "1024M")
                 .withCommand(
                         "bash",
                         "-cxeu",
-                        "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f")
+                        "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /usr/local/bin/docker-entrypoint.sh cassandra -f")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(CASSANDRA_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
