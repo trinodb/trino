@@ -96,24 +96,20 @@ public class BenchmarkCopyPositions
                 block = createBlockBuilderWithValues(slices).build();
             }
             else if (type.equals("ROW(BIGINT)")) {
-                Optional<boolean[]> rowIsNull = Optional.empty();
                 Optional<long[]> valueIsValid = Optional.empty();
                 if (nullsAllowed) {
-                    boolean[] generatedIsNull = new boolean[POSITIONS];
                     long[] generatedValidity = new long[Bitmap.wordsForBits(POSITIONS)];
                     Random random = new Random(SEED);
                     for (int position = 0; position < POSITIONS; position++) {
                         boolean isNull = randomNullChance(random);
-                        generatedIsNull[position] = isNull;
                         if (!isNull) {
                             Bitmap.set(generatedValidity, 0, position);
                         }
                     }
-                    rowIsNull = Optional.of(generatedIsNull);
                     valueIsValid = Optional.of(generatedValidity);
                 }
                 LongArrayBlock randomLongArrayBlock = new LongArrayBlock(POSITIONS, valueIsValid, new Random(SEED).longs().limit(POSITIONS).toArray());
-                block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, rowIsNull, new Block[] {randomLongArrayBlock});
+                block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, valueIsValid, new Block[] {randomLongArrayBlock});
             }
         }
 

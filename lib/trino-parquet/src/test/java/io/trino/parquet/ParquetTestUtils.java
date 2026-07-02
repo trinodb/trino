@@ -63,6 +63,7 @@ import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.Bitmap.allocateWords;
 import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.block.MapBlock.fromKeyValueBlock;
@@ -222,18 +223,18 @@ public class ParquetTestUtils
         return groupsBuilder.build();
     }
 
-    public static RowBlock createRowBlock(Optional<boolean[]> rowIsNull, int positionCount)
+    public static RowBlock createRowBlock(Optional<long[]> rowIsValid, int positionCount)
     {
         // TODO test with nested null fields and without nulls
         Block[] fieldBlocks = new Block[4];
         // no nulls block
-        fieldBlocks[0] = new LongArrayBlock(positionCount, toValidities(rowIsNull, positionCount), new long[positionCount]);
+        fieldBlocks[0] = new LongArrayBlock(positionCount, rowIsValid, new long[positionCount]);
         // no nulls with mayHaveNull block
-        fieldBlocks[1] = new LongArrayBlock(positionCount, toValidities(rowIsNull, positionCount).or(() -> Optional.of(allValid(positionCount))), new long[positionCount]);
+        fieldBlocks[1] = new LongArrayBlock(positionCount, rowIsValid.or(() -> Optional.of(allValid(positionCount))), new long[positionCount]);
         // all nulls block
         fieldBlocks[2] = new LongArrayBlock(positionCount, Optional.of(new long[wordsForBits(positionCount)]), new long[positionCount]);
         // random nulls block
-        long[] valueIsValid = toValidities(rowIsNull, positionCount).orElseGet(() -> allValid(positionCount));
+        long[] valueIsValid = rowIsValid.map(long[]::clone).orElseGet(() -> allValid(positionCount));
         for (int i = 0; i < positionCount; i++) {
             if (RANDOM.nextBoolean()) {
                 clear(valueIsValid, 0, i);
@@ -241,30 +242,30 @@ public class ParquetTestUtils
         }
         fieldBlocks[3] = new LongArrayBlock(positionCount, Optional.of(valueIsValid), new long[positionCount]);
 
-        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsValid, fieldBlocks);
     }
 
-    public static Block createArrayBlock(Optional<boolean[]> valueIsNull, int positionCount)
+    public static Block createArrayBlock(Optional<long[]> valueIsValid, int positionCount)
     {
-        int[] arrayOffset = generateOffsets(valueIsNull, positionCount);
-        return fromElementBlock(positionCount, toValidities(valueIsNull, positionCount), arrayOffset, createLongsBlockWithRandomNulls(arrayOffset[positionCount]));
+        int[] arrayOffset = generateOffsets(valueIsValid, positionCount);
+        return fromElementBlock(positionCount, valueIsValid, arrayOffset, createLongsBlockWithRandomNulls(arrayOffset[positionCount]));
     }
 
-    public static Block createMapBlock(Optional<boolean[]> mapIsNull, int positionCount)
+    public static Block createMapBlock(Optional<long[]> mapIsValid, int positionCount)
     {
-        int[] offsets = generateOffsets(mapIsNull, positionCount);
+        int[] offsets = generateOffsets(mapIsValid, positionCount);
         int entriesCount = offsets[positionCount];
         Block keyBlock = new LongArrayBlock(entriesCount, Optional.empty(), new long[entriesCount]);
         Block valueBlock = createLongsBlockWithRandomNulls(entriesCount);
-        return fromKeyValueBlock(toValidities(mapIsNull, positionCount), offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, TYPE_OPERATORS));
+        return fromKeyValueBlock(mapIsValid, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, TYPE_OPERATORS));
     }
 
-    public static int[] generateOffsets(Optional<boolean[]> valueIsNull, int positionCount)
+    public static int[] generateOffsets(Optional<long[]> valueIsValid, int positionCount)
     {
         int maxCardinality = 7; // array length or map size at the current position
         int[] offsets = new int[positionCount + 1];
         for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull.isPresent() && valueIsNull.get()[position]) {
+            if (valueIsValid.isPresent() && !isSet(valueIsValid.get(), 0, position)) {
                 offsets[position + 1] = offsets[position];
             }
             else {
@@ -285,23 +286,10 @@ public class ParquetTestUtils
         return new LongArrayBlock(positionCount, Optional.of(valueIsValid), new long[positionCount]);
     }
 
-    public static Optional<long[]> toValidities(Optional<boolean[]> isNull, int positionCount)
-    {
-        if (isNull.isEmpty()) {
-            return Optional.empty();
-        }
-        long[] valueIsValid = allValid(positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            if (isNull.get()[position]) {
-                clear(valueIsValid, 0, position);
-            }
-        }
-        return Optional.of(valueIsValid);
-    }
-
     private static long[] allValid(int positionCount)
     {
-        return allocateWords(positionCount, true);
+        long[] valueIsValid = allocateWords(positionCount, true);
+        return valueIsValid;
     }
 
     private static Block generateBlock(Type type, int positions)

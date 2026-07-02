@@ -380,6 +380,33 @@ public class TestPositionsAppender
         assertBlockEquals(type, actual, rowBLock);
     }
 
+    @Test
+    public void testRowPositionListAppendBackfillsValidity()
+    {
+        RowType type = anonymousRow(BIGINT, VARCHAR);
+
+        long[] rowIsValid = new long[wordsForBits(2)];
+        set(rowIsValid, 0, 0);
+
+        BlockBuilder bigintBuilder = BIGINT.createBlockBuilder(null, 2);
+        BIGINT.writeLong(bigintBuilder, 11);
+        bigintBuilder.appendNull();
+
+        BlockBuilder varcharBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(varcharBuilder, "value");
+        varcharBuilder.appendNull();
+
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
+                2,
+                Optional.of(rowIsValid),
+                new Block[] {bigintBuilder.build(), varcharBuilder.build()});
+
+        UnnestingPositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        positionsAppender.append(allPositions(2), rowBlock);
+
+        assertBlockEquals(type, positionsAppender.build(), rowBlock);
+    }
+
     private static ValueBlock singleValueBlock(String value)
     {
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);

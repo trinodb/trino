@@ -467,7 +467,7 @@ public final class CoercionUtils
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
                         1,
-                        rowBlock.isNull(0) ? Optional.of(new boolean[] {true}) : Optional.empty(),
+                        CoercionUtils.getValidityBitmap(1, rowBlock::isNull),
                         coerceFields(rowBlock.getFieldBlocks()));
                 return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
             }
@@ -481,27 +481,23 @@ public final class CoercionUtils
                 Block[] newFields = coerceFields(fieldBlocks);
                 return RowBlock.fromNotNullSuppressedFieldBlocks(
                         dictionaryBlock.getPositionCount(),
-                        getNulls(dictionaryBlock),
+                        getValidityBitmap(dictionaryBlock),
                         newFields);
             }
             RowBlock rowBlock = (RowBlock) block;
             return RowBlock.fromNotNullSuppressedFieldBlocks(
                     rowBlock.getPositionCount(),
-                    getNulls(rowBlock),
+                    getValidityBitmap(rowBlock),
                     coerceFields(rowBlock.getFieldBlocks()));
         }
 
-        private static Optional<boolean[]> getNulls(Block rowBlock)
+        private static Optional<long[]> getValidityBitmap(Block rowBlock)
         {
             if (!rowBlock.mayHaveNull()) {
                 return Optional.empty();
             }
 
-            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                valueIsNull[i] = rowBlock.isNull(i);
-            }
-            return Optional.of(valueIsNull);
+            return CoercionUtils.getValidityBitmap(rowBlock.getPositionCount(), rowBlock::isNull);
         }
 
         private Block[] coerceFields(List<Block> fields)
@@ -529,6 +525,15 @@ public final class CoercionUtils
         }
     }
 
+    public record CoercionContext(HiveTimestampPrecision timestampPrecision, HiveStorageFormat storageFormat)
+    {
+        public CoercionContext
+        {
+            requireNonNull(storageFormat, "storageFormat is null");
+            requireNonNull(timestampPrecision, "timestampPrecision is null");
+        }
+    }
+
     private static Optional<long[]> getValidityBitmap(int positionCount, IntPredicate isNull)
     {
         long[] valueIsValid = new long[Bitmap.wordsForBits(positionCount)];
@@ -545,15 +550,6 @@ public final class CoercionUtils
             return Optional.empty();
         }
         return Optional.of(valueIsValid);
-    }
-
-    public record CoercionContext(HiveTimestampPrecision timestampPrecision, HiveStorageFormat storageFormat)
-    {
-        public CoercionContext
-        {
-            requireNonNull(storageFormat, "storageFormat is null");
-            requireNonNull(timestampPrecision, "timestampPrecision is null");
-        }
     }
 
     public static HiveStorageFormat extractHiveStorageFormat(String deserializedClass)

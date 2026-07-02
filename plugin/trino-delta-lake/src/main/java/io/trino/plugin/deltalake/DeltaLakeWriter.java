@@ -345,7 +345,7 @@ public final class DeltaLakeWriter
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
                         1,
-                        rowBlock.isNull(0) ? Optional.of(new boolean[] {true}) : Optional.empty(),
+                        DeltaLakeWriter.getValidityBitmap(1, rowBlock::isNull),
                         coerceFields(rowBlock.getFieldBlocks()));
                 return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
             }
@@ -366,17 +366,13 @@ public final class DeltaLakeWriter
                     coerceFields(rowBlock.getFieldBlocks()));
         }
 
-        private static Optional<boolean[]> getNulls(Block rowBlock)
+        private static Optional<long[]> getNulls(Block rowBlock)
         {
             if (!rowBlock.mayHaveNull()) {
                 return Optional.empty();
             }
 
-            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                valueIsNull[i] = rowBlock.isNull(i);
-            }
-            return Optional.of(valueIsNull);
+            return DeltaLakeWriter.getValidityBitmap(rowBlock.getPositionCount(), rowBlock::isNull);
         }
 
         private Block[] coerceFields(List<Block> fields)
