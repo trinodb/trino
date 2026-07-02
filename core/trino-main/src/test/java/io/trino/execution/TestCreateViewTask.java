@@ -22,8 +22,10 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.ConnectorViewDefinition.WhenStaleBehavior;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite;
@@ -169,12 +171,33 @@ public class TestCreateViewTask
                 .hasMessage("line 1:88: Invalid value for catalog 'test_catalog' view property 'boolean_property': Cannot convert ['unknown'] to boolean");
     }
 
+    @Test
+    public void testCreateViewWithWhenStaleRefresh()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("view_with_when_stale_refresh");
+
+        getFutureValue(executeCreateView(asQualifiedName(viewName), Optional.of(CreateView.WhenStaleBehavior.REFRESH), false));
+
+        ViewDefinition viewDefinition = metadata.getView(testSession, viewName).orElseThrow();
+        assertThat(viewDefinition.getWhenStaleBehavior()).isEqualTo(WhenStaleBehavior.REFRESH);
+    }
+
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace)
     {
-        return executeCreateView(viewName, ImmutableList.of(), replace);
+        return executeCreateView(viewName, Optional.empty(), ImmutableList.of(), replace);
     }
 
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, List<Property> viewProperties, boolean replace)
+    {
+        return executeCreateView(viewName, Optional.empty(), viewProperties, replace);
+    }
+
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, Optional<CreateView.WhenStaleBehavior> whenStaleBehavior, boolean replace)
+    {
+        return executeCreateView(viewName, whenStaleBehavior, ImmutableList.of(), replace);
+    }
+
+    private ListenableFuture<Void> executeCreateView(QualifiedName viewName, Optional<CreateView.WhenStaleBehavior> whenStaleBehavior, List<Property> viewProperties, boolean replace)
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("mock_table")));
         CreateView statement = new CreateView(
@@ -184,6 +207,7 @@ public class TestCreateViewTask
                 replace,
                 Optional.empty(),
                 Optional.empty(),
+                whenStaleBehavior,
                 viewProperties);
         return new CreateViewTask(
                 plannerContext,

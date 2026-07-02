@@ -6,6 +6,7 @@
 CREATE [ OR REPLACE ] VIEW view_name
 [ COMMENT view_comment ]
 [ SECURITY { DEFINER | INVOKER } ]
+[ WHEN STALE { FAIL | REFRESH } ]
 AS query
 ```
 
@@ -18,6 +19,14 @@ referenced by another query.
 
 The optional `OR REPLACE` clause causes the view to be replaced if it
 already exists rather than raising an error.
+
+The optional `WHEN STALE` clause specifies what happens when schema changes in
+objects referenced by the view make the stored view metadata stale:
+
+* `FAIL` - Querying the stale view fails. This is the default behavior when
+	`WHEN STALE` is not specified.
+* `REFRESH` - Querying the stale view automatically refreshes the stored view
+	schema metadata and continues query analysis using the refreshed definition.
 
 ## Security
 

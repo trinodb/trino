@@ -71,6 +71,7 @@ import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.PLUS;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
+import static io.trino.sql.tree.CreateView.WhenStaleBehavior.REFRESH;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
@@ -377,6 +378,7 @@ public class TestSqlFormatter
                         false,
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of())))
                 .isEqualTo("CREATE VIEW test AS\n" +
                         "SELECT *\n" +
@@ -389,6 +391,7 @@ public class TestSqlFormatter
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         false,
                         Optional.of("攻殻機動隊"),
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of())))
                 .isEqualTo("CREATE VIEW test COMMENT '攻殻機動隊' AS\n" +
@@ -403,6 +406,7 @@ public class TestSqlFormatter
                         QualifiedName.of("test"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
@@ -429,10 +433,11 @@ public class TestSqlFormatter
                         false,
                         Optional.of("攻殻機動隊"),
                         Optional.of(DEFINER),
+                        Optional.of(REFRESH),
                         ImmutableList.of(new Property(new Identifier("property"), new StringLiteral("property_value"))))))
                 .isEqualTo(
                         """
-                        CREATE VIEW test COMMENT '攻殻機動隊' SECURITY DEFINER
+                        CREATE VIEW test COMMENT '攻殻機動隊' SECURITY DEFINER WHEN STALE REFRESH
                         WITH (
                            property = 'property_value'
                         ) AS

@@ -139,7 +139,8 @@ public class RefreshViewTask
                 columns,
                 viewDefinition.getComment(),
                 viewDefinition.getRunAsIdentity(),
-                viewDefinition.getPath());
+                viewDefinition.getPath(),
+                viewDefinition.getWhenStaleBehavior());
 
         metadata.refreshView(session, viewName, viewDefinitionWithNewColumns);
 

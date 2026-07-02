@@ -70,6 +70,7 @@ import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
@@ -2628,6 +2629,8 @@ class StatementAnalyzer
                     view.getRunAsIdentity(),
                     view.getPath(),
                     view.getColumns(),
+                    view.getComment(),
+                    ViewDefinition.DEFAULT_WHEN_STALE_BEHAVIOR,
                     freshStorageTable,
                     true);
         }
@@ -2644,6 +2647,8 @@ class StatementAnalyzer
                     view.getRunAsIdentity(),
                     view.getPath(),
                     view.getColumns(),
+                    view.getComment(),
+                    view.getWhenStaleBehavior(),
                     Optional.empty(),
                     false);
         }
@@ -2658,6 +2663,8 @@ class StatementAnalyzer
                 Optional<Identity> owner,
                 List<CatalogSchemaName> path,
                 List<ViewColumn> columns,
+                Optional<String> comment,
+                ConnectorViewDefinition.WhenStaleBehavior whenStaleBehavior,
                 Optional<TableHandle> freshStorageTable,
                 boolean isMaterializedView)
         {
@@ -2678,22 +2685,13 @@ class StatementAnalyzer
                 throw semanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
             }
 
-            // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
-            // This is needed in case the underlying table(s) changed and the query in the view now produces types that
-            // are implicitly coercible to the declared view types.
-            List<Field> viewFields = columns.stream()
-                    .map(column -> Field.newQualified(
-                            table.getName(),
-                            Optional.of(column.name()),
-                            getViewColumnType(column, name, table),
-                            false,
-                            Optional.of(name),
-                            getBranchName(table),
-                            Optional.of(column.name()),
-                            false))
-                    .collect(toImmutableList());
+            List<ViewColumn> viewColumns = columns;
 
             if (freshStorageTable.isPresent()) {
+                // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
+                // This is needed in case the underlying table(s) changed and the query in the view now produces types that
+                // are implicitly coercible to the declared view types.
+                List<Field> viewFields = createViewFields(table, name, viewColumns);
                 List<Field> storageTableFields = analyzeStorageTable(table, viewFields, freshStorageTable.get());
                 analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
             }
@@ -2708,11 +2706,36 @@ class StatementAnalyzer
                 RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
                 analysis.unregisterTableForView();
 
-                checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
-                        .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
+                Optional<String> staleness = checkViewStaleness(columns, descriptor.getVisibleFields(), name, table);
+                if (staleness.isPresent()) {
+                    if (!isMaterializedView && whenStaleBehavior == ConnectorViewDefinition.WhenStaleBehavior.REFRESH) {
+                        accessControl.checkCanRefreshView(session.toSecurityContext(), name);
+
+                        viewColumns = refreshStaleView(
+                                table,
+                                name,
+                                originalSql,
+                                catalog,
+                                schema,
+                                descriptor,
+                                columns,
+                                comment,
+                                owner,
+                                path,
+                                whenStaleBehavior);
+                    }
+                    else {
+                        throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, staleness.orElseThrow());
+                    }
+                }
 
                 analysis.registerNamedQuery(table, query);
             }
+
+            // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
+            // This is needed in case the underlying table(s) changed and the query in the view now produces types that
+            // are implicitly coercible to the declared view types.
+            List<Field> viewFields = createViewFields(table, name, viewColumns);
 
             Scope accessControlScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
@@ -2721,6 +2744,58 @@ class StatementAnalyzer
             analysis.registerTable(table, freshStorageTable, name, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
             viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             return createAndAssignScope(table, scope, viewFields);
+        }
+
+        private List<Field> createViewFields(Table table, QualifiedObjectName name, List<ViewColumn> viewColumns)
+        {
+            return viewColumns.stream()
+                    .map(column -> Field.newQualified(
+                            table.getName(),
+                            Optional.of(column.name()),
+                            getViewColumnType(column, name, table),
+                            false,
+                            Optional.of(name),
+                            getBranchName(table),
+                            Optional.of(column.name()),
+                            false))
+                    .collect(toImmutableList());
+        }
+
+        private List<ViewColumn> refreshStaleView(
+                Table table,
+                QualifiedObjectName name,
+                String originalSql,
+                Optional<String> catalog,
+                Optional<String> schema,
+                RelationType descriptor,
+                List<ViewColumn> columns,
+                Optional<String> comment,
+                Optional<Identity> owner,
+                List<CatalogSchemaName> path,
+                ConnectorViewDefinition.WhenStaleBehavior whenStaleBehavior)
+        {
+            Map<String, String> columnComments = columns.stream()
+                    .filter(viewColumn -> viewColumn.comment().isPresent())
+                    .collect(toImmutableMap(ViewColumn::name, viewColumn -> viewColumn.comment().orElseThrow()));
+
+            List<ViewColumn> refreshedColumns = descriptor.getVisibleFields().stream()
+                    .map(field -> new ViewColumn(field.getName().orElseThrow(), field.getType().getTypeId(), Optional.ofNullable(columnComments.get(field.getName().orElseThrow()))))
+                    .collect(toImmutableList());
+
+            metadata.refreshView(
+                    session,
+                    name,
+                    new ViewDefinition(
+                            originalSql,
+                            catalog,
+                            schema,
+                            refreshedColumns,
+                            comment,
+                            owner,
+                            path,
+                            whenStaleBehavior));
+
+            return refreshedColumns;
         }
 
         private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable)

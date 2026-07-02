@@ -119,6 +119,7 @@ statement
     | CREATE (OR REPLACE)? VIEW qualifiedName
         (COMMENT string)?
         (SECURITY (DEFINER | INVOKER))?
+        (WHEN STALE (REFRESH | FAIL))?
         (WITH properties)? AS rootQuery                                #createView
     | REFRESH MATERIALIZED VIEW qualifiedName                          #refreshMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView

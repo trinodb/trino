@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition.WhenStaleBehavior;
 import io.trino.spi.security.Identity;
 
 import java.util.List;
@@ -23,15 +24,19 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.connector.ConnectorViewDefinition.WhenStaleBehavior.FAIL;
 import static java.util.Objects.requireNonNull;
 
 public class ViewDefinition
 {
+    public static final WhenStaleBehavior DEFAULT_WHEN_STALE_BEHAVIOR = FAIL;
+
     private final String originalSql;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<ViewColumn> columns;
     private final Optional<String> comment;
+    private final WhenStaleBehavior whenStaleBehavior;
     private final Optional<Identity> runAsIdentity;
     private final List<CatalogSchemaName> path;
 
@@ -42,13 +47,15 @@ public class ViewDefinition
             List<ViewColumn> columns,
             Optional<String> comment,
             Optional<Identity> runAsIdentity,
-            List<CatalogSchemaName> path)
+            List<CatalogSchemaName> path,
+            WhenStaleBehavior whenStaleBehavior)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
+        this.whenStaleBehavior = requireNonNull(whenStaleBehavior, "whenStaleBehavior is null");
         this.runAsIdentity = requireNonNull(runAsIdentity, "runAsIdentity is null");
         this.path = requireNonNull(path, "path is null");
         checkArgument(schema.isEmpty() || catalog.isPresent(), "catalog must be present if schema is present");
@@ -80,6 +87,11 @@ public class ViewDefinition
         return comment;
     }
 
+    public WhenStaleBehavior getWhenStaleBehavior()
+    {
+        return whenStaleBehavior;
+    }
+
     public boolean isRunAsInvoker()
     {
         return runAsIdentity.isEmpty();
@@ -105,6 +117,7 @@ public class ViewDefinition
                         .map(column -> new ConnectorViewDefinition.ViewColumn(column.name(), column.type(), column.comment()))
                         .collect(toImmutableList()),
                 comment,
+                whenStaleBehavior == DEFAULT_WHEN_STALE_BEHAVIOR ? Optional.empty() : Optional.of(whenStaleBehavior),
                 runAsIdentity.map(Identity::getUser),
                 runAsIdentity.isEmpty(),
                 path);
@@ -119,6 +132,7 @@ public class ViewDefinition
                 .add("schema", schema.orElse(null))
                 .add("columns", columns)
                 .add("comment", comment.orElse(null))
+                .add("whenStaleBehavior", whenStaleBehavior)
                 .add("runAsIdentity", runAsIdentity.orElse(null))
                 .add("path", path)
                 .toString();

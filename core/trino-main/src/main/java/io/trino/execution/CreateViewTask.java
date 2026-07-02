@@ -25,6 +25,7 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.security.Identity;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -146,7 +147,8 @@ public class CreateViewTask
                 session.getPath().getPath().stream()
                         // system path elements currently are not stored
                         .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                toConnectorWhenStaleBehavior(statement.getWhenStaleBehavior()));
 
         metadata.createView(session, name, definition, properties, statement.isReplace());
 
@@ -154,5 +156,17 @@ public class CreateViewTask
         stateMachine.setReferencedTables(analysis.getReferencedTables());
 
         return immediateVoidFuture();
+    }
+
+    private static ConnectorViewDefinition.WhenStaleBehavior toConnectorWhenStaleBehavior(Optional<CreateView.WhenStaleBehavior> whenStale)
+    {
+        if (whenStale.isEmpty()) {
+            return ConnectorViewDefinition.WhenStaleBehavior.FAIL;
+        }
+
+        return switch (whenStale.orElseThrow()) {
+            case FAIL -> ConnectorViewDefinition.WhenStaleBehavior.FAIL;
+            case REFRESH -> ConnectorViewDefinition.WhenStaleBehavior.REFRESH;
+        };
     }
 }
