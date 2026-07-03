@@ -43,6 +43,7 @@ public final class InterfaceTestUtils
     public static <I, C extends I> void assertAllMethodsOverridden(Class<I> superType, Class<C> clazz, Set<Method> exclusions)
     {
         checkArgument(superType.isAssignableFrom(clazz), "%s is not supertype of %s", superType, clazz);
+        checkArgument(clazz != superType, "The tested type is the same as the base interface: %s", clazz);
         exclusions = new HashSet<>(exclusions);
         for (Class<?> parent = superType; parent != null; parent = parent.getSuperclass()) {
             for (Method method : parent.getDeclaredMethods()) {
