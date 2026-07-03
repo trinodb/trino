@@ -128,6 +128,8 @@ For more details, see {doc}`binary`
 - {func}`to_ieee754_32`
 - {func}`to_ieee754_64`
 - {func}`xxhash64`
+- {func}`zstd_compress`
+- {func}`zstd_decompress`
 
 ## Bitwise
 

@@ -816,6 +816,32 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testZstdCompress()
+    {
+        assertThat(assertions.expression("zstd_decompress(zstd_compress(CAST('hello world' AS VARBINARY)))"))
+                .isEqualTo(sqlVarbinary("hello world"));
+
+        assertThat(assertions.expression("zstd_decompress(zstd_compress(CAST('' AS VARBINARY)))"))
+                .isEqualTo(sqlVarbinary(""));
+
+        assertThat(assertions.expression("zstd_decompress(zstd_compress(CAST('hello world' AS VARBINARY), 19))"))
+                .isEqualTo(sqlVarbinary("hello world"));
+
+        assertTrinoExceptionThrownBy(assertions.expression("zstd_compress(CAST('hello world' AS VARBINARY), 0)")::evaluate)
+                .hasMessage("zstd compression level must be between 1 and 22: 0");
+
+        assertTrinoExceptionThrownBy(assertions.expression("zstd_compress(CAST('hello world' AS VARBINARY), 23)")::evaluate)
+                .hasMessage("zstd compression level must be between 1 and 22: 23");
+    }
+
+    @Test
+    public void testZstdDecompress()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("zstd_decompress(CAST('not a zstd frame' AS VARBINARY))")::evaluate)
+                .hasMessageStartingWith("invalid zstd frame");
+    }
+
+    @Test
     public void testVarbinarySubstring()
     {
         // TODO
