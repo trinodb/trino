@@ -30,6 +30,14 @@ class TestInterfaceTestUtils
                         "[public default void io.trino.testing.TestInterfaceTestUtils$Interface.foo(java.lang.String)]");
     }
 
+    @Test
+    public void testRejectSameType()
+    {
+        assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(Interface.class, Interface.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("The tested type is the same as the base interface: interface io.trino.testing.TestInterfaceTestUtils$Interface");
+    }
+
     private interface Interface
     {
         default void foo(String unused) {}
