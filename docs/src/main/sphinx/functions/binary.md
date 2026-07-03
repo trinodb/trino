@@ -202,3 +202,27 @@ Computes HMAC with SHA256 of `binary` with the given `key`.
 :::{function} hmac_sha512(binary, key) -> varbinary
 Computes HMAC with SHA512 of `binary` with the given `key`.
 :::
+
+## Compression functions
+
+The compression functions implement the [Zstandard](https://facebook.github.io/zstd/)
+({rfc}`8878`) compression format.
+
+:::{function} zstd_compress(binary) -> varbinary
+Compresses `binary` using Zstandard at the default compression level.
+:::
+
+:::{function} zstd_compress(binary, level) -> varbinary
+:noindex: true
+
+Compresses `binary` using Zstandard at the specified `level`, an integer between `1`
+and `22` where higher values produce smaller output at the cost of more CPU time.
+This overload requires the native Zstandard compressor to be available in the JVM
+running the query; if it is not available, the function fails. Use
+{func}`zstd_compress` without a `level` when the native compressor cannot be assumed
+to be available.
+:::
+
+:::{function} zstd_decompress(binary) -> varbinary
+Decompresses `binary`, which must be data produced by {func}`zstd_compress`.
+:::
