@@ -80,7 +80,7 @@ public class RowReplaceFunction
 
     public static SqlRow rowReplace(RowType rowType, SqlRow row, Slice fieldPath, Object value)
     {
-        return build(rowType, row, transformer -> transformer.transform((type, _, _) -> RowTransformer.writeNativeValue(type, value), fieldPath.toStringUtf8().split("\\.")));
+        return build(rowType, row, transformer -> transformer.transform((type, _) -> RowTransformer.writeNativeValue(type, value), fieldPath.toStringUtf8().split("\\.")));
     }
 
     public static SqlRow rowReplace(RowType rowType, SqlRow row, Slice fieldPath, boolean value)

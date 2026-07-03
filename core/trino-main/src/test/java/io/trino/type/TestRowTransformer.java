@@ -82,7 +82,7 @@ public class TestRowTransformer
             transformer.transform(setNativeValue("anonymous"), "name");
 
             // Append " world" to the greeting
-            transformer.transform((type, _, original) -> {
+            transformer.transform((type, original) -> {
                 if (readNativeValue(type, original, 0) instanceof Slice originalValue) {
                     Slice slice = utf8Slice(originalValue.toStringUtf8() + " world");
                     return writeNativeValue(type, slice);
@@ -132,6 +132,19 @@ public class TestRowTransformer
             });
         }
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Expected RowBlock but was " + input.getClass().getSimpleName());
+    }
+
+    @SqlNullable
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    @ScalarFunction("transform_array_varchar_array_add")
+    public static Block transformArrayVarcharArrayAdd(
+            @TypeParameter("E") RowType rowType,
+            @SqlType("array(E)") Block input)
+    {
+        return build(rowType, (RowBlock) input, transformer -> {
+            transformer.transform(appendNativeValue("z"), "tags");
+        });
     }
 
     @Test
@@ -224,5 +237,22 @@ public class TestRowTransformer
                                                 ImmutableList.of(
                                                         "1.2[2].2.1",
                                                         "updated"))))));
+    }
+
+    @Test
+    public void testTransformArrayVarcharArrayAddNonZeroRawIndex()
+    {
+        // The second row's rawIndex (1) is not a valid position on the single-value
+        // block returned by elementsBlock.getSingleValueBlock(i) inside
+        // RowTransformer.appendNativeValue. With the current implementation this
+        // throws IndexOutOfBoundsException for the second row instead of appending
+        // correctly. Replacing rawIndex with 0 on that append call (as previously
+        // proposed) makes this test pass.
+        assertThat(assertions.expression(
+                "transform_array_varchar_array_add(cast(ARRAY[row('bob', array['a']), row('emma', array['x', 'y'])] as array(row(name varchar, tags array(varchar)))))"))
+                .hasType(new ArrayType(rowType(field("name", VARCHAR), field("tags", new ArrayType(VARCHAR)))))
+                .isEqualTo(ImmutableList.of(
+                        ImmutableList.of("bob", ImmutableList.of("a", "z")),
+                        ImmutableList.of("emma", ImmutableList.of("x", "y", "z"))));
     }
 }
