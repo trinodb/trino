@@ -16,26 +16,22 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.RowTransformer;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
-import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeUtils;
-import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static io.trino.spi.block.RowTransformer.build;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.function.Function.identity;
@@ -56,10 +52,10 @@ public class RowReplaceFunction
                 .signature(Signature.builder()
                         .rowTypeParameter("T")
                         .typeVariable("V")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
-                        .argumentType(VARCHAR.getTypeSignature())
-                        .argumentType(new TypeSignature("V"))
+                        .returnType(typeVariable("T"))
+                        .argumentType(typeVariable("T"))
+                        .argumentType(VARCHAR.getTypeDescriptor())
+                        .argumentType(typeVariable("V"))
                         .build())
                 .build());
     }
@@ -84,7 +80,7 @@ public class RowReplaceFunction
 
     public static SqlRow rowReplace(RowType rowType, SqlRow row, Slice fieldPath, Object value)
     {
-        return build(rowType, row, transformer -> transformer.transform((type, _) -> TypeUtils.writeNativeValue(type, value), fieldPath.toStringUtf8().split("\\.")));
+        return build(rowType, row, transformer -> transformer.transform((type, _, _) -> RowTransformer.writeNativeValue(type, value), fieldPath.toStringUtf8().split("\\.")));
     }
 
     public static SqlRow rowReplace(RowType rowType, SqlRow row, Slice fieldPath, boolean value)

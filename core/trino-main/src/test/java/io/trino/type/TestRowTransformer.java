@@ -82,7 +82,7 @@ public class TestRowTransformer
             transformer.transform(setNativeValue("anonymous"), "name");
 
             // Append " world" to the greeting
-            transformer.transform((type, original) -> {
+            transformer.transform((type, _, original) -> {
                 if (readNativeValue(type, original, 0) instanceof Slice originalValue) {
                     Slice slice = utf8Slice(originalValue.toStringUtf8() + " world");
                     return writeNativeValue(type, slice);
@@ -161,7 +161,8 @@ public class TestRowTransformer
     @Test
     public void testTransformArrayNested()
     {
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                """
                 transform_single_row_set_varchar(
                     cast(
                         ARRAY[row('1.1', row('1.2.1', row('1.2.2.1', 'original')))]
@@ -191,7 +192,8 @@ public class TestRowTransformer
     @Test
     public void testTransformArrayNestedRowArray()
     {
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                """
                 transform_single_row_set_varchar(
                     cast(
                         ARRAY[row('1.1', ARRAY[row('1.2[1].1', row('1.2[1].2.1', 'original')), row('1.2[2].1', row('1.2[2].2.1', 'original'))])]

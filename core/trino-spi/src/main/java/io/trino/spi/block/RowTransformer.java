@@ -13,44 +13,52 @@
  */
 package io.trino.spi.block;
 
+import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
 public class RowTransformer
 {
     private final RowType rowType;
     private final ValueBlock[] blocks;
+    private final int rawIndex;
 
     private RowTransformer(final RowType rowType, final SqlRow row)
     {
         this.rowType = rowType;
         this.blocks = sqlRowToValueBlocks(row);
+        this.rawIndex = row.getRawIndex();
     }
 
-    public static BiFunction<Type, Block, Block> setNativeValue(final Object value)
+    public static Transform<Block> setNativeValue(final Object value)
     {
-        return (type, _) -> writeNativeValue(type, value);
+        return (type, _, _) -> writeNativeValue(type, value);
     }
 
-    public static BiFunction<Type, ArrayBlock, ArrayBlock> appendNativeValue(final Object value)
+    public static ValueBlock writeNativeValue(Type type, Object value)
     {
-        return (type, original) -> {
+        return TypeUtils.writeNativeValue(type, value instanceof String s ? Slices.utf8Slice(s) : value);
+    }
+
+    public static Transform<ArrayBlock> appendNativeValue(final Object value)
+    {
+        return (type, rawIndex, original) -> {
             final Block elementsBlock = original.getElementsBlock();
             final ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(type, null, elementsBlock.getPositionCount());
             arrayBlockBuilder.buildEntry(arrayValueBuilder -> {
                 for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
-                    arrayValueBuilder.append(elementsBlock.getSingleValueBlock(i), 0);
+                    arrayValueBuilder.append(elementsBlock.getSingleValueBlock(i), rawIndex);
                 }
 
                 final ValueBlock addedValue = writeNativeValue(type, value);
@@ -60,34 +68,42 @@ public class RowTransformer
         };
     }
 
-    private static <B extends Block> void transform(final Block[] blocks, final RowType rowType, final BiFunction<Type, B, B> transform, final List<String> path)
+    private static <B extends Block> void transform(final Block[] blocks, final RowType rowType, int rawIndex, final Transform<B> transform, final List<String> path)
     {
         final List<String> mutablePath = new ArrayList<>(path);
         final IndexedField indexedField = findField(rowType, mutablePath.removeFirst());
+        final List<String> nextPath = Collections.unmodifiableList(mutablePath);
 
-        if (mutablePath.isEmpty()) {
+        if (nextPath.isEmpty()) {
             Type fieldType = indexedField.field().getType();
             if (fieldType instanceof final ArrayType arrayType) {
                 fieldType = arrayType.getElementType();
             }
-            blocks[indexedField.index()] = transform.apply(fieldType, (B) blocks[indexedField.index()]);
+            blocks[indexedField.index()] = transform.apply(fieldType, rawIndex, (B) blocks[indexedField.index()]);
         }
         else if (blocks[indexedField.index()] instanceof final RowBlock rowBlock && indexedField.field().getType() instanceof final RowType innerRowType) {
-            final SqlRow innerSqlRow = rowBlock.getRow(0);
-            final Block[] innerBlocks = sqlRowToValueBlocks(innerSqlRow);
-            transform(innerBlocks, innerRowType, transform, mutablePath);
-            blocks[indexedField.index()] = RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), innerBlocks);
+            if (!rowBlock.isNull(0)) {
+                final SqlRow innerSqlRow = rowBlock.getRow(0);
+                final Block[] innerBlocks = sqlRowToValueBlocks(innerSqlRow);
+                transform(innerBlocks, innerRowType, innerSqlRow.getRawIndex(), transform, nextPath);
+                blocks[indexedField.index()] = RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), innerBlocks);
+            }
         }
         else if (indexedField.field().getType() instanceof final ArrayType arrayType && arrayType.getElementType() instanceof final RowType arrayRowType && blocks[indexedField.index()] instanceof final ArrayBlock arrayBlock) {
             final RowBlock[] elements = arrayBlockToRowBlocks(arrayBlock);
             final ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(arrayRowType, null, elements.length);
             arrayBlockBuilder.buildEntry(arrayValueBuilder -> {
                 for (RowBlock element : elements) {
-                    final Block[] rowValues = sqlRowToValueBlocks(element.getRow(0));
-                    transform(rowValues, arrayRowType, transform, mutablePath);
+                    if (element.isNull(0)) {
+                        arrayValueBuilder.appendNull();
+                    }
+                    else {
+                        final Block[] rowValues = sqlRowToValueBlocks(element.getRow(0));
+                        transform(rowValues, arrayRowType, element.getRow(0).getRawIndex(), transform, nextPath);
 
-                    final RowBlock newRowBlock = RowBlock.fromFieldBlocks(element.getPositionCount(), rowValues);
-                    arrayValueBuilder.append(newRowBlock, 0);
+                        final RowBlock newRowBlock = RowBlock.fromFieldBlocks(element.getPositionCount(), rowValues);
+                        arrayValueBuilder.append(newRowBlock, 0);
+                    }
                 }
             });
 
@@ -127,9 +143,9 @@ public class RowTransformer
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, String.format("Unknown field %s", name));
     }
 
-    public <B extends Block> void transform(final BiFunction<Type, B, B> transform, final String... path)
+    public <B extends Block> void transform(final Transform<B> transform, final String... path)
     {
-        transform(blocks, rowType, transform, Arrays.asList(path));
+        transform(blocks, rowType, rawIndex, transform, Arrays.asList(path));
     }
 
     private SqlRow build()
@@ -159,7 +175,11 @@ public class RowTransformer
         return rowBlockBuilder.build();
     }
 
-    private record IndexedField(int index, RowType.Field field)
+    @FunctionalInterface
+    public interface Transform<B extends Block>
     {
+        B apply(Type type, int rawIndex, B originalValue);
     }
+
+    public record IndexedField(int index, RowType.Field field) {}
 }
