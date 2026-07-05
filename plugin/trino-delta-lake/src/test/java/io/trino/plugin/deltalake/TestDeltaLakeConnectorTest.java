@@ -811,7 +811,14 @@ public class TestDeltaLakeConnectorTest
                 .isReplacedWithEmptyValues();
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('week', part) >= TIMESTAMP '2005-09-10 00:00:00.000 +00:00'"))
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown()
+                .matches("VALUES " +
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')");
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('quarter', part) = TIMESTAMP '2005-07-01 00:00:00.000 +00:00'"))
+                .isFullyPushedDown()
+                .matches("VALUES " +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
 
         // cast timestamp_tz as DATE optimization
         assertThat(query("SELECT * FROM " + tableName + " WHERE cast(part AS date) >= DATE '2005-09-10'"))

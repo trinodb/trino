@@ -437,6 +437,67 @@ public class TestUtcConstraintExtractor
                         columnHandle, Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
     }
 
+    @Test
+    public void testExtractDateTruncTimestampTzMillisWeekAndQuarterComparison()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        assertDateTruncTimestampTzMillisDomain(
+                "week",
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2024, 1, 8),
+                columnType,
+                timestampTzColumnSymbol,
+                columnHandle);
+
+        assertDateTruncTimestampTzMillisDomain(
+                "quarter",
+                LocalDate.of(2024, 4, 1),
+                LocalDate.of(2024, 7, 1),
+                columnType,
+                timestampTzColumnSymbol,
+                columnHandle);
+    }
+
+    private static void assertDateTruncTimestampTzMillisDomain(
+            String unit,
+            LocalDate periodStartDate,
+            LocalDate nextPeriodStartDate,
+            TimestampWithTimeZoneType columnType,
+            String timestampTzColumnSymbol,
+            ColumnHandle columnHandle)
+    {
+        ConnectorExpression truncate = new Call(
+                columnType,
+                new FunctionName("date_trunc"),
+                ImmutableList.of(
+                        new Constant(utf8Slice(unit), createVarcharType(17)),
+                        new Variable(timestampTzColumnSymbol, columnType)));
+
+        long periodStartMillis = periodStartDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long nextPeriodStartMillis = nextPeriodStartDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long periodStart = timestampTzMillisFromEpochMillis(periodStartMillis);
+        long nextPeriodStart = timestampTzMillisFromEpochMillis(nextPeriodStartMillis);
+
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(
+                                truncate,
+                                new Constant(periodStart, columnType))),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, domain(Range.range(columnType, periodStart, true, nextPeriodStart, false)))));
+
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(
+                                truncate,
+                                new Constant(timestampTzMillisFromEpochMillis(periodStartMillis + MILLISECONDS_PER_DAY), columnType))),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.none());
+    }
+
     /**
      * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison} for {@link TimestampWithTimeZoneType}.
      * {@code UnwrapDateTruncInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
@@ -520,6 +581,67 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle, Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
+    }
+
+    @Test
+    public void testExtractDateTruncTimestampTzMicrosWeekAndQuarterComparison()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MICROS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        assertDateTruncTimestampTzMicrosDomain(
+                "week",
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2024, 1, 8),
+                columnType,
+                timestampTzColumnSymbol,
+                columnHandle);
+
+        assertDateTruncTimestampTzMicrosDomain(
+                "quarter",
+                LocalDate.of(2024, 4, 1),
+                LocalDate.of(2024, 7, 1),
+                columnType,
+                timestampTzColumnSymbol,
+                columnHandle);
+    }
+
+    private static void assertDateTruncTimestampTzMicrosDomain(
+            String unit,
+            LocalDate periodStartDate,
+            LocalDate nextPeriodStartDate,
+            TimestampWithTimeZoneType columnType,
+            String timestampTzColumnSymbol,
+            ColumnHandle columnHandle)
+    {
+        ConnectorExpression truncate = new Call(
+                columnType,
+                new FunctionName("date_trunc"),
+                ImmutableList.of(
+                        new Constant(utf8Slice(unit), createVarcharType(17)),
+                        new Variable(timestampTzColumnSymbol, columnType)));
+
+        long periodStartMillis = periodStartDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long nextPeriodStartMillis = nextPeriodStartDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        LongTimestampWithTimeZone periodStart = timestampTzMicrosFromEpochMillis(periodStartMillis);
+        LongTimestampWithTimeZone nextPeriodStart = timestampTzMicrosFromEpochMillis(nextPeriodStartMillis);
+
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(
+                                truncate,
+                                new Constant(periodStart, columnType))),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, domain(Range.range(columnType, periodStart, true, nextPeriodStart, false)))));
+
+        assertThat(extract(
+                constraint(
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(
+                                truncate,
+                                new Constant(LongTimestampWithTimeZone.fromEpochMillisAndFraction(periodStartMillis, PICOSECONDS_PER_MICROSECOND, UTC_KEY), columnType))),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.none());
     }
 
     /**
