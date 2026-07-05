@@ -26,7 +26,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 
 import java.util.Arrays;
@@ -59,7 +58,6 @@ public class PageProcessor
     static final int MAX_PAGE_SIZE_IN_BYTES = 16 * 1024 * 1024;
     static final int MIN_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
 
-    private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<FilterEvaluator> filterEvaluator;
     private final Optional<FilterEvaluator> dynamicFilterEvaluator;
@@ -68,12 +66,6 @@ public class PageProcessor
     private int projectBatchSize;
 
     public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
-    {
-        this(filterEvaluator, dynamicFilterEvaluator, projections, initialBatchSize, new ExpressionProfiler());
-    }
-
-    @VisibleForTesting
-    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
         this.filterEvaluator = requireNonNull(filterEvaluator, "filterEvaluator is null");
         this.dynamicFilterEvaluator = requireNonNull(dynamicFilterEvaluator, "dynamicFilterEvaluator is null");
@@ -86,7 +78,6 @@ public class PageProcessor
                 })
                 .collect(toImmutableList());
         this.projectBatchSize = initialBatchSize.orElse(1);
-        this.expressionProfiler = requireNonNull(expressionProfiler, "expressionProfiler is null");
     }
 
     @VisibleForTesting
@@ -247,13 +238,13 @@ public class PageProcessor
 
         private void updateBatchSize(int positionCount, long pageSize)
         {
-            // if we produced a large page or if the expression is expensive, halve the batch size for the next call
-            if (positionCount > 1 && (pageSize > MAX_PAGE_SIZE_IN_BYTES || expressionProfiler.isExpressionExpensive())) {
+            // if we produced a large page, halve the batch size for the next call
+            if (positionCount > 1 && pageSize > MAX_PAGE_SIZE_IN_BYTES) {
                 projectBatchSize = projectBatchSize / 2;
             }
 
             // if we produced a small page, double the batch size for the next call
-            if (pageSize < MIN_PAGE_SIZE_IN_BYTES && projectBatchSize < MAX_BATCH_SIZE && !expressionProfiler.isExpressionExpensive()) {
+            if (pageSize < MIN_PAGE_SIZE_IN_BYTES && projectBatchSize < MAX_BATCH_SIZE) {
                 projectBatchSize = projectBatchSize * 2;
             }
         }
@@ -321,10 +312,9 @@ public class PageProcessor
                 }
                 else {
                     SourcePage inputChannelsSourcePage = projection.getInputChannels().getInputChannels(page);
-                    expressionProfiler.start();
+                    long projectionStartNanos = System.nanoTime();
                     Block result = projection.project(session, inputChannelsSourcePage, positionsBatch);
-                    long projectionTimeNanos = expressionProfiler.stop(positionsBatch.size());
-                    metrics.recordProjectionTime(projectionTimeNanos);
+                    metrics.recordProjectionTime(System.nanoTime() - projectionStartNanos);
 
                     previouslyComputedResults[i] = result;
                     blocks[i] = previouslyComputedResults[i];
