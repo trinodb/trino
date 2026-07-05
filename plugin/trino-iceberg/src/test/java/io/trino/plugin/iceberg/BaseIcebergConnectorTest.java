@@ -2525,7 +2525,11 @@ public abstract class BaseIcebergConnectorTest
         // date_trunc
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('day', d) = DATE '2015-01-13'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('week', d) = DATE '2015-01-12'"))
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('month', d) = DATE '2015-01-01'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('quarter', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
@@ -2637,7 +2641,11 @@ public abstract class BaseIcebergConnectorTest
         // date_trunc
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('day', d) = DATE '2015-05-15'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('week', d) = DATE '2015-05-11'"))
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('month', d) = DATE '2015-05-01'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('quarter', d) = DATE '2015-04-01'"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
