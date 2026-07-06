@@ -39,6 +39,7 @@ public final class VarcharType
             .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
             .addOperators(DEFAULT_ORDERING_OPERATORS)
+            .addOperators(DEFAULT_SORT_KEY_PREFIX_OPERATORS)
             .build();
 
     public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;

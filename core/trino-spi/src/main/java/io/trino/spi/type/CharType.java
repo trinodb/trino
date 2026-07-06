@@ -27,11 +27,14 @@ import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.type.Chars.compareChars;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
+import static java.lang.Long.reverseBytes;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
@@ -219,6 +222,35 @@ public final class CharType
     public int hashCode()
     {
         return (length * 31) + getClass().hashCode();
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(Slice value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(Slice value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(Slice value)
+    {
+        int length = value.length();
+        if (length >= Long.BYTES) {
+            return reverseBytes(value.getLong(0));
+        }
+        long key = 0;
+        for (int i = 0; i < length; i++) {
+            key = (key << 8) | (value.getByte(i) & 0xFF);
+        }
+        // char comparison semantics pad the shorter value with spaces
+        for (int i = length; i < Long.BYTES; i++) {
+            key = (key << 8) | ' ';
+        }
+        return key;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

@@ -53,6 +53,8 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -161,6 +163,45 @@ public class TypeOperators
         }
         OperatorType comparisonType = sortOrder.isNullsFirst() ? COMPARISON_UNORDERED_FIRST : COMPARISON_UNORDERED_LAST;
         return getOperatorAdaptor(type, Optional.of(sortOrder), callingConvention, comparisonType).get();
+    }
+
+    /**
+     * Whether the type declares sort key prefix operators (see {@link OperatorType#SORT_KEY_PREFIX_UNORDERED_LAST}).
+     */
+    public boolean isSortKeyPrefixSupported(Type type)
+    {
+        // the declaration guarantees that either both or neither flavor is present
+        return !type.getTypeOperatorDeclaration(this).getSortKeyPrefixUnorderedLastOperators().isEmpty();
+    }
+
+    /**
+     * Whether equal sort key prefixes imply equal values under the type's comparison operator.
+     */
+    public boolean isSortKeyPrefixExact(Type type)
+    {
+        return type.getTypeOperatorDeclaration(this).isSortKeyPrefixExact();
+    }
+
+    /**
+     * Number of high bits of the type's sort key prefix that carry information.
+     */
+    public int getSortKeyPrefixBits(Type type)
+    {
+        return type.getTypeOperatorDeclaration(this).getSortKeyPrefixBits();
+    }
+
+    /**
+     * Returns an operator producing a 64-bit key whose unsigned order never contradicts the
+     * comparison used by {@link #getOrderingOperator} for the given sort order. Null placement
+     * and the descending direction are not part of the key and must be applied by the caller.
+     */
+    public MethodHandle getSortKeyPrefixOperator(Type type, SortOrder sortOrder, InvocationConvention callingConvention)
+    {
+        if (!isSortKeyPrefixSupported(type)) {
+            throw new UnsupportedOperationException(type + " does not declare sort key prefix operators");
+        }
+        OperatorType operatorType = sortOrder.isNullsFirst() ? SORT_KEY_PREFIX_UNORDERED_FIRST : SORT_KEY_PREFIX_UNORDERED_LAST;
+        return getOperatorAdaptor(type, callingConvention, operatorType).get();
     }
 
     public MethodHandle getLessThanOperator(Type type, InvocationConvention callingConvention)
@@ -318,6 +359,8 @@ public class TypeOperators
                     }
                     yield comparisonUnorderedFirstOperators;
                 }
+                case SORT_KEY_PREFIX_UNORDERED_LAST -> typeOperatorDeclaration.getSortKeyPrefixUnorderedLastOperators();
+                case SORT_KEY_PREFIX_UNORDERED_FIRST -> typeOperatorDeclaration.getSortKeyPrefixUnorderedFirstOperators();
                 case LESS_THAN -> {
                     Collection<OperatorMethodHandle> lessThanOperators = typeOperatorDeclaration.getLessThanOperators();
                     if (lessThanOperators.isEmpty()) {
@@ -516,7 +559,7 @@ public class TypeOperators
             return switch (operatorConvention.operatorType()) {
                 case EQUAL, IDENTICAL, LESS_THAN, LESS_THAN_OR_EQUAL, INDETERMINATE -> BOOLEAN;
                 case COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST -> INTEGER;
-                case HASH_CODE, XX_HASH_64 -> BIGINT;
+                case HASH_CODE, XX_HASH_64, SORT_KEY_PREFIX_UNORDERED_LAST, SORT_KEY_PREFIX_UNORDERED_FIRST -> BIGINT;
                 case READ_VALUE -> operatorConvention.type();
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
@@ -528,7 +571,8 @@ public class TypeOperators
                 case LESS_THAN, LESS_THAN_OR_EQUAL,
                      COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST,
                      EQUAL, IDENTICAL -> List.of(operatorConvention.type(), operatorConvention.type());
-                case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE -> List.of(operatorConvention.type());
+                case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE,
+                     SORT_KEY_PREFIX_UNORDERED_LAST, SORT_KEY_PREFIX_UNORDERED_FIRST -> List.of(operatorConvention.type());
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
         }

@@ -28,6 +28,7 @@ public final class VarbinaryType
             .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
             .addOperators(DEFAULT_ORDERING_OPERATORS)
+            .addOperators(DEFAULT_SORT_KEY_PREFIX_OPERATORS)
             .build();
 
     public static final VarbinaryType VARBINARY = new VarbinaryType();

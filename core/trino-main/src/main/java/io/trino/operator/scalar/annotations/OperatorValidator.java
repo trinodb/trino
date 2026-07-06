@@ -58,7 +58,7 @@ public final class OperatorValidator
                     default -> {}
                 }
             }
-            case HASH_CODE -> {
+            case HASH_CODE, SORT_KEY_PREFIX_UNORDERED_LAST, SORT_KEY_PREFIX_UNORDERED_FIRST -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
                 checkArgument(returnType.baseName().equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
             }

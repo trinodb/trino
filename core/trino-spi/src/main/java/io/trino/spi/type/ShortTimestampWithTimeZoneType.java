@@ -38,6 +38,8 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -53,7 +55,10 @@ import static java.lang.invoke.MethodHandles.lookup;
 final class ShortTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType
 {
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampWithTimeZoneType.class, lookup(), long.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(long.class)
+            .addOperators(extractOperatorDeclaration(ShortTimestampWithTimeZoneType.class, lookup(), long.class))
+            .sortKeyPrefixExact(true)
+            .build();
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
     ShortTimestampWithTimeZoneType(int precision)
@@ -172,6 +177,23 @@ final class ShortTimestampWithTimeZoneType
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash(unpackMillisUtc(value));
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(long value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(long value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(long value)
+    {
+        return unpackMillisUtc(value) ^ Long.MIN_VALUE;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

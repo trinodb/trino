@@ -40,6 +40,8 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
@@ -49,7 +51,11 @@ public abstract class AbstractIntType
         extends AbstractType
         implements FixedWidthType
 {
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractIntType.class, lookup(), long.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(long.class)
+            .addOperators(extractOperatorDeclaration(AbstractIntType.class, lookup(), long.class))
+            .sortKeyPrefixExact(true)
+            .sortKeyPrefixBits(32)
+            .build();
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     protected AbstractIntType(TypeDescriptor signature)
@@ -191,6 +197,23 @@ public abstract class AbstractIntType
     private static long xxHash64Operator(long value)
     {
         return XxHash64.hash((int) value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(long value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(long value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(long value)
+    {
+        return ((value ^ 0x8000_0000L) & 0xFFFF_FFFFL) << 32;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

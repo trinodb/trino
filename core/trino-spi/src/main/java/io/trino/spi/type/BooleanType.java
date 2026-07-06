@@ -35,6 +35,8 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -44,7 +46,11 @@ public final class BooleanType
         implements FixedWidthType
 {
     public static final String NAME = "boolean";
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(BooleanType.class, lookup(), boolean.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(boolean.class)
+            .addOperators(extractOperatorDeclaration(BooleanType.class, lookup(), boolean.class))
+            .sortKeyPrefixExact(true)
+            .sortKeyPrefixBits(1)
+            .build();
 
     private static final long TRUE_XX_HASH = XxHash64.hash(1);
     private static final long FALSE_XX_HASH = XxHash64.hash(0);
@@ -201,6 +207,23 @@ public final class BooleanType
     private static long xxHash64Operator(boolean value)
     {
         return value ? TRUE_XX_HASH : FALSE_XX_HASH;
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(boolean value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(boolean value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(boolean value)
+    {
+        return value ? Long.MIN_VALUE : 0;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

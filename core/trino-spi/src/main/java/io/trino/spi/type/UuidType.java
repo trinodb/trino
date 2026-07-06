@@ -41,6 +41,8 @@ import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Long.reverseBytes;
@@ -288,6 +290,23 @@ public class UuidType
     private static long xxHash64(long low, long high)
     {
         return XxHash64.hash(low) ^ XxHash64.hash(high);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(Slice value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(Slice value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(Slice value)
+    {
+        return reverseBytes(value.getLong(0));
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

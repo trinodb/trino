@@ -39,6 +39,8 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -324,6 +326,23 @@ final class LongTimestampWithTimeZoneType
     private static long xxHash64(long epochMillis, int picosOfMilli)
     {
         return XxHash64.hash(epochMillis) ^ XxHash64.hash(picosOfMilli);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(LongTimestampWithTimeZone value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(LongTimestampWithTimeZone value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(LongTimestampWithTimeZone value)
+    {
+        return value.getEpochMillis() ^ Long.MIN_VALUE;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

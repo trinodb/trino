@@ -37,6 +37,8 @@ import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
@@ -230,6 +232,23 @@ final class LongDecimalType
     private static long xxHash64(long high, long low)
     {
         return XxHash64.hash(high) ^ XxHash64.hash(low);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(Int128 value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(Int128 value)
+    {
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(Int128 value)
+    {
+        return value.getHigh() ^ Long.MIN_VALUE;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

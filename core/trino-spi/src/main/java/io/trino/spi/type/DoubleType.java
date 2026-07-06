@@ -42,9 +42,12 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.isNaN;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -53,7 +56,10 @@ public final class DoubleType
         implements FixedWidthType
 {
     public static final String NAME = "double";
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(DoubleType.class, lookup(), double.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(double.class)
+            .addOperators(extractOperatorDeclaration(DoubleType.class, lookup(), double.class))
+            .sortKeyPrefixExact(true)
+            .build();
     private static final VarHandle DOUBLE_HANDLE = MethodHandles.byteArrayViewVarHandle(double[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final DoubleType DOUBLE = new DoubleType();
@@ -222,10 +228,39 @@ public final class DoubleType
             return leftNull == rightNull;
         }
 
-        if (Double.isNaN(left) && Double.isNaN(right)) {
+        if (isNaN(left) && isNaN(right)) {
             return true;
         }
         return left == right;
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(double value)
+    {
+        if (isNaN(value)) {
+            // above all normal keys; no non-NaN double encodes to this key
+            return -1;
+        }
+        return sortKeyPrefix(value);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(double value)
+    {
+        if (isNaN(value)) {
+            // below all normal keys; no non-NaN double encodes to this key
+            return 0;
+        }
+        return sortKeyPrefix(value);
+    }
+
+    private static long sortKeyPrefix(double value)
+    {
+        long bits = doubleToLongBits(value);
+        if (bits < 0) {
+            return ~bits;
+        }
+        return bits ^ Long.MIN_VALUE;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
@@ -238,13 +273,13 @@ public final class DoubleType
     private static long comparisonUnorderedFirstOperator(double left, double right)
     {
         // Double compare puts NaN last, so we must handle NaNs manually
-        if (Double.isNaN(left) && Double.isNaN(right)) {
+        if (isNaN(left) && isNaN(right)) {
             return 0;
         }
-        if (Double.isNaN(left)) {
+        if (isNaN(left)) {
             return -1;
         }
-        if (Double.isNaN(right)) {
+        if (isNaN(right)) {
             return 1;
         }
 
