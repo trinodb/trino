@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
@@ -25,8 +26,12 @@ import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.ExchangeMetricsCollector;
+import io.trino.execution.FailureInjector;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.node.InternalNode;
+import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import jakarta.annotation.PreDestroy;
@@ -60,9 +65,16 @@ public class DirectExchangeClientFactory
     private final ExecutorService pageBufferClientCallbackExecutor;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final Optional<ExchangeMetricsCollector> exchangeMetricsCollector;
+    private final Optional<HostAddress> localNodeAddress;
+    private final Optional<Provider<SqlTaskManager>> localTaskManager;
 
     @Inject
     public DirectExchangeClientFactory(
+            InternalNode currentNode,
+            // Provider is used to break the dependency cycle:
+            // SqlTaskManager -> LocalExecutionPlanner -> DirectExchangeClientSupplier
+            Provider<SqlTaskManager> taskManager,
+            FailureInjector failureInjector,
             NodeInfo nodeInfo,
             FeaturesConfig featuresConfig,
             DirectExchangeClientConfig config,
@@ -85,7 +97,11 @@ public class DirectExchangeClientFactory
                 httpClient,
                 scheduler,
                 exchangeManagerRegistry,
-                exchangeMetricsCollector);
+                exchangeMetricsCollector,
+                // Fetching results directly from local output buffers bypasses TaskResource and would
+                // skip its failure injection, so keep the HTTP path when an injector is installed (tests)
+                failureInjector.canInjectFailures() ? Optional.empty() : Optional.of(currentNode.getHostAndPort()),
+                failureInjector.canInjectFailures() ? Optional.empty() : Optional.of(taskManager));
     }
 
     public DirectExchangeClientFactory(
@@ -102,7 +118,9 @@ public class DirectExchangeClientFactory
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
             ExchangeManagerRegistry exchangeManagerRegistry,
-            Optional<ExchangeMetricsCollector> exchangeMetricsCollector)
+            Optional<ExchangeMetricsCollector> exchangeMetricsCollector,
+            Optional<HostAddress> localNodeAddress,
+            Optional<Provider<SqlTaskManager>> localTaskManager)
     {
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
@@ -129,6 +147,8 @@ public class DirectExchangeClientFactory
         checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
+        this.localNodeAddress = requireNonNull(localNodeAddress, "localNodeAddress is null");
+        this.localTaskManager = requireNonNull(localTaskManager, "localTaskManager is null");
     }
 
     @PreDestroy
@@ -180,6 +200,8 @@ public class DirectExchangeClientFactory
                 scheduler,
                 memoryContext,
                 pageBufferClientCallbackExecutor,
-                taskFailureListener);
+                taskFailureListener,
+                localNodeAddress,
+                localTaskManager.map(Provider::get));
     }
 }

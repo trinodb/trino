@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import org.junit.jupiter.api.Test;
@@ -67,10 +68,10 @@ public class TestStreamingDirectExchangeBuffer
             assertThat(buffer.getBufferedPageCount()).isEqualTo(1);
             assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(PAGE_0.getRetainedSize());
             assertThat(buffer.getMaxRetainedSizeInBytes()).isEqualTo(PAGE_0.getRetainedSize());
-            assertThat(buffer.getRemainingCapacityInBytes()).isEqualTo(DataSize.of(1, KILOBYTE).toBytes() - PAGE_0.getRetainedSize());
+            assertThat(buffer.getRemainingCapacityInBytes()).isEqualTo(DataSize.of(1, KILOBYTE).toBytes() - PAGE_0.length());
             assertThat(buffer.isFinished()).isFalse();
             assertThat(blocked.isDone()).isTrue();
-            assertThat(buffer.pollPage()).isEqualTo(PAGE_0);
+            assertThat(buffer.pollPage()).isEqualTo(ExchangedPage.serialized(PAGE_0));
             blocked = buffer.isBlocked();
             assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(0);
             assertThat(buffer.getMaxRetainedSizeInBytes()).isEqualTo(PAGE_0.getRetainedSize());
@@ -86,11 +87,11 @@ public class TestStreamingDirectExchangeBuffer
             assertThat(buffer.getBufferedPageCount()).isEqualTo(2);
             assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(PAGE_1.getRetainedSize() + PAGE_2.getRetainedSize());
             assertThat(buffer.getMaxRetainedSizeInBytes()).isEqualTo(PAGE_1.getRetainedSize() + PAGE_2.getRetainedSize());
-            assertThat(buffer.getRemainingCapacityInBytes()).isEqualTo(DataSize.of(1, KILOBYTE).toBytes() - PAGE_1.getRetainedSize() - PAGE_2.getRetainedSize());
+            assertThat(buffer.getRemainingCapacityInBytes()).isEqualTo(DataSize.of(1, KILOBYTE).toBytes() - PAGE_1.length() - PAGE_2.length());
             assertThat(buffer.isFinished()).isFalse();
             assertThat(buffer.isBlocked().isDone()).isTrue();
-            assertThat(buffer.pollPage()).isEqualTo(PAGE_1);
-            assertThat(buffer.pollPage()).isEqualTo(PAGE_2);
+            assertThat(buffer.pollPage()).isEqualTo(ExchangedPage.serialized(PAGE_1));
+            assertThat(buffer.pollPage()).isEqualTo(ExchangedPage.serialized(PAGE_2));
             assertThat(buffer.isFinished()).isFalse();
             assertThat(buffer.isBlocked().isDone()).isFalse();
             assertThat(buffer.getRetainedSizeInBytes()).isEqualTo(0);
@@ -228,27 +229,24 @@ public class TestStreamingDirectExchangeBuffer
     }
 
     @Test
-    public void testSingleWakeUp()
+    public void testAllWaitersWakeUp()
     {
         try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertThat(buffer.isFinished()).isFalse();
-            ListenableFuture<Void> blocked1 = buffer.isBlocked();
-            ListenableFuture<Void> blocked2 = buffer.isBlocked();
-            assertThat(blocked1.isDone()).isFalse();
-            assertThat(blocked2.isDone()).isFalse();
+            // a waiter may be abandoned by a consumer woken up by another condition,
+            // so adding pages must wake all waiters, not one waiter per added page
+            ListenableFuture<Void> abandoned = buffer.isBlocked();
+            ListenableFuture<Void> blocked = buffer.isBlocked();
+            assertThat(abandoned.isDone()).isFalse();
+            assertThat(blocked.isDone()).isFalse();
 
             buffer.addTask(TASK_0);
 
             buffer.addPages(TASK_0, ImmutableList.of(PAGE_0));
             buffer.pollPage();
 
-            assertThat(blocked1.isDone()).isTrue();
-            assertThat(blocked2.isDone()).isFalse();
-
-            buffer.addPages(TASK_0, ImmutableList.of(PAGE_0));
-            buffer.pollPage();
-
-            assertThat(blocked2.isDone()).isTrue();
+            assertThat(abandoned.isDone()).isTrue();
+            assertThat(blocked.isDone()).isTrue();
         }
     }
 }

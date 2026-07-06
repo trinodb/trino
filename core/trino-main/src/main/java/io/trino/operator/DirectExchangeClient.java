@@ -25,12 +25,16 @@ import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.spi.HostAddress;
+import io.trino.spi.Page;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
@@ -39,6 +43,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -46,6 +51,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiConsumer;
+import java.util.function.ToLongFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -66,6 +73,8 @@ public class DirectExchangeClient
     private final boolean acknowledgePages;
     private final HttpClient httpClient;
     private final ScheduledExecutorService scheduledExecutor;
+    private final Optional<HostAddress> localNodeAddress;
+    private final Optional<SqlTaskManager> localTaskManager;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -112,7 +121,9 @@ public class DirectExchangeClient
             ScheduledExecutorService scheduledExecutor,
             LocalMemoryContext memoryContext,
             Executor pageBufferClientCallbackExecutor,
-            TaskFailureListener taskFailureListener)
+            TaskFailureListener taskFailureListener,
+            Optional<HostAddress> localNodeAddress,
+            Optional<SqlTaskManager> localTaskManager)
     {
         this.selfAddress = requireNonNull(selfAddress, "selfAddress is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
@@ -126,6 +137,8 @@ public class DirectExchangeClient
         this.memoryContext = memoryContext;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
+        this.localNodeAddress = requireNonNull(localNodeAddress, "localNodeAddress is null");
+        this.localTaskManager = requireNonNull(localTaskManager, "localTaskManager is null");
     }
 
     public DirectExchangeClientStatus getStatus()
@@ -167,6 +180,9 @@ public class DirectExchangeClient
 
         checkState(!noMoreLocations, "No more locations already set");
         buffer.addTask(taskId);
+        // pages fetched locally are passed by reference, so the buffer must support them
+        boolean local = buffer.supportsRawPages()
+                && localNodeAddress.map(address -> address.equals(HostAddress.fromUri(location))).orElse(false);
         HttpPageBufferClient client = new HttpPageBufferClient(
                 selfAddress,
                 httpClient,
@@ -178,7 +194,8 @@ public class DirectExchangeClient
                 location,
                 new ExchangeClientCallback(),
                 scheduledExecutor,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                local ? localTaskManager : Optional.empty());
         allClients.put(location, client);
         queuedClients.add(client);
 
@@ -192,10 +209,10 @@ public class DirectExchangeClient
         scheduleRequestIfNecessary();
     }
 
-    public WorkProcessor<Slice> pages()
+    public WorkProcessor<ExchangedPage> pages()
     {
         return WorkProcessor.create(() -> {
-            Slice page = pollPage();
+            ExchangedPage page = pollPage();
             if (page == null) {
                 if (isFinished()) {
                     return ProcessState.finished();
@@ -220,11 +237,11 @@ public class DirectExchangeClient
     }
 
     @Nullable
-    public Slice pollPage()
+    public ExchangedPage pollPage()
     {
         assertNotHoldsLock();
 
-        Slice page = buffer.pollPage();
+        ExchangedPage page = buffer.pollPage();
 
         if (page == null) {
             return null;
@@ -330,6 +347,16 @@ public class DirectExchangeClient
 
     private boolean addPages(HttpPageBufferClient client, List<Slice> pages)
     {
+        return addPages(client, pages, Slice::length, buffer::addPages);
+    }
+
+    private boolean addRawPages(HttpPageBufferClient client, List<Page> pages)
+    {
+        return addPages(client, pages, Page::getSizeInBytes, buffer::addRawPages);
+    }
+
+    private <T> boolean addPages(HttpPageBufferClient client, List<T> pages, ToLongFunction<T> pageSize, BiConsumer<TaskId, List<T>> add)
+    {
         // If client is already completed, addPages is a no-op
         if (completedClients.contains(client)) {
             return false;
@@ -338,15 +365,20 @@ public class DirectExchangeClient
         // Compute stats before acquiring the lock
         long responseSize = 0;
         if (!pages.isEmpty()) {
-            for (Slice page : pages) {
-                responseSize += page.length();
+            for (T page : pages) {
+                responseSize += pageSize.applyAsLong(page);
             }
             // Buffer may already be closed at this point. In such situation the buffer is expected to simply ignore this call.
-            buffer.addPages(client.getRemoteTaskId(), pages);
+            add.accept(client.getRemoteTaskId(), pages);
             // updating retained memory might be expensive, therefore it needs to be updated outside of exclusive lock
             updateRetainedMemory();
         }
 
+        return recordSuccessfulRequest(responseSize);
+    }
+
+    private boolean recordSuccessfulRequest(long responseSize)
+    {
         synchronized (this) {
             if (closed || buffer.isFinished() || buffer.isFailed()) {
                 return false;
@@ -429,6 +461,14 @@ public class DirectExchangeClient
             requireNonNull(client, "client is null");
             requireNonNull(pages, "pages is null");
             return DirectExchangeClient.this.addPages(client, pages);
+        }
+
+        @Override
+        public boolean addRawPages(HttpPageBufferClient client, List<Page> pages)
+        {
+            requireNonNull(client, "client is null");
+            requireNonNull(pages, "pages is null");
+            return DirectExchangeClient.this.addRawPages(client, pages);
         }
 
         @Override

@@ -34,8 +34,13 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * OutputBufferMemoryManager will block when any condition below holds
- * - the number of buffered bytes exceeds maxBufferedBytes and blockOnFull is true
+ * - the size of the buffered data exceeds maxBufferedBytes and blockOnFull is true
  * - the memory pool is exhausted
+ * <p>
+ * Memory is accounted at the retained size of the buffered pages, while blocking is
+ * driven by their data size. The two differ for raw pages buffered for a consumer on
+ * the same node: sizing flow control by the retained size would penalize them for
+ * memory over-allocated by the producing operators.
  */
 @ThreadSafe
 final class OutputBufferMemoryManager
@@ -43,7 +48,8 @@ final class OutputBufferMemoryManager
     private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
     private final long maxBufferedBytes;
-    private final AtomicLong bufferedBytes = new AtomicLong();
+    private final AtomicLong bufferedRetainedBytes = new AtomicLong();
+    private final AtomicLong bufferedSizeInBytes = new AtomicLong();
     private final AtomicLong peakMemoryUsage = new AtomicLong();
 
     @GuardedBy("this")
@@ -79,7 +85,7 @@ final class OutputBufferMemoryManager
         this.lastBufferUtilization = 0;
     }
 
-    public void updateMemoryUsage(long bytesAdded)
+    public void updateMemoryUsage(long retainedBytesAdded, long sizeInBytesAdded)
     {
         // If the memoryContext doesn't exist, the task is probably already
         // aborted, so we can just return (see the comment in getMemoryContextOrNull()).
@@ -90,7 +96,7 @@ final class OutputBufferMemoryManager
 
         ListenableFuture<Void> waitForMemory = null;
         SettableFuture<Void> notifyUnblocked = null;
-        final long currentBufferedBytes;
+        final long currentRetainedBytes;
         synchronized (this) {
             // If closed is true, that means the task is completed. In that state,
             // the output buffers already ignore the newly added pages, and therefore
@@ -99,12 +105,9 @@ final class OutputBufferMemoryManager
                 return;
             }
 
-            currentBufferedBytes = bufferedBytes.accumulateAndGet(bytesAdded, (bufferedBytes, delta) -> {
-                long result = bufferedBytes + delta;
-                checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bufferedBytes, delta);
-                return result;
-            });
-            ListenableFuture<Void> blockedOnMemory = memoryContext.setBytes(currentBufferedBytes);
+            currentRetainedBytes = addAndCheck(bufferedRetainedBytes, retainedBytesAdded, "bufferedRetainedBytes");
+            long currentSizeInBytes = addAndCheck(bufferedSizeInBytes, sizeInBytesAdded, "bufferedSizeInBytes");
+            ListenableFuture<Void> blockedOnMemory = memoryContext.setBytes(currentRetainedBytes);
             if (!blockedOnMemory.isDone()) {
                 if (this.blockedOnMemory != blockedOnMemory) {
                     this.blockedOnMemory = blockedOnMemory;
@@ -113,7 +116,7 @@ final class OutputBufferMemoryManager
             }
             else {
                 this.blockedOnMemory = NOT_BLOCKED;
-                if (currentBufferedBytes <= maxBufferedBytes || !blockOnFull.get()) {
+                if (currentSizeInBytes <= maxBufferedBytes || !blockOnFull.get()) {
                     // Complete future in a new thread to avoid making a callback on the caller thread.
                     // This make is easier for callers to use this class since they can update the memory
                     // usage while holding locks.
@@ -121,17 +124,26 @@ final class OutputBufferMemoryManager
                     this.bufferBlockedFuture = null;
                 }
             }
-            recordBufferUtilization(currentBufferedBytes);
+            recordBufferUtilization(currentSizeInBytes);
         }
         // Reduce contention by reading first and only updating if the new value might become the maximum (uncommon)
-        if (currentBufferedBytes > peakMemoryUsage.get()) {
-            peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
+        if (currentRetainedBytes > peakMemoryUsage.get()) {
+            peakMemoryUsage.accumulateAndGet(currentRetainedBytes, Math::max);
         }
         // Notify listeners outside of the critical section
         notifyListener(notifyUnblocked);
         if (waitForMemory != null) {
             waitForMemory.addListener(this::onMemoryAvailable, notificationExecutor);
         }
+    }
+
+    private static long addAndCheck(AtomicLong total, long delta, String name)
+    {
+        return total.accumulateAndGet(delta, (current, added) -> {
+            long result = current + added;
+            checkArgument(result >= 0, "%s (%s) plus delta (%s) would be negative", name, current, added);
+            return result;
+        });
     }
 
     private synchronized void recordBufferUtilization(long currentBufferedBytes)
@@ -179,12 +191,12 @@ final class OutputBufferMemoryManager
 
     public long getBufferedBytes()
     {
-        return bufferedBytes.get();
+        return bufferedRetainedBytes.get();
     }
 
     public double getUtilization()
     {
-        return getUtilization(bufferedBytes.get());
+        return getUtilization(bufferedSizeInBytes.get());
     }
 
     private double getUtilization(long currentBufferedBytes)
@@ -195,7 +207,7 @@ final class OutputBufferMemoryManager
     public synchronized TDigest getUtilizationHistogram()
     {
         // always get most up to date histogram
-        recordBufferUtilization(bufferedBytes.get());
+        recordBufferUtilization(bufferedSizeInBytes.get());
         return TDigest.copyOf(bufferUtilization);
     }
 
@@ -206,7 +218,7 @@ final class OutputBufferMemoryManager
 
     private boolean isBufferFull()
     {
-        return bufferedBytes.get() > maxBufferedBytes && blockOnFull.get();
+        return bufferedSizeInBytes.get() > maxBufferedBytes && blockOnFull.get();
     }
 
     @VisibleForTesting
@@ -237,7 +249,7 @@ final class OutputBufferMemoryManager
 
     public synchronized void close()
     {
-        updateMemoryUsage(-bufferedBytes.get());
+        updateMemoryUsage(-bufferedRetainedBytes.get(), -bufferedSizeInBytes.get());
         LocalMemoryContext memoryContext = getMemoryContextOrNull();
         if (memoryContext != null) {
             memoryContext.close();

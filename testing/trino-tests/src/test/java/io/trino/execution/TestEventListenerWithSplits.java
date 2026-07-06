@@ -142,7 +142,9 @@ public class TestEventListenerWithSplits
         assertThat(statistics.getPhysicalInputRows()).isEqualTo(expectedCompletedPositions);
         assertThat(statistics.getProcessedInputBytes()).isEqualTo(300875L);
         assertThat(statistics.getProcessedInputRows()).isEqualTo(expectedCompletedPositions);
-        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(129);
+        // pages are exchanged by reference between tasks on the same node,
+        // so no bytes travel over the network
+        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(0);
         assertThat(statistics.getInternalNetworkRows()).isEqualTo(3);
         assertThat(statistics.getOutputBytes()).isEqualTo(9);
         assertThat(statistics.getOutputRows()).isEqualTo(1);

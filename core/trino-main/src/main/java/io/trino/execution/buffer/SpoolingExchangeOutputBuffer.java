@@ -153,7 +153,7 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(PipelinedOutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(PipelinedOutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize, boolean localConsumer)
     {
         throw new UnsupportedOperationException();
     }

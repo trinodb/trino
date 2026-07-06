@@ -15,9 +15,9 @@ package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.trino.execution.TaskFailureListener;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -82,7 +82,7 @@ public class LazyExchangeDataSource
     }
 
     @Override
-    public Slice pollPage()
+    public ExchangedPage pollPage()
     {
         ExchangeDataSource dataSource = delegate.get();
         if (dataSource == null) {

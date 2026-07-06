@@ -25,6 +25,7 @@ import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.ClientBuffer.PagesSupplier;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.SerializedPageReference.PageReferences;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.metrics.TDigestHistogram;
@@ -48,9 +49,9 @@ import static io.trino.execution.buffer.BufferState.ABORTED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
-import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
+import static io.trino.execution.buffer.SerializedPageReference.referenceSerializedPages;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -226,24 +227,15 @@ public class ArbitraryOutputBuffer
             return;
         }
 
-        ImmutableList.Builder<SerializedPageReference> references = ImmutableList.builderWithExpectedSize(pages.size());
-        long bytesAdded = 0;
-        long rowCount = 0;
-        for (Slice page : pages) {
-            bytesAdded += page.getRetainedSize();
-            int positionCount = getSerializedPagePositionCount(page);
-            rowCount += positionCount;
-            // create page reference counts with an initial single reference
-            references.add(new SerializedPageReference(page, positionCount, 1));
-        }
-        List<SerializedPageReference> serializedPageReferences = references.build();
+        PageReferences pageReferences = referenceSerializedPages(pages);
+        List<SerializedPageReference> serializedPageReferences = pageReferences.references();
 
         // update stats
-        totalRowsAdded.add(rowCount);
+        totalRowsAdded.add(pageReferences.rowCount());
         totalPagesAdded.add(serializedPageReferences.size());
 
         // reserve memory
-        memoryManager.updateMemoryUsage(bytesAdded);
+        memoryManager.updateMemoryUsage(pageReferences.retainedSizeInBytes(), pageReferences.sizeInBytes());
 
         // add pages to the buffer (this will increase the reference count by one)
         masterBuffer.addPages(serializedPageReferences);
@@ -274,7 +266,7 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize, boolean localConsumer)
     {
         checkState(!Thread.holdsLock(this), "Cannot get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
@@ -474,7 +466,7 @@ public class ArbitraryOutputBuffer
                 if (page == null) {
                     break;
                 }
-                bytesRemoved += page.getRetainedSizeInBytes();
+                bytesRemoved += page.getSizeInBytes();
                 // break (and don't add) if this page would exceed the limit
                 if (!pages.isEmpty() && bytesRemoved > maxBytes) {
                     break;

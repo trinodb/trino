@@ -38,6 +38,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -77,7 +78,6 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.TestSqlTaskExecution.TASK_ID;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
-import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -150,7 +150,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -216,7 +218,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -272,7 +276,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -347,7 +353,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -450,7 +458,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         exchangeClient.addLocation(task1, location1);
         exchangeClient.addLocation(task2, location2);
@@ -511,7 +521,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         exchangeClient.addLocation(attempt0Task1, attempt0Task1Location);
         assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS)).isEmpty();
@@ -568,7 +580,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         exchangeClient.addLocation(taskP0A0, locationP0A0);
         exchangeClient.addLocation(taskP1A0, locationP1A0);
@@ -589,11 +603,11 @@ public class TestDirectExchangeClient
         List<Page> pages = new ArrayList<>();
         PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
         while (!exchangeClient.isFinished()) {
-            Slice page = exchangeClient.pollPage();
+            ExchangedPage page = exchangeClient.pollPage();
             if (page == null) {
                 break;
             }
-            pages.add(deserializer.deserialize(page));
+            pages.add(page.page(deserializer));
         }
 
         assertThat(pages).hasSize(2);
@@ -657,7 +671,9 @@ public class TestDirectExchangeClient
                 (taskId, _) -> {
                     failedTasks.add(taskId);
                     latch.countDown();
-                });
+                },
+                Optional.empty(),
+                Optional.empty());
 
         assertThat(buffer.getAllTasks()).isEmpty();
         assertThat(buffer.getPages().asMap()).isEmpty();
@@ -774,7 +790,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -922,7 +940,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
@@ -955,7 +975,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
 
@@ -1009,7 +1031,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
         exchangeClient.getAllClients().putAll(Map.of(locationOne, clientToBeUsed, locationTwo, clientToBeSkipped));
         exchangeClient.getQueuedClients().addAll(ImmutableList.of(clientToBeUsed, clientToBeSkipped));
 
@@ -1044,7 +1068,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
         exchangeClient.getAllClients().putAll(Map.of(locationOne, firstClient, locationTwo, secondClient));
         exchangeClient.getQueuedClients().addAll(ImmutableList.of(firstClient, secondClient));
 
@@ -1081,7 +1107,9 @@ public class TestDirectExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor,
-                (_, _) -> {});
+                (_, _) -> {},
+                Optional.empty(),
+                Optional.empty());
         exchangeClient.getAllClients().putAll(Map.of(locationOne, pendingClient, locationTwo, clientToBeSkipped));
         exchangeClient.getRunningClients().add(pendingClient);
         exchangeClient.getQueuedClients().add(clientToBeSkipped);
@@ -1105,7 +1133,8 @@ public class TestDirectExchangeClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                Optional.empty());
     }
 
     private static Page createPage(int size)
@@ -1118,17 +1147,18 @@ public class TestDirectExchangeClient
         return serdeFactory.createSerializer(Optional.empty()).serialize(createPage(size));
     }
 
-    private static Slice getNextPage(DirectExchangeClient exchangeClient)
+    private static ExchangedPage getNextPage(DirectExchangeClient exchangeClient)
     {
-        ListenableFuture<Slice> futurePage = Futures.transform(exchangeClient.isBlocked(), _ -> exchangeClient.isFinished() ? null : exchangeClient.pollPage(), directExecutor());
+        ListenableFuture<ExchangedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), _ -> exchangeClient.isFinished() ? null : exchangeClient.pollPage(), directExecutor());
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);
     }
 
-    private void assertPageEquals(Slice actualPage, Page expectedPage)
+    private void assertPageEquals(ExchangedPage actualPage, Page expectedPage)
     {
         assertThat(actualPage).isNotNull();
-        assertThat(getSerializedPagePositionCount(actualPage)).isEqualTo(expectedPage.getPositionCount());
-        assertThat(serdeFactory.createDeserializer(Optional.empty()).deserialize(actualPage).getChannelCount()).isEqualTo(expectedPage.getChannelCount());
+        Page page = actualPage.page(serdeFactory.createDeserializer(Optional.empty()));
+        assertThat(page.getPositionCount()).isEqualTo(expectedPage.getPositionCount());
+        assertThat(page.getChannelCount()).isEqualTo(expectedPage.getChannelCount());
     }
 
     private static void assertStatus(

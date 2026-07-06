@@ -14,7 +14,7 @@
 package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.OperatorInfo;
 
@@ -39,7 +39,7 @@ public class DirectExchangeDataSource
     }
 
     @Override
-    public Slice pollPage()
+    public ExchangedPage pollPage()
     {
         return directExchangeClient.pollPage();
     }

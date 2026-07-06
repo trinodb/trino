@@ -1024,7 +1024,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSize();
+        long pageSize = serializePage(page).length();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1057,7 +1057,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSize();
+        long pageSize = serializePage(page).length();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1072,7 +1072,7 @@ public class TestBroadcastOutputBuffer
         reservationHandler.updateBlockedFuture(blockedFuture);
 
         // allocate one more byte to make the buffer full
-        memoryManager.updateMemoryUsage(1L);
+        memoryManager.updateMemoryUsage(1L, 1L);
 
         // more memory is available
         blockedFuture.set(null);
@@ -1084,7 +1084,7 @@ public class TestBroadcastOutputBuffer
                 .isFalse();
 
         // remove all pages from the memory manager and the 1 byte that we added above
-        memoryManager.updateMemoryUsage(-pageSize * 2 - 1);
+        memoryManager.updateMemoryUsage(-pageSize * 2 - 1, -pageSize * 2 - 1);
 
         // now we have both buffer space and memory available, so memoryManager shouldn't be blocked
         assertThat(memoryManager.getBufferBlockedFuture().isDone())
@@ -1107,7 +1107,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSize();
+        long pageSize = serializePage(page).length();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());

@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -20,6 +21,8 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
+import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 
 import java.util.ArrayDeque;
@@ -29,6 +32,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -47,8 +51,11 @@ public class StreamingDirectExchangeBuffer
     private final long bufferCapacityInBytes;
 
     @GuardedBy("this")
-    private final Queue<Slice> bufferedPages = new ArrayDeque<>();
+    private final Queue<ExchangedPage> bufferedPages = new ArrayDeque<>();
     private final AtomicLong bufferRetainedSizeInBytes = new AtomicLong();
+    // the size of the buffered data, which drives flow control; unlike the retained size,
+    // it does not penalize raw pages for memory over-allocated by the producing operators
+    private final AtomicLong bufferSizeInBytes = new AtomicLong();
     @GuardedBy("this")
     private volatile long maxBufferRetainedSizeInBytes;
     @GuardedBy("this")
@@ -81,17 +88,19 @@ public class StreamingDirectExchangeBuffer
     }
 
     @Override
-    public synchronized Slice pollPage()
+    public synchronized ExchangedPage pollPage()
     {
         throwIfFailed();
 
         if (closed) {
             return null;
         }
-        Slice page = bufferedPages.poll();
+        ExchangedPage page = bufferedPages.poll();
         if (page != null) {
-            long retained = bufferRetainedSizeInBytes.addAndGet(-page.getRetainedSize());
+            long retained = bufferRetainedSizeInBytes.addAndGet(-page.retainedSizeInBytes());
             checkState(retained >= 0, "unexpected bufferRetainedSizeInBytes: %s", retained);
+            long size = bufferSizeInBytes.addAndGet(-page.sizeInBytes());
+            checkState(size >= 0, "unexpected bufferSizeInBytes: %s", size);
         }
         return page;
     }
@@ -109,9 +118,37 @@ public class StreamingDirectExchangeBuffer
     @Override
     public void addPages(TaskId taskId, List<Slice> pages)
     {
+        addExchangedPages(taskId, wrap(pages, ExchangedPage::serialized));
+    }
+
+    @Override
+    public boolean supportsRawPages()
+    {
+        return true;
+    }
+
+    @Override
+    public void addRawPages(TaskId taskId, List<Page> pages)
+    {
+        addExchangedPages(taskId, wrap(pages, ExchangedPage::raw));
+    }
+
+    private static <T> List<ExchangedPage> wrap(List<T> pages, Function<T, ExchangedPage> wrapper)
+    {
+        ImmutableList.Builder<ExchangedPage> exchangedPages = ImmutableList.builderWithExpectedSize(pages.size());
+        for (T page : pages) {
+            exchangedPages.add(wrapper.apply(page));
+        }
+        return exchangedPages.build();
+    }
+
+    private void addExchangedPages(TaskId taskId, List<ExchangedPage> pages)
+    {
         long pagesRetainedSizeInBytes = 0;
-        for (Slice page : pages) {
-            pagesRetainedSizeInBytes += page.getRetainedSize();
+        long pagesSizeInBytes = 0;
+        for (ExchangedPage page : pages) {
+            pagesRetainedSizeInBytes += page.retainedSizeInBytes();
+            pagesSizeInBytes += page.sizeInBytes();
         }
         synchronized (this) {
             if (closed) {
@@ -120,9 +157,15 @@ public class StreamingDirectExchangeBuffer
             checkState(activeTasks.contains(taskId), "taskId is not active: %s", taskId);
             bufferedPages.addAll(pages);
             long retained = bufferRetainedSizeInBytes.addAndGet(pagesRetainedSizeInBytes);
+            bufferSizeInBytes.addAndGet(pagesSizeInBytes);
             maxBufferRetainedSizeInBytes = max(maxBufferRetainedSizeInBytes, retained);
-            // Unblock the same number of consumers as pages to reduce the possibility of a thread waking up with an empty pull from the buffer.
-            unblock(pages.size());
+            // Wake all waiters. A consumer waiting on this buffer together with another
+            // condition (e.g. a query state change, see DirectTrinoClient) may have been
+            // woken up by the other condition, abandoning its waiter in the queue, so a
+            // wakeup counted per added page can be spent on a waiter nobody waits on
+            // anymore and the page would never get polled. A consumer woken up with an
+            // empty pull simply registers a new waiter.
+            unblockAll();
         }
     }
 
@@ -183,7 +226,7 @@ public class StreamingDirectExchangeBuffer
     @Override
     public long getRemainingCapacityInBytes()
     {
-        return max(bufferCapacityInBytes - bufferRetainedSizeInBytes.get(), 0);
+        return max(bufferCapacityInBytes - bufferSizeInBytes.get(), 0);
     }
 
     @Override
@@ -224,27 +267,20 @@ public class StreamingDirectExchangeBuffer
         }
         bufferedPages.clear();
         bufferRetainedSizeInBytes.set(0);
+        bufferSizeInBytes.set(0);
         activeTasks.clear();
         noMoreTasks = true;
         closed = true;
         unblockAll();
     }
 
-    private synchronized void unblock(int unblock)
-    {
-        for (int i = 0; i < unblock; i++) {
-            SettableFuture<Void> callback = blocked.poll();
-            if (callback == null) {
-                break;
-            }
-            executor.execute(() -> callback.set(null));
-        }
-    }
-
     private synchronized void unblockAll()
     {
-        unblock(blocked.size());
-        checkState(blocked.isEmpty(), "blocked callbacks is not empty");
+        SettableFuture<Void> callback;
+        while ((callback = blocked.poll()) != null) {
+            SettableFuture<Void> unblocked = callback;
+            executor.execute(() -> unblocked.set(null));
+        }
     }
 
     private synchronized void throwIfFailed()

@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,7 +66,7 @@ public class TestingDirectExchangeBuffer
     }
 
     @Override
-    public synchronized Slice pollPage()
+    public synchronized ExchangedPage pollPage()
     {
         return null;
     }

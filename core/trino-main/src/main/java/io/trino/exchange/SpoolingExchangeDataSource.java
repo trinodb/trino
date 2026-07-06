@@ -16,6 +16,7 @@ package io.trino.exchange;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperatorInfo;
 import io.trino.spi.exchange.ExchangeSource;
@@ -54,7 +55,7 @@ public class SpoolingExchangeDataSource
     }
 
     @Override
-    public Slice pollPage()
+    public ExchangedPage pollPage()
     {
         ExchangeSource exchangeSource = this.exchangeSource;
         if (exchangeSource == null) {
@@ -69,7 +70,10 @@ public class SpoolingExchangeDataSource
             memoryContext.setBytes(0);
         }
 
-        return data;
+        if (data == null) {
+            return null;
+        }
+        return ExchangedPage.serialized(data);
     }
 
     @Override

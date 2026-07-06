@@ -16,6 +16,8 @@ package io.trino.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
+import io.trino.spi.Page;
 
 import java.io.Closeable;
 import java.util.List;
@@ -30,11 +32,29 @@ public interface DirectExchangeBuffer
      */
     ListenableFuture<Void> isBlocked();
 
-    Slice pollPage();
+    ExchangedPage pollPage();
 
     void addTask(TaskId taskId);
 
     void addPages(TaskId taskId, List<Slice> pages);
+
+    /**
+     * Returns whether this buffer accepts pages passed by reference from a task
+     * running on this node. Raw pages cannot be spooled, so buffers used with
+     * fault tolerant execution do not support them.
+     */
+    default boolean supportsRawPages()
+    {
+        return false;
+    }
+
+    /**
+     * Adds raw pages received by reference from a task running on this node.
+     */
+    default void addRawPages(TaskId taskId, List<Page> pages)
+    {
+        throw new UnsupportedOperationException("raw pages are not supported by " + getClass().getSimpleName());
+    }
 
     void taskFinished(TaskId taskId);
 

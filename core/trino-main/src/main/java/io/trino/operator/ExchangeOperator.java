@@ -23,6 +23,7 @@ import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.metadata.Split;
@@ -245,8 +246,8 @@ public class ExchangeOperator
     @Override
     public Page getOutput()
     {
-        Slice page = exchangeDataSource.pollPage();
-        if (page == null) {
+        ExchangedPage exchangedPage = exchangeDataSource.pollPage();
+        if (exchangedPage == null) {
             return null;
         }
 
@@ -260,11 +261,11 @@ public class ExchangeOperator
             operatorContext.localUserMemoryContext().setBytes(deserializer.getRetainedSizeInBytes());
         }
 
-        Page deserializedPage = deserializer.deserialize(page);
-        operatorContext.recordNetworkInput(page.length(), deserializedPage.getPositionCount());
-        operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), deserializedPage.getPositionCount());
+        Page page = exchangedPage.page(deserializer);
+        operatorContext.recordNetworkInput(exchangedPage.networkSizeInBytes(), page.getPositionCount());
+        operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
 
-        return deserializedPage;
+        return page;
     }
 
     @Override

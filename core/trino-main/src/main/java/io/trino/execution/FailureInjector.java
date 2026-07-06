@@ -32,6 +32,16 @@ import static java.util.Objects.requireNonNull;
 
 public interface FailureInjector
 {
+    /**
+     * Returns whether this injector can ever inject a failure. Optimizations that
+     * would bypass the injection points (e.g. fetching task results directly from
+     * local output buffers instead of over HTTP) must be disabled when it can.
+     */
+    default boolean canInjectFailures()
+    {
+        return true;
+    }
+
     void injectTaskFailure(
             String traceToken,
             int stageId,

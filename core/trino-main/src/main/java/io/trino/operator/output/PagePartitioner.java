@@ -13,6 +13,7 @@
  */
 package io.trino.operator.output;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -63,6 +64,8 @@ public class PagePartitioner
     private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
     private final PageSerializer serializer;
     private final PositionsAppenderPageBuilder[] positionsAppenders;
+    // localConsumer transitions one way per partition, so once observed the check can be skipped
+    private final boolean[] localConsumers;
     private final boolean replicatesAnyRow;
     private final boolean partitionProcessRleAndDictionaryBlocks;
     private final int nullChannel; // when >= 0, send the position to every partition if this channel is null
@@ -122,6 +125,7 @@ public class PagePartitioner
         for (int i = 0; i < partitionCount; i++) {
             positionsAppenders[i] = PositionsAppenderPageBuilder.withMaxPageSize(pageSize, requireNonNull(sourceTypes, "sourceTypes is null"), positionsAppenderFactory);
         }
+        this.localConsumers = new boolean[partitionCount];
         this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(PagePartitioner.class.getSimpleName());
         updateMemoryUsage();
     }
@@ -484,6 +488,12 @@ public class PagePartitioner
 
     private void enqueuePage(Page pagePartition, int partition)
     {
+        localConsumers[partition] = localConsumers[partition] || outputBuffer.wantsRawPages(partition);
+        if (localConsumers[partition]) {
+            // the consumer of this partition runs on this node, so the page is passed by reference
+            outputBuffer.enqueuePages(partition, ImmutableList.of(pagePartition));
+            return;
+        }
         outputBuffer.enqueue(partition, splitAndSerializePage(pagePartition, serializer));
     }
 
