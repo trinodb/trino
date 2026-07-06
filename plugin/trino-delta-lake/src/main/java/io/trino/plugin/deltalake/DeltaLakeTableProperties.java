@@ -65,57 +65,21 @@ public class DeltaLakeTableProperties
             DELETION_VECTORS_ENABLED_PROPERTY,
             EXTRA_PROPERTIES_PROPERTY);
 
-    // These properties are connector-managed, require protocol actions, or have read/write semantics that Trino cannot enforce through extra_properties.
     private static final Set<String> PROTECTED_DELTA_PROPERTIES = ImmutableSet.of(
             "delta.appendOnly",
             "delta.checkpointInterval",
-            "delta.checkpointPolicy",
-            "delta.columnMapping.maxColumnId",
-            "delta.columnMapping.mode",
-            "delta.compatibility.symlinkFormatManifest.enabled",
-            "delta.dataSkippingNumIndexedCols",
-            "delta.dataSkippingStatsColumns",
-            "delta.dataSkippingStringPrefixLength",
-            "delta.enableChangeDataCapture",
             "delta.enableChangeDataFeed",
             "delta.enableDeletionVectors",
-            "delta.enableIcebergCompatV1",
-            "delta.enableIcebergCompatV2",
-            "delta.enableIcebergCompatV3",
-            "delta.enableIcebergWriterCompatV1",
-            "delta.enableIcebergWriterCompatV3",
-            "delta.enableInCommitTimestamps",
-            "delta.enableInCommitTimestamps-preview",
-            "delta.enableMaterializePartitionColumnsFeature",
-            "delta.enableRowTracking",
-            "delta.enableTypeWidening",
-            "delta.enableVariantShredding",
-            "delta.ignoreProtocolDefaults",
-            "delta.inCommitTimestampEnablementTimestamp",
-            "delta.inCommitTimestampEnablementVersion",
-            "delta.isolationLevel",
             "delta.minReaderVersion",
-            "delta.minWriterVersion",
-            "delta.parquet.compression.codec",
-            "delta.parquet.format.version",
-            "delta.redirectReaderWriter-preview",
-            "delta.redirectWriterOnly-preview",
-            "delta.requireCheckpointProtectionBeforeVersion",
-            "delta.randomPrefixLength",
-            "delta.randomizeFilePrefixes",
-            "delta.rowTracking.materializedRowCommitVersionColumnName",
-            "delta.rowTracking.materializedRowIdColumnName",
-            "delta.rowTrackingSuspended",
-            "delta.universalFormat.enabledFormats",
-            "delta.universalFormat.iceberg.atomicConversion.supported",
-            "delta.writePartitionColumnsToParquet");
+            "delta.minWriterVersion");
     private static final Set<String> PROTECTED_DELTA_PROPERTY_PREFIXES = ImmutableSet.of(
             "delta.columnMapping.",
             "delta.coordinatedCommits.",
             "delta.constraints.",
+            "delta.enable",
             "delta.feature.",
             "delta.identity.",
-            "delta.rowTracking.");
+            "delta.rowTracking");
 
     private final List<PropertyMetadata<?>> tableProperties;
 

@@ -171,14 +171,12 @@ public class TestDeltaLakeConfig
     }
 
     @Test
-    public void testAllowedExtraPropertiesWildcard()
+    public void testAllowedExtraPropertiesWildcardNotSupported()
     {
-        new DeltaLakeConfig().setAllowedExtraProperties(ImmutableList.of("*"));
-
         DeltaLakeConfig config = new DeltaLakeConfig().setAllowedExtraProperties(ImmutableList.of("property"));
-        assertThatThrownBy(() -> config.setAllowedExtraProperties(ImmutableList.of("*", "property")))
+        assertThatThrownBy(() -> config.setAllowedExtraProperties(ImmutableList.of("*")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Wildcard * should be the only element in the list");
+                .hasMessage("Wildcard * is not supported");
         assertThat(config.getAllowedExtraProperties()).containsExactly("property");
     }
 }

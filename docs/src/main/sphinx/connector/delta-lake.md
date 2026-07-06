@@ -195,7 +195,7 @@ values. Typical usage does not require you to configure them.
   - `false`
 * - `delta.allowed-extra-properties`
   - List of extra properties that are allowed to be set on Delta Lake tables.
-    Use `*` to allow all otherwise valid, non-protected properties.
+    Each property must be listed explicitly, and matching is case-sensitive.
   - `[]`
 * - `delta.metadata.parallelism`
   - Number of threads used for retrieving metadata. Currently, only table loading 
@@ -796,9 +796,8 @@ The following table properties are available for use:
   - Additional properties added to the `configuration` field of the Delta Lake
     table metadata. The properties are not included in the output of `SHOW
     CREATE TABLE` statements. Allowed property names are configured with
-    `delta.allowed-extra-properties`. Properties managed by another table
-    property, requiring Delta protocol feature changes, or controlling read/write
-    behavior that Trino cannot enforce this way cannot be set.
+    `delta.allowed-extra-properties`. Some connector-managed and
+    protocol-sensitive Delta properties are always rejected.
     Trino stores extra properties as supplied; their effect depends on whether
     Trino or another Delta engine recognizes them.
     When altering a table, supplied extra property keys are added or updated,

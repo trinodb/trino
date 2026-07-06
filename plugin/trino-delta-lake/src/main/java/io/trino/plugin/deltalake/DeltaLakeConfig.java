@@ -615,8 +615,7 @@ public class DeltaLakeConfig
     @ConfigDescription("List of extra properties that are allowed to be set on Delta Lake tables")
     public DeltaLakeConfig setAllowedExtraProperties(List<String> allowedExtraProperties)
     {
-        checkArgument(!allowedExtraProperties.contains("*") || allowedExtraProperties.size() == 1,
-                "Wildcard * should be the only element in the list");
+        checkArgument(!allowedExtraProperties.contains("*"), "Wildcard * is not supported");
         this.allowedExtraProperties = ImmutableList.copyOf(allowedExtraProperties);
         return this;
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
@@ -124,12 +123,7 @@ public class DeltaLakeMetadataFactory
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
         this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
-        if (deltaLakeConfig.getAllowedExtraProperties().equals(ImmutableList.of("*"))) {
-            this.allowedExtraProperties = _ -> true;
-        }
-        else {
-            this.allowedExtraProperties = ImmutableSet.copyOf(requireNonNull(deltaLakeConfig.getAllowedExtraProperties(), "allowedExtraProperties is null"))::contains;
-        }
+        this.allowedExtraProperties = ImmutableSet.copyOf(requireNonNull(deltaLakeConfig.getAllowedExtraProperties(), "allowedExtraProperties is null"))::contains;
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
