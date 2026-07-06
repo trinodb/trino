@@ -1395,6 +1395,42 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testStatsManifestDecoding()
+    {
+        int threshold = TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD;
+        try (TestTable testTable = newTrinoTable("test_stats_manifest_decoding_", "(a INT)")) {
+            for (int i = 0; i < threshold - 1; i++) {
+                assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (" + i + ")", 1);
+            }
+            assertThat(manifestCount(testTable.getName())).isLessThan(threshold);
+            assertThat(tableRowCountFromStatistics(testTable.getName())).isEqualTo(threshold - 1);
+
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (100)", 1);
+            assertThat(manifestCount(testTable.getName())).isGreaterThanOrEqualTo(threshold);
+            assertThat(tableRowCountFromStatistics(testTable.getName())).isEqualTo(threshold);
+        }
+    }
+
+    private long manifestCount(String tableName)
+    {
+        return (long) computeScalar("SELECT count(*) FROM \"" + tableName + "$manifests\"");
+    }
+
+    private double tableRowCountFromStatistics(String tableName)
+    {
+        OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+        TableStatistics statistics = TableStatisticsReader.makeTableStatistics(
+                TESTING_TYPE_MANAGER,
+                loadTable(tableName),
+                snapshotId,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                newDirectExecutorService());
+        return statistics.getRowCount().getValue();
+    }
+
+    @Test
     public void testInt96TimestampWithTimeZone()
     {
         assertUpdate("CREATE TABLE hive.tpch.test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
