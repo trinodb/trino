@@ -2458,7 +2458,7 @@ public final class SqlFormatter
             builder.append("ALTER BRANCH ");
             builder.append(formatName(node.getSourceBranchName()));
             builder.append(" IN TABLE ");
-            builder.append(formatName(node.geTableName()));
+            builder.append(formatName(node.getTableName()));
             builder.append(" FAST FORWARD TO ");
             builder.append(formatName(node.getTargetBranchName()));
             return null;
