@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -53,10 +54,12 @@ public class MergeHashSort
         HashGenerator hashGenerator = new PrecomputedHashGenerator(hashChannel);
         return mergeSortedPages(
                 channels,
-                createHashPageWithPositionComparator(hashGenerator),
+                // the hash prefix is the whole merge key, so equal prefixes are true ties
+                (_, _, _, _) -> 0,
+                ImmutableList.of(hashPrefixFiller(hashGenerator)),
                 IntStream.range(0, allTypes.size()).boxed().collect(toImmutableList()),
                 allTypes,
-                keepSameHashValuesWithinSinglePage(hashGenerator),
+                keepSameHashValuesWithinSinglePage(),
                 true,
                 memoryContext,
                 driverYieldSignal);
@@ -67,10 +70,12 @@ public class MergeHashSort
     {
         return mergeSortedPages(
                 channels,
-                createHashPageWithPositionComparator(hashGenerator),
+                // the hash prefix is the whole merge key, so equal prefixes are true ties
+                (_, _, _, _) -> 0,
+                ImmutableList.of(hashPrefixFiller(hashGenerator)),
                 IntStream.range(0, allTypes.size()).boxed().collect(toImmutableList()),
                 allTypes,
-                keepSameHashValuesWithinSinglePage(hashGenerator),
+                keepSameHashValuesWithinSinglePage(),
                 true,
                 memoryContext,
                 driverYieldSignal);
@@ -82,32 +87,37 @@ public class MergeHashSort
         memoryContext.close();
     }
 
-    private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage(HashGenerator hashGenerator)
+    private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage()
     {
         return new BiPredicate<>()
         {
-            private long lastHash;
+            private long lastPrefix;
 
             @Override
             public boolean test(PageBuilder pageBuilder, PageWithPosition pageWithPosition)
             {
-                // set the last bit on the hash, so that zero is never produced
-                long hash = hashGenerator.hashPosition(pageWithPosition.getPosition(), pageWithPosition.getPage()) | 1;
-                boolean sameHash = hash == lastHash;
-                lastHash = hash;
+                // set the last bit on the prefix, so that zero is never produced
+                long prefix = pageWithPosition.getPrefix() | 1;
+                boolean samePrefix = prefix == lastPrefix;
+                lastPrefix = prefix;
 
-                return !pageBuilder.isEmpty() && !sameHash && pageBuilder.isFull();
+                return !pageBuilder.isEmpty() && !samePrefix && pageBuilder.isFull();
             }
         };
     }
 
-    private static PageWithPositionComparator createHashPageWithPositionComparator(HashGenerator hashGenerator)
+    /**
+     * The merge key is the 64-bit hash itself, so the sort key prefix is the whole key and fully
+     * decides the merge order: the sign bit is flipped so that the unsigned prefix order matches
+     * the signed hash order, and the hash is computed once per row instead of on every merge
+     * comparison.
+     */
+    private static PageSortKeyPrefixFiller hashPrefixFiller(HashGenerator hashGenerator)
     {
-        return (Page leftPage, int leftPosition, Page rightPage, int rightPosition) -> {
-            long leftHash = hashGenerator.hashPosition(leftPosition, leftPage);
-            long rightHash = hashGenerator.hashPosition(rightPosition, rightPage);
-
-            return Long.compare(leftHash, rightHash);
+        return (page, prefixes) -> {
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                prefixes[position] = hashGenerator.hashPosition(position, page) ^ Long.MIN_VALUE;
+            }
         };
     }
 }

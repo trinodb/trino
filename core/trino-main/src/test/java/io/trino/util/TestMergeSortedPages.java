@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.OrderingCompiler;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.Test;
 
@@ -324,6 +325,7 @@ public class TestMergeSortedPages
                         .row(1)
                         .build())),
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(),
                 ImmutableList.of(0),
                 types,
                 (pageBuilder, _) -> pageBuilder.isFull(),
@@ -359,6 +361,7 @@ public class TestMergeSortedPages
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
                 ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(type).build())),
                 new SimplePageWithPositionComparator(ImmutableList.of(type), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(),
                 ImmutableList.of(0),
                 ImmutableList.of(type),
                 (pageBuilder, _) -> pageBuilder.isFull(),
@@ -390,6 +393,7 @@ public class TestMergeSortedPages
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
                 pageProducers,
                 comparator,
+                new OrderingCompiler(new TypeOperators()).compilePageSortKeyPrefixFillers(sortTypes, sortChannels, sortOrder),
                 types,
                 memoryContext,
                 new DriverYieldSignal());

@@ -19,6 +19,7 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.PageSortKeyPrefixFiller;
 import io.trino.operator.PageWithPositionComparator;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
@@ -78,11 +79,12 @@ public class LocalMergeSourceOperator
                     .map(types::get)
                     .collect(toImmutableList());
             PageWithPositionComparator comparator = orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, orderings);
+            List<PageSortKeyPrefixFiller> prefixFillers = orderingCompiler.compilePageSortKeyPrefixFillers(sortTypes, sortChannels, orderings);
             List<LocalExchangeSource> sources = IntStream.range(0, localExchange.getBufferCount())
                     .boxed()
                     .map(_ -> localExchange.getNextSource())
                     .collect(toImmutableList());
-            return new LocalMergeSourceOperator(operatorContext, sources, types, comparator);
+            return new LocalMergeSourceOperator(operatorContext, sources, types, comparator, prefixFillers);
         }
 
         @Override
@@ -102,7 +104,7 @@ public class LocalMergeSourceOperator
     private final List<LocalExchangeSource> sources;
     private final WorkProcessor<Page> mergedPages;
 
-    public LocalMergeSourceOperator(OperatorContext operatorContext, List<LocalExchangeSource> sources, List<Type> types, PageWithPositionComparator comparator)
+    public LocalMergeSourceOperator(OperatorContext operatorContext, List<LocalExchangeSource> sources, List<Type> types, PageWithPositionComparator comparator, List<PageSortKeyPrefixFiller> prefixFillers)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sources = requireNonNull(sources, "sources is null");
@@ -112,6 +114,7 @@ public class LocalMergeSourceOperator
         mergedPages = mergeSortedPages(
                 pageProducers,
                 requireNonNull(comparator, "comparator is null"),
+                requireNonNull(prefixFillers, "prefixFillers is null"),
                 types,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());

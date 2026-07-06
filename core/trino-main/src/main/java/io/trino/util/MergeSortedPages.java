@@ -16,6 +16,7 @@ package io.trino.util;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.PageSortKeyPrefixFiller;
 import io.trino.operator.PageWithPositionComparator;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.ProcessState;
@@ -24,7 +25,9 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiPredicate;
@@ -41,6 +44,7 @@ public final class MergeSortedPages
     public static WorkProcessor<Page> mergeSortedPages(
             List<WorkProcessor<Page>> pageProducers,
             PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers,
             List<Type> outputTypes,
             AggregatedMemoryContext aggregatedMemoryContext,
             DriverYieldSignal yieldSignal)
@@ -48,6 +52,7 @@ public final class MergeSortedPages
         return mergeSortedPages(
                 pageProducers,
                 comparator,
+                prefixFillers,
                 IntStream.range(0, outputTypes.size()).boxed().collect(toImmutableList()),
                 outputTypes,
                 (pageBuilder, _) -> pageBuilder.isFull(),
@@ -59,6 +64,7 @@ public final class MergeSortedPages
     public static WorkProcessor<Page> mergeSortedPages(
             List<WorkProcessor<Page>> pageProducers,
             PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers,
             List<Integer> outputChannels,
             List<Type> outputTypes,
             BiPredicate<PageBuilder, PageWithPosition> pageBreakPredicate,
@@ -68,6 +74,7 @@ public final class MergeSortedPages
     {
         requireNonNull(pageProducers, "pageProducers is null");
         requireNonNull(comparator, "comparator is null");
+        requireNonNull(prefixFillers, "prefixFillers is null");
         requireNonNull(outputChannels, "outputChannels is null");
         requireNonNull(outputTypes, "outputTypes is null");
         requireNonNull(pageBreakPredicate, "pageBreakPredicate is null");
@@ -75,14 +82,22 @@ public final class MergeSortedPages
         requireNonNull(yieldSignal, "yieldSignal is null");
 
         List<WorkProcessor<PageWithPosition>> pageWithPositionProducers = pageProducers.stream()
-                .map(pageProducer -> pageWithPositions(pageProducer, aggregatedMemoryContext))
+                .map(pageProducer -> pageWithPositions(pageProducer, aggregatedMemoryContext, prefixFillers))
                 .collect(toImmutableList());
 
-        Comparator<PageWithPosition> pageWithPositionComparator = (firstPageWithPosition, secondPageWithPosition) -> comparator.compareTo(
-                firstPageWithPosition.getPage(),
-                firstPageWithPosition.getPosition(),
-                secondPageWithPosition.getPage(),
-                secondPageWithPosition.getPosition());
+        // the prefixes of both positions are equal when no prefix fillers are given, so the
+        // comparison falls through to the comparator
+        Comparator<PageWithPosition> pageWithPositionComparator = (firstPageWithPosition, secondPageWithPosition) -> {
+            int result = Long.compareUnsigned(firstPageWithPosition.getPrefix(), secondPageWithPosition.getPrefix());
+            if (result != 0) {
+                return result;
+            }
+            return comparator.compareTo(
+                    firstPageWithPosition.getPage(),
+                    firstPageWithPosition.getPosition(),
+                    secondPageWithPosition.getPage(),
+                    secondPageWithPosition.getPosition());
+        };
 
         return buildPage(
                 mergeSorted(pageWithPositionProducers, pageWithPositionComparator),
@@ -143,11 +158,15 @@ public final class MergeSortedPages
                 });
     }
 
-    private static WorkProcessor<PageWithPosition> pageWithPositions(WorkProcessor<Page> pages, AggregatedMemoryContext aggregatedMemoryContext)
+    private static WorkProcessor<PageWithPosition> pageWithPositions(WorkProcessor<Page> pages, AggregatedMemoryContext aggregatedMemoryContext, List<PageSortKeyPrefixFiller> prefixFillers)
     {
+        // pages of a single producer are processed sequentially and the prefix values are copied
+        // into PageWithPosition, so the prefix buffer can be reused across pages
+        PrefixBuffer prefixBuffer = new PrefixBuffer();
         return pages.flatMap(page -> {
             LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergeSortedPages.class.getSimpleName());
             memoryContext.setBytes(page.getRetainedSizeInBytes());
+            long[] prefixes = prefixBuffer.fill(page, prefixFillers);
 
             return WorkProcessor.create(new WorkProcessor.Process<PageWithPosition>()
             {
@@ -161,21 +180,48 @@ public final class MergeSortedPages
                         return ProcessState.finished();
                     }
 
-                    return ProcessState.ofResult(new PageWithPosition(page, position++));
+                    long prefix = prefixes == null ? 0 : prefixes[position];
+                    return ProcessState.ofResult(new PageWithPosition(page, position++, prefix));
                 }
             });
         });
+    }
+
+    private static class PrefixBuffer
+    {
+        private long[] buffer = new long[0];
+
+        @Nullable
+        long[] fill(Page page, List<PageSortKeyPrefixFiller> prefixFillers)
+        {
+            if (prefixFillers.isEmpty()) {
+                return null;
+            }
+            int positionCount = page.getPositionCount();
+            if (buffer.length < positionCount) {
+                buffer = new long[positionCount];
+            }
+            else {
+                Arrays.fill(buffer, 0, positionCount, 0);
+            }
+            for (PageSortKeyPrefixFiller prefixFiller : prefixFillers) {
+                prefixFiller.fill(page, buffer);
+            }
+            return buffer;
+        }
     }
 
     public static class PageWithPosition
     {
         private final Page page;
         private final int position;
+        private final long prefix;
 
-        private PageWithPosition(Page page, int position)
+        private PageWithPosition(Page page, int position, long prefix)
         {
             this.page = requireNonNull(page, "page is null");
             this.position = position;
+            this.prefix = prefix;
         }
 
         public Page getPage()
@@ -186,6 +232,11 @@ public final class MergeSortedPages
         public int getPosition()
         {
             return position;
+        }
+
+        public long getPrefix()
+        {
+            return prefix;
         }
 
         public void appendTo(PageBuilder pageBuilder, List<Integer> outputChannels)

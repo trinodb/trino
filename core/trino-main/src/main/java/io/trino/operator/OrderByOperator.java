@@ -359,6 +359,7 @@ public class OrderByOperator
         return mergeSortedPages(
                 sortedStreams,
                 orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
+                orderingCompiler.compilePageSortKeyPrefixFillers(sortTypes, sortChannels, sortOrder),
                 sourceTypes,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());

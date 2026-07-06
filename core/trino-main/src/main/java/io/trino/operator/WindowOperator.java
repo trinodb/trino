@@ -339,7 +339,8 @@ public class WindowOperator
                     orderChannels,
                     ordering,
                     spillerFactory,
-                    orderingCompiler.compilePageWithPositionComparator(unGroupedOrderTypes, unGroupedOrderChannels, unGroupedOrdering)));
+                    orderingCompiler.compilePageWithPositionComparator(unGroupedOrderTypes, unGroupedOrderChannels, unGroupedOrdering),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(unGroupedOrderTypes, unGroupedOrderChannels, unGroupedOrdering)));
 
             this.outputPages = pageBuffer.pages()
                     .flatTransform(spillablePagesToPagesIndexes.get())
@@ -674,6 +675,7 @@ public class WindowOperator
         final LocalMemoryContext localUserMemoryContext;
         final SpillerFactory spillerFactory;
         final PageWithPositionComparator pageWithPositionComparator;
+        final List<PageSortKeyPrefixFiller> pagePrefixFillers;
 
         boolean spillingWhenConvertingRevocableMemory;
         boolean resetPagesIndex;
@@ -691,8 +693,10 @@ public class WindowOperator
                 List<Integer> orderChannels,
                 List<SortOrder> ordering,
                 SpillerFactory spillerFactory,
-                PageWithPositionComparator pageWithPositionComparator)
+                PageWithPositionComparator pageWithPositionComparator,
+                List<PageSortKeyPrefixFiller> pagePrefixFillers)
         {
+            this.pagePrefixFillers = ImmutableList.copyOf(requireNonNull(pagePrefixFillers, "pagePrefixFillers is null"));
             this.inMemoryPagesIndexWithHashStrategies = inMemoryPagesIndexWithHashStrategies;
             this.mergedPagesIndexWithHashStrategies = mergedPagesIndexWithHashStrategies;
             this.sourceTypes = sourceTypes;
@@ -858,6 +862,7 @@ public class WindowOperator
             WorkProcessor<Page> mergedPages = mergeSortedPages(
                     sortedStreams,
                     pageWithPositionComparator,
+                    pagePrefixFillers,
                     sourceTypes,
                     operatorContext.aggregateUserMemoryContext(),
                     operatorContext.getDriverContext().getYieldSignal());
