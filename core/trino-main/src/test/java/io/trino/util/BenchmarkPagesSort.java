@@ -136,6 +136,7 @@ public class BenchmarkPagesSort
                         .map(WorkProcessor::fromIterable)
                         .collect(toImmutableList()),
                 ORDERING_COMPILER.compilePageWithPositionComparator(data.getSortTypes(), data.getSortChannels(), data.getSortOrders()),
+                ORDERING_COMPILER.compilePageSortKeyPrefixFillers(data.getSortTypes(), data.getSortChannels(), data.getSortOrders()),
                 data.getOutputChannels(),
                 data.getTypes(),
                 (pageBuilder, _) -> pageBuilder.isFull(),
