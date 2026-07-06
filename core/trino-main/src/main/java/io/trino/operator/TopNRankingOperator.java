@@ -276,6 +276,7 @@ public class TopNRankingOperator
                     sourceTypes,
                     comparator,
                     equalsAndHash,
+                    prefixFillers,
                     maxRankingPerPartition,
                     generateRanking,
                     groupByChannels,
