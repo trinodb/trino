@@ -36,9 +36,10 @@ public class TopNOperator
             PlanNodeId planNodeId,
             List<? extends Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator, prefixFillers));
     }
 
     private static class Factory
@@ -49,6 +50,7 @@ public class TopNOperator
         private final List<Type> sourceTypes;
         private final int n;
         private final PageWithPositionComparator comparator;
+        private final List<PageSortKeyPrefixFiller> prefixFillers;
         private boolean closed;
 
         private Factory(
@@ -56,13 +58,15 @@ public class TopNOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
                 int n,
-                PageWithPositionComparator comparator)
+                PageWithPositionComparator comparator,
+                List<PageSortKeyPrefixFiller> prefixFillers)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
             this.comparator = requireNonNull(comparator, "comparator is null");
+            this.prefixFillers = ImmutableList.copyOf(requireNonNull(prefixFillers, "prefixFillers is null"));
         }
 
         @Override
@@ -76,7 +80,8 @@ public class TopNOperator
                     sourcePages,
                     sourceTypes,
                     n,
-                    comparator);
+                    comparator,
+                    prefixFillers);
         }
 
         @Override
@@ -106,7 +111,7 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator, prefixFillers);
         }
     }
 
@@ -117,7 +122,8 @@ public class TopNOperator
             WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers)
     {
         if (n == 0) {
             pages = WorkProcessor.of();
@@ -129,7 +135,8 @@ public class TopNOperator
                                     operatorContext.aggregateUserMemoryContext(),
                                     types,
                                     n,
-                                    comparator)));
+                                    comparator,
+                                    prefixFillers)));
         }
     }
 

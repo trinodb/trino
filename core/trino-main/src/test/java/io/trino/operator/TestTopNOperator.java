@@ -224,6 +224,7 @@ public class TestTopNOperator
                 new PlanNodeId("test"),
                 types,
                 n,
-                orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
+                orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders),
+                orderingCompiler.compilePageSortKeyPrefixFillers(sortTypes, sortChannels, sortOrders));
     }
 }

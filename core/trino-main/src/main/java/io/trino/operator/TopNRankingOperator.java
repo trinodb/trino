@@ -61,6 +61,7 @@ public class TopNRankingOperator
         private boolean closed;
         private final FlatHashStrategyCompiler hashStrategyCompiler;
         private final PageWithPositionComparator comparator;
+        private final List<PageSortKeyPrefixFiller> prefixFillers;
         private final BlockTypeOperators blockTypeOperators;
         private final Optional<DataSize> maxPartialMemory;
 
@@ -79,6 +80,7 @@ public class TopNRankingOperator
                 Optional<DataSize> maxPartialMemory,
                 FlatHashStrategyCompiler hashStrategyCompiler,
                 PageWithPositionComparator comparator,
+                List<PageSortKeyPrefixFiller> prefixFillers,
                 BlockTypeOperators blockTypeOperators)
         {
             this.operatorId = operatorId;
@@ -97,6 +99,7 @@ public class TopNRankingOperator
             this.expectedPositions = expectedPositions;
             this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
             this.comparator = requireNonNull(comparator, "comparator is null");
+            this.prefixFillers = ImmutableList.copyOf(requireNonNull(prefixFillers, "prefixFillers is null"));
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
             this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         }
@@ -120,6 +123,7 @@ public class TopNRankingOperator
                     maxPartialMemory,
                     hashStrategyCompiler,
                     comparator,
+                    prefixFillers,
                     blockTypeOperators);
         }
 
@@ -147,6 +151,7 @@ public class TopNRankingOperator
                     maxPartialMemory,
                     hashStrategyCompiler,
                     comparator,
+                    prefixFillers,
                     blockTypeOperators);
         }
     }
@@ -178,6 +183,7 @@ public class TopNRankingOperator
             Optional<DataSize> maxPartialMemory,
             FlatHashStrategyCompiler hashStrategyCompiler,
             PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers,
             BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(maxPartialMemory, "maxPartialMemory is null");
@@ -208,6 +214,7 @@ public class TopNRankingOperator
                 maxRankingPerPartition,
                 generateRanking,
                 comparator,
+                prefixFillers,
                 blockTypeOperators,
                 groupByChannels,
                 getGroupByHashSupplier(
@@ -245,6 +252,7 @@ public class TopNRankingOperator
             int maxRankingPerPartition,
             boolean generateRanking,
             PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers,
             BlockTypeOperators blockTypeOperators,
             int[] groupByChannels,
             Supplier<GroupByHash> groupByHashSupplier)
@@ -253,6 +261,7 @@ public class TopNRankingOperator
             return () -> new GroupedTopNRowNumberBuilder(
                     sourceTypes,
                     comparator,
+                    prefixFillers,
                     maxRankingPerPartition,
                     generateRanking,
                     groupByChannels,

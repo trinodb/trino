@@ -40,7 +40,8 @@ public class TopNProcessor
             AggregatedMemoryContext aggregatedMemoryContext,
             List<Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers)
     {
         requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
         checkArgument(n > 0, "n must be > 0, found: %s", n);
@@ -49,6 +50,7 @@ public class TopNProcessor
         topNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 comparator,
+                prefixFillers,
                 n,
                 false,
                 new int[0],

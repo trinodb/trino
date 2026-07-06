@@ -43,6 +43,7 @@ public class TestGroupedTopNRowNumberBuilder
                 (_, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
+                ImmutableList.of(),
                 5,
                 false,
                 new int[0],
@@ -85,6 +86,7 @@ public class TestGroupedTopNRowNumberBuilder
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(),
                 2,
                 produceRowNumbers,
                 new int[] {0},
@@ -156,6 +158,7 @@ public class TestGroupedTopNRowNumberBuilder
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(),
                 5,
                 produceRowNumbers,
                 new int[0],
@@ -208,6 +211,7 @@ public class TestGroupedTopNRowNumberBuilder
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(),
                 5,
                 false,
                 new int[] {0},

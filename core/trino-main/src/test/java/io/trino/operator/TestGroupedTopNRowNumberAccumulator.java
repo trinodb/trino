@@ -38,21 +38,21 @@ public class TestGroupedTopNRowNumberAccumulator
 
         // Add one row to fill the group
         rowReference.setRowId(0);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEmpty();
 
         // Add a row which should be ignored because it is not in the topN and group is full
         rowReference.setRowId(1);
-        assertThat(accumulator.add(0, rowReference)).isFalse();
+        assertThat(accumulator.add(0, rowReference, 0)).isFalse();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isFalse();
         assertThat(evicted).isEmpty();
 
         // Add a row which should replace the existing buffered row
         rowReference.setRowId(-1);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEqualTo(Arrays.asList(0L));
@@ -75,35 +75,35 @@ public class TestGroupedTopNRowNumberAccumulator
 
         // Add one row to the group
         rowReference.setRowId(0);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEmpty();
 
         // Add another row to fill the group
         rowReference.setRowId(1);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEmpty();
 
         // Add a row which should be ignored because it is not in the topN and group is full
         rowReference.setRowId(2);
-        assertThat(accumulator.add(0, rowReference)).isFalse();
+        assertThat(accumulator.add(0, rowReference, 0)).isFalse();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isFalse();
         assertThat(evicted).isEmpty();
 
         // Add a row which should replace the leaf of the heap
         rowReference.setRowId(-2);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEqualTo(Arrays.asList(1L));
 
         // Add a row which should replace the root of the heap
         rowReference.setRowId(-1);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEqualTo(Arrays.asList(1L, 0L));
@@ -126,7 +126,7 @@ public class TestGroupedTopNRowNumberAccumulator
         // Add 1 row to partially fill the top N of 2 before draining
         TestingRowReference rowReference = new TestingRowReference();
         rowReference.setRowId(0);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEmpty();
@@ -148,10 +148,10 @@ public class TestGroupedTopNRowNumberAccumulator
         // Add 2 rows to partially fill the top N of 4 before draining
         TestingRowReference rowReference = new TestingRowReference();
         rowReference.setRowId(0);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         rowReference.setRowId(1);
-        assertThat(accumulator.add(0, rowReference)).isTrue();
+        assertThat(accumulator.add(0, rowReference, 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
         assertThat(evicted).isEmpty();
@@ -179,7 +179,7 @@ public class TestGroupedTopNRowNumberAccumulator
         for (int i = bulkInsertionCount; i < bulkInsertionCount * 2; i++) {
             rowReference.setRowId(i);
             int groupId = i % groupCount;
-            assertThat(accumulator.add(groupId, rowReference)).isTrue();
+            assertThat(accumulator.add(groupId, rowReference, 0)).isTrue();
             accumulator.verifyIntegrity();
             assertThat(rowReference.isRowIdExtracted()).isTrue();
             assertThat(evicted).isEmpty();
@@ -190,7 +190,7 @@ public class TestGroupedTopNRowNumberAccumulator
         for (int i = bulkInsertionCount * 2; i < bulkInsertionCount * 3; i++) {
             rowReference.setRowId(i);
             int groupId = i % groupCount;
-            assertThat(accumulator.add(groupId, rowReference)).isFalse();
+            assertThat(accumulator.add(groupId, rowReference, 0)).isFalse();
             accumulator.verifyIntegrity();
             assertThat(rowReference.isRowIdExtracted()).isFalse();
             assertThat(evicted).isEmpty();
@@ -200,7 +200,7 @@ public class TestGroupedTopNRowNumberAccumulator
         for (int i = bulkInsertionCount - 1; i >= 0; i--) {
             rowReference.setRowId(i);
             int groupId = i % groupCount;
-            assertThat(accumulator.add(groupId, rowReference)).isTrue();
+            assertThat(accumulator.add(groupId, rowReference, 0)).isTrue();
             accumulator.verifyIntegrity();
             assertThat(rowReference.isRowIdExtracted()).isTrue();
         }
@@ -230,7 +230,7 @@ public class TestGroupedTopNRowNumberAccumulator
         TestingRowReference rowReference = new TestingRowReference();
         rowReference.setRowId(0);
         // Adding groupId 1 implies that groupId 0 also exists, but has no data yet.
-        accumulator.add(1, rowReference);
+        accumulator.add(1, rowReference, 0);
         accumulator.verifyIntegrity();
 
         LongBigArray rowIdOutput = new LongBigArray();

@@ -31,7 +31,9 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.log.Logger;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.operator.InterpretedPageSortKeyPrefixFiller;
 import io.trino.operator.InterpretedSortKeyPrefixFiller;
+import io.trino.operator.PageSortKeyPrefixFiller;
 import io.trino.operator.PageWithPositionComparator;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
@@ -98,6 +100,12 @@ public class OrderingCompiler
                     .recordStats()
                     .maximumSize(1000),
             CacheLoader.from(key -> internalCompilePageWithPositionComparator(key.getSortTypes(), key.getSortChannels(), key.getSortOrders())));
+
+    private final NonEvictableLoadingCache<PagesIndexComparatorCacheKey, List<PageSortKeyPrefixFiller>> pageSortKeyPrefixFillers = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(1000),
+            CacheLoader.from(key -> internalCompilePageSortKeyPrefixFillers(key.getSortTypes(), key.getSortChannels(), key.getSortOrders())));
 
     private final TypeOperators typeOperators;
 
@@ -219,6 +227,114 @@ public class OrderingCompiler
         return new SortKeyPrefixLayoutPlan(
                 ImmutableList.of(layout),
                 typeOperators.isSortKeyPrefixExact(sortType) && sortChannels.size() == 1);
+    }
+
+    /**
+     * Compiles per-channel fillers of composite sort key prefixes for {@link Page} positions,
+     * used by TopN operators to reject most rows with a single primitive comparison. Returns an
+     * empty list when the leading sort channel does not support sort key prefixes.
+     */
+    public List<PageSortKeyPrefixFiller> compilePageSortKeyPrefixFillers(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        requireNonNull(sortTypes, "sortTypes is null");
+        requireNonNull(sortChannels, "sortChannels is null");
+        requireNonNull(sortOrders, "sortOrders is null");
+        checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
+        checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
+
+        return pageSortKeyPrefixFillers.getUnchecked(new PagesIndexComparatorCacheKey(sortTypes, sortChannels, sortOrders));
+    }
+
+    private List<PageSortKeyPrefixFiller> internalCompilePageSortKeyPrefixFillers(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        SortKeyPrefixLayoutPlan plan = planSortKeyPrefixLayouts(sortTypes, sortChannels, sortOrders);
+        ImmutableList.Builder<PageSortKeyPrefixFiller> fillers = ImmutableList.builder();
+        for (int i = 0; i < plan.layouts().size(); i++) {
+            fillers.add(pageSortKeyPrefixFiller(sortTypes.get(i), plan.layouts().get(i)));
+        }
+        return fillers.build();
+    }
+
+    private PageSortKeyPrefixFiller pageSortKeyPrefixFiller(Type sortType, SortKeyPrefixLayout layout)
+    {
+        MethodHandle operator = typeOperators.getSortKeyPrefixOperator(sortType, layout.sortOrder(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        try {
+            return compilePageSortKeyPrefixFiller(operator, layout).getConstructor().newInstance();
+        }
+        catch (Throwable e) {
+            log.error(e, "Error compiling page sort key prefix filler for channel %s with order %s", layout.sortChannel(), layout.sortOrder());
+            return new InterpretedPageSortKeyPrefixFiller(operator, layout);
+        }
+    }
+
+    private Class<? extends PageSortKeyPrefixFiller> compilePageSortKeyPrefixFiller(MethodHandle operator, SortKeyPrefixLayout layout)
+    {
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+
+        ClassDefinition classDefinition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("PageSortKeyPrefixFiller"),
+                type(Object.class),
+                type(PageSortKeyPrefixFiller.class));
+        classDefinition.declareDefaultConstructor(a(PUBLIC));
+
+        Parameter page = arg("page", Page.class);
+        Parameter prefixes = arg("prefixes", long[].class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "fill", type(void.class), page, prefixes);
+        Scope scope = method.getScope();
+        BytecodeBlock body = method.getBody();
+
+        Variable block = scope.declareVariable(Block.class, "block");
+        body.append(block.set(page.invoke("getBlock", Block.class, constantInt(layout.sortChannel()))));
+        Variable positionCount = scope.declareVariable(int.class, "positionCount");
+        body.append(positionCount.set(page.invoke("getPositionCount", int.class)));
+
+        Variable position = scope.declareVariable(int.class, "position");
+        Variable subKey = scope.declareVariable(long.class, "subKey");
+
+        BytecodeBlock nullCase = new BytecodeBlock()
+                .append(subKey.set(constantLong(layout.nullSubKey())));
+
+        BytecodeExpression encoded = invokeDynamic(
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(callSiteBinder.bind(operator).getBindingId()),
+                "sortKeyPrefix",
+                operator.type(),
+                block,
+                position);
+        if (layout.descending()) {
+            encoded = bitwiseXor(encoded, constantLong(-1));
+        }
+        if (layout.extractShift() != 0) {
+            encoded = shiftRightUnsigned(encoded, constantInt(layout.extractShift()));
+        }
+        if (layout.valueBase() != 0) {
+            encoded = bitwiseOr(constantLong(layout.valueBase()), encoded);
+        }
+        BytecodeBlock valueCase = new BytecodeBlock()
+                .append(subKey.set(encoded));
+
+        BytecodeExpression shiftedSubKey = subKey;
+        if (layout.shift() != 0) {
+            shiftedSubKey = shiftLeft(subKey, constantInt(layout.shift()));
+        }
+
+        BytecodeBlock loopBody = new BytecodeBlock()
+                .append(new IfStatement()
+                        .condition(block.invoke("isNull", boolean.class, position))
+                        .ifTrue(nullCase)
+                        .ifFalse(valueCase))
+                .append(prefixes.setElement(position, bitwiseOr(prefixes.getElement(position), shiftedSubKey)));
+
+        body.append(new ForLoop()
+                .initialize(position.set(constantInt(0)))
+                .condition(lessThan(position, positionCount))
+                .update(position.set(add(position, constantInt(1))))
+                .body(loopBody));
+
+        body.ret();
+
+        return defineClass(classDefinition, PageSortKeyPrefixFiller.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
     private SortKeyPrefixFiller sortKeyPrefixFiller(Type sortType, SortKeyPrefixLayout layout)

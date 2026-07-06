@@ -104,6 +104,10 @@ public class BenchmarkTopNOperator
                     orderingCompiler.compilePageWithPositionComparator(
                             sortTypes,
                             sortChannels,
+                            ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST)),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(
+                            sortTypes,
+                            sortChannels,
                             ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST)));
         }
 
