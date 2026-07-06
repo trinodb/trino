@@ -331,6 +331,13 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.Iterator&lt;io.trino.spi.Page&gt; io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</old>
+                                    <new>method java.util.Iterator&lt;io.trino.spi.Page&gt; io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int, java.util.function.LongConsumer)</new>
+                                    <justification>Added sort key prefix operators for faster sorting</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

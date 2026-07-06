@@ -22,6 +22,7 @@ import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.geospatial.Rectangle;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.operator.join.JoinHashSupplier;
 import io.trino.operator.join.LookupSource;
@@ -411,21 +412,27 @@ public class PagesIndex
         return decodePosition(pageAddress);
     }
 
-    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    /**
+     * The transient working memory allocated by the sort is accounted in the given memory
+     * context for the duration of the sort. Callers that have no memory context to charge
+     * should pass a context created from a standalone
+     * {@link io.trino.memory.context.AggregatedMemoryContext#newSimpleAggregatedMemoryContext()}.
+     */
+    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, LocalMemoryContext memoryContext)
     {
-        sort(createPagesIndexComparator(sortChannels, sortOrders), 0, getPositionCount());
+        sort(createPagesIndexComparator(sortChannels, sortOrders), memoryContext);
     }
 
-    public void sort(PagesIndexOrdering pagesIndexOrdering)
+    public void sort(PagesIndexOrdering pagesIndexOrdering, LocalMemoryContext memoryContext)
     {
-        sort(pagesIndexOrdering, 0, getPositionCount());
+        sort(pagesIndexOrdering, 0, getPositionCount(), memoryContext);
     }
 
-    public void sort(PagesIndexOrdering pagesIndexOrdering, int startPosition, int endPosition)
+    public void sort(PagesIndexOrdering pagesIndexOrdering, int startPosition, int endPosition, LocalMemoryContext memoryContext)
     {
         requireNonNull(pagesIndexOrdering, "pagesIndexOrdering is null");
         modificationCount++;
-        pagesIndexOrdering.sort(this, startPosition, endPosition);
+        pagesIndexOrdering.sort(this, startPosition, endPosition, memoryContext);
     }
 
     public boolean positionIdenticalToPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)

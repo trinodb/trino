@@ -18,11 +18,16 @@ import io.trino.spi.type.Type;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.LongConsumer;
 
 public interface PageSorter
 {
     /**
+     * Sorts the pages, reporting the memory retained by the sorter — including transient
+     * working memory allocated while sorting — to the given consumer. The consumer receives
+     * the current total in bytes whenever it changes.
+     *
      * @return Iterator of sorted pages.
      */
-    Iterator<Page> sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions);
+    Iterator<Page> sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions, LongConsumer memoryUsage);
 }

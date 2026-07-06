@@ -15,10 +15,12 @@ package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import io.airlift.slice.Slices;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -38,6 +40,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -48,6 +51,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -74,7 +78,7 @@ public class BenchmarkPagesSort
             pageIndex.addPage(page);
         }
 
-        pageIndex.sort(data.getSortChannels(), data.getSortOrders());
+        pageIndex.sort(data.getSortChannels(), data.getSortOrders(), newSimpleAggregatedMemoryContext().newLocalMemoryContext("benchmark"));
 
         return Streams.stream(pageIndex.getSortedPages()).collect(toImmutableList());
     }
@@ -106,11 +110,22 @@ public class BenchmarkPagesSort
         @Param({"200", "400"})
         private int pagesCount = 200;
 
+        @Param({"SEQUENTIAL_BIGINT", "RANDOM_BIGINT", "RANDOM_VARCHAR", "PREFIXED_VARCHAR"})
+        private DataType dataType = DataType.SEQUENTIAL_BIGINT;
+
         @Setup
         public void setup()
         {
-            super.setup(numSortChannels, totalChannels, 1, pagesCount);
+            super.setup(dataType, numSortChannels, totalChannels, 1, pagesCount);
         }
+    }
+
+    public enum DataType
+    {
+        SEQUENTIAL_BIGINT,
+        RANDOM_BIGINT,
+        RANDOM_VARCHAR,
+        PREFIXED_VARCHAR,
     }
 
     @Benchmark
@@ -190,30 +205,74 @@ public class BenchmarkPagesSort
 
         protected void setup(int numSortChannels, int totalChannels, int numMergeSources, int pagesCount)
         {
-            types = nCopies(totalChannels, BIGINT);
+            setup(DataType.SEQUENTIAL_BIGINT, numSortChannels, totalChannels, numMergeSources, pagesCount);
+        }
+
+        protected void setup(DataType dataType, int numSortChannels, int totalChannels, int numMergeSources, int pagesCount)
+        {
+            Type type = BIGINT;
+            if (dataType == DataType.RANDOM_VARCHAR || dataType == DataType.PREFIXED_VARCHAR) {
+                type = VARCHAR;
+            }
+            types = nCopies(totalChannels, type);
             sortChannels = new ArrayList<>();
             for (int i = 0; i < numSortChannels; i++) {
                 sortChannels.add(i);
             }
-            sortTypes = nCopies(numSortChannels, BIGINT);
+            sortTypes = nCopies(numSortChannels, type);
             sortOrders = nCopies(numSortChannels, ASC_NULLS_FIRST);
             outputChannels = new ArrayList<>();
             for (int i = 0; i < totalChannels; i++) {
                 outputChannels.add(i);
             }
 
-            createPages(totalChannels, pagesCount);
+            createPages(dataType, totalChannels, pagesCount);
             createPageProducers(numMergeSources);
         }
 
-        private void createPages(int totalChannels, int pagesCount)
+        private void createPages(DataType dataType, int totalChannels, int pagesCount)
         {
             int positionCount = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / (totalChannels * 8);
+            Random random = new Random(42);
             pages = new ArrayList<>(pagesCount);
             for (int numPage = 0; numPage < pagesCount; numPage++) {
-                pages.add(createSequencePage(types, positionCount));
+                pages.add(switch (dataType) {
+                    case SEQUENTIAL_BIGINT -> createSequencePage(types, positionCount);
+                    case RANDOM_BIGINT -> createRandomBigintPage(random, positionCount);
+                    case RANDOM_VARCHAR -> createVarcharPage(random, positionCount, "");
+                    case PREFIXED_VARCHAR -> createVarcharPage(random, positionCount, "https://www.company-name.com/category/");
+                });
             }
             totalPositions = positionCount * pagesCount;
+        }
+
+        private Page createRandomBigintPage(Random random, int positionCount)
+        {
+            PageBuilder pageBuilder = new PageBuilder(positionCount, types);
+            for (int position = 0; position < positionCount; position++) {
+                pageBuilder.declarePosition();
+                for (int channel = 0; channel < types.size(); channel++) {
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(channel), random.nextLong());
+                }
+            }
+            return pageBuilder.build();
+        }
+
+        private Page createVarcharPage(Random random, int positionCount, String prefix)
+        {
+            PageBuilder pageBuilder = new PageBuilder(positionCount, types);
+            for (int position = 0; position < positionCount; position++) {
+                pageBuilder.declarePosition();
+                for (int channel = 0; channel < types.size(); channel++) {
+                    StringBuilder value = new StringBuilder(prefix);
+                    int length = 8 + random.nextInt(16);
+                    for (int i = 0; i < length; i++) {
+                        value.append((char) ('a' + random.nextInt(26)));
+                    }
+                    VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), Slices.utf8Slice(value.toString()));
+                }
+            }
+            return pageBuilder.build();
         }
 
         private void createPageProducers(int numMergeSources)
