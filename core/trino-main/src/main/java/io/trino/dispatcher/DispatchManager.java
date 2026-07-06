@@ -51,17 +51,29 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.CompositeDataSupport;
+import javax.management.openmbean.CompositeType;
+import javax.management.openmbean.OpenDataException;
+import javax.management.openmbean.OpenType;
+import javax.management.openmbean.SimpleType;
+import javax.management.openmbean.TabularDataSupport;
+import javax.management.openmbean.TabularType;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static io.trino.util.Failures.toFailure;
@@ -74,6 +86,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class DispatchManager
 {
     private static final Logger log = Logger.get(DispatchManager.class);
+    private static final CompositeType ACTIVE_QUERY_COMPOSITE_TYPE;
+    private static final CompositeType ACTIVE_QUERIES_COMPOSITE_TYPE;
+    private static final TabularType ACTIVE_QUERIES_TABULAR_TYPE;
 
     private final QueryIdGenerator queryIdGenerator;
     private final QueryPreparer queryPreparer;
@@ -95,6 +110,33 @@ public class DispatchManager
     private final QueryManagerStats stats = new QueryManagerStats();
     private final QueryMonitor queryMonitor;
     private final ScheduledExecutorService statsUpdaterExecutor;
+
+    static {
+        try {
+            ACTIVE_QUERY_COMPOSITE_TYPE = new CompositeType(
+                    "ActiveQueryCompositeType",
+                    "An active query",
+                    new String[] {"queryId", "status", "active"},
+                    new String[] {"The query id", "Status", "Active"},
+                    new OpenType<?>[] {SimpleType.STRING, SimpleType.STRING, SimpleType.BOOLEAN});
+
+            ACTIVE_QUERIES_TABULAR_TYPE = new TabularType(
+                    "ActiveQueriesTabularType",
+                    "Table of active queries",
+                    ACTIVE_QUERY_COMPOSITE_TYPE,
+                    new String[] {"queryId", "status"});
+
+            ACTIVE_QUERIES_COMPOSITE_TYPE = new CompositeType(
+                    "ActiveQueriesCompositeType",
+                    "All active queries",
+                    new String[] {"query"},
+                    new String[] {"The active query"},
+                    new OpenType<?>[] {ACTIVE_QUERIES_TABULAR_TYPE});
+        }
+        catch (OpenDataException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     @Inject
     public DispatchManager(
@@ -317,6 +359,31 @@ public class DispatchManager
         return queryTracker.getAllQueries().stream()
                 .map(DispatchQuery::getBasicQueryInfo)
                 .collect(toImmutableList());
+    }
+
+    @Managed
+    public CompositeData getActiveQueries()
+    {
+        TabularDataSupport table = new TabularDataSupport(ACTIVE_QUERIES_TABULAR_TYPE);
+        queryTracker.getAllQueries().stream()
+                .filter(query -> !query.isDone())
+                .forEach(query -> {
+                    try {
+                        CompositeData row = new CompositeDataSupport(
+                                ACTIVE_QUERY_COMPOSITE_TYPE,
+                                new String[] {"queryId", "status", "active"},
+                                new Object[] {query.getQueryId(), UPPER_UNDERSCORE.to(UPPER_CAMEL, query.getState().name()), true});
+                        table.put(row);
+                    }
+                    catch (OpenDataException _) {
+                    }
+                });
+        try {
+            return new CompositeDataSupport(ACTIVE_QUERIES_COMPOSITE_TYPE, new String[] {"query"}, new Object[] {table});
+        }
+        catch (OpenDataException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e.getMessage());
+        }
     }
 
     @Managed

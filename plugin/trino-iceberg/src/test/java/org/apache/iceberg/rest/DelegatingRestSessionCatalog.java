@@ -13,6 +13,7 @@
  */
 package org.apache.iceberg.rest;
 
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.ServerFeature;
@@ -22,6 +23,7 @@ import org.apache.iceberg.catalog.Catalog;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -58,13 +60,10 @@ public class DelegatingRestSessionCatalog
     {
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig()
-                .setHttpPort(0)
                 .setMinThreads(4)
                 .setMaxThreads(8)
-                .setHttpAcceptorThreads(4)
-                .setHttpAcceptQueueSize(10)
                 .setHttpEnabled(true);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0).setHttpAcceptorThreads(4).setAcceptQueueSize(10)), Optional.empty(), nodeInfo);
         RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
         return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
