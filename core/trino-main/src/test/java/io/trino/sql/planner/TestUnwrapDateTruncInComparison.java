@@ -84,6 +84,15 @@ public class TestUnwrapDateTruncInComparison
     }
 
     @Test
+    public void testTimestampWeekAndQuarterComparisons()
+    {
+        testUnwrap(
+                "timestamp(3)",
+                "date_trunc('quarter', a) <= TIMESTAMP '2024-05-15 00:00:00.000'",
+                comparison(LESS_THAN_OR_EQUAL, timestampReference(), timestampConstant("2024-06-30 23:59:59.999")));
+    }
+
+    @Test
     public void testDateWeekAndQuarterComparisons()
     {
         testUnwrap(
