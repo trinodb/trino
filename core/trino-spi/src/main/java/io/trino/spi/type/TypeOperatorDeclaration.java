@@ -74,6 +74,10 @@ public final class TypeOperatorDeclaration
     private final Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators;
     private final Collection<OperatorMethodHandle> lessThanOperators;
     private final Collection<OperatorMethodHandle> lessThanOrEqualOperators;
+    private final Collection<OperatorMethodHandle> sortKeyPrefixUnorderedLastOperators;
+    private final Collection<OperatorMethodHandle> sortKeyPrefixUnorderedFirstOperators;
+    private final boolean sortKeyPrefixExact;
+    private final int sortKeyPrefixBits;
 
     private TypeOperatorDeclaration(
             Collection<OperatorMethodHandle> readValueOperators,
@@ -85,7 +89,11 @@ public final class TypeOperatorDeclaration
             Collection<OperatorMethodHandle> comparisonUnorderedLastOperators,
             Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators,
             Collection<OperatorMethodHandle> lessThanOperators,
-            Collection<OperatorMethodHandle> lessThanOrEqualOperators)
+            Collection<OperatorMethodHandle> lessThanOrEqualOperators,
+            Collection<OperatorMethodHandle> sortKeyPrefixUnorderedLastOperators,
+            Collection<OperatorMethodHandle> sortKeyPrefixUnorderedFirstOperators,
+            boolean sortKeyPrefixExact,
+            int sortKeyPrefixBits)
     {
         this.readValueOperators = List.copyOf(requireNonNull(readValueOperators, "readValueOperators is null"));
         this.equalOperators = List.copyOf(requireNonNull(equalOperators, "equalOperators is null"));
@@ -97,6 +105,10 @@ public final class TypeOperatorDeclaration
         this.comparisonUnorderedFirstOperators = List.copyOf(requireNonNull(comparisonUnorderedFirstOperators, "comparisonUnorderedFirstOperators is null"));
         this.lessThanOperators = List.copyOf(requireNonNull(lessThanOperators, "lessThanOperators is null"));
         this.lessThanOrEqualOperators = List.copyOf(requireNonNull(lessThanOrEqualOperators, "lessThanOrEqualOperators is null"));
+        this.sortKeyPrefixUnorderedLastOperators = List.copyOf(requireNonNull(sortKeyPrefixUnorderedLastOperators, "sortKeyPrefixUnorderedLastOperators is null"));
+        this.sortKeyPrefixUnorderedFirstOperators = List.copyOf(requireNonNull(sortKeyPrefixUnorderedFirstOperators, "sortKeyPrefixUnorderedFirstOperators is null"));
+        this.sortKeyPrefixExact = sortKeyPrefixExact;
+        this.sortKeyPrefixBits = sortKeyPrefixBits;
     }
 
     public boolean isComparable()
@@ -159,6 +171,36 @@ public final class TypeOperatorDeclaration
         return lessThanOrEqualOperators;
     }
 
+    public Collection<OperatorMethodHandle> getSortKeyPrefixUnorderedLastOperators()
+    {
+        return sortKeyPrefixUnorderedLastOperators;
+    }
+
+    public Collection<OperatorMethodHandle> getSortKeyPrefixUnorderedFirstOperators()
+    {
+        return sortKeyPrefixUnorderedFirstOperators;
+    }
+
+    /**
+     * Whether equal sort key prefixes imply that the values are equal under the corresponding
+     * comparison operator. When false, the sort key prefix is only a prefix and equal keys must be
+     * resolved with a full comparison.
+     */
+    public boolean isSortKeyPrefixExact()
+    {
+        return sortKeyPrefixExact;
+    }
+
+    /**
+     * Number of high bits of the sort key prefix that carry information; the remaining low bits
+     * are always zero. Narrow types declare fewer bits so that multiple sort channels can be
+     * packed into a single 64-bit prefix.
+     */
+    public int getSortKeyPrefixBits()
+    {
+        return sortKeyPrefixBits;
+    }
+
     public static Builder builder(Class<?> typeJavaType)
     {
         return new Builder(typeJavaType);
@@ -185,6 +227,10 @@ public final class TypeOperatorDeclaration
         private final Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> lessThanOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> lessThanOrEqualOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> sortKeyPrefixUnorderedLastOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> sortKeyPrefixUnorderedFirstOperators = new ArrayList<>();
+        private boolean sortKeyPrefixExact;
+        private int sortKeyPrefixBits = 64;
 
         private Builder(Class<?> typeJavaType)
         {
@@ -204,6 +250,10 @@ public final class TypeOperatorDeclaration
             operatorDeclaration.getComparisonUnorderedFirstOperators().forEach(this::addComparisonUnorderedFirstOperator);
             operatorDeclaration.getLessThanOperators().forEach(this::addLessThanOperator);
             operatorDeclaration.getLessThanOrEqualOperators().forEach(this::addLessThanOrEqualOperator);
+            operatorDeclaration.getSortKeyPrefixUnorderedLastOperators().forEach(this::addSortKeyPrefixUnorderedLastOperator);
+            operatorDeclaration.getSortKeyPrefixUnorderedFirstOperators().forEach(this::addSortKeyPrefixUnorderedFirstOperator);
+            sortKeyPrefixExact |= operatorDeclaration.isSortKeyPrefixExact();
+            sortKeyPrefixBits = Math.min(sortKeyPrefixBits, operatorDeclaration.getSortKeyPrefixBits());
             return this;
         }
 
@@ -367,6 +417,33 @@ public final class TypeOperatorDeclaration
             return this;
         }
 
+        public Builder addSortKeyPrefixUnorderedLastOperator(OperatorMethodHandle sortKeyPrefixOperator)
+        {
+            verifyMethodHandleSignature(1, long.class, sortKeyPrefixOperator);
+            this.sortKeyPrefixUnorderedLastOperators.add(sortKeyPrefixOperator);
+            return this;
+        }
+
+        public Builder addSortKeyPrefixUnorderedFirstOperator(OperatorMethodHandle sortKeyPrefixOperator)
+        {
+            verifyMethodHandleSignature(1, long.class, sortKeyPrefixOperator);
+            this.sortKeyPrefixUnorderedFirstOperators.add(sortKeyPrefixOperator);
+            return this;
+        }
+
+        public Builder sortKeyPrefixExact(boolean sortKeyPrefixExact)
+        {
+            this.sortKeyPrefixExact = sortKeyPrefixExact;
+            return this;
+        }
+
+        public Builder sortKeyPrefixBits(int sortKeyPrefixBits)
+        {
+            checkArgument(sortKeyPrefixBits >= 1 && sortKeyPrefixBits <= 64, "sortKeyPrefixBits must be between 1 and 64, but is %s", sortKeyPrefixBits);
+            this.sortKeyPrefixBits = sortKeyPrefixBits;
+            return this;
+        }
+
         public Builder addOperators(Class<?> operatorsClass, Lookup lookup)
         {
             boolean addedOperator = false;
@@ -375,58 +452,69 @@ public final class TypeOperatorDeclaration
                 if (scalarOperator == null) {
                     continue;
                 }
-                OperatorType operatorType = scalarOperator.value();
-                if (operatorType.neverFails() && scalarOperator.neverFails()) {
-                    throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(operatorType, method));
-                }
-
-                MethodHandle methodHandle;
-                try {
-                    methodHandle = lookup.unreflect(method);
-                }
-                catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-
-                switch (operatorType) {
-                    case READ_VALUE -> addReadValueOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, typeJavaType),
-                            methodHandle));
-                    case EQUAL -> addEqualOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
-                    case HASH_CODE -> addHashCodeOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
-                    case XX_HASH_64 -> addXxHash64Operator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
-                    case IDENTICAL -> addIdenticalOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
-                    case INDETERMINATE -> addIndeterminateOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
-                    case COMPARISON_UNORDERED_LAST -> addComparisonUnorderedLastOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
-                    case COMPARISON_UNORDERED_FIRST -> addComparisonUnorderedFirstOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, long.class),
-                            methodHandle));
-                    case LESS_THAN -> addLessThanOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
-                    case LESS_THAN_OR_EQUAL -> addLessThanOrEqualOperator(new OperatorMethodHandle(
-                            parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
-                            methodHandle));
-                    default -> throw new IllegalArgumentException(operatorType + " operator is not supported: " + method);
-                }
+                addOperator(method, scalarOperator, lookup);
                 addedOperator = true;
             }
             if (!addedOperator) {
                 throw new IllegalArgumentException(operatorsClass + " does not contain any operators");
             }
             return this;
+        }
+
+        private void addOperator(Method method, ScalarOperator scalarOperator, Lookup lookup)
+        {
+            OperatorType operatorType = scalarOperator.value();
+            if (operatorType.neverFails() && scalarOperator.neverFails()) {
+                throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(operatorType, method));
+            }
+
+            MethodHandle methodHandle;
+            try {
+                methodHandle = lookup.unreflect(method);
+            }
+            catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+
+            switch (operatorType) {
+                case READ_VALUE -> addReadValueOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, typeJavaType),
+                        methodHandle));
+                case EQUAL -> addEqualOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
+                        methodHandle));
+                case HASH_CODE -> addHashCodeOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, long.class),
+                        methodHandle));
+                case XX_HASH_64 -> addXxHash64Operator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, long.class),
+                        methodHandle));
+                case IDENTICAL -> addIdenticalOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
+                        methodHandle));
+                case INDETERMINATE -> addIndeterminateOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
+                        methodHandle));
+                case COMPARISON_UNORDERED_LAST -> addComparisonUnorderedLastOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, long.class),
+                        methodHandle));
+                case COMPARISON_UNORDERED_FIRST -> addComparisonUnorderedFirstOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, long.class),
+                        methodHandle));
+                case LESS_THAN -> addLessThanOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
+                        methodHandle));
+                case LESS_THAN_OR_EQUAL -> addLessThanOrEqualOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, boolean.class),
+                        methodHandle));
+                case SORT_KEY_PREFIX_UNORDERED_LAST -> addSortKeyPrefixUnorderedLastOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, long.class),
+                        methodHandle));
+                case SORT_KEY_PREFIX_UNORDERED_FIRST -> addSortKeyPrefixUnorderedFirstOperator(new OperatorMethodHandle(
+                        parseInvocationConvention(operatorType, typeJavaType, method, long.class),
+                        methodHandle));
+                default -> throw new IllegalArgumentException(operatorType + " operator is not supported: " + method);
+            }
         }
 
         private void verifyMethodHandleSignature(int expectedArgumentCount, Class<?> returnJavaType, OperatorMethodHandle operatorMethodHandle)
@@ -672,6 +760,15 @@ public final class TypeOperatorDeclaration
                     throw new IllegalStateException("Less-than-or-equals operators can not be supplied when comparison operators are not supplied");
                 }
             }
+            if (sortKeyPrefixUnorderedLastOperators.isEmpty() != sortKeyPrefixUnorderedFirstOperators.isEmpty()) {
+                throw new IllegalStateException("Sort key prefix operators must be supplied for both unordered last and unordered first, or neither");
+            }
+            if (sortKeyPrefixExact && sortKeyPrefixUnorderedLastOperators.isEmpty() && sortKeyPrefixUnorderedFirstOperators.isEmpty()) {
+                throw new IllegalStateException("Sort key prefixes can not be declared exact when sort key prefix operators are not supplied");
+            }
+            if (sortKeyPrefixBits != 64 && sortKeyPrefixUnorderedLastOperators.isEmpty() && sortKeyPrefixUnorderedFirstOperators.isEmpty()) {
+                throw new IllegalStateException("Sort key prefix bits can not be declared when sort key prefix operators are not supplied");
+            }
 
             return new TypeOperatorDeclaration(
                     readValueOperators,
@@ -683,7 +780,11 @@ public final class TypeOperatorDeclaration
                     comparisonUnorderedLastOperators,
                     comparisonUnorderedFirstOperators,
                     lessThanOperators,
-                    lessThanOrEqualOperators);
+                    lessThanOrEqualOperators,
+                    sortKeyPrefixUnorderedLastOperators,
+                    sortKeyPrefixUnorderedFirstOperators,
+                    sortKeyPrefixExact,
+                    sortKeyPrefixBits);
         }
     }
 }
