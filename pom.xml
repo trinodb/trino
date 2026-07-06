@@ -2823,14 +2823,13 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-compiler-plugin</artifactId>
-                        <!--suppress MavenModelInspection -->
-                        <configuration combine.children="merge">
+                        <configuration>
                             <!-- forking not required due to JVM flags in .mvn/jvm.config -->
                             <!-- see https://errorprone.info/docs/installation#maven -->
                             <!-- Do not fail on error-prone's warnings even for modules using air.compiler.fail-warnings -->
                             <!-- TODO silence warnings we choose to ignore and raise important warnings to error and then remove <failOnWarning> -->
                             <failOnWarning>false</failOnWarning>
-                            <compilerArgs>
+                            <compilerArgs combine.children="append">
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>--should-stop=ifError=FLOW</arg>
                                 <arg>-Xplugin:ErrorProne @${air.main.basedir}/.mvn/errorprone.config \

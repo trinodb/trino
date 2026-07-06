@@ -562,7 +562,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <!-- Ensure incubator Vector API is on the module path for javac -->
-                        <compilerArgs combine.self="merge">
+                        <compilerArgs combine.children="append">
                             <arg>${extraJavaVectorArgs}</arg>
                         </compilerArgs>
                     </configuration>
