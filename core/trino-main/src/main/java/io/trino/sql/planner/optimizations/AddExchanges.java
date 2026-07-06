@@ -1393,7 +1393,9 @@ public class AddExchanges
                             Optional.empty());
 
                     unpartitionedChildren.add(result);
-                    unpartitionedOutputLayouts.add(result.getOutputSymbols());
+                    // Use exchangeOutputLayout, which is positionally aligned with node.getOutputSymbols(),
+                    // rather than the exchange's own output symbols, which the ExchangeNode constructor may reorder.
+                    unpartitionedOutputLayouts.add(exchangeOutputLayout);
                 }
 
                 ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
