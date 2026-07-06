@@ -59,6 +59,7 @@ public class TestGroupedTopNRankBuilder
                         throw new UnsupportedOperationException();
                     }
                 },
+                ImmutableList.of(),
                 5,
                 false,
                 new int[0],
@@ -83,6 +84,7 @@ public class TestGroupedTopNRankBuilder
                 types,
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), blockTypeOperators),
+                ImmutableList.of(),
                 3,
                 produceRanking,
                 new int[0],
@@ -149,6 +151,7 @@ public class TestGroupedTopNRankBuilder
                 types,
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(ImmutableList.of(types.get(1)), ImmutableList.of(1), blockTypeOperators),
+                ImmutableList.of(),
                 3,
                 produceRanking,
                 new int[] {0},
@@ -230,6 +233,7 @@ public class TestGroupedTopNRankBuilder
                 types,
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(ImmutableList.of(types.get(1)), ImmutableList.of(1), blockTypeOperators),
+                ImmutableList.of(),
                 5,
                 false,
                 new int[] {0},

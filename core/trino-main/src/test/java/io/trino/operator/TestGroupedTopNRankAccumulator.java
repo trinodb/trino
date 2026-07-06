@@ -65,7 +65,7 @@ public class TestGroupedTopNRankAccumulator
 
         for (int i = 0; i < valueCount; i++) {
             for (int groupId = 0; groupId < groupCount; groupId++) {
-                assertThat(accumulator.add(groupId, toRowReference(rowId))).isTrue();
+                assertThat(accumulator.add(groupId, toRowReference(rowId), 0)).isTrue();
                 accumulator.verifyIntegrity();
 
                 // No evictions because rank does not change for the same input
@@ -116,7 +116,7 @@ public class TestGroupedTopNRankAccumulator
         for (int rowId = 0; rowId < valueCount; rowId++) {
             for (int groupId = 0; groupId < groupCount; groupId++) {
                 // Since rowIds are in increasing order, only the first topN will be accepted
-                assertThat(accumulator.add(groupId, toRowReference(rowId))).isEqualTo(rowId < topN);
+                assertThat(accumulator.add(groupId, toRowReference(rowId), 0)).isEqualTo(rowId < topN);
                 accumulator.verifyIntegrity();
 
                 // No evictions because all results should be rejected at add()
@@ -170,7 +170,7 @@ public class TestGroupedTopNRankAccumulator
         for (long rowId = valueCount - 1; rowId >= 0; rowId--) {
             for (int groupId = 0; groupId < groupCount; groupId++) {
                 // Since rowIds are in decreasing order, new rowIds will always be accepted, potentially evicting older rows
-                assertThat(accumulator.add(groupId, toRowReference(rowId))).isTrue();
+                assertThat(accumulator.add(groupId, toRowReference(rowId), 0)).isTrue();
                 accumulator.verifyIntegrity();
 
                 if (rowId >= topN) {
@@ -215,37 +215,37 @@ public class TestGroupedTopNRankAccumulator
         accumulator.verifyIntegrity();
 
         // Add rowId 0
-        assertThat(accumulator.add(0, toRowReference(0))).isTrue();
+        assertThat(accumulator.add(0, toRowReference(0), 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(evicted).isEmpty();
 
         // Add rowId 1
-        assertThat(accumulator.add(0, toRowReference(1))).isTrue();
+        assertThat(accumulator.add(0, toRowReference(1), 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(evicted).isEmpty();
 
         // Add rowId 0 again, putting rowId 1 at effective rank of 3
-        assertThat(accumulator.add(0, toRowReference(0))).isTrue();
+        assertThat(accumulator.add(0, toRowReference(0), 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(evicted).isEmpty();
 
         // Add rowId 1 again, but rowId 1 should still have an effective rank of 3
-        assertThat(accumulator.add(0, toRowReference(1))).isTrue();
+        assertThat(accumulator.add(0, toRowReference(1), 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(evicted).isEmpty();
 
         // Add rowId 0 again, which should force both values of rowId1 to be evicted
-        assertThat(accumulator.add(0, toRowReference(0))).isTrue();
+        assertThat(accumulator.add(0, toRowReference(0), 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(evicted).isEqualTo(Arrays.asList(1L, 1L));
 
         // Add rowId -1, putting rowId 0 at rank 2
-        assertThat(accumulator.add(0, toRowReference(-1))).isTrue();
+        assertThat(accumulator.add(0, toRowReference(-1), 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(evicted).isEqualTo(Arrays.asList(1L, 1L));
 
         // Add rowId -1 again, putting rowId 0 at rank 3
-        assertThat(accumulator.add(0, toRowReference(-1))).isTrue();
+        assertThat(accumulator.add(0, toRowReference(-1), 0)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(evicted).isEqualTo(Arrays.asList(1L, 1L));
 
