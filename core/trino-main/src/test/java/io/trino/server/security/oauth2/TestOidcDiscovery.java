@@ -16,6 +16,7 @@ package io.trino.server.security.oauth2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -315,8 +316,8 @@ public class TestOidcDiscovery
                 throws Exception
         {
             NodeInfo nodeInfo = new NodeInfo("test");
-            HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-            HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+            HttpServerConfig config = new HttpServerConfig();
+            HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
             httpServer = new TestingHttpServer("testing-metadata-server", httpServerInfo, nodeInfo, config, servlet);
             httpServer.start();
         }
