@@ -13,6 +13,9 @@
  */
 package org.apache.iceberg.rest;
 
+import com.google.common.collect.ImmutableSet;
+import io.airlift.http.server.HttpConfig;
+import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.ServerFeature;
@@ -22,6 +25,7 @@ import org.apache.iceberg.catalog.Catalog;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -58,19 +62,31 @@ public class DelegatingRestSessionCatalog
     {
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig()
-                .setHttpPort(0)
                 .setMinThreads(4)
                 .setMaxThreads(8)
-                .setHttpAcceptorThreads(4)
-                .setHttpAcceptQueueSize(10)
                 .setHttpEnabled(true);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpConfig httpConfig = new HttpConfig()
+                .setHttpPort(0)
+                .setHttpAcceptorThreads(4)
+                .setAcceptQueueSize(10);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(httpConfig), Optional.empty(), nodeInfo);
         RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
-        return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
-                // Required due to URIs like: HEAD /v1/namespaces/level_1%1Flevel_2
-                .withLegacyUriCompliance(true)
-                .build());
+        return new TestingHttpServer(
+                "rest-catalog",
+                httpServerInfo,
+                nodeInfo,
+                config,
+                Optional.of(httpConfig),
+                Optional.empty(),
+                servlet,
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ServerFeature.builder()
+                        // Required due to URIs like: HEAD /v1/namespaces/level_1%1Flevel_2
+                        .withLegacyUriCompliance(true)
+                        .build(),
+                ClientCertificate.NONE);
     }
 
     public static Builder builder()

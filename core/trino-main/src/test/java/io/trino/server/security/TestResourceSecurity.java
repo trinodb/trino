@@ -22,6 +22,7 @@ import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -1445,8 +1446,8 @@ public class TestResourceSecurity
             throws IOException
     {
         NodeInfo nodeInfo = new NodeInfo("test");
-        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpServerConfig config = new HttpServerConfig();
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
 
         return new TestingHttpServer("testing-jwks-server", httpServerInfo, nodeInfo, config, new JwkServlet());
     }
