@@ -1087,6 +1087,7 @@ public class LocalExecutionPlanner
                     maxPartialTopNMemorySize,
                     hashStrategyCompiler,
                     orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(sortTypes, sortChannels, sortOrder),
                     blockTypeOperators);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
@@ -1854,7 +1855,8 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     (int) node.getCount(),
-                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(sortTypes, sortChannels, sortOrders));
 
             return new PhysicalOperation(operator, source.getLayout(), source);
         }
