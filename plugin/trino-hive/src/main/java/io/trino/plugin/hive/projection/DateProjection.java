@@ -28,11 +28,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalQueries;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -121,7 +120,14 @@ final class DateProjection
             throw invalidRangeProperty(columnName, dateFormatPattern, Optional.empty());
         }
 
-        this.dateFormat = DateTimeFormatter.ofPattern(dateFormatPattern, ENGLISH);
+        this.dateFormat = new DateTimeFormatterBuilder()
+                .appendPattern(dateFormatPattern)
+                .parseDefaulting(ChronoField.MONTH_OF_YEAR, 1)
+                .parseDefaulting(ChronoField.DAY_OF_MONTH, 1)
+                .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+                .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+                .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+                .toFormatter(ENGLISH);
 
         leftBound = parseDateRangerBound(columnName, range.get(0), dateFormatPattern);
         rightBound = parseDateRangerBound(columnName, range.get(1), dateFormatPattern);
@@ -309,11 +315,7 @@ final class DateProjection
     private Instant parse(String value)
             throws DateTimeParseException
     {
-        TemporalAccessor parsed = dateFormat.parse(value);
-        if (parsed.query(TemporalQueries.localDate()) != null && parsed.query(TemporalQueries.localTime()) == null) {
-            return LocalDate.from(parsed).atStartOfDay().toInstant(UTC);
-        }
-        return LocalDateTime.from(parsed).toInstant(UTC);
+        return LocalDateTime.from(dateFormat.parse(value)).toInstant(UTC);
     }
 
     private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
