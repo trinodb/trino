@@ -40,6 +40,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -115,7 +116,7 @@ public class BenchmarkPagesIndexOrdering
     {
         PagesIndex pagesIndex = new PagesIndex.TestingFactory(true).newPagesIndex(context.types, ROWS_PER_PAGE * NUMBER_OF_PAGES);
         context.pages.forEach(pagesIndex::addPage);
-        pagesIndex.sort(context.sortChannels, context.sortOrders);
+        pagesIndex.sort(context.sortChannels, context.sortOrders, newSimpleAggregatedMemoryContext().newLocalMemoryContext("benchmark"));
         return pagesIndex.getValueAddresses();
     }
 
