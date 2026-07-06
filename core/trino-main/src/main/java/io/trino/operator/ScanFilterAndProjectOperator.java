@@ -66,7 +66,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
-    private final PageSourceProvider pageSourceProvider;
+    private final PageSourceProvider.MemoryUsageTracker pageSourceProviderMemoryTracker;
+    private final LocalMemoryContext pageSourceProviderMemoryContext;
     private final WorkProcessor<Page> pages;
     private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
@@ -95,21 +96,23 @@ public class ScanFilterAndProjectOperator
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        pages = split.flatTransform(
-                new SplitToPages(
-                        operatorContext.getSession(),
-                        yieldSignal,
-                        pageSourceProvider,
-                        pageProcessor,
-                        table,
-                        tableCredentials,
-                        columns,
-                        dynamicFilter,
-                        types,
-                        operatorContext.aggregateUserMemoryContext(),
-                        minOutputPageSize,
-                        minOutputPageRowCount));
+        requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSourceProviderMemoryTracker = pageSourceProvider.createMemoryUsageTracker();
+        SplitToPages splitToPages = new SplitToPages(
+                operatorContext.getSession(),
+                yieldSignal,
+                pageSourceProvider,
+                pageProcessor,
+                table,
+                tableCredentials,
+                columns,
+                dynamicFilter,
+                types,
+                operatorContext.aggregateUserMemoryContext(),
+                minOutputPageSize,
+                minOutputPageRowCount);
+        this.pageSourceProviderMemoryContext = splitToPages.pageSourceProviderMemoryContext;
+        pages = split.flatTransform(splitToPages);
     }
 
     @Override
@@ -178,6 +181,9 @@ public class ScanFilterAndProjectOperator
                 throw new UncheckedIOException(e);
             }
         }
+        // this operator is done; pass the shared memory usage reporting role to a live operator, if any
+        pageSourceProviderMemoryTracker.close();
+        pageSourceProviderMemoryContext.setBytes(0);
     }
 
     private class SplitToPages
@@ -331,7 +337,7 @@ public class ScanFilterAndProjectOperator
             }
 
             SourcePage page = pageSource.getNextSourcePage();
-            pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
+            pageSourceProviderMemoryContext.setBytes(pageSourceProviderMemoryTracker.getMemoryUsage());
 
             // update operator stats
             processedPositions += page == null ? 0 : page.getPositionCount();

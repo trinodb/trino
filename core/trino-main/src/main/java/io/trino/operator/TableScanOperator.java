@@ -124,6 +124,7 @@ public class TableScanOperator
     private final TableHandle table;
     private final Optional<ConnectorTableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
+    private final PageSourceProvider.MemoryUsageTracker pageSourceProviderMemoryTracker;
     private final LocalMemoryContext pageSourceProviderMemoryContext;
     private final LocalMemoryContext pageSourceMemoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
@@ -153,6 +154,7 @@ public class TableScanOperator
         this.table = requireNonNull(table, "table is null");
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.pageSourceProviderMemoryTracker = pageSourceProvider.createMemoryUsageTracker();
         this.pageSourceProviderMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-PageSourceProvider");
         this.pageSourceMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-ConnectorPageSource");
     }
@@ -215,9 +217,11 @@ public class TableScanOperator
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
             operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
+        // this operator is done; pass the shared memory usage reporting role to a live operator, if any
+        pageSourceProviderMemoryTracker.close();
+        pageSourceProviderMemoryContext.setBytes(0);
     }
 
     @Override
@@ -226,7 +230,7 @@ public class TableScanOperator
         if (!finished) {
             finished = (source != null) && source.isFinished();
             if (source != null) {
-                pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
+                pageSourceProviderMemoryContext.setBytes(pageSourceProviderMemoryTracker.getMemoryUsage());
             }
         }
 
@@ -295,7 +299,7 @@ public class TableScanOperator
         readTimeNanos = endReadTimeNanos;
 
         // updating memory usage should happen after page is loaded.
-        pageSourceProviderMemoryContext.setBytes(pageSourceProvider.getMemoryUsage());
+        pageSourceProviderMemoryContext.setBytes(pageSourceProviderMemoryTracker.getMemoryUsage());
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }

@@ -41,4 +41,26 @@ public interface PageSourceProvider
     {
         return 0;
     }
+
+    /**
+     * Creates a tracker for reporting {@link #getMemoryUsage()} into an operator-local memory context.
+     * A provider instance is shared by all drivers of a pipeline, and each driver polls the provider
+     * memory usage into its own memory context. Trackers coordinate so that shared provider state
+     * (e.g. loaded Iceberg equality delete filters) is reported by at most one live tracker at a time
+     * instead of being counted once per driver. When the reporting tracker is closed, the role passes
+     * to the next tracker that polls.
+     */
+    default MemoryUsageTracker createMemoryUsageTracker()
+    {
+        return this::getMemoryUsage;
+    }
+
+    interface MemoryUsageTracker
+            extends AutoCloseable
+    {
+        long getMemoryUsage();
+
+        @Override
+        default void close() {}
+    }
 }
