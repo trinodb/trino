@@ -168,6 +168,11 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("postgresql_postgis")
+    @interface PostgresqlPostgis {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("sqlserver")
     @interface Sqlserver {}
 
