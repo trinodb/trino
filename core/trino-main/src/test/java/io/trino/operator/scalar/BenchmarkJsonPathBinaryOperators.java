@@ -25,7 +25,6 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrPathNode;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -96,7 +95,6 @@ public class BenchmarkJsonPathBinaryOperators
         return ImmutableList.copyOf(
                 data.getJsonValuePageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPageConstantTypes())));
     }
@@ -108,7 +106,6 @@ public class BenchmarkJsonPathBinaryOperators
         return ImmutableList.copyOf(
                 data.getJsonValuePageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPageVaryingTypes())));
     }
@@ -120,7 +117,6 @@ public class BenchmarkJsonPathBinaryOperators
         return ImmutableList.copyOf(
                 data.getJsonValuePageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPageMultipleVaryingTypes())));
     }

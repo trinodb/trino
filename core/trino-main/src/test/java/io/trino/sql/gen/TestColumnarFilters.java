@@ -22,7 +22,6 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.TestingSourcePage;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.project.PageProcessor;
@@ -665,7 +664,6 @@ public class TestColumnarFilters
         for (Page inputPage : inputPages) {
             WorkProcessor<Page> workProcessor = compiledProcessor.createWorkProcessor(
                     FULL_CONNECTOR_SESSION,
-                    new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
                     SourcePage.create(inputPage));
