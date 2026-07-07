@@ -45,6 +45,156 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  resolve-prev-run:
+    # Locates a usable "previous" PR CI run and exposes:
+    #  - prev_merge_sha: the merge commit SHA that run was based on, for the
+    #    second GIB pass (gate 2 reference)
+    #  - prev_non_success_jobs: rendered names of jobs from that run whose
+    #    conclusion was anything other than success/skipped — the deny list
+    #    for the prev-run gate.
+    # Also stashes THIS run's merge SHA as an artifact so the *next* push can
+    # find it via the same mechanism.
+    # Skipped (empty outputs) on non-PR events; downstream gates degrade to
+    # first-push behavior in that case.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read  # list workflow runs, fetch jobs, download artifacts
+    outputs:
+      prev_merge_sha: ${{ steps.resolve.outputs.prev_merge_sha }}
+      prev_non_success_jobs: ${{ steps.resolve.outputs.prev_non_success_jobs }}
+    steps:
+      - name: Stash this run's merge SHA for the next push
+        run: |
+          mkdir -p _meta
+          # github.sha for pull_request events is the merge commit SHA the
+          # workflow ran against — not exposed via the workflow_runs API
+          # post-hoc, so we persist it ourselves.
+          printf '%s' "${{ github.sha }}" > _meta/merge_sha
+      - uses: actions/upload-artifact@v7
+        # Soft-degrade if the artifact upload flakes — the worst case is the
+        # next push falling back to first-push semantics, not a broken CI.
+        continue-on-error: true
+        with:
+          name: prev-run-merge-sha
+          path: _meta/
+          retention-days: 14
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO_OWNER: ${{ github.event.pull_request.head.repo.owner.login }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          # Defaults: empty -> first-push semantics downstream
+          {
+            echo "prev_merge_sha="
+            echo "prev_non_success_jobs<<__EOF__"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ -z "${HEAD_REF:-}" ] || [ -z "${HEAD_REPO_OWNER:-}" ]; then
+            echo "Non-PR build or missing head info; skipping prev-run resolution."
+            exit 0
+          fi
+
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+
+          # List recent runs of THIS workflow on this PR head branch+owner.
+          # Filter out the current run.
+          if ! gh api -X GET \
+                "repos/${GH_REPO}/actions/workflows/ci.yml/runs" \
+                -f event=pull_request \
+                -f "branch=${HEAD_REF}" \
+                -f per_page=30 \
+                --jq '[.workflow_runs[]
+                       | select(.head_repository.owner.login == env.HEAD_REPO_OWNER)
+                       | select((.id|tostring) != env.CURRENT_RUN_ID)
+                       | {id, conclusion, status, created_at}]
+                       | sort_by(.created_at) | reverse' \
+                > "$workdir/candidates.json"; then
+            echo "Failed to list workflow runs; using first-push semantics."
+            exit 0
+          fi
+
+          n=$(jq 'length' "$workdir/candidates.json")
+          echo "Considering $n prior runs."
+
+          for i in $(seq 0 $((n - 1))); do
+            run_id=$(jq -r ".[$i].id" "$workdir/candidates.json")
+            conclusion=$(jq -r ".[$i].conclusion" "$workdir/candidates.json")
+            echo "--- candidate $((i+1))/$n: run_id=$run_id conclusion=$conclusion ---"
+
+            # Fetch ALL jobs (paginated) and decide meaningfulness from the same
+            # payload. Without pagination, jobs on pages 2+ would silently be
+            # treated as "absent from API" — i.e., as previously validated —
+            # because the deny list would miss any of their failures.
+            # `--slurp` collects each page's {total_count, jobs:[...]} into an
+            # array; piping through jq flattens all pages back into the
+            # {jobs: [...]} shape the downstream filters expect. (`gh api`
+            # rejects `--slurp` combined with `--jq`, hence the pipe.)
+            if ! gh api --paginate --slurp -X GET "repos/${GH_REPO}/actions/runs/$run_id/jobs" -f per_page=100 \
+                   | jq '{jobs: [.[].jobs[]]}' > "$workdir/jobs-$run_id.json"; then
+              echo "  failed to fetch jobs API; trying older."
+              continue
+            fi
+
+            meaningful=false
+            if [ "$conclusion" = "success" ]; then
+              meaningful=true
+              echo "  workflow conclusion is success -> meaningful."
+            else
+              # >=1 job succeeded AND took >=180s
+              count=$(jq '[.jobs[]
+                          | select(.conclusion == "success")
+                          | select(((.completed_at|fromdateiso8601) - (.started_at|fromdateiso8601)) >= 180)] | length' \
+                          "$workdir/jobs-$run_id.json")
+              if [ "${count:-0}" -ge 1 ]; then
+                meaningful=true
+                echo "  $count successful job(s) lasted >=180s -> meaningful."
+              else
+                echo "  no meaningful successful job; trying older."
+              fi
+            fi
+            [ "$meaningful" = true ] || continue
+
+            # Try to download the merge_sha artifact from that run.
+            rm -rf "$workdir/sha"
+            if ! gh run download "$run_id" -n prev-run-merge-sha -D "$workdir/sha" 2>/dev/null; then
+              echo "  no prev-run-merge-sha artifact on $run_id (may have expired); trying older."
+              continue
+            fi
+            if [ ! -s "$workdir/sha/merge_sha" ]; then
+              echo "  empty merge_sha artifact; trying older."
+              continue
+            fi
+            prev_merge_sha=$(tr -d '\r\n' < "$workdir/sha/merge_sha")
+            echo "  prev_merge_sha=$prev_merge_sha"
+
+            # Build the deny list: names with non-success non-skipped conclusion.
+            jq -r '.jobs[]
+                   | select(.conclusion != "success" and .conclusion != "skipped")
+                   | .name' "$workdir/jobs-$run_id.json" \
+                   | sort -u > "$workdir/non_success.txt"
+            n_deny=$(wc -l < "$workdir/non_success.txt" | tr -d ' ')
+            echo "  prev_non_success_jobs: $n_deny entries"
+
+            # Emit outputs. Multi-line via heredoc.
+            {
+              echo "prev_merge_sha=$prev_merge_sha"
+              echo "prev_non_success_jobs<<__EOF__"
+              cat "$workdir/non_success.txt"
+              echo "__EOF__"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          done
+
+          echo "No usable prior run found; first-push semantics."
+
   path-filters:
     runs-on: ubuntu-latest
     outputs:
@@ -376,8 +526,12 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "test-other-modules"
 
   build-test-matrix:
-    needs: path-filters
-    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
+    needs: [path-filters, resolve-prev-run]
+    if: |
+      always() &&
+      needs.path-filters.result == 'success' &&
+      (needs.resolve-prev-run.result == 'success' || needs.resolve-prev-run.result == 'skipped') &&
+      (github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true')
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -406,11 +560,46 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies
+      - name: Maven validate (vs previous run)
+        if: needs.resolve-prev-run.outputs.prev_merge_sha != ''
+        env:
+          PREV_MERGE_SHA: ${{ needs.resolve-prev-run.outputs.prev_merge_sha }}
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          # The prev merge commit may have been GC'd by GitHub; that's external
+          # state we tolerate by falling back to first-push semantics. Any
+          # subsequent failure here (Maven / GIB / our own code) is a real bug
+          # and must fail loudly.
+          if ! git -c protocol.version=2 fetch --depth=50 --no-tags origin "$PREV_MERGE_SHA" 2>&1 | tail -3; then
+            echo "Could not fetch prev merge commit; skipping second GIB pass."
+            exit 0
+          fi
+          # -Dgib.referenceBranch last so it overrides MAVEN_GIB's default.
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted-vs-prev.log -P disable-check-spi-dependencies -Dgib.referenceBranch="$PREV_MERGE_SHA"
       - name: Set matrix
         id: set-matrix
+        env:
+          PREV_NON_SUCCESS_JOBS: ${{ needs.resolve-prev-run.outputs.prev_non_success_jobs }}
         run: |
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
+          # Materialize prev-run gate inputs only when both signals are present.
+          prev_flags=()
+          if [ -f gib-impacted-vs-prev.log ] && [ -n "${PREV_NON_SUCCESS_JOBS:-}" ]; then
+            printf '%s\n' "$PREV_NON_SUCCESS_JOBS" > prev-non-success-jobs.txt
+            prev_flags+=(--impacted-prev gib-impacted-vs-prev.log --prev-non-success-jobs prev-non-success-jobs.txt)
+            echo "Prev-run gating enabled:"
+            echo "  impacted-vs-prev modules: $(wc -l < gib-impacted-vs-prev.log) line(s)"
+            echo "  prev non-success jobs:    $(wc -l < prev-non-success-jobs.txt) line(s)"
+          elif [ -f gib-impacted-vs-prev.log ]; then
+            # GIB ran but resolve-prev-run found no non-success jobs (fully-green
+            # prev). Treat the deny list as empty.
+            : > prev-non-success-jobs.txt
+            prev_flags+=(--impacted-prev gib-impacted-vs-prev.log --prev-non-success-jobs prev-non-success-jobs.txt)
+            echo "Prev-run gating enabled (empty deny list — prev was fully green)."
+          else
+            echo "Prev-run gating disabled (first push or unavailable)."
+          fi
           cat <<EOF > .github/test-matrix.yaml
           include:
             - modules:
@@ -488,7 +677,7 @@ jobs:
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: testing/trino-tests }
           EOF
-          ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
+          ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json "${prev_flags[@]}"
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
@@ -827,8 +1016,12 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "test (${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }})"
 
   build-pt:
-    needs: path-filters
-    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
+    needs: [path-filters, resolve-prev-run]
+    if: |
+      always() &&
+      needs.path-filters.result == 'success' &&
+      (needs.resolve-prev-run.result == 'success' || needs.resolve-prev-run.result == 'skipped') &&
+      (github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true')
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -872,6 +1065,25 @@ jobs:
           testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
           echo "Impacted plugin features:"
           cat impacted-features.log
+      - name: Map impacted plugins to features (vs previous run)
+        if: needs.resolve-prev-run.outputs.prev_merge_sha != ''
+        env:
+          PREV_MERGE_SHA: ${{ needs.resolve-prev-run.outputs.prev_merge_sha }}
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          # The prev merge commit may have been GC'd by GitHub; that's external
+          # state we tolerate by falling back to first-push semantics. Any
+          # subsequent failure here (Maven / GIB / trino-plugin-reader / our
+          # own code) is a real bug and must fail loudly.
+          if ! git -c protocol.version=2 fetch --depth=50 --no-tags origin "$PREV_MERGE_SHA" 2>&1 | tail -3; then
+            echo "Could not fetch prev merge commit; skipping second GIB pass."
+            exit 0
+          fi
+          # -Dgib.referenceBranch last so it overrides MAVEN_GIB's default.
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted-vs-prev.log -pl '!:trino-docs,!:trino-tests,!:trino-faulttolerant-tests' -Dgib.referenceBranch="$PREV_MERGE_SHA"
+          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted-vs-prev.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features-vs-prev.log
+          echo "Impacted plugin features (vs prev run):"
+          cat impacted-features-vs-prev.log
       - name: Product tests artifact
         uses: actions/upload-artifact@v7
         with:
@@ -1011,9 +1223,24 @@ jobs:
           SNOWFLAKE_ROLE: ""
           SNOWFLAKE_WAREHOUSE: ""
           TESTCONTAINERS_NEVER_PULL: true
+          PREV_NON_SUCCESS_JOBS: ${{ needs.resolve-prev-run.outputs.prev_non_success_jobs }}
         run: |
           # converts filtered YAML file into JSON
-          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
+          prev_flags=()
+          if [ -f impacted-features-vs-prev.log ]; then
+            if [ -n "${PREV_NON_SUCCESS_JOBS:-}" ]; then
+              printf '%s\n' "$PREV_NON_SUCCESS_JOBS" > prev-non-success-jobs.txt
+            else
+              : > prev-non-success-jobs.txt
+            fi
+            prev_flags+=(--impacted-features-prev impacted-features-vs-prev.log --prev-non-success-jobs prev-non-success-jobs.txt)
+            echo "PT prev-run gating enabled:"
+            echo "  impacted-features-vs-prev: $(wc -l < impacted-features-vs-prev.log) line(s)"
+            echo "  prev non-success jobs:     $(wc -l < prev-non-success-jobs.txt) line(s)"
+          else
+            echo "PT prev-run gating disabled (first push or unavailable)."
+          fi
+          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json "${prev_flags[@]}"
       - id: set-matrix
         run: |
           echo "Matrix: $(jq '.' matrix.json)"
@@ -1132,6 +1359,7 @@ jobs:
       - maven-checks
       - path-filters
       - pt
+      - resolve-prev-run
       - test
       - test-jdbc-compatibility
       - test-other-modules
@@ -1148,6 +1376,7 @@ jobs:
           echo '${{ needs.maven-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "maven-checks" failed' >&2; exit 1; }
           echo '${{ needs.path-filters.result }}' | grep -xE 'success|skipped' || { echo 'Job "path-filters" failed' >&2; exit 1; }
           echo '${{ needs.pt.result }}' | grep -xE 'success|skipped' || { echo 'Job "pt" failed' >&2; exit 1; }
+          echo '${{ needs.resolve-prev-run.result }}' | grep -xE 'success|skipped' || { echo 'Job "resolve-prev-run" failed' >&2; exit 1; }
           echo '${{ needs.test.result }}' | grep -xE 'success|skipped' || { echo 'Job "test" failed' >&2; exit 1; }
           echo '${{ needs.test-jdbc-compatibility.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-jdbc-compatibility" failed' >&2; exit 1; }
           echo '${{ needs.test-other-modules.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-other-modules" failed' >&2; exit 1; }
