@@ -656,6 +656,10 @@ public class HadoopContainer
                        <value>false</value>
                    </property>
                    <property>
+                       <name>hive.users.in.admin.role</name>
+                       <value>hive</value>
+                   </property>
+                   <property>
                        <name>hive.security.authorization.manager</name>
                        <value>org.apache.hadoop.hive.ql.security.authorization.plugin.sqlstd.SQLStdConfOnlyAuthorizerFactory</value>
                    </property>
