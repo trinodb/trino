@@ -210,6 +210,34 @@ public class TestTopNOperator
         }
     }
 
+    @Test
+    public void testSupportsMaskedInput()
+            throws Exception
+    {
+        // sort channel is a subset of output channels: non-sort channels can be left undecoded
+        OperatorFactory mixed = topNOperatorFactory(
+                ImmutableList.of(BIGINT, DOUBLE),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST));
+        try (Operator operator = mixed.createOperator(driverContext)) {
+            assertThat(operator.supportsMaskedInput()).isTrue();
+        }
+
+        // every channel is a sort channel: nothing to defer
+        OperatorFactory allSort = topNOperatorFactory(
+                ImmutableList.of(BIGINT),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST));
+        DriverContext otherContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        try (Operator operator = allSort.createOperator(otherContext)) {
+            assertThat(operator.supportsMaskedInput()).isFalse();
+        }
+    }
+
     private OperatorFactory topNOperatorFactory(
             List<Type> types,
             int n,
@@ -224,6 +252,7 @@ public class TestTopNOperator
                 new PlanNodeId("test"),
                 types,
                 n,
+                sortChannels,
                 orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
     }
 }
