@@ -1365,25 +1365,45 @@ public class IcebergMetadata
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
         IcebergTableHandle handle = checkValidTableHandle(tableHandle);
-        catalog.updateTableComment(session, handle.getSchemaTableName(), comment);
+        try {
+            catalog.updateTableComment(session, handle.getSchemaTableName(), comment);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set table comment: " + requireNonNullElse(e.getMessage(), e), e);
+        }
     }
 
     @Override
     public void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
-        catalog.updateViewComment(session, viewName, comment);
+        try {
+            catalog.updateViewComment(session, viewName, comment);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set view comment: " + requireNonNullElse(e.getMessage(), e), e);
+        }
     }
 
     @Override
     public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
-        catalog.updateViewColumnComment(session, viewName, columnName, comment);
+        try {
+            catalog.updateViewColumnComment(session, viewName, columnName, comment);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set view column comment: " + requireNonNullElse(e.getMessage(), e), e);
+        }
     }
 
     @Override
     public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
-        catalog.updateMaterializedViewColumnComment(session, viewName, columnName, comment);
+        try {
+            catalog.updateMaterializedViewColumnComment(session, viewName, columnName, comment);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set materialized view column comment: " + requireNonNullElse(e.getMessage(), e), e);
+        }
     }
 
     @Override
@@ -4319,7 +4339,12 @@ public class IcebergMetadata
     @Override
     public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
-        catalog.updateColumnComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
+        try {
+            catalog.updateColumnComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set column comment: " + requireNonNullElse(e.getMessage(), e), e);
+        }
     }
 
     @Override
