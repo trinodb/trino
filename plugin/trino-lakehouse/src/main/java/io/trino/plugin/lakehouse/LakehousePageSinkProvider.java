@@ -39,6 +39,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.Optional;
 
@@ -84,6 +85,12 @@ public class LakehousePageSinkProvider
     public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
         return forHandle(mergeHandle).createMergeSink(transactionHandle, session, mergeHandle, tableCredentials, pageSinkId);
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId, MemoryContext memoryContext)
+    {
+        return forHandle(mergeHandle).createMergeSink(transactionHandle, session, mergeHandle, tableCredentials, pageSinkId, memoryContext);
     }
 
     private ConnectorPageSinkProvider forHandle(ConnectorOutputTableHandle handle)
