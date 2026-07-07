@@ -80,6 +80,7 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -1028,6 +1029,47 @@ public abstract class BaseIcebergMaterializedViewTest
             assertUpdate("DROP TABLE " + sourceTableName);
             assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
         }
+    }
+
+    @Test
+    public void testMaterializedViewMetadataTables()
+    {
+        assertUpdate("CREATE TABLE base_table1_mv_copy AS SELECT * FROM base_table1", 6L);
+        String mvName = "test_mv_metadata_tables_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " WITH (partitioning = ARRAY['_date']) AS SELECT * FROM base_table1_mv_copy");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+
+        // Metadata tables resolve against the materialized view's storage table via the MV name,
+        // mirroring the behavior for regular tables.
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$files\"")).isEqualTo(3L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$snapshots\"")).isEqualTo(2L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$history\"")).isEqualTo(2L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$partitions\"")).isEqualTo(3L);
+        assertThat(query("SELECT file_path, record_count FROM \"" + mvName + "$files\"")).succeeds();
+        assertThat(query("SELECT * FROM \"" + mvName + "$manifests\"")).succeeds();
+        assertThat(query("SELECT * FROM \"" + mvName + "$refs\"")).succeeds();
+        assertThat(query("SELECT * FROM \"" + mvName + "$properties\"")).succeeds();
+
+        // A second refresh adds a snapshot, visible through the MV's $snapshots table.
+        long snapshotsBefore = (long) computeScalar("SELECT count(*) FROM \"" + mvName + "$snapshots\"");
+        assertUpdate("INSERT INTO base_table1_mv_copy VALUES (6, DATE '2019-09-11')", 1);
+        // implicit RefreshType.INCREMENTAL, only new row is added
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertThat(computeScalar("SELECT count(*) FROM " + mvName)).isEqualTo(7L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$snapshots\"")).isGreaterThan(snapshotsBefore);
+
+        // A metadata-table suffix on a non-existent materialized view still reports the table as missing.
+        assertThat(query("SELECT * FROM \"nonexistent_mv_" + randomNameSuffix() + "$partitions\""))
+                .failure().hasMessageMatching(".* does not exist");
+
+        // Access control is keyed on the suffixed name, exactly as for base-table metadata tables.
+        assertAccessDenied(
+                "SELECT * FROM \"" + mvName + "$partitions\"",
+                "Cannot select from columns .*",
+                privilege(mvName + "$partitions", SELECT_COLUMN));
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE base_table1_mv_copy");
     }
 
     @Test
