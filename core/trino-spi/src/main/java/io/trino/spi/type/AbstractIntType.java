@@ -40,6 +40,8 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
@@ -214,6 +216,27 @@ public abstract class AbstractIntType
     private static long sortKeyPrefix(long value)
     {
         return ((value ^ 0x8000_0000L) & 0xFFFF_FFFFL) << 32;
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_LAST)
+    private static void sortKeyPrefixBatchUnorderedLastOperator(IntArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST)
+    private static void sortKeyPrefixBatchUnorderedFirstOperator(IntArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount);
+    }
+
+    private static void sortKeyPrefixBatch(IntArrayBlock block, long[] prefixes, int positionCount)
+    {
+        int[] values = block.getRawValues();
+        int offset = block.getRawValuesOffset();
+        for (int i = 0; i < positionCount; i++) {
+            prefixes[i] = ((long) values[offset + i] << 32) ^ Long.MIN_VALUE;
+        }
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

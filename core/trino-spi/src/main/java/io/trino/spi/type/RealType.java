@@ -17,6 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableOffset;
@@ -38,6 +39,8 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
@@ -223,6 +226,35 @@ public final class RealType
             bits ^= Integer.MIN_VALUE;
         }
         return (bits & 0xFFFF_FFFFL) << 32;
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_LAST)
+    private static void sortKeyPrefixBatchUnorderedLastOperator(IntArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount, -1);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST)
+    private static void sortKeyPrefixBatchUnorderedFirstOperator(IntArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount, 0);
+    }
+
+    private static void sortKeyPrefixBatch(IntArrayBlock block, long[] prefixes, int positionCount, long nanKey)
+    {
+        int[] values = block.getRawValues();
+        int offset = block.getRawValuesOffset();
+        for (int i = 0; i < positionCount; i++) {
+            int bits = values[offset + i];
+            if ((bits & ~Integer.MIN_VALUE) > 0x7F80_0000) {
+                // NaN, including non-canonical bit patterns
+                prefixes[i] = nanKey;
+            }
+            else {
+                int transformed = bits ^ ((bits >> 31) | Integer.MIN_VALUE);
+                prefixes[i] = (transformed & 0xFFFF_FFFFL) << 32;
+            }
+        }
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

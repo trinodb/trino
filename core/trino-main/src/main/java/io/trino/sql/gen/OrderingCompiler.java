@@ -31,6 +31,7 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.log.Logger;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.operator.BatchPageSortKeyPrefixFiller;
 import io.trino.operator.InterpretedPageSortKeyPrefixFiller;
 import io.trino.operator.InterpretedSortKeyPrefixFiller;
 import io.trino.operator.PageSortKeyPrefixFiller;
@@ -221,9 +222,11 @@ public class OrderingCompiler
             }
         }
 
-        // a single packed channel does not need the null indicator bit
+        // A single packed channel does not need the null indicator bit and keeps the operator's
+        // full top-aligned key: extracting the declared bits would be an order-preserving shift
+        // with no effect on comparisons, only extra work per position.
         Type sortType = sortTypes.getFirst();
-        SortKeyPrefixLayout layout = new SortKeyPrefixLayout(sortChannels.getFirst(), sortOrders.getFirst(), typeOperators.getSortKeyPrefixBits(sortType), false, 0);
+        SortKeyPrefixLayout layout = new SortKeyPrefixLayout(sortChannels.getFirst(), sortOrders.getFirst(), 64, false, 0);
         return new SortKeyPrefixLayoutPlan(
                 ImmutableList.of(layout),
                 typeOperators.isSortKeyPrefixExact(sortType) && sortChannels.size() == 1);
@@ -250,7 +253,16 @@ public class OrderingCompiler
         SortKeyPrefixLayoutPlan plan = planSortKeyPrefixLayouts(sortTypes, sortChannels, sortOrders);
         ImmutableList.Builder<PageSortKeyPrefixFiller> fillers = ImmutableList.builder();
         for (int i = 0; i < plan.layouts().size(); i++) {
-            fillers.add(pageSortKeyPrefixFiller(sortTypes.get(i), plan.layouts().get(i)));
+            PageSortKeyPrefixFiller filler = pageSortKeyPrefixFiller(sortTypes.get(i), plan.layouts().get(i));
+            // the batch operator overwrites the prefix array, so it only applies to single-channel layouts
+            if (plan.layouts().size() == 1) {
+                SortKeyPrefixLayout layout = plan.layouts().get(i);
+                PageSortKeyPrefixFiller fallback = filler;
+                filler = typeOperators.getSortKeyPrefixBatchOperator(sortTypes.get(i), layout.sortOrder())
+                        .<PageSortKeyPrefixFiller>map(batchOperator -> new BatchPageSortKeyPrefixFiller(batchOperator, layout, fallback))
+                        .orElse(filler);
+            }
+            fillers.add(filler);
         }
         return fillers.build();
     }

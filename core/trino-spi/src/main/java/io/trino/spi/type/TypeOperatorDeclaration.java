@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
@@ -78,6 +79,8 @@ public final class TypeOperatorDeclaration
     private final Collection<OperatorMethodHandle> sortKeyPrefixUnorderedFirstOperators;
     private final boolean sortKeyPrefixExact;
     private final int sortKeyPrefixBits;
+    private final MethodHandle sortKeyPrefixBatchUnorderedLast;
+    private final MethodHandle sortKeyPrefixBatchUnorderedFirst;
 
     private TypeOperatorDeclaration(
             Collection<OperatorMethodHandle> readValueOperators,
@@ -93,7 +96,9 @@ public final class TypeOperatorDeclaration
             Collection<OperatorMethodHandle> sortKeyPrefixUnorderedLastOperators,
             Collection<OperatorMethodHandle> sortKeyPrefixUnorderedFirstOperators,
             boolean sortKeyPrefixExact,
-            int sortKeyPrefixBits)
+            int sortKeyPrefixBits,
+            MethodHandle sortKeyPrefixBatchUnorderedLast,
+            MethodHandle sortKeyPrefixBatchUnorderedFirst)
     {
         this.readValueOperators = List.copyOf(requireNonNull(readValueOperators, "readValueOperators is null"));
         this.equalOperators = List.copyOf(requireNonNull(equalOperators, "equalOperators is null"));
@@ -109,6 +114,8 @@ public final class TypeOperatorDeclaration
         this.sortKeyPrefixUnorderedFirstOperators = List.copyOf(requireNonNull(sortKeyPrefixUnorderedFirstOperators, "sortKeyPrefixUnorderedFirstOperators is null"));
         this.sortKeyPrefixExact = sortKeyPrefixExact;
         this.sortKeyPrefixBits = sortKeyPrefixBits;
+        this.sortKeyPrefixBatchUnorderedLast = sortKeyPrefixBatchUnorderedLast;
+        this.sortKeyPrefixBatchUnorderedFirst = sortKeyPrefixBatchUnorderedFirst;
     }
 
     public boolean isComparable()
@@ -201,6 +208,21 @@ public final class TypeOperatorDeclaration
         return sortKeyPrefixBits;
     }
 
+    /**
+     * Batch sort key prefix operator with signature {@code (ValueBlock, long[], int)void}: fills
+     * the array with the prefixes of positions {@code [0..positionCount)} of the type's value
+     * block, which must not contain nulls in that range.
+     */
+    public Optional<MethodHandle> getSortKeyPrefixBatchUnorderedLast()
+    {
+        return Optional.ofNullable(sortKeyPrefixBatchUnorderedLast);
+    }
+
+    public Optional<MethodHandle> getSortKeyPrefixBatchUnorderedFirst()
+    {
+        return Optional.ofNullable(sortKeyPrefixBatchUnorderedFirst);
+    }
+
     public static Builder builder(Class<?> typeJavaType)
     {
         return new Builder(typeJavaType);
@@ -231,6 +253,8 @@ public final class TypeOperatorDeclaration
         private final Collection<OperatorMethodHandle> sortKeyPrefixUnorderedFirstOperators = new ArrayList<>();
         private boolean sortKeyPrefixExact;
         private int sortKeyPrefixBits = 64;
+        private MethodHandle sortKeyPrefixBatchUnorderedLast;
+        private MethodHandle sortKeyPrefixBatchUnorderedFirst;
 
         private Builder(Class<?> typeJavaType)
         {
@@ -254,6 +278,8 @@ public final class TypeOperatorDeclaration
             operatorDeclaration.getSortKeyPrefixUnorderedFirstOperators().forEach(this::addSortKeyPrefixUnorderedFirstOperator);
             sortKeyPrefixExact |= operatorDeclaration.isSortKeyPrefixExact();
             sortKeyPrefixBits = Math.min(sortKeyPrefixBits, operatorDeclaration.getSortKeyPrefixBits());
+            operatorDeclaration.getSortKeyPrefixBatchUnorderedLast().ifPresent(operator -> sortKeyPrefixBatchUnorderedLast = operator);
+            operatorDeclaration.getSortKeyPrefixBatchUnorderedFirst().ifPresent(operator -> sortKeyPrefixBatchUnorderedFirst = operator);
             return this;
         }
 
@@ -513,8 +539,24 @@ public final class TypeOperatorDeclaration
                 case SORT_KEY_PREFIX_UNORDERED_FIRST -> addSortKeyPrefixUnorderedFirstOperator(new OperatorMethodHandle(
                         parseInvocationConvention(operatorType, typeJavaType, method, long.class),
                         methodHandle));
+                case SORT_KEY_PREFIX_BATCH_UNORDERED_LAST -> sortKeyPrefixBatchUnorderedLast = adaptSortKeyPrefixBatchOperator(method, methodHandle);
+                case SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST -> sortKeyPrefixBatchUnorderedFirst = adaptSortKeyPrefixBatchOperator(method, methodHandle);
                 default -> throw new IllegalArgumentException(operatorType + " operator is not supported: " + method);
             }
+        }
+
+        private static MethodHandle adaptSortKeyPrefixBatchOperator(Method method, MethodHandle methodHandle)
+        {
+            MethodType methodType = methodHandle.type();
+            if (methodType.returnType() != void.class
+                    || methodType.parameterCount() != 3
+                    || !ValueBlock.class.isAssignableFrom(methodType.parameterType(0))
+                    || methodType.parameterType(1) != long[].class
+                    || methodType.parameterType(2) != int.class) {
+                throw new IllegalArgumentException("Sort key prefix batch operator must have signature (ValueBlock, long[], int)void: " + method);
+            }
+            // the cast of the block argument throws when the block is not the type's value block
+            return methodHandle.asType(methodType(void.class, ValueBlock.class, long[].class, int.class));
         }
 
         private void verifyMethodHandleSignature(int expectedArgumentCount, Class<?> returnJavaType, OperatorMethodHandle operatorMethodHandle)
@@ -769,6 +811,9 @@ public final class TypeOperatorDeclaration
             if (sortKeyPrefixBits != 64 && sortKeyPrefixUnorderedLastOperators.isEmpty() && sortKeyPrefixUnorderedFirstOperators.isEmpty()) {
                 throw new IllegalStateException("Sort key prefix bits can not be declared when sort key prefix operators are not supplied");
             }
+            if ((sortKeyPrefixBatchUnorderedLast != null) && sortKeyPrefixUnorderedLastOperators.isEmpty()) {
+                throw new IllegalStateException("Sort key prefix batch operators can not be supplied when sort key prefix operators are not supplied");
+            }
 
             return new TypeOperatorDeclaration(
                     readValueOperators,
@@ -784,7 +829,9 @@ public final class TypeOperatorDeclaration
                     sortKeyPrefixUnorderedLastOperators,
                     sortKeyPrefixUnorderedFirstOperators,
                     sortKeyPrefixExact,
-                    sortKeyPrefixBits);
+                    sortKeyPrefixBits,
+                    sortKeyPrefixBatchUnorderedLast,
+                    sortKeyPrefixBatchUnorderedFirst);
         }
     }
 }
