@@ -403,6 +403,29 @@ public class TestPageProcessor
         assertThat(batchSizes).isEqualTo(ImmutableList.of(512, 256, 128, 128));
     }
 
+    @Test
+    public void testIdentityProjectionsAreNotBatched()
+    {
+        int rows = 1024;
+
+        // identity projections produce the whole selection in one batch regardless of output size
+        PageProcessor pageProcessor = new PageProcessor(
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new InputPageProjection(0)),
+                OptionalInt.of(1));
+
+        Slice[] slices = new Slice[rows];
+        Arrays.fill(slices, Slices.allocate(64 * 1024));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+
+        Optional<Page> page = output.next();
+        assertThat(page).isPresent();
+        assertThat(page.get().getPositionCount()).isEqualTo(rows);
+        assertThat(output.hasNext()).isFalse();
+    }
+
     private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, SourcePage inputPage)
     {
         return processAndAssertRetainedPageSize(pageProcessor, newSimpleAggregatedMemoryContext(), inputPage);
