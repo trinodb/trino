@@ -82,6 +82,7 @@ import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
 import io.trino.sql.planner.iterative.rule.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
 import io.trino.sql.planner.iterative.rule.OptimizeSingleAnyValueAggregation;
+import io.trino.sql.planner.iterative.rule.ParallelizeChainedAggregations;
 import io.trino.sql.planner.iterative.rule.PreAggregateCaseAggregations;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
@@ -1019,6 +1020,15 @@ public class PlanOptimizers
                                 new PruneJoinChildrenColumns(),
                                 new RemoveRedundantIdentityProjections())
                         .build()));
+        // Must run after PushPartialAggregations: PushPartialAggregationThroughExchange pushes partial
+        // aggregations through exchanges without partitioning columns, which would undo this rewrite.
+        builder.add(new IterativeOptimizer(
+                "ParallelizeChainedAggregations",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new ParallelizeChainedAggregations())));
         builder.add(new IterativeOptimizer(
                 "AddPartialAggBelowGroupIdExchanges",
                 plannerContext,
