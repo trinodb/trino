@@ -1214,6 +1214,16 @@ the table name:
 SELECT * FROM "test_table$properties";
 ```
 
+The same metadata tables are also available for a materialized view (see
+{ref}`iceberg-materialized-views`) by appending the metadata table name to the
+materialized view name. The query resolves against the materialized view's
+storage table:
+
+```sql
+SELECT * FROM "test_materialized_view$files";
+```
+
+
 ##### `$properties` table
 
 The `$properties` table provides access to general information about Iceberg
