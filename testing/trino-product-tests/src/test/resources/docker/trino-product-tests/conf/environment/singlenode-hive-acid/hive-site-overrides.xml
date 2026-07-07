@@ -1,0 +1,6 @@
+<configuration>
+    <property>
+        <name>metastore.create.as.acid</name>
+        <value>true</value>
+    </property>
+</configuration>
