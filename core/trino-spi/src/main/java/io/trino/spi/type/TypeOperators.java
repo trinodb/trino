@@ -195,6 +195,22 @@ public class TypeOperators
      * comparison used by {@link #getOrderingOperator} for the given sort order. Null placement
      * and the descending direction are not part of the key and must be applied by the caller.
      */
+    /**
+     * Returns the type's batch sort key prefix operator with signature
+     * {@code (ValueBlock, long[], int)void}, if declared. The operator fills the array with the
+     * prefixes of positions {@code [0..positionCount)} of the type's value block, which must not
+     * contain nulls in that range; it throws when passed a block that is not the type's value
+     * block.
+     */
+    public Optional<MethodHandle> getSortKeyPrefixBatchOperator(Type type, SortOrder sortOrder)
+    {
+        if (!isSortKeyPrefixSupported(type)) {
+            return Optional.empty();
+        }
+        TypeOperatorDeclaration declaration = type.getTypeOperatorDeclaration(this);
+        return sortOrder.isNullsFirst() ? declaration.getSortKeyPrefixBatchUnorderedFirst() : declaration.getSortKeyPrefixBatchUnorderedLast();
+    }
+
     public MethodHandle getSortKeyPrefixOperator(Type type, SortOrder sortOrder, InvocationConvention callingConvention)
     {
         if (!isSortKeyPrefixSupported(type)) {

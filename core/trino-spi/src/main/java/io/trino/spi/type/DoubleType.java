@@ -28,6 +28,10 @@ import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarOperator;
+import jdk.incubator.vector.LongVector;
+import jdk.incubator.vector.VectorMask;
+import jdk.incubator.vector.VectorOperators;
+import jdk.incubator.vector.VectorSpecies;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -42,6 +46,8 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
@@ -55,6 +61,7 @@ public final class DoubleType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED;
     public static final String NAME = "double";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(double.class)
             .addOperators(extractOperatorDeclaration(DoubleType.class, lookup(), double.class))
@@ -261,6 +268,47 @@ public final class DoubleType
             return ~bits;
         }
         return bits ^ Long.MIN_VALUE;
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_LAST)
+    private static void sortKeyPrefixBatchUnorderedLastOperator(LongArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount, -1);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST)
+    private static void sortKeyPrefixBatchUnorderedFirstOperator(LongArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount, 0);
+    }
+
+    /**
+     * Vectorized variant of {@link #sortKeyPrefix}: negative values map to {@code ~bits} and
+     * others to {@code bits ^ Long.MIN_VALUE}, expressed branch-free as {@code bits ^ ((bits >> 63)
+     * | Long.MIN_VALUE)}. NaNs (including non-canonical bit patterns) are blended to the flavor's
+     * key, matching the scalar operator's {@code isNaN} check.
+     */
+    private static void sortKeyPrefixBatch(LongArrayBlock block, long[] prefixes, int positionCount, long nanKey)
+    {
+        long[] values = block.getRawValues();
+        int offset = block.getRawValuesOffset();
+        int upperBound = LONG_SPECIES.loopBound(positionCount);
+        int i = 0;
+        for (; i < upperBound; i += LONG_SPECIES.length()) {
+            LongVector bits = LongVector.fromArray(LONG_SPECIES, values, offset + i);
+            LongVector transformed = bits.lanewise(VectorOperators.XOR, bits.lanewise(VectorOperators.ASHR, 63).lanewise(VectorOperators.OR, Long.MIN_VALUE));
+            VectorMask<Long> nan = bits.lanewise(VectorOperators.AND, ~Long.MIN_VALUE).compare(VectorOperators.GT, 0x7FF0_0000_0000_0000L);
+            transformed.blend(nanKey, nan).intoArray(prefixes, i);
+        }
+        for (; i < positionCount; i++) {
+            long bits = values[offset + i];
+            if ((bits & ~Long.MIN_VALUE) > 0x7FF0_0000_0000_0000L) {
+                prefixes[i] = nanKey;
+            }
+            else {
+                prefixes[i] = bits ^ ((bits >> 63) | Long.MIN_VALUE);
+            }
+        }
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

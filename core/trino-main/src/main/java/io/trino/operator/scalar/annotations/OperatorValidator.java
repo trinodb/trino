@@ -62,6 +62,9 @@ public final class OperatorValidator
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
                 checkArgument(returnType.baseName().equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
             }
+            case SORT_KEY_PREFIX_BATCH_UNORDERED_LAST, SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST -> {
+                throw new IllegalArgumentException(operatorType + " operator can only be used in type operator declarations");
+            }
             case IDENTICAL, XX_HASH_64, INDETERMINATE, READ_VALUE -> {
                 // TODO
             }
