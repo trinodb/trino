@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
@@ -238,7 +237,6 @@ public class BenchmarkColumnarFilterParquetData
         while (inputPage != null) {
             WorkProcessor<Page> workProcessor = compiledProcessor.createWorkProcessor(
                     null,
-                    new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
                     inputPage);

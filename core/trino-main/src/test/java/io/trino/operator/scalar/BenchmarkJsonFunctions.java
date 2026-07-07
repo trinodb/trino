@@ -24,7 +24,6 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrPathNode;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -110,7 +109,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonValuePageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -122,7 +120,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonExtractScalarPageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -134,7 +131,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonQueryPageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -146,7 +142,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonExtractPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }

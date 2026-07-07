@@ -15,7 +15,6 @@ package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SourcePage;
@@ -73,7 +72,6 @@ public class TestTupleFilterProcessor
         Page actualPage = getOnlyElement(
                 tupleFilterProcessor.process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(inputPage)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
