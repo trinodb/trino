@@ -85,6 +85,25 @@ public class GroupedTopNRowNumberAccumulator
         return -1;
     }
 
+    /**
+     * Writes the positions of the page that may enter the top N into {@code positions} and
+     * returns their count. Every other position would be rejected by {@link #add}.
+     */
+    public int findPositionsToAdd(Page newPage, int groupCount, int[] groupIds, PageWithPositionComparator comparator, RowReferencePageManager pageManager, int[] positions)
+    {
+        int currentTotalGroups = groupIdToHeapBuffer.getTotalGroups();
+        groupIdToHeapBuffer.allocateGroupIfNeeded(groupCount);
+
+        int positionCount = 0;
+        for (int position = 0; position < newPage.getPositionCount(); position++) {
+            if (canAdd(newPage, position, groupIds[position], currentTotalGroups, comparator, pageManager)) {
+                positions[positionCount] = position;
+                positionCount++;
+            }
+        }
+        return positionCount;
+    }
+
     private boolean canAdd(Page newPage, int position, int groupId, int currentTotalGroups, PageWithPositionComparator comparator, RowReferencePageManager pageManager)
     {
         if (groupId >= currentTotalGroups || calculateRootRowNumber(groupId) < topN) {
