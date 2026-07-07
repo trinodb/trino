@@ -94,4 +94,26 @@ public interface ConnectorPageSinkProvider
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support SQL MERGE operations");
     }
+
+    /**
+     * Creates a {@link ConnectorMergeSink} for executing SQL MERGE operations.
+     *
+     * @param transactionHandle the transaction handle for this operation
+     * @param session the session in which the merge is being performed
+     * @param mergeHandle the handle identifying the merge operation
+     * @param tableCredentials credentials for accessing the table data
+     * @param pageSinkId unique identifier for this page sink instance
+     * @param memoryContext memory context for reporting memory usage of the merge sink
+     * @return a merge sink for executing the MERGE operation
+     */
+    default ConnectorMergeSink createMergeSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId,
+            MemoryContext memoryContext)
+    {
+        return createMergeSink(transactionHandle, session, mergeHandle, tableCredentials, pageSinkId);
+    }
 }
