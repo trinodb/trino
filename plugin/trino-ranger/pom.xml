@@ -16,7 +16,7 @@
 
     <properties>
         <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
-        <dep.graalvm.version>25.0.3</dep.graalvm.version>
+        <dep.graalvm.version>25.1.3</dep.graalvm.version>
         <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
         <dep.jetty11.version>11.0.26</dep.jetty11.version>
         <dep.ranger.version>2.8.0</dep.ranger.version>
