@@ -70,8 +70,6 @@ public class TestUnwrapYearInComparison
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
-    private static final ResolvedFunction YEAR_DATE = FUNCTIONS.resolveFunction("year", fromTypes(DATE));
-    private static final ResolvedFunction YEAR_TIMESTAMP_3 = FUNCTIONS.resolveFunction("year", fromTypes(createTimestampType(3)));
 
     @Test
     public void testEquals()
@@ -286,8 +284,8 @@ public class TestUnwrapYearInComparison
     @Test
     public void testNaN()
     {
-        testUnwrap("date", "year(a) = nan()", new Logical(AND, ImmutableList.of(new IsNull(new Call(YEAR_DATE, ImmutableList.of(new Reference(DATE, "a")))), new Constant(BOOLEAN, null))));
-        testUnwrap("timestamp", "year(a) = nan()", new Logical(AND, ImmutableList.of(new IsNull(new Call(YEAR_TIMESTAMP_3, ImmutableList.of(new Reference(createTimestampType(3), "a")))), new Constant(BOOLEAN, null))));
+        testUnwrap("date", "year(a) = nan()", new Logical(AND, ImmutableList.of(new IsNull(new Reference(DATE, "a")), new Constant(BOOLEAN, null))));
+        testUnwrap("timestamp", "year(a) = nan()", new Logical(AND, ImmutableList.of(new IsNull(new Reference(createTimestampType(3), "a")), new Constant(BOOLEAN, null))));
     }
 
     @Test

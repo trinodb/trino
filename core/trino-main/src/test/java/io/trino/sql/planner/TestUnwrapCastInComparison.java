@@ -835,7 +835,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(3)", "date(a) <= NULL", new Constant(BOOLEAN, null));
         testUnwrap("timestamp(3)", "date(a) > NULL", new Constant(BOOLEAN, null));
         testUnwrap("timestamp(3)", "date(a) >= NULL", new Constant(BOOLEAN, null));
-        testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM NULL", not(new IsNull(new Cast(new Reference(createTimestampType(3), "a"), DATE))));
+        testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM NULL", not(new IsNull(new Reference(createTimestampType(3), "a"))));
 
         // non-optimized expression on the right
         testUnwrap("timestamp(3)", "date(a) = DATE '1981-06-22' + INTERVAL '2' DAY", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-24 00:00:00.000"))), comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-25 00:00:00.000"))))));
