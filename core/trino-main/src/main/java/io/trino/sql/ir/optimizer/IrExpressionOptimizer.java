@@ -54,6 +54,7 @@ import io.trino.sql.ir.optimizer.rule.EvaluateMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
+import io.trino.sql.ir.optimizer.rule.FlattenConcat;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
 import io.trino.sql.ir.optimizer.rule.FlattenNestedCase;
 import io.trino.sql.ir.optimizer.rule.FlattenNestedMatch;
@@ -134,6 +135,7 @@ public class IrExpressionOptimizer
                 new SimplifyStackedNot(),
                 new SimplifyStackedArithmeticNegation(),
                 new FlattenCoalesce(),
+                new FlattenConcat(context),
                 new RemoveRedundantCoalesceArguments(context),
                 new EvaluateLogical(),
                 new FlattenLogical(),
