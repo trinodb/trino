@@ -30,6 +30,7 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -54,6 +55,8 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.Cast.Kind.CONVERT;
+import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
@@ -64,6 +67,16 @@ import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 public final class IrExpressions
 {
     private IrExpressions() {}
+
+    /// Creates a cast that coerces `expression` to `type`, classifying its [Cast.Kind]:
+    /// [Cast.Kind#REINTERPRET] when the coercion is a no-op on the physical representation,
+    /// [Cast.Kind#CONVERT] otherwise. Birth sites should build coercion casts through this method so
+    /// the classification stays consistent with the plan type validator.
+    public static Cast cast(TypeManager typeManager, Expression expression, Type type)
+    {
+        boolean typeOnly = new TypeCoercion(typeManager::getType).isTypeOnlyCoercion(expression.type(), type);
+        return new Cast(expression, type, typeOnly ? REINTERPRET : CONVERT);
+    }
 
     public static Constant constantNull(Type type)
     {
@@ -268,21 +281,21 @@ public final class IrExpressions
     /// Lower a NULLIF to `if(first = second) then null else first`, wrapping `first` in a [Let]
     /// when it is non-trivial so the operand is evaluated exactly once. Defaults the comparison
     /// type to `first.type()` — see the overload below for the mixed-type case.
-    public static Expression nullIf(Metadata metadata, SymbolAllocator allocator, Expression first, Expression second)
+    public static Expression nullIf(Metadata metadata, TypeManager typeManager, SymbolAllocator allocator, Expression first, Expression second)
     {
-        return nullIf(metadata, allocator, first, second, first.type());
+        return nullIf(metadata, typeManager, allocator, first, second, first.type());
     }
 
-    /// Same as [#nullIf(Metadata,SymbolAllocator,Expression,Expression)] but performs the equality at
+    /// Same as [#nullIf(Metadata,TypeManager,SymbolAllocator,Expression,Expression)] but performs the equality at
     /// `comparisonType`, casting `first` and `second` as needed. The returned value keeps
     /// `first`'s type, matching SQL `NULLIF` semantics; the cast is applied only for the
     /// comparison.
-    public static Expression nullIf(Metadata metadata, SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
+    public static Expression nullIf(Metadata metadata, TypeManager typeManager, SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
     {
-        Expression secondForComparison = second.type().equals(comparisonType) ? second : new Cast(second, comparisonType);
+        Expression secondForComparison = second.type().equals(comparisonType) ? second : cast(typeManager, second, comparisonType);
         // Inline trivial values directly so the result stays a plain Case expression.
         if (first instanceof Reference || first instanceof Constant) {
-            Expression firstForComparison = first.type().equals(comparisonType) ? first : new Cast(first, comparisonType);
+            Expression firstForComparison = first.type().equals(comparisonType) ? first : cast(typeManager, first, comparisonType);
             return ifExpression(
                     comparison(metadata, EQUAL, firstForComparison, secondForComparison),
                     constantNull(first.type()),
@@ -290,7 +303,7 @@ public final class IrExpressions
         }
         Symbol bound = allocator.newSymbol("nullif", first.type());
         Reference reference = new Reference(first.type(), bound.name());
-        Expression referenceForComparison = first.type().equals(comparisonType) ? reference : new Cast(reference, comparisonType);
+        Expression referenceForComparison = first.type().equals(comparisonType) ? reference : cast(typeManager, reference, comparisonType);
         return new Let(bound, first, ifExpression(
                 comparison(metadata, EQUAL, referenceForComparison, secondForComparison),
                 constantNull(first.type()),

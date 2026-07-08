@@ -291,6 +291,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -4736,7 +4737,7 @@ public class ExpressionAnalyzer
         }
 
         plannerContext.getExpressionEvaluator().evaluate(
-                new io.trino.sql.ir.Cast(new Constant(literalType, value), type),
+                cast(plannerContext.getTypeManager(), new Constant(literalType, value), type),
                 session,
                 ImmutableMap.of());
     }

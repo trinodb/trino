@@ -49,7 +49,7 @@ public class EvaluateCast
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Cast(Constant constant, Type type)) {
+        if (expression instanceof Cast(Constant constant, Type type, _)) {
             try {
                 return Optional.of(new Constant(
                         type,

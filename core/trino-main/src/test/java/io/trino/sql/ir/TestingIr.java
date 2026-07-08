@@ -45,11 +45,11 @@ public final class TestingIr
     /// resolving the equality operator against the shared testing planner context.
     public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second)
     {
-        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), allocator, first, second);
+        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), allocator, first, second);
     }
 
     public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
     {
-        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), allocator, first, second, comparisonType);
+        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), allocator, first, second, comparisonType);
     }
 }
