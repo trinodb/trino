@@ -90,7 +90,6 @@ import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
@@ -2057,13 +2056,7 @@ public final class MetadataManager
             return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
         }
 
-        Optional<TableHandle> tableHandle;
-        try {
-            tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
-        }
-        catch (TableNotFoundException e) {
-            throw new TrinoException(TABLE_NOT_FOUND, format("Table '%s' does not exist in Glue catalog", targetTableName), e);
-        }
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }
