@@ -118,7 +118,7 @@ public class CommentTask
 
     private void commentOnView(Comment statement, Session session)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName viewName = metadata.getWriteRedirectedTableName(session, createQualifiedObjectName(session, statement, statement.getName()));
         if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {

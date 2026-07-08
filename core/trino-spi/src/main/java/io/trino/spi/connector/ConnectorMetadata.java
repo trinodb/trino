@@ -1834,6 +1834,19 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    /**
+     * Redirects a table for write operations (table and view DDL) which may or may not be in the
+     * same catalog. Unlike {@link #redirectTable}, the target is not required to already exist, so
+     * this is also consulted for CREATE TABLE, CREATE TABLE AS SELECT and CREATE VIEW.
+     * <p>
+     * Defaults to no redirection so that connectors implementing only {@link #redirectTable} keep
+     * their current write behaviour.
+     */
+    default Optional<CatalogSchemaTableName> redirectTableForWrite(ConnectorSession session, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
     default OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         return OptionalInt.empty();
