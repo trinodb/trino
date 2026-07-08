@@ -57,6 +57,13 @@
         </dependency>
 
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <!-- It's either used and on classpath anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-engine</artifactId>
             <!-- it's either on classpath because anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
@@ -99,12 +106,6 @@
                     <artifactId>guice</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

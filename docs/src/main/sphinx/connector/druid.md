@@ -202,3 +202,11 @@ aggregation results stay consistent with Trino's `NULL` semantics. Set the
 
 ```{include} pushdown-correctness-behavior.fragment
 ```
+
+### Predicate pushdown support
+
+The connector supports {ref}`predicate expression pushdown <predicate-pushdown>`.
+Comparisons between numeric columns (`=`, `<>`, `<`, `<=`, `>`, `>=`) are pushed down
+to Druid rather than evaluated by Trino, including predicates that cannot be expressed
+as a range, such as comparisons between two columns. Arithmetic operators and `LIKE`
+expressions are not pushed down.

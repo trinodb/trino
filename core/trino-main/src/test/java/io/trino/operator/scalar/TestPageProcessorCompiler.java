@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -105,7 +104,6 @@ public class TestPageProcessorCompiler
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
@@ -148,7 +146,6 @@ public class TestPageProcessorCompiler
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
@@ -163,7 +160,6 @@ public class TestPageProcessorCompiler
         Page outputPage2 = getOnlyElement(
                 processor.process(
                         null,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page))).orElseThrow(() -> new AssertionError("page is not present"));
         assertThat(outputPage2.getPositionCount()).isEqualTo(100);
@@ -197,7 +193,6 @@ public class TestPageProcessorCompiler
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
@@ -229,7 +224,6 @@ public class TestPageProcessorCompiler
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
@@ -269,7 +263,6 @@ public class TestPageProcessorCompiler
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
