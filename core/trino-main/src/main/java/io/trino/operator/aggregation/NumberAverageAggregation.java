@@ -19,6 +19,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
@@ -63,6 +64,7 @@ public final class NumberAverageAggregation
         state.setNumber(add(state.getNumber(), otherState.getNumber()));
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.NUMBER)
     public static void output(LongAndNumberState state, BlockBuilder out)
     {

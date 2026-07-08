@@ -21,6 +21,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -52,6 +53,7 @@ public final class CentralMomentsAggregation
 
     @AggregationFunction("skewness")
     @Description("Returns the skewness of the argument")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void skewness(@AggregationState CentralMomentsState state, BlockBuilder out)
     {
@@ -68,6 +70,7 @@ public final class CentralMomentsAggregation
 
     @AggregationFunction("kurtosis")
     @Description("Returns the (excess) kurtosis of the argument")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void kurtosis(@AggregationState CentralMomentsState state, BlockBuilder out)
     {

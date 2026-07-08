@@ -22,6 +22,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.BigintType;
 
@@ -88,6 +89,7 @@ public final class BigintApproximateMostFrequent
         }
     }
 
+    @SqlNullable
     @OutputFunction("map(bigint,bigint)")
     public static void output(@AggregationState State state, BlockBuilder out)
     {

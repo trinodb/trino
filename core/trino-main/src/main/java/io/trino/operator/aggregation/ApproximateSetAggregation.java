@@ -25,6 +25,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -97,6 +98,7 @@ public final class ApproximateSetAggregation
         }
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.HYPER_LOG_LOG)
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {

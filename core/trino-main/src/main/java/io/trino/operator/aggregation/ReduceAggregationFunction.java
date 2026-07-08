@@ -86,6 +86,7 @@ public class ReduceAggregationFunction
                                 .argumentType(functionType(typeVariable("S"), typeVariable("S"), typeVariable("S")))
                                 .build())
                         .description("Reduce input elements into a single value")
+                        .nullable()
                         .build(),
                 AggregationFunctionMetadata.builder()
                         .intermediateType(typeVariable("S"))

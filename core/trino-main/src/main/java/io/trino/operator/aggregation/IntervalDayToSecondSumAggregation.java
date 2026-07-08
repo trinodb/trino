@@ -19,6 +19,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.type.BigintOperators;
 
@@ -48,6 +49,7 @@ public final class IntervalDayToSecondSumAggregation
         state.setValue(BigintOperators.add(state.getValue(), otherState.getValue()));
     }
 
+    @SqlNullable
     @OutputFunction(INTERVAL_DAY_TO_SECOND)
     public static void output(NullableLongState state, BlockBuilder out)
     {

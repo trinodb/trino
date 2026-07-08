@@ -20,6 +20,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -42,6 +43,7 @@ public final class DoubleCorrelationAggregation
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void corr(@AggregationState CorrelationState state, BlockBuilder out)
     {

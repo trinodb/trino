@@ -28,6 +28,7 @@ import io.trino.spi.function.Convention;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
@@ -158,6 +159,7 @@ public final class ApproximateSetGenericAggregation
         }
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.HYPER_LOG_LOG)
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
