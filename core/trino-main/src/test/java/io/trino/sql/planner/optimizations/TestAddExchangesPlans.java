@@ -363,6 +363,8 @@ public class TestAddExchangesPlans
     @Test
     public void testForcePartitioningMarkDistinctInput()
     {
+        // count(orderkey) and count(1) become count(*) (orderkey and the constant are non-null),
+        // so only custkey and orderkey survive in the Values nodes
         String query = "SELECT count(orderkey), count(distinct orderkey), custkey , count(1) FROM ( SELECT * FROM (VALUES (1, 2)) as t(custkey, orderkey) UNION ALL SELECT 3, 4) GROUP BY 3";
         assertDistributedPlan(
                 query,
@@ -375,12 +377,12 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
                                                 values(
-                                                        ImmutableList.of("partition1", "partition2", "field"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
+                                                        ImmutableList.of("partition1", "partition2"),
+                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3", "partition4"),
                                                 values(
-                                                        ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 1L)))))))));
+                                                        ImmutableList.of("partition3", "partition4"),
+                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)))))))));
 
         assertDistributedPlan(
                 query,
@@ -393,12 +395,12 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
                                                 values(
-                                                        ImmutableList.of("partition1", "partition2", "field"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
+                                                        ImmutableList.of("partition1", "partition2"),
+                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
-                                                        ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 1L)))))))));
+                                                        ImmutableList.of("partition3", "partition4"),
+                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)))))))));
     }
 
     @Test
@@ -545,13 +547,14 @@ public class TestAddExchangesPlans
         // * parent of Projection requires random multiple distribution (partial aggregation)
         // ==> Projection is planned with multiple distribution (round robin exchange is added below).
         assertPlan(
+                // count(name) becomes count(*) (name is NOT NULL), leaving an empty projection and pruning name from the scan
                 "SELECT count(name) FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 5)",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("name"))),
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                 PARTIAL,
                                 project(
-                                        ImmutableMap.of("name", expression(new Reference(VARCHAR, "name"))),
+                                        ImmutableMap.of(),
                                         exchange(
                                                 LOCAL,
                                                 REPARTITION,
@@ -560,26 +563,27 @@ public class TestAddExchangesPlans
                                                         ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
                                                         FINAL,
                                                         anyTree(
-                                                                tableScan("nation", ImmutableMap.of("name", "name", "nationkey", "nationkey")))))))));
+                                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))))));
 
         // * source of Projection is distributed (filter)
         // * parent of Projection requires random multiple distribution (aggregation)
         // ==> Projection is planned with multiple distribution (no exchange added)
         assertPlan(
+                // count(b) becomes count(*) (b is a non-null constant), leaving an empty projection and pruning b from the values
                 "SELECT count(b) FROM (VALUES (1, 2)) t(a,b) WHERE a < 10",
                 disablePushFilterIntoValues(),
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("b"))),
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                 PARTIAL,
                                 project(
-                                        ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
+                                        ImmutableMap.of(),
                                         filter(
                                                 comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 10L)),
                                                 exchange(
                                                         LOCAL,
                                                         REPARTITION,
-                                                        values("a", "b")))))));
+                                                        values("a")))))));
 
         assertPlan(
                 "SELECT 10, a FROM (VALUES 1) t(a)",

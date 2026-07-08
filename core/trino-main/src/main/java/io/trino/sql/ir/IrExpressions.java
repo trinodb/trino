@@ -44,6 +44,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
@@ -401,7 +402,7 @@ public final class IrExpressions
 
     public static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
     {
-        return mayBeNull(plannerContext, charVarcharCoercion, expression, true);
+        return mayBeNull(plannerContext, charVarcharCoercion, expression, _ -> true);
     }
 
     /**
@@ -409,10 +410,14 @@ public final class IrExpressions
      */
     public static boolean mayReturnNullOnNonNullInput(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
     {
-        return mayBeNull(plannerContext, charVarcharCoercion, expression, false);
+        return mayBeNull(plannerContext, charVarcharCoercion, expression, _ -> false);
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression, boolean referencesMayBeNull)
+    /**
+     * Returns true if the expression may return null, treating a {@link Reference} as nullable
+     * only when {@code referenceMayBeNull} accepts it.
+     */
+    public static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression, Predicate<Reference> referenceMayBeNull)
     {
         return switch (expression) {
             // These expressions never return null
@@ -420,47 +425,50 @@ public final class IrExpressions
 
             // These expressions may return null based on their operands
             case Call e -> switch (matchComparison(e)) {
-                case null -> mayBeNull(plannerContext, charVarcharCoercion, e.function(), e.arguments(), referencesMayBeNull);
+                case null -> mayBeNull(plannerContext, charVarcharCoercion, e.function(), e.arguments(), referenceMayBeNull);
                 // IDENTICAL is null-safe; other comparisons return null only when one of their operands is null.
                 case Comparison.Identical _ -> false;
-                case Comparison comparison -> mayBeNull(plannerContext, charVarcharCoercion, comparison.left(), referencesMayBeNull) ||
-                        mayBeNull(plannerContext, charVarcharCoercion, comparison.right(), referencesMayBeNull);
+                case Comparison comparison -> mayBeNull(plannerContext, charVarcharCoercion, comparison.left(), referenceMayBeNull) ||
+                        mayBeNull(plannerContext, charVarcharCoercion, comparison.right(), referenceMayBeNull);
             };
-            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.getResult(), referencesMayBeNull)) ||
-                    mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
-            case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referencesMayBeNull);
-            case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referencesMayBeNull));
-            case In e -> mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referencesMayBeNull));
-            case Let e -> mayBeNull(plannerContext, charVarcharCoercion, e.body(), referencesMayBeNull || mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull));
-            case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, charVarcharCoercion, term, referencesMayBeNull));
-            case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
-                    mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.getResult(), referenceMayBeNull)) ||
+                    mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referenceMayBeNull);
+            case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referenceMayBeNull);
+            case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referenceMayBeNull));
+            case In e -> mayBeNull(plannerContext, charVarcharCoercion, e.value(), referenceMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referenceMayBeNull));
+            case Let e -> {
+                boolean valueMayBeNull = mayBeNull(plannerContext, charVarcharCoercion, e.value(), referenceMayBeNull);
+                yield mayBeNull(plannerContext, charVarcharCoercion, e.body(), reference -> valueMayBeNull || referenceMayBeNull.test(reference));
+            }
+            case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, charVarcharCoercion, term, referenceMayBeNull));
+            case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referenceMayBeNull)) ||
+                    mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referenceMayBeNull);
 
             // These expressions may return null based on their own semantics
             case Constant e -> e.value() == null;
             case FieldReference _ -> true;
-            case Reference _ -> referencesMayBeNull;
+            case Reference e -> referenceMayBeNull.test(e);
         };
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Cast cast, boolean referencesMayBeNull)
+    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Cast cast, Predicate<Reference> referenceMayBeNull)
     {
         if (cast.expression().type().equals(cast.type())) {
-            return mayBeNull(plannerContext, charVarcharCoercion, cast.expression(), referencesMayBeNull);
+            return mayBeNull(plannerContext, charVarcharCoercion, cast.expression(), referenceMayBeNull);
         }
 
         ResolvedFunction coercion = plannerContext.getMetadata().getCoercion(charVarcharCoercion, cast.expression().type(), cast.type());
-        return mayBeNull(plannerContext, charVarcharCoercion, coercion, ImmutableList.of(cast.expression()), referencesMayBeNull);
+        return mayBeNull(plannerContext, charVarcharCoercion, coercion, ImmutableList.of(cast.expression()), referenceMayBeNull);
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, ResolvedFunction function, List<Expression> arguments, boolean referencesMayBeNull)
+    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, ResolvedFunction function, List<Expression> arguments, Predicate<Reference> referenceMayBeNull)
     {
         if (function.functionNullability().isReturnNullable()) {
             return true;
         }
 
         for (int i = 0; i < arguments.size(); i++) {
-            if (!function.functionNullability().isArgumentNullable(i) && mayBeNull(plannerContext, charVarcharCoercion, arguments.get(i), referencesMayBeNull)) {
+            if (!function.functionNullability().isArgumentNullable(i) && mayBeNull(plannerContext, charVarcharCoercion, arguments.get(i), referenceMayBeNull)) {
                 return true;
             }
         }
