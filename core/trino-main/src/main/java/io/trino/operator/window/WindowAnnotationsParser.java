@@ -15,9 +15,11 @@ package io.trino.operator.window;
 
 import io.trino.spi.function.Description;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -59,11 +61,17 @@ public final class WindowAnnotationsParser
 
         boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
 
+        // Follows the scalar/aggregate convention: the result is non-null unless the row-producing
+        // method (processRow) is annotated @SqlNullable.
+        boolean nullable = Arrays.stream(clazz.getMethods())
+                .anyMatch(method -> method.getName().equals("processRow") && method.isAnnotationPresent(SqlNullable.class));
+
         return new SqlWindowFunction(
                 window.name(),
                 signatureBuilder.build(),
                 description,
                 deprecated,
+                nullable,
                 new ReflectionWindowFunctionSupplier(window.argumentTypes().length, clazz));
     }
 }

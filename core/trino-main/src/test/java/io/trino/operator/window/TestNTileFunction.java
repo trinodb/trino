@@ -15,6 +15,8 @@ package io.trino.operator.window;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -23,6 +25,12 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 public class TestNTileFunction
         extends AbstractTestWindowFunction
 {
+    @Override
+    protected Optional<WindowFunctionUnderTest> windowFunctionUnderTest()
+    {
+        return Optional.of(new WindowFunctionUnderTest("ntile", "ntile(4)"));
+    }
+
     @Test
     public void testNTile()
     {
