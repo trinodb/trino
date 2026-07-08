@@ -88,6 +88,21 @@ public class TestEvaluateMatch
                         new Reference(VARCHAR, "b"))))
                 .describedAs("non-constant capture")
                 .isEqualTo(Optional.empty());
+
+        // A clause whose lambda body references an outer symbol directly (no Bind) must not be
+        // evaluated: the evaluator would silently resolve the free reference to null.
+        MatchClause clauseWithFreeReference = new MatchClause(
+                new Lambda(
+                        ImmutableList.of(parameter),
+                        comparison(EQUAL, new Reference(BIGINT, parameter.name()), new Reference(BIGINT, "x"))),
+                new Reference(VARCHAR, "a"));
+        assertThat(optimize(
+                new Match(
+                        new Constant(BIGINT, 1L),
+                        ImmutableList.of(clauseWithFreeReference),
+                        new Reference(VARCHAR, "b"))))
+                .describedAs("free reference in predicate body")
+                .isEqualTo(Optional.empty());
     }
 
     @Test
