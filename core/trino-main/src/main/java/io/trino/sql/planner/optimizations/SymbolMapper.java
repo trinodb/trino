@@ -291,7 +291,8 @@ public class SymbolMapper
                 frame.getSortKeyCoercedForFrameStartComparison().map(this::map),
                 frame.getEndType(),
                 frame.getEndValue().map(this::map),
-                frame.getSortKeyCoercedForFrameEndComparison().map(this::map));
+                frame.getSortKeyCoercedForFrameEndComparison().map(this::map),
+                frame.getExclusion());
     }
 
     private SpecificationWithPreSortedPrefix mapAndDistinct(DataOrganizationSpecification specification, int preSorted)

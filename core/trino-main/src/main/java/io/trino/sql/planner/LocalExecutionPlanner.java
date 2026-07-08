@@ -231,6 +231,7 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.FrameExclusion;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
@@ -1144,7 +1145,8 @@ public class LocalExecutionPlanner
                         frameEndChannel,
                         sortKeyChannelForEndComparison,
                         sortKeyChannel,
-                        ordering);
+                        ordering,
+                        frame.getExclusion());
 
                 WindowNode.Function function = entry.getValue();
                 ResolvedFunction resolvedFunction = function.getResolvedFunction();
@@ -1409,7 +1411,9 @@ public class LocalExecutionPlanner
                                 baseFrame.getEndValue().map(source.getLayout()::get),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty());
+                                Optional.empty(),
+                                // pattern recognition does not allow frame exclusion
+                                FrameExclusion.NO_OTHERS);
                     });
 
             ConnectorSession connectorSession = session.toConnectorSession();
