@@ -18,16 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import com.google.inject.Binding;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import com.google.inject.spi.DefaultElementVisitor;
-import com.google.inject.spi.Element;
-import com.google.inject.spi.Elements;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -358,14 +354,7 @@ public class TestingTrinoServer
                                     millis -> Instant.parse((String) millis),
                                     Instant::toString)));
                     if (coordinator) {
-                        List<Element> elements = Elements.getElements(additionalModule);
-                        AdditionalModuleVisitor visitor = new AdditionalModuleVisitor();
-                        for (Element element : elements) {
-                            element.acceptVisitor(visitor);
-                        }
-                        if (!visitor.hasQuerySessionSupplier) {
-                            binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);
-                        }
+                        binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);
                         newOptionalBinder(binder, SessionSupplier.class).setBinding().to(TestingSessionSupplier.class).in(Scopes.SINGLETON);
                     }
                 });
@@ -890,21 +879,6 @@ public class TestingTrinoServer
                         .build();
             }
             return session;
-        }
-    }
-
-    private static class AdditionalModuleVisitor
-            extends DefaultElementVisitor<Void>
-    {
-        private boolean hasQuerySessionSupplier;
-
-        @Override
-        public <T> Void visit(Binding<T> binding)
-        {
-            if (binding.getKey().getTypeLiteral().getRawType() == QuerySessionSupplier.class) {
-                hasQuerySessionSupplier = true;
-            }
-            return null;
         }
     }
 }
