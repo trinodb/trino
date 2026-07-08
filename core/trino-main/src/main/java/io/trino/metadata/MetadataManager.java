@@ -427,6 +427,15 @@ public final class MetadataManager
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
+            // If the connector would redirect this table, resolve the system table in the target catalog.
+            // Without this, system tables (e.g. $manifests) on prefix-schema tables are served by the
+            // source connector instead of the redirected catalog.
+            Optional<QualifiedObjectName> redirectedName = metadata.redirectTable(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName())
+                    .map(name -> convertFromSchemaTableName(name.getCatalogName()).apply(name.getSchemaTableName()));
+            if (redirectedName.isPresent()) {
+                return getSystemTable(session, redirectedName.get());
+            }
+
             return metadata.getSystemTable(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName());
         }
         return Optional.empty();
@@ -2005,7 +2014,11 @@ public final class MetadataManager
             }
 
             CatalogMetadata catalogMetadata = catalog.get();
-            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName, toConnectorVersion(startVersion), toConnectorVersion(endVersion));
+            // Always consult the main catalog connector for redirect decisions, bypassing
+            // the system table routing in getCatalogHandle(session, table, ...). This ensures
+            // that system tables (e.g. $manifests, $partitions) on prefix-schema tables are
+            // redirected to the target catalog where the table actually resides.
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             Optional<QualifiedObjectName> redirectedTableName = metadata.redirectTable(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName())
