@@ -20,6 +20,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -44,6 +45,7 @@ public final class RealCovarianceAggregation
     }
 
     @AggregationFunction("covar_samp")
+    @SqlNullable
     @OutputFunction(StandardTypes.REAL)
     public static void covarSamp(@AggregationState CovarianceState state, BlockBuilder out)
     {
@@ -57,6 +59,7 @@ public final class RealCovarianceAggregation
     }
 
     @AggregationFunction("covar_pop")
+    @SqlNullable
     @OutputFunction(StandardTypes.REAL)
     public static void covarPop(@AggregationState CovarianceState state, BlockBuilder out)
     {

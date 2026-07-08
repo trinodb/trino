@@ -21,6 +21,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -51,6 +52,7 @@ public final class VarianceAggregation
 
     @AggregationFunction(value = "variance", alias = "var_samp")
     @Description("Returns the sample variance of the argument")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void variance(@AggregationState VarianceState state, BlockBuilder out)
     {
@@ -67,6 +69,7 @@ public final class VarianceAggregation
 
     @AggregationFunction("var_pop")
     @Description("Returns the population variance of the argument")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void variancePop(@AggregationState VarianceState state, BlockBuilder out)
     {
@@ -83,6 +86,7 @@ public final class VarianceAggregation
 
     @AggregationFunction(value = "stddev", alias = "stddev_samp")
     @Description("Returns the sample standard deviation of the argument")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void stddev(@AggregationState VarianceState state, BlockBuilder out)
     {
@@ -100,6 +104,7 @@ public final class VarianceAggregation
 
     @AggregationFunction("stddev_pop")
     @Description("Returns the population standard deviation of the argument")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void stddevPop(@AggregationState VarianceState state, BlockBuilder out)
     {

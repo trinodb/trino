@@ -56,6 +56,7 @@ public final class MinByNAggregationFunction
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction("array(V)")
     public static void output(@AggregationState({"K", "V"}) MinByNState state, BlockBuilder out)
     {

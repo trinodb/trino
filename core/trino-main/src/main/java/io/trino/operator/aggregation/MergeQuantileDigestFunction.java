@@ -25,6 +25,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
@@ -82,6 +83,7 @@ public final class MergeQuantileDigestFunction
         }
     }
 
+    @SqlNullable
     @OutputFunction("qdigest(V)")
     public static void output(
             @TypeParameter("qdigest(V)") Type type,
