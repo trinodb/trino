@@ -21,6 +21,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.optimizations.NonNullProvider;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
@@ -54,6 +55,8 @@ public interface Rule<T>
         StatsProvider getStatsProvider();
 
         CostProvider getCostProvider();
+
+        NonNullProvider getNonNullProvider();
 
         void checkTimeoutNotExhausted();
 

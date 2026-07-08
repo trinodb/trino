@@ -33,6 +33,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule.Context;
+import io.trino.sql.planner.optimizations.NonNullProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
@@ -429,6 +430,12 @@ public class TestDistinctAggregationStrategyChooser
 
             @Override
             public CostProvider getCostProvider()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public NonNullProvider getNonNullProvider()
             {
                 throw new UnsupportedOperationException();
             }

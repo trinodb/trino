@@ -36,6 +36,9 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Memo;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.CachingNonNullProvider;
+import io.trino.sql.planner.optimizations.NonNullDerivation;
+import io.trino.sql.planner.optimizations.NonNullProvider;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.PlanTester;
 
@@ -187,6 +190,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session, () -> false), RuntimeInfoProvider.noImplementation());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
+        NonNullProvider nonNullProvider = new CachingNonNullProvider(new NonNullDerivation(planTester.getPlannerContext()), Optional.of(memo), session);
 
         return new Rule.Context()
         {
@@ -224,6 +228,12 @@ public class RuleAssert
             public CostProvider getCostProvider()
             {
                 return costProvider;
+            }
+
+            @Override
+            public NonNullProvider getNonNullProvider()
+            {
+                return nonNullProvider;
             }
 
             @Override

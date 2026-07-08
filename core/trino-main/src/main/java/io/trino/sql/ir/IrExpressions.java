@@ -44,6 +44,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
@@ -401,7 +402,7 @@ public final class IrExpressions
 
     public static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
     {
-        return mayBeNull(plannerContext, charVarcharCoercion, expression, true);
+        return mayBeNull(plannerContext, charVarcharCoercion, expression, _ -> true);
     }
 
     /**
@@ -409,10 +410,14 @@ public final class IrExpressions
      */
     public static boolean mayReturnNullOnNonNullInput(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
     {
-        return mayBeNull(plannerContext, charVarcharCoercion, expression, false);
+        return mayBeNull(plannerContext, charVarcharCoercion, expression, _ -> false);
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression, boolean referencesMayBeNull)
+    /**
+     * Returns true if the expression may return null, treating a {@link Reference} as nullable
+     * only when {@code referencesMayBeNull} accepts it.
+     */
+    public static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression, Predicate<Reference> referencesMayBeNull)
     {
         return switch (expression) {
             // These expressions never return null
@@ -431,7 +436,10 @@ public final class IrExpressions
             case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referencesMayBeNull);
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referencesMayBeNull));
             case In e -> mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referencesMayBeNull));
-            case Let e -> mayBeNull(plannerContext, charVarcharCoercion, e.body(), referencesMayBeNull || mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull));
+            case Let e -> {
+                boolean valueMayBeNull = mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull);
+                yield mayBeNull(plannerContext, charVarcharCoercion, e.body(), reference -> valueMayBeNull || referencesMayBeNull.test(reference));
+            }
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, charVarcharCoercion, term, referencesMayBeNull));
             case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
@@ -439,11 +447,11 @@ public final class IrExpressions
             // These expressions may return null based on their own semantics
             case Constant e -> e.value() == null;
             case FieldReference _ -> true;
-            case Reference _ -> referencesMayBeNull;
+            case Reference e -> referencesMayBeNull.test(e);
         };
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Cast cast, boolean referencesMayBeNull)
+    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Cast cast, Predicate<Reference> referencesMayBeNull)
     {
         if (cast.expression().type().equals(cast.type())) {
             return mayBeNull(plannerContext, charVarcharCoercion, cast.expression(), referencesMayBeNull);
@@ -453,7 +461,7 @@ public final class IrExpressions
         return mayBeNull(plannerContext, charVarcharCoercion, coercion, ImmutableList.of(cast.expression()), referencesMayBeNull);
     }
 
-    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, ResolvedFunction function, List<Expression> arguments, boolean referencesMayBeNull)
+    private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, ResolvedFunction function, List<Expression> arguments, Predicate<Reference> referencesMayBeNull)
     {
         if (function.functionNullability().isReturnNullable()) {
             return true;

@@ -227,6 +227,7 @@ import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjec
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
 import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
+import io.trino.sql.planner.iterative.rule.SimplifyCountOverNonNull;
 import io.trino.sql.planner.iterative.rule.SimplifyExpressions;
 import io.trino.sql.planner.iterative.rule.SimplifyFilterPredicate;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
@@ -614,6 +615,7 @@ public class PlanOptimizers
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
                                 .addAll(new PushFilterThroughBoolOrAggregation(plannerContext).rules())
                                 .add(new LimitBoolOrAggregationSource()) // must run after CheckSubqueryNodesAreRewritten
+                                .add(new SimplifyCountOverNonNull(plannerContext)) // must run after decorrelation (CheckSubqueryNodesAreRewritten) to avoid rewriting aggregations inside correlated subqueries
                                 .build()));
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
