@@ -60,6 +60,7 @@ import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -161,6 +162,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -551,7 +553,7 @@ public class LogicalPlanner
                 if (column.getDefaultValue().isPresent()) {
                     io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(columnHandle);
                     expression = planBuilder.rewrite(defaultExpression);
-                    expression = noTruncationCast(metadata, symbolAllocator, expression, expression.type(), tableType);
+                    expression = noTruncationCast(metadata, plannerContext.getTypeManager(), symbolAllocator, expression, expression.type(), tableType);
                 }
                 else {
                     expression = new Constant(column.getType(), null);
@@ -645,7 +647,7 @@ public class LogicalPlanner
         if (queryType.equals(tableType)) {
             return fieldMapping.toSymbolReference();
         }
-        return noTruncationCast(metadata, symbolAllocator, fieldMapping.toSymbolReference(), queryType, tableType);
+        return noTruncationCast(metadata, plannerContext.getTypeManager(), symbolAllocator, fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
@@ -829,22 +831,22 @@ public class LogicalPlanner
      * length. The check recurses through {@code array}, {@code map} and {@code row} so that character types nested
      * inside structural types are guarded the same way as top-level character columns.
      */
-    public static Expression noTruncationCast(Metadata metadata, SymbolAllocator symbolAllocator, Expression expression, Type fromType, Type toType)
+    public static Expression noTruncationCast(Metadata metadata, TypeManager typeManager, SymbolAllocator symbolAllocator, Expression expression, Type fromType, Type toType)
     {
         if (fromType.equals(toType) || fromType instanceof UnknownType || !containsBoundedCharacterType(toType)) {
             // Nothing can be silently truncated, so an ordinary cast suffices.
-            return new Cast(expression, toType);
+            return cast(typeManager, expression, toType);
         }
 
         if (toType instanceof CharType || toType instanceof VarcharType) {
-            return characterNoTruncationCast(metadata, expression, fromType, toType);
+            return characterNoTruncationCast(metadata, typeManager, expression, fromType, toType);
         }
 
         if (fromType instanceof ArrayType fromArray && toType instanceof ArrayType toArray) {
             Type fromElement = fromArray.getElementType();
             Type toElement = toArray.getElementType();
             Symbol element = symbolAllocator.newSymbol("element", fromElement);
-            Expression body = noTruncationCast(metadata, symbolAllocator, element.toSymbolReference(), fromElement, toElement);
+            Expression body = noTruncationCast(metadata, typeManager, symbolAllocator, element.toSymbolReference(), fromElement, toElement);
             // transform(array, element -> guarded cast of element)
             return BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName("transform")
@@ -859,7 +861,7 @@ public class LogicalPlanner
                 MapType currentType = (MapType) result.type();
                 Symbol key = symbolAllocator.newSymbol("key", currentType.getKeyType());
                 Symbol value = symbolAllocator.newSymbol("value", currentType.getValueType());
-                Expression body = noTruncationCast(metadata, symbolAllocator, value.toSymbolReference(), currentType.getValueType(), toMap.getValueType());
+                Expression body = noTruncationCast(metadata, typeManager, symbolAllocator, value.toSymbolReference(), currentType.getValueType(), toMap.getValueType());
                 result = BuiltinFunctionCallBuilder.resolve(metadata)
                         .setName("transform_values")
                         .addArgument(currentType, result)
@@ -870,7 +872,7 @@ public class LogicalPlanner
                 MapType currentType = (MapType) result.type();
                 Symbol key = symbolAllocator.newSymbol("key", currentType.getKeyType());
                 Symbol value = symbolAllocator.newSymbol("value", currentType.getValueType());
-                Expression body = noTruncationCast(metadata, symbolAllocator, key.toSymbolReference(), currentType.getKeyType(), toMap.getKeyType());
+                Expression body = noTruncationCast(metadata, typeManager, symbolAllocator, key.toSymbolReference(), currentType.getKeyType(), toMap.getKeyType());
                 result = BuiltinFunctionCallBuilder.resolve(metadata)
                         .setName("transform_keys")
                         .addArgument(currentType, result)
@@ -885,21 +887,21 @@ public class LogicalPlanner
             List<Type> toFields = toRow.getTypeParameters();
             ImmutableList.Builder<Expression> items = ImmutableList.builderWithExpectedSize(fromFields.size());
             for (int i = 0; i < fromFields.size(); i++) {
-                items.add(noTruncationCast(metadata, symbolAllocator, new FieldReference(expression, i), fromFields.get(i), toFields.get(i)));
+                items.add(noTruncationCast(metadata, typeManager, symbolAllocator, new FieldReference(expression, i), fromFields.get(i), toFields.get(i)));
             }
             // Rebuild the row field by field, but keep a null row null rather than turning it into a row of nulls.
             return ifExpression(new IsNull(expression), new Constant(toType, null), new Row(items.build(), toType));
         }
 
-        return new Cast(expression, toType);
+        return cast(typeManager, expression, toType);
     }
 
-    private static Expression characterNoTruncationCast(Metadata metadata, Expression expression, Type fromType, Type toType)
+    private static Expression characterNoTruncationCast(Metadata metadata, TypeManager typeManager, Expression expression, Type fromType, Type toType)
     {
         int targetLength;
         if (toType instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
-                return new Cast(expression, toType);
+                return cast(typeManager, expression, toType);
             }
             targetLength = varcharType.getBoundedLength();
         }
@@ -919,9 +921,9 @@ public class LogicalPlanner
                         new Coalesce(
                                 new Call(
                                         spaceTrimmedLength,
-                                        ImmutableList.of(new Cast(expression, VARCHAR))),
+                                        ImmutableList.of(cast(typeManager, expression, VARCHAR))),
                                 new Constant(BIGINT, 0L))),
-                new Cast(expression, toType),
+                cast(typeManager, expression, toType),
                 new Cast(
                         failFunction(metadata, INVALID_CAST_ARGUMENT, format(
                                 "Cannot truncate non-space characters when casting from %s to %s on INSERT",

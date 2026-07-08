@@ -50,6 +50,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -269,6 +270,6 @@ public class ApplyTableScanRedirection
                     sourceType));
         }
 
-        return new Cast(destinationSymbol.toSymbolReference(), sourceType);
+        return cast(plannerContext.getTypeManager(), destinationSymbol.toSymbolReference(), sourceType);
     }
 }

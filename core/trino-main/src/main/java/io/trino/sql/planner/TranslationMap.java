@@ -176,6 +176,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.between;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
@@ -444,14 +445,14 @@ public class TranslationMap
 
         // Don't add a coercion for the top-level expression. That depends on the context
         // the expression is used and it's the responsibility of the caller.
-        return isRoot ? result : QueryPlanner.coerceIfNecessary(analysis, expr, result);
+        return isRoot ? result : QueryPlanner.coerceIfNecessary(plannerContext, analysis, expr, result);
     }
 
     private io.trino.sql.ir.Expression translate(NullIfExpression expression)
     {
         io.trino.sql.ir.Expression first = translateExpression(expression.getFirst());
         io.trino.sql.ir.Expression second = translateExpression(expression.getSecond());
-        return nullIf(plannerContext.getMetadata(), symbolAllocator, first, second, analysis.getNullIfComparisonType(expression));
+        return nullIf(plannerContext.getMetadata(), plannerContext.getTypeManager(), symbolAllocator, first, second, analysis.getNullIfComparisonType(expression));
     }
 
     private io.trino.sql.ir.Expression translate(ArithmeticUnaryExpression expression)
@@ -788,7 +789,7 @@ public class TranslationMap
                     ImmutableList.of(translateExpression(expression.getExpression())));
         }
 
-        return new io.trino.sql.ir.Cast(
+        return cast(plannerContext.getTypeManager(),
                 translateExpression(expression.getExpression()),
                 analysis.getType(expression));
     }
@@ -1120,7 +1121,7 @@ public class TranslationMap
         return switch (valueType) {
             case TimeType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName(AT_TIMEZONE_FUNCTION_NAME)
-                    .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimeWithTimeZoneType(type.getPrecision())))
+                    .addArgument(createTimeWithTimeZoneType(type.getPrecision()), cast(plannerContext.getTypeManager(), value, createTimeWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
             case TimeWithTimeZoneType _ -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
@@ -1130,7 +1131,7 @@ public class TranslationMap
                     .build();
             case TimestampType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("at_timezone")
-                    .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimestampWithTimeZoneType(type.getPrecision())))
+                    .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), cast(plannerContext.getTypeManager(), value, createTimestampWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
             case TimestampWithTimeZoneType _ -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
@@ -1153,7 +1154,7 @@ public class TranslationMap
 
         return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(FORMAT_FUNCTION_NAME)
-                .addArgument(VARCHAR, new io.trino.sql.ir.Cast(arguments.get(0), VARCHAR))
+                .addArgument(VARCHAR, cast(plannerContext.getTypeManager(), arguments.get(0), VARCHAR))
                 .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new io.trino.sql.ir.Row(arguments.subList(1, arguments.size())))
                 .build();
     }
@@ -1178,14 +1179,14 @@ public class TranslationMap
         if (escape.isPresent()) {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName(LIKE_PATTERN_FUNCTION_NAME)
-                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
-                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(escape.get(), VARCHAR))
+                    .addArgument(VARCHAR, cast(plannerContext.getTypeManager(), pattern, VARCHAR))
+                    .addArgument(VARCHAR, cast(plannerContext.getTypeManager(), escape.get(), VARCHAR))
                     .build();
         }
         else {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName(LIKE_PATTERN_FUNCTION_NAME)
-                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
+                    .addArgument(VARCHAR, cast(plannerContext.getTypeManager(), pattern, VARCHAR))
                     .build();
         }
 
@@ -1244,8 +1245,8 @@ public class TranslationMap
         return new Call(
                 operator,
                 ImmutableList.of(
-                        new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.signature().getArgumentType(0)),
-                        new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.signature().getArgumentType(1))));
+                        cast(plannerContext.getTypeManager(), translateExpression(node.getBase()), operator.signature().getArgumentType(0)),
+                        cast(plannerContext.getTypeManager(), translateExpression(node.getIndex()), operator.signature().getArgumentType(1))));
     }
 
     private io.trino.sql.ir.Expression translate(LambdaExpression node)
@@ -1398,7 +1399,7 @@ public class TranslationMap
 
         Type resultType = outputFunction.signature().getReturnType();
         if (!resultType.equals(returnedType)) {
-            result = new io.trino.sql.ir.Cast(result, returnedType);
+            result = cast(plannerContext.getTypeManager(), result, returnedType);
         }
 
         return result;
@@ -1465,7 +1466,7 @@ public class TranslationMap
 
         Type resultType = outputFunction.signature().getReturnType();
         if (!resultType.equals(returnedType)) {
-            result = new io.trino.sql.ir.Cast(result, returnedType);
+            result = cast(plannerContext.getTypeManager(), result, returnedType);
         }
 
         return result;
@@ -1521,7 +1522,7 @@ public class TranslationMap
 
         Type resultType = outputFunction.signature().getReturnType();
         if (!resultType.equals(returnedType)) {
-            result = new io.trino.sql.ir.Cast(result, returnedType);
+            result = cast(plannerContext.getTypeManager(), result, returnedType);
         }
 
         return result;
@@ -1584,7 +1585,7 @@ public class TranslationMap
                     parameters.add(rewrittenParameter);
                 }
             }
-            parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(parameters.build()), parameterRowType);
+            parametersRow = cast(plannerContext.getTypeManager(), new io.trino.sql.ir.Row(parameters.build()), parameterRowType);
             parametersOrder = pathParameters.stream()
                     .map(parameter -> parameter.getName().getCanonicalValue())
                     .collect(toImmutableList());

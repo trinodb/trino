@@ -101,6 +101,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -459,7 +460,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateCast()
     {
         assertTranslationRoundTrips(
-                new Cast(new Reference(VARCHAR, "varchar_symbol_1"), VARCHAR_TYPE),
+                new Cast(new Reference(VARCHAR, "varchar_symbol_1"), VARCHAR_TYPE, REINTERPRET),
                 new io.trino.spi.expression.Call(
                         VARCHAR_TYPE,
                         CAST_FUNCTION_NAME,
@@ -497,7 +498,7 @@ public class TestConnectorExpressionTranslator
                                     .addArgument(LIKE_PATTERN,
                                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                                                     .setName(LikeFunctions.LIKE_PATTERN_FUNCTION_NAME)
-                                                    .addArgument(VARCHAR, new Cast(new Constant(createVarcharType(pattern.length()), utf8Slice(pattern)), VARCHAR))
+                                                    .addArgument(VARCHAR, new Cast(new Constant(createVarcharType(pattern.length()), utf8Slice(pattern)), VARCHAR, REINTERPRET))
                                                     .build())
                                     .build());
 
@@ -526,8 +527,8 @@ public class TestConnectorExpressionTranslator
                                     .addArgument(LIKE_PATTERN,
                                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                                                     .setName(LikeFunctions.LIKE_PATTERN_FUNCTION_NAME)
-                                                    .addArgument(VARCHAR, new Cast(new Constant(createVarcharType(9), utf8Slice(pattern)), VARCHAR))
-                                                    .addArgument(VARCHAR, new Cast(new Constant(createVarcharType(1), utf8Slice(escape)), VARCHAR))
+                                                    .addArgument(VARCHAR, new Cast(new Constant(createVarcharType(9), utf8Slice(pattern)), VARCHAR, REINTERPRET))
+                                                    .addArgument(VARCHAR, new Cast(new Constant(createVarcharType(1), utf8Slice(escape)), VARCHAR, REINTERPRET))
                                                     .build())
                                     .build());
                 });

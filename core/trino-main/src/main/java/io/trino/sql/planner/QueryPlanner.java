@@ -33,6 +33,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -154,6 +155,7 @@ import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -293,7 +295,7 @@ class QueryPlanner
             coercedRecursionStep = pruneInvisibleFields(recursionStepPlan, idAllocator);
         }
         else {
-            coercedRecursionStep = coerce(recursionStepPlan, types, symbolAllocator, idAllocator);
+            coercedRecursionStep = coerce(plannerContext.getTypeManager(), recursionStepPlan, types, symbolAllocator, idAllocator);
         }
 
         NodeAndMappings replacementSpot = new NodeAndMappings(anchorPlan.getRoot(), anchorPlan.getFieldMappings());
@@ -660,7 +662,7 @@ class QueryPlanner
                 // This column is updated...
                 io.trino.sql.tree.Expression original = orderedColumnValues.get(index);
                 subPlanBuilder = subqueryPlanner.handleSubqueries(subPlanBuilder, original, analysis.getSubqueries(node));
-                Expression rewritten = coerceIfNecessary(analysis, original, subPlanBuilder.rewrite(original));
+                Expression rewritten = coerceIfNecessary(plannerContext, analysis, original, subPlanBuilder.rewrite(original));
 
                 // If the updated column is non-null, check that the value is not null
                 if (mergeAnalysis.getNonNullableColumnHandles().contains(dataColumnHandle)) {
@@ -743,7 +745,7 @@ class QueryPlanner
 
             Expression predicate = ifExpression(
                     // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
-                    new Coalesce(coerceIfNecessary(analysis, constraint, symbol), TRUE),
+                    new Coalesce(coerceIfNecessary(plannerContext, analysis, constraint, symbol), TRUE),
                     TRUE,
                     new Cast(failFunction(plannerContext.getMetadata(), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), BOOLEAN));
 
@@ -830,7 +832,7 @@ class QueryPlanner
                     io.trino.sql.tree.Expression setExpression = mergeCase.getSetExpressions().get(index);
                     subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, analysis.getSubqueries(merge));
                     Expression rewritten = subPlan.rewrite(setExpression);
-                    rewritten = coerceIfNecessary(analysis, setExpression, rewritten);
+                    rewritten = coerceIfNecessary(plannerContext, analysis, setExpression, rewritten);
                     if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
                         String columnName = columnSchema.getName();
@@ -846,7 +848,7 @@ class QueryPlanner
                         if (defaultColumnValues.containsKey(dataColumnHandle)) {
                             io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(dataColumnHandle);
                             expression = subPlan.rewrite(defaultExpression);
-                            expression = noTruncationCast(metadata, symbolAllocator, expression, expression.type(), columnSchema.getType());
+                            expression = noTruncationCast(metadata, plannerContext.getTypeManager(), symbolAllocator, expression, expression.type(), columnSchema.getType());
                         }
                         if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                             String columnName = columnSchema.getName();
@@ -878,7 +880,7 @@ class QueryPlanner
             if (casePredicate.isPresent()) {
                 condition = and(
                         condition,
-                        coerceIfNecessary(analysis, casePredicate.get(), subPlan.rewrite(casePredicate.get())));
+                        coerceIfNecessary(plannerContext, analysis, casePredicate.get(), subPlan.rewrite(casePredicate.get())));
             }
 
             whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
@@ -1152,7 +1154,7 @@ class QueryPlanner
 
         subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(node));
 
-        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), coerceIfNecessary(analysis, predicate, subPlan.rewrite(predicate))));
+        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), coerceIfNecessary(plannerContext, analysis, predicate, subPlan.rewrite(predicate))));
     }
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
@@ -1197,7 +1199,7 @@ class QueryPlanner
         //    avg(v)
         // Needs to be rewritten as
         //    avg(CAST(v AS double))
-        PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator);
+        PlanAndMappings coercions = coerce(plannerContext.getTypeManager(), subPlan, inputs, analysis, idAllocator, symbolAllocator);
         subPlan = coercions.getSubPlan();
 
         GroupingSetsPlan groupingSets = planGroupingSets(subPlan, node, groupingSetAnalysis);
@@ -1521,7 +1523,7 @@ class QueryPlanner
             //    avg(v) OVER (ORDER BY v)
             // Needs to be rewritten as
             //    avg(CAST(v AS double)) OVER (ORDER BY v)
-            PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator);
+            PlanAndMappings coercions = coerce(plannerContext.getTypeManager(), subPlan, inputs, analysis, idAllocator, symbolAllocator);
             subPlan = coercions.getSubPlan();
 
             // For frame of type RANGE, append casts and functions necessary for frame bound calculations
@@ -1623,7 +1625,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameBoundCalculation = alreadyCoerced;
             }
             else {
-                Expression cast = new Cast(coercions.get(sortKey).toSymbolReference(), expectedType);
+                Expression cast = cast(plannerContext.getTypeManager(), coercions.get(sortKey).toSymbolReference(), expectedType);
                 sortKeyCoercedForFrameBoundCalculation = symbolAllocator.newSymbol(cast);
                 sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1663,7 +1665,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameBoundComparison = Optional.of(alreadyCoerced);
             }
             else {
-                Expression cast = new Cast(coercions.get(sortKey).toSymbolReference(), expectedType);
+                Expression cast = cast(plannerContext.getTypeManager(), coercions.get(sortKey).toSymbolReference(), expectedType);
                 Symbol castSymbol = symbolAllocator.newSymbol(cast);
                 sortKeyCoercions.put(expectedType, castSymbol);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1712,7 +1714,7 @@ class QueryPlanner
             int actualPrecision = decimalType.getPrecision();
 
             if (actualPrecision < MAX_BIGINT_PRECISION) {
-                offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), BIGINT);
+                offsetToBigint = cast(plannerContext.getTypeManager(), offsetSymbol.toSymbolReference(), BIGINT);
             }
             else if (actualPrecision > MAX_BIGINT_PRECISION) {
                 // If the offset value exceeds max bigint, it implies that the frame bound falls beyond the partition bound.
@@ -1723,12 +1725,12 @@ class QueryPlanner
             else {
                 offsetToBigint = ifExpression(
                         comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), new Constant(decimalType, Int128.valueOf(Long.MAX_VALUE))),
-                        new Cast(offsetSymbol.toSymbolReference(), BIGINT),
+                        cast(plannerContext.getTypeManager(), offsetSymbol.toSymbolReference(), BIGINT),
                         new Constant(BIGINT, Long.MAX_VALUE));
             }
         }
         else {
-            offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), BIGINT);
+            offsetToBigint = cast(plannerContext.getTypeManager(), offsetSymbol.toSymbolReference(), BIGINT);
         }
 
         Symbol coercedOffsetSymbol = symbolAllocator.newSymbol(offsetToBigint);
@@ -2098,7 +2100,7 @@ class QueryPlanner
      *
      * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
      */
-    public static PlanAndMappings coerce(PlanBuilder subPlan, List<io.trino.sql.tree.Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+    public static PlanAndMappings coerce(TypeManager typeManager, PlanBuilder subPlan, List<io.trino.sql.tree.Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         Assignments.Builder assignments = Assignments.builder();
         assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
@@ -2112,7 +2114,7 @@ class QueryPlanner
                 if (coercion != null) {
                     Symbol symbol = symbolAllocator.newSymbol("expr", coercion);
 
-                    assignments.put(symbol, new Cast(subPlan.rewrite(expression), coercion));
+                    assignments.put(symbol, cast(typeManager, subPlan.rewrite(expression), coercion));
 
                     mappings.put(NodeRef.of(expression), symbol);
                 }
@@ -2131,17 +2133,17 @@ class QueryPlanner
         return new PlanAndMappings(subPlan, mappings);
     }
 
-    public static Expression coerceIfNecessary(Analysis analysis, io.trino.sql.tree.Expression original, Expression rewritten)
+    public static Expression coerceIfNecessary(PlannerContext plannerContext, Analysis analysis, io.trino.sql.tree.Expression original, Expression rewritten)
     {
         Type coercion = analysis.getCoercion(original);
         if (coercion == null) {
             return rewritten;
         }
 
-        return new Cast(rewritten, coercion);
+        return cast(plannerContext.getTypeManager(), rewritten, coercion);
     }
 
-    public static NodeAndMappings coerce(RelationPlan plan, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public static NodeAndMappings coerce(TypeManager typeManager, RelationPlan plan, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         List<Symbol> visibleFields = visibleFields(plan);
         checkArgument(visibleFields.size() == types.size());
@@ -2154,7 +2156,7 @@ class QueryPlanner
 
             if (!input.type().equals(type)) {
                 Symbol coerced = symbolAllocator.newSymbol(input.name(), type);
-                assignments.put(coerced, new Cast(input.toSymbolReference(), type));
+                assignments.put(coerced, cast(typeManager, input.toSymbolReference(), type));
                 mappings.add(coerced);
             }
             else {

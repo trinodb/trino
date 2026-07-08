@@ -422,6 +422,7 @@ public class TestPostgreSqlClient
                         translateToConnectorExpression(
                                 nullIf(
                                         FUNCTIONS.getMetadata(),
+                                        FUNCTIONS.getPlannerContext().getTypeManager(),
                                         new SymbolAllocator(),
                                         new Reference(VARCHAR, "a_varchar_symbol"),
                                         new Reference(VARCHAR, "b_varchar_symbol"))),

@@ -27,7 +27,6 @@ import io.trino.sql.analyzer.Analysis.OperandAndPredicate;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -73,6 +72,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
@@ -312,7 +312,7 @@ class SubqueryPlanner
                 }
             }
 
-            Expression expression = new Cast(new Row(fields.build()), type);
+            Expression expression = cast(plannerContext.getTypeManager(), new Row(fields.build()), type);
 
             root = new ProjectNode(idAllocator.getNextId(), root, Assignments.of(column, expression));
         }
@@ -555,7 +555,7 @@ class SubqueryPlanner
                 }
                 else {
                     Symbol castSymbol = symbolAllocator.newSymbol("cast", targetType);
-                    assignments.put(castSymbol, new Cast(original.toSymbolReference(), targetType));
+                    assignments.put(castSymbol, cast(plannerContext.getTypeManager(), original.toSymbolReference(), targetType));
                     coerced.add(castSymbol);
                 }
             }
@@ -813,7 +813,7 @@ class SubqueryPlanner
                 new ProjectNode(
                         idAllocator.getNextId(),
                         relationPlan.getRoot(),
-                        Assignments.of(column, new Cast(new Row(fields.build()), type))));
+                        Assignments.of(column, cast(plannerContext.getTypeManager(), new Row(fields.build()), type))));
 
         return coerceIfNecessary(subqueryPlan, column, subquery, coercion);
     }
@@ -827,7 +827,7 @@ class SubqueryPlanner
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(coerced, new Cast(symbol.toSymbolReference(), coercion.get()))
+                    .put(coerced, cast(plannerContext.getTypeManager(), symbol.toSymbolReference(), coercion.get()))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));
