@@ -73,6 +73,7 @@ import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantTryCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
+import io.trino.sql.ir.optimizer.rule.SpecializeCaseToMatch;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
 import io.trino.sql.planner.Symbol;
@@ -137,6 +138,9 @@ public class IrExpressionOptimizer
                 new DistributeComparisonOverMatch(context),
                 new DistributeComparisonOverCase(context),
                 new SimplifyRedundantCase(context),
+                // must run after SimplifyRedundantCase: constant boolean results are better
+                // expressed as plain logic than as a Match
+                new SpecializeCaseToMatch(context),
                 new SpecializeCastWithJsonParse(context),
                 new SpecializeTransformWithJsonParse(context)));
     }
