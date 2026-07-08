@@ -1077,18 +1077,42 @@ public class TrinoRestCatalog
 
     private Namespace findRemoteNamespace(ConnectorSession session, Namespace trinoNamespace)
     {
-        List<Namespace> matchingRemoteNamespaces = listNamespaces(session, Namespace.empty()).stream()
-                .filter(ns -> toTrinoNamespace(ns).equals(trinoNamespace))
-                .collect(toImmutableList());
-        if (matchingRemoteNamespaces.size() > 1) {
-            throw new TrinoException(NOT_SUPPORTED, "Duplicate namespace names are not supported with Iceberg REST catalog: " + matchingRemoteNamespaces);
-        }
-        return matchingRemoteNamespaces.isEmpty() ? trinoNamespace : matchingRemoteNamespaces.getFirst();
+        // Convert session ONCE at the entry point to prevent OAuth token spam
+        // during recursive resolution.
+        SessionContext context = convert(session);
+
+        return resolveNamespaceHierarchically(context, trinoNamespace)
+                .orElse(trinoNamespace);
     }
 
-    private List<Namespace> listNamespaces(ConnectorSession session, Namespace parentNamespace)
+    private Optional<Namespace> resolveNamespaceHierarchically(SessionContext context, Namespace requestedNamespace)
     {
-        return listNamespaces(convert(session), parentNamespace);
+        // 1. OPTIMISTIC CHECK (Case-Sensitive API Fast-Path)
+        if (requestedNamespace.isEmpty() || restSessionCatalog.namespaceExists(context, requestedNamespace)) {
+            return Optional.of(requestedNamespace);
+        }
+
+        // 2. CASE-INSENSITIVE SEARCH
+        // Recursive Step: Resolve the parent path's true casing first
+        String[] parentLevels = Arrays.copyOf(requestedNamespace.levels(), requestedNamespace.length() - 1);
+        Namespace preservedCaseParentPath = Namespace.of(parentLevels);
+        Optional<Namespace> resolvedParent = resolveNamespaceHierarchically(context, preservedCaseParentPath);
+
+        return resolvedParent.flatMap(namespace -> findChildCaseInsensitive(context, namespace, toTrinoNamespace(requestedNamespace)));
+    }
+
+    private Optional<Namespace> findChildCaseInsensitive(SessionContext context, Namespace parent, Namespace trinoTargetNamespace)
+    {
+        List<Namespace> children = restSessionCatalog.listNamespaces(context, parent);
+
+        List<Namespace> matches = children.stream()
+                .filter(child -> toTrinoNamespace(child).equals(trinoTargetNamespace))
+                .collect(toImmutableList());
+        if (matches.size() > 1) {
+            throw new TrinoException(NOT_SUPPORTED, "Duplicate namespace names are not supported with Iceberg REST catalog: " + matches);
+        }
+
+        return matches.stream().findFirst();
     }
 
     private List<Namespace> listNamespaceIfExists(SessionContext sessionContext, Namespace namespace)

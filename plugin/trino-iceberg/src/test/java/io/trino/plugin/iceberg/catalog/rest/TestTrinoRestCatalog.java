@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -271,6 +272,112 @@ public class TestTrinoRestCatalog
                 .cause()
                 .isInstanceOf(RESTException.class)
                 .hasMessage("catalog failure");
+    }
+
+    @Test
+    public void testSchemaExistsExactMatchAvoidsListing()
+    {
+        AtomicInteger listNamespacesCalls = new AtomicInteger(0);
+
+        RESTSessionCatalog restSessionCatalog = new RESTSessionCatalog()
+        {
+            @Override
+            public boolean namespaceExists(SessionContext context, Namespace namespace)
+            {
+                // Simulate that the exact path exists on the remote catalog
+                return namespace.equals(Namespace.of("My_Db", "My_Schema"));
+            }
+
+            @Override
+            public List<Namespace> listNamespaces(SessionContext context, Namespace namespace)
+            {
+                listNamespacesCalls.incrementAndGet();
+                return List.of();
+            }
+        };
+
+        // caseInsensitiveNameMatching = true
+        TrinoCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true, false);
+
+        boolean exists = catalog.namespaceExists(SESSION, "My_Db.My_Schema");
+
+        assertThat(exists).isTrue();
+        // PROOF: listNamespaces was never called because optimistic check succeeded
+        assertThat(listNamespacesCalls.get()).isEqualTo(0);
+    }
+
+    @Test
+    public void testNamespaceExistsCaseInsensitiveParentLookup()
+    {
+        // Use Maps to record the exact requested path and its call frequency
+        Map<String, Integer> namespaceExistsCalls = new ConcurrentHashMap<>();
+        Map<String, Integer> listNamespacesCalls = new ConcurrentHashMap<>();
+
+        // The absolute truth of the case-sensitive remote catalog
+        Namespace trueRoot = Namespace.of("My_Db");
+        Namespace trueParent = Namespace.of("My_Db", "My_Schema");
+        Namespace trueChild = Namespace.of("My_Db", "My_Schema", "My_Subschema");
+
+        RESTSessionCatalog restSessionCatalog = new RESTSessionCatalog()
+        {
+            @Override
+            public boolean namespaceExists(SessionContext context, Namespace namespace)
+            {
+                // Record the exact string payload that Trino requested
+                String path = String.join(".", namespace.levels());
+                namespaceExistsCalls.merge(path.toLowerCase(ENGLISH), 1, Integer::sum);
+
+                // Strict Case-Sensitive Server logic
+                return namespace.equals(trueRoot) ||
+                        namespace.equals(trueParent) ||
+                        namespace.equals(trueChild);
+            }
+
+            @Override
+            public List<Namespace> listNamespaces(SessionContext context, Namespace namespace)
+            {
+                // Record the exact string payload requested for listing
+                String path = String.join(".", namespace.levels());
+                listNamespacesCalls.merge(path.toLowerCase(ENGLISH), 1, Integer::sum);
+
+                if (namespace.isEmpty()) {
+                    return List.of(trueRoot);
+                }
+                if (namespace.equals(trueRoot)) {
+                    return List.of(trueParent);
+                }
+                if (namespace.equals(trueParent)) {
+                    return List.of(trueChild);
+                }
+                return List.of();
+            }
+        };
+
+        TrinoCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true, true);
+
+        // Input completely mangled casing.
+        boolean exists = catalog.namespaceExists(SESSION, "mY_Db.my_SCHema.my_SUBschEma");
+
+        // 1. Resolution must succeed
+        assertThat(exists).isTrue();
+
+        // 2. ASSERT EXACT LISTING TRAVERSAL
+        // Because optimistic checks failed, it had to walk the tree using the true casing at each step.
+        assertThat(listNamespacesCalls)
+                .as("Must list the root, then the verified DB, then the verified schema")
+                .hasSize(3)
+                .containsEntry("", 1)                  // Listed Root
+                .containsEntry("my_db", 1)             // Listed Database
+                .containsEntry("my_db.my_schema", 1);  // Listed Schema
+
+        // 3. ASSERT EXACT EXISTENCE CHECKS (Translation + Execution phases)
+        assertThat(namespaceExistsCalls)
+                .as("Must attempt optimistic translation lookups, then one final execution check")
+                .hasSize(3)
+                // PHASE 1: TRANSLATION (The Optimistic failures)
+                .containsEntry("my_db.my_schema.my_subschema", 2)
+                .containsEntry("my_db.my_schema", 1)
+                .containsEntry("my_db", 1);
     }
 
     private static class NamespaceDeletedDuringRecursiveListingCatalog
