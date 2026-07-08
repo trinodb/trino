@@ -36,6 +36,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static java.util.Objects.requireNonNull;
 
@@ -166,7 +167,8 @@ public class WindowNode
                 Optional.empty(),
                 CURRENT_ROW,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         private final WindowFrameType type;
         private final FrameBoundType startType;
@@ -175,6 +177,7 @@ public class WindowNode
         private final FrameBoundType endType;
         private final Optional<Symbol> endValue;
         private final Optional<Symbol> sortKeyCoercedForFrameEndComparison;
+        private final FrameExclusion exclusion;
 
         @JsonCreator
         public Frame(
@@ -184,7 +187,8 @@ public class WindowNode
                 @JsonProperty("sortKeyCoercedForFrameStartComparison") Optional<Symbol> sortKeyCoercedForFrameStartComparison,
                 @JsonProperty("endType") FrameBoundType endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
-                @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison)
+                @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison,
+                @JsonProperty("exclusion") FrameExclusion exclusion)
         {
             this.startType = requireNonNull(startType, "startType is null");
             this.startValue = requireNonNull(startValue, "startValue is null");
@@ -193,6 +197,7 @@ public class WindowNode
             this.endValue = requireNonNull(endValue, "endValue is null");
             this.sortKeyCoercedForFrameEndComparison = requireNonNull(sortKeyCoercedForFrameEndComparison, "sortKeyCoercedForFrameEndComparison is null");
             this.type = requireNonNull(type, "type is null");
+            this.exclusion = requireNonNull(exclusion, "exclusion is null");
 
             if (startValue.isPresent()) {
                 if (type == RANGE) {
@@ -249,6 +254,12 @@ public class WindowNode
             return sortKeyCoercedForFrameEndComparison;
         }
 
+        @JsonProperty
+        public FrameExclusion getExclusion()
+        {
+            return exclusion;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -265,13 +276,14 @@ public class WindowNode
                     Objects.equals(sortKeyCoercedForFrameStartComparison, frame.sortKeyCoercedForFrameStartComparison) &&
                     endType == frame.endType &&
                     Objects.equals(endValue, frame.endValue) &&
-                    Objects.equals(sortKeyCoercedForFrameEndComparison, frame.sortKeyCoercedForFrameEndComparison);
+                    Objects.equals(sortKeyCoercedForFrameEndComparison, frame.sortKeyCoercedForFrameEndComparison) &&
+                    exclusion == frame.exclusion;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(type, startType, startValue, sortKeyCoercedForFrameStartComparison, endType, endValue, sortKeyCoercedForFrameEndComparison);
+            return Objects.hash(type, startType, startValue, sortKeyCoercedForFrameStartComparison, endType, endValue, sortKeyCoercedForFrameEndComparison, exclusion);
         }
     }
 
