@@ -41,8 +41,8 @@ public final class MappedWindowFunction
     }
 
     @Override
-    public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
+    public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd, int excludedStart, int excludedEnd, int keptRow)
     {
-        function.processRow(output, peerGroupStart, peerGroupEnd, frameStart, frameEnd);
+        function.processRow(output, peerGroupStart, peerGroupEnd, frameStart, frameEnd, excludedStart, excludedEnd, keptRow);
     }
 }

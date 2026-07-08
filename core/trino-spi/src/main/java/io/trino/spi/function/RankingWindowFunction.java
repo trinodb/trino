@@ -34,8 +34,9 @@ public abstract class RankingWindowFunction
     }
 
     @Override
-    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
+    public final void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd, int excludedStart, int excludedEnd, int keptRow)
     {
+        // Ranking functions operate over the whole partition and its peer groups; they ignore the frame and its exclusion.
         boolean newPeerGroup = false;
         if (peerGroupStart != currentPeerGroupStart) {
             currentPeerGroupStart = peerGroupStart;

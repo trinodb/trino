@@ -50,6 +50,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_WITH_UNMATCHED;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -88,7 +89,7 @@ public class TestPrunePattenRecognitionColumns
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
@@ -111,7 +112,7 @@ public class TestPrunePattenRecognitionColumns
                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                 new Symbol(UNKNOWN, "a"))))
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
@@ -140,7 +141,7 @@ public class TestPrunePattenRecognitionColumns
                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                 new Symbol(BIGINT, "a"))))
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
@@ -165,7 +166,8 @@ public class TestPrunePattenRecognitionColumns
                                                         Optional.empty(),
                                                         UNBOUNDED_FOLLOWING,
                                                         Optional.empty(),
-                                                        Optional.empty()))
+                                                        Optional.empty(),
+                                                        NO_OTHERS))
                                                 .skipTo(NEXT)
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(new IrLabel("X"), TRUE),
@@ -185,7 +187,8 @@ public class TestPrunePattenRecognitionColumns
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         // remove row pattern measure "measure" and input symbol "a" used only by that measure
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -379,7 +382,7 @@ public class TestPrunePattenRecognitionColumns
                         p.patternRecognition(builder -> builder
                                 .addMeasure(p.symbol("measure"), new Constant(INTEGER, 1L))
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), FOLLOWING, Optional.of(p.symbol("a")), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), FOLLOWING, Optional.of(p.symbol("a")), Optional.empty(), NO_OTHERS))
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
@@ -397,7 +400,8 @@ public class TestPrunePattenRecognitionColumns
                                                         Optional.empty(),
                                                         FOLLOWING,
                                                         Optional.of(new Symbol(UNKNOWN, "a")),
-                                                        Optional.empty()))
+                                                        Optional.empty(),
+                                                        NO_OTHERS))
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(new IrLabel("X"), TRUE),
                                         strictProject(

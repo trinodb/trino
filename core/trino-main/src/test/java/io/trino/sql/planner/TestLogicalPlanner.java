@@ -177,6 +177,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -214,7 +215,8 @@ public class TestLogicalPlanner
             Optional.empty(),
             UNBOUNDED_FOLLOWING,
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            NO_OTHERS);
 
     @Test
     public void testAnalyze()

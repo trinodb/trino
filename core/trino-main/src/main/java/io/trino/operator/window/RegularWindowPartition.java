@@ -21,6 +21,7 @@ import io.trino.operator.WindowOperator.FrameBoundKey;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
+import io.trino.sql.planner.plan.FrameExclusion;
 
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +31,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WindowOperator.FrameBoundKey.Type.END;
 import static io.trino.operator.WindowOperator.FrameBoundKey.Type.START;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 public final class RegularWindowPartition
         implements WindowPartition
@@ -49,6 +52,7 @@ public final class RegularWindowPartition
     private int currentGroupIndex = -1;
     private int currentPosition;
 
+    private final List<FrameInfo> frames;
     private final Map<Integer, Framing> framings = new HashMap<>();
 
     public RegularWindowPartition(
@@ -66,6 +70,7 @@ public final class RegularWindowPartition
         this.partitionEnd = partitionEnd;
         this.outputChannels = outputChannels;
         this.windowFunctions = ImmutableList.copyOf(windowFunctions);
+        this.frames = ImmutableList.copyOf(frames);
         this.peerGroupHashStrategy = peerGroupHashStrategy;
 
         // reset functions for new partition
@@ -164,17 +169,75 @@ public final class RegularWindowPartition
         for (int i = 0; i < windowFunctions.size(); i++) {
             WindowFunction windowFunction = windowFunctions.get(i);
             Framing.Range range = framings.get(i).getRange(currentPosition, currentGroupIndex, peerGroupStart, peerGroupEnd);
+            int frameStart = range.getStart();
+            int frameEnd = range.getEnd();
+            Exclusion exclusion = exclusion(frames.get(i).getExclusion(), frameStart, frameEnd);
             windowFunction.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
-                    range.getStart(),
-                    range.getEnd());
+                    frameStart,
+                    frameEnd,
+                    exclusion.start(),
+                    exclusion.end(),
+                    exclusion.keptRow());
             channel++;
         }
 
         currentPosition++;
     }
+
+    /// Resolves the frame exclusion into the range of positions to remove from the current row's
+    /// frame `[frameStart, frameEnd]`. The excluded range is the current row or its peer group
+    /// (per the `EXCLUDE` clause), intersected with the frame. `EXCLUDE TIES` keeps the
+    /// current row, reported as `keptRow`. All positions are relative to the partition start.
+    private Exclusion exclusion(FrameExclusion frameExclusion, int frameStart, int frameEnd)
+    {
+        if (frameStart < 0 || frameExclusion == FrameExclusion.NO_OTHERS) {
+            // empty frame, or no rows to exclude
+            return NO_EXCLUSION;
+        }
+
+        int currentRow = currentPosition - partitionStart;
+
+        int excludedStart;
+        int excludedEnd;
+        int keptRow = -1;
+        if (frameExclusion == FrameExclusion.CURRENT_ROW) {
+            excludedStart = currentRow;
+            excludedEnd = currentRow;
+        }
+        else {
+            // EXCLUDE GROUP or EXCLUDE TIES: exclude the current row's whole peer group
+            excludedStart = peerGroupStart - partitionStart;
+            excludedEnd = peerGroupEnd - partitionStart - 1;
+            if (frameExclusion == FrameExclusion.TIES) {
+                keptRow = currentRow;
+            }
+        }
+
+        // restrict the excluded range to the frame
+        excludedStart = max(excludedStart, frameStart);
+        excludedEnd = min(excludedEnd, frameEnd);
+        if (excludedStart > excludedEnd) {
+            // nothing to exclude within the frame
+            return NO_EXCLUSION;
+        }
+        // the current row is only kept if it lies within the frame
+        if (keptRow < frameStart || keptRow > frameEnd) {
+            keptRow = -1;
+        }
+        if (excludedStart == excludedEnd && excludedEnd == keptRow) {
+            // EXCLUDE TIES over a peer group of one (e.g. a unique ordering key): the only excluded row is the
+            // kept row, so nothing is actually removed. Report no exclusion to keep the incremental fast path.
+            return NO_EXCLUSION;
+        }
+        return new Exclusion(excludedStart, excludedEnd, keptRow);
+    }
+
+    private static final Exclusion NO_EXCLUSION = new Exclusion(0, -1, -1);
+
+    private record Exclusion(int start, int end, int keptRow) {}
 
     private void updatePeerGroup()
     {

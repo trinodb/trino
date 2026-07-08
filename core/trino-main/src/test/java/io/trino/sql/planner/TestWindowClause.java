@@ -48,6 +48,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
@@ -109,7 +110,8 @@ public class TestWindowClause
                                                                 Optional.of(new Symbol(UNKNOWN, "expr_b")),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
-                                                                Optional.empty()))),
+                                                                Optional.empty(),
+                                                                NO_OTHERS))),
                                 project(
                                         ImmutableMap.of("frame_start", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "expr_b"), new Reference(INTEGER, "expr_c"))))),
                                         anyTree(project(
@@ -185,7 +187,8 @@ public class TestWindowClause
                                                                 Optional.empty(),
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_bound")),
-                                                                Optional.of(new Symbol(UNKNOWN, "coerced_sortkey"))))),
+                                                                Optional.of(new Symbol(UNKNOWN, "coerced_sortkey")),
+                                                                NO_OTHERS))),
                                 project(
                                         // frame bound value computation
                                         ImmutableMap.of("frame_bound", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "coerced_sortkey"), new Reference(DOUBLE, "frame_offset"))))),

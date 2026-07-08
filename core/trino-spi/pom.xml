@@ -331,6 +331,33 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
                                 </item>
+                                <!-- Window frame exclusion (EXCLUDE CURRENT ROW / GROUP / TIES / NO OTHERS) adds the excluded
+                                     sub-range and kept-row parameters to the window-function SPI so functions can honor a frame
+                                     with a hole punched out of it. -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.WindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.WindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int, int)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.RankingWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.RankingWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int, int)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int, int)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

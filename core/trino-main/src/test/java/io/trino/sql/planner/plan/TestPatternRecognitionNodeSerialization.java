@@ -64,6 +64,7 @@ import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.SkipToPosition.LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
@@ -206,12 +207,12 @@ public class TestPatternRecognitionNodeSerialization
                                 rankFunction,
                                 ImmutableList.of(),
                                 Optional.empty(),
-                                new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()),
+                                new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS),
                                 false,
                                 false)),
                 ImmutableMap.of(
                         new Symbol(BOOLEAN, "measure"), new Measure(new ExpressionAndValuePointers(new Constant(BOOLEAN, null), ImmutableList.of()), BOOLEAN)),
-                Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty())),
+                Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS)),
                 WINDOW,
                 ImmutableSet.of(new IrLabel("B")),
                 LAST,

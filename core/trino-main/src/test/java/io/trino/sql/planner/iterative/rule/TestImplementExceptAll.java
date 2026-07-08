@@ -47,6 +47,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 
 public class TestImplementExceptAll
@@ -66,7 +67,8 @@ public class TestImplementExceptAll
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         tester().assertThat(new ImplementExceptAll(tester().getMetadata()))
                 .on(p -> {

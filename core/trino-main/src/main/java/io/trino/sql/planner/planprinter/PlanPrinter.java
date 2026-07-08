@@ -169,6 +169,7 @@ import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
@@ -1093,6 +1094,10 @@ public class PlanPrinter
                     .map(anonymizer::anonymize)
                     .ifPresent(value -> builder.append(" ").append(value));
             builder.append(" ").append(frame.getEndType());
+
+            if (frame.getExclusion() != NO_OTHERS) {
+                builder.append(" EXCLUDE ").append(frame.getExclusion());
+            }
 
             return builder.toString();
         }
