@@ -137,6 +137,7 @@ public class TestSqlKeywords
                         "HOUR",
                         "IF",
                         "IGNORE",
+                        "ILIKE",
                         "IMMEDIATE",
                         "IN",
                         "INCLUDING",

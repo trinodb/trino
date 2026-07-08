@@ -23,28 +23,36 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * LikePattern can be a part of the cache key in projection/filter compiled class caches in ExpressionCompiler.
- * Equality for this class is dependent on the pattern and escape alone, as the matcher is expected to be derived from those.
+ * Equality for this class is dependent on the pattern, escape, and case sensitivity alone, as the matcher is
+ * expected to be derived from those.
  */
 public class LikePattern
 {
     private final String pattern;
     private final Optional<Character> escape;
+    private final boolean caseSensitive;
     private final LikeMatcher matcher;
 
     public static LikePattern compile(String pattern, Optional<Character> escape)
     {
-        return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape));
+        return compile(pattern, escape, true, true);
     }
 
     public static LikePattern compile(String pattern, Optional<Character> escape, boolean optimize)
     {
-        return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape, optimize));
+        return compile(pattern, escape, optimize, true);
     }
 
-    private LikePattern(String pattern, Optional<Character> escape, LikeMatcher matcher)
+    public static LikePattern compile(String pattern, Optional<Character> escape, boolean optimize, boolean caseSensitive)
+    {
+        return new LikePattern(pattern, escape, caseSensitive, LikeMatcher.compile(pattern, escape, optimize, caseSensitive));
+    }
+
+    private LikePattern(String pattern, Optional<Character> escape, boolean caseSensitive, LikeMatcher matcher)
     {
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
+        this.caseSensitive = caseSensitive;
         this.matcher = requireNonNull(matcher, "likeMatcher is null");
     }
 
@@ -56,6 +64,11 @@ public class LikePattern
     public Optional<Character> getEscape()
     {
         return escape;
+    }
+
+    public boolean isCaseSensitive()
+    {
+        return caseSensitive;
     }
 
     public LikeMatcher getMatcher()
@@ -73,13 +86,13 @@ public class LikePattern
             return false;
         }
         LikePattern that = (LikePattern) o;
-        return Objects.equals(pattern, that.pattern) && Objects.equals(escape, that.escape);
+        return caseSensitive == that.caseSensitive && Objects.equals(pattern, that.pattern) && Objects.equals(escape, that.escape);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(pattern, escape);
+        return Objects.hash(pattern, escape, caseSensitive);
     }
 
     @Override
@@ -88,6 +101,7 @@ public class LikePattern
         return toStringHelper(this)
                 .add("pattern", pattern)
                 .add("escape", escape)
+                .add("caseSensitive", caseSensitive)
                 .toString();
     }
 }

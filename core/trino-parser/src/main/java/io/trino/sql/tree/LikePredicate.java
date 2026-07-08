@@ -24,24 +24,40 @@ import static java.util.Objects.requireNonNull;
 /// SQL spec `<character like predicate part 2> ::= [NOT] LIKE <character pattern> [ESCAPE <escape character>]`.
 /// The in-place `NOT LIKE` is recorded via [#isNegated()]; outer `NOT (x LIKE y)`
 /// stays as a [NotExpression] wrapping a non-negated `LikePredicate`.
+///
+/// [#isCaseInsensitive()] records the `ILIKE` spelling — a Trino extension that matches
+/// case-insensitively. It shares this node (and all LIKE plumbing) with `LIKE`, differing only
+/// in how the planner lowers it.
 public final class LikePredicate
         extends Predicate
 {
     private final boolean negated;
     private final Expression pattern;
     private final Optional<Expression> escape;
+    private final boolean caseInsensitive;
 
     public LikePredicate(NodeLocation location, boolean negated, Expression pattern, Optional<Expression> escape)
+    {
+        this(location, negated, pattern, escape, false);
+    }
+
+    public LikePredicate(NodeLocation location, boolean negated, Expression pattern, Optional<Expression> escape, boolean caseInsensitive)
     {
         super(location);
         this.negated = negated;
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
+        this.caseInsensitive = caseInsensitive;
     }
 
     public boolean isNegated()
     {
         return negated;
+    }
+
+    public boolean isCaseInsensitive()
+    {
+        return caseInsensitive;
     }
 
     public Expression getPattern()
@@ -71,7 +87,11 @@ public final class LikePredicate
     @Override
     public boolean shallowEquals(Node other)
     {
-        return sameClass(this, other) && negated == ((LikePredicate) other).negated;
+        if (!sameClass(this, other)) {
+            return false;
+        }
+        LikePredicate that = (LikePredicate) other;
+        return negated == that.negated && caseInsensitive == that.caseInsensitive;
     }
 
     @Override
@@ -80,18 +100,22 @@ public final class LikePredicate
         return o instanceof LikePredicate that
                 && negated == that.negated
                 && pattern.equals(that.pattern)
-                && escape.equals(that.escape);
+                && escape.equals(that.escape)
+                && caseInsensitive == that.caseInsensitive;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(negated, pattern, escape);
+        return Objects.hash(negated, pattern, escape, caseInsensitive);
     }
 
     @Override
     public String toString()
     {
-        return (negated ? "NOT LIKE " : "LIKE ") + pattern + escape.map(e -> " ESCAPE " + e).orElse("");
+        String operator = caseInsensitive
+                ? (negated ? "NOT ILIKE " : "ILIKE ")
+                : (negated ? "NOT LIKE " : "LIKE ");
+        return operator + pattern + escape.map(e -> " ESCAPE " + e).orElse("");
     }
 }

@@ -131,6 +131,72 @@ public class TestLikeMatcher
         assertThat(match("%$_%", "xxxxx_xxxxx", '$')).isTrue();
     }
 
+    @Test
+    public void testCaseInsensitive()
+    {
+        // literals fold both ways
+        assertThat(matchCaseInsensitive("abc", "abc")).isTrue();
+        assertThat(matchCaseInsensitive("abc", "ABC")).isTrue();
+        assertThat(matchCaseInsensitive("AbC", "aBc")).isTrue();
+        assertThat(matchCaseInsensitive("abc", "abd")).isFalse();
+
+        // exact length is still enforced
+        assertThat(matchCaseInsensitive("abc", "abcd")).isFalse();
+        assertThat(matchCaseInsensitive("abc", "ab")).isFalse();
+
+        // wildcards combined with folding
+        assertThat(matchCaseInsensitive("a%", "ABC")).isTrue();
+        assertThat(matchCaseInsensitive("%c", "ABC")).isTrue();
+        assertThat(matchCaseInsensitive("a_c", "AXC")).isTrue();
+        assertThat(matchCaseInsensitive("a_c", "AXYC")).isFalse();
+        assertThat(matchCaseInsensitive("%b%", "AABAA")).isTrue();
+
+        // leading and trailing %
+        assertThat(matchCaseInsensitive("%abc%", "xxABCxx")).isTrue();
+
+        // empty and all-wildcard patterns
+        assertThat(matchCaseInsensitive("", "")).isTrue();
+        assertThat(matchCaseInsensitive("", "a")).isFalse();
+        assertThat(matchCaseInsensitive("%", "")).isTrue();
+        assertThat(matchCaseInsensitive("%", "anything")).isTrue();
+
+        // non-ASCII folding
+        assertThat(matchCaseInsensitive("äöü", "ÄÖÜ")).isTrue();
+        assertThat(matchCaseInsensitive("straße", "STRASSE")).isFalse(); // ß folds to ß, not to "ss"
+
+        // escape is honored, and the escaped wildcard still matches case-insensitively
+        assertThat(matchCaseInsensitive("a$%b", "A%B", '$')).isTrue();
+        assertThat(matchCaseInsensitive("a$%b", "AXB", '$')).isFalse();
+
+        // case-insensitive matching does not change case-sensitive results
+        assertThat(match("abc", "ABC")).isFalse();
+    }
+
+    private static boolean matchCaseInsensitive(String pattern, String value)
+    {
+        return matchCaseInsensitive(pattern, value, Optional.empty());
+    }
+
+    private static boolean matchCaseInsensitive(String pattern, String value, char escape)
+    {
+        return matchCaseInsensitive(pattern, value, Optional.of(escape));
+    }
+
+    private static boolean matchCaseInsensitive(String pattern, String value, Optional<Character> escape)
+    {
+        byte[] value8 = value.getBytes(StandardCharsets.UTF_8);
+        boolean withoutPadding = LikeMatcher.compile(pattern, escape, false, false).match(value8);
+
+        // matching against an offset/length subrange must give the same answer
+        String padding = "++++";
+        byte[] padded = (padding + value + padding).getBytes(StandardCharsets.UTF_8);
+        boolean withPadding = LikeMatcher.compile(pattern, escape, false, false)
+                .match(padded, padding.length(), padded.length - padding.length() * 2);
+        assertThat(withPadding).isEqualTo(withoutPadding);
+
+        return withoutPadding;
+    }
+
     private static boolean match(String pattern, String value)
     {
         return match(pattern, value, Optional.empty());
