@@ -57,7 +57,12 @@ public class TestElasticsearchConfig
                 .setTruststorePassword(null)
                 .setVerifyHostnames(true)
                 .setIgnorePublishAddress(false)
-                .setSecurity(null));
+                .setSecurity(null)
+                .setStatisticsEnabled(true)
+                .setDynamicFilteringWaitTimeout(new Duration(5, SECONDS))
+                .setKeywordSubfieldPushdownWithIgnoreAbove(false)
+                .setAggregationPushdownEnabled(true)
+                .setFullTextPushdownMode(FullTextPushdownMode.DISABLED));
     }
 
     @Test
@@ -89,6 +94,11 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
                 .put("elasticsearch.security", "AWS")
+                .put("elasticsearch.statistics.enabled", "false")
+                .put("elasticsearch.dynamic-filtering.wait-timeout", "10s")
+                .put("elasticsearch.keyword-subfield-pushdown-with-ignore-above", "true")
+                .put("elasticsearch.aggregation-pushdown.enabled", "false")
+                .put("elasticsearch.full-text-pushdown", "SAFE")
                 .buildOrThrow();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
@@ -112,7 +122,12 @@ public class TestElasticsearchConfig
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
                 .setIgnorePublishAddress(true)
-                .setSecurity(AWS);
+                .setSecurity(AWS)
+                .setStatisticsEnabled(false)
+                .setDynamicFilteringWaitTimeout(new Duration(10, SECONDS))
+                .setKeywordSubfieldPushdownWithIgnoreAbove(true)
+                .setAggregationPushdownEnabled(false)
+                .setFullTextPushdownMode(FullTextPushdownMode.SAFE);
 
         assertFullMapping(properties, expected);
     }

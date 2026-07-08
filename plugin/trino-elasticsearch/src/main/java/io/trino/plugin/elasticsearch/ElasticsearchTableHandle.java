@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -33,9 +35,12 @@ public record ElasticsearchTableHandle(
         String index,
         TupleDomain<ColumnHandle> constraint,
         Map<String, String> regexes,
+        Map<String, String> prefixes,
         Optional<String> query,
         OptionalLong limit,
-        Set<ElasticsearchColumnHandle> columns)
+        List<ElasticsearchColumnSort> sortOrder,
+        Set<ElasticsearchColumnHandle> columns,
+        Optional<ElasticsearchAggregation> aggregation)
         implements ConnectorTableHandle
 {
     public enum Type
@@ -50,9 +55,12 @@ public record ElasticsearchTableHandle(
                 index,
                 TupleDomain.all(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 query,
                 OptionalLong.empty(),
-                ImmutableSet.of());
+                ImmutableList.of(),
+                ImmutableSet.of(),
+                Optional.empty());
     }
 
     public ElasticsearchTableHandle withColumns(Set<ElasticsearchColumnHandle> columns)
@@ -63,9 +71,44 @@ public record ElasticsearchTableHandle(
                 index,
                 constraint,
                 regexes,
+                prefixes,
                 query,
                 limit,
-                columns);
+                sortOrder,
+                columns,
+                aggregation);
+    }
+
+    public ElasticsearchTableHandle withConstraint(TupleDomain<ColumnHandle> constraint)
+    {
+        return new ElasticsearchTableHandle(
+                type,
+                schema,
+                index,
+                constraint,
+                regexes,
+                prefixes,
+                query,
+                limit,
+                sortOrder,
+                columns,
+                aggregation);
+    }
+
+    public ElasticsearchTableHandle withTopN(long limit, List<ElasticsearchColumnSort> sortOrder)
+    {
+        return new ElasticsearchTableHandle(
+                type,
+                schema,
+                index,
+                constraint,
+                regexes,
+                prefixes,
+                query,
+                OptionalLong.of(limit),
+                sortOrder,
+                columns,
+                aggregation);
     }
 
     public ElasticsearchTableHandle
@@ -75,9 +118,12 @@ public record ElasticsearchTableHandle(
         requireNonNull(index, "index is null");
         requireNonNull(constraint, "constraint is null");
         regexes = ImmutableMap.copyOf(regexes);
+        prefixes = ImmutableMap.copyOf(prefixes);
         columns = ImmutableSet.copyOf(columns);
+        sortOrder = ImmutableList.copyOf(sortOrder);
         requireNonNull(query, "query is null");
         requireNonNull(limit, "limit is null");
+        requireNonNull(aggregation, "aggregation is null");
     }
 
     @Override
@@ -94,7 +140,17 @@ public record ElasticsearchTableHandle(
                     .collect(Collectors.joining(", ")));
             attributes.append("]");
         }
+        if (!prefixes.isEmpty()) {
+            attributes.append("prefixes=[");
+            attributes.append(prefixes.entrySet().stream()
+                    .map(prefix -> prefix.getKey() + ":" + prefix.getValue())
+                    .collect(Collectors.joining(", ")));
+            attributes.append("]");
+        }
         limit.ifPresent(value -> attributes.append("limit=" + value));
+        if (!sortOrder.isEmpty()) {
+            attributes.append("sort=" + sortOrder);
+        }
         query.ifPresent(value -> attributes.append("query" + value));
 
         if (attributes.length() > 0) {

@@ -80,6 +80,36 @@ The following table details all general configuration properties:
   - [Duration](prop-type-duration) between requests to refresh the list of
     available Elasticsearch nodes.
   - `1m`
+* - `elasticsearch.statistics.enabled`
+  - Enable collecting table statistics by querying Elasticsearch aggregations
+    (document count, distinct values, null fractions, and min/max ranges) so the
+    cost-based optimizer can better plan joins and other operations.
+  - `true`
+* - `elasticsearch.dynamic-filtering.wait-timeout`
+  - Maximum [duration](prop-type-duration) to wait for the collection of dynamic
+    filters, such as join keys, before generating splits. Dynamic filters are
+    applied within the Elasticsearch query to reduce the number of scanned
+    documents. Can be overridden per query with the
+    `dynamic_filtering_wait_timeout` session property.
+  - `5s`
+* - `elasticsearch.keyword-subfield-pushdown-with-ignore-above`
+  - Push predicates and aggregations for a `text` field down to its exact-match
+    `keyword` sub-field even when that sub-field defines `ignore_above`. This is
+    disabled by default because `ignore_above` omits longer values from the
+    sub-field index, so pushed-down predicates could return incomplete results.
+    Enable it only when all indexed string values are shorter than the
+    `ignore_above` limit.
+  - `false`
+* - `elasticsearch.aggregation-pushdown.enabled`
+  - Enable pushing down aggregations to Elasticsearch. Can be overridden per
+    query with the `aggregation_pushdown_enabled` session property.
+  - `true`
+* - `elasticsearch.full-text-pushdown`
+  - Push predicates and dynamic filters on analyzed `text` fields to
+    Elasticsearch as full-text queries. One of `DISABLED`, `SAFE`, or `UNSAFE`.
+    A `text` field is tokenized, so this does not have exact SQL semantics. Can
+    be overridden per query with the `full_text_pushdown_mode` session property.
+  - `DISABLED`
 * - `elasticsearch.ignore-publish-address`
   - Disable using the address published by the Elasticsearch API to connect for
     queries. Some deployments map Elasticsearch ports to a random public port
@@ -511,6 +541,80 @@ following data types:
 :::
 
 No other data types are supported for predicate push down.
+
+### Prefix predicate push down
+
+Predicates that match a string prefix are pushed down as an Elasticsearch
+`prefix` query on `keyword` fields, or on a `text` field's exact-match `keyword`
+sub-field. This applies to `col LIKE 'abc%'`, `starts_with(col, 'abc')`, and
+`substr(col, 1, n) = 'abc'` when `n` equals the character length of the literal.
+Other `LIKE` patterns are pushed down as a `regexp` query.
+
+### Full-text pushdown
+
+By default, predicates and dynamic filters on analyzed `text` fields — fields
+without an exact-match `keyword` sub-field — are evaluated by the engine,
+because a `text` field is tokenized and does not preserve exact string values.
+
+The `elasticsearch.full-text-pushdown` configuration property, or the
+`full_text_pushdown_mode` session property, opts in to pushing these predicates
+down as Elasticsearch full-text queries. Equality and `IN` predicates become a
+`match_phrase` query; `LIKE` and `regexp_like` become a `regexp` query, which
+Elasticsearch evaluates per token using Lucene regular expression syntax. Because
+tokenization, lowercasing, and stemming apply, results can differ from exact SQL
+semantics. Three modes are available:
+
+- `DISABLED`, the default: text predicates are evaluated by the engine only.
+- `SAFE`: push a `match_phrase` pre-filter but re-apply the exact predicate in
+  the engine. This removes false positives, but a value that analyzes to nothing,
+  such as a stop word, can still be dropped.
+- `UNSAFE`: push the `match_phrase` query and trust the Elasticsearch result.
+  Fully pushed down and fastest, but results follow Elasticsearch analysis
+  semantics.
+
+Dynamic filters on `text` join keys are always safe to push, because the join
+re-checks the key. They are pushed as `match_phrase` pre-filters whenever the
+mode is not `DISABLED`.
+
+### Aggregation pushdown
+
+The connector supports [aggregation pushdown](aggregation-pushdown) for global
+and `GROUP BY` queries. A pushed-down aggregation is computed by Elasticsearch
+with a [composite aggregation](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-composite-aggregation.html),
+so Trino does not read the underlying documents.
+
+The following aggregate functions are pushed down:
+
+- `count(*)` and `count(column)`
+- `sum`, `min`, `max`, and `avg` over numeric columns
+- `approx_distinct`
+
+An aggregation is only pushed down when Elasticsearch computes it exactly.
+`count(DISTINCT ...)` is not pushed down, because Elasticsearch computes distinct
+counts approximately. Grouping keys must be `boolean`, numeric, or `keyword`
+columns.
+
+Aggregation pushdown is enabled by default. Disable it with the
+`elasticsearch.aggregation-pushdown.enabled` catalog configuration property or
+the `aggregation_pushdown_enabled` catalog session property.
+
+### Table statistics
+
+When `elasticsearch.statistics.enabled` is `true`, the default, the connector
+exposes [table statistics](/optimizer/statistics) computed from Elasticsearch
+aggregations: row count, number of distinct values, null fraction, and value
+ranges for numeric and date columns. The cost-based optimizer uses these
+statistics to choose more efficient query plans, such as the join distribution
+type and join order.
+
+### Dynamic filtering
+
+The connector supports [dynamic filtering](/admin/dynamic-filtering). Dynamic
+filters generated on the build side of a join, such as join keys, are folded
+into the Elasticsearch query to reduce the number of scanned documents. The
+`elasticsearch.dynamic-filtering.wait-timeout` configuration property, or the
+`dynamic_filtering_wait_timeout` session property, controls how long split
+generation waits for dynamic filters to be collected.
 
 [built-in date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#built-in-date-formats
 [custom date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#custom-date-formats

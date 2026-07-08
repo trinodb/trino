@@ -78,6 +78,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -126,6 +127,7 @@ public class ElasticsearchClient
     private final Duration refreshInterval;
     private final boolean tlsEnabled;
     private final boolean ignorePublishAddress;
+    private final boolean keywordSubfieldPushdownWithIgnoreAbove;
 
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
@@ -145,6 +147,7 @@ public class ElasticsearchClient
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
         this.tlsEnabled = config.isTlsEnabled();
+        this.keywordSubfieldPushdownWithIgnoreAbove = config.isKeywordSubfieldPushdownWithIgnoreAbove();
     }
 
     @PostConstruct
@@ -524,11 +527,50 @@ public class ElasticsearchClient
                         LOG.debug("Ignoring empty object field: %s", name);
                     }
                 }
-                default -> result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.PrimitiveType(type)));
+                default -> {
+                    IndexMetadata.PrimitiveType primitiveType;
+                    if (type.equals("text")) {
+                        primitiveType = new IndexMetadata.PrimitiveType(type, keywordSubfield(value, keywordSubfieldPushdownWithIgnoreAbove));
+                    }
+                    else {
+                        primitiveType = new IndexMetadata.PrimitiveType(type);
+                    }
+                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, primitiveType));
+                }
             }
         }
 
         return new IndexMetadata.ObjectType(result.build());
+    }
+
+    @VisibleForTesting
+    static Optional<String> keywordSubfield(JsonNode fieldNode, boolean pushDownWithIgnoreAbove)
+    {
+        JsonNode fields = fieldNode.get("fields");
+        if (fields == null) {
+            return Optional.empty();
+        }
+        Optional<String> boundedSubfield = Optional.empty();
+        for (Entry<String, JsonNode> subfield : fields.properties()) {
+            JsonNode subfieldNode = subfield.getValue();
+            JsonNode type = subfieldNode.get("type");
+            if (type == null || !"keyword".equals(type.asText())) {
+                continue;
+            }
+            // A keyword sub-field without ignore_above indexes every value and is always safe for pushdown, so prefer it
+            if (subfieldNode.get("ignore_above") == null) {
+                return Optional.of(subfield.getKey());
+            }
+            // A sub-field with ignore_above may drop longer values from its index; it is only used, as a fallback,
+            // when the operator explicitly opts in and no unbounded keyword sub-field is available.
+            if (boundedSubfield.isEmpty()) {
+                boundedSubfield = Optional.of(subfield.getKey());
+            }
+        }
+        if (pushDownWithIgnoreAbove) {
+            return boundedSubfield;
+        }
+        return Optional.empty();
     }
 
     private JsonNode nullSafeNode(JsonNode jsonNode, String name)
@@ -568,7 +610,7 @@ public class ElasticsearchClient
         return body;
     }
 
-    public SearchResult beginSearch(String index, int shard, JsonNode query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
+    public SearchResult beginSearch(String index, int shard, JsonNode query, Optional<List<String>> fields, List<String> documentFields, List<JsonNode> sort, OptionalLong limit)
     {
         ObjectNode searchBody = JSON.objectNode();
         searchBody.set("query", query);
@@ -582,7 +624,11 @@ public class ElasticsearchClient
         }
         searchBody.put("size", size);
 
-        sort.ifPresent(s -> searchBody.set("sort", JSON.arrayNode().add(s)));
+        if (!sort.isEmpty()) {
+            ArrayNode sortArray = JSON.arrayNode();
+            sort.forEach(sortArray::add);
+            searchBody.set("sort", sortArray);
+        }
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
@@ -691,6 +737,108 @@ public class ElasticsearchClient
         finally {
             countStats.add(Duration.nanosSince(start));
         }
+    }
+
+    public IndexStatistics getIndexStatistics(String index, JsonNode query, List<String> fields, Set<String> rangeFields)
+    {
+        ObjectNode body = JSON.objectNode();
+        body.put("size", 0);
+        body.put("track_total_hits", true);
+        body.set("query", query);
+
+        ObjectNode aggregations = JSON.objectNode();
+        for (int i = 0; i < fields.size(); i++) {
+            String field = fields.get(i);
+            String name = "f" + i;
+            aggregations.set(name + "_card", fieldAggregation("cardinality", field));
+            aggregations.set(name + "_count", fieldAggregation("value_count", field));
+            if (rangeFields.contains(field)) {
+                aggregations.set(name + "_min", fieldAggregation("min", field));
+                aggregations.set(name + "_max", fieldAggregation("max", field));
+            }
+        }
+        if (!aggregations.isEmpty()) {
+            body.set("aggs", aggregations);
+        }
+
+        Response response;
+        try {
+            response = client.performRequest(
+                    "POST",
+                    format("/%s/_search", index),
+                    ImmutableMap.of(),
+                    new StringEntity(body.toString(), UTF_8),
+                    new BasicHeader("Content-Type", "application/json"));
+        }
+        catch (ResponseException e) {
+            throw propagate(e);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+
+        try {
+            JsonNode root = JSON_MAPPER.readTree(response.getEntity().getContent());
+            long documentCount = root.path("hits").path("total").path("value").asLong();
+
+            JsonNode aggregationResults = root.path("aggregations");
+            ImmutableMap.Builder<String, FieldStatistics> statistics = ImmutableMap.builder();
+            for (int i = 0; i < fields.size(); i++) {
+                String name = "f" + i;
+                statistics.put(fields.get(i), new FieldStatistics(
+                        longValue(aggregationResults.path(name + "_card")),
+                        longValue(aggregationResults.path(name + "_count")),
+                        doubleValue(aggregationResults.path(name + "_min")),
+                        doubleValue(aggregationResults.path(name + "_max"))));
+            }
+            return new IndexStatistics(documentCount, statistics.buildOrThrow());
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+    }
+
+    public JsonNode aggregate(String index, JsonNode body)
+    {
+        Response response;
+        try {
+            response = client.performRequest(
+                    "POST",
+                    format("/%s/_search", index),
+                    ImmutableMap.of(),
+                    new StringEntity(body.toString(), UTF_8),
+                    new BasicHeader("Content-Type", "application/json"));
+        }
+        catch (ResponseException e) {
+            throw propagate(e);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+
+        try {
+            return JSON_MAPPER.readTree(response.getEntity().getContent());
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+    }
+
+    private static ObjectNode fieldAggregation(String aggregation, String field)
+    {
+        return JSON.objectNode().set(aggregation, JSON.objectNode().put("field", field));
+    }
+
+    private static OptionalLong longValue(JsonNode aggregation)
+    {
+        JsonNode value = aggregation.path("value");
+        return value.isNumber() ? OptionalLong.of(value.asLong()) : OptionalLong.empty();
+    }
+
+    private static OptionalDouble doubleValue(JsonNode aggregation)
+    {
+        JsonNode value = aggregation.path("value");
+        return value.isNumber() ? OptionalDouble.of(value.asDouble()) : OptionalDouble.empty();
     }
 
     public void clearScroll(String scrollId)

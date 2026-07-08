@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -43,6 +44,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSort;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
@@ -99,20 +101,13 @@ public class ScanQueryPageSource
                 .filter(name -> !isBuiltinColumn(name))
                 .collect(toList());
 
-        // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
-        Optional<String> sort = Optional.of("_doc");
-
-        if (table.query().isPresent()) {
-            // However, if we're using a custom Elasticsearch query, use default sorting.
-            // Documents will be scored and returned based on relevance
-            sort = Optional.empty();
-        }
+        List<JsonNode> sort = buildSort(table.sortOrder(), table.query().isPresent());
 
         long start = System.nanoTime();
         SearchResult searchResult = client.beginSearch(
                 split.index(),
                 split.shard(),
-                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()),
+                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes(), table.prefixes()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,

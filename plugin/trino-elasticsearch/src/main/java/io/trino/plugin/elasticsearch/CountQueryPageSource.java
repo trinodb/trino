@@ -43,7 +43,7 @@ class CountQueryPageSource
         long count = client.count(
                 split.index(),
                 split.shard(),
-                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()));
+                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes(), table.prefixes()));
         readTimeNanos = System.nanoTime() - start;
 
         if (table.limit().isPresent()) {

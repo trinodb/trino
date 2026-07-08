@@ -46,6 +46,19 @@ public record ElasticsearchColumnHandle(
         return Joiner.on('.').join(path);
     }
 
+    /**
+     * Field name to use when pushing predicates into Elasticsearch. For a {@code text} field that has an
+     * exact-match {@code keyword} sub-field, this targets the sub-field; otherwise it is the same as {@link #name()}.
+     */
+    @JsonIgnore
+    public String predicateName()
+    {
+        if (elasticsearchType instanceof IndexMetadata.PrimitiveType primitiveType && primitiveType.keyword().isPresent()) {
+            return name() + "." + primitiveType.keyword().get();
+        }
+        return name();
+    }
+
     @Override
     public String toString()
     {

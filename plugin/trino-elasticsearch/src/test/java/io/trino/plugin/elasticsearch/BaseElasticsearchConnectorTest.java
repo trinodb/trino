@@ -106,9 +106,29 @@ public abstract class BaseElasticsearchConnectorTest
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE -> false;
-            case SUPPORTS_DEREFERENCE_PUSHDOWN -> true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN, SUPPORTS_DEREFERENCE_PUSHDOWN -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    public void testElasticsearchAggregationPushdown()
+    {
+        // Correctness: results are compared against the reference (h2/tpch)
+        assertQuery("SELECT count(*) FROM nation");
+        assertQuery("SELECT sum(nationkey), min(nationkey), max(nationkey), avg(nationkey) FROM nation");
+        assertQuery("SELECT regionkey, count(*), sum(nationkey), min(nationkey), max(nationkey) FROM nation GROUP BY regionkey");
+        assertQuery("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey");
+        assertQuery("SELECT regionkey, count(*) FROM nation WHERE nationkey < 10 GROUP BY regionkey");
+
+        // Pushdown: the plan is fully pushed for supported aggregates
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT sum(nationkey), min(nationkey), max(nationkey), avg(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 10 GROUP BY regionkey")).isFullyPushedDown();
+
+        // count(DISTINCT) is exact and must NOT be pushed down as an approximate cardinality
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(io.trino.sql.planner.plan.AggregationNode.class);
     }
 
     /**
@@ -1149,6 +1169,45 @@ public abstract class BaseElasticsearchConnectorTest
                 """))
                 .matches("VALUES VARCHAR 'so.me tex\\t'")
                 .isFullyPushedDown();
+
+        // starts_with(col, 'x') pushes down to an Elasticsearch prefix query
+        assertThat(query("SELECT keyword_column FROM " + indexName + " WHERE starts_with(keyword_column, 'so.me')"))
+                .matches("VALUES VARCHAR 'so.me tex\\t'")
+                .isFullyPushedDown();
+
+        // substr(col, 1, n) = 'x' with n equal to the character length of 'x' is also a prefix (UTF-8 aware)
+        assertThat(query("SELECT keyword_column FROM " + indexName + " WHERE substr(keyword_column, 1, 2) = '中文'"))
+                .matches("VALUES VARCHAR '中文'")
+                .isFullyPushedDown();
+
+        // Full-text pushdown mode: an analyzed text column's equality is pushed as a match_phrase query
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session unsafeFullText = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "full_text_pushdown_mode", "UNSAFE")
+                .build();
+        Session safeFullText = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, "full_text_pushdown_mode", "SAFE")
+                .build();
+
+        // UNSAFE trusts Elasticsearch: the text equality is fully pushed down as a match_phrase
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column = 'soome%text'"))
+                .matches("VALUES VARCHAR 'soome%text'")
+                .isFullyPushedDown();
+
+        // SAFE pushes a match_phrase pre-filter but keeps the exact predicate as a residual (not fully pushed)
+        assertThat(query(safeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column = 'soome%text'"))
+                .matches("VALUES VARCHAR 'soome%text'")
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
+
+        // LIKE on an analyzed text column is pushed as a regexp query when the full-text mode is on
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE text_column LIKE '%soome%'"))
+                .isFullyPushedDown();
+
+        // regexp_like on text is pushed as an Elasticsearch (Lucene) regexp when the full-text mode is on
+        assertThat(query(unsafeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, 'soome')"))
+                .isFullyPushedDown();
+        assertThat(query(safeFullText, "SELECT text_column FROM " + indexName + " WHERE regexp_like(text_column, 'soome')"))
+                .isNotFullyPushedDown(io.trino.sql.planner.plan.FilterNode.class);
 
         assertThat(query(
                 """

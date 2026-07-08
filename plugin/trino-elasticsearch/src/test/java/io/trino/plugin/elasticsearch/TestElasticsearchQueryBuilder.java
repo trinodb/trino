@@ -136,7 +136,7 @@ public class TestElasticsearchQueryBuilder
     private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, String expected)
             throws IOException
     {
-        JsonNode actual = buildSearchQuery(TupleDomain.withColumnDomains(domains), Optional.empty(), Map.of());
+        JsonNode actual = buildSearchQuery(TupleDomain.withColumnDomains(domains), Optional.empty(), Map.of(), Map.of());
         // Compare as normalized JSON trees to handle numeric type differences (LongNode vs IntNode)
         assertThat(JSON_MAPPER.readTree(actual.toString())).isEqualTo(JSON_MAPPER.readTree(expected));
     }

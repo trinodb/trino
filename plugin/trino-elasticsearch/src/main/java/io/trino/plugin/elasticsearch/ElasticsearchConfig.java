@@ -78,6 +78,11 @@ public class ElasticsearchConfig
     private boolean verifyHostnames = true;
 
     private Security security;
+    private boolean statisticsEnabled = true;
+    private Duration dynamicFilteringWaitTimeout = new Duration(5, SECONDS);
+    private boolean keywordSubfieldPushdownWithIgnoreAbove;
+    private boolean aggregationPushdownEnabled = true;
+    private FullTextPushdownMode fullTextPushdownMode = FullTextPushdownMode.DISABLED;
 
     @NotNull
     public List<String> getHosts()
@@ -353,6 +358,72 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setSecurity(Security security)
     {
         this.security = security;
+        return this;
+    }
+
+    public boolean isStatisticsEnabled()
+    {
+        return statisticsEnabled;
+    }
+
+    @Config("elasticsearch.statistics.enabled")
+    @ConfigDescription("Enable collecting table statistics from Elasticsearch aggregations")
+    public ElasticsearchConfig setStatisticsEnabled(boolean statisticsEnabled)
+    {
+        this.statisticsEnabled = statisticsEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("elasticsearch.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public ElasticsearchConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    public boolean isKeywordSubfieldPushdownWithIgnoreAbove()
+    {
+        return keywordSubfieldPushdownWithIgnoreAbove;
+    }
+
+    @Config("elasticsearch.keyword-subfield-pushdown-with-ignore-above")
+    @ConfigDescription("Push predicates and aggregations to a text field's keyword sub-field even when the sub-field defines ignore_above. Enable only when indexed string values are shorter than the limit, otherwise results may be incomplete")
+    public ElasticsearchConfig setKeywordSubfieldPushdownWithIgnoreAbove(boolean keywordSubfieldPushdownWithIgnoreAbove)
+    {
+        this.keywordSubfieldPushdownWithIgnoreAbove = keywordSubfieldPushdownWithIgnoreAbove;
+        return this;
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("elasticsearch.aggregation-pushdown.enabled")
+    @ConfigDescription("Enable pushing down aggregations to Elasticsearch")
+    public ElasticsearchConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
+    }
+
+    public FullTextPushdownMode getFullTextPushdownMode()
+    {
+        return fullTextPushdownMode;
+    }
+
+    @Config("elasticsearch.full-text-pushdown")
+    @ConfigDescription("Push predicates and dynamic filters on analyzed text fields to Elasticsearch as full-text queries (DISABLED, SAFE, UNSAFE). Not exact SQL semantics")
+    public ElasticsearchConfig setFullTextPushdownMode(FullTextPushdownMode fullTextPushdownMode)
+    {
+        this.fullTextPushdownMode = fullTextPushdownMode;
         return this;
     }
 }

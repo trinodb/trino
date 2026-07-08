@@ -23,6 +23,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -54,7 +55,7 @@ public final class ElasticsearchQueryBuilder
 
     private ElasticsearchQueryBuilder() {}
 
-    public static JsonNode buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query, Map<String, String> regexes)
+    public static JsonNode buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query, Map<String, String> regexes, Map<String, String> prefixes)
     {
         ArrayNode filterClauses = JSON.arrayNode();
         ArrayNode mustNotClauses = JSON.arrayNode();
@@ -67,7 +68,9 @@ public final class ElasticsearchQueryBuilder
 
                 checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.name());
                 if (!domain.isAll()) {
-                    addPredicateToClauses(filterClauses, mustNotClauses, column.name(), domain, column.type());
+                    // An analyzed text column that is not exact-match pushable is queried with a full-text match_phrase
+                    boolean fullText = !column.supportsPredicates() && column.type() instanceof VarcharType;
+                    addPredicateToClauses(filterClauses, mustNotClauses, column.predicateName(), domain, column.type(), fullText);
                 }
             }
         }
@@ -76,6 +79,8 @@ public final class ElasticsearchQueryBuilder
                 JSON.objectNode().set(
                         "bool",
                         boolQuery().set("must", JSON.arrayNode().add(regexpQuery(name, value))))));
+
+        prefixes.forEach((name, value) -> filterClauses.add(prefixQuery(name, value)));
 
         query.ifPresent(q -> mustClauses.add(queryStringQuery(q)));
 
@@ -96,7 +101,93 @@ public final class ElasticsearchQueryBuilder
         return JSON.objectNode().set("bool", boolNode);
     }
 
-    private static void addPredicateToClauses(ArrayNode filterClauses, ArrayNode mustNotClauses, String columnName, Domain domain, Type type)
+    public static List<JsonNode> buildSort(List<ElasticsearchColumnSort> sortOrder, boolean hasQuery)
+    {
+        if (!sortOrder.isEmpty()) {
+            ImmutableList.Builder<JsonNode> clauses = ImmutableList.builder();
+            for (ElasticsearchColumnSort item : sortOrder) {
+                ObjectNode order = JSON.objectNode();
+                order.put("order", item.ascending() ? "asc" : "desc");
+                order.put("missing", item.nullsFirst() ? "_first" : "_last");
+                clauses.add(JSON.objectNode().set(item.field(), order));
+            }
+            return clauses.build();
+        }
+        if (hasQuery) {
+            // With a custom Elasticsearch query, rely on relevance scoring instead of an explicit sort
+            return ImmutableList.of();
+        }
+        // Sorting by _doc (index order) is the cheapest option for a plain scroll
+        return ImmutableList.of(JSON.textNode("_doc"));
+    }
+
+    public static ObjectNode buildAggregationQuery(
+            JsonNode query,
+            List<ElasticsearchColumnHandle> groupingColumns,
+            List<ElasticsearchAggregate> aggregates,
+            int compositeSize,
+            Optional<JsonNode> afterKey)
+    {
+        ObjectNode body = JSON.objectNode();
+        body.put("size", 0);
+        body.put("track_total_hits", true);
+        body.set("query", query);
+
+        // Metric sub-aggregations. count(*) reads the bucket doc_count / total hits, so it has no sub-aggregation.
+        ObjectNode metrics = JSON.objectNode();
+        for (ElasticsearchAggregate aggregate : aggregates) {
+            Optional<String> metric = metricAggregation(aggregate.function());
+            if (metric.isPresent()) {
+                metrics.set(aggregate.outputName(), JSON.objectNode().set(metric.get(), JSON.objectNode().put("field", aggregate.field().orElseThrow())));
+                if (aggregate.function() == ElasticsearchAggregate.Function.SUM) {
+                    // Elasticsearch sum() is 0 over an all-null group, but SQL sum() must be NULL there; value_count detects it
+                    metrics.set(aggregate.outputName() + "_count", JSON.objectNode().set("value_count", JSON.objectNode().put("field", aggregate.field().orElseThrow())));
+                }
+            }
+        }
+
+        if (groupingColumns.isEmpty()) {
+            // Global aggregation: metrics live at the top level and produce a single result row
+            if (!metrics.isEmpty()) {
+                body.set("aggs", metrics);
+            }
+            return body;
+        }
+
+        // Grouped aggregation: a composite aggregation paginates deterministically over the grouping keys
+        ArrayNode sources = JSON.arrayNode();
+        for (int i = 0; i < groupingColumns.size(); i++) {
+            ObjectNode terms = JSON.objectNode().set("terms", JSON.objectNode().put("field", groupingColumns.get(i).predicateName()));
+            sources.add(JSON.objectNode().set("g" + i, terms));
+        }
+        ObjectNode composite = JSON.objectNode();
+        composite.put("size", compositeSize);
+        composite.set("sources", sources);
+        afterKey.ifPresent(key -> composite.set("after", key));
+
+        ObjectNode groups = JSON.objectNode();
+        groups.set("composite", composite);
+        if (!metrics.isEmpty()) {
+            groups.set("aggs", metrics);
+        }
+        body.set("aggs", JSON.objectNode().set("groups", groups));
+        return body;
+    }
+
+    private static Optional<String> metricAggregation(ElasticsearchAggregate.Function function)
+    {
+        return switch (function) {
+            case COUNT_ALL -> Optional.empty();
+            case COUNT -> Optional.of("value_count");
+            case SUM -> Optional.of("sum");
+            case MIN -> Optional.of("min");
+            case MAX -> Optional.of("max");
+            case AVG -> Optional.of("avg");
+            case COUNT_DISTINCT -> Optional.of("cardinality");
+        };
+    }
+
+    private static void addPredicateToClauses(ArrayNode filterClauses, ArrayNode mustNotClauses, String columnName, Domain domain, Type type, boolean fullText)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
@@ -110,7 +201,7 @@ public final class ElasticsearchQueryBuilder
             return;
         }
 
-        List<JsonNode> shouldClauses = getShouldClauses(columnName, domain, type);
+        List<JsonNode> shouldClauses = fullText ? getFullTextClauses(columnName, domain) : getShouldClauses(columnName, domain, type);
         if (shouldClauses.size() == 1) {
             filterClauses.add(getOnlyElement(shouldClauses));
             return;
@@ -166,6 +257,29 @@ public final class ElasticsearchQueryBuilder
         return shouldClauses.build();
     }
 
+    private static List<JsonNode> getFullTextClauses(String columnName, Domain domain)
+    {
+        ImmutableList.Builder<JsonNode> shouldClauses = ImmutableList.builder();
+        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+            // Full text can only express discrete values; a non-single range (for example from a compacted dynamic
+            // filter) is left unconstrained here so results stay a superset that the engine or join re-checks
+            if (range.isSingleValue()) {
+                shouldClauses.add(matchPhraseQuery(columnName, ((Slice) range.getSingleValue()).toStringUtf8()));
+            }
+        }
+        if (domain.isNullAllowed()) {
+            ObjectNode mustNotBool = boolQuery();
+            mustNotBool.set("must_not", JSON.arrayNode().add(existsQuery(columnName)));
+            shouldClauses.add(JSON.objectNode().set("bool", mustNotBool));
+        }
+        return shouldClauses.build();
+    }
+
+    private static ObjectNode matchPhraseQuery(String field, String value)
+    {
+        return JSON.objectNode().set("match_phrase", JSON.objectNode().put(field, value));
+    }
+
     private static Object getValue(Type type, Object value)
     {
         if (type.equals(BOOLEAN) ||
@@ -219,6 +333,13 @@ public final class ElasticsearchQueryBuilder
     {
         return JSON.objectNode().set(
                 "regexp",
+                JSON.objectNode().put(field, value));
+    }
+
+    private static ObjectNode prefixQuery(String field, String value)
+    {
+        return JSON.objectNode().set(
+                "prefix",
                 JSON.objectNode().put(field, value));
     }
 
