@@ -41,6 +41,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,7 +84,8 @@ public class TestWindowNode
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         PlanNodeId id = newId();
         DataOrganizationSpecification specification = new DataOrganizationSpecification(
