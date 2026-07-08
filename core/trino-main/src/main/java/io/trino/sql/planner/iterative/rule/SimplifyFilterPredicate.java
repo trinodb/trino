@@ -21,6 +21,7 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
@@ -36,9 +37,13 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.Patterns.filter;
 
@@ -81,6 +86,7 @@ public class SimplifyFilterPredicate
                     switch (conjunct) {
                         case Case expression -> simplify(expression);
                         case Match expression -> simplify(expression);
+                        case Logical expression when expression.operator() == Logical.Operator.OR -> simplifyNullSafeEquality(expression);
                         case null, default -> Optional.empty();
                     };
 
@@ -222,6 +228,56 @@ public class SimplifyFilterPredicate
             return Optional.of(FALSE);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Replace the null-safe equality pattern {@code a = b OR (a IS NULL AND b IS NULL)} among the
+     * terms of a disjunction with {@code a IS NOT DISTINCT FROM b}, exposing it to equi-join
+     * extraction and domain translation. The two forms differ when exactly one side is null
+     * (null vs false), which is equivalent in filter context.
+     */
+    private Optional<Expression> simplifyNullSafeEquality(Logical disjunction)
+    {
+        List<Expression> terms = new ArrayList<>(disjunction.terms());
+        boolean changed = false;
+
+        for (int i = 0; i < terms.size(); i++) {
+            if (!(matchComparison(terms.get(i)) instanceof Comparison.Equal(Expression left, Expression right)) ||
+                    !isDeterministic(left) ||
+                    !isDeterministic(right)) {
+                continue;
+            }
+            for (int j = 0; j < terms.size(); j++) {
+                if (j != i && isNullPair(terms.get(j), left, right)) {
+                    terms.set(i, comparison(metadata, IDENTICAL, left, right));
+                    terms.remove(j);
+                    if (j < i) {
+                        i--;
+                    }
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        if (!changed) {
+            return Optional.empty();
+        }
+
+        return Optional.of(or(terms));
+    }
+
+    private static boolean isNullPair(Expression expression, Expression left, Expression right)
+    {
+        if (!(expression instanceof Logical(Logical.Operator operator, List<Expression> terms)) ||
+                operator != Logical.Operator.AND ||
+                terms.size() != 2) {
+            return false;
+        }
+        if (!(terms.get(0) instanceof IsNull(Expression first)) || !(terms.get(1) instanceof IsNull(Expression second))) {
+            return false;
+        }
+        return (first.equals(left) && second.equals(right)) || (first.equals(right) && second.equals(left));
     }
 
     private static boolean isNotTrue(Expression expression)
