@@ -1338,13 +1338,13 @@ public class TrinoGlueCatalog
             String storageSchema = Optional.ofNullable(materializedViewParameters.get(STORAGE_SCHEMA))
                     .orElse(viewName.getSchemaName());
             storageTableName = new SchemaTableName(storageSchema, storageTable);
-
-            if (table.viewOriginalText() == null) {
-                throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
-            }
         }
         else {
             storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
+        }
+
+        if (table.viewOriginalText() == null) {
+            throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
         }
 
         return getMaterializedViewDefinition(

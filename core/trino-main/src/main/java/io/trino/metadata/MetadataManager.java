@@ -1669,16 +1669,49 @@ public final class MetadataManager
             return Optional.empty();
         }
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
-        if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
-            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName, Optional.empty(), Optional.empty());
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+        QualifiedObjectName name = viewName;
+        Set<QualifiedObjectName> visitedNames = new LinkedHashSet<>();
+        visitedNames.add(name);
 
-            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getView(connectorSession, viewName.asSchemaTableName());
+        for (int count = 0; count < MAX_TABLE_REDIRECTIONS; count++) {
+            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, name.catalogName());
+            if (catalog.isEmpty()) {
+                return Optional.empty();
+            }
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, name, Optional.empty(), Optional.empty());
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+            Optional<ConnectorViewDefinition> view = metadata.getView(session.toConnectorSession(catalogHandle), name.asSchemaTableName());
+            if (view.isPresent()) {
+                return view;
+            }
+
+            // The view was not found directly. A pure-redirection connector (e.g. the router/virtual
+            // catalog that redirects a prefixed schema to the catalog where the relation actually
+            // resides) serves the view only on the redirect target and returns null from getTableHandle
+            // for it. Follow the redirect and retry getView() on the target, mirroring how
+            // getRedirectedTableName() follows redirects for tables.
+            CatalogHandle redirectHandle = catalogMetadata.getCatalogHandle();
+            ConnectorMetadata redirectMetadata = catalogMetadata.getMetadataFor(session, redirectHandle);
+            Optional<QualifiedObjectName> redirectedName = redirectMetadata.redirectTable(session.toConnectorSession(redirectHandle), name.asSchemaTableName())
+                    .map(target -> convertFromSchemaTableName(target.getCatalogName()).apply(target.getSchemaTableName()));
+            if (redirectedName.isEmpty()) {
+                return Optional.empty();
+            }
+
+            name = redirectedName.get();
+
+            // Check for loop in redirection
+            if (!visitedNames.add(name)) {
+                throw new TrinoException(TABLE_REDIRECTION_ERROR,
+                        format("Table redirections form a loop: %s",
+                                Streams.concat(visitedNames.stream(), Stream.of(name))
+                                        .map(QualifiedObjectName::toString)
+                                        .collect(Collectors.joining(" -> "))));
+            }
         }
-        return Optional.empty();
+        throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table redirected too many times (%d): %s", MAX_TABLE_REDIRECTIONS, visitedNames));
     }
 
     @Override
@@ -1893,31 +1926,65 @@ public final class MetadataManager
             return Optional.empty();
         }
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
-        if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
-            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName, Optional.empty(), Optional.empty());
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+        QualifiedObjectName name = viewName;
+        Set<QualifiedObjectName> visitedNames = new LinkedHashSet<>();
+        visitedNames.add(name);
 
-            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName());
+        for (int count = 0; count < MAX_TABLE_REDIRECTIONS; count++) {
+            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, name.catalogName());
+            if (catalog.isEmpty()) {
+                return Optional.empty();
+            }
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, name, Optional.empty(), Optional.empty());
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+            Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session.toConnectorSession(catalogHandle), name.asSchemaTableName());
+            if (materializedView.isPresent()) {
+                return materializedView;
+            }
+
+            // The materialized view was not found directly. A pure-redirection connector (e.g. the router/virtual
+            // catalog that redirects a prefixed schema to the catalog where the relation actually resides) serves the
+            // materialized view only on the redirect target. Follow the redirect and retry getMaterializedView() on the
+            // target, mirroring how getViewInternal() and getRedirectedTableName() follow redirects.
+            CatalogHandle redirectHandle = catalogMetadata.getCatalogHandle();
+            ConnectorMetadata redirectMetadata = catalogMetadata.getMetadataFor(session, redirectHandle);
+            Optional<QualifiedObjectName> redirectedName = redirectMetadata.redirectTable(session.toConnectorSession(redirectHandle), name.asSchemaTableName())
+                    .map(target -> convertFromSchemaTableName(target.getCatalogName()).apply(target.getSchemaTableName()));
+            if (redirectedName.isEmpty()) {
+                return Optional.empty();
+            }
+
+            name = redirectedName.get();
+
+            // Check for loop in redirection
+            if (!visitedNames.add(name)) {
+                throw new TrinoException(TABLE_REDIRECTION_ERROR,
+                        format("Table redirections form a loop: %s",
+                                Streams.concat(visitedNames.stream(), Stream.of(name))
+                                        .map(QualifiedObjectName::toString)
+                                        .collect(Collectors.joining(" -> "))));
+            }
         }
-        return Optional.empty();
+        throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table redirected too many times (%d): %s", MAX_TABLE_REDIRECTIONS, visitedNames));
     }
 
     @Override
     public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
+        // Follow redirects so properties are read from the catalog where the materialized view actually resides.
+        QualifiedObjectName resolvedName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, resolvedName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName, Optional.empty(), Optional.empty());
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, resolvedName, Optional.empty(), Optional.empty());
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             return ImmutableMap.copyOf(metadata.getMaterializedViewProperties(
                     connectorSession,
-                    viewName.asSchemaTableName(),
+                    resolvedName.asSchemaTableName(),
                     materializedViewDefinition.toConnectorMaterializedViewDefinition()));
         }
         return ImmutableMap.of();
@@ -1926,14 +1993,18 @@ public final class MetadataManager
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName, boolean considerGracePeriod)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
+        // A materialized view may be reached through a redirect (e.g. the router/virtual catalog). Resolve to the
+        // catalog where it actually resides before asking for freshness, otherwise the source connector (which has
+        // no materialized view there) throws "getMaterializedView() is implemented without getMaterializedViewFreshness()".
+        QualifiedObjectName resolvedName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, resolvedName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName, Optional.empty(), Optional.empty());
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, resolvedName, Optional.empty(), Optional.empty());
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName(), considerGracePeriod);
+            return metadata.getMaterializedViewFreshness(connectorSession, resolvedName.asSchemaTableName(), considerGracePeriod);
         }
         return new MaterializedViewFreshness(STALE, Optional.empty());
     }
