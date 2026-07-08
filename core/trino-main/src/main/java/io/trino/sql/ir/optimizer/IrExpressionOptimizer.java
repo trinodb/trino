@@ -37,6 +37,8 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverMatch;
+import io.trino.sql.ir.optimizer.rule.DistributeIsNullOverCase;
+import io.trino.sql.ir.optimizer.rule.DistributeIsNullOverMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateArray;
 import io.trino.sql.ir.optimizer.rule.EvaluateBind;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
@@ -137,6 +139,8 @@ public class IrExpressionOptimizer
                 new RemoveAbsorbedLogicalTerms(context),
                 new DistributeComparisonOverMatch(context),
                 new DistributeComparisonOverCase(context),
+                new DistributeIsNullOverMatch(),
+                new DistributeIsNullOverCase(),
                 new SimplifyRedundantCase(context),
                 // must run after SimplifyRedundantCase: constant boolean results are better
                 // expressed as plain logic than as a Match
