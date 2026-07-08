@@ -254,11 +254,6 @@ public class FunctionMetadata
                 description = "";
             }
             this.kind = kind;
-            // Window functions default to a nullable result. Aggregations declare their result nullability
-            // explicitly (annotation-based aggregations derive it from @SqlNullable on the output function).
-            if (kind == WINDOW) {
-                nullable = true;
-            }
         }
 
         public Builder signature(Signature signature)
