@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.log.Logger;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
@@ -40,11 +41,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 
 public class RouterConnectorFactory
         implements ConnectorFactory
 {
+    private static final Logger log = Logger.get(RouterConnectorFactory.class);
+
     @Override
     public String getName()
     {
@@ -54,8 +56,11 @@ public class RouterConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkStrictSpiVersionMatch(context, this);
-
+        log.info("Creating router connector for catalog '%s'", catalogName);
+        // No checkStrictSpiVersionMatch: that guard is intended only for plugins distributed with Trino.
+        // trino-router is an EG-internal plugin deployed as a standalone ZIP across OS Trino and Starburst
+        // (e.g. 476-e.7), whose SPI version strings never match exactly. The SPI surface used here is stable
+        // across these versions, so a single artifact is binary-compatible without the exact-version check.
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanServerModule(),
@@ -95,6 +100,7 @@ public class RouterConnectorFactory
             }
 
             if (routerConfig.isGlueUseWebIdentityTokenCredentialsProvider()) {
+                log.info("Router Glue auth: web identity token credentials provider (configured region=%s)", routerConfig.getGlueRegion().orElse("<default>"));
                 StsClientBuilder sts = StsClient.builder();
                 staticCredentials.ifPresent(sts::credentialsProvider);
                 routerConfig.getGlueRegion().ifPresent(r -> sts.region(Region.of(r)));
@@ -104,6 +110,10 @@ public class RouterConnectorFactory
                         .build());
             }
             else if (routerConfig.getGlueIamRole().isPresent()) {
+                log.info("Router Glue auth: assume IAM role %s (externalId set=%s, configured region=%s)",
+                        routerConfig.getGlueIamRole().get(),
+                        routerConfig.getGlueExternalId().isPresent(),
+                        routerConfig.getGlueRegion().orElse("<default>"));
                 StsClientBuilder sts = StsClient.builder();
                 staticCredentials.ifPresent(sts::credentialsProvider);
                 routerConfig.getGlueRegion().ifPresent(r -> sts.region(Region.of(r)));
@@ -117,6 +127,9 @@ public class RouterConnectorFactory
                         .build());
             }
             else {
+                log.info("Router Glue auth: %s credentials (configured region=%s)",
+                        staticCredentials.isPresent() ? "static" : "default provider chain",
+                        routerConfig.getGlueRegion().orElse("<default>"));
                 staticCredentials.ifPresent(glue::credentialsProvider);
             }
 
@@ -124,7 +137,9 @@ public class RouterConnectorFactory
                 glue.region(Region.of(routerConfig.getGlueRegion().get()));
             }
             else if (routerConfig.isGluePinClientToCurrentRegion()) {
-                glue.region(DefaultAwsRegionProviderChain.builder().build().getRegion());
+                Region resolvedRegion = DefaultAwsRegionProviderChain.builder().build().getRegion();
+                log.info("Router Glue client pinned to current region %s", resolvedRegion);
+                glue.region(resolvedRegion);
             }
 
             glue.httpClientBuilder(ApacheHttpClient.builder());

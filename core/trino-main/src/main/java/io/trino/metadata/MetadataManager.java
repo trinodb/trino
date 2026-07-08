@@ -90,6 +90,7 @@ import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
@@ -2056,7 +2057,13 @@ public final class MetadataManager
             return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
+        Optional<TableHandle> tableHandle;
+        try {
+            tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
+        }
+        catch (TableNotFoundException e) {
+            throw new TrinoException(TABLE_NOT_FOUND, format("Table '%s' does not exist in Glue catalog", targetTableName), e);
+        }
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }
@@ -2066,9 +2073,9 @@ public final class MetadataManager
             throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target catalog '%s' does not exist", tableName, targetTableName, targetTableName.catalogName()));
         }
         if (!schemaExists(session, new CatalogSchemaName(targetTableName.catalogName(), targetTableName.schemaName()))) {
-            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.schemaName()));
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", targetTableName.schemaName()));
         }
-        throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target table '%s' does not exist", tableName, targetTableName, targetTableName));
+        throw new TrinoException(TABLE_NOT_FOUND, format("Table '%s' does not exist", tableName));
     }
 
     @Override
