@@ -56,6 +56,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
@@ -102,7 +103,8 @@ public class TestMergeWindows
             Optional.empty(),
             FrameBoundType.CURRENT_ROW,
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            NO_OTHERS);
 
     private final ExpectedValueProvider<DataOrganizationSpecification> specificationA;
     private final ExpectedValueProvider<DataOrganizationSpecification> specificationB;
@@ -347,7 +349,8 @@ public class TestMergeWindows
                 Optional.empty(),
                 FrameBoundType.CURRENT_ROW,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -361,7 +364,8 @@ public class TestMergeWindows
                 Optional.empty(),
                 FrameBoundType.UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C, " +
@@ -389,7 +393,8 @@ public class TestMergeWindows
                 Optional.empty(),
                 FrameBoundType.UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         ExpectedValueProvider<DataOrganizationSpecification> specificationD = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),

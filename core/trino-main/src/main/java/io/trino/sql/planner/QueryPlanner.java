@@ -61,6 +61,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.FrameBoundType;
+import io.trino.sql.planner.plan.FrameExclusion;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -1786,6 +1787,7 @@ class QueryPlanner
         WindowFrameType frameType = WindowFrameType.RANGE;
         FrameBoundType frameStartType = FrameBoundType.UNBOUNDED_PRECEDING;
         FrameBoundType frameEndType = CURRENT_ROW;
+        FrameExclusion frameExclusion = FrameExclusion.NO_OTHERS;
 
         if (window.getFrame().isPresent()) {
             WindowFrame frame = window.getFrame().get();
@@ -1796,6 +1798,8 @@ class QueryPlanner
             if (frame.getEnd().isPresent()) {
                 frameEndType = mapFrameBoundType(frame.getEnd().get().getType());
             }
+
+            frameExclusion = mapFrameExclusion(frame.getExclusion());
         }
 
         DataOrganizationSpecification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), coercions::get);
@@ -1808,7 +1812,8 @@ class QueryPlanner
                 sortKeyCoercedForFrameStartComparison,
                 frameEndType,
                 frameEndSymbol,
-                sortKeyCoercedForFrameEndComparison);
+                sortKeyCoercedForFrameEndComparison,
+                frameExclusion);
 
         ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
@@ -1871,6 +1876,16 @@ class QueryPlanner
         };
     }
 
+    private static FrameExclusion mapFrameExclusion(WindowFrame.Exclusion exclusion)
+    {
+        return switch (exclusion) {
+            case CURRENT_ROW -> FrameExclusion.CURRENT_ROW;
+            case GROUP -> FrameExclusion.GROUP;
+            case TIES -> FrameExclusion.TIES;
+            case NO_OTHERS -> FrameExclusion.NO_OTHERS;
+        };
+    }
+
     private PlanBuilder planPatternRecognition(
             PlanBuilder subPlan,
             List<FunctionCall> windowFunctions,
@@ -1890,7 +1905,9 @@ class QueryPlanner
                 Optional.empty(),
                 mapFrameBoundType(frameEnd.getType()),
                 frameEndSymbol,
-                Optional.empty());
+                Optional.empty(),
+                // pattern recognition does not allow frame exclusion
+                FrameExclusion.NO_OTHERS);
 
         ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
@@ -2058,7 +2075,9 @@ class QueryPlanner
                 Optional.empty(),
                 mapFrameBoundType(frameEnd.getType()),
                 frameEndSymbol,
-                Optional.empty());
+                Optional.empty(),
+                // pattern recognition does not allow frame exclusion
+                FrameExclusion.NO_OTHERS);
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPatternRecognitionComponents(

@@ -787,6 +787,20 @@ A window specification has the following components:
   called over the window, similarly to window functions. For more details, see
   [Row pattern recognition in window structures](/sql/pattern-recognition-in-window) .
 
+  A window frame may include a frame exclusion clause following the frame
+  extent. It removes rows from the frame that would otherwise be included:
+
+  - `EXCLUDE CURRENT ROW` removes the current row from the frame.
+  - `EXCLUDE GROUP` removes the current row and all of its peers, the rows that
+    are tied with the current row according to the `ORDER BY` ordering.
+  - `EXCLUDE TIES` removes the peers of the current row, but keeps the current
+    row itself.
+  - `EXCLUDE NO OTHERS` is the default and does not remove any rows.
+
+  In the absence of `ORDER BY`, all rows are peers, so `EXCLUDE GROUP` removes
+  the entire frame and `EXCLUDE TIES` keeps only the current row. Frame
+  exclusion is not allowed together with row pattern recognition.
+
 Each window component is optional. If a window specification does not specify
 window partitioning, ordering or frame, those components are obtained from
 the window specification referenced by the `existing window name`, or from

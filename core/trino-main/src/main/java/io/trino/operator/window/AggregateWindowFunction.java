@@ -34,6 +34,9 @@ public class AggregateWindowFunction
     private WindowAccumulator accumulator;
     private int currentStart;
     private int currentEnd;
+    // set when the accumulator holds a non-contiguous frame (built for an EXCLUDE clause) and so
+    // cannot be reused by the incremental sliding path; forces a fresh rebuild on the next row
+    private boolean accumulatorHasExcludedFrame;
 
     public AggregateWindowFunction(Supplier<WindowAccumulator> accumulatorFactory, boolean hasRemoveInput)
     {
@@ -49,9 +52,14 @@ public class AggregateWindowFunction
     }
 
     @Override
-    public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd)
+    public void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd, int excludedStart, int excludedEnd, int keptRow)
     {
-        if (frameStart < 0) {
+        if (excludedStart <= excludedEnd) {
+            // the frame has a hole punched out by an EXCLUDE clause, so it is not contiguous;
+            // rebuild the accumulator from the surviving sub-ranges rather than sliding
+            buildExcludedFrame(frameStart, frameEnd, excludedStart, excludedEnd, keptRow);
+        }
+        else if (frameStart < 0) {
             // empty frame
             resetAccumulator();
         }
@@ -65,6 +73,24 @@ public class AggregateWindowFunction
         }
 
         accumulator.output(output);
+    }
+
+    private void buildExcludedFrame(int frameStart, int frameEnd, int excludedStart, int excludedEnd, int keptRow)
+    {
+        resetAccumulator();
+        // Accumulate the surviving positions in frame order so that order-sensitive aggregates (e.g. array_agg)
+        // see them in the right order: the positions before the excluded range, then the kept row (EXCLUDE TIES),
+        // which sits within the excluded range, then the positions after the excluded range.
+        if (frameStart <= excludedStart - 1) {
+            accumulate(frameStart, excludedStart - 1);
+        }
+        if (keptRow >= 0) {
+            accumulate(keptRow, keptRow);
+        }
+        if (excludedEnd + 1 <= frameEnd) {
+            accumulate(excludedEnd + 1, frameEnd);
+        }
+        accumulatorHasExcludedFrame = true;
     }
 
     private void buildNewFrame(int frameStart, int frameEnd)
@@ -126,10 +152,13 @@ public class AggregateWindowFunction
 
     private void resetAccumulator()
     {
-        if (currentStart >= 0) {
+        // currentStart >= 0 means the accumulator holds a contiguous frame; accumulatorHasExcludedFrame means it
+        // holds a non-contiguous (EXCLUDE) frame while currentStart is -1. Either way there is state to discard.
+        if (currentStart >= 0 || accumulatorHasExcludedFrame) {
             accumulator = accumulatorFactory.get();
             currentStart = -1;
             currentEnd = -1;
+            accumulatorHasExcludedFrame = false;
         }
     }
 }
