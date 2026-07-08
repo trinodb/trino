@@ -53,6 +53,7 @@ import io.trino.sql.ir.optimizer.rule.EvaluateReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
+import io.trino.sql.ir.optimizer.rule.FlattenNestedCase;
 import io.trino.sql.ir.optimizer.rule.InlineTrivialLet;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
@@ -111,6 +112,7 @@ public class IrExpressionOptimizer
                 new EvaluateCallWithNullInput(),
                 new RemoveRedundantMatchClauses(context),
                 new RemoveRedundantCaseClauses(),
+                new FlattenNestedCase(),
                 new RemoveRedundantTry(context),
                 new RemoveRedundantInItems(context),
                 new SimplifyContinuousInValues(context),
