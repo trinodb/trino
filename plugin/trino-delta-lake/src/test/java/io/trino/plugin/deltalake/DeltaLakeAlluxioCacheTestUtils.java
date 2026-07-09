@@ -17,13 +17,13 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import io.trino.testing.QueryRunner;
 
 import java.util.OptionalLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getCacheOperationSpans;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;

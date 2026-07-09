@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
+import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
@@ -30,7 +31,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import static java.util.Objects.requireNonNull;
-import static picocli.CommandLine.Command;
 
 @Command(
         name = "list",

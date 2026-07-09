@@ -35,6 +35,7 @@ public final class IpAddressOperators
 {
     private IpAddressOperators() {}
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.IPADDRESS)
@@ -65,6 +66,7 @@ public final class IpAddressOperators
         return wrappedBuffer(bytes);
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castFromIpAddressToVarchar(@SqlType(StandardTypes.IPADDRESS) Slice slice)
@@ -77,6 +79,7 @@ public final class IpAddressOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.IPADDRESS)
     public static Slice castFromVarbinaryToIpAddress(@SqlType("varbinary") Slice slice)
@@ -95,10 +98,10 @@ public final class IpAddressOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length());
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castFromIpAddressToVarbinary(@SqlType(StandardTypes.IPADDRESS) Slice slice)
     {
-        return wrappedBuffer(slice.getBytes());
+        return slice;
     }
 }

@@ -15,12 +15,12 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
-import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -41,9 +41,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -77,9 +78,8 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
 
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig()
-                .setHttpPort(0)
                 .setHttpEnabled(true);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
         TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
                 .withLegacyUriCompliance(true)
                 .build());
@@ -87,6 +87,7 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
         closeAfterClass(testServer::stop);
 
         IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                 .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
@@ -142,8 +143,6 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
 
     private static IcebergRestCatalogFileSystemFactory icebergRestCatalogFileSystemFactory(QueryRunner queryRunner)
     {
-        return (IcebergRestCatalogFileSystemFactory) ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
-                .getInjector()
-                .getInstance(IcebergFileSystemFactory.class);
+        return (IcebergRestCatalogFileSystemFactory) getConnectorService(queryRunner, IcebergFileSystemFactory.class);
     }
 }

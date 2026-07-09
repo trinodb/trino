@@ -16,13 +16,13 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static java.util.Objects.requireNonNull;
 
 public class StaticRuntimeInfoProvider

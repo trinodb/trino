@@ -56,7 +56,7 @@ public class PruneOrderByInWindowAggregation
             // getAggregateFunctionImplementation can be expensive, so check it last.
             if (function.getOrderingScheme().isPresent() &&
                     function.getResolvedFunction().functionKind() == FunctionKind.AGGREGATE &&
-                    !metadata.getAggregationFunctionMetadata(context.getSession(), function.getResolvedFunction()).isOrderSensitive()) {
+                    !metadata.getAggregationFunctionMetadata(context.getSession(), function.getResolvedFunction()).orderSensitive()) {
                 function = new Function(
                         function.getResolvedFunction(),
                         function.getArguments(),

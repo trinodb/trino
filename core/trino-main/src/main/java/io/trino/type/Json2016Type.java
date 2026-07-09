@@ -24,7 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
@@ -38,7 +38,7 @@ public class Json2016Type
 
     public Json2016Type()
     {
-        super(new TypeSignature(NAME), JsonNode.class);
+        super(new TypeDescriptor(NAME), JsonNode.class);
     }
 
     @Override

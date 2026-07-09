@@ -190,6 +190,8 @@ import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
@@ -233,6 +235,7 @@ public abstract class BaseIcebergConnectorTest
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES);
     }
 
@@ -374,21 +377,18 @@ public abstract class BaseIcebergConnectorTest
     @Override
     public void testCharVarcharComparison()
     {
-        // with char->varchar coercion on table creation, this is essentially varchar/varchar comparison
         try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS CHAR(3))), " +
                         "   (3, CAST('   ' AS CHAR(3)))," +
                         "   (6, CAST('x  ' AS CHAR(3)))")) {
-            // varchar of length shorter than column's length
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))")).returnsEmptyResult();
-            // varchar of length longer than column's length
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('    ' AS varchar(4))")).returnsEmptyResult();
-            // value that's not all-spaces
+            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('' AS varchar(2))", "VALUES (3, '')");
+
+            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x' AS varchar(2))", "VALUES (6, 'x')");
+
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('   ' AS varchar(3))")).returnsEmptyResult();
             assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))")).returnsEmptyResult();
-            // exact match
-            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('   ' AS varchar(3))", "VALUES (3, '   ')");
         }
     }
 
@@ -5476,7 +5476,7 @@ public abstract class BaseIcebergConnectorTest
             try (TestTable table = newTrinoTable(
                     "test_split_pruning_data_file_statistics",
                     // Random double is needed to make sure rows are different. Otherwise compression may deduplicate rows, resulting in only one row group
-                    "(col " + testSetup.getTrinoTypeName() + ", r double)")) {
+                    "(col " + testSetup.getTrinoTypeName() + ", r double) WITH (parquet_writer_row_group_size = '256B')")) {
                 String tableName = table.getName();
                 String values =
                         Stream.concat(
@@ -5484,7 +5484,7 @@ public abstract class BaseIcebergConnectorTest
                                         nCopies(100, testSetup.getHighValueLiteral()).stream())
                                 .map(value -> "(" + value + ", rand())")
                                 .collect(joining(", "));
-                assertUpdate(withSplitPruningRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 200);
+                assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 200);
 
                 String query = "SELECT * FROM " + tableName + " WHERE col = " + testSetup.getSampleValueLiteral();
                 verifyPredicatePushdownDataRead(query, supportsRowGroupStatistics(testSetup.getTrinoTypeName()));
@@ -5493,13 +5493,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     protected abstract boolean supportsRowGroupStatistics(String typeName);
-
-    private static Session withSplitPruningRowGroups(Session session)
-    {
-        return Session.builder(withSmallRowGroups(session))
-                .setCatalogSessionProperty("iceberg", "parquet_writer_row_group_size", "256B")
-                .build();
-    }
 
     private void verifySplitCount(String query, int expectedSplitCount)
     {
@@ -5585,8 +5578,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("char(3)")) {
-            // Use explicitly padded literal in char mapping test due to whitespace padding on coercion to varchar
-            return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
+            return Optional.of(new DataMappingTestSetup(typeName, "'ab'", dataMappingTestSetup.getHighValueLiteral()));
         }
         return Optional.of(dataMappingTestSetup);
     }
@@ -6008,6 +6000,37 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDeleteOnIdentityPartitionedTableProducesOneDeleteEntryPerDataFile()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, "4")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
+                .build();
+
+        try (TestTable table = newTrinoTable(
+                "test_identity_partitioned_deletes_",
+                """
+                WITH (partitioning = ARRAY['regionkey']) AS
+                SELECT id, id % 5 regionkey
+                FROM UNNEST(sequence(0, 499)) t(id)""")) {
+            assertQuery(
+                    "SELECT content, count(*) FROM \"" + table.getName() + "$files\" GROUP BY content",
+                    "VALUES (0, 5)");
+
+            assertUpdate(session, "DELETE FROM " + table.getName() + " WHERE id % 2 = 0", 250);
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '5'");
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName(),
+                    "VALUES 250");
+            assertQuery(
+                    "SELECT count(*) FROM " + table.getName() + " WHERE id % 2 = 0",
+                    "VALUES 0");
+        }
+    }
+
+    @Test
     public void testOptimizeFilesDoNotInheritSequenceNumber()
             throws IOException
     {
@@ -6197,14 +6220,12 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("DROP TABLE %s", tableName));
 
         DataSize maxSize = DataSize.of(80, DataSize.Unit.KILOBYTE);
-        session = Session.builder(getSession())
-                .setSystemProperty("task_min_writer_count", "1")
-                // task scale writers should be disabled since we want to write with a single task writer
-                .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
-                .build();
+        String createTableWithMaxFileSizeSql = format(
+                "CREATE TABLE %s WITH (target_max_file_size = '%s') AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000",
+                tableName,
+                maxSize);
 
-        assertUpdate(session, createTableSql, 200000);
+        assertUpdate(session, createTableWithMaxFileSizeSql, 200000);
         assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles.size()).isGreaterThan(10);
@@ -6214,6 +6235,7 @@ public abstract class BaseIcebergConnectorTest
                 // as target_max_file_size is set to quite low value it can happen that created files are bigger,
                 // so just to be safe we check if it is not much bigger
                 .forEach(row -> assertThat((Long) row.getField(0)).isBetween(1L, maxSize.toBytes() * 6));
+        assertUpdate(format("DROP TABLE %s", tableName));
     }
 
     @Test
@@ -6233,14 +6255,12 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("DROP TABLE %s", tableName));
 
         DataSize maxSize = DataSize.of(50, DataSize.Unit.KILOBYTE);
-        session = Session.builder(getSession())
-                .setSystemProperty("task_min_writer_count", "1")
-                // task scale writers should be disabled since we want to write with a single task writer
-                .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
-                .build();
+        String createTableWithMaxFileSizeSql = format(
+                "CREATE TABLE %s WITH (sorted_by = ARRAY['shipdate'], target_max_file_size = '%s') AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000",
+                tableName,
+                maxSize);
 
-        assertUpdate(session, createTableSql, 200000);
+        assertUpdate(session, createTableWithMaxFileSizeSql, 200000);
         assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles.size()).isGreaterThan(5);
@@ -6250,6 +6270,40 @@ public abstract class BaseIcebergConnectorTest
                 // as target_max_file_size is set to quite low value it can happen that created files are bigger,
                 // so just to be safe we check if it is not much bigger
                 .forEach(row -> assertThat((Long) row.getField(0)).isBetween(1L, maxSize.toBytes() * 20));
+        assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testWriteTablePropertiesRoundTrip()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_invalid_parquet_writer_row_group_size_" + randomNameSuffix() + " (a int) WITH (parquet_writer_row_group_size = '3GB')",
+                ".*\\Qparquet_writer_row_group_size must be at most 2GB\\E.*");
+
+        try (TestTable table = newTrinoTable(
+                "test_write_table_properties_round_trip",
+                "(a int) WITH (target_max_file_size = '100MB', parquet_writer_row_group_size = '4MB')")) {
+            String tableName = table.getName();
+
+            // Properties surface in SHOW CREATE TABLE
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                    .contains("target_max_file_size = '100MB'")
+                    .contains("parquet_writer_row_group_size = '4MB'");
+
+            // Properties are persisted as Iceberg native properties
+            assertThat(getTableProperties(tableName))
+                    .containsEntry(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(100L * 1024 * 1024))
+                    .containsEntry(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(4L * 1024 * 1024));
+
+            // ALTER TABLE SET PROPERTIES updates both
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES target_max_file_size = '200MB', parquet_writer_row_group_size = '8MB'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                    .contains("target_max_file_size = '200MB'")
+                    .contains("parquet_writer_row_group_size = '8MB'");
+            assertThat(getTableProperties(tableName))
+                    .containsEntry(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(200L * 1024 * 1024))
+                    .containsEntry(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(8L * 1024 * 1024));
+        }
     }
 
     @Test
@@ -8654,6 +8708,17 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/29802
+    public void testColumnTypeEvolutionWithStatistics()
+    {
+        try (TestTable table = newTrinoTable("test_stats_type_change", "(x INT)", List.of("1", "2"))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN x SET DATA TYPE BIGINT");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE x IN (SELECT DISTINCT x FROM " + table.getName() + ")"))
+                    .matches("VALUES BIGINT '1', 2");
+        }
+    }
+
     @Test
     public void testAlterTableWithUnsupportedProperties()
     {
@@ -9497,7 +9562,7 @@ public abstract class BaseIcebergConnectorTest
                 .add(new TypeCoercionTestSetup("TIME '23:59:59.9999994'", "time(6)", "TIME '23:59:59.999999'"))
                 .add(new TypeCoercionTestSetup("CHAR 'A'", "varchar", "'A'"))
                 .add(new TypeCoercionTestSetup("CHAR 'é'", "varchar", "'é'"))
-                .add(new TypeCoercionTestSetup("CHAR 'A '", "varchar", "'A '"))
+                .add(new TypeCoercionTestSetup("CHAR 'A '", "varchar", "'A'"))
                 .add(new TypeCoercionTestSetup("CHAR ' A'", "varchar", "' A'"))
                 .add(new TypeCoercionTestSetup("CHAR 'ABc'", "varchar", "'ABc'"))
                 .add(new TypeCoercionTestSetup("ARRAY[CHAR 'A']", "array(varchar)", "ARRAY['A']"))

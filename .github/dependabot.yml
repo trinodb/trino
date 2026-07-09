@@ -29,7 +29,7 @@ updates:
       # TODO remove once https://github.com/jline/jline3/issues/1879 has been addressed
       - dependency-name: "org.jline:jline-*"
   - package-ecosystem: "npm"
-    directory: "/core/trino-web-ui/src/main/resources/webapp-preview"
+    directory: "/core/trino-web-ui/src/main/resources/webapp"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10

@@ -31,6 +31,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveFileWriterFactory;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.NodeVersion;
@@ -41,7 +42,6 @@ import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -168,7 +168,7 @@ public class OrcFileWriterFactory
                 });
             }
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(location);
 
             if (transaction.isInsert() && useAcidSchema) {
                 // Only add the ACID columns if the request is for insert-type operations - - for delete operations,

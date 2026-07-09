@@ -32,9 +32,12 @@ import java.util.function.BiFunction;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -1877,6 +1880,39 @@ public class TestTime
     }
 
     @Test
+    public void testTimePlusIntervalDayToSecondLargeInterval()
+    {
+        // Interval is reduced modulo 24h, so even extreme values just wrap around.
+
+        // Multiplying interval by PICOSECONDS_PER_MILLISECOND would overflow long without the modulo.
+        assertThat(assertions.expression("TIME '00:00:00' + INTERVAL '1' SECOND * 10000000000"))
+                .matches("TIME '17:46:40.000'");
+        assertThat(assertions.expression("INTERVAL '1' SECOND * 10000000000 + TIME '00:00:00'"))
+                .matches("TIME '17:46:40.000'");
+
+        // 9_223_372 seconds scales to ~9.22e18 picos, fitting in long but leaving only ~37 ms of
+        // headroom below Long.MAX_VALUE. Adding to a TIME with more picos than that would overflow
+        // `picos + delta` without the `delta % PICOSECONDS_PER_DAY` reduction in TimeOperators.add.
+        assertThat(assertions.expression("TIME '00:00:00.037' + INTERVAL '1' SECOND * 9223372"))
+                .matches("TIME '18:02:52.037'");
+    }
+
+    @Test
+    public void testTimeMinusIntervalDayToSecondLargeInterval()
+    {
+        // Interval is reduced modulo 24h, so even extreme values just wrap around.
+
+        // Multiplying interval by PICOSECONDS_PER_MILLISECOND would overflow long without the modulo.
+        assertThat(assertions.expression("TIME '00:00:00' - INTERVAL '1' SECOND * 10000000000"))
+                .matches("TIME '06:13:20.000'");
+
+        // Negating Long.MIN_VALUE would overflow without the modulo.
+        assertThat(assertions.expression(
+                "TIME '00:00:00' - (INTERVAL '1' SECOND * (-9223372036854775) - INTERVAL '0.808' SECOND)"))
+                .matches("TIME '07:12:55.808'");
+    }
+
+    @Test
     public void testDateTrunc()
     {
         assertThat(assertions.expression("date_trunc('millisecond', TIME '12:34:56')")).matches("TIME '12:34:56'");
@@ -2039,6 +2075,34 @@ public class TestTime
         assertThat(assertions.expression("TIME '12:34:56.1234567891' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '09:34:56.1234567891+10:00'");
         assertThat(assertions.expression("TIME '12:34:56.12345678912' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '09:34:56.12345678912+10:00'");
         assertThat(assertions.expression("TIME '12:34:56.123456789123' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '09:34:56.123456789123+10:00'");
+    }
+
+    @Test
+    public void testComparisonOperators()
+    {
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIME '12:34:56'")
+                .binding("b", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIME '12:34:56'", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIME '12:34:56'")
+                .binding("b", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIME '12:34:56'", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIME '12:34:56'")
+                .binding("b", "TIME '12:34:56'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIME '12:34:56'", "TIME '12:34:56'"))
+                .neverFails();
     }
 
     private static BiFunction<Session, QueryRunner, Object> time(int precision, int hour, int minute, int second, long picoOfSecond)

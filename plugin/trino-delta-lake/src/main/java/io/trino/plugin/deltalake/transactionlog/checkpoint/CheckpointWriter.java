@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
@@ -55,6 +56,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -512,6 +514,7 @@ public class CheckpointWriter
                                             // This is TIMESTAMP_NTZ type in Delta Lake
                                             return value;
                                         }
+                                        checkState(Primitives.wrap(type.getJavaType()).isInstance(value), "Unexpected value class for type %s, expected %s, got %s", type, type.getJavaType(), value.getClass());
                                         return value;
                                     }));
                 });

@@ -19,12 +19,12 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -35,7 +35,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -90,8 +91,8 @@ public class TestRemoveRedundantCaseClauses
                         ImmutableList.of(
                                 new WhenClause(new Reference(BOOLEAN, "a"), new Reference(VARCHAR, "r1")),
                                 new WhenClause(new Reference(BOOLEAN, "b"), new Reference(VARCHAR, "r2")),
-                                new WhenClause(new Comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r3")),
-                                new WhenClause(new Comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r4")),
+                                new WhenClause(comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r3")),
+                                new WhenClause(comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r4")),
                                 new WhenClause(new Reference(BOOLEAN, "a"), new Reference(VARCHAR, "r5"))),
                         new Reference(VARCHAR, "d"))))
                 .describedAs("non-deterministic terms")
@@ -99,13 +100,13 @@ public class TestRemoveRedundantCaseClauses
                         ImmutableList.of(
                                 new WhenClause(new Reference(BOOLEAN, "a"), new Reference(VARCHAR, "r1")),
                                 new WhenClause(new Reference(BOOLEAN, "b"), new Reference(VARCHAR, "r2")),
-                                new WhenClause(new Comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r3")),
-                                new WhenClause(new Comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r4"))),
+                                new WhenClause(comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r3")),
+                                new WhenClause(comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Reference(VARCHAR, "r4"))),
                         new Reference(VARCHAR, "d"))));
     }
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantCaseClauses().apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantCaseClauses().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

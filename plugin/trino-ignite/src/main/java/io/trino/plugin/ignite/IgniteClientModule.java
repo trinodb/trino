@@ -27,7 +27,12 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.ignite.IgniteJdbcThinDriver;
+
+import java.sql.Connection;
+import java.sql.SQLException;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -51,8 +56,22 @@ public class IgniteClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
-        return DriverConnectionFactory.builder(new IgniteJdbcThinDriver(), config.getConnectionUrl(), credentialProvider)
+        ClassLoader classLoader = IgniteClientModule.class.getClassLoader();
+        ConnectionFactory delegate = DriverConnectionFactory.builder(new IgniteJdbcThinDriver(), config.getConnectionUrl(), credentialProvider)
                 .setOpenTelemetry(openTelemetry)
                 .build();
+        // IgniteJdbcThinDriver uses ServiceLoader.load(Class) (TCCL-based) during connection init.
+        // Wrap to set TCCL to the plugin classloader so ignite-binary-impl services are visible.
+        return new ConnectionFactory()
+        {
+            @Override
+            public Connection openConnection(ConnectorSession session)
+                    throws SQLException
+            {
+                try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+                    return delegate.openConnection(session);
+                }
+            }
+        };
     }
 }

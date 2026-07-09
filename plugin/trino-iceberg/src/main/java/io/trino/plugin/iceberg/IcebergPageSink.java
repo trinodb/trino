@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.geospatial.serde.JtsGeometrySerde;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -48,6 +49,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -59,7 +61,6 @@ import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -88,6 +89,7 @@ import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -113,6 +115,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.FileContent.DATA;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -130,7 +133,7 @@ public class IcebergPageSink
     private final IcebergFileFormat fileFormat;
     private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
-    private final long targetMaxFileSize;
+    private final long targetMaxFileSizeBytes;
     private final long idleWriterMinFileSize;
     private final Map<String, String> storageProperties;
     private final List<TrinoSortField> sortFields;
@@ -148,7 +151,7 @@ public class IcebergPageSink
     private final Map<Integer, org.apache.iceberg.types.Type> columnsWithGeometry;
 
     private final List<WriteContext> writers = new ArrayList<>();
-    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
+    private final List<RollbackAction> closedWriterRollbackActions = new ArrayList<>();
     private final Collection<Slice> commitTasks = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
 
@@ -172,6 +175,7 @@ public class IcebergPageSink
             int maxOpenWriters,
             List<TrinoSortField> sortFields,
             int sortOrderId,
+            DataSize targetMaxFileSize,
             DataSize sortingFileWriterBufferSize,
             int sortingFileWriterMaxOpenFiles,
             Optional<String> sortedWritingLocalStagingPath,
@@ -190,7 +194,7 @@ public class IcebergPageSink
         this.metricsConfig = MetricsConfig.from(requireNonNull(storageProperties, "storageProperties is null"), null, null);
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(partitionColumns, partitionSpec, outputSchema));
-        this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
+        this.targetMaxFileSizeBytes = getTargetMaxFileSizeBytes(storageProperties, targetMaxFileSize);
         this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortFields = requireNonNull(sortFields, "sortFields is null");
@@ -280,16 +284,16 @@ public class IcebergPageSink
     @Override
     public void abort()
     {
-        List<Closeable> rollbackActions = Streams.concat(
+        List<RollbackAction> rollbackActions = Streams.concat(
                         writers.stream()
                                 .filter(Objects::nonNull)
                                 .map(writer -> writer::rollback),
                         closedWriterRollbackActions.stream())
                 .collect(toImmutableList());
         RuntimeException error = null;
-        for (Closeable rollbackAction : rollbackActions) {
+        for (RollbackAction rollbackAction : rollbackActions) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Throwable t) {
                 if (error == null) {
@@ -508,7 +512,7 @@ public class IcebergPageSink
             int writerIndex = writerIndexes[position];
             WriteContext writer = writers.get(writerIndex);
             if (writer != null) {
-                if (writer.getWrittenBytes() <= targetMaxFileSize) {
+                if (writer.getWrittenBytes() <= targetMaxFileSizeBytes) {
                     continue;
                 }
                 closeWriter(writerIndex);
@@ -583,6 +587,8 @@ public class IcebergPageSink
 
         closedWriterRollbackActions.add(writer.commit());
 
+        verifyNotNullConstraint(writer.getFileMetrics().metrics(), outputSchema);
+
         validationCpuNanos += writer.getValidationCpuNanos();
         writtenBytes += (writer.getWrittenBytes() - currentWritten);
         memoryUsage -= currentMemory;
@@ -604,6 +610,19 @@ public class IcebergPageSink
                 Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+    }
+
+    private static void verifyNotNullConstraint(Metrics metrics, Schema schema)
+    {
+        if (metrics.nullValueCounts() == null) {
+            return;
+        }
+
+        for (Types.NestedField field : schema.columns()) {
+            if (field.isRequired() && metrics.nullValueCounts().getOrDefault(field.fieldId(), 0L) > 0) {
+                throw new TrinoException(CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + field.name());
+            }
+        }
     }
 
     private WriteContext createWriter(String outputPath, Optional<PartitionData> partitionData)
@@ -774,6 +793,20 @@ public class IcebergPageSink
             return location;
         }
         return Location.of("local:///" + location.path());
+    }
+
+    static long getTargetMaxFileSizeBytes(Map<String, String> storageProperties, DataSize targetMaxFileSize)
+    {
+        String tableProperty = storageProperties.get(WRITE_TARGET_FILE_SIZE_BYTES);
+        if (tableProperty == null) {
+            return targetMaxFileSize.toBytes();
+        }
+        try {
+            return Long.parseLong(tableProperty);
+        }
+        catch (NumberFormatException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid value for Iceberg table property %s: %s", WRITE_TARGET_FILE_SIZE_BYTES, tableProperty), e);
+        }
     }
 
     private static class WriteContext

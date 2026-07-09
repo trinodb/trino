@@ -101,6 +101,9 @@ Additionally, following configuration properties can be set depending on the use
     failing the query. This skips data that may be expected to be part of the
     table.
   - `false`
+* - `hudi.max-split-size`
+  - Maximum size of a single split.
+  - `120MB`
 
 :::
 

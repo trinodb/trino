@@ -73,7 +73,7 @@ public final class TimeType
 
     private TimeType(int precision)
     {
-        super(new TypeSignature(NAME, TypeParameter.numericParameter(precision)));
+        super(new TypeDescriptor(NAME, TypeParameter.numericParameter(precision)));
         this.precision = precision;
     }
 
@@ -160,19 +160,19 @@ public final class TimeType
     }
 
     @ScalarOperator(EQUAL)
-    public static boolean equalOperator(long left, long right)
+    private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
     @ScalarOperator(HASH_CODE)
-    public static long hashCodeOperator(long value)
+    private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash(value);
     }
 
     @ScalarOperator(XX_HASH_64)
-    public static long xxHash64Operator(long value)
+    private static long xxHash64Operator(long value)
     {
         return XxHash64.hash(value);
     }
@@ -184,13 +184,13 @@ public final class TimeType
     }
 
     @ScalarOperator(LESS_THAN)
-    public static boolean lessThan(long left, long right)
+    private static boolean lessThan(long left, long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static boolean lessThanOrEqual(long left, long right)
+    private static boolean lessThanOrEqual(long left, long right)
     {
         return left <= right;
     }

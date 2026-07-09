@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redis;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -22,6 +23,7 @@ import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.RedisClient;
 
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -45,9 +47,10 @@ public class RedisClientManager
     private final char redisKeyDelimiter;
     private final boolean keyPrefixSchemaTable;
     private final int redisScanCount;
+    private final Set<RedisClientConfigurator> clientConfigurators;
 
     @Inject
-    RedisClientManager(RedisConnectorConfig redisConnectorConfig)
+    RedisClientManager(RedisConnectorConfig redisConnectorConfig, Set<RedisClientConfigurator> clientConfigurators)
     {
         requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.redisUser = redisConnectorConfig.getRedisUser();
@@ -58,6 +61,7 @@ public class RedisClientManager
         this.redisKeyDelimiter = redisConnectorConfig.getRedisKeyDelimiter();
         this.keyPrefixSchemaTable = redisConnectorConfig.isKeyPrefixSchemaTable();
         this.redisScanCount = redisConnectorConfig.getRedisScanCount();
+        this.clientConfigurators = ImmutableSet.copyOf(clientConfigurators);
     }
 
     @PreDestroy
@@ -114,6 +118,8 @@ public class RedisClientManager
         if (redisPassword != null && !redisPassword.isEmpty()) {
             clientConfigBuilder.password(redisPassword);
         }
+
+        clientConfigurators.forEach(configurator -> configurator.configure(clientConfigBuilder));
 
         return RedisClient.builder()
                 .hostAndPort(host.getHostText(), host.getPort())

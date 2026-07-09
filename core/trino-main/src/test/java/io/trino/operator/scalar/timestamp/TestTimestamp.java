@@ -40,12 +40,12 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -377,6 +377,9 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567890' AS DATE)")).matches("DATE '2020-05-01'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678901' AS DATE)")).matches("DATE '2020-05-01'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789012' AS DATE)")).matches("DATE '2020-05-01'");
+
+        assertThat(assertions.expression("CAST(a AS DATE)").binding("a", "TIMESTAMP '2020-05-01 12:34:56'"))
+                .neverFails();
     }
 
     @Test
@@ -3333,6 +3336,24 @@ public class TestTimestamp
 
         assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-11'"))
                 .isEqualTo(false);
+
+        // short timestamp (precision <= 6 → ShortTimestampType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        // long timestamp (precision > 6 → LongTimestampType)
+        assertThat(assertions.expression("a = b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
     }
 
     @Test
@@ -3379,6 +3400,24 @@ public class TestTimestamp
 
         assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-20'"))
                 .isEqualTo(false);
+
+        // short timestamp (precision <= 6 → ShortTimestampType)
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        // long timestamp (precision > 6 → LongTimestampType)
+        assertThat(assertions.expression("a < b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
     }
 
     @Test
@@ -3401,6 +3440,24 @@ public class TestTimestamp
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22'", "TIMESTAMP '2001-1-20'"))
                 .isEqualTo(false);
+
+        // short timestamp (precision <= 6 → ShortTimestampType)
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2001-1-22 03:04:05.321'")
+                .binding("b", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2001-1-22 03:04:05.321'", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .neverFails();
+
+        // long timestamp (precision > 6 → LongTimestampType)
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "TIMESTAMP '2020-05-01 12:34:56.123456789'")
+                .binding("b", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "TIMESTAMP '2020-05-01 12:34:56.123456789'", "TIMESTAMP '2020-05-01 12:34:56.123456789'"))
+                .neverFails();
     }
 
     @Test

@@ -479,6 +479,26 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    @Override
+    public void testVarcharEqualityPushdownIgnoresTrailingSpaces()
+    {
+        // Uses a case-sensitive legacy collation (latin1_general_cs): it is PAD SPACE and uses full predicate pushdown,
+        // so it exercises the re-check path. The default utf8mb4_0900_ai_ci collation is NO PAD and would not.
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_varchar_pad_space",
+                "(v varchar(5) CHARACTER SET latin1 COLLATE latin1_general_cs)",
+                List.of("'a'", "'a '"))) {
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a'");
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a '"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a '");
+        }
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
         // varchar like
@@ -576,11 +596,11 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar inequality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'", objectName)))
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar equality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'", objectName)))
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar range
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'", objectName)))
@@ -590,7 +610,7 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar NOT IN
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar NOT IN with small compaction threshold
         assertThat(query(
@@ -613,7 +633,7 @@ public abstract class BaseMySqlConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar IN with small compaction threshold
         assertThat(query(
@@ -636,7 +656,7 @@ public abstract class BaseMySqlConnectorTest
         // varchar different case
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'", objectName)))
                 .returnsEmptyResult()
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         Session joinPushdownEnabled = joinPushdownEnabled(getSession());
         // join on varchar columns

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -19,7 +19,6 @@
     </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>com.clearspring.analytics</groupId>
             <artifactId>stream</artifactId>
@@ -352,7 +351,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>10.4.0</version>
+            <version>10.5.0</version>
         </dependency>
 
         <dependency>
@@ -403,14 +402,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp-jvm</artifactId>
-            <scope>runtime</scope>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-jvm</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -563,7 +562,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <!-- Ensure incubator Vector API is on the module path for javac -->
-                        <compilerArgs combine.self="merge">
+                        <compilerArgs combine.children="append">
                             <arg>${extraJavaVectorArgs}</arg>
                         </compilerArgs>
                     </configuration>

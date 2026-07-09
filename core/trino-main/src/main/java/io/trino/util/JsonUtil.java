@@ -744,7 +744,7 @@ public final class JsonUtil
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
             case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBigint(utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToLong(parser.getDoubleValue());
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToBigint(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> parser.getLongValue();
             case VALUE_TRUE -> BooleanOperators.castToBigint(true);
             case VALUE_FALSE -> BooleanOperators.castToBigint(false);
@@ -815,7 +815,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToFloat(utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToReal(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> (long) floatToRawIntBits(parser.getFloatValue());
             // An alternative is calling getLongValue and then BigintOperators.castToReal.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.

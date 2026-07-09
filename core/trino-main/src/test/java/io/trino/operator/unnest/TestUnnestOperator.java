@@ -20,6 +20,7 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PageTestUtils;
+import io.trino.operator.unnest.TestingUnnesterUtil.UnnestedLengths;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.ArrayType;
@@ -45,15 +46,13 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.PageAssertions.assertSameDataInOrder;
 import static io.trino.operator.PageTestUtils.Wrapping.DICTIONARY;
 import static io.trino.operator.PageTestUtils.Wrapping.RUN_LENGTH;
 import static io.trino.operator.PageTestUtils.createRandomPage;
-import static io.trino.operator.unnest.TestingUnnesterUtil.UnnestedLengths;
 import static io.trino.operator.unnest.TestingUnnesterUtil.buildExpectedPage;
 import static io.trino.operator.unnest.TestingUnnesterUtil.buildOutputTypes;
 import static io.trino.operator.unnest.TestingUnnesterUtil.calculateMaxCardinalities;
-import static io.trino.operator.unnest.TestingUnnesterUtil.mergePages;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -316,6 +315,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestSingleArray()
+            throws Exception
     {
         testUnnest(
                 ImmutableList.of(BIGINT),
@@ -332,6 +332,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestSingleMap()
+            throws Exception
     {
         testUnnest(
                 ImmutableList.of(BIGINT),
@@ -348,6 +349,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestSingleArrayWithEmptyInput()
+            throws Exception
     {
         Page emptyPage = new PageBuilder(ImmutableList.of(BIGINT, new ArrayType(BIGINT))).build();
         testUnnest(
@@ -360,6 +362,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestSingleArrayOfRow()
+            throws Exception
     {
         testUnnest(
                 ImmutableList.of(BIGINT),
@@ -379,6 +382,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestTwoArrays()
+            throws Exception
     {
         testUnnest(
                 ImmutableList.of(BOOLEAN),
@@ -417,6 +421,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestTwoMaps()
+            throws Exception
     {
         testUnnest(
                 ImmutableList.of(BIGINT),
@@ -425,6 +430,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestTwoArraysOfRow()
+            throws Exception
     {
         Type rowOfIntegers = anonymousRow(INTEGER, INTEGER);
         testUnnest(
@@ -434,6 +440,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestMultipleMixed()
+            throws Exception
     {
         testUnnest(
                 ImmutableList.of(BIGINT),
@@ -446,6 +453,7 @@ public class TestUnnestOperator
 
     @Test
     public void testUnnestArrayOfRowsWithNulls()
+            throws Exception
     {
         Type replicatedType = VARCHAR;
         // Unnest type
@@ -466,6 +474,7 @@ public class TestUnnestOperator
     }
 
     protected void testUnnest(List<Type> replicatedTypes, List<Type> unnestTypes)
+            throws Exception
     {
         testUnnest(replicatedTypes, unnestTypes, 0.0f, ImmutableList.of());
         testUnnest(replicatedTypes, unnestTypes, 0.2f, ImmutableList.of());
@@ -486,6 +495,7 @@ public class TestUnnestOperator
             List<Type> unnestTypes,
             float nullRate,
             List<PageTestUtils.Wrapping> wrappings)
+            throws Exception
     {
         List<Type> types = ImmutableList.<Type>builder()
                 .addAll(replicatedTypes)
@@ -505,11 +515,12 @@ public class TestUnnestOperator
     }
 
     private void testUnnest(List<Page> inputPages, List<Type> replicatedTypes, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
+            throws Exception
     {
         List<Integer> replicatedChannels = IntStream.range(0, replicatedTypes.size()).boxed().collect(toImmutableList());
         List<Integer> unnestChannels = IntStream.range(replicatedTypes.size(), replicatedTypes.size() + unnestTypes.size()).boxed().collect(toImmutableList());
 
-        Operator unnestOperator = new UnnestOperator.UnnestOperatorFactory(
+        try (Operator unnestOperator = new UnnestOperator.UnnestOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 replicatedChannels,
@@ -518,37 +529,36 @@ public class TestUnnestOperator
                 unnestTypes,
                 withOrdinality,
                 outer)
-                .createOperator(createDriverContext());
+                .createOperator(createDriverContext())) {
+            for (Page inputPage : inputPages) {
+                UnnestedLengths unnestedLengths = calculateMaxCardinalities(inputPage, replicatedTypes, unnestTypes, outer);
+                List<Type> outputTypes = buildOutputTypes(replicatedTypes, unnestTypes, withOrdinality);
 
-        for (Page inputPage : inputPages) {
-            UnnestedLengths unnestedLengths = calculateMaxCardinalities(inputPage, replicatedTypes, unnestTypes, outer);
-            List<Type> outputTypes = buildOutputTypes(replicatedTypes, unnestTypes, withOrdinality);
+                Page expectedPage = buildExpectedPage(inputPage, replicatedTypes, unnestTypes, outputTypes, unnestedLengths, withOrdinality);
 
-            Page expectedPage = buildExpectedPage(inputPage, replicatedTypes, unnestTypes, outputTypes, unnestedLengths, withOrdinality);
+                unnestOperator.addInput(inputPage);
 
-            unnestOperator.addInput(inputPage);
+                List<Page> outputPages = new ArrayList<>();
+                while (true) {
+                    Page outputPage = unnestOperator.getOutput();
 
-            List<Page> outputPages = new ArrayList<>();
-            while (true) {
-                Page outputPage = unnestOperator.getOutput();
+                    if (outputPage == null) {
+                        break;
+                    }
 
-                if (outputPage == null) {
-                    break;
+                    assertThat(outputPage.getPositionCount() <= 1000).isTrue();
+
+                    outputPages.add(outputPage);
                 }
 
-                assertThat(outputPage.getPositionCount() <= 1000).isTrue();
-
-                outputPages.add(outputPage);
-            }
-
-            Page mergedOutputPage = mergePages(outputTypes, outputPages);
-            try {
-                assertPageEquals(outputTypes, mergedOutputPage, expectedPage);
-            }
-            catch (Throwable e) {
-                System.out.println("withOrdinality: " + withOrdinality + ", outer: " + outer);
-                System.out.println("Last index: " + (outputTypes.size() - 1));
-                throw e;
+                try {
+                    assertSameDataInOrder(outputTypes, outputPages, List.of(expectedPage));
+                }
+                catch (Throwable e) {
+                    System.out.println("withOrdinality: " + withOrdinality + ", outer: " + outer);
+                    System.out.println("Last index: " + (outputTypes.size() - 1));
+                    throw e;
+                }
             }
         }
     }

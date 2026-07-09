@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static io.airlift.log.Level.WARN;
@@ -153,6 +154,13 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
+        public SELF addHiveProperties(Map<String, String> hiveProperties)
+        {
+            this.hiveProperties.putAll(requireNonNull(hiveProperties, "hiveProperties is null"));
+            return self();
+        }
+
+        @CanIgnoreReturnValue
         public SELF setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
@@ -224,6 +232,13 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
+        public SELF apply(Consumer<SELF> consumer)
+        {
+            requireNonNull(consumer, "consumer is null").accept(self());
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -246,11 +261,6 @@ public final class HiveQueryRunner
                 Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
 
-                if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
-                        key.matches("fs\\.(azure|gcs|s3|local|hadoop)\\.enabled"))) {
-                    hiveProperties.put("fs.hadoop.enabled", "true");
-                }
-
                 queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, metastoreImpersonationEnabled, decryptionKeyRetriever));
 
                 Map<String, String> hiveProperties = new HashMap<>();
@@ -269,7 +279,6 @@ public final class HiveQueryRunner
                 if (tpchBucketedCatalogEnabled) {
                     Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                             .putAll(hiveProperties)
-                            .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
                             .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
                             .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
                             .buildOrThrow();

@@ -204,6 +204,21 @@ public final class MetadataUtil
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
+    public static QualifiedObjectName createTargetQualifiedObjectName(QualifiedObjectName source, QualifiedName target)
+    {
+        requireNonNull(target, "target is null");
+        if (target.getParts().size() > 3) {
+            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in name: %s", target));
+        }
+
+        List<String> parts = target.getParts().reversed();
+        String objectName = parts.get(0);
+        String schemaName = (parts.size() > 1) ? parts.get(1) : source.schemaName();
+        String catalogName = (parts.size() > 2) ? parts.get(2) : source.catalogName();
+
+        return new QualifiedObjectName(catalogName, schemaName, objectName);
+    }
+
     public static EntityKindAndName createEntityKindAndName(String entityKind, QualifiedName name)
     {
         return new EntityKindAndName(entityKind, name.getParts());

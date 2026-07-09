@@ -18,6 +18,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.Optional;
+
 public class GoogleSecurityConfig
 {
     private String projectId;
@@ -37,14 +39,13 @@ public class GoogleSecurityConfig
         return this;
     }
 
-    @NotNull
-    @FileExists
-    public String getJsonKeyFilePath()
+    // Duplicated from GcsFileSystemConfig. When absent, Application Default Credentials (ADC) are used,
+    // which enables GKE Workload Identity and environment-based credential sources.
+    public Optional<@FileExists String> getJsonKeyFilePath()
     {
-        return jsonKeyFilePath;
+        return Optional.ofNullable(jsonKeyFilePath);
     }
 
-    // Duplicated from GcsFileSystemConfig to enforce the property in BigLake metastore
     @Config("gcs.json-key-file-path")
     @ConfigDescription("JSON key file used to access Google Cloud Storage")
     public GoogleSecurityConfig setJsonKeyFilePath(String jsonKeyFilePath)

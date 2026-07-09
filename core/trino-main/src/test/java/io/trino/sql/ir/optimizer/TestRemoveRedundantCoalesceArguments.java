@@ -24,6 +24,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -32,7 +33,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -127,6 +128,6 @@ public class TestRemoveRedundantCoalesceArguments
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantCoalesceArguments(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantCoalesceArguments(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

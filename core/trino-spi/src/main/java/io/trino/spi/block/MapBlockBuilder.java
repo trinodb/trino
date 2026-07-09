@@ -146,7 +146,7 @@ public class MapBlockBuilder
         }
 
         int offsetBase = mapBlock.getOffsetBase();
-        int[] offsets = mapBlock.getOffsets();
+        int[] offsets = mapBlock.getRawOffsets();
         int startOffset = offsets[offsetBase + position];
         int length = offsets[offsetBase + position + 1] - startOffset;
 

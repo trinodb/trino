@@ -16,6 +16,7 @@ package io.trino.parquet.reader.decoders;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.values.ValuesWriter;
@@ -36,7 +37,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
 import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;

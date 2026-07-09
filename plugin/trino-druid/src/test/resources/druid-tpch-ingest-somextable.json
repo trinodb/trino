@@ -3,40 +3,49 @@
     "spec": {
         "dataSchema": {
             "dataSource": "somextable",
-            "parser": {
-                "type": "string",
-                "parseSpec": {
-                    "format": "tsv",
-                    "timestampSpec": {
-                        "column": "orderdate_druid_ts_x",
-                        "format": "auto"
+            "timestampSpec": {
+                "column": "orderdate_druid_ts_x",
+                "format": "auto"
+            },
+            "dimensionsSpec": {
+                "dimensions": [
+                    {
+                        "name": "orderdate_x",
+                        "type": "string"
                     },
-                    "columns": [
-                        "orderdate_x",
-                        "orderdate_druid_ts_x",
-                        "orderkey_x",
-                        "custkey_x",
-                        "orderstatus_x",
-                        "totalprice_x",
-                        "orderpriority_x",
-                        "clerk_x",
-                        "shippriority_x",
-                        "comment_x"
-                    ],
-                    "dimensionsSpec": {
-                        "dimensions": [
-                            { "name": "orderdate_x", "type": "string"},
-                            { "name": "orderkey_x", "type": "long" },
-                            { "name": "custkey_x", "type": "long" },
-                            { "name": "orderstatus_x", "type": "string" },
-                            { "name": "totalprice_x", "type": "double"},
-                            { "name": "orderpriority_x", "type": "string" },
-                            { "name": "clerk_x", "type": "string" },
-                            {"name":  "shippriority_x", "type": "long"},
-                            { "name": "comment_x", "type": "string" }
-                        ]
+                    {
+                        "name": "orderkey_x",
+                        "type": "long"
+                    },
+                    {
+                        "name": "custkey_x",
+                        "type": "long"
+                    },
+                    {
+                        "name": "orderstatus_x",
+                        "type": "string"
+                    },
+                    {
+                        "name": "totalprice_x",
+                        "type": "double"
+                    },
+                    {
+                        "name": "orderpriority_x",
+                        "type": "string"
+                    },
+                    {
+                        "name": "clerk_x",
+                        "type": "string"
+                    },
+                    {
+                        "name": "shippriority_x",
+                        "type": "long"
+                    },
+                    {
+                        "name": "comment_x",
+                        "type": "string"
                     }
-                }
+                ]
             },
             "granularitySpec": {
                 "type": "uniform",
@@ -49,10 +58,26 @@
         },
         "ioConfig": {
             "type": "index",
-            "firehose": {
+            "inputSource": {
                 "type": "local",
                 "baseDir": "/opt/druid/var/",
                 "filter": "somextable.tsv"
+            },
+            "inputFormat": {
+                "type": "tsv",
+                "findColumnsFromHeader": false,
+                "columns": [
+                    "orderdate_x",
+                    "orderdate_druid_ts_x",
+                    "orderkey_x",
+                    "custkey_x",
+                    "orderstatus_x",
+                    "totalprice_x",
+                    "orderpriority_x",
+                    "clerk_x",
+                    "shippriority_x",
+                    "comment_x"
+                ]
             },
             "appendToExisting": false
         },
@@ -66,4 +91,3 @@
         }
     }
 }
-

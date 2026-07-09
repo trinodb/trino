@@ -40,6 +40,8 @@ import io.trino.split.PageSinkId;
 import io.trino.split.PageSinkManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
+import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 
 import java.util.Collection;
@@ -61,8 +63,6 @@ import static io.trino.SystemSessionProperties.getCloseIdleWritersTriggerDuratio
 import static io.trino.SystemSessionProperties.getIdleWriterMinDataSizeThreshold;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

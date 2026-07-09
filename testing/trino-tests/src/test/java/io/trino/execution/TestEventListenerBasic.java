@@ -56,15 +56,16 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
+import io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -99,7 +100,6 @@ import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 import static java.lang.String.format;
@@ -1516,7 +1516,7 @@ public class TestEventListenerBasic
         JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
                         Symbol.class, new SymbolKeyDeserializer(typeManager),
-                        TypeSignature.class, new TypeSignatureKeyDeserializer()))
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer()))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager)))
                 .get();
@@ -1542,14 +1542,14 @@ public class TestEventListenerBasic
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "100",
+                                "74",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
                                 ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 90., 0., 0.)),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "173",
+                                        "131",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "[connectorHandleType = SystemPartitioningHandle, partitioning = SINGLE, function = SINGLE]",
@@ -1559,7 +1559,7 @@ public class TestEventListenerBasic
                                         ImmutableList.of(),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                                         ImmutableList.of(new JsonRenderedNode(
-                                                "140",
+                                                "102",
                                                 "RemoteSource",
                                                 ImmutableMap.of("sourceFragmentIds", "[1]"),
                                                 ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
@@ -1567,7 +1567,7 @@ public class TestEventListenerBasic
                                                 ImmutableList.of(),
                                                 ImmutableList.of()))))))),
                 "1", new JsonRenderedNode(
-                        "139",
+                        "101",
                         "LimitPartial",
                         ImmutableMap.of(
                                 "count", "10",

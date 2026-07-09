@@ -14,14 +14,13 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.spi.connector.ColumnHandle;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-
-import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 
 public final class HiveApplyProjectionUtil
 {

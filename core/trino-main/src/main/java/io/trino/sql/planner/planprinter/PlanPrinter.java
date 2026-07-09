@@ -41,6 +41,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.metrics.DistributionSnapshot;
+import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.FunctionName;
@@ -57,7 +58,7 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -130,6 +131,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
@@ -162,7 +164,6 @@ import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
-import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -170,7 +171,6 @@ import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
-import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
@@ -717,7 +717,7 @@ public class PlanPrinter
         public Void visitJoin(JoinNode node, Context context)
         {
             List<Expression> criteriaExpressions = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::toExpression)
+                    .map(clause -> clause.toExpression(valuePrinter.getMetadata()))
                     .collect(toImmutableList());
 
             NodeRepresentation nodeOutput;
@@ -819,18 +819,18 @@ public class PlanPrinter
         @Override
         public Void visitIndexJoin(IndexJoinNode node, Context context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
+            List<String> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new Comparison(
-                        Comparison.Operator.EQUAL,
-                        clause.getProbe().toSymbolReference(),
-                        clause.getIndex().toSymbolReference()));
+                joinExpressions.add("%s %s %s".formatted(
+                        anonymizer.anonymize(clause.getProbe().toSymbolReference()),
+                        ComparisonOperator.EQUAL.getValue(),
+                        anonymizer.anonymize(clause.getIndex().toSymbolReference())));
             }
 
             addNode(node,
                     format("%sIndexJoin", node.getType().getJoinLabel()),
                     ImmutableMap.of(
-                            "criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions))),
+                            "criteria", Joiner.on(" AND ").join(joinExpressions)),
                     context);
             node.getProbeSource().accept(this, new Context(context.isInitialPlan()));
             node.getIndexSource().accept(this, new Context(context.isInitialPlan()));
@@ -1073,7 +1073,7 @@ public class PlanPrinter
                                     .collect(joining(", ", "{", "}")));
                     case ScalarValuePointer pointer -> format("%s[%s]", anonymizer.anonymize(pointer.getInputSymbol()), formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
                     case ClassifierValuePointer pointer -> format("%s[%s]", "classifier", formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
-                    case MatchNumberValuePointer pointer -> "match_number";
+                    case MatchNumberValuePointer _ -> "match_number";
                 };
 
                 nodeOutput.appendDetails("%s%s := %s", indentString(1), anonymizer.anonymize(assignment.symbol()), value);

@@ -77,8 +77,8 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -228,8 +228,8 @@ public class ClickHouseClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
-        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
-        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
+        this.uuidType = typeManager.getType(new TypeDescriptor(StandardTypes.UUID));
+        this.ipAddressType = typeManager.getType(new TypeDescriptor(StandardTypes.IPADDRESS));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)

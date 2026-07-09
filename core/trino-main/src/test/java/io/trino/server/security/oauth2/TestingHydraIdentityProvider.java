@@ -22,6 +22,7 @@ import com.google.common.io.Resources;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Key;
 import com.nimbusds.oauth2.sdk.GrantType;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -60,6 +61,7 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
@@ -235,8 +237,8 @@ public class TestingHydraIdentityProvider
         NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
                 .setEnvironment("test")
                 .setNodeInternalAddress(InetAddresses.toAddrString(InetAddress.getLocalHost())));
-        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpServerConfig config = new HttpServerConfig();
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
         return new TestingHttpServer("testing-login-and-consent-server", httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet());
     }
 

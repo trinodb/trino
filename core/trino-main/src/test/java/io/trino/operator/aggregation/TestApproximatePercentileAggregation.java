@@ -21,7 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -39,32 +39,32 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 
 public class TestApproximatePercentileAggregation
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE = fromTypes(DOUBLE, DOUBLE);
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(DOUBLE, BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE = fromTypes(DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(DOUBLE, BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE);
 
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE = fromTypes(BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(BIGINT, BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE = fromTypes(BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(BIGINT, BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE);
 
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(DOUBLE, new ArrayType(DOUBLE));
-    private static final List<TypeSignatureProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(DOUBLE, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE));
 
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(BIGINT, new ArrayType(DOUBLE));
-    private static final List<TypeSignatureProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE));
 
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE = fromTypes(REAL, DOUBLE);
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(REAL, BIGINT, DOUBLE);
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(REAL, BIGINT, DOUBLE, DOUBLE);
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE = fromTypes(REAL, DOUBLE);
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED = fromTypes(REAL, BIGINT, DOUBLE);
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY = fromTypes(REAL, BIGINT, DOUBLE, DOUBLE);
 
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(REAL, new ArrayType(DOUBLE));
-    private static final List<TypeSignatureProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(REAL, BIGINT, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY = fromTypes(REAL, new ArrayType(DOUBLE));
+    private static final List<TypeDescriptorProvider> FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED = fromTypes(REAL, BIGINT, new ArrayType(DOUBLE));
 
     @Test
     public void testLongPartialStep()

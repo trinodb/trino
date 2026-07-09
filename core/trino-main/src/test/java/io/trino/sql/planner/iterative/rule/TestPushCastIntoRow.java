@@ -73,7 +73,7 @@ public class TestPushCastIntoRow
 
     private void test(Expression original, Expression unwrapped)
     {
-        tester().assertThat(new PushCastIntoRow().projectExpressionRewrite())
+        tester().assertThat(new PushCastIntoRow(tester().getPlannerContext()).projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.builder()
                                 .put(p.symbol("output", original.type()), original)

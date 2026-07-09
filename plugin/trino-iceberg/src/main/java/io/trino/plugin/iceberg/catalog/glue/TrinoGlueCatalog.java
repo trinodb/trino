@@ -347,9 +347,15 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter)
     {
-        return listTables(session, namespace, table -> isIcebergTable(table.parameters())).stream()
+        if (filter.isEmpty()) {
+            return listTables(session, Optional.empty(), table -> isIcebergTable(table.parameters())).stream()
+                    .map(TableInfo::tableName)
+                    .collect(toImmutableList());
+        }
+        return filter.stream()
+                .flatMap(namespace -> listTables(session, Optional.of(namespace), table -> isIcebergTable(table.parameters())).stream())
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
     }
@@ -394,7 +400,7 @@ public class TrinoGlueCatalog
         Map<SchemaTableName, Table> unprocessed = new HashMap<>();
 
         listNamespaces(session, namespace).stream()
-                .flatMap(glueNamespace -> glueClient.streamTables(glueNamespace)
+                .flatMap(glueNamespace -> getGlueTablesWithExceptionHandling(glueNamespace)
                         .map(table -> entry(new SchemaTableName(glueNamespace, table.name()), table)))
                 .forEach(entry -> {
                     SchemaTableName name = entry.getKey();
@@ -487,7 +493,7 @@ public class TrinoGlueCatalog
         Map<SchemaTableName, Table> unprocessed = new HashMap<>();
 
         listNamespaces(session, namespace).stream()
-                .flatMap(glueNamespace -> glueClient.streamTables(glueNamespace)
+                .flatMap(glueNamespace -> getGlueTablesWithExceptionHandling(glueNamespace)
                         .map(table -> entry(new SchemaTableName(glueNamespace, table.name()), table)))
                 .forEach(entry -> {
                     SchemaTableName name = entry.getKey();
@@ -938,8 +944,12 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
+        if (!viewProperties.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Glue catalog does not support creating views with properties");
+        }
+
         // If a view is created between listing the existing view and calling createTable, retry
         TableInput viewTableInput = getViewTableInput(
                 schemaViewName.getTableName(),

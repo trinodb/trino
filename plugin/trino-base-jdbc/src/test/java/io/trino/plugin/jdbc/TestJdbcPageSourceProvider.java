@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
@@ -218,7 +219,7 @@ public class TestJdbcPageSourceProvider
                 ImmutableList.of());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
-        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)).getSplits());
+        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000, DynamicFilterSnapshot.EMPTY)));
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());

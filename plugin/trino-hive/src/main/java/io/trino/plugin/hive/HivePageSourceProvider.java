@@ -27,6 +27,7 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -38,10 +39,10 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
@@ -72,11 +73,11 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
-import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -110,7 +111,8 @@ public class HivePageSourceProvider
             ConnectorTableHandle tableHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         HiveSplit hiveSplit = (HiveSplit) split;
@@ -161,7 +163,8 @@ public class HivePageSourceProvider
                 hiveSplit.getAcidInfo(),
                 originalFile,
                 hiveTable.getTransaction(),
-                columnMappings);
+                columnMappings,
+                memoryContext);
 
         if (pageSource.isPresent()) {
             return pageSource.get();
@@ -191,7 +194,8 @@ public class HivePageSourceProvider
             Optional<AcidInfo> acidInfo,
             boolean originalFile,
             AcidTransaction transaction,
-            List<ColumnMapping> columnMappings)
+            List<ColumnMapping> columnMappings,
+            MemoryContext memoryContext)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
@@ -220,7 +224,8 @@ public class HivePageSourceProvider
                     acidInfo,
                     tableBucketNumber,
                     originalFile,
-                    transaction);
+                    transaction,
+                    memoryContext);
 
             if (pageSource.isPresent()) {
                 return Optional.of(createHivePageSource(
@@ -263,7 +268,7 @@ public class HivePageSourceProvider
 
             Type type = column.getType();
             switch (columnMapping.getKind()) {
-                case PREFILLED -> transforms.constantValue(Utils.nativeValueToBlock(type, columnMapping.getPrefilledValue().getValue()));
+                case PREFILLED -> transforms.constantValue(writeNativeValue(type, columnMapping.getPrefilledValue().getValue()));
                 case EMPTY -> transforms.constantValue(type.createNullBlock());
                 case REGULAR, SYNTHESIZED -> {
                     Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = Optional.empty();

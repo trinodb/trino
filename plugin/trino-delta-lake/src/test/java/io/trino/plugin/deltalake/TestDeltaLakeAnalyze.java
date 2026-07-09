@@ -66,6 +66,7 @@ public class TestDeltaLakeAnalyze
             throws Exception
     {
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();

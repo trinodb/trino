@@ -36,6 +36,7 @@ import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
 import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -94,6 +95,7 @@ public class TestDeltaLakeGlueMetastore
     private DeltaLakeMetadataFactory metadataFactory;
     private String databaseName;
     private TestingConnectorSession session;
+    private FlociS3AndGlue floci;
 
     @BeforeAll
     public void setUp()
@@ -101,11 +103,13 @@ public class TestDeltaLakeGlueMetastore
     {
         tempDir = Files.createTempDirectory(null).toFile();
         String temporaryLocation = tempDir.toURI().toString();
+        floci = new FlociS3AndGlue();
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "glue")
                 .put("delta.hide-non-delta-lake-tables", "true")
                 .put("fs.hadoop.enabled", "true")
+                .putAll(floci.glueProperties())
                 .buildOrThrow();
 
         ConnectorContext context = new TestingConnectorContext();
@@ -152,6 +156,7 @@ public class TestDeltaLakeGlueMetastore
         closeAll(
                 () -> metastoreClient.dropDatabase(databaseName, true),
                 () -> lifeCycleManager.stop(),
+                () -> floci.close(),
                 () -> {
                     if (tempDir.exists()) {
                         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -161,6 +166,7 @@ public class TestDeltaLakeGlueMetastore
         databaseName = null;
         lifeCycleManager = null;
         tempDir = null;
+        floci = null;
     }
 
     @Test

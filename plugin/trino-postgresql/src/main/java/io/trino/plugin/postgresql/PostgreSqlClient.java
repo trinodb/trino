@@ -112,8 +112,8 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -317,10 +317,10 @@ public class PostgreSqlClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
-        this.jsonType = typeManager.getType(new TypeSignature(JSON));
-        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
+        this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
+        this.uuidType = typeManager.getType(new TypeDescriptor(StandardTypes.UUID));
         this.varcharMapType = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
-        this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
+        this.geometryType = typeManager.getType(new TypeDescriptor(StandardTypes.GEOMETRY));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
         tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
@@ -345,6 +345,7 @@ public class PostgreSqlClient
                 .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
                 .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
                 .map("$greater_than_or_equal(left: numeric_type, right: numeric_type)").to("left >= right")
+                .map("$between(value: numeric_type, min: numeric_type, max: numeric_type)").to("value BETWEEN min AND max")
                 .map("$add(left: integer_type, right: integer_type)").to("left + right")
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
@@ -362,6 +363,7 @@ public class PostgreSqlClient
                 .when(pushdownWithCollateEnabled).map("$less_than_or_equal(left: collatable_type, right: collatable_type)").to("left <= right COLLATE \"C\"")
                 .when(pushdownWithCollateEnabled).map("$greater_than(left: collatable_type, right: collatable_type)").to("left > right COLLATE \"C\"")
                 .when(pushdownWithCollateEnabled).map("$greater_than_or_equal(left: collatable_type, right: collatable_type)").to("left >= right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$between(value: collatable_type, min: collatable_type, max: collatable_type)").to("value COLLATE \"C\" BETWEEN min AND max")
                 .build();
 
         this.projectFunctionRewriter = new ProjectFunctionRewriter<>(

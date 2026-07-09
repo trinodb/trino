@@ -59,6 +59,11 @@ The following configuration properties are available:
 | `redis.database-index`              | Redis database index                                                                              |
 | `redis.user`                        | Redis server username                                                                             |
 | `redis.password`                    | Redis server password                                                                             |
+| `redis.tls.enabled`                 | Whether TLS security is enabled                                                                   |
+| `redis.tls.keystore-path`           | Path to the {doc}`JKS </security/inspect-jks>` or PKCS12 key store file                           |
+| `redis.tls.keystore-password`       | Password for the key store                                                                        |
+| `redis.tls.truststore-path`         | Path to the {doc}`JKS </security/inspect-jks>` or PKCS12 trust store file                         |
+| `redis.tls.truststore-password`     | Password for the trust store                                                                      |
 
 ### `redis.table-names`
 
@@ -165,6 +170,43 @@ This property is optional; the default is `null`.
 The password for password-protected Redis server.
 
 This property is optional; the default is `null`.
+
+### `redis.tls.enabled`
+
+Enable TLS for the Redis connection.
+
+This property is optional; the default is `false`.
+
+When TLS is enabled, the connector uses the JVM default trust store unless
+`redis.tls.truststore-path` is set.
+
+### `redis.tls.keystore-path`
+
+Path to the {doc}`JKS </security/inspect-jks>` or PKCS12 key store file
+used to authenticate the client to the Redis server (only required for
+mTLS).
+
+This property is optional; there is no default.
+
+### `redis.tls.keystore-password`
+
+Password for the key store referenced by `redis.tls.keystore-path`.
+
+This property is optional; there is no default.
+
+### `redis.tls.truststore-path`
+
+Path to the {doc}`JKS </security/inspect-jks>` or PKCS12 trust store file
+containing the certificate(s) used to verify the Redis server's TLS
+certificate.
+
+This property is optional; there is no default.
+
+### `redis.tls.truststore-password`
+
+Password for the trust store referenced by `redis.tls.truststore-path`.
+
+This property is optional; there is no default.
 
 ## Internal columns
 

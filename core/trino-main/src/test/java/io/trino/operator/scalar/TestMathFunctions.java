@@ -1868,6 +1868,39 @@ public class TestMathFunctions
         assertThat(assertions.function("round", "DOUBLE '-1.8E292'", "16"))
                 .isEqualTo(-1.8e292);
 
+        // 10^decimals underflows to 0 for decimals <= -324; rounding any finite value to such a
+        // coarse place must yield 0, not NaN (regression for the 0L / 0.0 division). The sign of
+        // zero is preserved, consistent with rounding any negative value down to zero elsewhere.
+        assertThat(assertions.function("round", "DOUBLE '123.456'", "-324"))
+                .isEqualTo(0.0);
+
+        assertThat(assertions.function("round", "DOUBLE '-123.456'", "-1000"))
+                .isEqualTo(-0.0);
+
+        assertThat(assertions.function("round", "REAL '123.456'", "-324"))
+                .isEqualTo(0.0f);
+
+        assertThat(assertions.function("round", "REAL '-123.456'", "-1000"))
+                .isEqualTo(-0.0f);
+
+        assertThat(assertions.function("round", "nan()", "-1000"))
+                .isEqualTo(Double.NaN);
+
+        assertThat(assertions.function("round", "infinity()", "-1000"))
+                .isEqualTo(Double.POSITIVE_INFINITY);
+
+        assertThat(assertions.function("round", "-infinity()", "-1000"))
+                .isEqualTo(Double.NEGATIVE_INFINITY);
+
+        assertThat(assertions.function("round", "REAL 'NaN'", "-1000"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.function("round", "CAST(infinity() AS REAL)", "-1000"))
+                .isEqualTo(Float.POSITIVE_INFINITY);
+
+        assertThat(assertions.function("round", "CAST(-infinity() AS REAL)", "-1000"))
+                .isEqualTo(Float.NEGATIVE_INFINITY);
+
         assertThat(assertions.function("round", "TINYINT '3'", "TINYINT '1'"))
                 .isEqualTo((byte) 3);
 
@@ -3243,6 +3276,20 @@ public class TestMathFunctions
         assertThat(assertions.function("greatest", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]"))
                 .hasType(new ArrayType(REAL))
                 .isEqualTo(ImmutableList.of(Float.NaN));
+
+        assertThat(assertions.expression("greatest(ROW(1, NULL), ROW(1, 2)) IS NOT DISTINCT FROM ROW(1, 2)"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("greatest(ARRAY[1, NULL], ARRAY[1, 2])"))
+                .matches("ARRAY[1, 2]");
+
+        assertThat(assertions.function("greatest", "ROW(1, 2)", "ROW(1, 3)"))
+                .neverFails();
+        assertThat(assertions.function("greatest", "ARRAY[1, 2]", "ARRAY[1, 3]"))
+                .neverFails();
+        assertThat(assertions.function("greatest", "1", "2"))
+                .neverFails();
+        assertThat(assertions.function("greatest", "VARCHAR 'a'", "VARCHAR 'b'"))
+                .neverFails();
     }
 
     @Test
@@ -3571,6 +3618,20 @@ public class TestMathFunctions
         assertThat(assertions.function("least", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]", "ARRAY[CAST(NaN() as REAL)]"))
                 .hasType(new ArrayType(REAL))
                 .isEqualTo(ImmutableList.of(Float.NaN));
+
+        assertThat(assertions.expression("least(ROW(1, NULL), ROW(1, 2)) IS NOT DISTINCT FROM ROW(1, 2)"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("least(ARRAY[1, NULL], ARRAY[1, 2])"))
+                .matches("ARRAY[1, 2]");
+
+        assertThat(assertions.function("least", "ROW(1, 2)", "ROW(1, 3)"))
+                .neverFails();
+        assertThat(assertions.function("least", "ARRAY[1, 2]", "ARRAY[1, 3]"))
+                .neverFails();
+        assertThat(assertions.function("least", "1", "2"))
+                .neverFails();
+        assertThat(assertions.function("least", "VARCHAR 'a'", "VARCHAR 'b'"))
+                .neverFails();
     }
 
     @Test

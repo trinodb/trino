@@ -32,7 +32,6 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
-import org.elasticsearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -120,10 +119,12 @@ public class BackpressureRestClient
         delegate.close();
     }
 
+    private static final int HTTP_TOO_MANY_REQUESTS = 429;
+
     private static boolean isBackpressure(Throwable throwable)
     {
         return throwable instanceof ResponseException responseException &&
-                responseException.getResponse().getStatusLine().getStatusCode() == RestStatus.TOO_MANY_REQUESTS.getStatus();
+                responseException.getResponse().getStatusLine().getStatusCode() == HTTP_TOO_MANY_REQUESTS;
     }
 
     private void onComplete(ExecutionCompletedEvent<Response> executionCompletedEvent)

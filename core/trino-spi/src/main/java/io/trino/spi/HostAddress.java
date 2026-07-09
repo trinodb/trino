@@ -41,7 +41,6 @@ import static java.util.Objects.requireNonNull;
  * hp.getPort();      // returns 80
  * hp.toString();     // returns "[2001:db8::1]:80"
  * </pre>
- * <p>
  * <p>Here are some examples of recognized formats:
  * <ul>
  * <li>example.com
@@ -87,7 +86,6 @@ public class HostAddress
     /**
      * Returns the portion of this {@code HostAddress} instance that should
      * represent the hostname or IPv4/IPv6 literal.
-     * <p>
      * <p>A successful parse does not imply any degree of sanity in this field.
      */
     public String getHostText()
@@ -128,7 +126,6 @@ public class HostAddress
 
     /**
      * Build a HostAddress instance from separate host and port values.
-     * <p>
      * <p>Note: Non-bracketed IPv6 literals are allowed.
      *
      * @param host the host string to parse. Must not contain a port number.

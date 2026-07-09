@@ -100,7 +100,7 @@ FROM
            date_dim
          WHERE ("d_year" = (1999 + 1))
             AND ("d_moy" = 12)
-            AND ("d_dom" = 11)
+            AND ("d_dom" = 17)
       ))
    GROUP BY "i_brand_id", "i_class_id", "i_category_id"
    HAVING ("sum"(("ss_quantity" * "ss_list_price")) > (
@@ -134,7 +134,7 @@ FROM
            date_dim
          WHERE ("d_year" = 1999)
             AND ("d_moy" = 12)
-            AND ("d_dom" = 11)
+            AND ("d_dom" = 17)
       ))
    GROUP BY "i_brand_id", "i_class_id", "i_category_id"
    HAVING ("sum"(("ss_quantity" * "ss_list_price")) > (

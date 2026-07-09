@@ -30,7 +30,6 @@ import io.trino.spi.function.ScalarOperator;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.math.BigInteger;
 import java.nio.ByteOrder;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -39,7 +38,9 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 final class LongDecimalType
@@ -95,8 +96,10 @@ final class LongDecimalType
             return null;
         }
         Int128 value = getObject(block, position);
-        BigInteger unscaledValue = value.toBigInteger();
-        return new SqlDecimal(unscaledValue, getPrecision(), getScale());
+        if (overflows(value, getPrecision())) {
+            throw new IllegalArgumentException(format("Value out of range for DECIMAL(%s, %s): %s", getPrecision(), getScale(), value.toBigInteger()));
+        }
+        return new SqlDecimal(value.toBigInteger(), getPrecision(), getScale());
     }
 
     @Override

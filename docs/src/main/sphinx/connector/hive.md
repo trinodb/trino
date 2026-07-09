@@ -935,12 +935,12 @@ Newly added/renamed fields *must* have a default value in the Avro schema file.
 The schema evolution behavior is as follows:
 
 - Column added in new schema:
-  Data created with an older schema produces a *default* value when table is using the new schema.
+  Data created with an older schema produces a *default* value when the table is using the new schema.
 - Column removed in new schema:
   Data created with an older schema no longer outputs the data from the column that was removed.
 - Column is renamed in the new schema:
   This is equivalent to removing the column and adding a new one, and data created with an older schema
-  produces a *default* value when table is using the new schema.
+  produces a *default* value when the table is using the new schema.
 - Changing type of column in the new schema:
   If the type coercion is supported by Avro or the Hive connector, then the conversion happens.
   An error is thrown for incompatible types.
@@ -1523,21 +1523,16 @@ cause instability and performance degradation.
     be used to reduce the load on the storage system. By default, there is no
     limit, which results in Trino maximizing the parallelization of data access.
   -
-* - `hive.max-initial-splits`
-  - For each table scan, the coordinator first assigns file sections of up to
-    `max-initial-split-size`. After `max-initial-splits` have been assigned,
-    `max-split-size` is used for the remaining splits.
-  - `200`
-* - `hive.max-initial-split-size`
-  - The size of a single file section assigned to a worker until
-    `max-initial-splits` have been assigned. Smaller splits results in more
-    parallelism, which gives a boost to smaller queries.
-  - `32 MB`
 * - `hive.max-split-size`
   - The largest size of a single file section assigned to a worker. Smaller
         splits result in more parallelism and thus can decrease latency, but
         also have more overhead and increase load on the system.
   - `64 MB`
+* - `hive.parquet.max-split-size`
+  - The largest size of a single file section assigned to a worker for Parquet
+    files. Defaults to slightly below the typical Parquet row group size so that
+    splits align to row group boundaries.
+  - `120 MB`
 :::
 
 ## Hive 3-related limitations

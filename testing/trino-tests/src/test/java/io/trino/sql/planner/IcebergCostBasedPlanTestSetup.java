@@ -26,9 +26,8 @@ import io.trino.plugin.iceberg.IcebergConnectorFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.Floci;
 import io.trino.testing.containers.junit.ReportLeakedContainers;
-import io.trino.testing.minio.MinioClient;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -48,9 +47,9 @@ import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FILE_EXTENSION;
 import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -67,32 +66,20 @@ public class IcebergCostBasedPlanTestSetup
 
     // The container needs to be shared, since bucket name cannot be reused between tests.
     // The bucket name is used as a key in TrinoFileSystemCache which is managed in static manner.
-    @GuardedBy("sharedMinioLock")
-    private static Minio sharedMinio;
-    @GuardedBy("sharedMinioLock")
-    private static boolean sharedMinioClosed;
-    private static final Object sharedMinioLock = new Object();
+    @GuardedBy("sharedFlociLock")
+    private static Floci sharedFloci;
+    @GuardedBy("sharedFlociLock")
+    private static boolean sharedFlociClosed;
+    private static final Object sharedFlociLock = new Object();
 
-    private Minio minio;
+    private Floci floci;
     private Path temporaryMetastoreDirectory;
     private HiveMetastore hiveMetastore;
     private Map<String, String> connectorConfiguration;
 
     public ConnectorFactory createConnectorFactory()
     {
-        synchronized (sharedMinioLock) {
-            if (sharedMinio == null) {
-                checkState(!sharedMinioClosed, "sharedMinio already closed");
-                Minio minio = Minio.builder().build();
-                minio.start();
-                minio.createBucket(BUCKET_NAME);
-                sharedMinio = minio;
-                Runtime.getRuntime().addShutdownHook(new Thread(IcebergCostBasedPlanTestSetup::disposeSharedResources));
-                // Disable ReportLeakedContainers for this container, as it is intentional that it stays after tests finish
-                ReportLeakedContainers.ignoreContainerId(sharedMinio.getContainerId());
-            }
-            minio = sharedMinio;
-        }
+        floci = getSharedContainer();
 
         try {
             temporaryMetastoreDirectory = createTempDirectory("file-metastore");
@@ -106,10 +93,10 @@ public class IcebergCostBasedPlanTestSetup
                 .put("hive.metastore.catalog.dir", temporaryMetastoreDirectory.toString())
                 .put("fs.s3.enabled", "true")
                 .put("fs.hadoop.enabled", "true")
-                .put("s3.aws-access-key", MINIO_ROOT_USER)
-                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                .put("s3.region", MINIO_REGION)
-                .put("s3.endpoint", minio.getMinioAddress())
+                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                .put("s3.region", FLOCI_REGION)
+                .put("s3.endpoint", floci.endpoint().toString())
                 .put("s3.path-style-access", "true")
                 .put("bootstrap.quiet", "true")
                 .buildOrThrow();
@@ -146,16 +133,13 @@ public class IcebergCostBasedPlanTestSetup
             String resourcePath = resourceDirectory + tableName;
             String targetPath = targetDirectory + tableName;
             log.info("Copying resources for %s table from %s to %s in the container", tableName, resourcePath, targetPath);
-            minio.copyResources(resourcePath, BUCKET_NAME, targetPath);
+            floci.copyResources(resourcePath, BUCKET_NAME, targetPath);
 
             String tableLocation = "s3://%s/%s".formatted(BUCKET_NAME, targetPath);
-            String metadataLocation;
-            try (MinioClient minioClient = minio.createMinioClient()) {
-                String metadataPath = minioClient.listObjects(BUCKET_NAME, targetPath + "/metadata/").stream()
-                        .filter(path -> path.endsWith(METADATA_FILE_EXTENSION))
-                        .collect(onlyElement());
-                metadataLocation = "s3://%s/%s".formatted(BUCKET_NAME, metadataPath);
-            }
+            String metadataPath = floci.listObjects(BUCKET_NAME, targetPath + "/metadata/").stream()
+                    .filter(path -> path.endsWith(METADATA_FILE_EXTENSION))
+                    .collect(onlyElement());
+            String metadataLocation = "s3://%s/%s".formatted(BUCKET_NAME, metadataPath);
 
             log.info("Registering table %s using metadata location %s", tableName, metadataLocation);
             hiveMetastore.createTable(
@@ -179,12 +163,12 @@ public class IcebergCostBasedPlanTestSetup
     public void cleanUp()
             throws Exception
     {
-        if (minio != null) {
+        if (floci != null) {
             // Don't stop container, as it's shared
-            synchronized (sharedMinioLock) {
-                verify(minio == sharedMinio);
+            synchronized (sharedFlociLock) {
+                verify(floci == sharedFloci);
             }
-            minio = null;
+            floci = null;
         }
 
         if (temporaryMetastoreDirectory != null) {
@@ -195,13 +179,30 @@ public class IcebergCostBasedPlanTestSetup
         connectorConfiguration = null;
     }
 
+    private static Floci getSharedContainer()
+    {
+        synchronized (sharedFlociLock) {
+            if (sharedFloci == null) {
+                checkState(!sharedFlociClosed, "sharedFloci already closed");
+                Floci floci = new Floci();
+                floci.start();
+                floci.createBucket(BUCKET_NAME);
+                sharedFloci = floci;
+                Runtime.getRuntime().addShutdownHook(new Thread(IcebergCostBasedPlanTestSetup::disposeSharedResources));
+                // Disable ReportLeakedContainers for this container, as it is intentional that it stays after tests finish
+                ReportLeakedContainers.ignoreContainerId(sharedFloci.getContainerId());
+            }
+            return sharedFloci;
+        }
+    }
+
     private static void disposeSharedResources()
     {
-        synchronized (sharedMinioLock) {
-            sharedMinioClosed = true;
-            if (sharedMinio != null) {
-                sharedMinio.stop();
-                sharedMinio = null;
+        synchronized (sharedFlociLock) {
+            sharedFlociClosed = true;
+            if (sharedFloci != null) {
+                sharedFloci.stop();
+                sharedFloci = null;
             }
         }
     }

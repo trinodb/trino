@@ -21,12 +21,13 @@ import java.util.function.ObjLongConsumer;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 
 public final class Fixed12Block
         implements ValueBlock
@@ -114,7 +115,7 @@ public final class Fixed12Block
 
     public int getInt(int position, int offset)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         if (offset == 0) {
             return values[(position + positionOffset) * 3];
         }
@@ -129,7 +130,7 @@ public final class Fixed12Block
 
     public long getFixed12First(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return decodeFixed12First(values, position + positionOffset);
     }
 
@@ -147,15 +148,7 @@ public final class Fixed12Block
     @Override
     public boolean hasNull()
     {
-        if (valueIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (valueIsNull[i + positionOffset]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(valueIsNull, positionOffset, positionCount);
     }
 
     @Override
@@ -164,14 +157,14 @@ public final class Fixed12Block
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return valueIsNull[position + positionOffset];
     }
 
     @Override
     public Fixed12Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         int index = (position + positionOffset) * 3;
         return new Fixed12Block(
                 0,
@@ -193,7 +186,7 @@ public final class Fixed12Block
         int[] newValues = new int[length * 3];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(this, position);
+            checkValidPosition(position, positionCount);
             if (valueIsNull != null) {
                 boolean isNull = valueIsNull[position + positionOffset];
                 newValueIsNull[i] = isNull;
@@ -288,18 +281,18 @@ public final class Fixed12Block
         return values[offset + 2];
     }
 
-    int getRawOffset()
+    public int getRawOffset()
     {
         return positionOffset;
     }
 
     @Nullable
-    boolean[] getRawValueIsNull()
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }
 
-    int[] getRawValues()
+    public int[] getRawValues()
     {
         return values;
     }

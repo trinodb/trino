@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
@@ -41,16 +42,17 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_ORDINAL_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TIMESTAMP_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TYPE_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_VERSION_ID;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -117,6 +119,8 @@ public class TableChangesFunctionProcessor
             }
         }
 
+        // TODO (https://github.com/trinodb/trino/issues/29958) memory usage reporting
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         this.pageSource = icebergPageSourceProvider.createPageSource(
                 session,
                 functionHandle.columns(),
@@ -136,20 +140,21 @@ public class TableChangesFunctionProcessor
                 tableCredentials.map(IcebergTableCredentials.class::cast).get(),
                 OptionalLong.empty(),
                 OptionalLong.empty(),
-                functionHandle.nameMappingJson().map(NameMappingParser::fromJson));
+                functionHandle.nameMappingJson().map(NameMappingParser::fromJson),
+                memoryContext);
         this.delegateColumnMap = delegateColumnMap;
 
         this.changeTypeIndex = changeTypeIndex;
-        this.changeTypeValue = nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(split.changeType().getTableValue()));
+        this.changeTypeValue = writeNativeValue(createUnboundedVarcharType(), utf8Slice(split.changeType().getTableValue()));
 
         this.changeVersionIndex = changeVersionIndex;
-        this.changeVersionValue = nativeValueToBlock(BIGINT, split.snapshotId());
+        this.changeVersionValue = writeNativeValue(BIGINT, split.snapshotId());
 
         this.changeTimestampIndex = changeTimestampIndex;
-        this.changeTimestampValue = nativeValueToBlock(TIMESTAMP_TZ_MILLIS, split.snapshotTimestamp());
+        this.changeTimestampValue = writeNativeValue(TIMESTAMP_TZ_MILLIS, split.snapshotTimestamp());
 
         this.changeOrdinalIndex = changeOrdinalIndex;
-        this.changeOrdinalValue = nativeValueToBlock(INTEGER, (long) split.changeOrdinal());
+        this.changeOrdinalValue = writeNativeValue(INTEGER, (long) split.changeOrdinal());
     }
 
     @Override

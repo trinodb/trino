@@ -29,7 +29,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;

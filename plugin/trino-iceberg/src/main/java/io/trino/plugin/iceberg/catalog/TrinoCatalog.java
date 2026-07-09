@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -85,7 +86,7 @@ public interface TrinoCatalog
 
     List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace);
 
-    List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace);
+    List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter);
 
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
@@ -166,7 +167,12 @@ public interface TrinoCatalog
 
     void setTablePrincipal(ConnectorSession session, SchemaTableName schemaTableName, TrinoPrincipal principal);
 
-    void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace);
+    void createView(
+            ConnectorSession session,
+            SchemaTableName schemaViewName,
+            ConnectorViewDefinition definition,
+            Map<String, Object> viewProperties,
+            boolean replace);
 
     void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 
@@ -177,6 +183,11 @@ public interface TrinoCatalog
     Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace);
 
     Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName);
+
+    default Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        return ImmutableMap.of();
+    }
 
     void createMaterializedView(
             ConnectorSession session,

@@ -27,7 +27,7 @@ public final class IntegerType
 
     private IntegerType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

@@ -33,7 +33,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
 import io.trino.type.JsonPath2016Type;
 
@@ -50,6 +49,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -70,7 +71,7 @@ public class JsonExistsFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(BOOLEAN)
-                        .argumentTypes(ImmutableList.of(new TypeSignature(JSON_2016), new TypeSignature(JsonPath2016Type.NAME), new TypeSignature("T"), new TypeSignature(TINYINT)))
+                        .argumentTypes(type(JSON_2016), type(JsonPath2016Type.NAME), typeVariable("T"), type(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false)

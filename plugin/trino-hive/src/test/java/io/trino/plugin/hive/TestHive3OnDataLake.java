@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import org.junit.jupiter.api.TestInstance;
 
@@ -28,6 +28,6 @@ class TestHive3OnDataLake
 
     public TestHive3OnDataLake()
     {
-        super(BUCKET_NAME, new Hive3MinioDataLake(BUCKET_NAME, HiveHadoop.HIVE3_IMAGE));
+        super(BUCKET_NAME, new Hive3FlociDataLake(BUCKET_NAME, HiveHadoop.HIVE3_IMAGE));
     }
 }

@@ -16,15 +16,12 @@ package io.trino.plugin.hive.metastore.glue;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -53,33 +50,35 @@ public class TestCachedHiveGlueMetastore
 
     private GlueMetastoreStats glueStats;
     private GlueClient glueClient;
+    private String warehouseLocation;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-cached-hive-glue-metastore-" + randomNameSuffix();
+        floci.createBucket(bucketName);
+        warehouseLocation = "s3://%s/glue".formatted(bucketName);
+
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
                         .setCatalog("hive")
                         .setSchema(testSchema)
                         .build())
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .addHiveProperty("hive.metastore", "glue")
-                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
+                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", warehouseLocation)
                 .addHiveProperty("hive.metastore-cache-ttl", "1d")
                 .addHiveProperty("hive.metastore-refresh-interval", "1h")
                 .addHiveProperty("hive.security", "allow-all")
+                .addHiveProperty("fs.s3.enabled", "true")
+                .addHiveProperties(floci.s3AndGlueProperties())
                 .setCreateTpchSchemas(false)
                 .build();
         queryRunner.execute("CREATE SCHEMA " + testSchema);
         glueStats = getConnectorService(queryRunner, GlueHiveMetastore.class).getStats();
-        glueClient = closeAfterClass(GlueClient.create());
+        glueClient = closeAfterClass(floci.createGlueClient());
         return queryRunner;
-    }
-
-    @AfterAll
-    public void cleanUpSchema()
-    {
-        getQueryRunner().execute("DROP SCHEMA " + testSchema + " CASCADE");
     }
 
     @Test
@@ -139,15 +138,10 @@ public class TestCachedHiveGlueMetastore
             assertQuerySucceeds(select);
             // cached
             assertInvocations(select, ImmutableMultiset.of());
-            // delete partition behind the scenes
+            // delete partition metadata behind the scenes
             glueClient.deletePartition(request -> request.databaseName(testSchema).tableName("test_flush_table").partitionValues("2"));
-            Location partitionLocation = Location.of("local:///glue/" + testSchema + "/test_flush_table/regionkey=2");
-            getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"))
-                    .deleteDirectory(partitionLocation);
-            // query fails because cache is not invalidated
-            assertQueryFails(select, "Partition location does not exist: " + partitionLocation);
-            // next query fails too, because query failure does not invalidate the cache
-            assertQueryFails(select, "Partition location does not exist: " + partitionLocation);
+            // cached partition metadata still includes the deleted partition
+            assertQuery("SELECT count(*) FROM (" + select + ")", "VALUES 10");
             // flush cache
             assertQuerySucceeds("CALL system.flush_metadata_cache()");
             assertInvocations(select, ImmutableMultiset.<GlueMetastoreMethod>builder()
@@ -156,7 +150,7 @@ public class TestCachedHiveGlueMetastore
                     .build());
         }
         finally {
-            getQueryRunner().execute("DROP TABLE IF EXISTS test_select_from_partitioned_where");
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_flush_table");
         }
     }
 
@@ -176,21 +170,16 @@ public class TestCachedHiveGlueMetastore
             assertQuerySucceeds(select);
             // cached
             assertInvocations(select, ImmutableMultiset.of());
-            // delete partition behind the scenes
+            // delete partition metadata behind the scenes
             glueClient.deletePartition(request -> request.databaseName(testSchema).tableName("test_flush_partition").partitionValues("2"));
-            Location partitionLocation = Location.of("local:///glue/" + testSchema + "/test_flush_partition/regionkey=2");
-            getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"))
-                    .deleteDirectory(partitionLocation);
-            // query fails because cache is not invalidated
-            assertQueryFails(select, "Partition location does not exist: " + partitionLocation);
-            // next query fails too, because query failure does not invalidate the cache
-            assertQueryFails(select, "Partition location does not exist: " + partitionLocation);
+            // cached partition metadata still includes the deleted partition
+            assertQuery("SELECT count(*) FROM (" + select + ")", "VALUES 10");
             // flush cache
             assertQuerySucceeds("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_flush_partition', partition_columns => ARRAY['regionkey'], partition_values => ARRAY['2'])");
             assertQueryFails(select, "Partition regionkey=2 no longer exists for %s.test_flush_partition".formatted(testSchema));
         }
         finally {
-            getQueryRunner().execute("DROP TABLE IF EXISTS test_select_from_partitioned_where");
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_flush_partition");
         }
     }
 

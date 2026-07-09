@@ -32,6 +32,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.OptionalDouble;
 
@@ -129,7 +130,7 @@ public class ScalarStatsCalculator
                 return processArithmetic(node);
             }
 
-            Expression value = plannerContext.getExpressionOptimizer().process(node, session, ImmutableMap.of()).orElse(node);
+            Expression value = plannerContext.getExpressionOptimizer().process(node, session, new SymbolAllocator(), ImmutableMap.of()).orElse(node);
 
             if (value instanceof Constant constant && constant.value() == null) {
                 return nullStatsEstimate();

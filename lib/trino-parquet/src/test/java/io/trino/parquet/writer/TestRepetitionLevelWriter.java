@@ -14,6 +14,7 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider.RepetitionLevelWriter;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
@@ -34,7 +35,6 @@ import static io.trino.parquet.ParquetTestUtils.createRowBlock;
 import static io.trino.parquet.ParquetTestUtils.generateGroupSizes;
 import static io.trino.parquet.ParquetTestUtils.generateOffsets;
 import static io.trino.parquet.writer.NullsProvider.RANDOM_NULLS;
-import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.RepetitionLevelWriter;
 import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.getRootRepetitionLevelWriter;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;

@@ -22,7 +22,7 @@ import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
 import io.trino.plugin.iceberg.catalog.rest.TestingPolarisCatalog;
@@ -65,6 +65,9 @@ import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendC
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
@@ -130,6 +133,12 @@ public final class IcebergQueryRunner
             return self();
         }
 
+        public Builder addIcebergProperties(Map<String, String> icebergProperties)
+        {
+            this.icebergProperties.putAll(requireNonNull(icebergProperties, "icebergProperties is null"));
+            return self();
+        }
+
         public Builder setInitialTables(TpchTable<?>... initialTables)
         {
             return setInitialTables(ImmutableList.copyOf(initialTables));
@@ -174,11 +183,6 @@ public final class IcebergQueryRunner
                     queryRunner.createCatalog("tpcds", "tpcds");
                 }
 
-                if (icebergProperties.buildOrThrow().keySet().stream().noneMatch(key ->
-                        key.matches("fs\\.(azure|gcs|s3|local|hadoop)\\.enabled"))) {
-                    icebergProperties.put("fs.hadoop.enabled", "true");
-                }
-
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
                 queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
@@ -196,6 +200,7 @@ public final class IcebergQueryRunner
     private static Builder icebergQueryRunnerMainBuilder()
     {
         return IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setTpcdsCatalogEnabled(true);
     }
@@ -266,7 +271,9 @@ public final class IcebergQueryRunner
                     warehouseLocation,
                     assumeRoleResponse.credentials().accessKeyId(),
                     assumeRoleResponse.credentials().secretAccessKey(),
-                    assumeRoleResponse.credentials().sessionToken());
+                    assumeRoleResponse.credentials().sessionToken(),
+                    "http://minio:4566",
+                    MINIO_REGION);
             restCatalogBackendContainer.start();
 
             @SuppressWarnings("resource")
@@ -324,7 +331,9 @@ public final class IcebergQueryRunner
                     warehouseLocation,
                     assumeRoleResponse.credentials().accessKeyId(),
                     assumeRoleResponse.credentials().secretAccessKey(),
-                    assumeRoleResponse.credentials().sessionToken());
+                    assumeRoleResponse.credentials().sessionToken(),
+                    "http://minio:4566",
+                    MINIO_REGION);
             restCatalogBackendContainer.start();
 
             @SuppressWarnings("resource")
@@ -392,21 +401,26 @@ public final class IcebergQueryRunner
         static void main()
                 throws Exception
         {
-            Path warehouseLocation = Files.createTempDirectory(null);
-            warehouseLocation.toFile().deleteOnExit();
+            String bucketName = "test-bucket";
+            String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
             @SuppressWarnings("resource")
-            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.toString());
+            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation, bucketName);
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
                     .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
+                    .addIcebergProperty("iceberg.rest-catalog.http-headers", TestingPolarisCatalog.POLARIS_REALM_HEADER + ": " + TestingPolarisCatalog.POLARIS_REALM_NAME)
+                    .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                    .addIcebergProperty("fs.s3.enabled", "true")
+                    .addIcebergProperty("s3.region", MINIO_REGION)
+                    .addIcebergProperty("s3.endpoint", polarisCatalog.minio().getMinioAddress())
+                    .addIcebergProperty("s3.path-style-access", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
@@ -491,6 +505,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addIcebergProperty("fs.hadoop.enabled", "true")
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.security", "read_only")
@@ -528,29 +543,29 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static final class IcebergMinioHiveMetastoreQueryRunnerMain
+    public static final class IcebergFlociHiveMetastoreQueryRunnerMain
     {
-        private IcebergMinioHiveMetastoreQueryRunnerMain() {}
+        private IcebergFlociHiveMetastoreQueryRunnerMain() {}
 
         static void main()
                 throws Exception
         {
             String bucketName = "test-bucket";
             @SuppressWarnings("resource")
-            Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake(bucketName);
-            hiveMinioDataLake.start();
+            Hive3FlociDataLake hiveFlociDataLake = new Hive3FlociDataLake(bucketName);
+            hiveFlociDataLake.start();
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
-                            "hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString(),
+                            "hive.metastore.uri", hiveFlociDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString(),
                             "fs.s3.enabled", "true",
-                            "s3.aws-access-key", MINIO_ROOT_USER,
-                            "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
-                            "s3.region", MINIO_REGION,
-                            "s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress(),
+                            "s3.aws-access-key", FLOCI_ACCESS_KEY,
+                            "s3.aws-secret-key", FLOCI_SECRET_KEY,
+                            "s3.endpoint", hiveFlociDataLake.floci().endpoint().toString(),
+                            "s3.region", FLOCI_REGION,
                             "s3.path-style-access", "true",
                             "s3.streaming.part-size", "5MB"))
                     .setSchemaInitializer(
@@ -561,7 +576,7 @@ public final class IcebergQueryRunner
                                     .build())
                     .build();
 
-            Logger log = Logger.get(IcebergMinioHiveMetastoreQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergFlociHiveMetastoreQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -607,28 +622,28 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static final class IcebergMinioHiveMetastoreSparkQueryRunnerMain
+    public static final class IcebergFlociHiveMetastoreSparkQueryRunnerMain
     {
-        private IcebergMinioHiveMetastoreSparkQueryRunnerMain() {}
+        private IcebergFlociHiveMetastoreSparkQueryRunnerMain() {}
 
         static void main()
                 throws Exception
         {
             String bucketName = "test-bucket";
             @SuppressWarnings("resource")
-            SparkIcebergHive3MinioDataLake sparkIcebergHive3MinioDataLake = new SparkIcebergHive3MinioDataLake(bucketName);
+            SparkIcebergHive3FlociDataLake sparkIcebergHive3FlociDataLake = new SparkIcebergHive3FlociDataLake(bucketName);
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
-                            "hive.metastore.uri", sparkIcebergHive3MinioDataLake.hiveHadoop().getHiveMetastoreEndpoint().toString(),
+                            "hive.metastore.uri", sparkIcebergHive3FlociDataLake.hiveHadoop().getHiveMetastoreEndpoint().toString(),
                             "fs.s3.enabled", "true",
-                            "s3.aws-access-key", MINIO_ROOT_USER,
-                            "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
-                            "s3.region", MINIO_REGION,
-                            "s3.endpoint", sparkIcebergHive3MinioDataLake.minio().getMinioAddress(),
+                            "s3.aws-access-key", FLOCI_ACCESS_KEY,
+                            "s3.aws-secret-key", FLOCI_SECRET_KEY,
+                            "s3.endpoint", sparkIcebergHive3FlociDataLake.floci().endpoint().toString(),
+                            "s3.region", FLOCI_REGION,
                             "s3.path-style-access", "true",
                             "s3.streaming.part-size", "5MB"))
                     .setSchemaInitializer(
@@ -639,7 +654,7 @@ public final class IcebergQueryRunner
                                     .build())
                     .build();
 
-            Logger log = Logger.get(IcebergMinioHiveMetastoreSparkQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergFlociHiveMetastoreSparkQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -782,6 +797,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri())
                             .put("iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString())
                             .buildOrThrow())
+                    .addIcebergProperty("fs.hadoop.enabled", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
 

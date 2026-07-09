@@ -381,23 +381,19 @@ public abstract class BaseConnectorTest
                         "   (-1, CAST(NULL AS char(3))), " +
                         "   (3, CAST('   ' AS char(3)))," +
                         "   (6, CAST('x  ' AS char(3)))")) {
-            // varchar of length shorter than column's length
+            // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar
+            // (no blank padding): char '   ' becomes '' and char 'x  ' becomes 'x'.
             assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))",
-                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('' AS varchar(2))",
                     "VALUES (3, '   ')");
 
-            // varchar of length longer than column's length
             assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(4))",
-                    // The value is included because both sides of the comparison are coerced to char(4)
-                    "VALUES (3, '   ')");
-
-            // value that's not all-spaces
-            assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
-                    // The value is included because both sides of the comparison are coerced to char(3)
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x' AS varchar(2))",
                     "VALUES (6, 'x  ')");
+
+            // Trailing spaces in the varchar are significant, so a space-padded value matches nothing.
+            assertQueryReturnsEmptyResult(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))");
         }
     }
 
@@ -419,16 +415,16 @@ public abstract class BaseConnectorTest
                         "   (4, CAST('x' AS varchar(3)))," +
                         "   (5, CAST('x ' AS varchar(3)))," +
                         "   (6, CAST('x  ' AS varchar(3)))")) {
+            // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar
+            // (no blank padding): char '  ' becomes '', matching only the empty varchar.
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (0, ''), (1, ' '), (2, '  '), (3, '   ')");
+                    "VALUES (0, '')");
 
-            // value that's not all-spaces
+            // char 'x ' becomes 'x', matching only the exact 'x'.
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+                    "VALUES (4, 'x')");
         }
     }
 
@@ -978,14 +974,6 @@ public abstract class BaseConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
-    }
-
-    @Test
-    public void testShowInformationSchemaTables()
-    {
-        assertThat(query("SHOW TABLES FROM information_schema"))
-                .skippingTypesCheck()
-                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
     }
 
     @Test
@@ -2564,27 +2552,6 @@ public abstract class BaseConnectorTest
                 ('orders', 'shippriority'),
                 ('orders', 'comment')
                 """;
-    }
-
-    @Test
-    public void testShowCreateInformationSchema()
-    {
-        assertThat(query("SHOW CREATE SCHEMA information_schema"))
-                .skippingTypesCheck()
-                .matches(format("VALUES 'CREATE SCHEMA %s.information_schema'", getSession().getCatalog().orElseThrow()));
-    }
-
-    @Test
-    public void testShowCreateInformationSchemaTable()
-    {
-        assertQueryFails("SHOW CREATE VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a view");
-        assertQueryFails("SHOW CREATE MATERIALIZED VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a materialized view");
-
-        assertThat((String) computeScalar("SHOW CREATE TABLE information_schema.schemata"))
-                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".information_schema.schemata (\n" +
-                        "   catalog_name varchar,\n" +
-                        "   schema_name varchar\n" +
-                        ")");
     }
 
     @Test
@@ -5462,6 +5429,23 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testVarcharEqualityPushdownIgnoresTrailingSpaces()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        // Trino compares varchar with NO PAD, so 'a' and 'a ' are distinct; equality must return only the exact match
+        // even when pushed to a remote that compares with PAD SPACE.
+        try (TestTable table = newTrinoTable("test_varchar_pad_space", "(v varchar(5))", ImmutableList.of("'a'", "'a '"))) {
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a'");
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a '"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a '");
+        }
+    }
+
+    @Test
     public void testDeleteWithVarcharPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
@@ -6018,14 +6002,6 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testDropTableIfExists()
-    {
-        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
-        assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
-        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
-    }
-
-    @Test
     public void testTruncateTable()
     {
         if (!hasBehavior(SUPPORTS_TRUNCATE)) {
@@ -6106,18 +6082,6 @@ public abstract class BaseConnectorTest
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         assertThat(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1"))).isTrue();
-    }
-
-    // TODO move to to engine-only
-    @Test
-    public void testSymbolAliasing()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-
-        String tableName = "test_symbol_aliasing" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
-        assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

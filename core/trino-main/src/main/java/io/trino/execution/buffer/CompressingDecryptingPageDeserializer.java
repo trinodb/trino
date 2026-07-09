@@ -416,12 +416,7 @@ public class CompressingDecryptingPageDeserializer
                         sink.getSlice().length() - bytesPreserved);
             }
             else {
-                System.arraycopy(
-                        source.getSlice().byteArray(),
-                        source.getSlice().byteArrayOffset() + source.getPosition(),
-                        sink.getSlice().byteArray(),
-                        sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        blockSize);
+                source.getSlice().getBytes(source.getPosition(), sink.getSlice(), bytesPreserved, blockSize);
                 decompressedSize = blockSize;
             }
             source.setPosition(source.getPosition() + blockSize);

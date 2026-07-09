@@ -20,7 +20,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -33,9 +32,10 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -94,7 +94,7 @@ public class TestImplementExceptAll
                                         "a", expression(new Reference(BIGINT, "a")),
                                         "b", expression(new Reference(BIGINT, "b"))),
                                 filter(
-                                        new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "row_number"), new Call(GREATEST, ImmutableList.of(new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "count_1"), new Reference(BIGINT, "count_2"))), new Constant(BIGINT, 0L)))),
+                                        comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "row_number"), new Call(GREATEST, ImmutableList.of(new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "count_1"), new Reference(BIGINT, "count_2"))), new Constant(BIGINT, 0L)))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "a", expression(new Reference(BIGINT, "a")),

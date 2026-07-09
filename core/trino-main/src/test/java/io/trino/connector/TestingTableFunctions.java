@@ -65,10 +65,10 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.F
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +99,7 @@ public class TestingTableFunctions
     {
         private static final String FUNCTION_NAME = "simple_table_function";
         private static final String TABLE_NAME = "simple_table";
+        private static final String DESCRIPTION = "simple description";
 
         public SimpleTableFunction()
         {
@@ -114,7 +115,8 @@ public class TestingTableFunctions
                                     .type(BIGINT)
                                     .defaultValue(0L)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    DESCRIPTION);
         }
 
         @Override
@@ -204,7 +206,8 @@ public class TestingTableFunctions
                                     .type(BIGINT)
                                     .defaultValue(null)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -232,7 +235,8 @@ public class TestingTableFunctions
                                     .name("INPUT")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -264,7 +268,8 @@ public class TestingTableFunctions
                                     .name("INPUT")
                                     .rowSemantics()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -294,7 +299,8 @@ public class TestingTableFunctions
                                     .name("SCHEMA")
                                     .defaultValue(null)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -326,7 +332,8 @@ public class TestingTableFunctions
                                     .name("INPUT2")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -358,7 +365,8 @@ public class TestingTableFunctions
                                     .passThroughColumns()
                                     .keepWhenEmpty()
                                     .build()),
-                    ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH,
+                    "");
         }
 
         @Override
@@ -382,7 +390,8 @@ public class TestingTableFunctions
                     ImmutableList.of(),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
-                            ImmutableList.of(BOOLEAN, INTEGER))));
+                            ImmutableList.of(BOOLEAN, INTEGER))),
+                    "");
         }
 
         @Override
@@ -411,7 +420,8 @@ public class TestingTableFunctions
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
-                            ImmutableList.of(BOOLEAN, INTEGER))));
+                            ImmutableList.of(BOOLEAN, INTEGER))),
+                    "");
         }
 
         @Override
@@ -439,7 +449,8 @@ public class TestingTableFunctions
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("x"),
-                            ImmutableList.of(BOOLEAN))));
+                            ImmutableList.of(BOOLEAN))),
+                    "");
         }
 
         @Override
@@ -484,7 +495,8 @@ public class TestingTableFunctions
                                     .name("INPUT_3")
                                     .pruneWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -518,7 +530,8 @@ public class TestingTableFunctions
                                     .name("INPUT")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -571,7 +584,8 @@ public class TestingTableFunctions
                                     .name("INPUT")
                                     .keepWhenEmpty()
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
         }
 
         @Override
@@ -624,7 +638,8 @@ public class TestingTableFunctions
                                     .passThroughColumns()
                                     .keepWhenEmpty()
                                     .build()),
-                    ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH,
+                    "");
         }
 
         @Override
@@ -692,7 +707,8 @@ public class TestingTableFunctions
                                     .type(INTEGER)
                                     .defaultValue(2L)
                                     .build()),
-                    ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH,
+                    "");
         }
 
         @Override
@@ -796,7 +812,8 @@ public class TestingTableFunctions
                             .name("INPUT")
                             .keepWhenEmpty()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -853,7 +870,8 @@ public class TestingTableFunctions
                             .keepWhenEmpty()
                             .passThroughColumns()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -925,7 +943,8 @@ public class TestingTableFunctions
                                     .name("INPUT_4")
                                     .keepWhenEmpty()
                                     .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -987,7 +1006,8 @@ public class TestingTableFunctions
                                     .build()),
                     new DescribedTable(new Descriptor(ImmutableList.of(
                             new Descriptor.Field("input_1_present", Optional.of(BOOLEAN)),
-                            new Descriptor.Field("input_2_present", Optional.of(BOOLEAN))))));
+                            new Descriptor.Field("input_2_present", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -1086,7 +1106,8 @@ public class TestingTableFunctions
                             .name("INPUT")
                             .keepWhenEmpty()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("got_input", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("got_input", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -1149,7 +1170,8 @@ public class TestingTableFunctions
                             .rowSemantics()
                             .name("INPUT")
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override
@@ -1204,7 +1226,8 @@ public class TestingTableFunctions
                                     .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("constant_column"),
-                            ImmutableList.of(INTEGER))));
+                            ImmutableList.of(INTEGER))),
+                    "");
         }
 
         @Override
@@ -1252,7 +1275,7 @@ public class TestingTableFunctions
 
             public ConstantFunctionProcessor(Long value, ConstantFunctionSplit split)
             {
-                this.value = nativeValueToBlock(INTEGER, value);
+                this.value = writeNativeValue(INTEGER, value);
                 long count = split.count();
                 this.fullPagesCount = count / PAGE_SIZE;
                 this.reminder = toIntExact(count % PAGE_SIZE);
@@ -1315,7 +1338,8 @@ public class TestingTableFunctions
             super(SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))),
+                    "");
         }
 
         @Override

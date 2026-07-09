@@ -32,7 +32,9 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
@@ -94,7 +96,6 @@ import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -449,7 +450,7 @@ public class BenchmarkPartitionedOutputOperator
                     new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), SCHEDULER),
                     buffers,
                     dataSize,
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                    Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                     SCHEDULER,
                     blackhole);
         }
@@ -464,7 +465,7 @@ public class BenchmarkPartitionedOutputOperator
                     OutputBufferStateMachine stateMachine,
                     PipelinedOutputBuffers outputBuffers,
                     DataSize maxBufferSize,
-                    Supplier<LocalMemoryContext> memoryContextSupplier,
+                    Lazy<LocalMemoryContext> memoryContextSupplier,
                     Executor notificationExecutor,
                     Blackhole blackhole)
             {

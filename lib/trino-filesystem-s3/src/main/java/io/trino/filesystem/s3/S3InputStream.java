@@ -14,7 +14,6 @@
 package io.trino.filesystem.s3;
 
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputStream;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.AbortedException;
@@ -29,6 +28,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
+import static io.trino.filesystem.s3.S3Exceptions.handleS3Exception;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -237,7 +237,7 @@ final class S3InputStream
             throw ex;
         }
         catch (SdkException e) {
-            throw new TrinoFileSystemException("Failed to open S3 file: " + location, e);
+            throw handleS3Exception(e, "Failed to open S3 file: " + location);
         }
     }
 

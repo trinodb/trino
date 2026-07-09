@@ -192,13 +192,17 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                 .skippingTypesCheck()
                 .matches("SELECT * FROM nation");
 
+        String viewLocation = backend.loadView(toIdentifier(viewName)).location();
         assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
                 .isEqualTo(
                         """
-                        CREATE VIEW iceberg."level_1.level_2".%s SECURITY DEFINER AS
+                        CREATE VIEW iceberg."level_1.level_2".%s SECURITY DEFINER
+                        WITH (
+                           location = '%s'
+                        ) AS
                         SELECT *
                         FROM
-                          nation""".formatted(viewName));
+                          nation""".formatted(viewName, viewLocation));
 
         assertUpdate("DROP  VIEW " + viewName);
     }

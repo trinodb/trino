@@ -937,7 +937,7 @@ public class AddExchanges
 
         private <T> Function<T, Optional<T>> createTranslator(SetMultimap<T, T> inputToOutput)
         {
-            return input -> inputToOutput.get(input).stream().findAny();
+            return input -> inputToOutput.get(input).stream().findFirst();
         }
 
         private <T> Function<T, T> createDirectTranslator(SetMultimap<T, T> inputToOutput)
@@ -1393,7 +1393,9 @@ public class AddExchanges
                             Optional.empty());
 
                     unpartitionedChildren.add(result);
-                    unpartitionedOutputLayouts.add(result.getOutputSymbols());
+                    // Use exchangeOutputLayout, which is positionally aligned with node.getOutputSymbols(),
+                    // rather than the exchange's own output symbols, which the ExchangeNode constructor may reorder.
+                    unpartitionedOutputLayouts.add(exchangeOutputLayout);
                 }
 
                 ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
@@ -1508,7 +1510,7 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             // TODO: move this logic to PlanSanityChecker once PropertyDerivations.deriveProperties fully supports local exchanges
-            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session);
+            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, symbolAllocator);
             verify(result instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || outputProperties.isNullsAndAnyReplicated(),
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
@@ -1516,7 +1518,7 @@ public class AddExchanges
 
         private ActualProperties derivePropertiesRecursively(PlanNode result)
         {
-            return PropertyDerivations.derivePropertiesRecursively(result, plannerContext, session);
+            return PropertyDerivations.derivePropertiesRecursively(result, plannerContext, session, symbolAllocator);
         }
 
         private PreferredProperties computePreference(PreferredProperties preferredProperties, PreferredProperties parentPreferredProperties)

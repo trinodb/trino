@@ -13,24 +13,15 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.Floci;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
-import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
@@ -40,51 +31,24 @@ public class TestDeltaLakePreferredPartitioning
     private static final int WRITE_PARTITIONING_TEST_PARTITIONS_COUNT = 101;
 
     private final String bucketName = "mock-delta-lake-bucket-" + randomNameSuffix();
-    protected Minio minio;
+    protected Floci floci;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
-        minio.createBucket(bucketName);
+        floci = closeAfterClass(new Floci());
+        floci.start();
+        floci.createBucket(bucketName);
 
         String schema = "default";
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema(schema)
+        return DeltaLakeQueryRunner.builder(schema)
+                .addDeltaProperty("hive.metastore.catalog.dir", "local:///file-metastore")
+                .addDeltaProperty("fs.hadoop.enabled", "true")
+                .addS3Properties(floci, bucketName)
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("delta.max-partitions-per-writer", String.valueOf(WRITE_PARTITIONING_TEST_PARTITIONS_COUNT - 1))
                 .build();
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            queryRunner.installPlugin(new DeltaLakePlugin());
-            queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
-                    .put("hive.metastore", "file")
-                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
-                    // required by the file metastore
-                    .put("fs.hadoop.enabled", "true")
-                    .put("fs.s3.enabled", "true")
-                    .put("s3.aws-access-key", MINIO_ROOT_USER)
-                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                    .put("s3.region", MINIO_REGION)
-                    .put("s3.endpoint", minio.getMinioAddress())
-                    .put("s3.path-style-access", "true")
-                    .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                    .put("delta.enable-non-concurrent-writes", "true")
-                    .put("delta.max-partitions-per-writer", String.valueOf(WRITE_PARTITIONING_TEST_PARTITIONS_COUNT - 1))
-                    .buildOrThrow());
-
-            queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-
-        return queryRunner;
     }
 
     @Test

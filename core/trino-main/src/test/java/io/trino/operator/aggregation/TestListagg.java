@@ -23,7 +23,7 @@ import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 
 public class TestListagg
 {

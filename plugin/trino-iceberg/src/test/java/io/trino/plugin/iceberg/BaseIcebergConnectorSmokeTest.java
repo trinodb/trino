@@ -421,7 +421,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+        String tableLocationWithTrailingSpace = schemaPath() + "/" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
 
@@ -896,6 +896,13 @@ public abstract class BaseIcebergConnectorSmokeTest
                     .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
             assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema)))
                     .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
+
+            // Specify a non-existing schema in WHERE clause
+            String nonExistingSchema = "non_existing_schema_" + randomNameSuffix();
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(nonExistingSchema)))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, nonExistingSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
         }
         finally {
             dropSchema(firstSchema);

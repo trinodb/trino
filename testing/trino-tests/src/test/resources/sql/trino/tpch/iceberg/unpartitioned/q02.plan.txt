@@ -28,7 +28,7 @@ remote exchange (GATHER, SINGLE, [])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [suppkey_6])
                                     join (INNER, REPLICATED):
-                                        dynamic filter (partkey_5::EQUAL, suppkey_6::EQUAL)
+                                        dynamic filter (suppkey_6::EQUAL, partkey_5::EQUAL)
                                             scan partsupp
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

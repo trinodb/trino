@@ -16,7 +16,7 @@ package io.trino.sql.planner.assertions;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.optimizations.SymbolMapper;
@@ -37,7 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -184,7 +184,7 @@ public final class DynamicFilterConsumerMatcher
 
     public record DynamicFilterConsumer(
             String alias,
-            Comparison.Operator operator,
+            ComparisonOperator operator,
             Expression expression,
             boolean nullAllowed)
     {
@@ -198,7 +198,7 @@ public final class DynamicFilterConsumerMatcher
         public static class Builder
         {
             private String alias;
-            private Comparison.Operator operator = EQUAL;
+            private ComparisonOperator operator = EQUAL;
             private Expression expression;
             private boolean nullAllowed;
 
@@ -208,7 +208,7 @@ public final class DynamicFilterConsumerMatcher
                 return this;
             }
 
-            public Builder operator(Comparison.Operator operator)
+            public Builder operator(ComparisonOperator operator)
             {
                 this.operator = operator;
                 return this;

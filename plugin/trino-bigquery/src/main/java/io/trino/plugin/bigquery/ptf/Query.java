@@ -97,7 +97,8 @@ public class Query
                             .name("QUERY")
                             .type(VARCHAR)
                             .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }

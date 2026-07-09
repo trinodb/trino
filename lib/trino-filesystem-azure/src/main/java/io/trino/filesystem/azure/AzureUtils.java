@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.OptionalInt;
 
 final class AzureUtils
 {
@@ -38,9 +39,38 @@ final class AzureUtils
             throw withCause(new FileNotFoundException(location.toString()), exception);
         }
         if (exception instanceof AzureException) {
-            throw new TrinoFileSystemException("Azure service error %s file: %s".formatted(action, location), exception);
+            String message = "Azure service error %s file: %s".formatted(action, location);
+            if (isRetryable(exception)) {
+                throw new IOException(message, exception);
+            }
+            throw new TrinoFileSystemException(message, exception);
         }
         throw new IOException("Error %s file: %s".formatted(action, location), exception);
+    }
+
+    private static boolean isRetryable(Throwable exception)
+    {
+        OptionalInt statusCode = statusCode(exception);
+        return statusCode.isPresent() && isRetryableStatusCode(statusCode.getAsInt());
+    }
+
+    private static boolean isRetryableStatusCode(int statusCode)
+    {
+        return switch (statusCode) {
+            case 408, 429, 500, 502, 503, 504 -> true;
+            default -> false;
+        };
+    }
+
+    private static OptionalInt statusCode(Throwable exception)
+    {
+        if (exception instanceof BlobStorageException blobStorageException) {
+            return OptionalInt.of(blobStorageException.getStatusCode());
+        }
+        if (exception instanceof DataLakeStorageException dataLakeStorageException) {
+            return OptionalInt.of(dataLakeStorageException.getStatusCode());
+        }
+        return OptionalInt.empty();
     }
 
     public static boolean isFileNotFoundException(Throwable exception)

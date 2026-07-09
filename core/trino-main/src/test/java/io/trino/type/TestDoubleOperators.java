@@ -138,6 +138,9 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(ADD, "DOUBLE 'NaN'", "DOUBLE '-NaN'"))
                 .isEqualTo(Double.NaN);
+
+        assertThat(assertions.operator(ADD, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
@@ -163,6 +166,9 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(SUBTRACT, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
+
+        assertThat(assertions.operator(SUBTRACT, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
@@ -188,6 +194,9 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(MULTIPLY, "DOUBLE 'NaN'", "DOUBLE '-NaN'"))
                 .isEqualTo(Double.NaN);
+
+        assertThat(assertions.operator(MULTIPLY, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
@@ -213,6 +222,12 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(DIVIDE, "DOUBLE 'NaN'", "DOUBLE '-NaN'"))
                 .isEqualTo(Double.NaN);
+
+        assertThat(assertions.operator(DIVIDE, "37.7E0", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(DIVIDE, "37.7E0", "0E0"))
+                .neverFails();
     }
 
     @Test
@@ -238,6 +253,12 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(MODULO, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
+
+        assertThat(assertions.operator(MODULO, "37.7E0", "17.1E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(MODULO, "37.7E0", "0E0"))
+                .neverFails();
     }
 
     @Test
@@ -251,6 +272,9 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(NEGATION, "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
+
+        assertThat(assertions.operator(NEGATION, "(37.7E0)"))
+                .neverFails();
     }
 
     @Test
@@ -279,6 +303,14 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(EQUAL, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
@@ -343,6 +375,14 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(LESS_THAN, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
@@ -368,6 +408,14 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test
@@ -728,6 +776,7 @@ public class TestDoubleOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "37.7E0"))
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")
@@ -773,6 +822,10 @@ public class TestDoubleOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "DOUBLE '-Infinity'"))
                 .isEqualTo(Float.NEGATIVE_INFINITY);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "DOUBLE '754.1985'"))
+                .neverFails();
     }
 
     @Test
@@ -809,6 +862,10 @@ public class TestDoubleOperators
         assertThat(assertions.expression("cast(a as number)")
                 .binding("a", "DOUBLE '-Infinity'"))
                 .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(true)));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "DOUBLE '3.1415926535897'"))
+                .neverFails();
     }
 
     @Test
@@ -859,6 +916,14 @@ public class TestDoubleOperators
 
         assertThat(assertions.operator(IDENTICAL, "nan()", "nan()"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a IS NOT DISTINCT FROM b")
+                .binding("a", "37.7E0")
+                .binding("b", "37.7E0"))
+                .neverFails();
+
+        assertThat(assertions.operator(IDENTICAL, "37.7E0", "37.7E0"))
+                .neverFails();
     }
 
     @Test

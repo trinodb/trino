@@ -63,6 +63,14 @@ public final class StandardFunctions
     public static final FunctionName IDENTICAL_OPERATOR_FUNCTION_NAME = new FunctionName("$identical");
 
     /**
+     * $between is a 3-argument boolean function equivalent to the SQL `value BETWEEN min AND max`
+     * predicate. The value is named once, preserving the spec's single-evaluation semantics
+     * without the duplication that an explicit `$and($greater_than_or_equal(value, min),
+     * $less_than_or_equal(value, max))` would carry.
+     */
+    public static final FunctionName BETWEEN_FUNCTION_NAME = new FunctionName("$between");
+
+    /**
      * Arithmetic addition.
      */
     public static final FunctionName ADD_FUNCTION_NAME = new FunctionName("$add");

@@ -23,6 +23,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -114,6 +115,6 @@ class TestSimplifyComplementaryLogicalTerms
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyComplementaryLogicalTerms(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new SimplifyComplementaryLogicalTerms(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

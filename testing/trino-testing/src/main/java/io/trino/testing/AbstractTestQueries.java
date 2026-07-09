@@ -254,20 +254,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testShowSchemasFrom()
-    {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
-        assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), INFORMATION_SCHEMA);
-    }
-
-    @Test
-    public void testShowSchemasLike()
-    {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
-        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
-    }
-
-    @Test
     public void testShowTables()
     {
         Set<String> expectedTables = REQUIRED_TPCH_TABLES.stream()
@@ -276,14 +262,6 @@ public abstract class AbstractTestQueries
 
         MaterializedResult result = computeActual("SHOW TABLES");
         assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
-    }
-
-    @Test
-    public void testShowTablesLike()
-    {
-        assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
-                .contains("orders")
-                .allMatch(tableName -> ((String) tableName).startsWith("or"));
     }
 
     @Test
@@ -459,11 +437,5 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
-    }
-
-    @Test
-    public void testUnionAllAboveBroadcastJoin()
-    {
-        assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
     }
 }

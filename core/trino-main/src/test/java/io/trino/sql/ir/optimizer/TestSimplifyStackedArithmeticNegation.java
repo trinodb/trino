@@ -21,6 +21,7 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -49,6 +50,6 @@ public class TestSimplifyStackedArithmeticNegation
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyStackedArithmeticNegation().apply(expression, testSession(), ImmutableMap.of());
+        return new SimplifyStackedArithmeticNegation().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

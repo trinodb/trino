@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergConnector;
@@ -23,23 +27,23 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.BaseTable;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,12 +56,15 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 final class TestIcebergPolarisCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    private final String bucketName;
     private TestingPolarisCatalog polarisCatalog;
-    private Path warehouseLocation;
+    private final String warehouseLocation;
 
     public TestIcebergPolarisCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
+        bucketName = "test-iceberg-vending-polaris-smoke-test-" + randomNameSuffix();
+        warehouseLocation = "s3://%s/default/".formatted(bucketName);
     }
 
     @Override
@@ -74,13 +81,11 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory(null);
-        polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.toString()));
+        polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation, bucketName));
 
         return IcebergQueryRunner.builder()
-                .setBaseDataDir(Optional.of(warehouseLocation))
+                .addIcebergProperty("fs.s3.enabled", "true")
                 .addIcebergProperty("iceberg.file-format", format.name())
-                .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.nested-namespace-enabled", "true")
@@ -90,8 +95,27 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
                 .addIcebergProperty("iceberg.rest-catalog.http-headers", TestingPolarisCatalog.POLARIS_REALM_HEADER + ": " + TestingPolarisCatalog.POLARIS_REALM_NAME)
+                .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                .addIcebergProperty("s3.region", MINIO_REGION)
+                .addIcebergProperty("s3.endpoint", polarisCatalog.minio().getMinioAddress())
+                .addIcebergProperty("s3.path-style-access", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @Override
+    @BeforeAll
+    public void initFileSystem()
+    {
+        fileSystem = new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setRegion(MINIO_REGION)
+                        .setEndpoint(polarisCatalog.minio().getMinioAddress())
+                        .setPathStyleAccess(true)
+                        .setAwsAccessKey(MINIO_ROOT_USER)
+                        .setAwsSecretKey(MINIO_ROOT_PASSWORD),
+                new S3FileSystemStats()).create(SESSION);
     }
 
     @Override
@@ -103,31 +127,36 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
-        TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
-        BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
-        return table.operations().current().metadataFileLocation();
+        return loadTable(tableName).operations().current().metadataFileLocation();
     }
 
     @Override
     protected String getTableLocation(String tableName)
     {
+        return loadTable(tableName).operations().current().location();
+    }
+
+    private BaseTable loadTable(String tableName)
+    {
         TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
-        BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
-        return table.operations().current().location();
+        return trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
     }
 
     @Override
     protected String schemaPath()
     {
-        return format("file://%s/%s", warehouseLocation, getSession().getSchema().orElseThrow());
+        return format("%s%s", warehouseLocation, getSession().getSchema().orElseThrow());
     }
 
     @Override
     protected boolean locationExists(String location)
     {
-        return Files.exists(Path.of(location));
+        try (MinioClient minioClient = polarisCatalog.minio().createMinioClient()) {
+            String prefix = "s3://" + bucketName + "/";
+            String key = location.substring(prefix.length());
+            return !minioClient.listObjects(bucketName, key).isEmpty();
+        }
     }
 
     @Override
@@ -143,7 +172,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     protected void deleteDirectory(String location)
     {
         try {
-            deleteRecursively(Path.of(location.replaceAll("^file://", "")), ALLOW_INSECURE);
+            fileSystem.deleteDirectory(Location.of(location));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -183,11 +212,83 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
 
     @Test
     @Override
-    @Disabled("Disable as register table is broken with S3 in Polaris. More info at https://github.com/trinodb/trino/pull/23099")
+    public void testRegisterTableWithTableLocation()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testRegisterTableWithTableLocation)
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithComments()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testRegisterTableWithComments)
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithShowCreateTable()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testRegisterTableWithShowCreateTable)
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithReInsert()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testRegisterTableWithReInsert)
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
     public void testRegisterTableWithDroppedTable()
     {
+        // register_table procedure with vended credentials is currently not supported
         assertThatThrownBy(super::testRegisterTableWithDroppedTable)
-                .hasStackTraceContaining("Failed to open input stream for file");
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithDifferentTableName()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithMetadataFile()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testRegisterTableWithMetadataFile)
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
+    public void testUnregisterTable()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testUnregisterTable)
+                .hasMessageContaining("register_table procedure is disabled");
+    }
+
+    @Test
+    @Override
+    public void testRepeatUnregisterTable()
+    {
+        // register_table procedure with vended credentials is currently not supported
+        assertThatThrownBy(super::testRepeatUnregisterTable)
+                .hasMessageContaining("register_table procedure is disabled");
     }
 
     @Test
@@ -207,16 +308,9 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     @Override
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
+        // register_table procedure with vended credentials is currently not supported
         assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
-                .hasStackTraceContaining("Illegal character in path");
-    }
-
-    @Test
-    @Override
-    public void testCreateTableWithTrailingSpaceInLocation()
-    {
-        assertThatThrownBy(super::testCreateTableWithTrailingSpaceInLocation)
-                .hasStackTraceContaining("Illegal character in path");
+                .hasMessageContaining("register_table procedure is disabled");
     }
 
     @Test

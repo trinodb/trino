@@ -15,17 +15,18 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.inject.Inject;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
@@ -47,7 +48,7 @@ public class ElasticsearchSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;

@@ -21,7 +21,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
@@ -29,6 +28,7 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
@@ -50,18 +50,19 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.ir.IrUtils.logicalExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
@@ -90,14 +91,14 @@ public class TestSimplifyExpressions
                 not(new Reference(BOOLEAN, "X")));
 
         assertSimplifies(
-                not(new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
+                not(comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                not(new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), not(not(new Reference(BOOLEAN, "Y"))))),
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
+                not(comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), not(not(new Reference(BOOLEAN, "Y"))))),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), not(not(new Reference(BOOLEAN, "Y")))),
-                new Comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
+                comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), not(not(new Reference(BOOLEAN, "Y")))),
+                comparison(GREATER_THAN, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
                 not(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))))),
                 new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "X")), not(new Reference(BOOLEAN, "Y")), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))));
@@ -109,17 +110,17 @@ public class TestSimplifyExpressions
                 new Logical(AND, ImmutableList.of(not(new Reference(BOOLEAN, "X")), not(new Reference(BOOLEAN, "Y")), new Logical(AND, ImmutableList.of(not(new Reference(BOOLEAN, "Z")), not(new Reference(BOOLEAN, "V")))))));
 
         assertSimplifies(
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
         assertSimplifies(
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
-                new Comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")),
+                comparison(IDENTICAL, new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y")));
     }
 
     @Test
@@ -154,8 +155,8 @@ public class TestSimplifyExpressions
                 new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"), new Reference(BOOLEAN, "C"))))),
                 new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"))));
         assertSimplifies(
-                new Comparison(EQUAL, new Reference(BOOLEAN, "I"), new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"), new Reference(BOOLEAN, "C")))))),
-                new Comparison(EQUAL, new Reference(BOOLEAN, "I"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B")))));
+                comparison(EQUAL, new Reference(BOOLEAN, "I"), new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"), new Reference(BOOLEAN, "C")))))),
+                comparison(EQUAL, new Reference(BOOLEAN, "I"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B")))));
         assertSimplifies(
                 new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Z"))))),
                 new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Z"))))));
@@ -163,8 +164,8 @@ public class TestSimplifyExpressions
                 new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "V"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "Z"))))),
                 new Logical(AND, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "V"), new Reference(BOOLEAN, "Z"))))));
         assertSimplifies(
-                new Comparison(EQUAL, new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "V"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "Z"))))), new Reference(BOOLEAN, "I")),
-                new Comparison(EQUAL, new Logical(OR, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "V"), new Reference(BOOLEAN, "Z"))))), new Reference(BOOLEAN, "I")));
+                comparison(EQUAL, new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "V"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "Z"))))), new Reference(BOOLEAN, "I")),
+                comparison(EQUAL, new Logical(OR, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "V"), new Reference(BOOLEAN, "Z"))))), new Reference(BOOLEAN, "I")));
 
         assertSimplifies(
                 new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "V"))), new Reference(BOOLEAN, "V"))), new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "V"))), new Reference(BOOLEAN, "V"))))),
@@ -306,8 +307,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(BIGINT, -12300000000L), createVarcharType(3)),
                 new Cast(new Constant(BIGINT, -12300000000L), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12300000000"))),
-                new Comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12300000000"))));
+                comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12300000000"))),
+                comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12300000000"))));
     }
 
     @Test
@@ -329,8 +330,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)),
                 new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))),
-                new Comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))));
+                comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))),
+                comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))));
     }
 
     @Test
@@ -352,8 +353,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(SMALLINT, -1234L), createVarcharType(3)),
                 new Cast(new Constant(SMALLINT, -1234L), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))),
-                new Comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))));
+                comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))),
+                comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))));
     }
 
     @Test
@@ -375,8 +376,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(TINYINT, -123L), createVarcharType(2)),
                 new Cast(new Constant(TINYINT, -123L), createVarcharType(2)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(createVarcharType(2), Slices.utf8Slice("12"))),
-                new Comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(createVarcharType(2), Slices.utf8Slice("12"))));
+                comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(createVarcharType(2), Slices.utf8Slice("12"))),
+                comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(createVarcharType(2), Slices.utf8Slice("12"))));
     }
 
     @Test
@@ -398,8 +399,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)),
                 new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12.4"))),
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12.4"))));
+                comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12.4"))),
+                comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12.4"))));
     }
 
     @Test
@@ -421,8 +422,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)),
                 new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("100000000000000000.1"))),
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("100000000000000000.1"))));
+                comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("100000000000000000.1"))),
+                comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("100000000000000000.1"))));
     }
 
     @Test
@@ -462,8 +463,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)),
                 new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))),
-                new Comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))));
+                comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))),
+                comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))));
     }
 
     @Test
@@ -503,8 +504,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)),
                 new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))),
-                new Comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))));
+                comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))),
+                comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))));
     }
 
     @Test
@@ -523,13 +524,13 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)),
                 new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))),
-                new Comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))));
+                comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))),
+                comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))));
     }
 
     private static void assertSimplifies(Expression expression, Expression expected)
     {
-        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer()));
+        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), new SymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer()));
         assertThat(simplified).isEqualTo(normalize(expected));
     }
 
@@ -537,123 +538,123 @@ public class TestSimplifyExpressions
     public void testPushesDownNegationsNumericTypes()
     {
         assertSimplifiesNumericTypes(
-                not(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
-                new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
+                not(comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
+                comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
+                not(comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
         assertSimplifiesNumericTypes(
-                not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4"))))),
-                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))));
+                not(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4"))))),
+                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))));
         assertSimplifiesNumericTypes(
-                not(not(not(new Logical(OR, ImmutableList.of(not(not(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))))))),
-                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))));
+                not(not(not(new Logical(OR, ImmutableList.of(not(not(comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), not(comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))))))),
+                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), comparison(GREATER_THAN, new Reference(INTEGER, "I3"), new Reference(INTEGER, "I4")))));
         assertSimplifiesNumericTypes(
-                not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
-                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
+                not(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
+                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
         assertSimplifiesNumericTypes(
-                new Comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")),
-                new Comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
+                comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")),
+                comparison(IDENTICAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")));
 
         /*
          Restricted rewrite for types having NaN
          */
         assertSimplifiesNumericTypes(
-                not(new Comparison(EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Comparison(NOT_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
+                not(comparison(EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                comparison(NOT_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                not(new Comparison(NOT_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                new Comparison(EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
+                not(comparison(NOT_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                comparison(EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                not(new Comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
+                not(comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
         assertSimplifiesNumericTypes(
-                not(new Comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                new Comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
+                not(comparison(NOT_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                comparison(EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
         assertSimplifiesNumericTypes(
-                new Comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
-                new Comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
+                comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
+                comparison(IDENTICAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new Comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")),
-                new Comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
+                comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")),
+                comparison(IDENTICAL, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
 
         // DOUBLE: no negation pushdown for inequalities
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                not(new Comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(comparison(LESS_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
-                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))),
+                not(comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
 
         // REAL: no negation pushdown for inequalities
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                not(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(comparison(GREATER_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
-                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))),
+                not(comparison(LESS_THAN_OR_EQUAL, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
 
         // Multiple negations
         assertSimplifiesNumericTypes(
-                not(not(not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
-                not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
+                not(not(not(comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
+                not(comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                not(not(not(not(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")))))),
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
+                not(not(not(not(comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")))))),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                not(not(not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))),
-                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
+                not(not(not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))),
+                not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                not(not(not(not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))))),
-                new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
+                not(not(not(not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))))),
+                comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")));
 
         // Nested comparisons
         assertSimplifiesNumericTypes(
-                not(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
-                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))));
+                not(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))),
+                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), not(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))))));
         assertSimplifiesNumericTypes(
-                not(not(not(new Logical(OR, ImmutableList.of(not(not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))), not(new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))))))),
-                new Logical(AND, ImmutableList.of(not(new Comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))), new Comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))));
+                not(not(not(new Logical(OR, ImmutableList.of(not(not(comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2")))), not(comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))))))),
+                new Logical(AND, ImmutableList.of(not(comparison(LESS_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))), comparison(GREATER_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))));
         assertSimplifiesNumericTypes(
-                not(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
-                new Logical(AND, ImmutableList.of(not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
+                not(new Logical(OR, ImmutableList.of(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), not(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))))),
+                new Logical(AND, ImmutableList.of(not(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "B3"), new Reference(BOOLEAN, "B4"))))));
         assertSimplifiesNumericTypes(
-                not(new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), new Comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(AND, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))),
-                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(OR, ImmutableList.of(new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))));
+                not(new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")), comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(AND, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B1"), new Reference(BOOLEAN, "B2"))), comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))),
+                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(not(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2"))), comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")))), new Logical(OR, ImmutableList.of(new Logical(OR, ImmutableList.of(not(new Reference(BOOLEAN, "B1")), not(new Reference(BOOLEAN, "B2")))), not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Reference(REAL, "R2"))))))));
         assertSimplifiesNumericTypes(
-                ifExpression(not(new Comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))), new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
-                ifExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
+                ifExpression(not(comparison(LESS_THAN, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2"))), new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")),
+                ifExpression(comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "I1"), new Reference(INTEGER, "I2")), new Reference(DOUBLE, "D1"), new Reference(DOUBLE, "D2")));
 
         // Symbol of type having NaN on either side of comparison
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))),
-                not(new Comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))));
+                not(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))),
+                not(comparison(GREATER_THAN, new Reference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))),
-                not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))));
+                not(comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))),
+                not(comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1.f)))),
-                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1.f)))));
+                not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1.f)))),
+                not(comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1.f)))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))),
-                not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))));
+                not(comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))),
+                not(comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))));
     }
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)
     {
-        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer());
+        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), new SymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer());
         assertThat(normalize(rewritten)).isEqualTo(normalize(expected));
     }
 

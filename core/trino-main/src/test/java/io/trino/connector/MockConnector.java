@@ -351,7 +351,7 @@ public class MockConnector
                     ConnectorTransactionHandle transaction,
                     ConnectorSession session,
                     ConnectorTableHandle table,
-                    DynamicFilter dynamicFilter,
+                    Set<ColumnHandle> dynamicFilterColumns,
                     Constraint constraint)
             {
                 SchemaTableName tableName = ((MockConnectorTableHandle) table).getTableName();

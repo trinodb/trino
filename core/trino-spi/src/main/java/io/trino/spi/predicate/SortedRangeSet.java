@@ -50,7 +50,6 @@ import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRE
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -273,7 +272,7 @@ public final class SortedRangeSet
     private static SortedRangeSet of(Type type, Object value)
     {
         checkNotNaN(type, value);
-        Block block = nativeValueToBlock(type, value);
+        Block block = writeNativeValue(type, value);
         return new SortedRangeSet(
                 type,
                 new boolean[] {true, true},
@@ -409,7 +408,7 @@ public final class SortedRangeSet
             return false;
         }
 
-        Block valueAsBlock = nativeValueToBlock(type, value);
+        Block valueAsBlock = writeNativeValue(type, value);
         RangeView valueRange = new RangeView(
                 type,
                 comparisonOperator,

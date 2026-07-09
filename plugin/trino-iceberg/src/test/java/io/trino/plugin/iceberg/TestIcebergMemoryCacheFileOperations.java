@@ -65,6 +65,7 @@ public class TestIcebergMemoryCacheFileOperations
                         .withSchemaName(TEST_SCHEMA)
                         .build())
                 .setIcebergProperties(icebergProperties)
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setWorkerCount(0)
                 .build();
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <meta name="description" content="Cluster Overview - Trino">
+    <title>Cluster Overview - Trino</title>
+
+    <link rel="icon" href="assets/favicon.ico">
+
+    <!-- Bootstrap core -->
+    <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet">
+
+    <!-- Code highlighting -->
+    <link href="vendor/highlightjs/styles/trino.css" rel="stylesheet">
+
+    <!-- jQuery -->
+    <script type="text/javascript" src="vendor/jquery/jquery-3.7.1.min.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
+
+    <!-- Sparkline -->
+    <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
+
+    <!-- CSS loader -->
+    <link href="vendor/css-loaders/loader.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="assets/trino.css" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+    <div id="title"></div>
+
+    <div class="hud-container">
+        <div id="cluster-hud">
+            <div class="loader">Loading...</div>
+        </div>
+    </div>
+
+    <div id="query-list-container">
+        <div id="query-list-title">
+            Query Details
+        </div>
+        <div id="query-list" class="font-white"><div class="loader">Loading...</div></div>
+    </div>
+
+</div> <!-- /container -->
+
+<script type="text/javascript" src="dist/index.js"></script>
+
+</body>
+</html>

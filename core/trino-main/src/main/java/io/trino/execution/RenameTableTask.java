@@ -22,23 +22,20 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameTable;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.metadata.MetadataUtil.createTargetQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RenameTableTask
@@ -119,20 +116,5 @@ public class RenameTableTask
         metadata.renameTable(session, tableHandle, source.asCatalogSchemaTableName(), target);
 
         return immediateVoidFuture();
-    }
-
-    private static QualifiedObjectName createTargetQualifiedObjectName(QualifiedObjectName source, QualifiedName target)
-    {
-        requireNonNull(target, "target is null");
-        if (target.getParts().size() > 3) {
-            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
-        }
-
-        List<String> parts = target.getParts().reversed();
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : source.schemaName();
-        String catalogName = (parts.size() > 2) ? parts.get(2) : source.catalogName();
-
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 }

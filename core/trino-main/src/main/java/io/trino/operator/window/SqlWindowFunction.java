@@ -34,13 +34,8 @@ public class SqlWindowFunction
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.windowBuilder(name)
-                .signature(signature);
-        if (description.isPresent()) {
-            functionMetadata.description(description.get());
-        }
-        else {
-            functionMetadata.noDescription();
-        }
+                .signature(signature)
+                .description(description.orElse(""));
         if (deprecated) {
             functionMetadata.deprecated();
         }

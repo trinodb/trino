@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -67,11 +67,11 @@
                 <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>**/node_modules/**</exclude>
+                    <exclude>**/webapp-legacy/src/**</exclude>
+                    <exclude>**/webapp-legacy/dist/node/**</exclude>
+                    <exclude>**/webapp/public/**</exclude>
                     <exclude>**/webapp/src/**</exclude>
-                    <exclude>**/webapp/dist/node/**</exclude>
-                    <exclude>**/webapp-preview/public/**</exclude>
-                    <exclude>**/webapp-preview/src/**</exclude>
-                    <exclude>**/webapp-preview/*</exclude>
+                    <exclude>**/webapp/*</exclude>
                 </excludes>
             </resource>
         </resources>
@@ -90,18 +90,29 @@
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
-                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
+                            <workingDirectory>src/main/resources/webapp-legacy/src</workingDirectory>
                         </configuration>
                     </execution>
                     <execution>
-                        <id>package (webapp)</id>
+                        <id>package (webapp-legacy)</id>
                         <goals>
                             <goal>npm</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
                             <arguments>run ${frontend.package.goal}</arguments>
-                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
+                            <workingDirectory>src/main/resources/webapp-legacy/src</workingDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>check (webapp-legacy)</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <arguments>run ${frontend.check.goal}</arguments>
+                            <workingDirectory>src/main/resources/webapp-legacy/src</workingDirectory>
                         </configuration>
                     </execution>
                     <execution>
@@ -112,29 +123,18 @@
                         <phase>verify</phase>
                         <configuration>
                             <arguments>run ${frontend.check.goal}</arguments>
-                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
+                            <workingDirectory>src/main/resources/webapp</workingDirectory>
                         </configuration>
                     </execution>
                     <execution>
-                        <id>check (webapp-preview)</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>verify</phase>
-                        <configuration>
-                            <arguments>run ${frontend.check.goal}</arguments>
-                            <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>package (webapp-preview)</id>
+                        <id>package (webapp)</id>
                         <goals>
                             <goal>npm</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
                             <arguments>run ${frontend.package.goal}</arguments>
-                            <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
+                            <workingDirectory>src/main/resources/webapp</workingDirectory>
                         </configuration>
                     </execution>
                 </executions>

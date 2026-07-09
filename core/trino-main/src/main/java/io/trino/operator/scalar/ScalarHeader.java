@@ -20,7 +20,9 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.StaticMethod;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
@@ -33,7 +35,8 @@ import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.hasTypeParameters;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarHeader
@@ -45,15 +48,10 @@ public class ScalarHeader
     private final boolean hidden;
     private final boolean deterministic;
     private final boolean neverFails;
-    private final Optional<TypeSignature> receiverType;
+    private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
 
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails)
-    {
-        this(name, aliases, description, hidden, deterministic, neverFails, Optional.empty(), false);
-    }
-
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeSignature> receiverType, boolean instanceMethod)
+    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeTemplate> receiverType, boolean instanceMethod)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty());
@@ -69,7 +67,7 @@ public class ScalarHeader
         this.instanceMethod = instanceMethod;
     }
 
-    public ScalarHeader(OperatorType operatorType, Optional<String> description)
+    public ScalarHeader(OperatorType operatorType, Optional<String> description, boolean neverFails)
     {
         this.name = mangleOperatorName(operatorType);
         this.operatorType = Optional.of(operatorType);
@@ -77,7 +75,7 @@ public class ScalarHeader
         this.aliases = ImmutableSet.of();
         this.hidden = true;
         this.deterministic = true;
-        this.neverFails = false;
+        this.neverFails = neverFails;
         this.receiverType = Optional.empty();
         this.instanceMethod = false;
     }
@@ -95,11 +93,11 @@ public class ScalarHeader
         if (scalarFunction != null) {
             checkArgument(staticMethod == null || instanceMethod == null, "@StaticMethod and @InstanceMethod are mutually exclusive on %s", annotated);
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            Optional<TypeSignature> receiverType = Optional.empty();
+            Optional<TypeTemplate> receiverType = Optional.empty();
             if (staticMethod != null) {
-                TypeSignature parsed = parseTypeSignature(staticMethod.value(), ImmutableSet.of());
-                checkArgument(parsed.getParameters().isEmpty(), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
-                receiverType = Optional.of(parsed);
+                checkArgument(!hasTypeParameters(staticMethod.value()), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
+                TypeDescriptor parsed = parseTypeDescriptor(staticMethod.value());
+                receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(new TypeDescriptor(parsed.getBase())));
             }
             builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
         }
@@ -111,7 +109,10 @@ public class ScalarHeader
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarHeader(scalarOperator.value(), description));
+            if (scalarOperator.value().neverFails() && scalarOperator.neverFails()) {
+                throw new IllegalArgumentException("@ScalarOperator(neverFails = true) is redundant for %s operator which is always infallible: %s".formatted(scalarOperator.value(), annotated));
+            }
+            builder.add(new ScalarHeader(scalarOperator.value(), description, scalarOperator.neverFails()));
         }
 
         List<ScalarHeader> result = builder.build();
@@ -171,7 +172,7 @@ public class ScalarHeader
         return neverFails;
     }
 
-    public Optional<TypeSignature> getReceiverType()
+    public Optional<TypeTemplate> getReceiverType()
     {
         return receiverType;
     }

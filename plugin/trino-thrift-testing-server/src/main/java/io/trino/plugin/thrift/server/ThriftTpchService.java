@@ -308,6 +308,6 @@ public class ThriftTpchService
 
     private static String getTypeString(TpchColumn<?> column)
     {
-        return getTrinoType(column, DecimalTypeMapping.DOUBLE).getTypeSignature().toString();
+        return getTrinoType(column, DecimalTypeMapping.DOUBLE).getTypeDescriptor().toString();
     }
 }

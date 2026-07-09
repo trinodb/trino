@@ -84,6 +84,7 @@ public class IcebergConfig
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
+    private Optional<DataSize> maxSplitSize = Optional.empty();
     // This is meant to protect users who are misusing schema locations (by
     // putting schemas in locations with extraneous files), so default to false
     // to avoid deleting those files if Trino is unable to check.
@@ -106,6 +107,7 @@ public class IcebergConfig
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
+    private boolean equalityDeletesBlocksHashEnabled = true;
     private ParquetFooterCacheType parquetFooterCacheType = NONE;
     private DataSize parquetFooterCacheMemoryMaxSize = DataSize.of(10, MEGABYTE);
 
@@ -403,6 +405,19 @@ public class IcebergConfig
         return this;
     }
 
+    public Optional<DataSize> getMaxSplitSize()
+    {
+        return maxSplitSize;
+    }
+
+    @Config("iceberg.max-split-size")
+    @ConfigDescription("Target maximum split size for Iceberg tables")
+    public IcebergConfig setMaxSplitSize(DataSize maxSplitSize)
+    {
+        this.maxSplitSize = Optional.ofNullable(maxSplitSize);
+        return this;
+    }
+
     public boolean isDeleteSchemaLocationsFallback()
     {
         return this.deleteSchemaLocationsFallback;
@@ -684,6 +699,19 @@ public class IcebergConfig
     public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isEqualityDeletesBlocksHashEnabled()
+    {
+        return equalityDeletesBlocksHashEnabled;
+    }
+
+    @Config("iceberg.equality-deletes-blocks-hash-enabled")
+    @ConfigDescription("Use BlocksHash for optimized equality delete filtering")
+    public IcebergConfig setEqualityDeletesBlocksHashEnabled(boolean equalityDeletesBlocksHashEnabled)
+    {
+        this.equalityDeletesBlocksHashEnabled = equalityDeletesBlocksHashEnabled;
         return this;
     }
 

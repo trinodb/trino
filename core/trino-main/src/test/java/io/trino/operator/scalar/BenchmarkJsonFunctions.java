@@ -24,7 +24,6 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrPathNode;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -71,7 +70,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -110,7 +109,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonValuePageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -122,7 +120,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonExtractScalarPageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -134,7 +131,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonQueryPageProcessor().process(
                         FULL_CONNECTOR_SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -146,7 +142,6 @@ public class BenchmarkJsonFunctions
         return ImmutableList.copyOf(
                 data.getJsonExtractPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }

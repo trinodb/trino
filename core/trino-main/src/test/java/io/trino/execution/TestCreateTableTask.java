@@ -76,7 +76,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;

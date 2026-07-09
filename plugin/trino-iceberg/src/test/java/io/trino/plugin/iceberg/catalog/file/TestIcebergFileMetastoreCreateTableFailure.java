@@ -27,6 +27,7 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -55,7 +57,14 @@ public class TestIcebergFileMetastoreCreateTableFailure
 
     private Path dataDirectory;
     private HiveMetastore metastore;
-    private final AtomicReference<RuntimeException> testException = new AtomicReference<>();
+    private final AtomicReference<RuntimeException> createTableFailure = new AtomicReference<>();
+    // When set, the metastore persists the table before raising createTableFailure, simulating a commit that
+    // actually landed but whose response was lost (e.g. a timeout, or a retried request observing AlreadyExists).
+    private final AtomicBoolean createTableCommitsBeforeFailure = new AtomicBoolean();
+    // When set, the metastore becomes unreachable once a createTable has been attempted, simulating a metastore that
+    // is unavailable during the post-failure commit-status check (but reachable for the initial existence check).
+    private final AtomicBoolean metastoreUnavailableAfterCreate = new AtomicBoolean();
+    private final AtomicBoolean metastoreUnavailable = new AtomicBoolean();
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
@@ -73,9 +82,27 @@ public class TestIcebergFileMetastoreCreateTableFailure
             @Override
             public synchronized void createTable(Table table, PrincipalPrivileges principalPrivileges)
             {
-                if (testException.get() != null) {
-                    throw testException.get();
+                RuntimeException failure = createTableFailure.get();
+                // Persist the table on a normal create, and also when simulating a commit that landed before the
+                // injected failure (createTableCommitsBeforeFailure), so the metastore actually holds the table.
+                if (failure == null || createTableCommitsBeforeFailure.get()) {
+                    super.createTable(table, principalPrivileges);
                 }
+                if (metastoreUnavailableAfterCreate.get()) {
+                    metastoreUnavailable.set(true);
+                }
+                if (failure != null) {
+                    throw failure;
+                }
+            }
+
+            @Override
+            public synchronized Optional<Table> getTable(String databaseName, String tableName)
+            {
+                if (metastoreUnavailable.get()) {
+                    throw new RuntimeException("simulated metastore unavailable");
+                }
+                return super.getTable(databaseName, tableName);
             }
         };
 
@@ -104,22 +131,92 @@ public class TestIcebergFileMetastoreCreateTableFailure
         }
     }
 
+    @BeforeEach
+    public void resetMetastoreBehavior()
+    {
+        createTableFailure.set(null);
+        createTableCommitsBeforeFailure.set(false);
+        metastoreUnavailableAfterCreate.set(false);
+        metastoreUnavailable.set(false);
+    }
+
     @Test
     public void testCreateTableFailureMetadataCleanedUp()
     {
-        testException.set(new SchemaNotFoundException("simulated_test_schema"));
+        // The metastore is reachable and confirms the table was not created, so the orphaned metadata file is removed.
         String tableName = "test_create_failure_" + randomNameSuffix();
-        String tableLocation = "local:///" + tableName;
-        String createTableSql = "CREATE TABLE " + tableName + " (a varchar) WITH (location = '" + tableLocation + "')";
-        assertThatThrownBy(() -> getQueryRunner().execute(createTableSql))
-                .hasMessageContaining("Schema simulated_test_schema not found");
+        createTableFailure.set(new SchemaNotFoundException("simulated_test_schema"));
+        try {
+            String tableLocation = "local:///" + tableName;
+            String createTableSql = "CREATE TABLE " + tableName + " (a varchar) WITH (location = '" + tableLocation + "')";
+            assertThatThrownBy(() -> getQueryRunner().execute(createTableSql))
+                    .hasMessageContaining("Schema simulated_test_schema not found");
 
-        Path metadataDirectory = dataDirectory.resolve(tableName, "metadata");
-        assertThat(metadataDirectory).as("Metadata file should not exist").isEmptyDirectory();
+            Path metadataDirectory = dataDirectory.resolve(tableName, "metadata");
+            assertThat(metadataDirectory).as("Metadata file should not exist").isEmptyDirectory();
 
-        // it should be possible to create a table with the same name after the failure
-        testException.set(null);
-        getQueryRunner().execute(createTableSql);
-        assertThat(metadataDirectory).as("Metadata file should not exist").isNotEmptyDirectory();
+            // it should be possible to create a table with the same name after the failure
+            createTableFailure.set(null);
+            getQueryRunner().execute(createTableSql);
+            assertThat(metadataDirectory).as("Metadata file should not exist").isNotEmptyDirectory();
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testCreateTableMetadataPreservedWhenCommitActuallySucceeded()
+    {
+        // The metastore applied the create but the client observed a failure (lost response / retried AlreadyExists).
+        // The commit-status check finds the table pointing at our metadata, so the create is treated as successful.
+        String tableName = "test_create_succeeded_" + randomNameSuffix();
+        createTableCommitsBeforeFailure.set(true);
+        createTableFailure.set(new RuntimeException("simulated metastore response loss"));
+        try {
+            String tableLocation = "local:///" + tableName;
+            String createTableSql = "CREATE TABLE " + tableName + " (a integer) WITH (location = '" + tableLocation + "')";
+
+            // The statement must not fail and must not delete the metadata of the table that was actually created.
+            getQueryRunner().execute(createTableSql);
+
+            Path metadataDirectory = dataDirectory.resolve(tableName, "metadata");
+            assertThat(metadataDirectory).as("Metadata file should be preserved").isNotEmptyDirectory();
+            // The table is fully usable.
+            assertThat(getQueryRunner().execute("SELECT * FROM " + tableName).getRowCount()).isEqualTo(0);
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testCreateTableMetadataPreservedWhenCommitStateUnknown()
+    {
+        // The metastore applied the create but the response was lost, and the follow-up commit-status check cannot
+        // reach the metastore either. The outcome is unknown, so all new files must be preserved.
+        String tableName = "test_create_unknown_" + randomNameSuffix();
+        createTableCommitsBeforeFailure.set(true);
+        createTableFailure.set(new RuntimeException("simulated metastore response loss"));
+        metastoreUnavailableAfterCreate.set(true);
+        try {
+            String tableLocation = "local:///" + tableName;
+            String createTableSql = "CREATE TABLE " + tableName + " (a integer) WITH (location = '" + tableLocation + "')";
+
+            assertThatThrownBy(() -> getQueryRunner().execute(createTableSql))
+                    .hasMessageContaining("Cannot determine whether the commit was successful");
+
+            Path metadataDirectory = dataDirectory.resolve(tableName, "metadata");
+            assertThat(metadataDirectory).as("Metadata file should be preserved when commit state is unknown").isNotEmptyDirectory();
+
+            // Once the metastore is reachable again the table created by the (actually successful) commit is usable.
+            metastoreUnavailable.set(false);
+            assertThat(getQueryRunner().execute("SELECT * FROM " + tableName).getRowCount()).isEqualTo(0);
+        }
+        finally {
+            // Restore metastore reachability (an earlier assertion may have failed before it was reset) so the table can be dropped.
+            metastoreUnavailable.set(false);
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 }

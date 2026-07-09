@@ -25,13 +25,14 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
+import static io.trino.spi.block.BlockUtil.hasNullValue;
 
 public final class VariableWidthBlock
         implements ValueBlock
@@ -96,7 +97,7 @@ public final class VariableWidthBlock
      */
     public int getRawSliceOffset(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return getPositionOffset(position);
     }
 
@@ -107,7 +108,7 @@ public final class VariableWidthBlock
 
     public int getSliceLength(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return getPositionOffset(position + 1) - getPositionOffset(position);
     }
 
@@ -154,7 +155,7 @@ public final class VariableWidthBlock
 
     public Slice getSlice(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         int offset = offsets[position + arrayOffset];
         int length = offsets[position + 1 + arrayOffset] - offset;
         return slice.slice(offset, length);
@@ -169,15 +170,7 @@ public final class VariableWidthBlock
     @Override
     public boolean hasNull()
     {
-        if (valueIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (valueIsNull[i + arrayOffset]) {
-                return true;
-            }
-        }
-        return false;
+        return hasNullValue(valueIsNull, arrayOffset, positionCount);
     }
 
     @Override
@@ -186,7 +179,7 @@ public final class VariableWidthBlock
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return valueIsNull[position + arrayOffset];
     }
 
@@ -286,17 +279,18 @@ public final class VariableWidthBlock
         return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
     }
 
-    int getRawArrayBase()
+    public int getRawArrayBase()
     {
         return arrayOffset;
     }
 
-    int[] getRawOffsets()
+    public int[] getRawOffsets()
     {
         return offsets;
     }
 
-    boolean[] getRawValueIsNull()
+    @Nullable
+    public boolean[] getRawValueIsNull()
     {
         return valueIsNull;
     }

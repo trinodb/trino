@@ -41,6 +41,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
@@ -297,7 +298,7 @@ public class TestHivePageSink
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
                 .map(TestHivePageSink::getType)
-                .map(hiveType -> TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()))
+                .map(hiveType -> TESTING_TYPE_MANAGER.getType(hiveType.getTypeDescriptor()))
                 .collect(toList());
         Page page = createPage(_ -> true);
         pageSink.appendPage(page);
@@ -335,7 +336,7 @@ public class TestHivePageSink
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
                 .map(TestHivePageSink::getType)
-                .map(hiveType -> TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()))
+                .map(hiveType -> TESTING_TYPE_MANAGER.getType(hiveType.getTypeDescriptor()))
                 .collect(toList());
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
         int rows = 0;
@@ -419,7 +420,7 @@ public class TestHivePageSink
                 TESTING_TYPE_MANAGER,
                 config,
                 getDefaultHivePageSourceFactories(fileSystemFactory, config));
-        return provider.createPageSource(transaction, getHiveSession(config), split, table, Optional.empty(), ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
+        return provider.createPageSource(transaction, getHiveSession(config), split, table, Optional.empty(), ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY, MemoryContext.NO_LIMIT);
     }
 
     private static ConnectorPageSink createPageSink(

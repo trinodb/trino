@@ -44,6 +44,7 @@ import io.trino.operator.OperatorStats;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.NodeVersion;
@@ -112,7 +113,6 @@ import static io.trino.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_COMMITED;
@@ -239,7 +239,7 @@ public class QueryStateMachine
         this.planOptimizersStatsCollector = requireNonNull(queryStatsCollector, "queryStatsCollector is null");
         this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
 
-        this.queryState = new StateMachine<>("query " + query, stateMachineExecutor, QUEUED, TERMINAL_QUERY_STATES);
+        this.queryState = new StateMachine<>("query-" + queryId, stateMachineExecutor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, stateMachineExecutor, Optional.empty());
         this.outputManager = new QueryOutputManager(stateMachineExecutor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -907,7 +907,7 @@ public class QueryStateMachine
                     StageInfo stage = queue.poll();
                     StageStats stageStats = stage.stageStats();
                     totalStages++;
-                    if (stage.state().isScheduled()) {
+                    if (stage.state().isScheduled() && stageStats.getTotalDrivers() != 0) {
                         completedPercentageSum += 100.0 * stageStats.getCompletedDrivers() / stageStats.getTotalDrivers();
                         runningPercentageSum += 100.0 * stageStats.getRunningDrivers() / stageStats.getTotalDrivers();
                     }
