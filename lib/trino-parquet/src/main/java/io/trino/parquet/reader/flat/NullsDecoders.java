@@ -61,6 +61,41 @@ public class NullsDecoders
             this.input = new SimpleSliceInputStream(requireNonNull(input, "input is null"));
         }
 
+        @Override
+        public final int readNext(long[] values, int offset, int length)
+        {
+            int initialOffset = offset;
+            int nonNullCount = 0;
+            while (length > 0) {
+                if (valuesLeftInGroup == 0) {
+                    readGroupHeader();
+                }
+
+                if (!isRle) {
+                    setBits(values, 0, initialOffset, offset - initialOffset);
+                    return nonNullCount + readNextMaterialized(values, offset, length);
+                }
+
+                if (rleValue) {
+                    setBits(values, 0, initialOffset, offset - initialOffset);
+                    int chunkSize = min(length, valuesLeftInGroup);
+                    valuesLeftInGroup -= chunkSize;
+                    length -= chunkSize;
+                    offset += chunkSize;
+                    return length == 0 ? nonNullCount : nonNullCount + readNextMaterialized(values, offset, length);
+                }
+
+                int chunkSize = min(length, valuesLeftInGroup);
+                nonNullCount += chunkSize;
+                valuesLeftInGroup -= chunkSize;
+                length -= chunkSize;
+                offset += chunkSize;
+            }
+            return nonNullCount;
+        }
+
+        protected abstract int readNextMaterialized(long[] values, int offset, int length);
+
         /**
          * Skip 'length' values and return the number of non-nulls encountered
          */
@@ -140,7 +175,7 @@ public class NullsDecoders
          * 'values' array needs to be empty, i.e. contain only unset bits.
          */
         @Override
-        public int readNext(long[] values, int offset, int length)
+        protected int readNextMaterialized(long[] values, int offset, int length)
         {
             int nonNullCount = 0;
             while (length > 0) {
@@ -207,7 +242,7 @@ public class NullsDecoders
          * 'values' array needs to be empty, i.e. contain only unset bits.
          */
         @Override
-        public int readNext(long[] values, int offset, int length)
+        protected int readNextMaterialized(long[] values, int offset, int length)
         {
             int nonNullCount = 0;
             while (length > 0) {
