@@ -42,7 +42,7 @@ public class Minio
 {
     private static final Logger log = Logger.get(Minio.class);
 
-    public static final String DEFAULT_IMAGE = DockerImageName.parse("cgr.dev/chainguard/minio@sha256:66bd82c8fe5e75868ae7d0b2e102d9a0dcf971b270a41bd060a9e6a643476ff8")
+    public static final String DEFAULT_IMAGE = DockerImageName.parse("cgr.dev/chainguard/minio@sha256:f767919bd003062ac69713cdce920eb922c9fa3388efe96264e78b763342ca1a")
             .asCanonicalNameString();
     public static final String DEFAULT_HOST_NAME = "minio";
 
