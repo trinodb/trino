@@ -16,6 +16,8 @@
     <properties>
         <frontend.package.goal>package</frontend.package.goal>
         <frontend.check.goal>check</frontend.check.goal>
+        <!-- allow -DskipTests to also skip the frontend checks (lint, prettier, tsc, flow, licenses) -->
+        <skipTests>false</skipTests>
     </properties>
 
     <dependencies>
@@ -110,6 +112,7 @@
                         <configuration>
                             <arguments>run ${frontend.check.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp-legacy/src</workingDirectory>
+                            <skip>${skipTests}</skip>
                         </configuration>
                     </execution>
                     <execution>
@@ -121,6 +124,7 @@
                         <configuration>
                             <arguments>run ${frontend.check.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp</workingDirectory>
+                            <skip>${skipTests}</skip>
                         </configuration>
                     </execution>
                     <execution>
