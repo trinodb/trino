@@ -163,6 +163,35 @@ public final class RowBlock
         return startOffset;
     }
 
+    /**
+     * Creates a projection by replacing the visible field blocks for this row block.
+     * The replacement fields must correspond to {@link #getFieldBlocks()}, not {@link #getRawFieldBlocks()}.
+     * The replacement field count may differ from this block's field count.
+     * If this block is zero-aligned, the existing validity bitmap is reused.
+     * Otherwise, the visible validity bits are normalized and the returned block has an offset base of zero.
+     */
+    public RowBlock createProjection(Block[] newVisibleFieldBlocks)
+    {
+        requireNonNull(newVisibleFieldBlocks, "newVisibleFieldBlocks is null");
+
+        for (int i = 0; i < newVisibleFieldBlocks.length; i++) {
+            Block fieldBlock = newVisibleFieldBlocks[i];
+            if (fieldBlock == null) {
+                throw new NullPointerException(format("newVisibleFieldBlocks[%s] is null", i));
+            }
+            if (fieldBlock.getPositionCount() != positionCount) {
+                throw new IllegalArgumentException(format("newVisibleFieldBlocks must have the same position count as this block; expected %s but field %s has %s", positionCount, i, fieldBlock.getPositionCount()));
+            }
+        }
+
+        if (startOffset == 0) {
+            return new RowBlock(0, positionCount, valueIsValid, newVisibleFieldBlocks);
+        }
+
+        long[] newValueIsValid = compactBitmap(valueIsValid, startOffset, positionCount);
+        return new RowBlock(0, positionCount, newValueIsValid, newVisibleFieldBlocks);
+    }
+
     @Override
     public boolean mayHaveNull()
     {
