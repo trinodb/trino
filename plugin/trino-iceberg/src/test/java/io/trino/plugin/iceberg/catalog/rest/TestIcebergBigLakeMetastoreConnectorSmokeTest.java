@@ -177,6 +177,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                         "   comment varchar\n" +
                         "\\)\n" +
                         "WITH \\(\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = 'gs://.*'\n" +
@@ -306,5 +307,26 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .isFalse();
 
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceTable()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceWithTableChangesFunction()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
+    {
+        abort("skipped");
     }
 }
