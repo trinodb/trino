@@ -80,23 +80,20 @@
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
                 <configuration>
-                    <installDirectory>${node.tmpdir}</installDirectory>
+                    <installDirectory>${bun.tmpdir}</installDirectory>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>install node and npm</id>
+                        <id>install bun</id>
                         <goals>
-                            <goal>install-node-and-npm</goal>
+                            <goal>install-bun</goal>
                         </goals>
                         <phase>generate-resources</phase>
-                        <configuration>
-                            <workingDirectory>src/main/resources/webapp-legacy/src</workingDirectory>
-                        </configuration>
                     </execution>
                     <execution>
                         <id>package (webapp-legacy)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>bun</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
@@ -107,7 +104,7 @@
                     <execution>
                         <id>check (webapp-legacy)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>bun</goal>
                         </goals>
                         <phase>verify</phase>
                         <configuration>
@@ -118,7 +115,7 @@
                     <execution>
                         <id>check (webapp)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>bun</goal>
                         </goals>
                         <phase>verify</phase>
                         <configuration>
@@ -129,7 +126,7 @@
                     <execution>
                         <id>package (webapp)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>bun</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
