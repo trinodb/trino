@@ -50,6 +50,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SystemSessionProperties.isMaskedPageEnabled;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
@@ -71,6 +72,7 @@ public class Driver
     private static final Duration UNLIMITED_DURATION = new Duration(Long.MAX_VALUE, NANOSECONDS);
 
     private final DriverContext driverContext;
+    private final boolean maskedPageEnabled;
     private final List<Operator> activeOperators;
     // this is present only for debugging
     @SuppressWarnings("unused")
@@ -124,6 +126,7 @@ public class Driver
     private Driver(DriverContext driverContext, List<Operator> operators)
     {
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
+        this.maskedPageEnabled = isMaskedPageEnabled(driverContext.getSession());
         this.allOperators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
         checkArgument(allOperators.size() > 1, "At least two operators are required");
         this.activeOperators = new ArrayList<>(operators);
@@ -399,15 +402,32 @@ public class Driver
 
             // if the current operator is not finished and next operator isn't blocked and needs input...
             if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
-                // get an output page from current operator
-                Page page = current.getOutput();
-                current.getOperatorContext().recordGetOutput(operationTimer, page);
+                if (maskedPageEnabled && current.producesMaskedOutput() && next.supportsMaskedInput()) {
+                    // hand off an undecoded masked page so the consumer can decode only what it needs
+                    MaskedPage maskedPage = current.getMaskedOutput();
+                    long maskedPositions = 0;
+                    if (maskedPage != null) {
+                        maskedPositions = maskedPage.getPositionCount();
+                    }
+                    current.getOperatorContext().recordGetMaskedOutput(operationTimer, maskedPositions);
 
-                // if we got an output page, add it to the next operator
-                if (page != null && page.getPositionCount() != 0) {
-                    next.addInput(page);
-                    next.getOperatorContext().recordAddInput(operationTimer, page);
-                    movedPage = true;
+                    if (maskedPage != null && maskedPositions != 0) {
+                        next.addMaskedInput(maskedPage);
+                        next.getOperatorContext().recordAddMaskedInput(operationTimer, maskedPositions);
+                        movedPage = true;
+                    }
+                }
+                else {
+                    // get an output page from current operator
+                    Page page = current.getOutput();
+                    current.getOperatorContext().recordGetOutput(operationTimer, page);
+
+                    // if we got an output page, add it to the next operator
+                    if (page != null && page.getPositionCount() != 0) {
+                        next.addInput(page);
+                        next.getOperatorContext().recordAddInput(operationTimer, page);
+                        movedPage = true;
+                    }
                 }
 
                 if (current instanceof SourceOperator) {

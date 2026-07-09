@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
@@ -20,6 +21,7 @@ import io.trino.metadata.Split;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import org.junit.jupiter.api.AfterAll;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -124,6 +127,12 @@ public class TestWorkProcessorSourceOperatorAdapter
         public String getOperatorType()
         {
             return "test";
+        }
+
+        @Override
+        public List<Type> getOutputTypes()
+        {
+            return ImmutableList.of();
         }
     }
 
