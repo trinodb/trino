@@ -79,7 +79,6 @@ import io.trino.tracing.TrinoAttributes;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1168,8 +1167,7 @@ public class PipelinedQueryScheduler
             if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 // no remote source
                 bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, partitionCount);
-                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session).allNodes());
-                Collections.shuffle(stageNodeList);
+                stageNodeList = bucketNodeMap.getDistinctNodes();
             }
             else {
                 // remote source requires nodePartitionMap
