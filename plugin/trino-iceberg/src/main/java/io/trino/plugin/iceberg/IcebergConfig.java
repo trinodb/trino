@@ -106,6 +106,7 @@ public class IcebergConfig
     private boolean metadataCacheEnabled = true;
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
+    private boolean metadataVirtualThreadsEnabled = true;
     private boolean bucketExecutionEnabled = true;
     private boolean equalityDeletesBlocksHashEnabled = true;
     private ParquetFooterCacheType parquetFooterCacheType = NONE;
@@ -686,6 +687,19 @@ public class IcebergConfig
     public IcebergConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    public boolean isMetadataVirtualThreadsEnabled()
+    {
+        return metadataVirtualThreadsEnabled;
+    }
+
+    @ConfigDescription("Run blocking metadata enumeration I/O on virtual threads")
+    @Config("iceberg.metadata.virtual-threads-enabled")
+    public IcebergConfig setMetadataVirtualThreadsEnabled(boolean metadataVirtualThreadsEnabled)
+    {
+        this.metadataVirtualThreadsEnabled = metadataVirtualThreadsEnabled;
         return this;
     }
 
