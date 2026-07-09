@@ -36,6 +36,7 @@ import java.util.Arrays;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetEncoding.RLE;
+import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -145,6 +146,7 @@ public class FlatColumnReader<BufferType>
         long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
         int remainingInBatch = nextBatchSize;
         int offset = 0;
+        boolean validityMaterialized = false;
         while (remainingInBatch > 0) {
             if (remainingPageValueCount == 0) {
                 if (!readNextPage()) {
@@ -157,6 +159,13 @@ public class FlatColumnReader<BufferType>
             }
             int chunkSize = rowRanges.advanceRange(Math.min(remainingPageValueCount, remainingInBatch));
             int nonNullCount = definitionLevelDecoder.readNext(valueIsValid, offset, chunkSize);
+            if (nonNullCount == chunkSize && validityMaterialized) {
+                setBits(valueIsValid, 0, offset, chunkSize);
+            }
+            else if (nonNullCount < chunkSize && !validityMaterialized) {
+                setBits(valueIsValid, 0, 0, offset);
+                validityMaterialized = true;
+            }
 
             valuesBuffer.readNullableValues(valueDecoder, valueIsValid, offset, nonNullCount, chunkSize);
 
