@@ -16,6 +16,7 @@ package io.trino.operator.project;
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.MaskedPage;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.DictionaryBlock;
@@ -98,6 +99,21 @@ public class PageProcessor
             return WorkProcessor.of();
         }
 
+        SelectedPositions selectedPositions = evaluateFilter(session, metrics, page);
+        if (selectedPositions.isEmpty()) {
+            return WorkProcessor.of();
+        }
+
+        if (projectionsProcessor.getProjectionCount() == 0) {
+            // retained memory for empty page is negligible
+            return WorkProcessor.of(new Page(selectedPositions.size()));
+        }
+
+        return projectionsProcessor.project(session, memoryContext, metrics, page, selectedPositions);
+    }
+
+    public SelectedPositions evaluateFilter(ConnectorSession session, PageProcessorMetrics metrics, SourcePage page)
+    {
         SelectedPositions selectedPositions = positionsRange(0, page.getPositionCount());
         if (dynamicFilterEvaluator.isPresent()) {
             FilterEvaluator.SelectionResult dynamicFilterResult = dynamicFilterEvaluator.get().evaluate(session, selectedPositions, page);
@@ -111,16 +127,19 @@ public class PageProcessor
             metrics.recordFilterTime(filterResult.filterTimeNanos());
         }
 
-        if (selectedPositions.isEmpty()) {
-            return WorkProcessor.of();
-        }
+        return selectedPositions;
+    }
 
-        if (projectionsProcessor.getProjectionCount() == 0) {
-            // retained memory for empty page is negligible
-            return WorkProcessor.of(new Page(selectedPositions.size()));
-        }
-
-        return projectionsProcessor.project(session, memoryContext, metrics, page, selectedPositions);
+    /**
+     * Wraps {@code page} as a {@link MaskedPage} whose channels are produced on demand from
+     * {@code selectedPositions}, deferring projections until a channel is accessed. The mask must
+     * be non-empty and the source page is consumed.
+     */
+    public MaskedPage applyMask(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions, LocalMemoryContext memoryContext, PageProcessorMetrics metrics)
+    {
+        // limit the scope of the dictionary ids to just one page
+        dictionarySourceIdFunction.reset();
+        return MaskedPage.applyMask(session, page, selectedPositions, projectionsProcessor, memoryContext, metrics);
     }
 
     @VisibleForTesting

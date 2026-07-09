@@ -178,6 +178,13 @@ public class OperatorContext
         }
     }
 
+    // masked input transfers undecoded bytes, so only positions are recorded here; decoded bytes are counted when the consumer reads them
+    void recordAddMaskedInput(OperationTimer operationTimer, long positions)
+    {
+        operationTimer.recordOperationComplete(addInputTiming);
+        inputPositions.update(positions);
+    }
+
     /**
      * Record the amount of physical bytes that were read by an operator and
      * the time it took to read the data. This metric is valid only for source operators.
@@ -223,6 +230,13 @@ public class OperatorContext
             outputDataSize.update(page.getSizeInBytes());
             outputPositions.update(page.getPositionCount());
         }
+    }
+
+    // masked output transfers undecoded bytes, so only positions are recorded here
+    void recordGetMaskedOutput(OperationTimer operationTimer, long positions)
+    {
+        operationTimer.recordOperationComplete(getOutputTiming);
+        outputPositions.update(positions);
     }
 
     public void recordOutput(long sizeInBytes, long positions)

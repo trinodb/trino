@@ -14,7 +14,10 @@
 package io.trino.operator;
 
 import io.trino.metadata.Split;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
+
+import java.util.List;
 
 public interface WorkProcessorSourceOperatorFactory
 {
@@ -25,6 +28,8 @@ public interface WorkProcessorSourceOperatorFactory
     PlanNodeId getPlanNodeId();
 
     String getOperatorType();
+
+    List<Type> getOutputTypes();
 
     WorkProcessorSourceOperator create(
             OperatorContext operatorContext,
