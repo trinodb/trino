@@ -200,7 +200,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
         <TableCell align="right">
             {icon && tooltipTitle ? (
                 <Tooltip placement="top-start" title={tooltipTitle}>
-                    <Box display="flex" alignItems="center" justifyContent="flex-end">
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                         <TableSortLabel
                             active={tasksOrderBy === property}
                             direction={tasksOrderBy === property ? tasksOrder : 'asc'}
@@ -405,9 +405,11 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
     }
 
     const smallDropdownMenuPropsSx = {
-        PaperProps: {
-            sx: {
-                '& .MuiMenuItem-root': smallFormControlSx,
+        slotProps: {
+            paper: {
+                sx: {
+                    '& .MuiMenuItem-root': smallFormControlSx,
+                },
             },
         },
     }
@@ -442,7 +444,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                         },
                     }}
                 >
-                    <Grid container spacing={2} alignItems="center" sx={{ width: '100%' }}>
+                    <Grid container spacing={2} sx={{ width: '100%', alignItems: 'center' }}>
                         <Grid size={{ xs: 2 }}>
                             <Box
                                 style={{
@@ -545,7 +547,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 <AccordionDetails>
                     <Box>
                         <Divider />
-                        <Grid container spacing={2} alignItems="center" sx={{ width: '100%', mb: 0.5 }}>
+                        <Grid container spacing={2} sx={{ width: '100%', mb: 0.5, alignItems: 'center' }}>
                             <Grid size={{ xs: 2 }} />
                             <Grid size={{ xs: 2 }}>
                                 <Typography

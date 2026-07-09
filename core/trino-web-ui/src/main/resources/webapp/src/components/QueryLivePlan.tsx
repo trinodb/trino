@@ -96,7 +96,7 @@ export const QueryLivePlan = () => {
                                                         />
                                                     </ReactFlow>
                                                 ) : (
-                                                    <Typography sx={{ p: 1 }} fontSize="small">
+                                                    <Typography sx={{ p: 1, fontSize: 'small' }}>
                                                         Rendering...
                                                     </Typography>
                                                 )}

@@ -61,12 +61,12 @@ export const QueryDetails = () => {
             </Box>
 
             <>
-                <Grid container sx={{ pt: 2 }} alignItems="center">
+                <Grid container sx={{ pt: 2, alignItems: 'center' }}>
                     <Grid size={{ xs: 12, lg: 4 }}>
                         <Typography variant="h6">{queryId}</Typography>
                     </Grid>
                     <Grid size={{ xs: 12, lg: 8 }}>
-                        <Box display="flex" justifyContent={{ xs: 'flex-start', lg: 'flex-end' }}>
+                        <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', lg: 'flex-end' } }}>
                             <Tabs value={tabValue} onChange={handleTabChange}>
                                 <Tab value="overview" label="Overview" />
                                 <Tab value="livePlan" label="Live plan" />

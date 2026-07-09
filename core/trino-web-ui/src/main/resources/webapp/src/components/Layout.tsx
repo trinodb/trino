@@ -319,7 +319,7 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                                                 <DarkModeOutlined />
                                             ) : null}
                                         </ListItemIcon>
-                                        <Typography textAlign="center">{key}</Typography>
+                                        <Typography sx={{ textAlign: 'center' }}>{key}</Typography>
                                     </MenuItem>
                                 )
                             })}

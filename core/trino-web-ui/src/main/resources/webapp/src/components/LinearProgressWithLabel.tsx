@@ -24,7 +24,7 @@ export const LinearProgressWithLabel = (props: LinearProgressWithLabelProps) => 
     const { value, title, color } = props
 
     return (
-        <Box display="flex" alignItems="center">
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Box sx={{ pr: 2 }}>
                 <Chip size="small" label={title} color={color} />
             </Box>

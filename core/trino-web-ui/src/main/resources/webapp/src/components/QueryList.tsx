@@ -234,9 +234,11 @@ export const QueryList = () => {
     }
 
     const smallDropdownMenuPropsSx = {
-        PaperProps: {
-            sx: {
-                '& .MuiMenuItem-root': smallFormControlSx,
+        slotProps: {
+            paper: {
+                sx: {
+                    '& .MuiMenuItem-root': smallFormControlSx,
+                },
             },
         },
     }
@@ -389,7 +391,9 @@ export const QueryList = () => {
 
     if (loading || error) {
         return (
-            <Box sx={{ p: 2 }} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+            <Box
+                sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+            >
                 {loading ? (
                     <CircularProgress />
                 ) : (
@@ -405,7 +409,7 @@ export const QueryList = () => {
 
     return (
         <>
-            <Grid spacing={2} sx={{ py: 2 }} justifyContent="space-between" alignItems="center" container>
+            <Grid spacing={2} sx={{ py: 2, justifyContent: 'space-between', alignItems: 'center' }} container>
                 <Grid size={{ xs: 12, lg: 4 }}>
                     <Box>{renderSearchStringTextField()}</Box>
                 </Grid>
