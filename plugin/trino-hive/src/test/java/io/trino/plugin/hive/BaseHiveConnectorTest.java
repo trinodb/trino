@@ -5182,29 +5182,61 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDropColumnHiveSpecific()
     {
-        // Additional tests for hive partition columns invariants. Uses PARQUET because the connector's
-        // default format (ORC) has a SerDe that is not in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES; this
-        // test's later assertions (partition column, only-non-partition column) need the DROP to reach
-        // those checks rather than being short-circuited by the SerDe guard.
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_drop_column\n" +
-                "WITH (\n" +
-                "  format = 'PARQUET',\n" +
-                "  partitioned_by = ARRAY ['orderstatus']\n" +
-                ")\n" +
-                "AS\n" +
-                "SELECT custkey, orderkey, orderstatus FROM orders";
-
-        assertUpdate(createTable, "SELECT count(*) FROM orders");
-        assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT orderkey, orderstatus FROM orders");
-
-        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN \"$path\"", ".* Cannot drop hidden column");
-        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN orderstatus", "Cannot drop partition column.*");
-        assertUpdate("ALTER TABLE test_drop_column DROP COLUMN orderkey");
-        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN custkey", "Cannot drop the only non-partition column in a table.*");
-        assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
-
-        assertUpdate("DROP TABLE test_drop_column");
+        // Additional tests for hive partition columns invariants, iterated over every Hive storage
+        // format that supports CREATE TABLE AS with partition columns (i.e. everything writable via
+        // `WITH (format = ...)` — this excludes CSV/REGEX/ESRI/ESRI_GEO_JSON/SEQUENCEFILE_PROTOBUF,
+        // which are read-only or column-type-restricted; see getAllTestingHiveStorageFormat()).
+        //
+        // For formats whose SerDe is in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES, the full set of
+        // partition/hidden/only-non-partition-column invariants is asserted. For the others, the
+        // SerDe guard fires before any of those checks can run, so we assert its message instead.
+        // (The unsupported-format rejection is also covered on non-partitioned tables in
+        // testDropColumnUnsupportedSerdeFormats.)
+        List<HiveStorageFormat> writableFormats = ImmutableList.of(
+                HiveStorageFormat.ORC,
+                HiveStorageFormat.PARQUET,
+                HiveStorageFormat.AVRO,
+                HiveStorageFormat.RCBINARY,
+                HiveStorageFormat.RCTEXT,
+                HiveStorageFormat.SEQUENCEFILE,
+                HiveStorageFormat.JSON,
+                HiveStorageFormat.OPENX_JSON,
+                HiveStorageFormat.TEXTFILE);
+        for (HiveStorageFormat format : writableFormats) {
+            String tableName = "test_drop_column_" + format.name().toLowerCase(Locale.ROOT) + "_" + randomNameSuffix();
+            @Language("SQL") String createTable = format(
+                    """
+                    CREATE TABLE %s
+                    WITH (
+                      format = '%s',
+                      partitioned_by = ARRAY ['orderstatus']
+                    )
+                    AS
+                    SELECT custkey, orderkey, orderstatus FROM orders""",
+                    tableName,
+                    format);
+            assertUpdate(createTable, "SELECT count(*) FROM orders");
+            try {
+                assertQuery("SELECT orderkey, orderstatus FROM " + tableName, "SELECT orderkey, orderstatus FROM orders");
+                if (dropColumnSupported(format)) {
+                    assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN \"$path\"", ".* Cannot drop hidden column");
+                    assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN orderstatus", "Cannot drop partition column.*");
+                    assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN orderkey");
+                    assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN custkey", "Cannot drop the only non-partition column in a table.*");
+                    assertQuery("SELECT * FROM " + tableName, "SELECT custkey, orderstatus FROM orders");
+                }
+                else {
+                    // SerDe guard runs before the hidden/partition/only-column checks; verify a
+                    // representative DROP attempt fails with the guard message.
+                    assertQueryFails(
+                            "ALTER TABLE " + tableName + " DROP COLUMN orderkey",
+                            "Dropping columns is not supported by table SerDe:.*");
+                }
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
     }
 
     @Test
