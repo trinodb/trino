@@ -262,17 +262,18 @@ the [docs module](../docs).
 
 The Trino Web UI is a React and Vite project located in
 `core/trino-web-ui/src/main/resources/webapp`. You must have
-[Node.js](https://nodejs.org/en/download/) and npm installed to execute these
-commands. Install dependencies with:
+[Bun](https://bun.sh/docs/installation) installed to execute these
+commands. (Maven builds download Bun automatically, so a local install is only
+needed to run these commands by hand.) Install dependencies with:
 
     cd core/trino-web-ui/src/main/resources/webapp
-    npm install
+    bun install
 
 For fast local development, run the `WebUiQueryRunner` class. This starts a
 minimal Trino development server configured with the Web UI. Then start the Vite
 development server:
 
-    npm run dev
+    bun run dev
 
 Open `http://localhost:5173/ui` in your browser. The Vite development server
 provides Hot Module Replacement for quick iteration. By default, requests to
@@ -282,11 +283,11 @@ different backend, update `VITE_BASE_URL` in
 
 To build the Web UI locally, run:
 
-    npm run build
+    bun run build
 
 To run frontend checks, run:
 
-    npm run check
+    bun run check
 
 Maven builds package the Web UI automatically, and Maven verification runs the
 frontend checks.

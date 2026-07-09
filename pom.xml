@@ -193,8 +193,7 @@
         <dep.docker.images.version>127</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
         <dep.frontend-maven-plugin.version>2.0.1</dep.frontend-maven-plugin.version>
-        <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
-        <dep.frontend-npm.version>11.7.0</dep.frontend-npm.version>
+        <dep.frontend-bun.version>v1.3.14</dep.frontend-bun.version>
         <dep.httpcore5.version>5.4.3</dep.httpcore5.version>
         <dep.iceberg.version>1.11.0</dep.iceberg.version>
         <dep.jna.version>5.19.1</dep.jna.version>
@@ -2324,8 +2323,7 @@
                     <artifactId>frontend-maven-plugin</artifactId>
                     <version>${dep.frontend-maven-plugin.version}</version>
                     <configuration>
-                        <nodeVersion>${dep.frontend-node.version}</nodeVersion>
-                        <npmVersion>${dep.frontend-npm.version}</npmVersion>
+                        <bunVersion>${dep.frontend-bun.version}</bunVersion>
                     </configuration>
                 </plugin>
                 <plugin>

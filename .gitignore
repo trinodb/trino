@@ -34,6 +34,6 @@ product-test-reports
 **/dependency-reduced-pom.xml
 core/trino-web-ui/src/main/resources/webapp/dist/
 core/trino-web-ui/src/main/resources/webapp-legacy/dist/
-.node
+.bun
 .claude/settings.local.json
 .claude/worktrees/
