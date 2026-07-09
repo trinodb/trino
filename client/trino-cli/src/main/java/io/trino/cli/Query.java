@@ -334,21 +334,21 @@ public class Query
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns, int maxQueuedRows, int maxBufferedRows)
+    private OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns, int maxQueuedRows, int maxBufferedRows)
     {
         return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns), maxQueuedRows, maxBufferedRows);
     }
 
-    private static OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
+    private OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
     {
         List<String> fieldNames = columns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
         switch (format) {
             case AUTO:
-                return new AutoTablePrinter(columns, writer, maxWidth);
+                return new AutoTablePrinter(columns, writer, maxWidth, theme);
             case ALIGNED:
-                return new AlignedTablePrinter(columns, writer);
+                return new AlignedTablePrinter(columns, writer, theme);
             case VERTICAL:
                 return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
