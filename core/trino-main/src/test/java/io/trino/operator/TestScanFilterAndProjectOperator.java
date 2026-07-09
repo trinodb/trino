@@ -304,6 +304,35 @@ public class TestScanFilterAndProjectOperator
     }
 
     @Test
+    public void testMaskedOutputLazyLoad()
+            throws Exception
+    {
+        Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
+        // If column 1 is loaded, test will fail
+        TestingSourcePage input = new TestingSourcePage(100, inputBlock, null);
+        DriverContext driverContext = newDriverContext();
+
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = createLazyLoadFactory(input);
+
+        try (SourceOperator operator = factory.createOperator(driverContext)) {
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.noMoreSplits();
+
+            // source-pages validation is on by default; masked output must remain available under it
+            assertThat(operator.producesMaskedOutput()).isTrue();
+
+            MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
+            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), toMaskedPages(operator));
+
+            assertThat(actual).containsExactlyElementsOf(expected);
+
+            // input bytes account only decoded channels; column 1 is never loaded
+            assertThat(operator.getOperatorContext().getInputDataSize())
+                    .isEqualTo(inputBlock.getSizeInBytes());
+        }
+    }
+
+    @Test
     public void testRecordCursorSource()
             throws Exception
     {
@@ -339,6 +368,34 @@ public class TestScanFilterAndProjectOperator
 
             assertThat(actual).containsExactlyElementsOf(expected);
         }
+    }
+
+    private static List<Page> toMaskedPages(SourceOperator operator)
+    {
+        ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
+
+        int nullPages = 0;
+        while (!operator.isFinished()) {
+            MaskedPage maskedPage = operator.getMaskedOutput();
+            if (maskedPage == null) {
+                assertThat(nullPages < 1_000_000)
+                        .describedAs("Too many null pages; infinite loop?")
+                        .isTrue();
+                nullPages++;
+                continue;
+            }
+            nullPages = 0;
+            // masked pages are valid only until the next output request, so materialize fully now
+            WorkProcessor<Page> materialized = maskedPage.materialize();
+            while (materialized.process()) {
+                if (materialized.isFinished()) {
+                    break;
+                }
+                outputPages.add(materialized.getResult());
+            }
+        }
+
+        return outputPages.build();
     }
 
     private static List<Page> toPages(Operator operator)

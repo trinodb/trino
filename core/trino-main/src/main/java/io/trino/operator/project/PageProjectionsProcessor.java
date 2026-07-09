@@ -25,6 +25,7 @@ import io.trino.spi.connector.SourcePage;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,10 +80,26 @@ public final class PageProjectionsProcessor
             SourcePage page,
             SelectedPositions selectedPositions)
     {
+        return project(session, memoryContext, metrics, page, selectedPositions, Optional.empty());
+    }
+
+    /**
+     * Projects {@code selectedPositions} of {@code page}. When {@code precomputedChannels} is
+     * present it seeds the optimistic reuse cache with already-computed blocks (indexed by
+     * projection); missing entries are computed lazily. The array is consumed, not copied.
+     */
+    public WorkProcessor<Page> project(
+            ConnectorSession session,
+            LocalMemoryContext memoryContext,
+            PageProcessorMetrics metrics,
+            SourcePage page,
+            SelectedPositions selectedPositions,
+            Optional<Block[]> precomputedChannels)
+    {
         if (selectedPositions.isEmpty()) {
             return WorkProcessor.of();
         }
-        return WorkProcessor.create(new ProjectSelectedPositions(session, memoryContext, metrics, page, selectedPositions));
+        return WorkProcessor.create(new ProjectSelectedPositions(session, memoryContext, metrics, page, selectedPositions, precomputedChannels));
     }
 
     private class ProjectSelectedPositions
@@ -103,16 +120,18 @@ public final class PageProjectionsProcessor
                 LocalMemoryContext memoryContext,
                 PageProcessorMetrics metrics,
                 SourcePage page,
-                SelectedPositions selectedPositions)
+                SelectedPositions selectedPositions,
+                Optional<Block[]> precomputedChannels)
         {
             checkArgument(!selectedPositions.isEmpty(), "selectedPositions is empty");
+            precomputedChannels.ifPresent(channels -> checkArgument(channels.length == projections.size(), "precomputedChannels size mismatch"));
 
             this.session = session;
             this.metrics = metrics;
             this.page = page;
             this.memoryContext = memoryContext;
             this.selectedPositions = selectedPositions;
-            this.previouslyComputedResults = new Block[projections.size()];
+            this.previouslyComputedResults = precomputedChannels.orElseGet(() -> new Block[projections.size()]);
         }
 
         @Override

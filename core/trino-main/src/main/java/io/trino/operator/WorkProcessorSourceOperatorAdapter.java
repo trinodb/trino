@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
@@ -35,8 +36,11 @@ public class WorkProcessorSourceOperatorAdapter
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final WorkProcessorSourceOperator sourceOperator;
-    private final WorkProcessor<Page> pages;
     private final SplitBuffer splitBuffer;
+
+    // the regular and masked streams share one source, so only one of them is ever built
+    private WorkProcessor<Page> pages;
+    private WorkProcessor<MaskedPage> maskedPages;
 
     private boolean operatorFinishing;
 
@@ -59,9 +63,6 @@ public class WorkProcessorSourceOperatorAdapter
                         operatorContext,
                         operatorContext.getDriverContext().getYieldSignal(),
                         WorkProcessor.create(splitBuffer));
-        this.pages = sourceOperator.getOutputPages()
-                .withProcessStateMonitor(_ -> updateOperatorStats())
-                .finishWhen(() -> operatorFinishing);
         operatorContext.setInfoSupplier(() -> sourceOperator.getOperatorInfo().orElse(null));
     }
 
@@ -96,11 +97,12 @@ public class WorkProcessorSourceOperatorAdapter
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        if (!pages.isBlocked()) {
+        WorkProcessor<?> activePages = activePages();
+        if (activePages == null || !activePages.isBlocked()) {
             return NOT_BLOCKED;
         }
 
-        return pages.getBlockedFuture();
+        return activePages.getBlockedFuture();
     }
 
     @Override
@@ -118,15 +120,52 @@ public class WorkProcessorSourceOperatorAdapter
     @Override
     public Page getOutput()
     {
-        if (!pages.process()) {
+        checkState(maskedPages == null, "masked output is already requested");
+        if (pages == null) {
+            pages = sourceOperator.getOutputPages()
+                    .withProcessStateMonitor(_ -> updateOperatorStats())
+                    .finishWhen(() -> operatorFinishing);
+        }
+        return nextResult(pages);
+    }
+
+    @Override
+    public boolean producesMaskedOutput()
+    {
+        return sourceOperator.producesMaskedOutput();
+    }
+
+    @Override
+    public MaskedPage getMaskedOutput()
+    {
+        checkState(pages == null, "regular output is already requested");
+        if (maskedPages == null) {
+            maskedPages = sourceOperator.getMaskedOutputPages()
+                    .withProcessStateMonitor(_ -> updateOperatorStats())
+                    .finishWhen(() -> operatorFinishing);
+        }
+        return nextResult(maskedPages);
+    }
+
+    private static <T> T nextResult(WorkProcessor<T> processor)
+    {
+        if (!processor.process()) {
             return null;
         }
 
-        if (pages.isFinished()) {
+        if (processor.isFinished()) {
             return null;
         }
 
-        return pages.getResult();
+        return processor.getResult();
+    }
+
+    private WorkProcessor<?> activePages()
+    {
+        if (maskedPages != null) {
+            return maskedPages;
+        }
+        return pages;
     }
 
     @Override
@@ -139,7 +178,8 @@ public class WorkProcessorSourceOperatorAdapter
     @Override
     public boolean isFinished()
     {
-        return pages.isFinished();
+        WorkProcessor<?> activePages = activePages();
+        return activePages != null && activePages.isFinished();
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.operator.project;
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.MaskedPage;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.DictionaryBlock;
@@ -147,6 +148,18 @@ public class PageProcessor
         }
 
         return selectedPositions;
+    }
+
+    /**
+     * Wraps {@code page} as a {@link MaskedPage} whose channels are produced on demand from
+     * {@code selectedPositions}, deferring projections until a channel is accessed. The mask must
+     * be non-empty and the source page is consumed.
+     */
+    public MaskedPage applyMask(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions, LocalMemoryContext memoryContext, PageProcessorMetrics metrics)
+    {
+        // limit the scope of the dictionary ids to just one page
+        dictionarySourceIdFunction.reset();
+        return MaskedPage.applyMask(session, page, selectedPositions, projectionsProcessor, memoryContext, metrics);
     }
 
     private static boolean isAllPositions(SelectedPositions selectedPositions, int positionCount)

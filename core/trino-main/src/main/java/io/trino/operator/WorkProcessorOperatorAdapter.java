@@ -134,6 +134,18 @@ public class WorkProcessorOperatorAdapter
     }
 
     @Override
+    public boolean supportsMaskedInput()
+    {
+        return workProcessorOperator.supportsMaskedInput();
+    }
+
+    @Override
+    public void addMaskedInput(MaskedPage maskedPage)
+    {
+        workProcessorOperator.addMaskedInput(maskedPage);
+    }
+
+    @Override
     public Page getOutput()
     {
         if (!pages.process()) {
