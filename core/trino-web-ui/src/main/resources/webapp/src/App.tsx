@@ -97,7 +97,7 @@ const NotFound = () => {
                 </Grid>
                 <Grid size={12} spacing={{ md: 10 }}>
                     <Typography variant="h3">404</Typography>
-                    <Typography paragraph>The page you’re looking for doesn’t exist.</Typography>
+                    <Typography sx={{ mb: 2 }}>The page you’re looking for doesn’t exist.</Typography>
                     <Button variant="contained" component={Link} href="/">
                         Back home
                     </Button>

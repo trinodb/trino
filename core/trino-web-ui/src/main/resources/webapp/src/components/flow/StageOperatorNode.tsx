@@ -176,7 +176,7 @@ export const StageOperatorNode = (props: IStageOperatorNodeProps) => {
                 <Typography variant="subtitle2" component="span">
                     Pipeline {stats.pipelineId}
                 </Typography>
-                <Typography variant="h6" component="span" color="text.secondary" display="block">
+                <Typography variant="h6" component="span" color="text.secondary" sx={{ display: 'block' }}>
                     {stats.operatorType}
                 </Typography>
             </DialogTitle>
