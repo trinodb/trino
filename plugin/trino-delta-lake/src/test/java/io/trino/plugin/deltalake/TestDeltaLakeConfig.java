@@ -75,6 +75,7 @@ public class TestDeltaLakeConfig
                 .setDeletionVectorsEnabled(false)
                 .setDeltaLogFileSystemCacheDisabled(false)
                 .setMetadataParallelism(8)
+                .setMetadataVirtualThreadsEnabled(true)
                 .setCheckpointProcessingParallelism(4)
                 .setLoadMetadataFromChecksumFile(true));
     }
@@ -118,6 +119,7 @@ public class TestDeltaLakeConfig
                 .put("delta.deletion-vectors-enabled", "true")
                 .put("delta.fs.cache.disable-transaction-log-caching", "true")
                 .put("delta.metadata.parallelism", "10")
+                .put("delta.metadata.virtual-threads-enabled", "false")
                 .put("delta.checkpoint-processing.parallelism", "8")
                 .put("delta.load-metadata-from-checksum-file", "false")
                 .buildOrThrow();
@@ -158,6 +160,7 @@ public class TestDeltaLakeConfig
                 .setDeletionVectorsEnabled(true)
                 .setDeltaLogFileSystemCacheDisabled(true)
                 .setMetadataParallelism(10)
+                .setMetadataVirtualThreadsEnabled(false)
                 .setCheckpointProcessingParallelism(8)
                 .setLoadMetadataFromChecksumFile(false);
 
