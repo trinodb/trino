@@ -297,7 +297,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.53.0</version>
+                <version>3.54.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
