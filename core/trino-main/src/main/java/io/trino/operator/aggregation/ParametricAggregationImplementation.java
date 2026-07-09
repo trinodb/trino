@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.trino.operator.ParametricImplementation;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
@@ -342,6 +343,14 @@ public class ParametricAggregationImplementation
                 else if (baseTypeAnnotation instanceof SqlType) {
                     boolean isParameterBlock = isParameterBlock(annotations[i]);
                     boolean isParameterNullable = isParameterNullable(annotations[i]);
+                    if (!isParameterBlock && !isParameterNullable) {
+                        Class<?> parameterType = method.getParameterTypes()[i];
+                        checkArgument(
+                                parameterType == Void.class || !Primitives.isWrapperType(parameterType),
+                                "%s contains an input parameter with boxed primitive type %s; a non-nullable aggregation input parameter must use the corresponding primitive type",
+                                methodName,
+                                parameterType.getSimpleName());
+                    }
                     builder.add(getInputParameterKind(isParameterNullable, isParameterBlock, methodName));
                 }
                 else if (baseTypeAnnotation instanceof BlockIndex) {
