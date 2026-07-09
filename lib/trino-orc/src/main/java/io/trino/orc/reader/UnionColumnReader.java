@@ -144,11 +144,11 @@ public class UnionColumnReader
                 blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
             }
             else {
-                List<Type> typeParameters = type.getFieldTypes();
-                blocks = new Block[typeParameters.size() + 1];
-                blocks[0] = TINYINT.createFixedSizeBlockBuilder(0).build();
-                for (int i = 0; i < typeParameters.size(); i++) {
-                    blocks[i + 1] = typeParameters.get(i).createBlockBuilder(null, 0).build();
+                blocks = new Block[fieldReaders.size() + 1];
+                blocks[0] = RunLengthEncodedBlock.create(TINYINT.createBlockBuilder(null, 1).appendNull().build(), nextBatchSize);
+                for (int i = 0; i < fieldReaders.size(); i++) {
+                    Type fieldType = type.getFields().get(i + 1).getType();
+                    blocks[i + 1] = RunLengthEncodedBlock.create(fieldType.createBlockBuilder(null, 1).appendNull().build(), nextBatchSize);
                 }
             }
         }
@@ -247,9 +247,10 @@ public class UnionColumnReader
             Arrays.fill(fieldIsNull, true);
         }
         int[] nonNullValueCount = new int[fieldReaders.size()];
+        int nonNullPosition = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull != null && rowIsNull[position]) {
-                byte tag = tags[position];
+            if (rowIsNull == null || !rowIsNull[position]) {
+                byte tag = tags[nonNullPosition++];
                 valueIsNull[tag][position] = false;
                 nonNullValueCount[tag]++;
             }
@@ -260,7 +261,7 @@ public class UnionColumnReader
             if (nonNullValueCount[i] > 0) {
                 ColumnReader reader = fieldReaders.get(i);
                 reader.prepareNextRead(nonNullValueCount[i]);
-                blocks[i] = toNotNullSupressedBlock(positionCount, valueIsNull[i], reader.readBlock());
+                blocks[i + 1] = toNotNullSupressedBlock(positionCount, valueIsNull[i], reader.readBlock());
             }
             else {
                 blocks[i + 1] = RunLengthEncodedBlock.create(
