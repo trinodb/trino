@@ -92,7 +92,8 @@ public class Sheet
                                     .type(VARCHAR)
                                     .defaultValue(utf8Slice(DEFAULT_RANGE))
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
 

@@ -1352,12 +1352,12 @@ public class OrcTester
 
     private static Type arrayType(Type elementType)
     {
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeDescriptor())));
     }
 
     private static Type mapType(Type keyType, Type valueType)
     {
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType.getTypeSignature()), TypeParameter.typeParameter(valueType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType.getTypeDescriptor()), TypeParameter.typeParameter(valueType.getTypeDescriptor())));
     }
 
     private static Type rowType(Type... fieldTypes)
@@ -1366,7 +1366,7 @@ public class OrcTester
         for (int i = 0; i < fieldTypes.length; i++) {
             String fieldName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeSignature()));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeDescriptor()));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }

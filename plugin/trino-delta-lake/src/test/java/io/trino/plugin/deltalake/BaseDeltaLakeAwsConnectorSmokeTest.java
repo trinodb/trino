@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -29,26 +29,26 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public abstract class BaseDeltaLakeAwsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
-    protected Hive3MinioDataLake hiveMinioDataLake;
+    protected Hive3FlociDataLake hiveFlociDataLake;
 
     @Override
     protected HiveHadoop createHiveHadoop()
     {
-        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
-        return hiveMinioDataLake.getHiveHadoop();  // closed by superclass
+        hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
+        return hiveFlociDataLake.getHiveHadoop();  // closed by superclass
     }
 
     @AfterAll
     final void tearDown()
     {
-        hiveMinioDataLake = null; // closed by closeAfterClass
+        hiveFlociDataLake = null; // closed by closeAfterClass
     }
 
     @Override
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
-        hiveMinioDataLake.copyResources(resourcePath, table);
+        hiveFlociDataLake.floci().copyResources(resourcePath, bucketName, table);
         queryRunner.execute(format(
                 "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
                 table,
@@ -64,7 +64,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     @Override
     protected List<String> getTableFiles(String tableName)
     {
-        return hiveMinioDataLake.listFiles(tableName).stream()
+        return hiveFlociDataLake.floci().listObjects(bucketName, tableName).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
     }
@@ -72,7 +72,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     @Override
     protected List<String> listFiles(String directory)
     {
-        return hiveMinioDataLake.listFiles(directory).stream()
+        return hiveFlociDataLake.floci().listObjects(bucketName, directory).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
     }
@@ -81,8 +81,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     protected void deleteFile(String filePath)
     {
         String key = filePath.substring(bucketUrl().length());
-        hiveMinioDataLake.getMinioClient()
-                .removeObject(bucketName, key);
+        hiveFlociDataLake.floci().deleteObject(bucketName, key);
     }
 
     @Override

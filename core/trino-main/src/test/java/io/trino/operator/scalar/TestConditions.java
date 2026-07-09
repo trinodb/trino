@@ -190,6 +190,44 @@ public class TestConditions
     }
 
     @Test
+    public void testBooleanTest()
+    {
+        // IS TRUE
+        assertThat(assertions.expression("a IS TRUE").binding("a", "true")).isEqualTo(true);
+        assertThat(assertions.expression("a IS TRUE").binding("a", "false")).isEqualTo(false);
+        assertThat(assertions.expression("a IS TRUE").binding("a", "cast(null as boolean)")).isEqualTo(false);
+
+        // IS NOT TRUE
+        assertThat(assertions.expression("a IS NOT TRUE").binding("a", "true")).isEqualTo(false);
+        assertThat(assertions.expression("a IS NOT TRUE").binding("a", "false")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT TRUE").binding("a", "cast(null as boolean)")).isEqualTo(true);
+
+        // IS FALSE
+        assertThat(assertions.expression("a IS FALSE").binding("a", "true")).isEqualTo(false);
+        assertThat(assertions.expression("a IS FALSE").binding("a", "false")).isEqualTo(true);
+        assertThat(assertions.expression("a IS FALSE").binding("a", "cast(null as boolean)")).isEqualTo(false);
+
+        // IS NOT FALSE
+        assertThat(assertions.expression("a IS NOT FALSE").binding("a", "true")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT FALSE").binding("a", "false")).isEqualTo(false);
+        assertThat(assertions.expression("a IS NOT FALSE").binding("a", "cast(null as boolean)")).isEqualTo(true);
+
+        // IS UNKNOWN
+        assertThat(assertions.expression("a IS UNKNOWN").binding("a", "true")).isEqualTo(false);
+        assertThat(assertions.expression("a IS UNKNOWN").binding("a", "false")).isEqualTo(false);
+        assertThat(assertions.expression("a IS UNKNOWN").binding("a", "cast(null as boolean)")).isEqualTo(true);
+
+        // IS NOT UNKNOWN
+        assertThat(assertions.expression("a IS NOT UNKNOWN").binding("a", "true")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT UNKNOWN").binding("a", "false")).isEqualTo(true);
+        assertThat(assertions.expression("a IS NOT UNKNOWN").binding("a", "cast(null as boolean)")).isEqualTo(false);
+
+        // the operand is evaluated as an arbitrary boolean expression, not just a reference
+        assertThat(assertions.expression("(a > 1) IS TRUE").binding("a", "2")).isEqualTo(true);
+        assertThat(assertions.expression("(a > 1) IS TRUE").binding("a", "0")).isEqualTo(false);
+    }
+
+    @Test
     public void testBetween()
     {
         // between
@@ -481,6 +519,95 @@ public class TestConditions
                 .binding("low", "'b'")
                 .binding("high", "null"))
                 .isNull(BOOLEAN);
+    }
+
+    @Test
+    public void testBetweenSymmetric()
+    {
+        // ASYMMETRIC is the explicit default: bounds are ordered, so reversed bounds never match
+        assertThat(assertions.expression("value between asymmetric low and high")
+                .binding("value", "3")
+                .binding("low", "2")
+                .binding("high", "4"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value between asymmetric low and high")
+                .binding("value", "3")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(false);
+
+        // SYMMETRIC treats the bounds as an unordered pair
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "3")
+                .binding("low", "2")
+                .binding("high", "4"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "3")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(true);
+
+        // inclusive at both ends, regardless of order
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "2")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "4")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(true);
+
+        // outside the range in either orientation
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "5")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "1")
+                .binding("low", "2")
+                .binding("high", "4"))
+                .isEqualTo(false);
+
+        // NOT BETWEEN SYMMETRIC
+        assertThat(assertions.expression("value not between symmetric low and high")
+                .binding("value", "3")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value not between symmetric low and high")
+                .binding("value", "5")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(true);
+
+        // NULL propagation
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "null")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("value between symmetric low and high")
+                .binding("value", "3")
+                .binding("low", "null")
+                .binding("high", "4"))
+                .isNull(BOOLEAN);
+
+        // non-trivial operands are evaluated once each (Let-wrapped) and still match symmetrically
+        assertThat(assertions.expression("value + 0 between symmetric low + 0 and high + 0")
+                .binding("value", "3")
+                .binding("low", "4")
+                .binding("high", "2"))
+                .isEqualTo(true);
     }
 
     @Test

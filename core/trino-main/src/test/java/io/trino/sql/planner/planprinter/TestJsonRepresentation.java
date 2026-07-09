@@ -22,7 +22,6 @@ import io.trino.execution.TableInfo;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -31,6 +30,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -51,12 +51,12 @@ import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
-import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -102,7 +102,7 @@ public class TestJsonRepresentation
                 ImmutableList.of("_col0 := field"),
                 ImmutableList.of(new PlanNodeStatsAndCostSummary(1, 5, 0, 0, 0)),
                 ImmutableList.of(new JsonRenderedNode(
-                        "90",
+                        "62",
                         "Limit",
                         ImmutableMap.of("count", "1", "withTies", "", "inputPreSortedBy", "[]"),
                         ImmutableList.of(new Symbol(INTEGER, "field")),
@@ -161,7 +161,7 @@ public class TestJsonRepresentation
                         ImmutableList.of(new JoinNode.EquiJoinClause(pb.symbol("a", BIGINT), pb.symbol("d", BIGINT))),
                         ImmutableList.of(pb.symbol("b", BIGINT)),
                         ImmutableList.of(),
-                        Optional.of(new Comparison(LESS_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "c"))),
+                        Optional.of(comparison(LESS_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "c"))),
                         ImmutableMap.of(new DynamicFilterId("DF"), pb.symbol("d", BIGINT))),
                 new JsonRenderedNode(
                         "2",

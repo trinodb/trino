@@ -32,6 +32,7 @@ public final class VarcharOperators
 {
     private VarcharOperators() {}
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BOOLEAN)
@@ -74,6 +75,7 @@ public final class VarcharOperators
         return (b >= 'a') && (b <= 'z');
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DOUBLE)
@@ -87,10 +89,11 @@ public final class VarcharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.REAL)
-    public static long castToFloat(@SqlType("varchar(x)") Slice slice)
+    public static long castToReal(@SqlType("varchar(x)") Slice slice)
     {
         try {
             return toReal(Float.parseFloat(slice.toStringUtf8().trim()));
@@ -100,6 +103,7 @@ public final class VarcharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
@@ -113,6 +117,7 @@ public final class VarcharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
@@ -126,6 +131,7 @@ public final class VarcharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
@@ -139,6 +145,7 @@ public final class VarcharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
@@ -152,6 +159,7 @@ public final class VarcharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.NUMBER)
@@ -173,7 +181,7 @@ public final class VarcharOperators
     }
 
     @LiteralParameters("x")
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@SqlType("varchar(x)") Slice slice)
     {

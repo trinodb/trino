@@ -32,19 +32,25 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionOption;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarbinaryType;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -58,6 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
@@ -72,10 +79,10 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxSt
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMinStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterValidateMode;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBatchSize;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterDeltaLengthByteArrayEncodingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageValueCount;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterRowGroupMaxRowCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
@@ -83,13 +90,14 @@ import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergUtil.getParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.util.IcebergParquetSchemaConverter.convert;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
-import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 
 public class IcebergFileWriterFactory
 {
@@ -102,6 +110,7 @@ public class IcebergFileWriterFactory
     private final OrcWriterStats orcWriterStats = new OrcWriterStats();
     private final HiveCompressionOption hiveCompressionOption;
     private final OrcWriterOptions orcWriterOptions;
+    private final DataSize parquetRowGroupSize;
 
     @Inject
     public IcebergFileWriterFactory(
@@ -109,7 +118,8 @@ public class IcebergFileWriterFactory
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
             IcebergConfig icebergConfig,
-            OrcWriterConfig orcWriterConfig)
+            OrcWriterConfig orcWriterConfig,
+            ParquetWriterConfig parquetWriterConfig)
     {
         checkArgument(!orcWriterConfig.isUseLegacyVersion(), "the ORC writer shouldn't be configured to use a legacy version");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -117,6 +127,7 @@ public class IcebergFileWriterFactory
         this.readStats = requireNonNull(readStats, "readStats is null");
         this.hiveCompressionOption = icebergConfig.getCompressionCodec();
         this.orcWriterOptions = orcWriterConfig.toOrcWriterOptions();
+        this.parquetRowGroupSize = parquetWriterConfig.getRowGroupSize();
     }
 
     @Managed
@@ -169,17 +180,19 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))
+                .map(this::toFileTrinoType)
                 .collect(toImmutableList());
 
         try {
             TrinoOutputFile outputFile = fileSystem.newOutputFile(outputPath);
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
                     .setMaxPageValueCount(getParquetWriterPageValueCount(session))
-                    .setMaxBlockSize(getParquetWriterBlockSize(session))
+                    .setMaxBlockSize(getParquetWriterRowGroupSize(storageProperties, parquetRowGroupSize))
+                    .setMaxRowGroupRowCount(getParquetWriterRowGroupMaxRowCount(session))
                     .setBatchSize(getParquetWriterBatchSize(session))
                     .setBloomFilterColumns(getParquetBloomFilterColumns(storageProperties))
                     .setUseDeltaLengthByteArrayEncoding(getParquetWriterDeltaLengthByteArrayEncodingEnabled(session))
@@ -219,7 +232,7 @@ public class IcebergFileWriterFactory
         try {
             OrcDataSink orcDataSink = OutputStreamOrcDataSink.create(fileSystem.newOutputFile(outputPath));
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
             List<Types.NestedField> columnFields = icebergSchema.columns();
             List<String> fileColumnNames = columnFields.stream()
@@ -228,6 +241,7 @@ public class IcebergFileWriterFactory
             List<Type> fileColumnTypes = columnFields.stream()
                     .map(Types.NestedField::type)
                     .map(type -> toTrinoType(type, typeManager))
+                    .map(this::toFileTrinoType)
                     .collect(toImmutableList());
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
@@ -253,7 +267,7 @@ public class IcebergFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
-                    toOrcType(icebergSchema),
+                    toOrcType(toFileSchema(icebergSchema)),
                     compressionCodec.getOrcCompressionKind(),
                     withBloomFilterOptions(orcWriterOptions, storageProperties)
                             .withStripeMinSize(getOrcWriterMinStripeSize(session))
@@ -301,10 +315,11 @@ public class IcebergFileWriterFactory
             Schema icebergSchema,
             Map<String, String> storageProperties)
     {
-        Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
+        RollbackAction rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
         List<Type> columnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))
+                .map(this::toFileTrinoType)
                 .collect(toImmutableList());
 
         HiveCompressionCodec compressionCodec = getHiveCompressionCodec(AVRO, storageProperties)
@@ -313,8 +328,100 @@ public class IcebergFileWriterFactory
         return new IcebergAvroFileWriter(
                 new ForwardingOutputFile(fileSystem, outputPath),
                 rollbackAction,
-                icebergSchema,
+                toFileSchema(icebergSchema),
                 columnTypes,
                 compressionCodec);
+    }
+
+    /**
+     * Convert an Iceberg schema for file writing by replacing GEOMETRY/GEOGRAPHY types with BINARY.
+     * File formats don't understand these types, but Iceberg table metadata preserves them.
+     */
+    private static Schema toFileSchema(Schema icebergSchema)
+    {
+        List<Types.NestedField> columns = icebergSchema.columns().stream()
+                .map(IcebergFileWriterFactory::toFileType)
+                .collect(toImmutableList());
+        return new Schema(columns);
+    }
+
+    private static Types.NestedField toFileType(Types.NestedField field)
+    {
+        org.apache.iceberg.types.Type type = toFileType(field.type());
+        if (type == field.type()) {
+            return field;
+        }
+        return Types.NestedField.of(field.fieldId(), field.isOptional(), field.name(), type, field.doc());
+    }
+
+    private static org.apache.iceberg.types.Type toFileType(org.apache.iceberg.types.Type type)
+    {
+        if (type.typeId() == TypeID.GEOMETRY || type.typeId() == TypeID.GEOGRAPHY) {
+            // Replace geometry/geography with binary for file writing
+            return Types.BinaryType.get();
+        }
+        if (type instanceof Types.StructType structType) {
+            return Types.StructType.of(structType.fields().stream()
+                    .map(IcebergFileWriterFactory::toFileType)
+                    .collect(toImmutableList()));
+        }
+        if (type instanceof Types.ListType listType) {
+            org.apache.iceberg.types.Type elementType = toFileType(listType.elementType());
+            if (elementType == listType.elementType()) {
+                return type;
+            }
+            if (listType.isElementOptional()) {
+                return Types.ListType.ofOptional(listType.elementId(), elementType);
+            }
+            return Types.ListType.ofRequired(listType.elementId(), elementType);
+        }
+        if (type instanceof Types.MapType mapType) {
+            org.apache.iceberg.types.Type keyType = toFileType(mapType.keyType());
+            org.apache.iceberg.types.Type valueType = toFileType(mapType.valueType());
+            if (keyType == mapType.keyType() && valueType == mapType.valueType()) {
+                return type;
+            }
+            if (mapType.isValueOptional()) {
+                return Types.MapType.ofOptional(mapType.keyId(), mapType.valueId(), keyType, valueType);
+            }
+            return Types.MapType.ofRequired(mapType.keyId(), mapType.valueId(), keyType, valueType);
+        }
+        return type;
+    }
+
+    /**
+     * Convert Trino type for file writing - geometry/geography become varbinary.
+     */
+    private Type toFileTrinoType(Type type)
+    {
+        if (isGeospatialType(type)) {
+            return VarbinaryType.VARBINARY;
+        }
+        if (type instanceof ArrayType arrayType) {
+            return new ArrayType(toFileTrinoType(arrayType.getElementType()));
+        }
+        if (type instanceof MapType mapType) {
+            return new MapType(toFileTrinoType(mapType.getKeyType()), toFileTrinoType(mapType.getValueType()), typeManager.getTypeOperators());
+        }
+        if (type instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), toFileTrinoType(field.getType())))
+                    .collect(toImmutableList()));
+        }
+        return type;
+    }
+
+    static DataSize getParquetWriterRowGroupSize(Map<String, String> storageProperties, DataSize defaultRowGroupSize)
+    {
+        String tableProperty = storageProperties.get(PARQUET_ROW_GROUP_SIZE_BYTES);
+        if (tableProperty == null) {
+            return defaultRowGroupSize;
+        }
+        try {
+            return DataSize.ofBytes(Long.parseLong(tableProperty));
+        }
+        catch (NumberFormatException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid value for Iceberg table property %s: %s", PARQUET_ROW_GROUP_SIZE_BYTES, tableProperty), e);
+        }
     }
 }

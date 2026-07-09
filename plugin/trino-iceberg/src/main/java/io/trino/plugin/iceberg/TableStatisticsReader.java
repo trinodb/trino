@@ -90,6 +90,9 @@ public final class TableStatisticsReader
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
+    @VisibleForTesting
+    static final int INLINE_MANIFEST_DECODE_THRESHOLD = 4;
+
     private final TypeManager typeManager;
     private final ExecutorService icebergPlanningExecutor;
 
@@ -178,7 +181,15 @@ public final class TableStatisticsReader
                 .filter(column -> columnIds.contains(column.fieldId()))
                 .collect(toImmutableList());
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
-        try (CloseableIterable<DataFile> dataFiles = new ParallelIterable<>(dataFileIterables, icebergPlanningExecutor)) {
+        // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
+        CloseableIterable<DataFile> dataFileSource;
+        if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
+            dataFileSource = CloseableIterable.concat(dataFileIterables);
+        }
+        else {
+            dataFileSource = new ParallelIterable<>(dataFileIterables, icebergPlanningExecutor);
+        }
+        try (CloseableIterable<DataFile> dataFiles = dataFileSource) {
             dataFiles.forEach(dataFile -> {
                 PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
                 if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(spec.partitionToPath(dataFile.partition())))) {

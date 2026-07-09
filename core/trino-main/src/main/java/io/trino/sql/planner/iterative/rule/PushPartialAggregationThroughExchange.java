@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -197,8 +197,8 @@ public class PushPartialAggregationThroughExchange
         for (Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
-            AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);
-            List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
+            ResolvedAggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);
+            List<Type> intermediateTypes = functionMetadata.intermediateTypes().stream()
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
             Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);

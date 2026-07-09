@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.SystemSessionProperties;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -27,10 +26,11 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -138,9 +138,9 @@ public class TestEliminateCrossJoins
                                         anyTree(
                                                 join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                         .equiCriteria("L_PARTKEY", "P_PARTKEY")
-                                                        .filter(new Comparison(LESS_THAN, new Reference(createVarcharType(55), "P_NAME"), new Cast(new Reference(createVarcharType(44), "L_COMMENT"), createVarcharType(55))))
+                                                        .filter(comparison(LESS_THAN, new Reference(createVarcharType(55), "P_NAME"), new Cast(new Reference(createVarcharType(44), "L_COMMENT"), createVarcharType(55))))
                                                         .left(filter(
-                                                                new Comparison(NOT_EQUAL, new Reference(BIGINT, "L_PARTKEY"), new Reference(BIGINT, "L_ORDERKEY")),
+                                                                comparison(NOT_EQUAL, new Reference(BIGINT, "L_PARTKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                                                                 LINEITEM_WITH_COMMENT_TABLESCAN))
                                                         .right(anyTree(PART_WITH_NAME_TABLESCAN))))))));
     }
@@ -158,12 +158,12 @@ public class TestEliminateCrossJoins
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("L_PARTKEY", "P_PARTKEY")
                                                 .left(anyTree(filter(
-                                                        new Comparison(EQUAL, new Reference(createVarcharType(1), "L_RETURNFLAG"), new Constant(createVarcharType(1), Slices.utf8Slice("R"))),
+                                                        comparison(EQUAL, new Reference(createVarcharType(1), "L_RETURNFLAG"), new Constant(createVarcharType(1), Slices.utf8Slice("R"))),
                                                         LINEITEM_WITH_RETURNFLAG_TABLESCAN)))
                                                 .right(anyTree(PART_TABLESCAN))))
                                 .right(
                                         anyTree(filter(
-                                                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "O_SHIPPRIORITY"), new Constant(INTEGER, 10L)),
+                                                comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "O_SHIPPRIORITY"), new Constant(INTEGER, 10L)),
                                                 ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
     }
 }

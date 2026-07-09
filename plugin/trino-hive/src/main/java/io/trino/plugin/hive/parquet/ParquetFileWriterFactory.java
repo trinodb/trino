@@ -29,6 +29,7 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveSessionProperties;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.NodeVersion;
@@ -40,7 +41,6 @@ import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -109,7 +109,8 @@ public class ParquetFileWriterFactory
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
                 .setMaxPageValueCount(HiveSessionProperties.getParquetWriterPageValueCount(session))
-                .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
+                .setMaxBlockSize(HiveSessionProperties.getParquetWriterRowGroupSize(session))
+                .setMaxRowGroupRowCount(HiveSessionProperties.getParquetWriterRowGroupMaxRowCount(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .setBloomFilterColumns(getParquetBloomFilterColumns(schema))
                 .setUseDeltaLengthByteArrayEncoding(useDeltaLengthByteArrayEncoding)
@@ -127,7 +128,7 @@ public class ParquetFileWriterFactory
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(location);
 
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     fileColumnTypes,

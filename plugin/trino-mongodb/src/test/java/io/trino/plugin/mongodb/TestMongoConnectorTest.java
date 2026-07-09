@@ -480,17 +480,18 @@ public class TestMongoConnectorTest
                         "   (8, CAST('\0 ' AS char(3)))," +
                         "   (9, CAST('\0  ' AS char(3)))")) {
             assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = ''"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
                     .matches("VALUES 0, 1, 2, 3")
                     .isFullyPushedDown();
-            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x'"))
                     .matches("VALUES 4, 5, 6")
                     .isFullyPushedDown();
-            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0'"))
                     .matches("VALUES 7, 8, 9")
                     .isFullyPushedDown();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
+                    .returnsEmptyResult();
         }
     }
 
@@ -1919,6 +1920,12 @@ public class TestMongoConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().startsWith("char(") && setup.newColumnType().startsWith("varchar")) {
+            // MongoDB keeps the blank padding of the existing CHAR data when the column is converted to VARCHAR,
+            // whereas Trino's char-to-varchar cast (which computes the default expected value) trims trailing spaces.
+            int length = Integer.parseInt(setup.sourceColumnType().substring("char(".length(), setup.sourceColumnType().length() - 1));
+            return Optional.of(setup.withNewValueLiteral(format("rpad(%s, %s, ' ')", setup.sourceValueLiteral(), length)));
+        }
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer",
                  "bigint -> smallint",

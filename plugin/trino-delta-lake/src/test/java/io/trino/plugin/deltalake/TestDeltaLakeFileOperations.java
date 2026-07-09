@@ -64,6 +64,7 @@ import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.STA
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRINO_EXTENDED_STATS_JSON;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -92,6 +93,7 @@ public class TestDeltaLakeFileOperations
         closeAfterClass(() -> deleteRecursively(catalogDir, ALLOW_INSECURE));
 
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .addDeltaProperty("hive.metastore.catalog.dir", catalogDir.toUri().toString())
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
@@ -100,8 +102,8 @@ public class TestDeltaLakeFileOperations
                 .addDeltaProperty("delta.metastore.store-table-metadata-threads", "0") // Use the same thread to make the test deterministic
                 .addDeltaProperty("delta.metastore.store-table-metadata-interval", "30m") // Use a large interval to avoid interference with the test
                 .build();
-        metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class).createMetastore(Optional.empty());
-        metadataScheduler = TestingDeltaLakeUtils.getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
+        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class).createMetastore(Optional.empty());
+        metadataScheduler = getConnectorService(queryRunner, DeltaLakeTableMetadataScheduler.class);
         return queryRunner;
     }
 

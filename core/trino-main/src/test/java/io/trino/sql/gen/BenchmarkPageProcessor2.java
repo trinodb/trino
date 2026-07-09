@@ -21,7 +21,6 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.DynamicFilter;
@@ -31,7 +30,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -61,9 +59,10 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -131,7 +130,6 @@ public class BenchmarkPageProcessor2
         return ImmutableList.copyOf(
                 pageProcessor.process(
                         null,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(inputPage)));
     }
@@ -139,10 +137,10 @@ public class BenchmarkPageProcessor2
     private Expression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return new Comparison(EQUAL, call(MODULO_BIGINT, new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
+            return comparison(EQUAL, call(MODULO_BIGINT, new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
         }
         if (type == BIGINT) {
-            return new Comparison(EQUAL, call(MODULO_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
+            return comparison(EQUAL, call(MODULO_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }

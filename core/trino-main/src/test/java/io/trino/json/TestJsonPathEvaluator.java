@@ -33,7 +33,7 @@ import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
@@ -84,6 +84,7 @@ import static io.trino.sql.planner.PathNodes.keyValue;
 import static io.trino.sql.planner.PathNodes.last;
 import static io.trino.sql.planner.PathNodes.lessThan;
 import static io.trino.sql.planner.PathNodes.lessThanOrEqual;
+import static io.trino.sql.planner.PathNodes.likeRegex;
 import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.sql.planner.PathNodes.memberAccessor;
 import static io.trino.sql.planner.PathNodes.minus;
@@ -284,7 +285,7 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, subtract(variable("short_decimal_parameter"), variable("long_decimal_parameter")))))
-                .withEqualsForType(TypeSignature::equals, TypeSignature.class) // we don't want deep TypeSignature comparison because of cached hashCode
+                .withEqualsForType(TypeDescriptor::equals, TypeDescriptor.class) // we don't want deep TypeDescriptor comparison because of cached hashCode
                 .isEqualTo(singletonSequence(new TypedValue(createDecimalType(31, 20), Int128.valueOf("-1330000000000000000000"))));
 
         // division by 0
@@ -1398,6 +1399,42 @@ public class TestJsonPathEvaluator
                 TextNode.valueOf("abc"),
                 true,
                 startsWith(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), literal(VARCHAR, utf8Slice("A")))))
+                .isEqualTo(FALSE);
+    }
+
+    @Test
+    public void testLikeRegexPredicate()
+    {
+        // simple match
+        assertThat(predicateResult(
+                TextNode.valueOf("abcde"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "^abc")))
+                .isEqualTo(TRUE);
+
+        // input is automatically unwrapped in lax mode
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "z$")))
+                .isEqualTo(TRUE);
+
+        // non-text input -> unknown
+        assertThat(predicateResult(
+                IntNode.valueOf(7),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "^abc")))
+                .isEqualTo(null);
+
+        // empty input sequence (subscript out-of-bounds in lax mode) -> FALSE per §9.46 GR F.V
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), "^abc")))
                 .isEqualTo(FALSE);
     }
 

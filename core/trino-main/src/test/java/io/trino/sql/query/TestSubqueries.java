@@ -1731,7 +1731,7 @@ public class TestSubqueries
                 .matches("SELECT CAST(ROW(1, 'a') AS row(a integer, b varchar(1)))");
 
         // The quoted identifiers are needed due to some pre-existing inconsistencies
-        // in how identifiers are canonicalized (see TypeSignatureTranslator.canonicalize())
+        // in how identifiers are canonicalized (see TypeDescriptorTranslator.canonicalize())
         assertThat(assertions.query(
                 "SELECT (SELECT t.* AS (x, y) FROM (SELECT 1, 'a') t)"))
                 .matches("SELECT CAST(ROW(1, 'a') AS row(\"X\" integer, \"Y\" varchar(1)))");

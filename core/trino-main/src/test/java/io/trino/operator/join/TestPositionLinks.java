@@ -26,14 +26,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPositionLinks
 {
-    private static final Page TEST_PAGE = getOnlyElement(RowPagesBuilder.rowPagesBuilder(BIGINT).addSequencePage(20, 0).build());
+    private static final Page TEST_PAGE = RowPagesBuilder.rowPagesBuilder(BIGINT).addSequencePage(20, 0).buildPage();
 
     @Test
     public void testArrayPositionLinks()

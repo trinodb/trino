@@ -26,13 +26,14 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowAccumulator;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.util.Reflection;
 
 import java.lang.annotation.Annotation;
@@ -58,12 +59,12 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
-import static io.trino.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseNumericVariableConstraints;
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -223,6 +224,7 @@ public class ParametricAggregationImplementation
 
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
+        private final Set<String> typeParameterNames;
 
         private Parser(
                 Class<?> aggregationDefinition,
@@ -239,6 +241,9 @@ public class ParametricAggregationImplementation
             // it is required to declare all literal and type parameters in input function
             literalParameters = parseLiteralParameters(inputFunction);
             typeParameters = Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class));
+            typeParameterNames = typeParameters.stream()
+                    .map(TypeParameter::value)
+                    .collect(toImmutableSet());
 
             // parse dependencies
             inputDependencies = parseImplementationDependencies(inputFunction);
@@ -249,7 +254,7 @@ public class ParametricAggregationImplementation
             inputParameterKinds = parseInputParameterKinds(inputFunction);
 
             // parse constraints
-            parseLongVariableConstraints(inputFunction, signatureBuilder);
+            parseNumericVariableConstraints(inputFunction, signatureBuilder);
             List<ImplementationDependency> allDependencies =
                     Stream.of(
                                     stateDetails.stream().map(AccumulatorStateDetails::getDependencies).flatMap(Collection::stream),
@@ -265,9 +270,9 @@ public class ParametricAggregationImplementation
             // parse native types of arguments
             argumentNativeContainerTypes = parseSignatureArgumentsTypes(inputFunction);
 
-            // determine TypeSignatures of function declaration
-            signatureBuilder.argumentTypes(getInputTypesSignatures(inputFunction));
-            signatureBuilder.returnType(parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters));
+            // determine TypeDescriptors of function declaration
+            addInputTypeDescriptors(signatureBuilder, inputFunction);
+            signatureBuilder.returnType(parseTypeTemplate(outputFunction.getAnnotation(OutputFunction.class).value(), typeParameterNames, literalParameters));
 
             inputHandle = methodHandle(inputFunction);
             combineHandle = combineFunction.map(Reflection::methodHandle);
@@ -426,11 +431,9 @@ public class ParametricAggregationImplementation
                     validateImplementationDependencyAnnotation(
                             inputFunction,
                             annotation,
-                            typeParameters.stream()
-                                    .map(TypeParameter::value)
-                                    .collect(toImmutableSet()),
+                            typeParameterNames,
                             literalParameters);
-                    builder.add(createDependency(annotation, literalParameters, parameter.getType()));
+                    builder.add(createDependency(annotation, typeParameterNames, literalParameters, parameter.getType()));
                 });
             }
             return builder.build();
@@ -446,21 +449,38 @@ public class ParametricAggregationImplementation
             return containsAnnotation(annotations, annotation -> annotation instanceof BlockPosition);
         }
 
-        public List<TypeSignature> getInputTypesSignatures(Method inputFunction)
+        /// Appends to `signatureBuilder` the argument type — and, if the parameter
+        /// carries a [Name] annotation, its declared name — for every [SqlType]
+        /// input parameter of the aggregation function. Rejects `@Name` on a
+        /// non-`@SqlType` parameter, since the declared name has nothing to attach
+        /// to. (`@Name` itself is not `@Repeatable`, so the compiler enforces a
+        /// single annotation per parameter.)
+        private void addInputTypeDescriptors(Signature.Builder signatureBuilder, Method inputFunction)
         {
-            ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
-
             Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
             for (Annotation[] annotations : parameterAnnotations) {
+                SqlType sqlType = null;
+                String declaredName = null;
                 for (Annotation annotation : annotations) {
-                    if (annotation instanceof SqlType sqlType) {
-                        String typeName = sqlType.value();
-                        builder.add(parseTypeSignature(typeName, literalParameters));
+                    if (annotation instanceof SqlType type) {
+                        sqlType = type;
+                    }
+                    else if (annotation instanceof Name name) {
+                        declaredName = name.value();
                     }
                 }
+                if (sqlType == null) {
+                    checkArgument(declaredName == null, "Method [%s] has @Name on a parameter without @SqlType", inputFunction);
+                    continue;
+                }
+                TypeTemplate typeTemplate = parseTypeTemplate(sqlType.value(), typeParameterNames, literalParameters);
+                if (declaredName != null) {
+                    signatureBuilder.argumentType(typeTemplate, declaredName);
+                }
+                else {
+                    signatureBuilder.argumentType(typeTemplate);
+                }
             }
-
-            return builder.build();
         }
 
         private static boolean isAggregationMetaAnnotation(Annotation annotation)

@@ -19,8 +19,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -30,12 +33,12 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotChanges;
 import org.apache.iceberg.SortOrder;
@@ -52,7 +55,9 @@ import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.io.OutputFileFactory;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.types.EdgeAlgorithm;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.GeometryType;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -62,6 +67,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -72,6 +78,7 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getParquetFileMetadata;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
@@ -79,6 +86,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.geometryType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.keycloak.util.JsonSerialization.mapper;
@@ -87,7 +95,7 @@ public class TestIcebergV3
         extends AbstractTestQueryFramework
 {
     private static final List<String> ALL_FILE_FORMATS = List.of("PARQUET", "ORC", "AVRO");
-    private static final HadoopTables HADOOP_TABLES = new HadoopTables(new Configuration(false));
+    private static final HadoopTables HADOOP_TABLES = new HadoopTables();
 
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
@@ -108,6 +116,7 @@ public class TestIcebergV3
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
+        queryRunner.installPlugin(new GeoPlugin());
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDirectory.toFile().mkdirs();
 
@@ -1676,6 +1685,315 @@ public class TestIcebergV3
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    private ParquetMetadata getOnlyParquetDataFileMetadata(String tableName)
+    {
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        DataFile dataFile = getOnlyElement(table.currentSnapshot().addedDataFiles(table.io()));
+        return getParquetFileMetadata(fileSystemFactory.create(SESSION).newInputFile(Location.of(dataFile.location())));
+    }
+
+    @Test
+    void testGeometryTypeJsonSerialization()
+    {
+        GeometryType defaultGeomType = Types.GeometryType.of("OGC:CRS84");
+        assertThat(defaultGeomType.crs()).isEqualTo("OGC:CRS84");
+
+        GeometryType epsg3857 = Types.GeometryType.of("EPSG:3857");
+        assertThat(epsg3857.crs()).isEqualTo("EPSG:3857");
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "geom_default", Types.GeometryType.of("OGC:CRS84")),
+                Types.NestedField.optional(2, "geom_3857", Types.GeometryType.of("EPSG:3857")));
+        String json = SchemaParser.toJson(schema);
+
+        Schema parsed = SchemaParser.fromJson(json);
+
+        Types.GeometryType parsedDefault = (Types.GeometryType) parsed.findField("geom_default").type();
+        assertThat(parsedDefault.crs()).isEqualTo("OGC:CRS84");
+
+        Types.GeometryType parsed3857 = (Types.GeometryType) parsed.findField("geom_3857").type();
+        assertThat(parsed3857.crs()).isEqualTo("EPSG:3857");
+    }
+
+    @Test
+    void testGeometryWithCustomSrid()
+    {
+        String hadoopTableName = "hadoop_geometry_srid_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geom", Types.GeometryType.of("EPSG:3857")));
+
+        HADOOP_TABLES.create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_geom_srid_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        assertThat(query("SELECT * FROM " + registered))
+                .returnsEmptyResult();
+
+        assertThat(query("DESCRIBE " + registered))
+                .matches("VALUES (VARCHAR 'id', VARCHAR 'integer', VARCHAR '', VARCHAR ''), " +
+                        "(VARCHAR 'geom', VARCHAR 'Geometry', VARCHAR '', VARCHAR '')");
+
+        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_Point(1, 2), 3857))", 1);
+
+        assertThat(query("SELECT ST_AsText(geom), ST_SRID(geom) FROM " + registered))
+                .matches("VALUES (VARCHAR 'POINT (1 2)', 3857)");
+
+        assertThat(getOnlyParquetDataFileMetadata(registered).getFileMetaData().getSchema().getType("geom").asPrimitiveType().getLogicalTypeAnnotation())
+                .isEqualTo(geometryType("EPSG:3857"));
+
+        assertUpdate("DROP TABLE " + registered);
+    }
+
+    @Test
+    void testGeometryRoundTrip()
+    {
+        for (String format : List.of("PARQUET", "ORC", "AVRO")) {
+            try (TestTable table = newTrinoTable(
+                    "test_geometry_roundtrip_" + format.toLowerCase(Locale.ROOT) + "_",
+                    "(id INTEGER, geom geometry) WITH (format = '" + format + "', format_version = 3)")) {
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, ST_Point(1.0, 2.0))", 1);
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'))", 1);
+
+                assertThat(query("SELECT id, ST_AsText(geom) FROM " + table.getName() + " ORDER BY id"))
+                        .matches("VALUES (1, VARCHAR 'POINT (1 2)'), (2, VARCHAR 'POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))')");
+
+                assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName() + " WHERE id = 1"))
+                        .matches("VALUES 4326");
+                assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName() + " WHERE id = 2"))
+                        .matches("VALUES 4326");
+            }
+        }
+    }
+
+    @Test
+    void testNestedGeometryRoundTrip()
+    {
+        for (String format : ALL_FILE_FORMATS) {
+            for (NestedGeometryContainer container : nestedGeometryContainers()) {
+                try (TestTable table = newTrinoTable(
+                        "test_nested_geometry_roundtrip_" + container.name() + "_" + format.toLowerCase(Locale.ROOT) + "_",
+                        "(id INTEGER, payload " + container.columnType() + ") WITH (format = '" + format + "', format_version = 3)")) {
+                    assertUpdate("INSERT INTO " + table.getName() + " VALUES " +
+                            "(1, " + container.firstValue() + "), " +
+                            "(2, " + container.secondValue() + ")", 2);
+
+                    assertThat(query("SELECT id, ST_AsText(" + container.geometryExpression() + "), ST_SRID(" + container.geometryExpression() + ") FROM " + table.getName() + " ORDER BY id"))
+                            .matches("VALUES " +
+                                    "(1, VARCHAR 'POINT (1 2)', 4326), " +
+                                    "(2, VARCHAR 'POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))', 4326)");
+                }
+            }
+        }
+    }
+
+    private static List<NestedGeometryContainer> nestedGeometryContainers()
+    {
+        return List.of(
+                new NestedGeometryContainer(
+                        "row",
+                        "ROW(geom geometry)",
+                        "CAST(ROW(ST_Point(1.0, 2.0)) AS ROW(geom geometry))",
+                        "CAST(ROW(ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')) AS ROW(geom geometry))",
+                        "payload.geom"),
+                new NestedGeometryContainer(
+                        "array",
+                        "ARRAY(geometry)",
+                        "ARRAY[ST_Point(1.0, 2.0)]",
+                        "ARRAY[ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')]",
+                        "payload[1]"),
+                new NestedGeometryContainer(
+                        "map",
+                        "MAP(VARCHAR, geometry)",
+                        "map(ARRAY['geom'], ARRAY[ST_Point(1.0, 2.0)])",
+                        "map(ARRAY['geom'], ARRAY[ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))')])",
+                        "payload['geom']"));
+    }
+
+    private record NestedGeometryContainer(
+            String name,
+            String columnType,
+            String firstValue,
+            String secondValue,
+            String geometryExpression) {}
+
+    @Test
+    void testGeographyRoundTrip()
+    {
+        for (String format : ALL_FILE_FORMATS) {
+            try (TestTable table = newTrinoTable(
+                    "test_geography_roundtrip_" + format.toLowerCase(Locale.ROOT) + "_",
+                    "(id INTEGER, geog sphericalgeography) WITH (format = '" + format + "', format_version = 3)")) {
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, to_spherical_geography(ST_Point(-122.4194, 37.7749)))", 1);
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, to_spherical_geography(ST_Point(12.5, -45.25)))", 1);
+
+                assertThat(query("SELECT id, ST_AsText(to_geometry(geog)), ST_SRID(to_geometry(geog)) FROM " + table.getName() + " ORDER BY id"))
+                        .matches("VALUES " +
+                                "(1, VARCHAR 'POINT (-122.4194 37.7749)', 4326), " +
+                                "(2, VARCHAR 'POINT (12.5 -45.25)', 4326)");
+            }
+        }
+    }
+
+    @Test
+    void testWriteSridMismatchFails()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_srid_mismatch_",
+                "(geom geometry) WITH (format = 'PARQUET', format_version = 3)")) {
+            assertThat(query("INSERT INTO " + table.getName() + " SELECT ST_SetSRID(ST_Point(1, 1), 3857)"))
+                    .failure()
+                    .hasMessageContaining("SRID mismatch");
+        }
+    }
+
+    @Test
+    void testWriteSridZeroAllowed()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_srid_zero_",
+                "(geom geometry) WITH (format = 'PARQUET', format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT ST_Point(1, 1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT ST_SetSRID(ST_Point(2, 2), 4326)", 1);
+
+            assertThat(query("SELECT ST_AsText(geom), ST_SRID(geom) FROM " + table.getName() + " ORDER BY 1"))
+                    .matches("VALUES (VARCHAR 'POINT (1 1)', 4326), (VARCHAR 'POINT (2 2)', 4326)");
+        }
+    }
+
+    @Test
+    void testWriteSridZeroToCustomCrsFails()
+    {
+        String hadoopTableName = "hadoop_geometry_custom_srid_zero_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geom", Types.GeometryType.of("EPSG:3857")));
+
+        HADOOP_TABLES.create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_geom_custom_srid_zero_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        assertThat(query("INSERT INTO " + registered + " VALUES (1, ST_Point(1, 2))"))
+                .failure()
+                .hasMessageContaining("unknown SRID");
+
+        assertUpdate("DROP TABLE " + registered);
+    }
+
+    @Test
+    void testWriteCustomSridAllowedWhenMatching()
+    {
+        String hadoopTableName = "hadoop_geometry_custom_srid_match_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geom", Types.GeometryType.of("EPSG:3857")));
+
+        HADOOP_TABLES.create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_geom_custom_srid_match_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        assertUpdate("INSERT INTO " + registered + " VALUES (1, ST_SetSRID(ST_Point(1, 2), 3857))", 1);
+
+        assertThat(query("SELECT ST_AsText(geom), ST_SRID(geom) FROM " + registered))
+                .matches("VALUES (VARCHAR 'POINT (1 2)', 3857)");
+
+        assertUpdate("DROP TABLE " + registered);
+    }
+
+    @Test
+    void testUnsupportedGeographyAlgorithm()
+    {
+        String hadoopTableName = "hadoop_unsupported_algo_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geog", Types.GeographyType.of("OGC:CRS84", EdgeAlgorithm.VINCENTY)));
+
+        HADOOP_TABLES.create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_unsupported_algo_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        assertQueryFails(
+                "SELECT * FROM " + registered,
+                ".*Unsupported geography algorithm.*");
+
+        assertUpdate("DROP TABLE " + registered);
+    }
+
+    @Test
+    void testUnsupportedGeographyCrs()
+    {
+        String hadoopTableName = "hadoop_unsupported_crs_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geog", Types.GeographyType.of("EPSG:3857", EdgeAlgorithm.SPHERICAL)));
+
+        HADOOP_TABLES.create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_unsupported_crs_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        assertQueryFails(
+                "SELECT * FROM " + registered,
+                ".*Unsupported geography CRS.*");
+
+        assertUpdate("DROP TABLE " + registered);
     }
 
     @Test

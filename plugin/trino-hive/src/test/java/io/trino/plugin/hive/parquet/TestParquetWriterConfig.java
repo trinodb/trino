@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -31,7 +32,8 @@ public class TestParquetWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
-                .setBlockSize(DataSize.of(128, MEGABYTE))
+                .setRowGroupSize(DataSize.of(128, MEGABYTE))
+                .setRowGroupMaxRowCount(ParquetWriterOptions.DEFAULT_MAX_ROW_GROUP_ROW_COUNT)
                 .setPageSize(DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE))
                 .setPageValueCount(ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT)
                 .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE)
@@ -43,7 +45,8 @@ public class TestParquetWriterConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
-                "parquet.writer.block-size", "234MB",
+                "parquet.writer.row-group-size", "234MB",
+                "parquet.writer.row-group-max-row-count", "50000",
                 "parquet.writer.page-size", "6MB",
                 "parquet.writer.page-value-count", "10000",
                 "parquet.writer.batch-size", "100",
@@ -51,7 +54,8 @@ public class TestParquetWriterConfig
                 "parquet.writer.delta-length-byte-array-encoding-enabled", "false");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
-                .setBlockSize(DataSize.of(234, MEGABYTE))
+                .setRowGroupSize(DataSize.of(234, MEGABYTE))
+                .setRowGroupMaxRowCount(50_000)
                 .setPageSize(DataSize.of(6, MEGABYTE))
                 .setPageValueCount(10_000)
                 .setBatchSize(100)
@@ -59,5 +63,15 @@ public class TestParquetWriterConfig
                 .setDeltaLengthByteArrayEncodingEnabled(false);
 
         assertFullMapping(properties, expected);
+
+        Map<String, String> oldProperties = Map.of(
+                "parquet.writer.block-size", "234MB",
+                "parquet.writer.row-group-max-row-count", "50000",
+                "parquet.writer.page-size", "6MB",
+                "parquet.writer.page-value-count", "10000",
+                "parquet.writer.batch-size", "100",
+                "parquet.writer.validation-percentage", "10",
+                "parquet.writer.delta-length-byte-array-encoding-enabled", "false");
+        assertDeprecatedEquivalence(ParquetWriterConfig.class, properties, oldProperties);
     }
 }

@@ -112,6 +112,23 @@ class TestTrinoNumber
                 new BigDecimal("4445556667778889995556667778890000000000").stripTrailingZeros());
     }
 
+    @Test
+    void testMaxPrecisionRoundingTrailingZeroes()
+    {
+        TrinoNumber rounded = TrinoNumber.from(new BigDecimalValue(new BigDecimal("100003")), 5);
+        TrinoNumber canonical = TrinoNumber.from(new BigDecimalValue(new BigDecimal("1e5")), 5);
+
+        // Sanity check: rounded and canonical are the same numeric value
+        assertThat(((BigDecimalValue) rounded.toBigDecimal()).value())
+                .isEqualByComparingTo(((BigDecimalValue) canonical.toBigDecimal()).value());
+
+        assertThat(NumberType.equalOperator(rounded, canonical)).as("equalOperator").isTrue();
+        assertThat(NumberType.identicalOperator(rounded, canonical)).as("identicalOperator").isTrue();
+
+        // In fact, they are byte-equal
+        assertThat(rounded.bytes()).isEqualTo(canonical.bytes());
+    }
+
     private void assertRoundTrip(BigDecimal jdkBigDecimal)
     {
         assertRoundTrip(jdkBigDecimal, jdkBigDecimal);

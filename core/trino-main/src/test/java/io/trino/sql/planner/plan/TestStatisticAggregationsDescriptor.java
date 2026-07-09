@@ -24,12 +24,12 @@ import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolKeyDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -48,7 +48,7 @@ public class TestStatisticAggregationsDescriptor
     {
         JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
                         Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
                 .get();

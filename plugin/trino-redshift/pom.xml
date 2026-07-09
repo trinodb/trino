@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -18,8 +18,7 @@
         <dependency>
             <groupId>com.amazon.redshift</groupId>
             <artifactId>redshift-jdbc42</artifactId>
-            <!-- TODO upgrade once https://github.com/aws/amazon-redshift-jdbc-driver/issues/148 has been addressed -->
-            <version>2.1.0.30</version>
+            <version>2.2.7</version>
         </dependency>
 
         <dependency>
@@ -155,57 +154,27 @@
         </dependency>
 
         <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>auth</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>aws-core</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>regions</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>utils</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -217,6 +186,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -298,6 +273,36 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>auth</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>aws-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>utils</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

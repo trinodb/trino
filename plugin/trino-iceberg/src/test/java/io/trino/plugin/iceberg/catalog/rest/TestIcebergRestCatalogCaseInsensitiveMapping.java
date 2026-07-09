@@ -76,6 +76,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         closeAfterClass(testServer::stop);
 
         return IcebergQueryRunner.builder(LOWERCASE_SCHEMA)
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())

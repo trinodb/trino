@@ -14,11 +14,13 @@
 package io.trino.plugin.iceberg.delete;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import io.trino.plugin.iceberg.delete.EqualityDeleteFilter.EqualityDeleteFilterBuilder;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Schema;
 
@@ -46,16 +48,18 @@ import static java.util.concurrent.Future.State.SUCCESS;
 public class DeleteManager
 {
     private final TypeManager typeManager;
+    private final Optional<BlocksHashFactory> blocksHashFactory;
     private final Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new ConcurrentHashMap<>();
 
-    public DeleteManager(TypeManager typeManager)
+    public DeleteManager(TypeManager typeManager, Optional<BlocksHashFactory> blocksHashFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
     }
 
-    public Optional<RowPredicate> getDeletePredicate(
+    public Optional<PageFilter> getDeletePageFilter(
             String dataFilePath,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             List<DeleteFile> deleteFiles,
             List<IcebergColumnHandle> readColumns,
             Schema tableSchema,
@@ -100,26 +104,30 @@ public class DeleteManager
                         deletePageSourceProvider,
                         typeManager));
 
-        Optional<RowPredicate> positionDeletes = deletionVector
+        Optional<PageFilter> positionDeletes = deletionVector
                 .map(vector -> {
                     int filePositionChannel = IntStream.range(0, readColumns.size())
                             .filter(i -> readColumns.get(i).isRowPositionColumn())
                             .boxed()
                             .collect(onlyElement());
-                    return (page, position) -> {
+                    return PageFilter.of((page, position) -> {
                         long filePosition = BIGINT.getLong(page.getBlock(filePositionChannel), position);
                         return !vector.isRowDeleted(filePosition);
-                    };
+                    });
                 });
 
-        Optional<RowPredicate> equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
-                .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber))
-                .reduce(RowPredicate::and);
-
-        if (positionDeletes.isPresent() && equalityDeletes.isPresent()) {
-            return Optional.of(positionDeletes.get().and(equalityDeletes.get()));
+        ImmutableList.Builder<PageFilter> deleteFiltersBuilder = ImmutableList.builder();
+        positionDeletes.ifPresent(deleteFiltersBuilder::add);
+        if (!equalityDeleteFiles.isEmpty()) {
+            long splitDataSequenceNumber = dataSequenceNumber.orElseThrow(() ->
+                    new TrinoException(ICEBERG_BAD_DATA, "Cannot apply equality deletes: Iceberg manifest is missing dataSequenceNumber for " + dataFilePath));
+            createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider)
+                    .stream()
+                    .map(filter -> filter.createPageFilter(readColumns, splitDataSequenceNumber))
+                    .forEach(deleteFiltersBuilder::add);
         }
-        return positionDeletes.or(() -> equalityDeletes);
+
+        return PageFilter.allOf(deleteFiltersBuilder.build());
     }
 
     public long getEstimatedSizeInBytes()
@@ -134,7 +142,7 @@ public class DeleteManager
         DeletionVector read(DeleteFile deleteFile);
     }
 
-    private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
+    private List<DeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
     {
         if (equalityDeleteFiles.isEmpty()) {
             return List.of();
@@ -152,7 +160,15 @@ public class DeleteManager
                     .collect(toImmutableList());
 
             // each file can have a different set of columns for the equality delete, so we need to create a new builder for each set of columns
-            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns)));
+            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> {
+                if (blocksHashFactory.isPresent()) {
+                    List<Type> deleteTypes = deleteColumns.stream()
+                            .map(IcebergColumnHandle::getType)
+                            .collect(toImmutableList());
+                    return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory.get());
+                }
+                return EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns));
+            });
             deleteFilters.add(builder);
 
             ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns, deletePageSourceProvider);

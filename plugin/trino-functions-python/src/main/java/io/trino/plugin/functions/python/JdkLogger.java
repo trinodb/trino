@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.functions.python;
 
-import com.dylibso.chicory.log.Logger;
+import run.endive.log.Logger;
 
 import static java.util.Objects.requireNonNull;
 

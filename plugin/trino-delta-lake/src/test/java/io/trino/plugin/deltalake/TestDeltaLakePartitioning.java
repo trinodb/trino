@@ -33,6 +33,7 @@ public class TestDeltaLakePartitioning
             throws Exception
     {
         return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
     }

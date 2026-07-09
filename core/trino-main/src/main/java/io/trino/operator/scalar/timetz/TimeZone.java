@@ -24,7 +24,7 @@ import io.trino.spi.type.StandardTypes;
 import static com.google.common.base.Strings.padStart;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
-import static io.trino.type.DateTimes.MINUTES_PER_HOUR;
+import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
 
 @Description("Time zone of the given time")
 @ScalarFunction("timezone")
@@ -36,7 +36,6 @@ public final class TimeZone
      * Extracts the time zone from a `time(p) with time zone` as a VARCHAR.
      * This function takes a packed long value representing
      * the time with time zone and extracts the associated time zone offset.
-     * <p>
      *
      * @param timeWithTimeZone the packed long
      *         representing a `time(p) with time zone`

@@ -33,8 +33,10 @@ import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import io.trino.tests.product.launcher.testcontainers.ExistingNetwork;
+import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.io.File;
@@ -69,8 +71,6 @@ import static java.util.stream.Collectors.toList;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
-import static picocli.CommandLine.Command;
-import static picocli.CommandLine.Option;
 
 @Command(
         name = "run",
@@ -357,6 +357,8 @@ public final class TestRun
                                 .add(
                                         jdkProvider.getJavaHome() + "/bin/java",
                                         "-Xmx1g",
+                                        // suppress "sun.misc.Unsafe::staticFieldBase will be removed in a future release" warning (JEP 498)
+                                        "--sun-misc-unsafe-memory-access=allow",
                                         "-Djava.util.logging.config.file=/docker/trino-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
                                         // Tempto has progress logging built in

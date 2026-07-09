@@ -22,12 +22,13 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -47,14 +48,14 @@ public class S3ConditionalWriteLogSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, VendedCredentialsHandle credentialsHandle, String clusterId, Location newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, Optional<DeltaLakeTableCredentials> tableCredentials, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
         // This is key to ensuring that two different queries/clusters can never write the same transaction log entry contents.
         // Contents-based checks are used to recover when S3 write succeeds on the server, but is retried on the client and the fails.
         String contentsAsString = new String(entryContents, UTF_8);
         checkArgument(contentsAsString.contains(session.getQueryId()), "Committed transaction log contents must contain the query ID: [%s]", contentsAsString);
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         try {
             fileSystem.newOutputFile(newLogEntryPath).createExclusive(entryContents);
         }

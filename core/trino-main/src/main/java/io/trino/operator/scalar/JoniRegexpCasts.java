@@ -34,6 +34,7 @@ public final class JoniRegexpCasts
 {
     private JoniRegexpCasts() {}
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JoniRegexpType.NAME)
@@ -42,6 +43,7 @@ public final class JoniRegexpCasts
         return joniRegexp(pattern);
     }
 
+    // fallible
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(JoniRegexpType.NAME)

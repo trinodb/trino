@@ -177,9 +177,9 @@ public class TestTypeCoercion
         assertThat(createCharType(42), createCharType(44)).hasCommonSuperType(createCharType(44)).canCoerceFirstToSecondOnly();
         assertThat(createVarcharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceToEachOther();
         assertThat(createVarcharType(42), createVarcharType(44)).hasCommonSuperType(createVarcharType(44)).canCoerceFirstToSecondOnly();
-        assertThat(createCharType(40), createVarcharType(42)).hasCommonSuperType(createCharType(42)).cannotCoerceToEachOther();
-        assertThat(createCharType(42), createVarcharType(42)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
-        assertThat(createCharType(44), createVarcharType(42)).hasCommonSuperType(createCharType(44)).canCoerceSecondToFirstOnly();
+        assertThat(createCharType(40), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(44), createVarcharType(42)).hasCommonSuperType(createVarcharType(44)).cannotCoerceToEachOther();
 
         assertThat(createCharType(42), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
         assertThat(createCharType(42), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();

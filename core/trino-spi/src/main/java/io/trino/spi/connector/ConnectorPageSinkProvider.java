@@ -22,15 +22,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 public interface ConnectorPageSinkProvider
 {
     /**
-     * @deprecated Implement {@link #createPageSink(ConnectorTransactionHandle, ConnectorSession, ConnectorOutputTableHandle, Optional, ConnectorPageSinkId)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating new tables");
-    }
-
-    /**
      * Creates a {@link ConnectorPageSink} for writing data to a newly created table.
      *
      * @param transactionHandle the transaction handle for this operation
@@ -40,24 +31,12 @@ public interface ConnectorPageSinkProvider
      * @param pageSinkId unique identifier for this page sink instance
      * @return a page sink for writing data to the new table
      */
-    default ConnectorPageSink createPageSink(
+    ConnectorPageSink createPageSink(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorOutputTableHandle outputTableHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
-            ConnectorPageSinkId pageSinkId)
-    {
-        return createPageSink(transactionHandle, session, outputTableHandle, pageSinkId);
-    }
-
-    /**
-     * @deprecated Implement {@link #createPageSink(ConnectorTransactionHandle, ConnectorSession, ConnectorInsertTableHandle, Optional, ConnectorPageSinkId)}
-     */
-    @Deprecated(forRemoval = true)
-    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support insert operations");
-    }
+            ConnectorPageSinkId pageSinkId);
 
     /**
      * Creates a {@link ConnectorPageSink} for inserting data into an existing table.
@@ -69,15 +48,12 @@ public interface ConnectorPageSinkProvider
      * @param pageSinkId unique identifier for this page sink instance
      * @return a page sink for inserting data into the table
      */
-    default ConnectorPageSink createPageSink(
+    ConnectorPageSink createPageSink(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorInsertTableHandle insertTableHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
-            ConnectorPageSinkId pageSinkId)
-    {
-        return createPageSink(transactionHandle, session, insertTableHandle, pageSinkId);
-    }
+            ConnectorPageSinkId pageSinkId);
 
     /**
      * Creates a {@link ConnectorPageSink} for executing a table procedure that writes data.
@@ -95,15 +71,6 @@ public interface ConnectorPageSinkProvider
             ConnectorTableExecuteHandle tableExecuteHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
             ConnectorPageSinkId pageSinkId)
-    {
-        return createPageSink(transactionHandle, session, tableExecuteHandle, pageSinkId);
-    }
-
-    /**
-     * @deprecated Implement {@link #createPageSink(ConnectorTransactionHandle, ConnectorSession, ConnectorTableExecuteHandle, Optional, ConnectorPageSinkId)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
     {
         throw new IllegalArgumentException("createPageSink not supported for tableExecuteHandle");
     }
@@ -124,15 +91,6 @@ public interface ConnectorPageSinkProvider
             ConnectorMergeTableHandle mergeHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
             ConnectorPageSinkId pageSinkId)
-    {
-        return createMergeSink(transactionHandle, session, mergeHandle, pageSinkId);
-    }
-
-    /**
-     * @deprecated Implement {@link #createMergeSink(ConnectorTransactionHandle, ConnectorSession, ConnectorMergeTableHandle, Optional, ConnectorPageSinkId)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    default ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support SQL MERGE operations");
     }

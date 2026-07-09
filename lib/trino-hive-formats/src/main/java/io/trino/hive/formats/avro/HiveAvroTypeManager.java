@@ -47,7 +47,7 @@ public class HiveAvroTypeManager
     {
         ValidateLogicalTypeResult result = validateLogicalType(schema);
         return switch (result) {
-            case NoLogicalType ignored -> Optional.empty();
+            case NoLogicalType _ -> Optional.empty();
             case NonNativeAvroLogicalType nonNativeAvroLogicalType -> switch (nonNativeAvroLogicalType.getLogicalTypeName()) {
                 case VARCHAR_TYPE_LOGICAL_NAME, CHAR_TYPE_LOGICAL_NAME -> {
                     Type expectedType = getHiveLogicalVarCharOrCharType(schema, nonNativeAvroLogicalType);
@@ -63,7 +63,7 @@ public class HiveAvroTypeManager
                 default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
             };
             case ValidNativeAvroLogicalType validNativeAvroLogicalType -> switch (validNativeAvroLogicalType.getLogicalType()) {
-                case TimestampMillisLogicalType __ -> {
+                case TimestampMillisLogicalType _ -> {
                     if (!(type instanceof TimestampType timestampType)) {
                         throw new AvroTypeException("Can't represent avro logical type %s with Trino Type %s".formatted(validNativeAvroLogicalType.getLogicalType(), type));
                     }
@@ -82,8 +82,8 @@ public class HiveAvroTypeManager
                         });
                     }
                 }
-                case DateLogicalType __ -> super.overrideBlockToAvroObject(schema, type);
-                case BytesDecimalLogicalType __ -> super.overrideBlockToAvroObject(schema, type);
+                case DateLogicalType _ -> super.overrideBlockToAvroObject(schema, type);
+                case BytesDecimalLogicalType _ -> super.overrideBlockToAvroObject(schema, type);
                 default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
             };
         };

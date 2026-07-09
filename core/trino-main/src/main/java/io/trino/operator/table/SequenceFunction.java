@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
@@ -39,6 +40,7 @@ import io.trino.spi.function.table.TableFunctionSplitProcessor;
 
 import java.math.BigInteger;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -81,7 +83,8 @@ public class SequenceFunction
                                 .type(BIGINT)
                                 .defaultValue(1L)
                                 .build()),
-                new DescribedTable(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))));
+                new DescribedTable(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))),
+                "Sequence function to generate synthetic tables");
     }
 
     @Override
@@ -212,7 +215,11 @@ public class SequenceFunction
         return new TableFunctionProcessorProvider()
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+            public TableFunctionSplitProcessor getSplitProcessor(
+                    ConnectorSession session,
+                    ConnectorTableFunctionHandle handle,
+                    Optional<ConnectorTableCredentials> tableCredentials,
+                    ConnectorSplit split)
             {
                 return new SequenceFunctionProcessor(((SequenceFunctionHandle) handle).step(), (SequenceFunctionSplit) split);
             }

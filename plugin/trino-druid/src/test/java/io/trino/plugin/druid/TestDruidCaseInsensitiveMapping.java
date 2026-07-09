@@ -122,7 +122,7 @@ public class TestDruidCaseInsensitiveMapping
                 this.druidServer,
                 "region",
                 "casesensitivename",
-                // when you create a second datasource with the same name (ignoring case) the filename mentioned in firehose's ingestion config, must match with the first one.
+                // when you create a second datasource with the same name (ignoring case) the filename mentioned in the input source's ingestion config, must match with the first one.
                 // Otherwise druid's loadstatus (and system tables) fails to register the second datasource created.
                 Optional.of("CaseSensitiveName"));
 
@@ -170,7 +170,7 @@ public class TestDruidCaseInsensitiveMapping
                 this.druidServer,
                 "region",
                 "casesensitivename",
-                // when you create a second datasource with the same name (ignoring case) the filename mentioned in firehose's ingestion config, must match with the first one.
+                // when you create a second datasource with the same name (ignoring case) the filename mentioned in the input source's ingestion config, must match with the first one.
                 // Otherwise druid's loadstatus (and system tables) fails to register the second datasource created.
                 Optional.of("CaseSensitiveName"));
 

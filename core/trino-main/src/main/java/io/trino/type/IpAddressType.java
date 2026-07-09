@@ -32,9 +32,9 @@ import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractType;
 import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -64,7 +64,7 @@ public class IpAddressType
 
     private IpAddressType()
     {
-        super(new TypeSignature(NAME), Slice.class, Int128ArrayBlock.class);
+        super(new TypeDescriptor(NAME), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override

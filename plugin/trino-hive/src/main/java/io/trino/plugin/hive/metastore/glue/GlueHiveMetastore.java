@@ -369,32 +369,8 @@ public class GlueHiveMetastore
     @Override
     public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        try {
-            var database = stats.getGetDatabase().call(() -> glueClient.getDatabase(builder -> builder
-                    .name(databaseName)).database());
-            DatabaseInput renamedDatabase = DatabaseInput.builder()
-                    .name(newDatabaseName)
-                    .parameters(database.parameters())
-                    .description(database.description())
-                    .locationUri(database.locationUri())
-                    .build();
-            stats.getUpdateDatabase().call(() -> glueClient.updateDatabase(builder -> builder
-                    .name(databaseName).databaseInput(renamedDatabase)));
-        }
-        catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(databaseName, e);
-        }
-        catch (AlreadyExistsException e) {
-            throw new SchemaAlreadyExistsException(newDatabaseName, e);
-        }
-        catch (SdkException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        finally {
-            glueCache.invalidateDatabase(databaseName);
-            glueCache.invalidateDatabase(newDatabaseName);
-            glueCache.invalidateDatabaseNames();
-        }
+        // AWS Glue UpdateDatabase rejects name changes with "Database cannot be renamed".
+        throw new TrinoException(NOT_SUPPORTED, "Database rename is not supported by the Glue service");
     }
 
     @Override

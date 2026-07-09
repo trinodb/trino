@@ -578,6 +578,11 @@ fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
+`gcs.json-key-file-path` is optional. When omitted, [Application Default
+Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
+(ADC) are used, which supports GKE Workload Identity and other
+environment-based credential sources.
+
 The REST catalog supports [view management](sql-view-management) 
 using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
 

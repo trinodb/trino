@@ -167,7 +167,7 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -2413,7 +2413,7 @@ public abstract class BaseHiveConnectorTest
                         .mapToObj(i -> format("MAP(ARRAY[%s, %s], ARRAY[%s, %s])", i + 567.123, i + 568.456, i + 22769, i + 22770))
                         .collect(toImmutableList()),
                 "MAP(ARRAY[567.123, 568.456], ARRAY[22769, 22770])",
-                149,
+                166,
                 1);
     }
 
@@ -6450,7 +6450,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("CREATE TABLE test_table_with_char_rc WITH (format = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);
         try {
             assertQuery(
-                    "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
+                    "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki'",
                     "VALUES ('khaki  ')");
         }
         finally {
@@ -8520,15 +8520,12 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        switch (columnName) {
-            case " aleadingspace":
-                return "Hive column names must not start with a space: ' aleadingspace'".equals(exception.getMessage());
-            case "atrailingspace ":
-                return "Hive column names must not end with a space: 'atrailingspace '".equals(exception.getMessage());
-            case "a,comma":
-                return "Hive column names must not contain commas: 'a,comma'".equals(exception.getMessage());
-        }
-        return false;
+        return switch (columnName) {
+            case " aleadingspace" -> "Hive column names must not start with a space: ' aleadingspace'".equals(exception.getMessage());
+            case "atrailingspace " -> "Hive column names must not end with a space: 'atrailingspace '".equals(exception.getMessage());
+            case "a,comma" -> "Hive column names must not contain commas: 'a,comma'".equals(exception.getMessage());
+            default -> false;
+        };
     }
 
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
@@ -9705,7 +9702,7 @@ public abstract class BaseHiveConnectorTest
 
     private Type canonicalizeType(Type type)
     {
-        return TESTING_TYPE_MANAGER.getType(getTypeSignature(toHiveType(type)));
+        return TESTING_TYPE_MANAGER.getType(getTypeDescriptor(toHiveType(type)));
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)

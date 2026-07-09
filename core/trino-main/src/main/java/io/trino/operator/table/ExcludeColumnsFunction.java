@@ -69,7 +69,8 @@ public class ExcludeColumnsFunction
                         DescriptorArgumentSpecification.builder()
                                 .name(DESCRIPTOR_ARGUMENT_NAME)
                                 .build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "");
     }
 
     @Override

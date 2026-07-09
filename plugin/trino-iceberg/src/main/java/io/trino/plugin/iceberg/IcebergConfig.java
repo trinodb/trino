@@ -21,6 +21,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.trino.filesystem.Location;
 import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.plugin.hive.HiveCompressionOption;
@@ -42,6 +43,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.ParquetFooterCacheType.NONE;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -82,6 +84,7 @@ public class IcebergConfig
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
+    private Optional<DataSize> maxSplitSize = Optional.empty();
     // This is meant to protect users who are misusing schema locations (by
     // putting schemas in locations with extraneous files), so default to false
     // to avoid deleting those files if Trino is unable to check.
@@ -104,6 +107,9 @@ public class IcebergConfig
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
+    private boolean equalityDeletesBlocksHashEnabled = true;
+    private ParquetFooterCacheType parquetFooterCacheType = NONE;
+    private DataSize parquetFooterCacheMemoryMaxSize = DataSize.of(10, MEGABYTE);
 
     public CatalogType getCatalogType()
     {
@@ -399,6 +405,19 @@ public class IcebergConfig
         return this;
     }
 
+    public Optional<DataSize> getMaxSplitSize()
+    {
+        return maxSplitSize;
+    }
+
+    @Config("iceberg.max-split-size")
+    @ConfigDescription("Target maximum split size for Iceberg tables")
+    public IcebergConfig setMaxSplitSize(DataSize maxSplitSize)
+    {
+        this.maxSplitSize = Optional.ofNullable(maxSplitSize);
+        return this;
+    }
+
     public boolean isDeleteSchemaLocationsFallback()
     {
         return this.deleteSchemaLocationsFallback;
@@ -680,6 +699,47 @@ public class IcebergConfig
     public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isEqualityDeletesBlocksHashEnabled()
+    {
+        return equalityDeletesBlocksHashEnabled;
+    }
+
+    @Config("iceberg.equality-deletes-blocks-hash-enabled")
+    @ConfigDescription("Use BlocksHash for optimized equality delete filtering")
+    public IcebergConfig setEqualityDeletesBlocksHashEnabled(boolean equalityDeletesBlocksHashEnabled)
+    {
+        this.equalityDeletesBlocksHashEnabled = equalityDeletesBlocksHashEnabled;
+        return this;
+    }
+
+    @NotNull
+    public ParquetFooterCacheType getParquetFooterCacheType()
+    {
+        return parquetFooterCacheType;
+    }
+
+    @Config("iceberg.parquet-footer-cache.type")
+    @ConfigDescription("Type of cache to use for Parquet footer metadata")
+    public IcebergConfig setParquetFooterCacheType(ParquetFooterCacheType parquetFooterCacheType)
+    {
+        this.parquetFooterCacheType = parquetFooterCacheType;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getParquetFooterCacheMemoryMaxSize()
+    {
+        return parquetFooterCacheMemoryMaxSize;
+    }
+
+    @Config("iceberg.parquet-footer-cache.memory.max-size")
+    @ConfigDescription("Maximum size of the in-memory Parquet footer cache")
+    public IcebergConfig setParquetFooterCacheMemoryMaxSize(DataSize parquetFooterCacheMemoryMaxSize)
+    {
+        this.parquetFooterCacheMemoryMaxSize = parquetFooterCacheMemoryMaxSize;
         return this;
     }
 }

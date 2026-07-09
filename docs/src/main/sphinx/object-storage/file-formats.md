@@ -70,20 +70,22 @@ with Parquet files performed by supported object storage connectors:
   - Maximum values count of pages written by Parquet writer. The equivalent 
     catalog session property is `parquet_writer_page_value_count`.
   - `80000`
-* - `parquet.writer.block-size`
+* - `parquet.writer.row-group-size`
   - Maximum size of row groups written by Parquet writer. The equivalent 
-    catalog session property is `parquet_writer_block_size`.
+    catalog session property is `parquet_writer_row_group_size`.
   - `128 MB`
+* - `parquet.writer.row-group-max-row-count`
+  - Maximum number of rows in row groups written by Parquet writer. The
+    equivalent catalog session property is `parquet_writer_row_group_max_row_count`.
+  - `unlimited`
 * - `parquet.writer.batch-size`
   - Maximum number of rows processed by the parquet writer in a batch.
     The equivalent catalog session property is `parquet_writer_batch_size`.
   - `10000`
 * - `parquet.writer.delta-length-byte-array-encoding-enabled`
   - Use `DELTA_LENGTH_BYTE_ARRAY` encoding for `BYTE_ARRAY` columns when
-    the Parquet dictionary encoding is not effective. Defaults to `false`
-    for the Iceberg connector because iceberg-arrow's vectorized parquet
-    reader does not support this encoding in older iceberg versions.
-  - `true` (Hive, Delta Lake); `false` (Iceberg)
+    the Parquet dictionary encoding is not effective.
+  - `true`
 * - `parquet.use-bloom-filter`
   - Whether bloom filters are used for predicate pushdown when reading Parquet
     files. Set this property to `false` to disable the usage of bloom filters by

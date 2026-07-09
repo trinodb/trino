@@ -30,6 +30,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
@@ -165,7 +166,8 @@ class TestNodeLocalDynamicSplitPruning
                 tableHandle.connectorHandle(),
                 Optional.empty(),
                 ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE, PARTITION_HIVE_COLUMN_HANDLE),
-                dynamicFilter);
+                dynamicFilter,
+                MemoryContext.NO_LIMIT);
     }
 
     private static TupleDomain<ColumnHandle> getTupleDomainForBucketSplitPruning()

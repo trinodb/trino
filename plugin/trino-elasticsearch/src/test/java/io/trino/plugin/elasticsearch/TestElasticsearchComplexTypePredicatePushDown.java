@@ -20,7 +20,7 @@ import io.airlift.json.JsonMapperProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +42,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private RestClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -348,7 +348,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String mappings = indexMapping(properties);
         Request request = new Request("PUT", "/" + indexName);
         request.setJsonEntity(mappings);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String indexMapping(@Language("JSON") String properties)
@@ -362,7 +362,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         String endpoint = format("%s?refresh", bulkEndpoint(index));
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(payload);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String bulkEndpoint(String index)
@@ -374,6 +374,6 @@ final class TestElasticsearchComplexTypePredicatePushDown
             throws IOException
     {
         Request request = new Request("DELETE", "/" + indexName);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 }

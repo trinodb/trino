@@ -20,6 +20,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.EvaluateLogical;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -112,6 +113,6 @@ class TestEvaluateLogical
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateLogical().apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateLogical().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

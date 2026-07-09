@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -25,13 +26,16 @@ import java.math.BigDecimal;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.type.Reals.toReal;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class CharOperators
 {
     private CharOperators() {}
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BOOLEAN)
@@ -40,6 +44,7 @@ public final class CharOperators
         return VarcharOperators.castToBoolean(value);
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DOUBLE)
@@ -53,10 +58,11 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.REAL)
-    public static long castToFloat(@SqlType("char(x)") Slice slice)
+    public static long castToReal(@SqlType("char(x)") Slice slice)
     {
         try {
             return toReal(Float.parseFloat(slice.toStringUtf8().trim()));
@@ -66,6 +72,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
@@ -79,6 +86,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
@@ -92,6 +100,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
@@ -105,6 +114,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
@@ -118,6 +128,7 @@ public final class CharOperators
         }
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.NUMBER)
@@ -138,10 +149,10 @@ public final class CharOperators
     }
 
     @LiteralParameters("x")
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice castToBinary(@SqlType("char(x)") Slice slice)
+    public static Slice castToBinary(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
-        return slice;
+        return padSpaces(slice, toIntExact(x));
     }
 }

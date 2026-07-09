@@ -89,6 +89,43 @@ public class TestSqlServerConnectorTest
     }
 
     @Test
+    public void testSelectFromTemporalTableWithHiddenPeriodColumns()
+    {
+        // A table whose PERIOD columns are HIDDEN (system versioning is not required to make them hidden).
+        // With LIMIT pushdown the read query must not be wrapped in `SELECT TOP n * FROM (...)`, because the
+        // wrapping `SELECT *` re-excludes the HIDDEN period columns and misaligns ordinal-based reads.
+        String tableName = "test_temporal_" + randomNameSuffix();
+        onRemoteDatabase().execute(format(
+                """
+                CREATE TABLE dbo.%s (
+                    Id INT NOT NULL PRIMARY KEY,
+                    Name NVARCHAR(50) NOT NULL,
+                    ValidFrom DATETIME2(7) GENERATED ALWAYS AS ROW START HIDDEN NOT NULL,
+                    ValidTo DATETIME2(7) GENERATED ALWAYS AS ROW END HIDDEN NOT NULL,
+                    IsActive BIT NOT NULL,
+                    PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo))
+                """,
+                tableName));
+        try {
+            onRemoteDatabase().execute(format("INSERT INTO dbo.%s (Id, Name, IsActive) VALUES (1, 'a', 1)", tableName));
+
+            // The hidden period columns are exposed by DatabaseMetaData.getColumns(), so Trino sees 5 columns.
+            assertThat(computeActual("DESCRIBE " + tableName).getRowCount()).isEqualTo(5);
+
+            // SELECT * with LIMIT exercises the hidden period columns; the IsActive (BIT) column must not be read as a timestamp.
+            assertThat(computeActual("SELECT * FROM " + tableName + " LIMIT 10").getRowCount()).isEqualTo(1);
+            assertThat(query("SELECT * FROM " + tableName + " LIMIT 0")).returnsEmptyResult();
+
+            assertThat(query("SELECT Id, Name, IsActive FROM " + tableName))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 'a', true)");
+        }
+        finally {
+            onRemoteDatabase().execute("DROP TABLE dbo." + tableName);
+        }
+    }
+
+    @Test
     public void testInsertWriteBulkiness()
             throws SQLException
     {

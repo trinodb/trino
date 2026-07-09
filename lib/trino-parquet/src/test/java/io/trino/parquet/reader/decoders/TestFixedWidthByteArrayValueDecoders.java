@@ -27,6 +27,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -59,7 +60,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.concat;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.assertj.core.api.Assertions.assertThat;
 

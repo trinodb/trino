@@ -27,6 +27,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.client.ClientCapabilities;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeZoneKey;
@@ -56,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -73,6 +75,7 @@ import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -359,29 +362,36 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testCharVarcharComparison()
     {
-        // with implicit coercions
-        assertQuery(
+        // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar (no blank
+        // padding): char '   ' becomes '', so it matches the empty varchar but not a space-padded varchar.
+        assertThat(query(
                 "SELECT * FROM (VALUES" +
                         "   CAST(NULL AS char(3)), " +
                         "   CAST('   ' AS char(3))) t(x) " +
-                        "WHERE x = CAST('  ' AS varchar(2))",
-                // H2 returns '' on CAST char(3) to varchar(2)
-                "SELECT '   '");
+                        "WHERE x = CAST('' AS varchar(2))"))
+                .matches("VALUES CAST('   ' AS char(3))");
 
-        // with explicit casts
-        assertQuery(
+        assertThat(query(
                 "SELECT * FROM (VALUES" +
                         "   CAST(NULL AS char(3)), " +
                         "   CAST('   ' AS char(3))) t(x) " +
-                        "WHERE CAST(x AS varchar(2)) = CAST('  ' AS varchar(2))",
-                // H2 returns '' on CAST char(3) to varchar(2)
-                "SELECT '   '");
+                        "WHERE x = CAST('  ' AS varchar(2))"))
+                .returnsEmptyResult();
+
+        // explicit casts to varchar compare as varchar (no blank padding) as well
+        assertThat(query(
+                "SELECT * FROM (VALUES" +
+                        "   CAST(NULL AS char(3)), " +
+                        "   CAST('   ' AS char(3))) t(x) " +
+                        "WHERE CAST(x AS varchar(2)) = CAST('' AS varchar(2))"))
+                .matches("VALUES CAST('   ' AS char(3))");
     }
 
     @Test
     public void testVarcharCharComparison()
     {
-        // with implicit coercions
+        // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar (no blank
+        // padding): char '  ' becomes '', matching only the empty varchar.
         assertThat(query("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS varchar(3)), " +
                 "   CAST('' AS varchar(3))," +
@@ -389,7 +399,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
                 "WHERE x = CAST('  ' AS char(2))"))
-                .matches("VALUES '', ' ', '  ', '   '");
+                .matches("VALUES CAST('' AS varchar(3))");
 
         // with explicit casts
         assertQuery("SELECT * FROM (VALUES" +
@@ -1600,6 +1610,34 @@ public abstract class AbstractTestEngineOnlyQueries
         // Test inline query syntax
         MaterializedResult inlineResult = computeActual(session, format("DESCRIBE OUTPUT (%s)", sql));
         assertEqualsIgnoreOrder(inlineResult, expected);
+    }
+
+    @Test
+    public void testDescribeOutputNumberTypeWithCapability()
+    {
+        Session session = Session.builder(getSession())
+                .setClientCapabilities(Stream.of(ClientCapabilities.values())
+                        .map(ClientCapabilities::toString)
+                        .collect(toImmutableSet()))
+                .build();
+        String sql = "SELECT NUMBER '1.5'";
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("_col0", "", "", "", "number", 0, false)
+                .build();
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
+    }
+
+    @Test
+    public void testDescribeOutputNumberTypeWithoutCapability()
+    {
+        Session session = Session.builder(getSession())
+                .setClientCapabilities(ImmutableSet.of())
+                .build();
+        String sql = "SELECT NUMBER '1.5'";
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("_col0", "", "", "", "varchar", 0, false)
+                .build();
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test
@@ -5566,6 +5604,77 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testShowSchemasLike()
+    {
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
+        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
+    }
+
+    @Test
+    public void testShowSchemasFrom()
+    {
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
+        assertThat(result.getOnlyColumnAsSet()).contains("information_schema");
+    }
+
+    @Test
+    public void testShowTablesLike()
+    {
+        assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
+                .contains("orders")
+                .allMatch(tableName -> ((String) tableName).startsWith("or"));
+    }
+
+    @Test
+    public void testShowInformationSchemaTables()
+    {
+        assertThat(computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet())
+                .isEqualTo(Set.of("applicable_roles", "columns", "enabled_roles", "roles", "schemata", "table_privileges", "tables", "views"));
+    }
+
+    @Test
+    public void testShowCreateInformationSchema()
+    {
+        assertThat(query("SHOW CREATE SCHEMA information_schema"))
+                .skippingTypesCheck()
+                .matches(format("VALUES 'CREATE SCHEMA %s.information_schema'", getSession().getCatalog().orElseThrow()));
+    }
+
+    @Test
+    public void testShowCreateInformationSchemaTable()
+    {
+        assertQueryFails("SHOW CREATE VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a view");
+        assertQueryFails("SHOW CREATE MATERIALIZED VIEW information_schema.schemata", "line 1:1: Relation '\\w+.information_schema.schemata' is a table, not a materialized view");
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE information_schema.schemata"))
+                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".information_schema.schemata (\n" +
+                        "   catalog_name varchar,\n" +
+                        "   schema_name varchar\n" +
+                        ")");
+    }
+
+    @Test
+    public void testSymbolAliasing()
+    {
+        String tableName = "memory.default.test_symbol_aliasing_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
+            assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDropTableIfExists()
+    {
+        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
+        assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
+        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
+    }
+
+    @Test
     public void testCast()
     {
         assertQuery("SELECT CAST('1' AS BIGINT)");
@@ -5728,6 +5837,12 @@ public abstract class AbstractTestEngineOnlyQueries
                         "   UNION ALL " +
                         "   SELECT shipdate ds, orderkey FROM lineitem) a " +
                         "JOIN orders o ON (a.orderkey = o.orderkey)");
+    }
+
+    @Test
+    public void testUnionAllAboveBroadcastJoin()
+    {
+        assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
     }
 
     @Test
@@ -6505,7 +6620,7 @@ public abstract class AbstractTestEngineOnlyQueries
         // returning char(6) (java type Slice)
         assertThat(query("SELECT json_value(json_input, 'strict $?(@[1] > 1 || @[2] == true)[0]' RETURNING char(6)) result " +
                 "              FROM (SELECT format('[\"%s\", %s, %s]', name, regionkey, comment > 'k') FROM region) t(json_input)")) // JSON array[text, number, boolean]
-                .matches("VALUES cast('AFRICA' AS char(6)), null, 'ASIA  ', 'EUROPE', 'MIDDLE'");
+                .matches("VALUES cast('AFRICA' AS char(6)), null, cast('ASIA' AS char(6)), cast('EUROPE' AS char(6)), cast('MIDDLE' AS char(6))");
 
         // returning integer (java type long)
         assertThat(query("SELECT json_value(json_input, 'strict $?(@[0] starts with \"A\" || @[1] < 4)[1]' RETURNING integer) result " +

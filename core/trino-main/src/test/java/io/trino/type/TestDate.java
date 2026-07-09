@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
@@ -320,6 +321,30 @@ public class TestDate
         assertThat(assertions.expression("cast(a as timestamp)")
                 .binding("a", "DATE '2001-1-22'"))
                 .matches("TIMESTAMP '2001-01-22 00:00:00.000'");
+    }
+
+    @Test
+    public void testCastToTimestampOverflow()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '5881580-07-11' AS timestamp(0))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: 2147483647");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '5881580-07-11' AS timestamp(6))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: 2147483647");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '5881580-07-11' AS timestamp(12))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: 2147483647");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '-5877641-06-23' AS timestamp(0))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: -2147483648");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '-5877641-06-23' AS timestamp(6))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: -2147483648");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(DATE '-5877641-06-23' AS timestamp(12))")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Date cannot be represented as timestamp: -2147483648");
     }
 
     @Test

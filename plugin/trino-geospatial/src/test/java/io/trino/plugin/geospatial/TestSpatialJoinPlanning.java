@@ -30,7 +30,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -58,13 +57,14 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -374,13 +374,13 @@ public class TestSpatialJoinPlanning
                                         .left(
                                                 project(
                                                         ImmutableMap.of(
-                                                                "wkt_a", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), new Constant(createVarcharType(45), null))),
+                                                                "wkt_a", expression(new Case(ImmutableList.of(new WhenClause(comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), new Constant(createVarcharType(45), null))),
                                                                 "name_a", expression(new Constant(createVarcharType(1), Slices.utf8Slice("a")))),
                                                         singleRow()))
                                         .right(
                                                 any(project(
                                                         ImmutableMap.of(
-                                                                "wkt_b", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), new Constant(createVarcharType(45), null))),
+                                                                "wkt_b", expression(new Case(ImmutableList.of(new WhenClause(comparison(GREATER_THAN_OR_EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), new Constant(createVarcharType(45), null))),
                                                                 "name_b", expression(new Constant(createVarcharType(1), Slices.utf8Slice("a")))),
                                                         singleRow())))))));
     }
@@ -446,7 +446,7 @@ public class TestSpatialJoinPlanning
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND a.name <> b.name",
                 anyTree(
                         spatialLeftJoin(
-                                new Logical(AND, ImmutableList.of(new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))), new Comparison(NOT_EQUAL, new Reference(VARCHAR, "name_a"), new Reference(VARCHAR, "name_b")))),
+                                new Logical(AND, ImmutableList.of(new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))), comparison(NOT_EQUAL, new Reference(VARCHAR, "name_a"), new Reference(VARCHAR, "name_b")))),
                                 project(ImmutableMap.of("st_point", expression(new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
@@ -460,7 +460,7 @@ public class TestSpatialJoinPlanning
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND rand() < 0.5",
                 anyTree(
                         spatialLeftJoin(
-                                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.5)), new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))))),
+                                new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.5)), new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))))),
                                 project(ImmutableMap.of("st_point", expression(new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
@@ -558,7 +558,7 @@ public class TestSpatialJoinPlanning
     private PlanMatchPattern singleRow()
     {
         return filter(
-                new Comparison(EQUAL, new Reference(BIGINT, "regionkey"), new Constant(BIGINT, 1L)),
+                comparison(EQUAL, new Reference(BIGINT, "regionkey"), new Constant(BIGINT, 1L)),
                 tableScan("region", ImmutableMap.of("regionkey", "regionkey")));
     }
 

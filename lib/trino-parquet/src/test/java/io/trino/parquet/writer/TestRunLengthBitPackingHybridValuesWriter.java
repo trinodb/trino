@@ -16,6 +16,7 @@ package io.trino.parquet.writer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
 import io.trino.parquet.reader.decoders.RleBitPackingHybridDecoder;
 import io.trino.parquet.writer.valuewriter.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.bytes.BytesInput;
@@ -26,7 +27,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-import static io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRunLengthBitPackingHybridValuesWriter

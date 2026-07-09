@@ -144,7 +144,7 @@ public class TestHiveViewsLegacy
                 .hasMessageContaining("Function 'pmod' not registered");
     }
 
-    // When doing legacy Hive View translation, Trino columns type signature corresponds one to one with the Hive view columns type
+    // When doing legacy Hive View translation, Trino columns type descriptor corresponds one to one with the Hive view columns type
     @Override
     protected List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes()
     {
@@ -154,15 +154,6 @@ public class TestHiveViewsLegacy
                 row("a_varchar_1", "varchar(1)"),
                 row("a_varchar_65535", "varchar(65535)"),
                 row("a_string", "varchar"));
-    }
-
-    @Override
-    @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
-    public void testNestedHiveViews()
-    {
-        assertThatThrownBy(super::testNestedHiveViews)
-                .hasMessageContaining("View 'hive.default.nested_top_view' is stale or in invalid state: column [n_renamed] of type varchar projected from query view at position 0 cannot be coerced to column [n_renamed] of type varchar(25) stored in view definition");
     }
 
     @Override

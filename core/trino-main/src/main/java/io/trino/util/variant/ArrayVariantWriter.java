@@ -18,6 +18,8 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.variant.Metadata;
 
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+
 record ArrayVariantWriter(ArrayType type, VariantWriter elementWriter)
         implements VariantWriter
 {
@@ -32,7 +34,7 @@ record ArrayVariantWriter(ArrayType type, VariantWriter elementWriter)
         Block array = (Block) value;
         PlannedValue[] planned = new PlannedValue[array.getPositionCount()];
         for (int position = 0; position < array.getPositionCount(); position++) {
-            planned[position] = elementWriter.plan(metadataBuilder, elementType.getObject(array, position));
+            planned[position] = elementWriter.plan(metadataBuilder, readNativeValue(elementType, array, position));
         }
         return new PlannedArrayValue(planned);
     }

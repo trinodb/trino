@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.wire.version>6.2.0</dep.wire.version>
+        <dep.wire.version>6.4.0</dep.wire.version>
     </properties>
 
     <dependencies>
@@ -107,21 +107,21 @@
         </dependency>
 
         <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.okio</groupId>
             <artifactId>okio-jvm</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.xerial.snappy</groupId>
-            <artifactId>snappy-java</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

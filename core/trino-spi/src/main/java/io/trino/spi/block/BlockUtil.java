@@ -22,6 +22,7 @@ import java.util.Optional;
 import static java.lang.Math.ceil;
 import static java.lang.Math.clamp;
 import static java.lang.String.format;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
 
 final class BlockUtil
@@ -63,11 +64,6 @@ final class BlockUtil
         if (position < 0 || position >= positionCount) {
             throw new IllegalArgumentException(format("Invalid position %s in block with %s positions", position, positionCount));
         }
-    }
-
-    static void checkReadablePosition(Block block, int position)
-    {
-        checkValidPosition(position, block.getPositionCount());
     }
 
     static int calculateNewArraySize(int currentSize)
@@ -317,6 +313,26 @@ final class BlockUtil
         }
 
         return buffer;
+    }
+
+    /**
+     * Consolidated implementation of {@link Block#hasNull()}, returning <code>true</code> if a null value exists
+     * and <code>false</code> otherwise
+     */
+    static boolean hasNullValue(@Nullable boolean[] valueIsNull, int arrayOffset, int positionCount)
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+
+        int toIndex = arrayOffset + positionCount;
+        checkFromToIndex(arrayOffset, toIndex, valueIsNull.length);
+        for (int i = arrayOffset; i < toIndex; i++) {
+            if (valueIsNull[i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

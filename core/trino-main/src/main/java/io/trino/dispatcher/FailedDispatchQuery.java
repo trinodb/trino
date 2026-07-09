@@ -27,6 +27,7 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
@@ -40,7 +41,6 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.Duration.succinctDuration;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

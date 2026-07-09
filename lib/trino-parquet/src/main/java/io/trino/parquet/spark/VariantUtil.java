@@ -120,11 +120,10 @@ public final class VariantUtil
     // The lower 4 bits of the first metadata byte contain the version.
     public static final byte VERSION_MASK = 0x0F;
 
-    public static final int U24_MAX = 0xFFFFFF;
     public static final int U32_SIZE = 4;
 
-    // Both variant value and variant metadata need to be no longer than 16MiB.
-    public static final int SIZE_LIMIT = U24_MAX + 1;
+    // Both variant value and variant metadata need to be no longer than 128MiB.
+    public static final int SIZE_LIMIT = 128 * 1024 * 1024;
 
     public static final int MAX_DECIMAL4_PRECISION = 9;
     public static final int MAX_DECIMAL8_PRECISION = 18;

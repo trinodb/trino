@@ -25,6 +25,7 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -79,7 +80,6 @@ import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
-import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.parquet.metadata.PrunedBlockMetadata.createPrunedColumnsMetadata;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -178,7 +178,7 @@ public class ParquetWriter
 
         int writeOffset = 0;
         while (writeOffset < page.getPositionCount()) {
-            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, writerOption.getBatchSize()));
+            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, min(writerOption.getBatchSize(), writerOption.getMaxRowGroupRowCount() - rows)));
 
             // avoid chunk with huge logical size
             while (chunk.getPositionCount() > 1 && chunk.getSizeInBytes() > chunkMaxBytes) {
@@ -200,7 +200,7 @@ public class ParquetWriter
         rows += page.getPositionCount();
         updateEstimatedBufferedBytes();
 
-        if (estimatedBufferedBytes >= writerOption.getMaxRowGroupSize()) {
+        if (estimatedBufferedBytes >= writerOption.getMaxRowGroupSize() || rows >= writerOption.getMaxRowGroupRowCount()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
             initColumnWriters();

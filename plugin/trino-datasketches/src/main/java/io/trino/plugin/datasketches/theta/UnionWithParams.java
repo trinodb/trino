@@ -25,15 +25,17 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import static java.lang.Math.toIntExact;
+
 @AggregationFunction("theta_sketch_union")
 public final class UnionWithParams
 {
     private UnionWithParams() {}
 
     @InputFunction
-    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) Integer nominalEntries, @SqlType(StandardTypes.BIGINT) Long seed)
+    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) long nominalEntries, @SqlType(StandardTypes.BIGINT) long seed)
     {
-        state.setNominalEntries(nominalEntries);
+        state.setNominalEntries(toIntExact(nominalEntries));
         state.setSeed(seed);
         state.addSketch(inputValue);
     }

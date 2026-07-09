@@ -26,7 +26,6 @@ import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
@@ -38,6 +37,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -317,7 +317,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         DeltaLakePageSourceProvider provider = new DeltaLakePageSourceProvider(
-                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()),
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
                 stats,
                 PARQUET_READER_CONFIG,
                 deltaLakeConfig,
@@ -330,7 +330,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                 tableHandle.connectorHandle(),
                 Optional.empty(),
                 columns,
-                dynamicFilter);
+                dynamicFilter,
+                MemoryContext.NO_LIMIT);
     }
 
     private static TestingConnectorSession getSession(DeltaLakeConfig deltaLakeConfig)

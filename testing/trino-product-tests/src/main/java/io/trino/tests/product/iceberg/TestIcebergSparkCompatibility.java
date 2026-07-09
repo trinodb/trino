@@ -22,6 +22,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
@@ -54,7 +55,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.DataProviders.cartesianProduct;
@@ -219,6 +219,35 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE})
+    public void testTrinoReadingSparkWriteTableProperties()
+    {
+        String baseTableName = toLowerCase("test_trino_reading_spark_write_table_properties_" + randomNameSuffix());
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (a INT) USING ICEBERG " +
+                        "TBLPROPERTIES (" +
+                        "  'write.target-file-size-bytes' = '%s'," +
+                        "  'write.parquet.row-group-size-bytes' = '%s'" +
+                        ")",
+                sparkTableName,
+                100L * 1024 * 1024,
+                4L * 1024 * 1024));
+
+        try {
+            assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
+                    .contains("target_max_file_size = '100MB'")
+                    .contains("parquet_writer_row_group_size = '4MB'");
+        }
+        finally {
+            onSpark().executeQuery("DROP TABLE " + sparkTableName);
+        }
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE}, dataProvider = "testSparkReadingTrinoDataDataProvider")
     public void testSparkReadingTrinoData(StorageFormat storageFormat, CreateMode createMode)
     {
@@ -247,7 +276,7 @@ public class TestIcebergSparkCompatibility
                 """;
 
         switch (createMode) {
-            case CREATE_TABLE_AND_INSERT:
+            case CREATE_TABLE_AND_INSERT -> {
                 onTrino().executeQuery(
                         """
                         CREATE TABLE %s (
@@ -267,19 +296,13 @@ public class TestIcebergSparkCompatibility
                         ) WITH (format = '%s')""".formatted(trinoTableName, storageFormat));
 
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_AS_SELECT:
-                onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
+            }
+            case CREATE_TABLE_AS_SELECT -> onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT -> {
                 onTrino().executeQuery(format("CREATE TABLE %s AS %s WITH NO DATA", trinoTableName, namedValues));
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
         }
 
         Row row = row(
@@ -378,7 +401,7 @@ public class TestIcebergSparkCompatibility
                 "";
 
         switch (createMode) {
-            case CREATE_TABLE_AND_INSERT:
+            case CREATE_TABLE_AND_INSERT -> {
                 onTrino().executeQuery(format(
                         "CREATE TABLE %s (" +
                                 "  _string VARCHAR" +
@@ -401,19 +424,13 @@ public class TestIcebergSparkCompatibility
                         specVersion));
 
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            case CREATE_TABLE_AS_SELECT:
-                onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s", trinoTableName, specVersion, namedValues));
-                break;
-
-            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
+            }
+            case CREATE_TABLE_AS_SELECT -> onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s", trinoTableName, specVersion, namedValues));
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT -> {
                 onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s WITH NO DATA", trinoTableName, specVersion, namedValues));
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
         }
 
         Row row = row(
@@ -1679,7 +1696,7 @@ public class TestIcebergSparkCompatibility
                                             String engineName = engine.name().toLowerCase(ENGLISH);
                                             long value = i;
                                             switch (engine) {
-                                                case TRINO:
+                                                case TRINO -> {
                                                     try {
                                                         onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
                                                     }
@@ -1687,12 +1704,9 @@ public class TestIcebergSparkCompatibility
                                                         // failed to insert
                                                         continue; // next loop iteration
                                                     }
-                                                    break;
-                                                case SPARK:
-                                                    onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
-                                                    break;
-                                                default:
-                                                    throw new UnsupportedOperationException("Unexpected engine: " + engine);
+                                                }
+                                                case SPARK -> onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
+                                                default -> throw new UnsupportedOperationException("Unexpected engine: " + engine);
                                             }
 
                                             inserted.add(row(engineName, value));
@@ -3632,17 +3646,10 @@ public class TestIcebergSparkCompatibility
                 }
                 values.append(format("(%d, '%s', X'%s')", i, uuid, uuid.replace("-", "")));
             }
-            // The connector default is false so that Spark+Iceberg reads of small tables
-            // stay healthy; opt in explicitly here to trigger the iceberg-arrow vectorized
-            // read failure that this sentinel test asserts.
-            onTrino().executeQuery("SET SESSION iceberg.parquet_writer_delta_length_byte_array_encoding_enabled = true");
             onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, values));
 
-            // iceberg-arrow's vectorized parquet reader does not support DELTA_LENGTH_BYTE_ARRAY
-            // in older iceberg versions; reading should fail.
-            assertQueryFailure(() -> onSpark().executeQuery(format("SELECT count(DISTINCT str) FROM %s", sparkTableName)))
-                    .hasMessageContaining("Cannot support vectorized reads")
-                    .hasMessageContaining("DELTA_LENGTH_BYTE_ARRAY");
+            assertThat(onSpark().executeQuery(format("SELECT count(DISTINCT str) FROM %s", sparkTableName)))
+                    .contains(row(5000));
         }
         finally {
             onTrino().executeQuery("DROP TABLE " + trinoTableName);

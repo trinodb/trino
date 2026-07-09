@@ -14,9 +14,7 @@
 package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SourcePage;
@@ -46,18 +44,18 @@ public class TestTupleFilterProcessor
     @Test
     public void testFilter()
     {
-        Page tuplePage = Iterables.getOnlyElement(rowPagesBuilder(BIGINT, VARCHAR, DOUBLE)
+        Page tuplePage = rowPagesBuilder(BIGINT, VARCHAR, DOUBLE)
                 .row(1L, "a", 0.1)
-                .build());
+                .buildPage();
 
         List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, BOOLEAN, DOUBLE, DOUBLE);
 
-        Page inputPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
+        Page inputPage = rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)
                 .row("b", 1L, true, 0.1, 2.0)
                 .row("a", 1L, false, 0.1, 2.0)
                 .row("a", 0L, false, 0.2, 0.2)
-                .build());
+                .buildPage();
 
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
         PageFunctionCompiler pageFunctionCompiler = functionResolution.getPageFunctionCompiler();
@@ -74,15 +72,14 @@ public class TestTupleFilterProcessor
         Page actualPage = getOnlyElement(
                 tupleFilterProcessor.process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(inputPage)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
-        Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
+        Page expectedPage = rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)
                 .row("a", 1L, false, 0.1, 2.0)
-                .build());
+                .buildPage();
 
         assertPageEquals(outputTypes, actualPage, expectedPage);
     }

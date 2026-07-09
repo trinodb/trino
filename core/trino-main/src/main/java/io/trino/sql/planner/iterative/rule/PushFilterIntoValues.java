@@ -127,7 +127,7 @@ public class PushFilterIntoValues
             };
 
             Expression rewrittenPredicate = inlineSymbols(mapping, predicate);
-            Optional<Expression> optimizedPredicate = plannerContext.getExpressionOptimizer().process(rewrittenPredicate, context.getSession(), ImmutableMap.of());
+            Optional<Expression> optimizedPredicate = plannerContext.getExpressionOptimizer().process(rewrittenPredicate, context.getSession(), context.getSymbolAllocator(), ImmutableMap.of());
 
             if (optimizedPredicate.isPresent() && optimizedPredicate.get().equals(TRUE)) {
                 filteredRows.add(expression);

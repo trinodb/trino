@@ -28,7 +28,7 @@ import java.io.IOException;
 
 /**
  * Encodes/decodes the QueryData for existing raw and encoded protocols.
- * <p></p>
+ * <p>
  *
  * If the passed QueryData is raw - serialize its' data as a materialized array of array of objects.
  * If the passed QueryData is bytes - just write them directly

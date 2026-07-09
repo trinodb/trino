@@ -56,7 +56,7 @@ public final class TinyintType
 
     private TinyintType()
     {
-        super(new TypeSignature(NAME), long.class, ByteArrayBlock.class);
+        super(new TypeDescriptor(NAME), long.class, ByteArrayBlock.class);
     }
 
     @Override

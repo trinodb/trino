@@ -57,6 +57,14 @@ public class ClassLoaderSafeConnectorTableFunction
     }
 
     @Override
+    public String getDescription()
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getDescription();
+        }
+    }
+
+    @Override
     public List<ArgumentSpecification> getArguments()
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

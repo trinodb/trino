@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.InstanceMethod;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.StaticMethod;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -68,9 +70,24 @@ public class TestMethodCall
     @ScalarFunction("repeat")
     @InstanceMethod
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice varcharRepeat(@SqlType(StandardTypes.VARCHAR) Slice self, @SqlType(StandardTypes.BIGINT) long count)
+    public static Slice varcharRepeat(@SqlType(StandardTypes.VARCHAR) Slice self, @Name("count") @SqlType(StandardTypes.BIGINT) long count)
     {
         return Slices.utf8Slice(self.toStringUtf8().repeat((int) count));
+    }
+
+    @ScalarFunction("pad")
+    @InstanceMethod
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice varcharPad(
+            @SqlType(StandardTypes.VARCHAR) Slice self,
+            @Name("length") @SqlType(StandardTypes.BIGINT) long length,
+            @Name("pad") @SqlType(StandardTypes.VARCHAR) Slice pad)
+    {
+        StringBuilder builder = new StringBuilder(self.toStringUtf8());
+        while (builder.length() < length) {
+            builder.append(pad.toStringUtf8());
+        }
+        return Slices.utf8Slice(builder.substring(0, (int) Math.max(length, self.toStringUtf8().length())));
     }
 
     @ScalarFunction("from_string")
@@ -98,7 +115,7 @@ public class TestMethodCall
     @Test
     public void testWithArguments()
     {
-        assertThat(assertions.expression("('ab').repeat(3)"))
+        assertThat(assertions.expression("'ab'.repeat(3)"))
                 .matches("VARCHAR 'ababab'");
     }
 
@@ -115,7 +132,7 @@ public class TestMethodCall
     @Test
     public void testUnknownMethod()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.expression("('hello').nope()").evaluate())
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'hello'.nope()").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
@@ -139,7 +156,7 @@ public class TestMethodCall
     public void testStaticMethodNotResolvableAsInstanceMethod()
     {
         // `from_string` is a @StaticMethod on bigint, so the instance-method form must not find it.
-        assertTrinoExceptionThrownBy(() -> assertions.expression("('42').from_string()").evaluate())
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'42'.from_string()").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
@@ -163,7 +180,7 @@ public class TestMethodCall
     public void testArgumentCoercion()
     {
         // TINYINT coerces to BIGINT, matching the declared argument type.
-        assertThat(assertions.expression("('ab').repeat(TINYINT '3')"))
+        assertThat(assertions.expression("'ab'.repeat(TINYINT '3')"))
                 .matches("VARCHAR 'ababab'");
     }
 
@@ -171,17 +188,89 @@ public class TestMethodCall
     public void testArgumentNotCoercible()
     {
         // VARCHAR has no implicit coercion to BIGINT, so the call fails to resolve.
-        assertTrinoExceptionThrownBy(() -> assertions.expression("('ab').repeat('three')").evaluate())
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'ab'.repeat('three')").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
     @Test
     public void testCaseInsensitiveMethodName()
     {
-        assertThat(assertions.expression("('hello').CHAR_LENGTH()"))
+        assertThat(assertions.expression("'hello'.CHAR_LENGTH()"))
                 .matches("BIGINT '5'");
-        assertThat(assertions.expression("('hello').Char_Length()"))
+        assertThat(assertions.expression("'hello'.Char_Length()"))
                 .matches("BIGINT '5'");
+    }
+
+    @Test
+    public void testNamedArgument()
+    {
+        assertThat(assertions.expression("'ab'.repeat(count => 3)"))
+                .matches("VARCHAR 'ababab'");
+    }
+
+    @Test
+    public void testNamedArgumentsReordered()
+    {
+        // Named arguments may appear in any order; they bind by declared name.
+        assertThat(assertions.expression("'xy'.pad(pad => '-', length => 5)"))
+                .matches("VARCHAR 'xy---'");
+    }
+
+    @Test
+    public void testPositionalThenNamedArguments()
+    {
+        assertThat(assertions.expression("'xy'.pad(5, pad => '-')"))
+                .matches("VARCHAR 'xy---'");
+    }
+
+    @Test
+    public void testNamedArgumentOnBareReceiver()
+    {
+        // The receiver resolves as a column, so s.repeat(count => 3) is an instance-method
+        // call with a named argument rather than a function named "s.repeat".
+        assertThat(assertions.query("SELECT s.repeat(count => 3) FROM (VALUES VARCHAR 'ab') t(s)"))
+                .matches("VALUES VARCHAR 'ababab'");
+    }
+
+    @Test
+    public void testUnknownNamedArgument()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'ab'.repeat(bogus => 3)").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("No argument named bogus for method repeat");
+    }
+
+    @Test
+    public void testNamedArgumentOnUnknownMethod()
+    {
+        // A named argument on a method that does not exist reports method-not-found, rather
+        // than a misleading "No argument named ..." that would imply the method exists.
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'hello'.nope(count => 1)").evaluate())
+                .hasErrorCode(FUNCTION_NOT_FOUND);
+    }
+
+    @Test
+    public void testPositionalArgumentAfterNamed()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'xy'.pad(length => 5, '-')").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Positional arguments cannot follow named arguments");
+    }
+
+    @Test
+    public void testNamedArgumentForPositionallySuppliedSlot()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'xy'.pad(5, length => 3)").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Named argument length for method pad refers to parameter position 0, which is already supplied positionally");
+    }
+
+    @Test
+    public void testDuplicateNamedArgument()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("'xy'.pad(length => 5, length => 6)").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Duplicate named argument: length");
     }
 
     @Test

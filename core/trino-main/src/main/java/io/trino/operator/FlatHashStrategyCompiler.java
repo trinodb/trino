@@ -33,6 +33,7 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -112,6 +113,11 @@ public final class FlatHashStrategyCompiler
     public InterpretedHashGenerator getInterpretedHashGenerator(List<Type> types)
     {
         return createPagePrefixHashGenerator(types, nullSafeHashCompiler);
+    }
+
+    public BlocksHashFactory createBlocksHashFactory()
+    {
+        return (types, cacheHashValue, expectedSize) -> new FlatHash(getFlatHashStrategy(types), cacheHashValue, expectedSize, UpdateMemory.NOOP);
     }
 
     @Managed

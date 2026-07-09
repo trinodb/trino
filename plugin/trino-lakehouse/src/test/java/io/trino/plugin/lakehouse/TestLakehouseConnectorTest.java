@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
@@ -42,9 +42,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,20 +62,20 @@ public class TestLakehouseConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Hive3MinioDataLake hiveMinio = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinio.start();
+        Hive3FlociDataLake hiveFloci = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFloci.start();
 
         return LakehouseQueryRunner.builder()
                 .addExtraProperty("sql.path", "lakehouse.functions")
                 .addExtraProperty("sql.default-function-catalog", "lakehouse")
                 .addExtraProperty("sql.default-function-schema", "functions")
-                .addLakehouseProperty("hive.metastore.uri", hiveMinio.getHiveMetastoreEndpoint().toString())
+                .addLakehouseProperty("hive.metastore.uri", hiveFloci.getHiveMetastoreEndpoint().toString())
                 .addLakehouseProperty("fs.hadoop.enabled", "true")
                 .addLakehouseProperty("fs.s3.enabled", "true")
-                .addLakehouseProperty("s3.aws-access-key", MINIO_ROOT_USER)
-                .addLakehouseProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
-                .addLakehouseProperty("s3.region", MINIO_REGION)
-                .addLakehouseProperty("s3.endpoint", hiveMinio.getMinio().getMinioAddress())
+                .addLakehouseProperty("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                .addLakehouseProperty("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                .addLakehouseProperty("s3.endpoint", hiveFloci.floci().endpoint().toString())
+                .addLakehouseProperty("s3.region", FLOCI_REGION)
                 .addLakehouseProperty("s3.path-style-access", "true")
                 .addLakehouseProperty("s3.streaming.part-size", "5MB")
                 .addLakehouseProperty("hive.metastore-cache-ttl", "1d")
@@ -234,10 +234,6 @@ public class TestLakehouseConnectorTest
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("char(3)")) {
-            return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
-        }
         return Optional.of(dataMappingTestSetup);
     }
 
@@ -358,10 +354,13 @@ public class TestLakehouseConnectorTest
                         "   (-1, CAST(NULL AS CHAR(3))), " +
                         "   (3, CAST('   ' AS CHAR(3)))," +
                         "   (6, CAST('x  ' AS CHAR(3)))")) {
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))")).returnsEmptyResult();
-            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('    ' AS varchar(4))")).returnsEmptyResult();
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('' AS varchar(2))"))
+                    .skippingTypesCheck()
+                    .matches("VALUES (3, '')");
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x' AS varchar(2))"))
+                    .skippingTypesCheck()
+                    .matches("VALUES (6, 'x')");
             assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))")).returnsEmptyResult();
-            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('   ' AS varchar(3))", "VALUES (3, '   ')");
         }
     }
 

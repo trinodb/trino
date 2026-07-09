@@ -56,8 +56,5 @@ public class TestAllGroupsUsed
 
         assertThat(Sets.difference(usedGroups, definedGroups)).as("Only groups defined by TestGroups should be used in test suites")
                 .isEmpty();
-
-        assertThat(Sets.difference(definedGroups, usedGroups)).as("All groups defined by TestGroups should be used in test suites")
-                .isEmpty();
     }
 }

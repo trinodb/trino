@@ -80,7 +80,8 @@ public class QueryRangeTableFunction
                                 .type(INTEGER)
                                 .defaultValue(0L)
                                 .build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "");
 
         this.metadata = requireNonNull(metadata, "metadata is null");
     }

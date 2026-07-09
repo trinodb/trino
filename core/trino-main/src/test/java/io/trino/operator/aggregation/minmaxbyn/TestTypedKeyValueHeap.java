@@ -20,7 +20,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -42,6 +41,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Comparator.comparing;
 
@@ -231,7 +231,7 @@ public class TestTypedKeyValueHeap
     private static <T> ValueBlock toBlock(Type type, List<T> inputStream)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, INPUT_SIZE);
-        inputStream.forEach(value -> TypeUtils.writeNativeValue(type, blockBuilder, value));
+        inputStream.forEach(value -> writeNativeValue(type, blockBuilder, value));
         return blockBuilder.buildValueBlock();
     }
 

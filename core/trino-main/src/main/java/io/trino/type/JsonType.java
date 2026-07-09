@@ -20,9 +20,9 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 /**
  * The stack representation for JSON objects must have the keys in natural sorted order.
@@ -40,7 +40,7 @@ public class JsonType
 
     private JsonType()
     {
-        super(new TypeSignature(NAME), Slice.class);
+        super(new TypeDescriptor(NAME), Slice.class);
     }
 
     @Override

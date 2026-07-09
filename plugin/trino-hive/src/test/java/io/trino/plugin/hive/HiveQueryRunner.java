@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static io.airlift.log.Level.WARN;
@@ -83,17 +84,28 @@ public final class HiveQueryRunner
         return builder().build();
     }
 
-    public static Builder<Builder<?>> builder()
+    public static ConcreteBuilder builder()
     {
-        return new Builder<>();
+        return new ConcreteBuilder();
     }
 
-    public static Builder<Builder<?>> builder(Session defaultSession)
+    public static ConcreteBuilder builder(Session defaultSession)
     {
-        return new Builder<>(defaultSession);
+        return new ConcreteBuilder(defaultSession);
     }
 
-    public static class Builder<SELF extends Builder<?>>
+    public static final class ConcreteBuilder
+            extends Builder<ConcreteBuilder>
+    {
+        private ConcreteBuilder() {}
+
+        private ConcreteBuilder(Session defaultSession)
+        {
+            super(defaultSession);
+        }
+    }
+
+    public static class Builder<SELF extends Builder<SELF>>
             extends DistributedQueryRunner.Builder<SELF>
     {
         private boolean skipTimezoneSetup;
@@ -138,6 +150,13 @@ public final class HiveQueryRunner
         public SELF addHiveProperty(String key, String value)
         {
             this.hiveProperties.put(key, value);
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF addHiveProperties(Map<String, String> hiveProperties)
+        {
+            this.hiveProperties.putAll(requireNonNull(hiveProperties, "hiveProperties is null"));
             return self();
         }
 
@@ -213,6 +232,13 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
+        public SELF apply(Consumer<SELF> consumer)
+        {
+            requireNonNull(consumer, "consumer is null").accept(self());
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -235,11 +261,6 @@ public final class HiveQueryRunner
                 Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
 
-                if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
-                        key.matches("fs\\.(azure|gcs|s3|local|hadoop)\\.enabled"))) {
-                    hiveProperties.put("fs.hadoop.enabled", "true");
-                }
-
                 queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, metastoreImpersonationEnabled, decryptionKeyRetriever));
 
                 Map<String, String> hiveProperties = new HashMap<>();
@@ -258,7 +279,6 @@ public final class HiveQueryRunner
                 if (tpchBucketedCatalogEnabled) {
                     Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                             .putAll(hiveProperties)
-                            .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
                             .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
                             .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
                             .buildOrThrow();
@@ -430,6 +450,36 @@ public final class HiveQueryRunner
                     .build();
 
             Logger log = Logger.get(HiveGlueQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class HiveLocalFileSystemQueryRunnerMain
+    {
+        private HiveLocalFileSystemQueryRunnerMain() {}
+
+        static void main(String[] args)
+                throws Exception
+        {
+            Path storageDir = args.length > 0 ? Path.of(args[0]) : Path.of(System.getProperty("user.home"), "hive-local-storage");
+            createDirectories(storageDir);
+            //noinspection resource
+            DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
+                            .setCatalog("hive")
+                            .setSchema("tpch")
+                            .build())
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addHiveProperty("hive.metastore", "file")
+                    .addHiveProperty("fs.hadoop.enabled", "false")
+                    .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
+                    .addHiveProperty("hive.security", "allow-all")
+                    .setBaseDataDir(Optional.of(storageDir))
+                    .setCreateTpchSchemas(false)
+                    .setSkipTimezoneSetup(true)
+                    .build();
+
+            Logger log = Logger.get(HiveLocalFileSystemQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }

@@ -15,16 +15,16 @@ package io.trino.plugin.lakehouse;
 
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.MotoContainer;
+import io.trino.testing.containers.Floci;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
-import static io.trino.testing.containers.MotoContainer.MOTO_ACCESS_KEY;
-import static io.trino.testing.containers.MotoContainer.MOTO_REGION;
-import static io.trino.testing.containers.MotoContainer.MOTO_SECRET_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -37,18 +37,18 @@ public class TestLakehouseFileConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        MotoContainer moto = closeAfterClass(new MotoContainer());
-        moto.start();
-        moto.createBucket("test-bucket");
+        Floci floci = closeAfterClass(new Floci());
+        floci.start();
+        floci.createBucket("test-bucket");
 
         return LakehouseQueryRunner.builder()
                 .addLakehouseProperty("hive.metastore", "file")
                 .addLakehouseProperty("hive.metastore.catalog.dir", "s3://test-bucket/")
                 .addLakehouseProperty("fs.s3.enabled", "true")
-                .addLakehouseProperty("s3.region", MOTO_REGION)
-                .addLakehouseProperty("s3.endpoint", moto.getEndpoint().toString())
-                .addLakehouseProperty("s3.aws-access-key", MOTO_ACCESS_KEY)
-                .addLakehouseProperty("s3.aws-secret-key", MOTO_SECRET_KEY)
+                .addLakehouseProperty("s3.endpoint", floci.endpoint().toString())
+                .addLakehouseProperty("s3.region", FLOCI_REGION)
+                .addLakehouseProperty("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                .addLakehouseProperty("s3.aws-secret-key", FLOCI_SECRET_KEY)
                 .addLakehouseProperty("s3.path-style-access", "true")
                 .build();
     }

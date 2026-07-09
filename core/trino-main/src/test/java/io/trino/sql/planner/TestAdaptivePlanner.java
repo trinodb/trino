@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableLongArray;
 import io.trino.Session;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -36,7 +37,6 @@ import org.junit.jupiter.api.Test;
 import java.util.HashSet;
 import java.util.Set;
 
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.adaptivePlan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;

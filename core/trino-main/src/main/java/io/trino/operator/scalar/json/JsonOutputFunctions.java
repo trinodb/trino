@@ -16,12 +16,12 @@ package io.trino.operator.scalar.json;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.util.ByteArrayBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
@@ -125,8 +124,8 @@ public final class JsonOutputFunctions
             return Slices.copiedBuffer(json.asText(), constants.charset);
         }
 
-        ByteArrayBuilder builder = new ByteArrayBuilder();
-        try (JsonGenerator generator = MAPPER.createGenerator(builder, constants.jsonEncoding)) {
+        DynamicSliceOutput output = new DynamicSliceOutput(64);
+        try (JsonGenerator generator = MAPPER.createGenerator(output, constants.jsonEncoding)) {
             MAPPER.writeTree(generator, json);
         }
         catch (JsonProcessingException e) {
@@ -147,7 +146,7 @@ public final class JsonOutputFunctions
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
-        return wrappedBuffer(builder.toByteArray());
+        return output.slice();
     }
 
     private static class EncodingSpecificConstants

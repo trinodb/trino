@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.hive.formats.line.LineWriter;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -40,13 +41,13 @@ public final class LineFileWriter
 
     private final LineWriter lineWriter;
     private final LineSerializer serializer;
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
 
     private final DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
 
-    public LineFileWriter(LineWriter lineWriter, LineSerializer serializer, Closeable rollbackAction, int[] fileInputColumnIndexes)
+    public LineFileWriter(LineWriter lineWriter, LineSerializer serializer, RollbackAction rollbackAction, int[] fileInputColumnIndexes)
     {
         this.lineWriter = requireNonNull(lineWriter, "lineWriter is null");
         this.serializer = requireNonNull(serializer, "serializer is null");
@@ -103,14 +104,14 @@ public final class LineFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             lineWriter.close();
         }
         catch (Exception e) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Exception _) {
                 // ignore
@@ -123,7 +124,7 @@ public final class LineFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             lineWriter.close();
         }
         catch (Exception e) {

@@ -46,7 +46,9 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 final class ShortDecimalType
@@ -123,7 +125,11 @@ final class ShortDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        return new SqlDecimal(BigInteger.valueOf(getLong(block, position)), getPrecision(), getScale());
+        long value = getLong(block, position);
+        if (overflows(value, getPrecision())) {
+            throw new IllegalArgumentException(format("Value out of range for DECIMAL(%s, %s): %s", getPrecision(), getScale(), value));
+        }
+        return new SqlDecimal(BigInteger.valueOf(value), getPrecision(), getScale());
     }
 
     @Override

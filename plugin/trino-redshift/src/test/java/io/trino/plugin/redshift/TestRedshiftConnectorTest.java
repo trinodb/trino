@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redshift;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
@@ -36,6 +37,10 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
 import java.util.Map;
@@ -917,6 +922,37 @@ public class TestRedshiftConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
+    }
+
+    @Test
+    public void testDescribeTableWithLongName()
+            throws SQLException
+    {
+        String longIdentifier = Strings.padEnd(
+                "long_identifier_" + randomNameSuffix(),
+                127, // Max size https://docs.aws.amazon.com/redshift/latest/dg/r_names.html#r_names-standard-identifiers
+                'x');
+        try (Connection connection = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD)) {
+            onRemoteDatabase()
+                    .execute("CREATE TABLE %s.\"%s\" (x VARCHAR)".formatted(TEST_SCHEMA, longIdentifier));
+
+            // Test JDBC driver directly. It uses SHOW commands with bugs.
+            // If these assertions fail, the workaround is no longer needed.
+            DatabaseMetaData metadata = connection.getMetaData();
+            assertThat(metadata.getTables(TEST_DATABASE, TEST_SCHEMA, longIdentifier, new String[] {"TABLE", "VIEW"}).next())
+                    .isFalse();
+            assertThat(metadata.getColumns(TEST_DATABASE, TEST_SCHEMA, longIdentifier, null).next())
+                    .isFalse();
+            // Test in spite of JDBC bugs, Trino Redshift connector still behaves correctly.
+            assertThat(query("DESCRIBE \"" + longIdentifier + "\""))
+                    .result()
+                    .projected("Column")
+                    .skippingTypesCheck()
+                    .matches("VALUES 'x'");
+        }
+        finally {
+            onRemoteDatabase().execute("DROP TABLE IF EXISTS %s.\"%s\"".formatted(TEST_SCHEMA, longIdentifier));
+        }
     }
 
     private static class TestView

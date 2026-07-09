@@ -20,11 +20,11 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericReadValueOperator
@@ -37,8 +37,8 @@ public class GenericReadValueOperator
         super(FunctionMetadata.operatorBuilder(READ_VALUE)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
+                        .returnType(typeVariable("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
                 .neverFails()
                 .build());

@@ -31,11 +31,9 @@ the client protocol, writing tests and other lower level details.
 
 ## Code Style
 
-We recommend you use IntelliJ as your IDE. The code style template for the
-project can be found in the [codestyle](https://github.com/airlift/codestyle)
-repository along with our general programming and Java guidelines. 
+We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run checkstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR: `./mvnw validate`
 
 In addition to those you should also adhere to the following:
 
@@ -76,11 +74,11 @@ license by running `mvn license:format`.
 
 ### Prefer String formatting
 
-Consider using String formatting (printf style formatting using the Java
-`Formatter` class): `format("Session property %s is invalid: %s", name, value)`
-(note that `format()` should always be statically imported).  Sometimes, if you
-only need to append something, consider using the `+` operator.  Please avoid
-`format()` or concatenation in performance critical sections of code.
+Consider using String formatting with the `String.formatted` method:
+`"Session property %s is invalid: %s".formatted(name, value)`.
+Sometimes, if you only need to append something, consider using the `+` operator.
+Please avoid `formatted()` or concatenation in performance critical sections of
+code.
 
 ### Avoid ternary operator
 
@@ -262,28 +260,36 @@ the [docs module](../docs).
 
 ## Building the Web UI
 
-The Trino Web UI is composed of several React components and is written in JSX
-and ES6. This source code is compiled and packaged into browser-compatible
-Javascript, which is then checked in to the Trino source code (in the `dist`
-folder). You must have [Node.js](https://nodejs.org/en/download/) and
-[Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update
-this folder after making changes, simply run:
+The Trino Web UI is a React and Vite project located in
+`core/trino-web-ui/src/main/resources/webapp`. You must have
+[Node.js](https://nodejs.org/en/download/) and npm installed to execute these
+commands. Install dependencies with:
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src install
+    cd core/trino-web-ui/src/main/resources/webapp
+    npm install
 
-If no Javascript dependencies have changed (i.e., no changes to `package.json`),
-it is faster to run:
+For fast local development, run the `WebUiQueryRunner` class. This starts a
+minimal Trino development server configured with the Web UI. Then start the Vite
+development server:
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run package
+    npm run dev
 
-To simplify iteration, you can also run in `watch` mode, which automatically
-re-compiles when changes to source files are detected:
+Open `http://localhost:5173/ui` in your browser. The Vite development server
+provides Hot Module Replacement for quick iteration. By default, requests to
+`/ui/auth` and `/ui/api` are proxied to `http://127.0.0.1:8080/`. To use a
+different backend, update `VITE_BASE_URL` in
+`core/trino-web-ui/src/main/resources/webapp/.env.development`.
 
-    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run watch
+To build the Web UI locally, run:
 
-To iterate quickly, simply re-build the project in IntelliJ after packaging is
-complete. Project resources will be hot-reloaded and changes are reflected on
-browser refresh.
+    npm run build
+
+To run frontend checks, run:
+
+    npm run check
+
+Maven builds package the Web UI automatically, and Maven verification runs the
+frontend checks.
 
 ## Releases
 

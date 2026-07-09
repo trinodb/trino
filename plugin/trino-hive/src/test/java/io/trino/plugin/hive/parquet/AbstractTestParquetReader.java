@@ -22,6 +22,7 @@ import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.parquet.ParquetTester.ParquetSchemaOptions;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -69,7 +70,6 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
-import static io.trino.plugin.hive.parquet.ParquetTester.ParquetSchemaOptions;
 import static io.trino.plugin.hive.parquet.ParquetTester.TEST_COLUMN;
 import static io.trino.plugin.hive.parquet.ParquetTester.insertNullEvery;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -1236,10 +1236,11 @@ public abstract class AbstractTestParquetReader
                 parquetSchema);
 
         // Read INT32 as a short decimal of precision >= 10 with non-zero scale
+        // Maximum value fitting in DECIMAL(10, 1): unscaled = 999999999 * 10^1 = 9999999999 <= 10^10 - 1
         tester.testRoundTrip(
                 javaIntObjectInspector,
-                ImmutableList.of(Integer.MAX_VALUE),
-                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(Integer.MAX_VALUE * 10L), 10, 1)),
+                ImmutableList.of(999_999_999),
+                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(999_999_999L * 10), 10, 1)),
                 createDecimalType(10, 1),
                 parquetSchema);
 
@@ -1251,7 +1252,7 @@ public abstract class AbstractTestParquetReader
                 createDecimalType(4, 0),
                 parquetSchema);
 
-        // Cannot read INT32 as a short decimal if value exceeds supported precision
+        // Cannot read INT32 as a short decimal if value exceeds supported precision (no scale)
         assertThatThrownBy(() -> tester.assertRoundTripWithHiveWriter(
                 List.of(javaIntObjectInspector),
                 new Iterable[] {ImmutableList.of(Integer.MAX_VALUE)},
@@ -1261,6 +1262,18 @@ public abstract class AbstractTestParquetReader
                 parquetSchema,
                 ParquetSchemaOptions.defaultOptions()))
                 .hasMessage("Cannot read parquet INT32 value '2147483647' as DECIMAL(9, 0)")
+                .isInstanceOf(TrinoException.class);
+
+        // Cannot read INT32 as a short decimal when rescaling causes overflow: 10^9 * 10^1 = 10^10 > DECIMAL(10, 1) max
+        assertThatThrownBy(() -> tester.assertRoundTripWithHiveWriter(
+                List.of(javaIntObjectInspector),
+                new Iterable[] {ImmutableList.of(Integer.MAX_VALUE)},
+                new Iterable[] {ImmutableList.of(new SqlDecimal(BigInteger.valueOf(Integer.MAX_VALUE * 10L), 10, 1))},
+                List.of("test"),
+                List.of(createDecimalType(10, 1)),
+                parquetSchema,
+                ParquetSchemaOptions.defaultOptions()))
+                .hasMessage("Cannot read parquet INT32 value '2147483647' as DECIMAL(10, 1)")
                 .isInstanceOf(TrinoException.class);
     }
 

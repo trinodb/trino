@@ -20,7 +20,6 @@ import io.trino.cost.SymbolStatsEstimate;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -31,7 +30,8 @@ import org.junit.jupiter.api.Test;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -76,8 +76,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -104,9 +104,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -136,9 +136,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -168,9 +168,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -202,9 +202,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -240,8 +240,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("a")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("a", "group_id"),
                                         ImmutableMap.of(
@@ -277,8 +277,8 @@ public class TestOptimizeMixedDistinctAggregations
                                         "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                                "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                                "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                                "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                         aggregation(
                                                 singleGroupingSet("b", "group_id"),
                                                 ImmutableMap.of("non-distinct", aggregationFunction("count", ImmutableList.of("a"))),
@@ -305,8 +305,8 @@ public class TestOptimizeMixedDistinctAggregations
                                         "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                                "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                                "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                                "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                         aggregation(
                                                 singleGroupingSet("groupingKey", "b", "group_id"),
                                                 ImmutableMap.of("non-distinct", aggregationFunction("count", ImmutableList.of("a"))),
@@ -344,8 +344,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -372,8 +372,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -405,8 +405,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("count", false, ImmutableList.of(symbol("nested")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("nested", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -437,8 +437,8 @@ public class TestOptimizeMixedDistinctAggregations
                                         "distinct-final", aggregationFunction("count", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                                "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                                "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                                "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                         aggregation(
                                                 singleGroupingSet("b", "group_id"),
                                                 ImmutableMap.of("non-distinct", aggregationFunction("count", ImmutableList.of())),
@@ -468,8 +468,8 @@ public class TestOptimizeMixedDistinctAggregations
                                         "distinct-final", aggregationFunction("count", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                                "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                                "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                                "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                         aggregation(
                                                 singleGroupingSet("b", "group_id"),
                                                 ImmutableMap.of(
@@ -509,8 +509,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -537,9 +537,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -569,9 +569,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -601,9 +601,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -635,9 +635,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -678,8 +678,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -706,8 +706,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -745,8 +745,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -773,9 +773,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -805,9 +805,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -837,9 +837,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -871,9 +871,9 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
-                                        "gid-filter-2", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L))),
+                                        "gid-filter-2", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 2L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -905,8 +905,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -940,8 +940,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -974,8 +974,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -1029,8 +1029,8 @@ public class TestOptimizeMixedDistinctAggregations
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
-                                        "gid-filter-1", expression(new Comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
+                                        "gid-filter-0", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 0L))),
+                                        "gid-filter-1", expression(comparison(EQUAL, new Reference(BIGINT, "group_id"), new Constant(BIGINT, 1L)))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),

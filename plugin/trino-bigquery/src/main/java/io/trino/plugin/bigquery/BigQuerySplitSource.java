@@ -29,6 +29,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.predicate.TupleDomain;
 import jakarta.annotation.Nullable;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -100,13 +101,13 @@ public class BigQuerySplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         if (splits == null) {
             splits = getSplits(session, table);
         }
 
-        return completedFuture(new ConnectorSplitBatch(prepareNextBatch(maxSize), isFinished()));
+        return completedFuture(prepareNextBatch(maxSize));
     }
 
     private List<ConnectorSplit> prepareNextBatch(int maxSize)

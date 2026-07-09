@@ -25,6 +25,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.cassandra.util.HostAddressFactory;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -32,7 +33,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -80,7 +80,7 @@ public class CassandraSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         CassandraTableHandle tableHandle = (CassandraTableHandle) connectorTableHandle;

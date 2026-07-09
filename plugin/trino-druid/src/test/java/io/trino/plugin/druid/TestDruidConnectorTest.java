@@ -18,8 +18,14 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -31,11 +37,17 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.util.List;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -61,9 +73,17 @@ public class TestDruidConnectorTest
             throws Exception
     {
         druidServer = closeAfterClass(new TestingDruidServer());
-        return DruidQueryRunner.builder(druidServer)
+        QueryRunner queryRunner = DruidQueryRunner.builder(druidServer)
                 .setInitialTables(ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER))
                 .build();
+        // Pre-load a dataset with case-sensitive string values for testCaseSensitiveAggregationPushdown
+        MaterializedResult caseSensitiveRows = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VarcharType.createVarcharType(1), BIGINT, TIMESTAMP_MILLIS)
+                .columnNames(List.of("string_col", "bigint_col", "__time"))
+                .row("A", 1, 0L)
+                .row("a", 2, 0L)
+                .build();
+        copyAndIngestTpchData(caseSensitiveRows, druidServer, "case_sensitive_aggregation_pushdown");
+        return queryRunner;
     }
 
     @AfterAll
@@ -77,8 +97,11 @@ public class TestDruidConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_SCHEMA,
@@ -86,6 +109,9 @@ public class TestDruidConnectorTest
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_INSERT,
+                 // Connector expression pushdown rewrites numeric comparisons only; it rewrites neither arithmetic operators nor LIKE
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_ROW_TYPE,
@@ -145,13 +171,13 @@ public class TestDruidConnectorTest
                         "   __time timestamp(3) NOT NULL,\n" +
                         "   clerk varchar,\n" +
                         "   comment varchar,\n" +
-                        "   custkey bigint NOT NULL,\n" +
+                        "   custkey bigint,\n" +
                         "   orderdate varchar,\n" +
-                        "   orderkey bigint NOT NULL,\n" +
+                        "   orderkey bigint,\n" +
                         "   orderpriority varchar,\n" +
                         "   orderstatus varchar,\n" +
-                        "   shippriority bigint NOT NULL,\n" +
-                        "   totalprice double NOT NULL\n" +
+                        "   shippriority bigint,\n" +
+                        "   totalprice double\n" +
                         ")");
     }
 
@@ -336,15 +362,36 @@ public class TestDruidConnectorTest
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
                 .isFullyPushedDown();
 
-        // Druid doesn't support Aggregation Pushdown
         assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
-                .isNotFullyPushedDown(AggregationNode.class);
+                .isFullyPushedDown();
 
-        // Druid doesn't support Aggregation Pushdown
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
-                .isNotFullyPushedDown(AggregationNode.class);
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testPredicateExpressionPushdown()
+    {
+        // Numeric column-to-column comparisons cannot be expressed as a TupleDomain, so they are
+        // pushed down only through connector expression pushdown (convertPredicate). Exercise every mapped
+        // comparison operator (=, <>, <, <=, >, >=).
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey = regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey <> regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey < regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey <= regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey > regionkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey >= regionkey"))
+                .isFullyPushedDown();
+        // A column-to-column expression combines with a TupleDomain predicate into a single pushed-down filter.
+        assertThat(query("SELECT nationkey, regionkey FROM nation WHERE nationkey > regionkey AND regionkey > 1"))
+                .isFullyPushedDown();
     }
 
     @Test
@@ -539,5 +586,154 @@ public class TestDruidConnectorTest
     {
         assertUpdate("CALL system.execute('SELECT 1')");
         assertQueryFails("CALL system.execute('invalid')", ".*Non-query expression encountered in illegal context.*");
+    }
+
+    @Test
+    @Override
+    public void testAggregationPushdown()
+    {
+        // count()
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on aggregation key
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
+        // GROUP BY above WHERE and LIMIT
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey")).isFullyPushedDown();
+        // GROUP BY above TopN - TopN pushdown not yet supported
+        assertThat(query("SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey")).isNotFullyPushedDown(project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
+        // GROUP BY with WHERE on neither grouping nor aggregation column
+        assertThat(query("SELECT nationkey, min(regionkey) FROM nation WHERE name = 'ARGENTINA' GROUP BY nationkey")).isFullyPushedDown();
+        // GROUP BY with WHERE LIKE predicate: not pushed down because the standard expression rules do not include a LIKE rewrite
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE name LIKE '%N%' GROUP BY regionkey"))
+                .isNotFullyPushedDown(FilterNode.class);
+        // aggregation on varchar column
+        assertThat(query("SELECT count(name) FROM nation")).isFullyPushedDown();
+        // aggregation on varchar column with GROUPING
+        assertThat(query("SELECT nationkey, count(name) FROM nation GROUP BY nationkey")).isFullyPushedDown();
+        // aggregation on varchar column with WHERE
+        assertThat(query("SELECT count(name) FROM nation WHERE name = 'ARGENTINA'")).isFullyPushedDown();
+
+        // pruned away aggregation
+        assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
+                .matches("VALUES -13")
+                .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
+        // aggregation over aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation)"))
+                .matches("VALUES BIGINT '1'")
+                .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation GROUP BY regionkey)"))
+                .matches("VALUES BIGINT '5'")
+                .isFullyPushedDown();
+
+        // aggregation with UNION ALL and aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT name FROM nation UNION ALL SELECT name FROM region)"))
+                .matches("VALUES BIGINT '30'")
+                // TODO (https://github.com/trinodb/trino/issues/12547): support count(*) over UNION ALL pushdown
+                .isNotFullyPushedDown(
+                        node(ExchangeNode.class,
+                                node(AggregationNode.class, node(TableScanNode.class)),
+                                node(AggregationNode.class, node(TableScanNode.class))));
+
+        // aggregation with UNION ALL and aggregation
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)"))
+                .matches("VALUES BIGINT '2'")
+                .hasPlan(
+                        // Note: engine could fold this to single ValuesNode
+                        node(OutputNode.class,
+                                node(AggregationNode.class,
+                                        node(ExchangeNode.class,
+                                                node(ExchangeNode.class,
+                                                        node(AggregationNode.class, node(ValuesNode.class)),
+                                                        node(AggregationNode.class, node(ValuesNode.class)))))));
+
+        // test aggregation on empty results
+        assertThat(query("SELECT count(*), count(nationkey), sum(nationkey), min(nationkey), max(nationkey), avg(nationkey) FROM nation WHERE name = 'ATLANTIS'"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '0', BIGINT '0', cast(NULL AS BIGINT), cast(NULL AS BIGINT), cast(NULL AS BIGINT), cast(NULL AS DOUBLE))");
+    }
+
+    @Test
+    @Override
+    public void testDistinctAggregationPushdown()
+    {
+        // SELECT DISTINCT
+        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT min(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+
+        // distinct aggregation
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        // distinct aggregation with GROUP BY
+        assertThat(query("SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        // distinct aggregation with varchar
+        assertThat(query("SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        // distinct aggregation and a non-distinct aggregation
+        assertThat(query("SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation")).isFullyPushedDown();
+        // two distinct aggregations
+        assertThat(query("SELECT count(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation")).isFullyPushedDown();
+    }
+
+    @Test
+    @Override
+    public void testCaseSensitiveAggregationPushdown()
+    {
+        // verify case sensitivity
+        assertThat(query("SELECT min(string_col), max(string_col) FROM case_sensitive_aggregation_pushdown"))
+                .skippingTypesCheck()
+                .matches("VALUES ('A', 'a')");
+
+        // test aggregations are pushed down, and result is case-sensitive
+        assertThat(query("SELECT string_col, sum(bigint_col) FROM case_sensitive_aggregation_pushdown GROUP BY string_col"))
+                .skippingTypesCheck()
+                .matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '2')")
+                .isFullyPushedDown();
+
+        // test distinct aggregation is pushed down and remains case-sensitive ('A' and 'a' are distinct)
+        assertThat(query("SELECT count(DISTINCT string_col) FROM case_sensitive_aggregation_pushdown"))
+                .matches("VALUES BIGINT '2'")
+                .isFullyPushedDown();
+
+        // test distinct aggregation is pushed down with case-sensitive grouping keys
+        assertThat(query("SELECT string_col, count(DISTINCT bigint_col) FROM case_sensitive_aggregation_pushdown GROUP BY string_col"))
+                .skippingTypesCheck()
+                .matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1')")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    @Override
+    public void testNumericAggregationPushdown()
+    {
+        assertThat(query("SELECT min(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT max(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT sum(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT avg(nationkey) FROM nation")).isFullyPushedDown();
+
+        // test diverse types: bigint, double, and int
+        assertThat(query("SELECT min(orderkey), min(totalprice), min(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT max(orderkey), max(totalprice), max(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT sum(orderkey), sum(totalprice), sum(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT avg(orderkey), avg(totalprice), avg(shippriority) FROM orders")).isFullyPushedDown();
+
+        // WHERE on aggregation column
+        assertThat(query("SELECT min(orderkey), min(totalprice) FROM orders WHERE orderkey < 10 AND totalprice > 50000")).isFullyPushedDown();
+        // WHERE on non-aggregation column
+        assertThat(query("SELECT min(orderkey) FROM orders WHERE totalprice > 50000")).isFullyPushedDown();
+        // GROUP BY
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders GROUP BY orderstatus")).isFullyPushedDown();
+        // GROUP BY with WHERE on both grouping and aggregation column
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' AND totalprice > 50000 GROUP BY orderstatus")).isFullyPushedDown();
+        // GROUP BY with WHERE on grouping column
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' GROUP BY orderstatus")).isFullyPushedDown();
+        // GROUP BY with WHERE on aggregation column
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 GROUP BY orderstatus")).isFullyPushedDown();
     }
 }

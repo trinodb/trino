@@ -25,11 +25,15 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Array;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
+import io.trino.sql.tree.BooleanTestPredicate.TruthValue;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
@@ -38,7 +42,7 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateBranch;
@@ -61,6 +65,7 @@ import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
+import io.trino.sql.tree.DistinctFromPredicate;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
@@ -101,6 +106,7 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.GroupingSets;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.IntervalField;
@@ -125,10 +131,12 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
@@ -147,6 +155,7 @@ import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
@@ -157,13 +166,14 @@ import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.PrincipalSpecification.Type;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.QuantifiedPattern;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryColumn;
@@ -231,7 +241,9 @@ import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
+import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.Union;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
@@ -288,7 +300,7 @@ import static io.trino.sql.parser.TreeNodes.simpleType;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonPredicate.Operator.EQUAL;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
 import static io.trino.sql.tree.EmptyTableTreatment.Treatment.PRUNE;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
@@ -347,7 +359,7 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "bigint", false))),
                         new Identifier(location(1, 9), "parse", false),
-                        ImmutableList.of(new StringLiteral(location(1, 15), "42"))));
+                        ImmutableList.of(new CallArgument(location(1, 15), Optional.empty(), new StringLiteral(location(1, 15), "42")))));
 
         assertThat(expression("cat.sch.t::method()"))
                 .isEqualTo(new StaticMethodCall(
@@ -365,11 +377,75 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "array", false))),
                         new Identifier(location(1, 8), "contains", false),
                         ImmutableList.of(
-                                new Identifier(location(1, 17), "x", false),
-                                new LongLiteral(location(1, 20), "1"))));
+                                new CallArgument(location(1, 17), Optional.empty(), new Identifier(location(1, 17), "x", false)),
+                                new CallArgument(location(1, 20), Optional.empty(), new LongLiteral(location(1, 20), "1")))));
+
+        // Named arguments are accepted, mirroring ordinary function-call syntax.
+        assertThat(expression("bigint::parse(value => '42')"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "bigint", false))),
+                        new Identifier(location(1, 9), "parse", false),
+                        ImmutableList.of(new CallArgument(location(1, 15), Optional.of(new Identifier(location(1, 15), "value", false)), new StringLiteral(location(1, 24), "42")))));
+
+        // A reserved keyword may be used as a static method name.
+        assertThat(expression("t::values()"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "t", false))),
+                        new Identifier(location(1, 4), "values", false),
+                        ImmutableList.of()));
 
         // Parametric receiver types are not allowed in the grammar.
         assertInvalidExpression("varchar(5)::parse('42')", "mismatched input '::'.*");
+    }
+
+    @Test
+    public void testNamedFunctionArguments()
+    {
+        assertThat(expression("substr(string => 'hello', \"from\" => 2)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "substr", false))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new CallArgument(location(1, 8), Optional.of(new Identifier(location(1, 8), "string", false)), new StringLiteral(location(1, 18), "hello")),
+                                new CallArgument(location(1, 27), Optional.of(new Identifier(location(1, 27), "from", true)), new LongLiteral(location(1, 37), "2")))));
+
+        // Mixed positional + named: positional must come first.
+        assertThat(expression("f(1, 2, x => 3)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "f", false))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new CallArgument(location(1, 3), Optional.empty(), new LongLiteral(location(1, 3), "1")),
+                                new CallArgument(location(1, 6), Optional.empty(), new LongLiteral(location(1, 6), "2")),
+                                new CallArgument(location(1, 9), Optional.of(new Identifier(location(1, 9), "x", false)), new LongLiteral(location(1, 14), "3")))));
+
+        // The operator-style names handled in AstBuilder don't accept named arguments.
+        assertInvalidExpression("if(cond => true, 1, 2)", "Named arguments are not supported for 'if' function");
+        assertInvalidExpression("coalesce(a => 1, 2)", "Named arguments are not supported for 'coalesce' function");
+        assertInvalidExpression("nullif(a => 1, b => 2)", "Named arguments are not supported for 'nullif' function");
+        assertInvalidExpression("try(a => 1)", "Named arguments are not supported for 'try' function");
+        assertInvalidExpression("format(fmt => '%s', x => 1)", "Named arguments are not supported for 'format' function");
+
+        // The `f(label.*)` grammar form is rewritten to a single synthetic argument before
+        // arity-sensitive operator branches run, so `try(t.*)` parses with arity 1.
+        assertThat(expression("try(t.*)"))
+                .isEqualTo(new TryExpression(
+                        location(1, 1),
+                        new DereferenceExpression(location(1, 5), new Identifier(location(1, 5), "t", false))));
     }
 
     @Test
@@ -401,8 +477,17 @@ public class TestSqlParser
                         new Identifier(location(1, 2), "x", false),
                         new Identifier(location(1, 5), "contains", false),
                         ImmutableList.of(
-                                new LongLiteral(location(1, 14), "1"),
-                                new LongLiteral(location(1, 17), "2"))));
+                                new CallArgument(location(1, 14), Optional.empty(), new LongLiteral(location(1, 14), "1")),
+                                new CallArgument(location(1, 17), Optional.empty(), new LongLiteral(location(1, 17), "2")))));
+
+        // Named arguments are accepted, mirroring ordinary function-call syntax.
+        assertThat(expression("(x).contains(element => 1)"))
+                .isEqualTo(new MethodCall(
+                        location(1, 1),
+                        new Identifier(location(1, 2), "x", false),
+                        new Identifier(location(1, 5), "contains", false),
+                        ImmutableList.of(
+                                new CallArgument(location(1, 14), Optional.of(new Identifier(location(1, 14), "element", false)), new LongLiteral(location(1, 25), "1")))));
 
         // Bare two-part name still parses as a function call; method-call
         // interpretation happens at semantic time per SQL:2023 6.3 SR 2.
@@ -412,6 +497,14 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 1), "x", false),
                                 new Identifier(location(1, 3), "length", false))),
+                        ImmutableList.of()));
+
+        // A reserved keyword may be used as a method name.
+        assertThat(expression("('a').trim()"))
+                .isEqualTo(new MethodCall(
+                        location(1, 1),
+                        new StringLiteral(location(1, 2), "a"),
+                        new Identifier(location(1, 7), "trim", false),
                         ImmutableList.of()));
     }
 
@@ -1063,20 +1156,100 @@ public class TestSqlParser
     public void testBetween()
     {
         assertThat(expression("1 BETWEEN 2 AND 3"))
-                .isEqualTo(new BetweenPredicate(
+                .isEqualTo(new Predicated(
                         location(1, 3),
                         new LongLiteral(location(1, 1), "1"),
-                        new LongLiteral(location(1, 11), "2"),
-                        new LongLiteral(location(1, 17), "3")));
-
-        assertThat(expression("1 NOT BETWEEN 2 AND 3"))
-                .isEqualTo(new NotExpression(
-                        location(1, 3),
                         new BetweenPredicate(
                                 location(1, 3),
-                                new LongLiteral(location(1, 1), "1"),
+                                false,
+                                Optional.empty(),
+                                new LongLiteral(location(1, 11), "2"),
+                                new LongLiteral(location(1, 17), "3"))));
+
+        assertThat(expression("1 NOT BETWEEN 2 AND 3"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                true,
+                                Optional.empty(),
                                 new LongLiteral(location(1, 15), "2"),
                                 new LongLiteral(location(1, 21), "3"))));
+
+        // ASYMMETRIC is the explicit form of the default
+        assertThat(expression("1 BETWEEN ASYMMETRIC 2 AND 3"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                false,
+                                Optional.of(Symmetry.ASYMMETRIC),
+                                new LongLiteral(location(1, 22), "2"),
+                                new LongLiteral(location(1, 28), "3"))));
+
+        assertThat(expression("1 BETWEEN SYMMETRIC 2 AND 3"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                false,
+                                Optional.of(Symmetry.SYMMETRIC),
+                                new LongLiteral(location(1, 21), "2"),
+                                new LongLiteral(location(1, 27), "3"))));
+
+        assertThat(expression("1 NOT BETWEEN SYMMETRIC 2 AND 3"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                true,
+                                Optional.of(Symmetry.SYMMETRIC),
+                                new LongLiteral(location(1, 25), "2"),
+                                new LongLiteral(location(1, 31), "3"))));
+    }
+
+    @Test
+    public void testBooleanTest()
+    {
+        assertThat(expression("a IS TRUE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), false, TruthValue.TRUE)));
+
+        assertThat(expression("a IS NOT TRUE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), true, TruthValue.TRUE)));
+
+        assertThat(expression("a IS FALSE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), false, TruthValue.FALSE)));
+
+        assertThat(expression("a IS NOT FALSE"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), true, TruthValue.FALSE)));
+
+        assertThat(expression("a IS UNKNOWN"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), false, TruthValue.UNKNOWN)));
+
+        assertThat(expression("a IS NOT UNKNOWN"))
+                .isEqualTo(new Predicated(
+                        location(1, 3),
+                        new Identifier(location(1, 1), "a", false),
+                        new BooleanTestPredicate(location(1, 3), true, TruthValue.UNKNOWN)));
     }
 
     @Test
@@ -1543,13 +1716,42 @@ public class TestSqlParser
         assertThat(expression("CASE 1 IS NULL WHEN true THEN 2 ELSE 3 END"))
                 .isEqualTo(new SimpleCaseExpression(
                         location(1, 1),
-                        new IsNullPredicate(location(1, 8), new LongLiteral(location(1, 6), "1")),
+                        new Predicated(location(1, 8), new LongLiteral(location(1, 6), "1"), new IsNullPredicate(location(1, 8), false)),
                         ImmutableList.of(
                                 new WhenClause(
                                         location(1, 16),
                                         new BooleanLiteral(location(1, 21), "true"),
                                         new LongLiteral(location(1, 31), "2"))),
                         Optional.of(new LongLiteral(location(1, 38), "3"))));
+    }
+
+    @Test
+    public void testExtendedCase()
+    {
+        // SQL:2023 F262: predicate-fragment WHEN operands. We don't pin source locations here —
+        // the SimpleCaseExpression shape (operand + WhenClause partials) is what we're verifying.
+        SimpleCaseExpression parsed = (SimpleCaseExpression) createExpression(
+                "CASE x WHEN > 5 THEN 'big' WHEN BETWEEN 1 AND 4 THEN 'small' WHEN IN (0) THEN 'zero' WHEN IS NULL THEN 'unk' WHEN LIKE 'a%' THEN 'a' WHEN IS DISTINCT FROM 7 THEN 'not7' ELSE 'other' END");
+        assertThat(parsed.getOperand()).isInstanceOf(Identifier.class);
+        assertThat(parsed.getWhenClauses()).hasSize(6);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(0).getMatch()).predicate()).isInstanceOf(ComparisonPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(1).getMatch()).predicate()).isInstanceOf(BetweenPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(2).getMatch()).predicate()).isInstanceOf(InPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(3).getMatch()).predicate()).isInstanceOf(IsNullPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(4).getMatch()).predicate()).isInstanceOf(LikePredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(5).getMatch()).predicate()).isInstanceOf(DistinctFromPredicate.class);
+        // Negated forms parse too.
+        SimpleCaseExpression negated = (SimpleCaseExpression) createExpression("CASE x WHEN NOT BETWEEN 1 AND 4 THEN 'a' WHEN NOT IN (0) THEN 'b' WHEN NOT LIKE 'p' THEN 'c' WHEN IS NOT NULL THEN 'd' WHEN IS NOT DISTINCT FROM 1 THEN 'e' END");
+        assertThat(((BetweenPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(0).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((InPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(1).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((LikePredicate) ((WhenClause.Partial) negated.getWhenClauses().get(2).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((IsNullPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(3).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((DistinctFromPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(4).getMatch()).predicate()).isNegated()).isTrue();
+        // Bare-equality WHENs still parse alongside predicate-fragment WHENs in the same CASE.
+        SimpleCaseExpression mixed = (SimpleCaseExpression) createExpression("CASE x WHEN > 5 THEN 'big' WHEN 0 THEN 'zero' END");
+        assertThat(mixed.getWhenClauses().get(0).getMatch()).isInstanceOf(WhenClause.Partial.class);
+        assertThat(mixed.getWhenClauses().get(1).getMatch()).isInstanceOf(WhenClause.Operand.class);
+        assertThat(((WhenClause.Operand) mixed.getWhenClauses().get(1).getMatch()).expression()).isInstanceOf(LongLiteral.class);
     }
 
     @Test
@@ -1561,19 +1763,17 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new WhenClause(
                                         location(1, 6),
-                                        new ComparisonExpression(
+                                        new Predicated(
                                                 location(1, 13),
-                                                ComparisonExpression.Operator.GREATER_THAN,
                                                 new Identifier(location(1, 11), "a", false),
-                                                new LongLiteral(location(1, 15), "3")),
+                                                new ComparisonPredicate(location(1, 13), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 15), "3"))),
                                         new LongLiteral(location(1, 22), "23")),
                                 new WhenClause(
                                         location(1, 25),
-                                        new ComparisonExpression(
+                                        new Predicated(
                                                 location(1, 32),
-                                                ComparisonExpression.Operator.EQUAL,
                                                 new Identifier(location(1, 30), "b", false),
-                                                new Identifier(location(1, 34), "a", false)),
+                                                new ComparisonPredicate(location(1, 32), ComparisonPredicate.Operator.EQUAL, new Identifier(location(1, 34), "a", false))),
                                         new LongLiteral(location(1, 41), "33"))),
                         Optional.empty()));
     }
@@ -1793,6 +1993,28 @@ public class TestSqlParser
         assertStatement("SELECT substring('%s' FROM 2 FOR 3)".formatted(givenString),
                 simpleQuery(selectList(
                         new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3"))))));
+    }
+
+    @Test
+    public void testOverlay()
+    {
+        assertStatement("SELECT OVERLAY('abcdef' PLACING 'XY' FROM 3)",
+                simpleQuery(selectList(
+                        new Overlay(
+                                new NodeLocation(1, 8),
+                                new StringLiteral("abcdef"),
+                                new StringLiteral("XY"),
+                                new LongLiteral("3"),
+                                Optional.empty()))));
+
+        assertStatement("SELECT OVERLAY('abcdef' PLACING 'XY' FROM 3 FOR 2)",
+                simpleQuery(selectList(
+                        new Overlay(
+                                new NodeLocation(1, 8),
+                                new StringLiteral("abcdef"),
+                                new StringLiteral("XY"),
+                                new LongLiteral("3"),
+                                Optional.of(new LongLiteral("2"))))));
     }
 
     @Test
@@ -3638,11 +3860,10 @@ public class TestSqlParser
 
         assertThat(statement("DELETE FROM t WHERE a = b"))
                 .isEqualTo(new Delete(location(1, 1), new Table(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "t", false)))), Optional.of(
-                        new ComparisonExpression(
+                        new Predicated(
                                 location(1, 23),
-                                ComparisonExpression.Operator.EQUAL,
                                 new Identifier(location(1, 21), "a", false),
-                                new Identifier(location(1, 25), "b", false)))));
+                                new ComparisonPredicate(location(1, 23), ComparisonPredicate.Operator.EQUAL, new Identifier(location(1, 25), "b", false))))));
 
         assertThat(statement("DELETE FROM t @ dev"))
                 .isEqualTo(new Delete(
@@ -4021,11 +4242,10 @@ public class TestSqlParser
                                 new CallArgument(location(1, 29), Optional.of(new Identifier(location(1, 29), "bah", false)), new LongLiteral(location(1, 36), "1")),
                                 new CallArgument(location(1, 39), Optional.of(new Identifier(location(1, 39), "wuh", false)), new StringLiteral(location(1, 46), "clap"))),
                         Optional.of(
-                                new ComparisonExpression(
+                                new Predicated(
                                         location(1, 64),
-                                        ComparisonExpression.Operator.GREATER_THAN,
                                         new Identifier(location(1, 60), "age", false),
-                                        new LongLiteral(location(1, 66), "17")))));
+                                        new ComparisonPredicate(location(1, 64), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 66), "17"))))));
 
         assertThat(statement("ALTER TABLE foo EXECUTE bar(1, 'clap') WHERE age > 17")).isEqualTo(
                 new TableExecute(
@@ -4036,11 +4256,10 @@ public class TestSqlParser
                                 new CallArgument(location(1, 29), Optional.empty(), new LongLiteral(location(1, 29), "1")),
                                 new CallArgument(location(1, 32), Optional.empty(), new StringLiteral(location(1, 32), "clap"))),
                         Optional.of(
-                                new ComparisonExpression(
+                                new Predicated(
                                         location(1, 50),
-                                        ComparisonExpression.Operator.GREATER_THAN,
                                         new Identifier(location(1, 46), "age", false),
-                                        new LongLiteral(location(1, 52), "17")))));
+                                        new ComparisonPredicate(location(1, 50), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 52), "17"))))));
     }
 
     @Test
@@ -5155,28 +5374,26 @@ public class TestSqlParser
                                         new Nearest(
                                                 location(3, 12),
                                                 new Table(location(4, 10), qualifiedName(location(4, 10), "quotes")),
-                                                Optional.of(new ComparisonExpression(
+                                                Optional.of(new Predicated(
                                                         location(5, 25),
-                                                        ComparisonExpression.Operator.EQUAL,
                                                         new DereferenceExpression(
                                                                 location(5, 11),
                                                                 new Identifier(location(5, 11), "quotes", false),
                                                                 new Identifier(location(5, 18), "symbol", false)),
-                                                        new DereferenceExpression(
+                                                        new ComparisonPredicate(location(5, 25), ComparisonPredicate.Operator.EQUAL, new DereferenceExpression(
                                                                 location(5, 27),
                                                                 new Identifier(location(5, 27), "trades", false),
-                                                                new Identifier(location(5, 34), "symbol", false)))),
-                                                new ComparisonExpression(
+                                                                new Identifier(location(5, 34), "symbol", false))))),
+                                                new Predicated(
                                                         location(6, 21),
-                                                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
                                                         new DereferenceExpression(
                                                                 location(6, 11),
                                                                 new Identifier(location(6, 11), "quotes", false),
                                                                 new Identifier(location(6, 18), "ts", false)),
-                                                        new DereferenceExpression(
+                                                        new ComparisonPredicate(location(6, 21), ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL, new DereferenceExpression(
                                                                 location(6, 24),
                                                                 new Identifier(location(6, 24), "trades", false),
-                                                                new Identifier(location(6, 31), "ts", false)))),
+                                                                new Identifier(location(6, 31), "ts", false))))),
                                         Optional.empty())),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -5214,28 +5431,26 @@ public class TestSqlParser
                                         new Nearest(
                                                 location(3, 6),
                                                 new Table(location(4, 15), qualifiedName(location(4, 15), "quotes")),
-                                                Optional.of(new ComparisonExpression(
+                                                Optional.of(new Predicated(
                                                         location(5, 30),
-                                                        ComparisonExpression.Operator.EQUAL,
                                                         new DereferenceExpression(
                                                                 location(5, 16),
                                                                 new Identifier(location(5, 16), "quotes", false),
                                                                 new Identifier(location(5, 23), "symbol", false)),
-                                                        new DereferenceExpression(
+                                                        new ComparisonPredicate(location(5, 30), ComparisonPredicate.Operator.EQUAL, new DereferenceExpression(
                                                                 location(5, 32),
                                                                 new Identifier(location(5, 32), "trades", false),
-                                                                new Identifier(location(5, 39), "symbol", false)))),
-                                                new ComparisonExpression(
+                                                                new Identifier(location(5, 39), "symbol", false))))),
+                                                new Predicated(
                                                         location(6, 26),
-                                                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
                                                         new DereferenceExpression(
                                                                 location(6, 16),
                                                                 new Identifier(location(6, 16), "quotes", false),
                                                                 new Identifier(location(6, 23), "ts", false)),
-                                                        new DereferenceExpression(
+                                                        new ComparisonPredicate(location(6, 26), ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL, new DereferenceExpression(
                                                                 location(6, 29),
                                                                 new Identifier(location(6, 29), "trades", false),
-                                                                new Identifier(location(6, 36), "ts", false)))),
+                                                                new Identifier(location(6, 36), "ts", false))))),
                                         Optional.empty())),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -5273,28 +5488,26 @@ public class TestSqlParser
                                         new Nearest(
                                                 location(3, 11),
                                                 new Table(location(4, 10), qualifiedName(location(4, 10), "quotes")),
-                                                Optional.of(new ComparisonExpression(
+                                                Optional.of(new Predicated(
                                                         location(5, 25),
-                                                        ComparisonExpression.Operator.EQUAL,
                                                         new DereferenceExpression(
                                                                 location(5, 11),
                                                                 new Identifier(location(5, 11), "quotes", false),
                                                                 new Identifier(location(5, 18), "symbol", false)),
-                                                        new DereferenceExpression(
+                                                        new ComparisonPredicate(location(5, 25), ComparisonPredicate.Operator.EQUAL, new DereferenceExpression(
                                                                 location(5, 27),
                                                                 new Identifier(location(5, 27), "trades", false),
-                                                                new Identifier(location(5, 34), "symbol", false)))),
-                                                new ComparisonExpression(
+                                                                new Identifier(location(5, 34), "symbol", false))))),
+                                                new Predicated(
                                                         location(6, 21),
-                                                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
                                                         new DereferenceExpression(
                                                                 location(6, 11),
                                                                 new Identifier(location(6, 11), "quotes", false),
                                                                 new Identifier(location(6, 18), "ts", false)),
-                                                        new DereferenceExpression(
+                                                        new ComparisonPredicate(location(6, 21), ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL, new DereferenceExpression(
                                                                 location(6, 24),
                                                                 new Identifier(location(6, 24), "trades", false),
-                                                                new Identifier(location(6, 31), "ts", false)))),
+                                                                new Identifier(location(6, 31), "ts", false))))),
                                         Optional.of(new JoinOn(new BooleanLiteral(location(7, 6), "TRUE"))))),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -5365,6 +5578,14 @@ public class TestSqlParser
         assertStatement("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'",
                 simpleQuery(selectList(
                         new AtTimeZone(new GenericLiteral("TIMESTAMP", "2012-10-31 01:00 UTC"), new StringLiteral("America/Los_Angeles")))));
+    }
+
+    @Test
+    public void testAtLocal()
+    {
+        assertStatement("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT LOCAL",
+                simpleQuery(selectList(
+                        new AtLocal(new NodeLocation(1, 41), new GenericLiteral("TIMESTAMP", "2012-10-31 01:00 UTC")))));
     }
 
     @Test
@@ -5619,29 +5840,20 @@ public class TestSqlParser
         assertStatement(
                 "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
                 simpleQuery(
-                        selectList(new ComparisonExpression(
-                                ComparisonExpression.Operator.EQUAL,
-                                exists(simpleQuery(selectList(new LongLiteral("1")))),
-                                exists(simpleQuery(selectList(new LongLiteral("2"))))))));
+                        selectList(new Predicated(null, exists(simpleQuery(selectList(new LongLiteral("1")))), new ComparisonPredicate(null, ComparisonPredicate.Operator.EQUAL, exists(simpleQuery(selectList(new LongLiteral("2")))))))));
 
         assertStatement(
                 "SELECT NOT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
                 simpleQuery(
                         selectList(
                                 new NotExpression(
-                                        new ComparisonExpression(
-                                                ComparisonExpression.Operator.EQUAL,
-                                                exists(simpleQuery(selectList(new LongLiteral("1")))),
-                                                exists(simpleQuery(selectList(new LongLiteral("2")))))))));
+                                        new Predicated(null, exists(simpleQuery(selectList(new LongLiteral("1")))), new ComparisonPredicate(null, ComparisonPredicate.Operator.EQUAL, exists(simpleQuery(selectList(new LongLiteral("2"))))))))));
 
         assertStatement(
                 "SELECT (NOT EXISTS(SELECT 1)) = EXISTS(SELECT 2)",
                 simpleQuery(
                         selectList(
-                                new ComparisonExpression(
-                                        ComparisonExpression.Operator.EQUAL,
-                                        new NotExpression(exists(simpleQuery(selectList(new LongLiteral("1"))))),
-                                        exists(simpleQuery(selectList(new LongLiteral("2"))))))));
+                                new Predicated(null, new NotExpression(exists(simpleQuery(selectList(new LongLiteral("1"))))), new ComparisonPredicate(null, ComparisonPredicate.Operator.EQUAL, exists(simpleQuery(selectList(new LongLiteral("2")))))))));
     }
 
     private static ExistsPredicate exists(Query query)
@@ -5677,10 +5889,7 @@ public class TestSqlParser
                     createShowStats(qualifiedName,
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
-                                    new ComparisonExpression(
-                                            ComparisonExpression.Operator.GREATER_THAN,
-                                            new Identifier("field"),
-                                            new LongLiteral("0")))));
+                                    new Predicated(null, new Identifier("field"), new ComparisonPredicate(null, ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral("0"))))));
 
             // SELECT with more complex predicate
             assertStatement("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)".formatted(qualifiedName),
@@ -5688,14 +5897,8 @@ public class TestSqlParser
                             ImmutableList.of(new AllColumns()),
                             Optional.of(
                                     LogicalExpression.or(
-                                            new ComparisonExpression(
-                                                    ComparisonExpression.Operator.GREATER_THAN,
-                                                    new Identifier("field"),
-                                                    new LongLiteral("0")),
-                                            new ComparisonExpression(
-                                                    ComparisonExpression.Operator.LESS_THAN,
-                                                    new Identifier("field"),
-                                                    new LongLiteral("0"))))));
+                                            new Predicated(null, new Identifier("field"), new ComparisonPredicate(null, ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral("0"))),
+                                            new Predicated(null, new Identifier("field"), new ComparisonPredicate(null, ComparisonPredicate.Operator.LESS_THAN, new LongLiteral("0")))))));
         }
 
         // SELECT with LIMIT
@@ -5878,10 +6081,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 QualifiedName.of("SUM"),
                                 Optional.empty(),
-                                Optional.of(new ComparisonExpression(
-                                        ComparisonExpression.Operator.GREATER_THAN,
-                                        new Identifier("x"),
-                                        new LongLiteral("4"))),
+                                Optional.of(new Predicated(null, new Identifier("x"), new ComparisonPredicate(null, ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral("4")))),
                                 Optional.empty(),
                                 false,
                                 Optional.empty(),
@@ -5893,72 +6093,139 @@ public class TestSqlParser
     public void testQuantifiedComparison()
     {
         assertThat(expression("col1 < ANY (SELECT col2 FROM table1)")).isEqualTo(
-                new QuantifiedComparisonExpression(
+                new Predicated(
                         location(1, 6),
-                        ComparisonExpression.Operator.LESS_THAN,
-                        QuantifiedComparisonExpression.Quantifier.ANY,
                         new Identifier(location(1, 1), "col1", false),
-                        new SubqueryExpression(location(1, 13), new Query(
-                                location(1, 13),
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                Optional.empty(),
-                                new QuerySpecification(
+                        new QuantifiedComparisonPredicate(
+                                location(1, 6),
+                                ComparisonPredicate.Operator.LESS_THAN,
+                                QuantifiedComparisonPredicate.Quantifier.ANY,
+                                new SubqueryExpression(location(1, 13), new Query(
                                         location(1, 13),
-                                        new Select(location(1, 13), false, ImmutableList.of(new SingleColumn(location(1, 20), new Identifier(location(1, 20), "col2", false), Optional.empty()))),
-                                        Optional.of(new Table(location(1, 30), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "table1", false))))),
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty(),
+                                        ImmutableList.of(),
                                         ImmutableList.of(),
                                         Optional.empty(),
+                                        new QuerySpecification(
+                                                location(1, 13),
+                                                new Select(location(1, 13), false, ImmutableList.of(new SingleColumn(location(1, 20), new Identifier(location(1, 20), "col2", false), Optional.empty()))),
+                                                Optional.of(new Table(location(1, 30), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "table1", false))))),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                ImmutableList.of(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty()),
                                         Optional.empty(),
-                                        Optional.empty()),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty()))));
+                                        Optional.empty(),
+                                        Optional.empty())))));
         assertThat(expression("col1 = ALL (VALUES ROW(1), ROW(2))")).isEqualTo(
-                new QuantifiedComparisonExpression(
+                new Predicated(
                         location(1, 6),
-                        ComparisonExpression.Operator.EQUAL,
-                        QuantifiedComparisonExpression.Quantifier.ALL,
                         new Identifier(location(1, 1), "col1", false),
-                        new SubqueryExpression(location(1, 13), new Query(
-                                location(1, 13),
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                Optional.empty(),
-                                new Values(location(1, 13), ImmutableList.of(
-                                        new Row(location(1, 20), ImmutableList.of(new Row.Field(location(1, 24), Optional.empty(), new LongLiteral(location(1, 24), "1")))),
-                                        new Row(location(1, 28), ImmutableList.of(new Row.Field(location(1, 32), Optional.empty(), new LongLiteral(location(1, 32), "2")))))),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty()))));
-        assertThat(expression("col1 >= SOME (SELECT 10)")).isEqualTo(
-                new QuantifiedComparisonExpression(
-                        location(1, 6),
-                        ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL,
-                        QuantifiedComparisonExpression.Quantifier.SOME,
-                        new Identifier(location(1, 1), "col1", false),
-                        new SubqueryExpression(location(1, 15), new Query(
-                                location(1, 15),
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                Optional.empty(),
-                                new QuerySpecification(
-                                        location(1, 15),
-                                        new Select(location(1, 15), false, ImmutableList.of(new SingleColumn(location(1, 22), new LongLiteral(location(1, 22), "10"), Optional.empty()))),
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty(),
+                        new QuantifiedComparisonPredicate(
+                                location(1, 6),
+                                ComparisonPredicate.Operator.EQUAL,
+                                QuantifiedComparisonPredicate.Quantifier.ALL,
+                                new SubqueryExpression(location(1, 13), new Query(
+                                        location(1, 13),
+                                        ImmutableList.of(),
                                         ImmutableList.of(),
                                         Optional.empty(),
+                                        new Values(location(1, 13), ImmutableList.of(
+                                                new Row(location(1, 20), ImmutableList.of(new Row.Field(location(1, 24), Optional.empty(), new LongLiteral(location(1, 24), "1")))),
+                                                new Row(location(1, 28), ImmutableList.of(new Row.Field(location(1, 32), Optional.empty(), new LongLiteral(location(1, 32), "2")))))),
                                         Optional.empty(),
-                                        Optional.empty()),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty()))));
+                                        Optional.empty(),
+                                        Optional.empty())))));
+        assertThat(expression("col1 >= SOME (SELECT 10)")).isEqualTo(
+                new Predicated(
+                        location(1, 6),
+                        new Identifier(location(1, 1), "col1", false),
+                        new QuantifiedComparisonPredicate(
+                                location(1, 6),
+                                ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL,
+                                QuantifiedComparisonPredicate.Quantifier.SOME,
+                                new SubqueryExpression(location(1, 15), new Query(
+                                        location(1, 15),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        new QuerySpecification(
+                                                location(1, 15),
+                                                new Select(location(1, 15), false, ImmutableList.of(new SingleColumn(location(1, 22), new LongLiteral(location(1, 22), "10"), Optional.empty()))),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                ImmutableList.of(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty()),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty())))));
+    }
+
+    @Test
+    public void testMatchPredicate()
+    {
+        // Regular `ROW(...) MATCH ...` form parses as Predicated(Row(...), MatchPredicate(...)).
+        SqlParser parser = new SqlParser();
+        MatchPredicate simpleDefault = (MatchPredicate) ((Predicated) parser.createExpression("ROW(a, b) MATCH (SELECT x, y FROM t)")).getPredicate();
+        assertThat(simpleDefault.getType()).isEqualTo(MatchPredicate.Type.SIMPLE);
+        assertThat(simpleDefault.isUnique()).isFalse();
+
+        assertThat(((MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH SIMPLE (SELECT x FROM t)")).getPredicate()).getType())
+                .isEqualTo(MatchPredicate.Type.SIMPLE);
+        assertThat(((MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH PARTIAL (SELECT x FROM t)")).getPredicate()).getType())
+                .isEqualTo(MatchPredicate.Type.PARTIAL);
+        assertThat(((MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH FULL (SELECT x FROM t)")).getPredicate()).getType())
+                .isEqualTo(MatchPredicate.Type.FULL);
+
+        MatchPredicate uniqueSimple = (MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH UNIQUE (SELECT x FROM t)")).getPredicate();
+        assertThat(uniqueSimple.isUnique()).isTrue();
+        assertThat(uniqueSimple.getType()).isEqualTo(MatchPredicate.Type.SIMPLE);
+
+        MatchPredicate uniqueFull = (MatchPredicate) ((Predicated) parser.createExpression("ROW(a, b) MATCH UNIQUE FULL (SELECT x, y FROM t)")).getPredicate();
+        assertThat(uniqueFull.isUnique()).isTrue();
+        assertThat(uniqueFull.getType()).isEqualTo(MatchPredicate.Type.FULL);
+    }
+
+    @Test
+    public void testMatchPredicateInExtendedCaseWhen()
+    {
+        // MATCH as a fragment in extended SIMPLE CASE WHEN (SQL:2023 F262): the case operand is
+        // the implicit LHS of the MATCH predicate.
+        SqlParser parser = new SqlParser();
+        SimpleCaseExpression simpleCase = (SimpleCaseExpression) parser.createExpression(
+                "CASE ROW(a, b) " +
+                        "  WHEN MATCH (SELECT x, y FROM t) THEN 'match' " +
+                        "  WHEN MATCH UNIQUE PARTIAL (SELECT x, y FROM u) THEN 'unique partial' " +
+                        "  ELSE 'none' " +
+                        "END");
+        WhenClause firstClause = simpleCase.getWhenClauses().get(0);
+        assertThat(firstClause.getMatch()).isInstanceOf(WhenClause.Partial.class);
+        MatchPredicate firstFragment = (MatchPredicate) ((WhenClause.Partial) firstClause.getMatch()).predicate();
+        assertThat(firstFragment.isUnique()).isFalse();
+        assertThat(firstFragment.getType()).isEqualTo(MatchPredicate.Type.SIMPLE);
+
+        WhenClause secondClause = simpleCase.getWhenClauses().get(1);
+        MatchPredicate secondFragment = (MatchPredicate) ((WhenClause.Partial) secondClause.getMatch()).predicate();
+        assertThat(secondFragment.isUnique()).isTrue();
+        assertThat(secondFragment.getType()).isEqualTo(MatchPredicate.Type.PARTIAL);
+    }
+
+    @Test
+    public void testUniquePredicate()
+    {
+        SqlParser parser = new SqlParser();
+        UniquePredicate predicate = (UniquePredicate) parser.createExpression("UNIQUE (SELECT a FROM t)");
+        assertThat(predicate.getSubquery()).isInstanceOf(SubqueryExpression.class);
+
+        assertThat(parser.createExpression("UNIQUE (SELECT a, b FROM t)")).isInstanceOf(UniquePredicate.class);
+
+        assertThat(parser.createExpression("NOT UNIQUE (SELECT a FROM t)")).isInstanceOf(NotExpression.class);
     }
 
     @Test
@@ -6925,14 +7192,13 @@ public class TestSqlParser
                                                 new VariableDefinition(
                                                         location(14, 8),
                                                         new Identifier(location(14, 8), "C", false),
-                                                        new ComparisonExpression(
+                                                        new Predicated(
                                                                 location(14, 27),
-                                                                EQUAL,
                                                                 new FunctionCall(
                                                                         location(14, 13),
                                                                         QualifiedName.of(ImmutableList.of(new Identifier(location(14, 13), "CLASSIFIER", false))),
                                                                         ImmutableList.of(new Identifier(location(14, 24), "U", false))),
-                                                                new StringLiteral(location(14, 29), "B")))))))),
+                                                                new ComparisonPredicate(location(14, 27), EQUAL, new StringLiteral(location(14, 29), "B"))))))))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -7008,7 +7274,7 @@ public class TestSqlParser
                                 new UpdateAssignment(new Identifier("bar"), new LongLiteral("23")),
                                 new UpdateAssignment(new Identifier("baz"), new DoubleLiteral("3.1415")),
                                 new UpdateAssignment(new Identifier("bletch"), new StringLiteral("barf"))),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("nothing"), new StringLiteral("fun")))));
+                        Optional.of(new Predicated(null, new Identifier("nothing"), new ComparisonPredicate(null, ComparisonPredicate.Operator.EQUAL, new StringLiteral("fun"))))));
     }
 
     @Test

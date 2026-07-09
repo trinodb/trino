@@ -23,6 +23,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
@@ -37,7 +38,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -400,12 +400,12 @@ public class TestMemoryConnectorTest
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax", session, 2, 2, 2);
 
         // TODO: support complex inequality join clauses: https://github.com/trinodb/trino/issues/5755
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", session, 0, 5, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", session, 0, 5, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", session, 0, 0, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", session, 0, 0, 2);
 
         // TODO: make sure it works after https://github.com/trinodb/trino/issues/5777 is fixed
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax - 1", session, 1, 1, 2);

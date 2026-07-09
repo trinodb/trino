@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -104,6 +104,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem-manager</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-s3</artifactId>
         </dependency>
 
         <dependency>
@@ -245,11 +250,6 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>retries</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
             <artifactId>retries-spi</artifactId>
         </dependency>
 
@@ -261,6 +261,11 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sts</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>utils</artifactId>
         </dependency>
 
         <dependency>
@@ -306,45 +311,9 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>node</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-trace</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-            <scope>runtime</scope>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -367,6 +336,18 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>node</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -380,6 +361,12 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -491,6 +478,18 @@
         </dependency>
 
         <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-hadoop</artifactId>
             <scope>test</scope>
@@ -499,6 +498,12 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -539,6 +544,18 @@
         </dependency>
 
         <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>retries</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <!-- Allow running tests when locally `aws sso login` is required to access AWS services -->
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sso</artifactId>
@@ -560,16 +577,9 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredNonTestScopedDependencies>
-                        <!-- dependency plugin fails to recognize software.amazon.awssdk.retries as a compile-time dependency, because
-                             we use it as part of builder, without explicit import in GlueMetastoreModule -->
-                        <ignoredNonTestScopedDependency>software.amazon.awssdk:retries</ignoredNonTestScopedDependency>
-                        <!-- jts-core is transitively available via trino-hive-formats and used in TestEsriTable -->
-                        <ignoredNonTestScopedDependency>org.locationtech.jts:jts-core</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-filesystem-s3</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:utils</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
-                    <ignoredUsedUndeclaredDependencies>
-                        <!-- jts-core is transitively available via trino-hive-formats and used in TestEsriTable -->
-                        <ignoredUsedUndeclaredDependency>org.locationtech.jts:jts-core</ignoredUsedUndeclaredDependency>
-                    </ignoredUsedUndeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
@@ -588,15 +598,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.children="append">
-                                <exclude>**/TestCachedHiveGlueMetastore.java</exclude>
-                                <exclude>**/TestGlueHiveMetastore.java</exclude>
-                                <exclude>**/TestGlueHiveMetastoreCanonicalPartitionKeys.java</exclude>
-                                <exclude>**/TestGlueHiveMetastoreQueries.java</exclude>
-                                <exclude>**/TestGlueHiveMetastoreSkipArchive.java</exclude>
-                                <exclude>**/TestHiveGlueMetadataListing.java</exclude>
-                                <exclude>**/TestHiveGlueMetastoreAccessOperations.java</exclude>
-                                <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
-                                <exclude>**/TestHiveConcurrentModificationGlueMetastore.java</exclude>
+                                <exclude>**/TestHiveS3AndGlueAws.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -642,29 +644,5 @@
             </build>
         </profile>
 
-        <profile>
-            <id>cloud-tests</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestCachedHiveGlueMetastore.java</include>
-                                <include>**/TestGlueHiveMetastore.java</include>
-                                <include>**/TestGlueHiveMetastoreCanonicalPartitionKeys.java</include>
-                                <include>**/TestGlueHiveMetastoreQueries.java</include>
-                                <include>**/TestGlueHiveMetastoreSkipArchive.java</include>
-                                <include>**/TestHiveGlueMetadataListing.java</include>
-                                <include>**/TestHiveGlueMetastoreAccessOperations.java</include>
-                                <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
-                                <include>**/TestHiveConcurrentModificationGlueMetastore.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
     </profiles>
 </project>

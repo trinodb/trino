@@ -11,10 +11,9 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  statuses: write
 
 jobs:
-  check:
+  cla-signed:
     if: |
       github.repository == 'trinodb/trino' &&
       (
@@ -31,11 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
       - name: Check CLA
-        run: node .github/bin/check-cla.js
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkCla = require('./.github/bin/check-cla.js');
+            await checkCla({github, context, core});

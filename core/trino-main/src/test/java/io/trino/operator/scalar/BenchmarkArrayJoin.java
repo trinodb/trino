@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -48,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -70,7 +69,6 @@ public class BenchmarkArrayJoin
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }

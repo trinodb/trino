@@ -31,6 +31,8 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
+import io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.VariantField;
 import io.trino.parquet.crypto.FileDecryptionContext;
@@ -86,9 +88,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
-import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.createStatisticsValidationBuilder;
-import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
 import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static io.trino.parquet.reader.PageReader.createPageReader;
@@ -388,7 +388,9 @@ public class ParquetReader
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
-                    block = selectedPositions.apply(block);
+                    // loaded blocks already reflect the previous selection, so the incoming
+                    // positions apply to them directly
+                    block = block.getPositions(positions, offset, size);
                     retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }

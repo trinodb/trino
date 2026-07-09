@@ -29,7 +29,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
 import io.trino.spi.type.TypeManager;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -51,12 +50,12 @@ import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
 import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
 import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 
 public final class MergeFileWriter
@@ -68,8 +67,8 @@ public final class MergeFileWriter
     // After compaction, the bucketPath looks like this: /root/dir/base_nnnnnnn(_vmmmmmmm)?/bucket_bbbbb(_aaaa)?
     private static final Pattern BASE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>base_-?\\d+(_v\\d+)?)/(?<filenameBase>bucket_(?<bucketNumber>\\d+))(?<attemptId>_\\d+)?$");
 
-    private static final Block DELETE_OPERATION_BLOCK = nativeValueToBlock(INTEGER, (long) DELETE.getOperationNumber());
-    private static final Block INSERT_OPERATION_BLOCK = nativeValueToBlock(INTEGER, (long) INSERT.getOperationNumber());
+    private static final Block DELETE_OPERATION_BLOCK = writeNativeValue(INTEGER, (long) DELETE.getOperationNumber());
+    private static final Block INSERT_OPERATION_BLOCK = writeNativeValue(INTEGER, (long) INSERT.getOperationNumber());
 
     private final AcidTransaction transaction;
     private final OptionalInt bucketNumber;
@@ -106,13 +105,13 @@ public final class MergeFileWriter
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.sortingFileWriterMaker = requireNonNull(sortingFileWriterMaker, "sortingFileWriterMaker is null");
-        this.bucketValueBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketNumber.orElse(0), statementId));
+        this.bucketValueBlock = writeNativeValue(INTEGER, (long) computeBucketValue(bucketNumber.orElse(0), statementId));
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
-        this.hiveRowTypeNullsBlock = nativeValueToBlock(typeManager.getType(getTypeSignature(hiveRowType)), null);
+        this.hiveRowTypeNullsBlock = writeNativeValue(typeManager.getType(getTypeDescriptor(hiveRowType)), null);
         Matcher matcher = BASE_PATH_MATCHER.matcher(bucketPath);
         if (!matcher.matches()) {
             matcher = BUCKET_PATH_MATCHER.matcher(bucketPath);
@@ -183,14 +182,14 @@ public final class MergeFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
-        Optional<Closeable> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
-        Optional<Closeable> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
+        Optional<RollbackAction> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
+        Optional<RollbackAction> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
         return () -> {
             try (Closer closer = Closer.create()) {
-                insertRollbackAction.ifPresent(closer::register);
-                deleteRollbackAction.ifPresent(closer::register);
+                insertRollbackAction.ifPresent(rollbackAction -> closer.register(rollbackAction::run));
+                deleteRollbackAction.ifPresent(rollbackAction -> closer.register(rollbackAction::run));
             }
         };
     }

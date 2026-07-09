@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
@@ -88,5 +89,15 @@ public interface ConnectorContext
     default FunctionBundleFactory getFunctionBundleFactory()
     {
         throw new UnsupportedOperationException();
+    }
+
+    default BlocksHashFactory getBlocksHashFactory()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default ConnectorExpressionEvaluator getExpressionEvaluator()
+    {
+        return ConnectorExpressionEvaluator.NO_OP;
     }
 }

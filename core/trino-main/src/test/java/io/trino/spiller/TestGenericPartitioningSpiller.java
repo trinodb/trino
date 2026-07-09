@@ -46,7 +46,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -218,11 +218,7 @@ public class TestGenericPartitioningSpiller
         for (int partition = 0; partition < expectedPartitions.size(); partition++) {
             List<Page> actualSpill = ImmutableList.copyOf(spiller.getSpilledPages(partition));
             List<Page> expectedSpill = expectedPartitions.get(partition);
-
-            assertThat(actualSpill).hasSize(expectedSpill.size());
-            for (int j = 0; j < actualSpill.size(); j++) {
-                assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
-            }
+            assertPagesEqual(types, actualSpill, expectedSpill);
         }
     }
 

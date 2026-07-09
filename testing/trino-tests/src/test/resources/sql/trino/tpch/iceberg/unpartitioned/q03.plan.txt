@@ -2,7 +2,7 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (orderdate, orderkey_5, shippriority)
+                final aggregation over (orderkey_5, orderdate, shippriority)
                     local exchange (GATHER, SINGLE, [])
                         join (INNER, PARTITIONED):
                             partial aggregation over (orderkey_5)

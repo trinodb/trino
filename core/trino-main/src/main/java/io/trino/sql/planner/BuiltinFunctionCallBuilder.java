@@ -16,8 +16,8 @@ package io.trino.sql.planner;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -32,7 +32,7 @@ public class BuiltinFunctionCallBuilder
 {
     private final Metadata metadata;
     private String name;
-    private List<TypeSignature> argumentTypes = new ArrayList<>();
+    private List<TypeDescriptor> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
 
     public static BuiltinFunctionCallBuilder resolve(Metadata metadata)
@@ -54,20 +54,20 @@ public class BuiltinFunctionCallBuilder
     public BuiltinFunctionCallBuilder addArgument(Constant value)
     {
         requireNonNull(value, "value is null");
-        return addArgument(value.type().getTypeSignature(), value);
+        return addArgument(value.type().getTypeDescriptor(), value);
     }
 
     public BuiltinFunctionCallBuilder addArgument(Type type, Expression value)
     {
         requireNonNull(type, "type is null");
-        return addArgument(type.getTypeSignature(), value);
+        return addArgument(type.getTypeDescriptor(), value);
     }
 
-    public BuiltinFunctionCallBuilder addArgument(TypeSignature typeSignature, Expression value)
+    public BuiltinFunctionCallBuilder addArgument(TypeDescriptor typeDescriptor, Expression value)
     {
-        requireNonNull(typeSignature, "typeSignature is null");
+        requireNonNull(typeDescriptor, "typeDescriptor is null");
         requireNonNull(value, "value is null");
-        argumentTypes.add(typeSignature);
+        argumentTypes.add(typeDescriptor);
         argumentValues.add(value);
         return this;
     }
@@ -77,7 +77,7 @@ public class BuiltinFunctionCallBuilder
         requireNonNull(types, "types is null");
         requireNonNull(values, "values is null");
         argumentTypes = types.stream()
-                .map(Type::getTypeSignature)
+                .map(Type::getTypeDescriptor)
                 .collect(Collectors.toList());
         argumentValues = new ArrayList<>(values);
         return this;
@@ -85,7 +85,7 @@ public class BuiltinFunctionCallBuilder
 
     public Call build()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
+        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeDescriptorProvider.fromTypeDescriptors(argumentTypes));
         return new Call(resolvedFunction, argumentValues);
     }
 }

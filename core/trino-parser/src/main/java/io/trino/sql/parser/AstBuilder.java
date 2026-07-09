@@ -33,11 +33,15 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AssignmentStatement;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.BetweenPredicate.Symmetry;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.BooleanTestPredicate;
+import io.trino.sql.tree.BooleanTestPredicate.TruthValue;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CaseStatement;
@@ -49,7 +53,7 @@ import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
@@ -84,6 +88,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DeterministicCharacteristic;
+import io.trino.sql.tree.DistinctFromPredicate;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
@@ -141,7 +146,6 @@ import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalQualifier;
-import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
 import io.trino.sql.tree.IterateStatement;
@@ -179,6 +183,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.LoopStatement;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -200,6 +205,7 @@ import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
+import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PathElement;
@@ -215,13 +221,15 @@ import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicate;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.PropertiesCharacteristic;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.QuantifiedPattern;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryBody;
@@ -304,6 +312,7 @@ import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.Union;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
@@ -953,8 +962,8 @@ class AstBuilder
     public Node visitTableExecute(SqlBaseParser.TableExecuteContext context)
     {
         List<CallArgument> arguments = ImmutableList.of();
-        if (context.callArgument() != null) {
-            arguments = visit(context.callArgument(), CallArgument.class);
+        if (context.argument() != null) {
+            arguments = visit(context.argument(), CallArgument.class);
         }
 
         return new TableExecute(
@@ -1144,7 +1153,7 @@ class AstBuilder
         return new Call(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
-                visit(context.callArgument(), CallArgument.class));
+                visit(context.argument(), CallArgument.class));
     }
 
     @Override
@@ -2313,7 +2322,10 @@ class AstBuilder
     public Node visitPredicated(SqlBaseParser.PredicatedContext context)
     {
         if (context.predicate() != null) {
-            return visit(context.predicate());
+            return new Predicated(
+                    getLocation(context.predicate()),
+                    (Expression) visit(context.valueExpression),
+                    (Predicate) visit(context.predicate()));
         }
 
         return visit(context.valueExpression);
@@ -2322,101 +2334,82 @@ class AstBuilder
     @Override
     public Node visitComparison(SqlBaseParser.ComparisonContext context)
     {
-        return new ComparisonExpression(
+        return new ComparisonPredicate(
                 getLocation(context.comparisonOperator()),
                 getComparisonOperator(((TerminalNode) context.comparisonOperator().getChild(0)).getSymbol()),
-                (Expression) visit(context.value),
                 (Expression) visit(context.right));
     }
 
     @Override
     public Node visitDistinctFrom(SqlBaseParser.DistinctFromContext context)
     {
-        Expression expression = new ComparisonExpression(
-                getLocation(context),
-                ComparisonExpression.Operator.IS_DISTINCT_FROM,
-                (Expression) visit(context.value),
-                (Expression) visit(context.right));
-
-        if (context.NOT() != null) {
-            expression = new NotExpression(getLocation(context), expression);
-        }
-
-        return expression;
+        return new DistinctFromPredicate(getLocation(context), context.NOT() != null, (Expression) visit(context.right));
     }
 
     @Override
     public Node visitBetween(SqlBaseParser.BetweenContext context)
     {
-        Expression expression = new BetweenPredicate(
-                getLocation(context),
-                (Expression) visit(context.value),
-                (Expression) visit(context.lower),
-                (Expression) visit(context.upper));
-
-        if (context.NOT() != null) {
-            expression = new NotExpression(getLocation(context), expression);
+        Optional<Symmetry> symmetry = Optional.empty();
+        if (context.SYMMETRIC() != null) {
+            symmetry = Optional.of(Symmetry.SYMMETRIC);
+        }
+        else if (context.ASYMMETRIC() != null) {
+            symmetry = Optional.of(Symmetry.ASYMMETRIC);
         }
 
-        return expression;
+        return new BetweenPredicate(
+                getLocation(context),
+                context.NOT() != null,
+                symmetry,
+                (Expression) visit(context.lower),
+                (Expression) visit(context.upper));
     }
 
     @Override
     public Node visitNullPredicate(SqlBaseParser.NullPredicateContext context)
     {
-        Expression child = (Expression) visit(context.value);
+        return new IsNullPredicate(getLocation(context), context.NOT() != null);
+    }
 
-        if (context.NOT() == null) {
-            return new IsNullPredicate(getLocation(context), child);
-        }
+    @Override
+    public Node visitBooleanTest(SqlBaseParser.BooleanTestContext context)
+    {
+        TruthValue truthValue = switch (context.truthValue.getType()) {
+            case SqlBaseLexer.TRUE -> TruthValue.TRUE;
+            case SqlBaseLexer.FALSE -> TruthValue.FALSE;
+            case SqlBaseLexer.UNKNOWN -> TruthValue.UNKNOWN;
+            default -> throw new IllegalArgumentException("Unsupported truth value: " + context.truthValue.getText());
+        };
 
-        return new IsNotNullPredicate(getLocation(context), child);
+        return new BooleanTestPredicate(getLocation(context), context.NOT() != null, truthValue);
     }
 
     @Override
     public Node visitLike(SqlBaseParser.LikeContext context)
     {
-        Expression result = new LikePredicate(
+        return new LikePredicate(
                 getLocation(context),
-                (Expression) visit(context.value),
+                context.NOT() != null,
                 (Expression) visit(context.pattern),
                 visitIfPresent(context.escape, Expression.class));
-
-        if (context.NOT() != null) {
-            result = new NotExpression(getLocation(context), result);
-        }
-
-        return result;
     }
 
     @Override
     public Node visitInList(SqlBaseParser.InListContext context)
     {
-        Expression result = new InPredicate(
+        return new InPredicate(
                 getLocation(context),
-                (Expression) visit(context.value),
+                context.NOT() != null,
                 new InListExpression(getLocation(context), visit(context.expression(), Expression.class)));
-
-        if (context.NOT() != null) {
-            result = new NotExpression(getLocation(context), result);
-        }
-
-        return result;
     }
 
     @Override
     public Node visitInSubquery(SqlBaseParser.InSubqueryContext context)
     {
-        Expression result = new InPredicate(
+        return new InPredicate(
                 getLocation(context),
-                (Expression) visit(context.value),
+                context.NOT() != null,
                 new SubqueryExpression(getLocation(context), (Query) visit(context.query())));
-
-        if (context.NOT() != null) {
-            result = new NotExpression(getLocation(context), result);
-        }
-
-        return result;
     }
 
     @Override
@@ -2426,13 +2419,37 @@ class AstBuilder
     }
 
     @Override
+    public Node visitUnique(SqlBaseParser.UniqueContext context)
+    {
+        return new UniquePredicate(getLocation(context), new SubqueryExpression(getLocation(context), (Query) visit(context.query())));
+    }
+
+    @Override
     public Node visitQuantifiedComparison(SqlBaseParser.QuantifiedComparisonContext context)
     {
-        return new QuantifiedComparisonExpression(
+        return new QuantifiedComparisonPredicate(
                 getLocation(context.comparisonOperator()),
                 getComparisonOperator(((TerminalNode) context.comparisonOperator().getChild(0)).getSymbol()),
                 getComparisonQuantifier(((TerminalNode) context.comparisonQuantifier().getChild(0)).getSymbol()),
-                (Expression) visit(context.value),
+                new SubqueryExpression(getLocation(context.query()), (Query) visit(context.query())));
+    }
+
+    @Override
+    public Node visitMatch(SqlBaseParser.MatchContext context)
+    {
+        MatchPredicate.Type type = MatchPredicate.Type.SIMPLE;
+        if (context.matchType != null) {
+            type = switch (context.matchType.getType()) {
+                case SqlBaseLexer.SIMPLE -> MatchPredicate.Type.SIMPLE;
+                case SqlBaseLexer.PARTIAL -> MatchPredicate.Type.PARTIAL;
+                case SqlBaseLexer.FULL -> MatchPredicate.Type.FULL;
+                default -> throw new IllegalArgumentException("Unsupported MATCH type: " + context.matchType.getText());
+            };
+        }
+        return new MatchPredicate(
+                getLocation(context),
+                context.UNIQUE() != null,
+                type,
                 new SubqueryExpression(getLocation(context.query()), (Query) visit(context.query())));
     }
 
@@ -2478,6 +2495,14 @@ class AstBuilder
                 getLocation(context.AT()),
                 (Expression) visit(context.valueExpression()),
                 (Expression) visit(context.timeZoneSpecifier()));
+    }
+
+    @Override
+    public Node visitAtLocal(SqlBaseParser.AtLocalContext context)
+    {
+        return new AtLocal(
+                getLocation(context.AT()),
+                (Expression) visit(context.valueExpression()));
     }
 
     @Override
@@ -2981,6 +3006,17 @@ class AstBuilder
     }
 
     @Override
+    public Node visitOverlay(SqlBaseParser.OverlayContext context)
+    {
+        return new Overlay(
+                getLocation(context),
+                (Expression) visit(context.source),
+                (Expression) visit(context.replacement),
+                (Expression) visit(context.start),
+                visitIfPresent(context.length, Expression.class));
+    }
+
+    @Override
     public Node visitNormalize(SqlBaseParser.NormalizeContext context)
     {
         Expression str = (Expression) visit(context.valueExpression());
@@ -3024,7 +3060,7 @@ class AstBuilder
         return new SimpleCaseExpression(
                 getLocation(context),
                 (Expression) visit(context.operand),
-                visit(context.whenClause(), WhenClause.class),
+                visit(context.simpleWhenClause(), WhenClause.class),
                 visitIfPresent(context.elseExpression, Expression.class));
     }
 
@@ -3033,12 +3069,21 @@ class AstBuilder
     {
         return new SearchedCaseExpression(
                 getLocation(context),
-                visit(context.whenClause(), WhenClause.class),
+                visit(context.searchedWhenClause(), WhenClause.class),
                 visitIfPresent(context.elseExpression, Expression.class));
     }
 
     @Override
-    public Node visitWhenClause(SqlBaseParser.WhenClauseContext context)
+    public Node visitSimpleWhenClause(SqlBaseParser.SimpleWhenClauseContext context)
+    {
+        if (context.partial != null) {
+            return new WhenClause(getLocation(context), (Predicate) visit(context.partial), (Expression) visit(context.result));
+        }
+        return new WhenClause(getLocation(context), (Expression) visit(context.condition), (Expression) visit(context.result));
+    }
+
+    @Override
+    public Node visitSearchedWhenClause(SqlBaseParser.SearchedWhenClauseContext context)
     {
         return new WhenClause(getLocation(context), (Expression) visit(context.condition), (Expression) visit(context.result));
     }
@@ -3059,71 +3104,85 @@ class AstBuilder
 
         SqlBaseParser.ProcessingModeContext processingMode = context.processingMode();
 
+        List<CallArgument> arguments = visit(context.argument(), CallArgument.class);
+        if (context.label != null) {
+            // `f(label.*)` form — captured separately by the grammar, never has named args.
+            // Rewrite to a synthetic single-argument list before arity-sensitive operator branches.
+            DereferenceExpression labelRef = new DereferenceExpression(getLocation(context.label), (Identifier) visit(context.label));
+            arguments = ImmutableList.of(new CallArgument(labelRef.getLocation().orElse(null), Optional.empty(), labelRef));
+        }
+        boolean hasNamedArguments = arguments.stream().anyMatch(argument -> argument.getName().isPresent());
+
         if (name.toString().equalsIgnoreCase("if")) {
-            check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
+            check(arguments.size() == 2 || arguments.size() == 3, "Invalid number of arguments for 'if' function", context);
             check(window.isEmpty(), "OVER clause not valid for 'if' function", context);
             check(!distinct, "DISTINCT not valid for 'if' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'if' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'if' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'if' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'if' function", context);
 
             Expression elseExpression = null;
-            if (context.expression().size() == 3) {
-                elseExpression = (Expression) visit(context.expression(2));
+            if (arguments.size() == 3) {
+                elseExpression = arguments.get(2).getValue();
             }
 
             return new IfExpression(
                     getLocation(context),
-                    (Expression) visit(context.expression(0)),
-                    (Expression) visit(context.expression(1)),
+                    arguments.get(0).getValue(),
+                    arguments.get(1).getValue(),
                     elseExpression);
         }
 
         if (name.toString().equalsIgnoreCase("nullif")) {
-            check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
+            check(arguments.size() == 2, "Invalid number of arguments for 'nullif' function", context);
             check(window.isEmpty(), "OVER clause not valid for 'nullif' function", context);
             check(!distinct, "DISTINCT not valid for 'nullif' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'nullif' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'nullif' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'nullif' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'nullif' function", context);
 
             return new NullIfExpression(
                     getLocation(context),
-                    (Expression) visit(context.expression(0)),
-                    (Expression) visit(context.expression(1)));
+                    arguments.get(0).getValue(),
+                    arguments.get(1).getValue());
         }
 
         if (name.toString().equalsIgnoreCase("coalesce")) {
-            check(context.expression().size() >= 2, "The 'coalesce' function must have at least two arguments", context);
+            check(arguments.size() >= 2, "The 'coalesce' function must have at least two arguments", context);
             check(window.isEmpty(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'coalesce' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'coalesce' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'coalesce' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'coalesce' function", context);
 
-            return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
+            return new CoalesceExpression(getLocation(context), arguments.stream().map(CallArgument::getValue).collect(toImmutableList()));
         }
 
         if (name.toString().equalsIgnoreCase("try")) {
-            check(context.expression().size() == 1, "The 'try' function must have exactly one argument", context);
+            check(arguments.size() == 1, "The 'try' function must have exactly one argument", context);
             check(window.isEmpty(), "OVER clause not valid for 'try' function", context);
             check(!distinct, "DISTINCT not valid for 'try' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'try' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'try' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'try' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'try' function", context);
 
-            return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
+            return new TryExpression(getLocation(context), getOnlyElement(arguments).getValue());
         }
 
         if (name.toString().equalsIgnoreCase("format")) {
-            check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
+            check(arguments.size() >= 2, "The 'format' function must have at least two arguments", context);
             check(window.isEmpty(), "OVER clause not valid for 'format' function", context);
             check(!distinct, "DISTINCT not valid for 'format' function", context);
             check(nullTreatment == null, "Null treatment clause not valid for 'format' function", context);
             check(processingMode == null, "Running or final semantics not valid for 'format' function", context);
             check(filter.isEmpty(), "FILTER not valid for 'format' function", context);
+            check(!hasNamedArguments, "Named arguments are not supported for 'format' function", context);
 
-            return new Format(getLocation(context), visit(context.expression(), Expression.class));
+            return new Format(getLocation(context), arguments.stream().map(CallArgument::getValue).collect(toImmutableList()));
         }
 
         Optional<NullTreatment> nulls = Optional.empty();
@@ -3146,13 +3205,8 @@ class AstBuilder
             }
         }
 
-        List<Expression> arguments = visit(context.expression(), Expression.class);
-        if (context.label != null) {
-            arguments = ImmutableList.of(new DereferenceExpression(getLocation(context.label), (Identifier) visit(context.label)));
-        }
-
         return new FunctionCall(
-                Optional.of(getLocation(context)),
+                getLocation(context),
                 name,
                 window,
                 filter,
@@ -3169,8 +3223,8 @@ class AstBuilder
         return new StaticMethodCall(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
-                (Identifier) visit(context.identifier()),
-                visit(context.expression(), Expression.class));
+                (Identifier) visit(context.methodName()),
+                visit(context.argument(), CallArgument.class));
     }
 
     @Override
@@ -3179,8 +3233,18 @@ class AstBuilder
         return new MethodCall(
                 getLocation(context),
                 (Expression) visit(context.primaryExpression()),
-                (Identifier) visit(context.identifier()),
-                visit(context.expression(), Expression.class));
+                (Identifier) visit(context.methodName()),
+                visit(context.argument(), CallArgument.class));
+    }
+
+    @Override
+    public Node visitMethodName(SqlBaseParser.MethodNameContext context)
+    {
+        if (context.identifier() != null) {
+            return visit(context.identifier());
+        }
+        // a keyword used as a method name
+        return new Identifier(getLocation(context), context.getText(), false);
     }
 
     @Override
@@ -4420,15 +4484,15 @@ class AstBuilder
         };
     }
 
-    private static ComparisonExpression.Operator getComparisonOperator(Token symbol)
+    private static ComparisonPredicate.Operator getComparisonOperator(Token symbol)
     {
         return switch (symbol.getType()) {
-            case SqlBaseLexer.EQ -> ComparisonExpression.Operator.EQUAL;
-            case SqlBaseLexer.NEQ -> ComparisonExpression.Operator.NOT_EQUAL;
-            case SqlBaseLexer.LT -> ComparisonExpression.Operator.LESS_THAN;
-            case SqlBaseLexer.LTE -> ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-            case SqlBaseLexer.GT -> ComparisonExpression.Operator.GREATER_THAN;
-            case SqlBaseLexer.GTE -> ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+            case SqlBaseLexer.EQ -> ComparisonPredicate.Operator.EQUAL;
+            case SqlBaseLexer.NEQ -> ComparisonPredicate.Operator.NOT_EQUAL;
+            case SqlBaseLexer.LT -> ComparisonPredicate.Operator.LESS_THAN;
+            case SqlBaseLexer.LTE -> ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
+            case SqlBaseLexer.GT -> ComparisonPredicate.Operator.GREATER_THAN;
+            case SqlBaseLexer.GTE -> ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL;
             default -> throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
         };
     }
@@ -4497,12 +4561,12 @@ class AstBuilder
         };
     }
 
-    private static QuantifiedComparisonExpression.Quantifier getComparisonQuantifier(Token symbol)
+    private static QuantifiedComparisonPredicate.Quantifier getComparisonQuantifier(Token symbol)
     {
         return switch (symbol.getType()) {
-            case SqlBaseLexer.ALL -> QuantifiedComparisonExpression.Quantifier.ALL;
-            case SqlBaseLexer.ANY -> QuantifiedComparisonExpression.Quantifier.ANY;
-            case SqlBaseLexer.SOME -> QuantifiedComparisonExpression.Quantifier.SOME;
+            case SqlBaseLexer.ALL -> QuantifiedComparisonPredicate.Quantifier.ALL;
+            case SqlBaseLexer.ANY -> QuantifiedComparisonPredicate.Quantifier.ANY;
+            case SqlBaseLexer.SOME -> QuantifiedComparisonPredicate.Quantifier.SOME;
             default -> throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
         };
     }

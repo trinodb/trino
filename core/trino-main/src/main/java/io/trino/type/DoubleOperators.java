@@ -63,55 +63,56 @@ public final class DoubleOperators
 
     private DoubleOperators() {}
 
-    @ScalarOperator(ADD)
+    @ScalarOperator(value = ADD, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double add(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left + right;
     }
 
-    @ScalarOperator(SUBTRACT)
+    @ScalarOperator(value = SUBTRACT, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double subtract(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left - right;
     }
 
-    @ScalarOperator(MULTIPLY)
+    @ScalarOperator(value = MULTIPLY, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double multiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left * right;
     }
 
-    @ScalarOperator(DIVIDE)
+    @ScalarOperator(value = DIVIDE, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double divide(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left / right;
     }
 
-    @ScalarOperator(MODULO)
+    @ScalarOperator(value = MODULO, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double modulo(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left % right;
     }
 
-    @ScalarOperator(NEGATION)
+    @ScalarOperator(value = NEGATION, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double negate(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return -value;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return value != 0;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.DOUBLE) double value)
@@ -126,6 +127,7 @@ public final class DoubleOperators
         return (int) rounded;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.DOUBLE) double value)
@@ -140,6 +142,7 @@ public final class DoubleOperators
         return (short) rounded;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.DOUBLE) double value)
@@ -154,9 +157,10 @@ public final class DoubleOperators
         return (byte) rounded;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
-    public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
+    public static long castToBigint(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to bigint");
@@ -169,14 +173,14 @@ public final class DoubleOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return floatToRawIntBits((float) value);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.DOUBLE) double value)
     {
@@ -189,6 +193,7 @@ public final class DoubleOperators
         return TrinoNumber.from(BigDecimal.valueOf(value));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -227,7 +232,7 @@ public final class DoubleOperators
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
     @SqlType(StandardTypes.REAL)
-    public static long saturatedFloorCastToFloat(@SqlType(StandardTypes.DOUBLE) double value)
+    public static long saturatedFloorCastToReal(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
             return toReal(Float.NaN);

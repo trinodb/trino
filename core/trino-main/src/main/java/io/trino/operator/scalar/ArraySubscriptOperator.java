@@ -23,7 +23,6 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -36,7 +35,8 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
@@ -70,8 +70,8 @@ public class ArraySubscriptOperator
         super(FunctionMetadata.operatorBuilder(SUBSCRIPT)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(new TypeSignature("E"))
-                        .argumentType(arrayType(new TypeSignature("E")))
+                        .returnType(typeVariable("E"))
+                        .argumentType(arrayType(typeVariable("E")))
                         .argumentType(BIGINT)
                         .build())
                 .nullable()
@@ -82,7 +82,7 @@ public class ArraySubscriptOperator
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(READ_VALUE, ImmutableList.of(new TypeSignature("E")))
+                .addOperatorSignature(READ_VALUE, ImmutableList.of(typeVariable("E")))
                 .build();
     }
 

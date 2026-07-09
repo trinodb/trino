@@ -215,8 +215,7 @@ public class TypeOperators
         private MethodHandle adaptOperator(OperatorConvention operatorConvention)
         {
             OperatorMethodHandle operatorMethodHandle = selectOperatorMethodHandleToAdapt(operatorConvention);
-            MethodHandle methodHandle = adaptOperator(operatorConvention, operatorMethodHandle);
-            return methodHandle;
+            return adaptOperator(operatorConvention, operatorMethodHandle);
         }
 
         private static MethodHandle adaptOperator(OperatorConvention operatorConvention, OperatorMethodHandle operatorMethodHandle)
@@ -633,10 +632,6 @@ public class TypeOperators
 
     private static OperatorMethodHandle defaultIndeterminateOperator(Class<?> javaType)
     {
-        // boolean distinctFrom(T value, boolean valueIsNull)
-        // {
-        //     return valueIsNull;
-        // }
         MethodHandle methodHandle = identity(boolean.class);
         methodHandle = dropArguments(methodHandle, 0, javaType);
         return new OperatorMethodHandle(simpleConvention(FAIL_ON_NULL, NULL_FLAG), methodHandle);

@@ -95,7 +95,8 @@ public class TableChangesFunction
                                 .name(END_SNAPSHOT_VAR_NAME)
                                 .type(BIGINT)
                                 .build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "");
 
         this.trinoCatalogFactory = requireNonNull(trinoCatalogFactory, "trinoCatalogFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");

@@ -266,6 +266,27 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNamedArgumentsRejectedForFunctionsWithoutDeclaredNames()
+    {
+        // No built-in function declares parameter names yet, so any named-arg call should
+        // fail with a "no argument named X" diagnostic pointing at the offending name.
+        assertFails("SELECT substr('abc', \"from\" => 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("No argument named from for function substr");
+
+        // Duplicate named arguments are caught before lookup so the error points at the
+        // second occurrence rather than failing in candidate filtering.
+        assertFails("SELECT some_fn(x => 1, x => 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Duplicate named argument: x");
+
+        // Positional after named is rejected at analysis time.
+        assertFails("SELECT some_fn(x => 1, 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Positional arguments cannot follow named arguments");
+    }
+
+    @Test
     public void testNonComparableGroupBy()
     {
         assertFails("SELECT * FROM (SELECT approx_set(1)) GROUP BY 1")
@@ -2449,9 +2470,8 @@ public class TestAnalyzer
         assertFails("INSERT INTO t8 (unbounded_varchar_column) VALUES (1)")
                 .hasErrorCode(TYPE_MISMATCH);
 
-        // coercion with potential loss is not allowed for nested bounded character string types
-        assertFails("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
-                .hasErrorCode(TYPE_MISMATCH);
+        // a value is assignable to a nested bounded character string type; truncation of non-space characters is checked at run time
+        analyze("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))");
     }
 
     @Test
@@ -3097,12 +3117,7 @@ public class TestAnalyzer
         assertFails("SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:28: Escape for LIKE expression must evaluate to a varchar (actual: integer)");
-        assertFails("SELECT 'abc' LIKE CHAR 'abc' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:19: Pattern for LIKE expression must evaluate to a varchar (actual: char(3))");
-        assertFails("SELECT 'abc' LIKE 'abc' ESCAPE CHAR '#' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:32: Escape for LIKE expression must evaluate to a varchar (actual: char(1))");
+        // a char pattern or escape is now accepted: it is implicitly coerced to varchar
 
         // extract
         assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
@@ -4308,6 +4323,60 @@ public class TestAnalyzer
         assertFails("SELECT cast(NULL AS qdigest(double)) = ANY (VALUES cast(NULL AS qdigest(double)))")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:38: Type [row(qdigest(double))] must be comparable in order to be used in quantified comparison");
+    }
+
+    @Test
+    public void testMatchPredicate()
+    {
+        // basic SIMPLE / PARTIAL / FULL / UNIQUE all analyze when row and subquery shapes match
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH SIMPLE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH PARTIAL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH FULL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE FULL (SELECT b FROM t2)");
+
+        // mismatched row arity
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b, c FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // mismatched element types
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT 'abc' FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // MATCH requires comparable types — HLL is not comparable
+        assertFails("SELECT * FROM t1 WHERE ROW(cast(NULL AS HyperLogLog)) MATCH (SELECT cast(NULL AS HyperLogLog) FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testUniquePredicate()
+    {
+        // Comparable scalar/row types
+        analyze("SELECT UNIQUE (SELECT a FROM t1)");
+        analyze("SELECT UNIQUE (SELECT a, b FROM t1)");
+        analyze("SELECT * FROM t1 WHERE NOT UNIQUE (SELECT a FROM t1)");
+
+        // Non-comparable type rejected
+        assertFails("SELECT UNIQUE (SELECT cast(NULL AS HyperLogLog))")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testBooleanTest()
+    {
+        // boolean operand accepted in all forms
+        analyze("SELECT a IS TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS UNKNOWN FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT UNKNOWN FROM (VALUES true) t(a)");
+
+        // non-boolean operand rejected
+        assertFails("SELECT 1 IS TRUE FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Boolean test value must evaluate to a boolean (actual: integer)");
     }
 
     @Test
@@ -6880,9 +6949,10 @@ public class TestAnalyzer
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
-        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))"))
-                .isInstanceOf(ParsingException.class)
-                .hasMessageContaining("line 1:93: mismatched input '=>'.");
+        // same diagnostic when the inner call uses named-argument syntax (now accepted at parse time)
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
         // cannot pass a table function as the argument, also preceding nested table function with TABLE is incorrect
         assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(my_schema.my_table_function(1))))"))
@@ -8099,6 +8169,36 @@ public class TestAnalyzer
         // The source column should include 'a' from t1
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch", "s1", "t1", "a"));
+    }
+
+    @Test
+    public void testSelectColumnsLineageInfoRecursiveAliases()
+    {
+        String sql =
+                """
+                WITH RECURSIVE t(x, y) AS (
+                    SELECT a, b FROM t1
+                    UNION ALL
+                    SELECT x + 1, y + 1 FROM t WHERE x < 5
+                )
+                SELECT * FROM t""";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> optionalLineageInfo = analysis.getSelectColumnsLineageInfo();
+        assertThat(optionalLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = optionalLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(2);
+
+        ColumnLineageInfo colX = lineageInfo.getFirst();
+        assertThat(colX.name()).isEqualTo("x");
+        assertThat(colX.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"));
+
+        ColumnLineageInfo colY = lineageInfo.get(1);
+        assertThat(colY.name()).isEqualTo("y");
+        assertThat(colY.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "b"));
     }
 
     @Test

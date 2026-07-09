@@ -78,7 +78,7 @@ public class IcebergAvroPageSource
             List<Type> columnTypes,
             boolean appendRowNumberColumn,
             OptionalLong fileFirstRowId,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             AggregatedMemoryContext memoryUsage)
     {
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -94,7 +94,8 @@ public class IcebergAvroPageSource
         Map<Integer, Object> idToConstant = new HashMap<>();
         if (fileFirstRowId.isPresent()) {
             idToConstant.put(ROW_ID.fieldId(), fileFirstRowId.getAsLong());
-            idToConstant.put(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), dataSequenceNumber);
+            idToConstant.put(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), dataSequenceNumber.orElseThrow(() ->
+                    new IllegalArgumentException("dataSequenceNumber is required when fileFirstRowId is present")));
         }
 
         // Metadata row-lineage columns are not part of table schema JSON, but can be physically present in v3 files.

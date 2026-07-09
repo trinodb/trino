@@ -23,23 +23,28 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.orc.OrcWriteValidation;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
+import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -48,6 +53,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -152,7 +158,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -213,7 +219,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             tableHandle = new TableHandle(
@@ -324,7 +330,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -474,7 +480,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -567,21 +573,26 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        BlocksHashFactory blocksHashFactory = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())).createBlocksHashFactory();
         IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 FILE_IO_FACTORY,
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                ParquetFooterCache.noop(),
+                blocksHashFactory,
+                icebergConfig);
         return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),
                 split,
                 tableHandle.connectorHandle(),
-                Optional.empty(),
+                Optional.of(new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of())),
                 columns,
-                dynamicFilter);
+                dynamicFilter,
+                MemoryContext.NO_LIMIT);
     }
 
     private static TestingConnectorSession getSession(IcebergConfig icebergConfig)

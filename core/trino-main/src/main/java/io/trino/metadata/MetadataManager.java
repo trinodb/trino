@@ -25,6 +25,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
@@ -96,7 +97,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
-import io.trino.spi.function.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -121,9 +121,10 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
@@ -217,13 +218,15 @@ public final class MetadataManager
             LanguageFunctionManager languageFunctionManager,
             TableFunctionRegistry tableFunctionRegistry,
             TypeManager typeManager,
-            CatalogManager catalogManager)
+            CatalogManager catalogManager,
+            FeaturesConfig featuresConfig)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
-        this.typeCoercion = new TypeCoercion(typeManager::getType);
+        boolean legacyVarcharToCharCoercion = requireNonNull(featuresConfig, "featuresConfig is null").isLegacyVarcharToCharCoercion();
+        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog, legacyVarcharToCharCoercion);
+        this.typeCoercion = new TypeCoercion(typeManager::getType, legacyVarcharToCharCoercion);
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -2056,6 +2059,19 @@ public final class MetadataManager
     }
 
     @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
+    {
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<ViewDefinition> view = getView(session, targetViewName);
+
+        if (targetViewName.equals(viewName)) {
+            return RedirectionAwareView.noRedirection(view);
+        }
+
+        return new RedirectionAwareView(view, Optional.of(targetViewName));
+    }
+
+    @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
@@ -2663,7 +2679,7 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return functionResolver.resolveBuiltinFunction(name, parameterTypes);
     }
@@ -2754,7 +2770,7 @@ public final class MetadataManager
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
+    public ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Signature functionSignature;
         AggregationFunctionMetadata aggregationFunctionMetadata;
@@ -2769,19 +2785,15 @@ public final class MetadataManager
             aggregationFunctionMetadata = metadata.getAggregationFunctionMetadata(connectorSession, resolvedFunction.functionId());
         }
 
-        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
-        if (aggregationFunctionMetadata.isOrderSensitive()) {
-            builder.orderSensitive();
-        }
-
+        List<TypeDescriptor> intermediateTypes = List.of();
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
-            aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
-                    .forEach(builder::intermediateType);
+            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(type -> applyBoundVariables(type, functionBinding.variables()))
+                    .collect(toImmutableList());
         }
 
-        return builder.build();
+        return new ResolvedAggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
     }
 
     @Override

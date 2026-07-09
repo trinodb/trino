@@ -40,6 +40,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.RedirectionAwareView;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableFunctionMetadata;
@@ -94,7 +95,6 @@ import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
@@ -103,7 +103,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
@@ -137,7 +136,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -213,6 +212,7 @@ import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -419,8 +419,8 @@ import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -432,7 +432,6 @@ import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.MoreLists.mappedCopy;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -485,7 +484,7 @@ class StatementAnalyzer
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -799,52 +798,13 @@ class StatementAnalyzer
                 return false;
             }
 
-            /*
-            TODO enable coercions based on type compatibility for INSERT of structural types containing nested bounded character types.
-            It might require defining a new range of cast operators and changes in GlobalFunctionCatalog to ensure proper handling
-            of nested types.
-            Currently, INSERT for such structural types is only allowed in the case of strict type coercibility.
-            INSERT for other types is allowed in all cases described by the Standard. It is obtained
-            by emulating a "guarded cast" in LogicalPlanner, and without any changes to the actual operators.
-            */
             for (int i = 0; i < tableTypes.size(); i++) {
-                if (hasNestedBoundedCharacterType(tableTypes.get(i))) {
-                    if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
-                        return false;
-                    }
-                }
-                else if (!typeCoercion.isCompatible(queryTypes.get(i), tableTypes.get(i))) {
+                if (!typeCoercion.isStoreAssignable(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
 
             return true;
-        }
-
-        private boolean hasNestedBoundedCharacterType(Type type)
-        {
-            if (type instanceof ArrayType arrayType) {
-                return hasBoundedCharacterType(arrayType.getElementType());
-            }
-
-            if (type instanceof MapType mapType) {
-                return hasBoundedCharacterType(mapType.getKeyType()) || hasBoundedCharacterType(mapType.getValueType());
-            }
-
-            if (type instanceof RowType rowType) {
-                for (Type fieldType : rowType.getFieldTypes()) {
-                    if (hasBoundedCharacterType(fieldType)) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private boolean hasBoundedCharacterType(Type type)
-        {
-            return type instanceof CharType || (type instanceof VarcharType varcharType && !varcharType.isUnbounded()) || hasNestedBoundedCharacterType(type);
         }
 
         @Override
@@ -2158,7 +2118,7 @@ class StatementAnalyzer
                                                     field.getName().getCanonicalValue(),
                                                     field.getType().map(type -> {
                                                         try {
-                                                            return plannerContext.getTypeManager().getType(toTypeSignature(type));
+                                                            return plannerContext.getTypeManager().getType(toTypeDescriptor(type));
                                                         }
                                                         catch (TypeNotFoundException e) {
                                                             throw semanticException(TYPE_MISMATCH, type, "Unknown type: %s", type);
@@ -2395,11 +2355,16 @@ class StatementAnalyzer
                 return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
             }
 
-            // This could be a reference to a logical view or a table
-            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
+            RedirectionAwareView viewRedirection = metadata.getRedirectionAwareView(session, name);
+            Optional<ViewDefinition> optionalView = viewRedirection.viewDefinition();
             if (optionalView.isPresent()) {
-                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
-                return createScopeForView(table, name, scope, optionalView.get());
+                if (table.getQueryPeriod().isPresent() && !isBranchVersionReference(table)) {
+                    throw semanticException(NOT_SUPPORTED, table, "Views do not support versioning");
+                }
+
+                QualifiedObjectName targetViewName = viewRedirection.redirectedTableName().orElse(name);
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetViewName, getBranchName(table));
+                return createScopeForView(table, targetViewName, scope, optionalView.get());
             }
 
             // This can only be a table
@@ -4207,16 +4172,18 @@ class StatementAnalyzer
 
         private NearestAnalysis analyzeNearestMatch(Nearest node, Scope nearestScope, Scope leftScope)
         {
-            if (!(node.getMatch() instanceof ComparisonExpression comparison)) {
+            if (!(node.getMatch() instanceof Predicated predicated) || !(predicated.getPredicate() instanceof ComparisonPredicate comparison)) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must be a comparison expression");
             }
+            Expression left = predicated.getValue();
+            Expression right = comparison.getRight();
 
             // MATCH is analyzed in nearestScope, which exposes fields from the FROM relation locally
             // and the left join input through the parent scope.
-            boolean leftReferencesFromRelation = hasReferencesToScope(comparison.getLeft(), analysis, nearestScope);
-            boolean rightReferencesFromRelation = hasReferencesToScope(comparison.getRight(), analysis, nearestScope);
-            boolean leftReferencesOuterRelation = hasReferencesToScope(comparison.getLeft(), analysis, leftScope);
-            boolean rightReferencesOuterRelation = hasReferencesToScope(comparison.getRight(), analysis, leftScope);
+            boolean leftReferencesFromRelation = hasReferencesToScope(left, analysis, nearestScope);
+            boolean rightReferencesFromRelation = hasReferencesToScope(right, analysis, nearestScope);
+            boolean leftReferencesOuterRelation = hasReferencesToScope(left, analysis, leftScope);
+            boolean rightReferencesOuterRelation = hasReferencesToScope(right, analysis, leftScope);
             if (leftReferencesFromRelation == rightReferencesFromRelation) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
             }
@@ -4225,13 +4192,13 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must keep FROM relation and non-FROM expressions on opposite sides");
             }
 
-            Expression candidateExpression = leftReferencesFromRelation ? comparison.getLeft() : comparison.getRight();
+            Expression candidateExpression = leftReferencesFromRelation ? left : right;
 
-            ComparisonExpression.Operator operator = leftReferencesFromRelation ? comparison.getOperator() : comparison.getOperator().flip();
-            if (operator != ComparisonExpression.Operator.LESS_THAN &&
-                    operator != ComparisonExpression.Operator.LESS_THAN_OR_EQUAL &&
-                    operator != ComparisonExpression.Operator.GREATER_THAN &&
-                    operator != ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL) {
+            ComparisonPredicate.Operator operator = leftReferencesFromRelation ? comparison.getOperator() : comparison.getOperator().flip();
+            if (operator != ComparisonPredicate.Operator.LESS_THAN &&
+                    operator != ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL &&
+                    operator != ComparisonPredicate.Operator.GREATER_THAN &&
+                    operator != ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must use <, <=, >, or >=");
             }
 
@@ -4699,7 +4666,7 @@ class StatementAnalyzer
                 if (windowFunction.getFilter().isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
                 }
-                List<Expression> nestedWindowExpressions = new ArrayList<>(extractWindowExpressions(windowFunction.getArguments()));
+                List<Expression> nestedWindowExpressions = new ArrayList<>(extractWindowExpressions(windowFunction.argumentValues()));
                 windowFunction.getOrderBy().map(OrderBy::getChildren).map(ExpressionTreeUtils::extractWindowExpressions).ifPresent(nestedWindowExpressions::addAll);
                 if (!nestedWindowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, nestedWindowExpressions.getFirst(), "Cannot nest window functions or row pattern measures inside window function arguments");
@@ -4721,7 +4688,9 @@ class StatementAnalyzer
                     throw semanticException(NULL_TREATMENT_NOT_ALLOWED, windowFunction, "Cannot specify null treatment clause for %s function", windowFunction.getName());
                 }
 
-                List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
+                List<Type> argumentTypes = windowFunction.argumentValues().stream()
+                        .map(analysis::getType)
+                        .collect(toImmutableList());
 
                 ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, windowFunction.getName(), fromTypes(argumentTypes), accessControl);
                 FunctionKind kind = resolvedFunction.functionKind();
@@ -5418,7 +5387,7 @@ class StatementAnalyzer
                             column.name(),
                             type));
                 }
-                if (!typeCoercion.canCoerce(field.getType(), type)) {
+                if (!typeCoercion.isStoreAssignable(field.getType(), type)) {
                     return Optional.of(format(
                             "column [%s] of type %s projected from query view at position %s cannot be coerced to column [%s] of type %s stored in view definition",
                             fieldName,
@@ -5517,7 +5486,7 @@ class StatementAnalyzer
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
@@ -5580,7 +5549,7 @@ class StatementAnalyzer
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected check constraint for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
@@ -5641,7 +5610,7 @@ class StatementAnalyzer
             Type expectedType = field.getType();
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(expectedType)) {
-                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
                 if (!coercion.canCoerce(actualType, field.getType())) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
@@ -5943,8 +5912,8 @@ class StatementAnalyzer
             RelationType newDescriptor = oldDescriptor.withAlias(tableName.getValue(), columnNames.stream().map(Identifier::getValue).collect(toImmutableList()));
 
             Streams.forEachPair(
-                    oldDescriptor.getAllFields().stream(),
                     newDescriptor.getAllFields().stream(),
+                    oldDescriptor.getAllFields().stream(),
                     (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
             return scope.withRelationType(newDescriptor);
         }
@@ -6226,7 +6195,7 @@ class StatementAnalyzer
             return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
         }
 
-        private Optional<String> getBranchName(Table table)
+        private static Optional<String> getBranchName(Table table)
         {
             return table
                     // branch is explicitly provided for INSERT @ branch, UPDATE @ branch, DELETE @ branch and MERGE @ branch:
@@ -6238,6 +6207,16 @@ class StatementAnalyzer
                             .filter(StringLiteral.class::isInstance)
                             .map(StringLiteral.class::cast)
                             .map(StringLiteral::getValue));
+        }
+
+        private static boolean isBranchVersionReference(Table table)
+        {
+            return table.getQueryPeriod()
+                    .filter(queryPeriod -> queryPeriod.getRangeType() == QueryPeriod.RangeType.VERSION)
+                    .filter(queryPeriod -> queryPeriod.getStart().isEmpty())
+                    .filter(queryPeriod -> queryPeriod.getEnd().isPresent())
+                    .isPresent()
+                    && getBranchName(table).isPresent();
         }
 
         /**

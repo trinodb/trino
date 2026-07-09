@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>482-SNAPSHOT</version>
+        <version>483-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -39,6 +39,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -108,50 +113,32 @@
         </dependency>
 
         <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>tracing</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -163,7 +150,25 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>tracing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -257,6 +262,12 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -57,7 +56,7 @@ import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NA
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
@@ -86,7 +85,6 @@ public class BenchmarkArrayTransform
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
