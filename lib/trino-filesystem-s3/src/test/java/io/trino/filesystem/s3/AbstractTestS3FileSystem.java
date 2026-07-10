@@ -13,8 +13,11 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logging;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.FileEntry;
@@ -51,6 +54,13 @@ import static software.amazon.awssdk.services.s3.model.ServerSideEncryption.AES2
 public abstract class AbstractTestS3FileSystem
         extends AbstractTestTrinoFileSystem
 {
+    private static final RetryPolicy<Object> S3_CLIENT_RETRY_POLICY = RetryPolicy.builder()
+            .handleIf(throwable -> Throwables.getCausalChain(throwable).stream()
+                    .anyMatch(cause -> cause.getClass().getName().contains("HttpException")))
+            .withMaxRetries(3)
+            .withDelay(java.time.Duration.ofSeconds(1))
+            .build();
+
     protected final EncryptionKey randomEncryptionKey = randomAes256();
     private S3FileSystemFactory fileSystemFactory;
     private TrinoFileSystem fileSystem;
@@ -119,7 +129,7 @@ public abstract class AbstractTestS3FileSystem
             ListObjectsV2Request request = ListObjectsV2Request.builder()
                     .bucket(bucket())
                     .build();
-            assertThat(client.listObjectsV2(request).contents()).isEmpty();
+            assertThat(Failsafe.with(S3_CLIENT_RETRY_POLICY).get(() -> client.listObjectsV2(request).contents()).isEmpty());
         }
     }
 
@@ -164,7 +174,7 @@ public abstract class AbstractTestS3FileSystem
                     })
                     .build();
 
-            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(contents.clone()));
+            Failsafe.with(S3_CLIENT_RETRY_POLICY).get(() -> s3Client.putObject(putObjectRequest, RequestBody.fromBytes(contents.clone())));
             try {
                 // Verify listing
                 List<FileEntry> listing = toList(getFileSystem().listFiles(getRootLocation().appendPath("foo")));
@@ -196,7 +206,7 @@ public abstract class AbstractTestS3FileSystem
                         })
                         .build();
 
-                assertThat(s3Client.getObjectAsBytes(request).asByteArray())
+                assertThat(Failsafe.with(S3_CLIENT_RETRY_POLICY).get(() -> s3Client.getObjectAsBytes(request).asByteArray()))
                         .isEqualTo(newContents);
 
                 // Verify deleting
@@ -204,7 +214,7 @@ public abstract class AbstractTestS3FileSystem
                 assertThat(inputFile.exists()).as("exists after delete").isFalse();
             }
             finally {
-                s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));
+                Failsafe.with(S3_CLIENT_RETRY_POLICY).get(() -> s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key)));
             }
         }
     }
