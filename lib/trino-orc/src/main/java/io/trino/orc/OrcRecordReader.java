@@ -483,7 +483,7 @@ public class OrcRecordReader
 
         public OrcSourcePage(int positionCount)
         {
-            selectedPositions = new SelectedPositions(positionCount, null);
+            selectedPositions = new SelectedPositions(positionCount, 0, null);
             retainedSizeInBytes = shallowRetainedSizeInBytes();
         }
 
@@ -586,9 +586,25 @@ public class OrcRecordReader
                 }
             }
         }
+
+        @Override
+        public void selectPositions(int offset, int size)
+        {
+            selectedPositions = selectedPositions.selectPositions(offset, size);
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    // loaded blocks already reflect the previous selection, so the incoming range applies to them directly
+                    block = block.getRegion(offset, size);
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
+                    blocks[i] = block;
+                }
+            }
+        }
     }
 
-    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    private record SelectedPositions(int positionCount, int offset, @Nullable int[] positions)
     {
         private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
 
@@ -601,7 +617,10 @@ public class OrcRecordReader
         public Block apply(Block block)
         {
             if (positions == null) {
-                return block;
+                if (offset == 0) {
+                    return block;
+                }
+                return block.getRegion(offset, positionCount);
             }
             return block.getPositions(positions, 0, positionCount);
         }
@@ -610,7 +629,7 @@ public class OrcRecordReader
         {
             long[] rowNumbers = new long[positionCount];
             for (int i = 0; i < positionCount; i++) {
-                int position = positions == null ? i : positions[i];
+                int position = positions == null ? offset + i : positions[i];
                 rowNumbers[i] = filePosition + position;
             }
             return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
@@ -620,17 +639,28 @@ public class OrcRecordReader
         public SelectedPositions selectPositions(int[] positions, int offset, int size)
         {
             if (this.positions == null) {
+                int[] newPositions = new int[size];
                 for (int i = 0; i < size; i++) {
                     checkIndex(offset + i, positionCount);
+                    newPositions[i] = this.offset + positions[offset + i];
                 }
-                return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
+                return new SelectedPositions(size, 0, newPositions);
             }
 
             int[] newPositions = new int[size];
             for (int i = 0; i < size; i++) {
                 newPositions[i] = this.positions[positions[offset + i]];
             }
-            return new SelectedPositions(size, newPositions);
+            return new SelectedPositions(size, 0, newPositions);
+        }
+
+        @CheckReturnValue
+        public SelectedPositions selectPositions(int rangeOffset, int size)
+        {
+            if (this.positions == null) {
+                return new SelectedPositions(size, this.offset + rangeOffset, null);
+            }
+            return new SelectedPositions(size, 0, Arrays.copyOfRange(this.positions, rangeOffset, rangeOffset + size));
         }
     }
 
