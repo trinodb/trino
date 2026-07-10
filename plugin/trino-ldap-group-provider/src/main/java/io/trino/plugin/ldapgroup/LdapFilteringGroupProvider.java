@@ -20,6 +20,7 @@ import io.trino.plugin.base.ldap.LdapClient;
 import io.trino.plugin.base.ldap.LdapQuery;
 import io.trino.spi.security.GroupProvider;
 
+import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.Attribute;
 import javax.naming.directory.SearchResult;
@@ -27,6 +28,7 @@ import javax.naming.directory.SearchResult;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class LdapFilteringGroupProvider
@@ -113,19 +115,9 @@ public class LdapFilteringGroupProvider
                             if (!search.hasMore()) {
                                 log.debug("No groups found using search [pattern=%s, arguments={%s}]", combinedGroupSearchFilter, ldapUser);
                             }
-                            ImmutableSet.Builder<String> groupsBuilder = ImmutableSet.builder();
-                            while (search.hasMore()) {
-                                SearchResult groupResult = search.next();
-                                Attribute groupName = groupResult.getAttributes().get(groupsNameAttribute);
-                                if (groupName == null) {
-                                    log.warn("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
-                                    groupsBuilder.add(groupResult.getNameInNamespace());
-                                }
-                                else {
-                                    groupsBuilder.add(groupName.get().toString());
-                                }
-                            }
-                            return groupsBuilder.build();
+                            return extractGroups(search).stream()
+                                    .map(LdapGroup::name)
+                                    .collect(toImmutableSet());
                         });
             }
             catch (NamingException e) {
@@ -134,4 +126,29 @@ public class LdapFilteringGroupProvider
             }
         }).orElse(ImmutableSet.of());
     }
+
+    private Set<LdapGroup> extractGroups(NamingEnumeration<SearchResult> search)
+            throws NamingException
+    {
+        ImmutableSet.Builder<LdapGroup> groups = ImmutableSet.builder();
+        boolean missingConfiguredNameAttribute = false;
+        while (search.hasMore()) {
+            SearchResult groupResult = search.next();
+            Attribute groupName = groupResult.getAttributes().get(groupsNameAttribute);
+            if (groupName == null) {
+                missingConfiguredNameAttribute = true;
+                log.debug("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
+                groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupResult.getNameInNamespace()));
+            }
+            else {
+                groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupName.get().toString()));
+            }
+        }
+        if (missingConfiguredNameAttribute) {
+            log.warn("Some LDAP group objects do not have configured group name attribute [%s]. Falling back on object full name.", groupsNameAttribute);
+        }
+        return groups.build();
+    }
+
+    private record LdapGroup(String distinguishedName, String name) {}
 }
