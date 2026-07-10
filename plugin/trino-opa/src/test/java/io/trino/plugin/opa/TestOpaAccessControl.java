@@ -1089,6 +1089,35 @@ final class TestOpaAccessControl
         assertThat(identityNode.has("extraCredentials")).isFalse();
     }
 
+    @Test
+    public void testQueryOwnerExtraCredentialsPropagation()
+    {
+        Identity executor = Identity.forUser("executor-user")
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "executor-ai-app", "otherKey", "executor-other-value"))
+                .build();
+        Identity queryOwner = Identity.forUser("query-owner")
+                .withGroups(ImmutableSet.of("owner-group"))
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "owner-ai-app", "otherKey", "owner-other-value"))
+                .build();
+
+        OpaConfig configWithWhitelist = simpleOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service"));
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(configWithWhitelist, mockClient);
+        authorizer.checkCanKillQueryOwnedBy(executor, queryOwner);
+
+        JsonNode request = mockClient.getRequests().get(0);
+        // The executor's own extra credentials are propagated in the identity context
+        JsonNode executorNode = request.path("input").path("context").path("identity");
+        assertThat(executorNode.path("user").asText()).isEqualTo("executor-user");
+        assertThat(executorNode.path("extraCredentials").path("ai-service").asText()).isEqualTo("executor-ai-app");
+        assertThat(executorNode.path("extraCredentials").has("otherKey")).isFalse();
+        // The query owner's extra credentials are propagated separately in the resource
+        JsonNode ownerNode = request.path("input").path("action").path("resource").path("user");
+        assertThat(ownerNode.path("user").asText()).isEqualTo("query-owner");
+        assertThat(ownerNode.path("extraCredentials").path("ai-service").asText()).isEqualTo("owner-ai-app");
+        assertThat(ownerNode.path("extraCredentials").has("otherKey")).isFalse();
+    }
+
     private void testGetColumnMasks(Map<ColumnSchema, String> columnResponseContent, Map<ColumnSchema, OpaViewExpression> expectedResult)
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(

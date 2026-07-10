@@ -33,13 +33,13 @@ public record TrinoIdentity(
     public static TrinoIdentity fromTrinoIdentity(Identity identity, Set<String> allowedExtraCredentialsKeys)
     {
         Map<String, String> allCredentials = identity.getExtraCredentials();
-        Map<String, String> filteredCredentials = allowedExtraCredentialsKeys.stream()
+        Map<String, String> allowedExtraCredentials = allowedExtraCredentialsKeys.stream()
                 .filter(allCredentials::containsKey)
                 .collect(toImmutableMap(key -> key, allCredentials::get));
         return new TrinoIdentity(
                 identity.getUser(),
                 identity.getGroups(),
-                filteredCredentials);
+                allowedExtraCredentials);
     }
 
     public TrinoIdentity

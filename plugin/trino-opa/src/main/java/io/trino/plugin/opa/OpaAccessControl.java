@@ -92,7 +92,7 @@ public sealed class OpaAccessControl
     private final OpaHighLevelClient opaHighLevelClient;
     private final boolean allowPermissionManagementOperations;
     private final OpaPluginContext pluginContext;
-    final Set<String> extraCredentialsKeys;
+    private final Set<String> extraCredentialsKeys;
 
     @Inject
     public OpaAccessControl(LifeCycleManager lifeCycleManager, OpaHighLevelClient opaHighLevelClient, OpaConfig config, OpaPluginContext pluginContext)
