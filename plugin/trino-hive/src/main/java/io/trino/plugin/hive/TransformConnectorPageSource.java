@@ -379,5 +379,17 @@ public final class TransformConnectorPageSource
                 }
             }
         }
+
+        @Override
+        public void selectPositions(int offset, int size)
+        {
+            sourcePage.selectPositions(offset, size);
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    blocks[i] = block.getRegion(offset, size);
+                }
+            }
+        }
     }
 }
