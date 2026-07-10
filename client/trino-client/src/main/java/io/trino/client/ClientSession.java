@@ -42,6 +42,7 @@ public class ClientSession
     private final Optional<String> authorizationUser;
     private final Set<ClientSelectedRole> originalRoles;
     private final String source;
+    private final Optional<String> routeGroup;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
     private final String clientInfo;
@@ -86,6 +87,7 @@ public class ClientSession
             Optional<String> authorizationUser,
             Set<ClientSelectedRole> originalRoles,
             String source,
+            Optional<String> routeGroup,
             Optional<String> traceToken,
             Set<String> clientTags,
             Map<String, String> extraHeaders,
@@ -112,6 +114,7 @@ public class ClientSession
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
         this.originalRoles = ImmutableSet.copyOf(requireNonNull(originalRoles, "originalRoles is null"));
         this.source = requireNonNull(source, "source is null");
+        this.routeGroup = requireNonNull(routeGroup, "routeGroup is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.extraHeaders = ImmutableMap.copyOf(requireNonNull(extraHeaders, "extraHeaders is null"));
@@ -189,6 +192,11 @@ public class ClientSession
     public String getSource()
     {
         return source;
+    }
+
+    public Optional<String> getRouteGroup()
+    {
+        return routeGroup;
     }
 
     public Optional<String> getTraceToken()
@@ -314,6 +322,7 @@ public class ClientSession
                 .add("properties", properties)
                 .add("transactionId", transactionId)
                 .add("source", source)
+                .add("routeGroup", routeGroup.orElse(null))
                 .add("resourceEstimates", resourceEstimates)
                 .add("clientRequestTimeout", clientRequestTimeout)
                 .add("compressionDisabled", compressionDisabled)
@@ -331,6 +340,7 @@ public class ClientSession
         private Optional<String> authorizationUser = Optional.empty();
         private Set<ClientSelectedRole> originalRoles = ImmutableSet.of();
         private String source;
+        private Optional<String> routeGroup = Optional.empty();
         private Optional<String> traceToken = Optional.empty();
         private Set<String> clientTags = ImmutableSet.of();
         private Map<String, String> extraHeaders = ImmutableMap.of();
@@ -362,6 +372,7 @@ public class ClientSession
             authorizationUser = clientSession.getAuthorizationUser();
             originalRoles = clientSession.getOriginalRoles();
             source = clientSession.getSource();
+            routeGroup = clientSession.getRouteGroup();
             traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
             extraHeaders = clientSession.getExtraHeaders();
@@ -415,6 +426,12 @@ public class ClientSession
         public Builder source(String source)
         {
             this.source = source;
+            return this;
+        }
+
+        public Builder routeGroup(Optional<String> routeGroup)
+        {
+            this.routeGroup = routeGroup;
             return this;
         }
 
@@ -541,6 +558,7 @@ public class ClientSession
                     authorizationUser,
                     originalRoles,
                     source,
+                    routeGroup,
                     traceToken,
                     clientTags,
                     extraHeaders,

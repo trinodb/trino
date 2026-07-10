@@ -43,11 +43,14 @@ import io.trino.exchange.ExchangeManagerModule;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
+import io.trino.filesystem.FileSystemClientManager;
+import io.trino.metastore.HetuMetaStoreManager;
 import io.trino.node.Announcer;
 import io.trino.node.NodeManagerModule;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
+import io.trino.seedstore.SeedStoreManager;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
@@ -55,8 +58,10 @@ import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.spi.NodeVersion;
+import io.trino.statestore.StateStoreProvider;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.util.EmbedVersion;
+import io.trino.util.LicenseUtils;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.IOException;
@@ -128,7 +133,17 @@ public class Server
             logLocation(log, "Working directory", Path.of("."));
             logLocation(log, "Etc directory", Path.of("etc"));
 
+            injector.getInstance(LicenseUtils.class).init();
+            injector.getInstance(Authenticator.class).loadLicense();
+
             injector.getInstance(PluginInstaller.class).loadPlugins();
+
+            FileSystemClientManager fileSystemClientManager = injector.getInstance(FileSystemClientManager.class);
+            fileSystemClientManager.loadFactoryConfigs();
+
+            injector.getInstance(SeedStoreManager.class).loadSeedStore();
+            injector.getInstance(StateStoreProvider.class).loadStateStore();
+            injector.getInstance(HetuMetaStoreManager.class).loadHetuMetastore(fileSystemClientManager);
 
             var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
             catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);

@@ -36,7 +36,10 @@ public class TestExchangeHdfsConfig
         assertRecordedDefaults(recordDefaults(ExchangeHdfsConfig.class)
                 .setResourceConfigFiles(ImmutableList.of())
                 .setHdfsStorageBlockSize(DataSize.of(4, MEGABYTE))
-                .setSkipDirectorySchemeValidation(false));
+                .setSkipDirectorySchemeValidation(false)
+                .setKerberosConfig(null)
+                .setKerberosPrincipal(null)
+                .setKeytab(null));
     }
 
     @Test
@@ -45,17 +48,25 @@ public class TestExchangeHdfsConfig
     {
         Path resource1 = Files.createTempFile(null, null);
         Path resource2 = Files.createTempFile(null, null);
+        Path kerberosConfig = Files.createTempFile(null, null);
+        Path keytab = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hdfs.config.resources", resource1 + "," + resource2)
                 .put("exchange.hdfs.block-size", "8MB")
                 .put("exchange.hdfs.skip-directory-scheme-validation", "true")
+                .put("hdfs.authentication.krb5.config", kerberosConfig.toString())
+                .put("hdfs.authentication.krb5.principal", "principal@REALM")
+                .put("hdfs.authentication.krb5.keytab", keytab.toString())
                 .buildOrThrow();
 
         ExchangeHdfsConfig expected = new ExchangeHdfsConfig()
                 .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()))
                 .setHdfsStorageBlockSize(DataSize.of(8, MEGABYTE))
-                .setSkipDirectorySchemeValidation(true);
+                .setSkipDirectorySchemeValidation(true)
+                .setKerberosConfig(kerberosConfig.toFile())
+                .setKerberosPrincipal("principal@REALM")
+                .setKeytab(keytab.toFile());
 
         assertFullMapping(properties, expected);
     }

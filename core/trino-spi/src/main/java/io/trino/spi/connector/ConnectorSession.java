@@ -42,4 +42,10 @@ public interface ConnectorSession
     Instant getStart();
 
     <T> T getProperty(String name, Class<T> type);
+
+    //for cbg supporting the hive view we need the catalog
+    default Optional<String> getCatalog()
+    {
+        return Optional.empty();
+    }
 }

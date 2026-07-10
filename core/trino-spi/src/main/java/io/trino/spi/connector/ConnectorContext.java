@@ -23,6 +23,7 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.Unstable;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.metastore.HetuMetastore;
 import io.trino.spi.type.TypeManager;
 
 public interface ConnectorContext
@@ -99,5 +100,10 @@ public interface ConnectorContext
     default ConnectorExpressionEvaluator getExpressionEvaluator()
     {
         return ConnectorExpressionEvaluator.NO_OP;
+    }
+
+    default HetuMetastore getHetuMetastore()
+    {
+        throw new UnsupportedOperationException();
     }
 }

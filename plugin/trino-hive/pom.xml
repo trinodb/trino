@@ -462,7 +462,6 @@
         <dependency>
             <groupId>io.trino.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

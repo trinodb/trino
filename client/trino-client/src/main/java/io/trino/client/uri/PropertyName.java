@@ -57,6 +57,7 @@ public enum PropertyName
     PASSWORD("password"),
     SQL_PATH("path"),
     RESOURCE_ESTIMATES("resourceEstimates"),
+    ROUTE_GROUP("routeGroup"),
     ROLES("roles"),
     SCHEMA("schema"), // this is not actual property but part of the path
     SESSION_PROPERTIES("sessionProperties"),

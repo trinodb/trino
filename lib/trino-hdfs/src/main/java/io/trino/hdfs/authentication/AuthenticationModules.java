@@ -75,6 +75,7 @@ public final class AuthenticationModules
                         .withKerberosPrincipal(principal);
                 config.getHdfsTrinoKeytab().ifPresent(builder::withKeytabLocation);
                 config.getHdfsTrinoCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
+                config.getHdfsTrinoKrb5Conf().ifPresent(builder::withKrb5Conf);
                 return createCachingKerberosHadoopAuthentication(builder.build(), updater);
             }
         };
@@ -107,6 +108,7 @@ public final class AuthenticationModules
                         .withKerberosPrincipal(principal);
                 config.getHdfsTrinoKeytab().ifPresent(builder::withKeytabLocation);
                 config.getHdfsTrinoCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
+                config.getHdfsTrinoKrb5Conf().ifPresent(builder::withKrb5Conf);
                 return createCachingKerberosHadoopAuthentication(builder.build(), updater);
             }
         };

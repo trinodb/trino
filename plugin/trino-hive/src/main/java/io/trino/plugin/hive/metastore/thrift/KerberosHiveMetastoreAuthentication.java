@@ -19,6 +19,7 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
+import org.apache.hadoop.security.HadoopKerberosName;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -38,6 +39,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.hive.formats.ReadWriteUtils.readVInt;
+import static io.trino.plugin.base.util.KerberosUtils.INSTANCE;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -46,6 +48,7 @@ public class KerberosHiveMetastoreAuthentication
         implements HiveMetastoreAuthentication
 {
     private final String hiveMetastoreServicePrincipal;
+    private final String hiveMetastoreKrb5;
     private final CachingKerberosAuthentication authentication;
 
     @Inject
@@ -53,12 +56,13 @@ public class KerberosHiveMetastoreAuthentication
             MetastoreKerberosConfig config,
             @ForHiveMetastore CachingKerberosAuthentication authentication)
     {
-        this(config.getHiveMetastoreServicePrincipal(), authentication);
+        this(config.getHiveMetastoreServicePrincipal(), config.getHiveMetastoreKrb5().orElse(null), authentication);
     }
 
-    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, CachingKerberosAuthentication authentication)
+    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, String hiveMetastoreKrb5, CachingKerberosAuthentication authentication)
     {
         this.hiveMetastoreServicePrincipal = requireNonNull(hiveMetastoreServicePrincipal, "hiveMetastoreServicePrincipal is null");
+        this.hiveMetastoreKrb5 = hiveMetastoreKrb5;
         this.authentication = requireNonNull(authentication, "authentication is null");
     }
 
@@ -66,6 +70,9 @@ public class KerberosHiveMetastoreAuthentication
     public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> delegationToken)
     {
         try {
+            INSTANCE.refreshKrb5Conf(this.hiveMetastoreKrb5);
+            HadoopKerberosName.resetDefaultRealm();
+
             Map<String, String> saslProps = ImmutableMap.of(
                     Sasl.QOP, "auth-conf,auth",
                     Sasl.SERVER_AUTH, "true");

@@ -17,4 +17,29 @@ package io.trino.spi.connector;
  * Represents a handle to a relation returned from the connector to the engine.
  * It will be used by the engine whenever given relation will be accessed.
  */
-public interface ConnectorTableHandle {}
+public interface ConnectorTableHandle
+{
+    default Object getTableName()
+    {
+        throw new NotImplementedException();
+    }
+
+    /**
+     * io.prestosql.sql.planner.SqlQueryBuilder requires the qualified
+     * name of the table to build the SQL query. Supporting ConnectorTableHandle
+     * classes must override this method and return the qualified name with
+     * schema name and table name.
+     *
+     * @return table name in 'schema.table' format if schema is available
+     */
+    default String getSchemaPrefixedTableName()
+    {
+        Object tableName = getTableName();
+        if (tableName == null) {
+            return null;
+        }
+        else {
+            return tableName.toString();
+        }
+    }
+}

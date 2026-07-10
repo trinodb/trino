@@ -77,6 +77,7 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HO
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
+import static io.trino.client.uri.ConnectionProperties.ROUTE_GROUP;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
 import static io.trino.client.uri.ConnectionProperties.SCHEMA;
 import static io.trino.client.uri.ConnectionProperties.SESSION_PROPERTIES;
@@ -238,6 +239,11 @@ public class TrinoUri
     public Optional<String> getTraceToken()
     {
         return resolveOptional(TRACE_TOKEN);
+    }
+
+    public Optional<String> getRouteGroup()
+    {
+        return resolveOptional(ROUTE_GROUP);
     }
 
     public Map<String, String> getSessionProperties()
@@ -521,6 +527,7 @@ public class TrinoUri
                 .clientTags(getClientTags().orElse(ImmutableSet.of()))
                 .source(getSource().orElse(null))
                 .traceToken(getTraceToken())
+                .routeGroup(getRouteGroup())
                 .clientInfo(getClientInfo().orElse(null))
                 .catalog(getCatalog().orElse(null))
                 .schema(getSchema().orElse(null))
@@ -1009,6 +1016,11 @@ public class TrinoUri
         public Builder setTraceToken(String traceToken)
         {
             return setProperty(TRACE_TOKEN, requireNonNull(traceToken, "traceToken is null"));
+        }
+
+        public Builder setRouteGroup(String routeGroup)
+        {
+            return setProperty(ROUTE_GROUP, requireNonNull(routeGroup, "routeGroup is null"));
         }
 
         public Builder setSessionProperties(Map<String, String> sessionProperties)

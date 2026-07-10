@@ -35,7 +35,8 @@ public class TestHdfsKerberosConfig
         assertRecordedDefaults(recordDefaults(HdfsKerberosConfig.class)
                 .setHdfsTrinoPrincipal(null)
                 .setHdfsTrinoKeytab(null)
-                .setHdfsTrinoCredentialCacheLocation(null));
+                .setHdfsTrinoCredentialCacheLocation(null)
+                .setHdfsTrinoKrb5Conf(null));
     }
 
     @Test

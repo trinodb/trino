@@ -19,17 +19,22 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.function.LanguageFunctionEngine;
+import io.trino.spi.metastore.HetuMetaStoreFactory;
+import io.trino.spi.queryeditorui.ConnectorWithProperties;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.seedstore.SeedStoreFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.spool.SpoolingManagerFactory;
+import io.trino.spi.statestore.StateStoreFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -92,6 +97,21 @@ public interface Plugin
         return emptyList();
     }
 
+    default Iterable<StateStoreFactory> getStateStoreFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<SeedStoreFactory> getSeedStoreFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<HetuMetaStoreFactory> getHetuMetaStoreFactories()
+    {
+        return emptyList();
+    }
+
     default Iterable<CertificateAuthenticatorFactory> getCertificateAuthenticatorFactories()
     {
         return emptyList();
@@ -120,5 +140,10 @@ public interface Plugin
     default Iterable<SpoolingManagerFactory> getSpoolingManagerFactories()
     {
         return emptyList();
+    }
+
+    default Optional<ConnectorWithProperties> getConnectorWithProperties()
+    {
+        return Optional.empty();
     }
 }

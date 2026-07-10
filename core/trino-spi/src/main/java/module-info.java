@@ -13,8 +13,10 @@
  */
 module trino.spi {
     requires com.fasterxml.jackson.annotation;
+    requires com.google.common;
     requires com.google.errorprone.annotations;
     requires transitive io.opentelemetry.api;
+    requires log;
     requires jakarta.annotation;
     requires transitive slice;
     requires jdk.incubator.vector;
@@ -27,15 +29,25 @@ module trino.spi {
     exports io.trino.spi.eventlistener;
     exports io.trino.spi.exchange;
     exports io.trino.spi.expression;
+    exports io.trino.spi.filesystem;
+    exports io.trino.spi.filesystem.util;
     exports io.trino.spi.function;
     exports io.trino.spi.function.table;
     exports io.trino.spi.memory;
+    exports io.trino.spi.metastore;
+    exports io.trino.spi.metastore.model;
+    exports io.trino.spi.metastore.util;
     exports io.trino.spi.metrics;
     exports io.trino.spi.predicate;
+    exports io.trino.spi.procedure;
+    exports io.trino.spi.queryeditorui;
     exports io.trino.spi.resourcegroups;
     exports io.trino.spi.security;
+    exports io.trino.spi.seedstore;
     exports io.trino.spi.session;
     exports io.trino.spi.spool;
+    exports io.trino.spi.statestore;
+    exports io.trino.spi.statestore.listener;
     exports io.trino.spi.statistics;
     exports io.trino.spi.transaction;
     exports io.trino.spi.type;

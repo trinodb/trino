@@ -9,6 +9,20 @@
         </artifact>
     </artifactSet>
 
+    <fileSet to="bin">
+        <directory path="${basedir}/../../client/trino-encrypt/target/">
+            <include>trino-encrypt-*-executable.jar</include>
+        </directory>
+    </fileSet>
+
+    <fileSet to="bin">
+        <directory path="${basedir}/src/main/scripts">
+            <include>run_coordinator.sh</include>
+            <include>run_worker.sh</include>
+            <include>tools.sh</include>
+        </directory>
+    </fileSet>
+
     <!-- Plugins -->
     <artifactSet to="plugin/ai-functions">
         <artifact id="${project.groupId}:trino-ai-functions:zip:${project.version}">
@@ -36,6 +50,12 @@
 
     <artifactSet to="plugin/clickhouse">
         <artifact id="${project.groupId}:trino-clickhouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/cluster">
+        <artifact id="${project.groupId}:trino-cluster:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -87,6 +107,12 @@
 
     <artifactSet to="plugin/faker">
         <artifact id="${project.groupId}:trino-faker:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/gbase">
+        <artifact id="${project.groupId}:trino-gbase:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -183,6 +209,12 @@
 
     <artifactSet to="plugin/memory">
         <artifact id="${project.groupId}:trino-memory:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/hetu-metastore">
+        <artifact id="${project.groupId}:trino-hetu-metastore:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -310,6 +342,18 @@
 
     <artifactSet to="plugin/tpch">
         <artifact id="${project.groupId}:trino-tpch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/vertica">
+        <artifact id="${project.groupId}:trino-vertica:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/vdm">
+        <artifact id="${project.groupId}:trino-vdm:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

@@ -43,8 +43,8 @@ import static java.lang.String.format;
 public class RewriteLikeWithCaseSensitivity
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
 {
-    private static final Capture<ConnectorExpression> LIKE_VALUE = newCapture();
-    private static final Capture<ConnectorExpression> LIKE_PATTERN = newCapture();
+    protected static final Capture<ConnectorExpression> LIKE_VALUE = newCapture();
+    protected static final Capture<ConnectorExpression> LIKE_PATTERN = newCapture();
     private static final Pattern<Call> PATTERN = call()
             .with(functionName().equalTo(LIKE_FUNCTION_NAME))
             .with(type().equalTo(BOOLEAN))

@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.metastore.HetuMetastore;
 import io.trino.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
@@ -42,6 +43,7 @@ public class ConnectorContextInstance
     private final FunctionBundleFactory functionBundleFactory;
     private final BlocksHashFactory blocksHashFactory;
     private final ConnectorExpressionEvaluator evaluator;
+    private final HetuMetastore hetuMetastore;
 
     public ConnectorContextInstance(
             OpenTelemetry openTelemetry,
@@ -54,7 +56,8 @@ public class ConnectorContextInstance
             PageIndexerFactory pageIndexerFactory,
             FunctionBundleFactory functionBundleFactory,
             BlocksHashFactory blocksHashFactory,
-            ConnectorExpressionEvaluator evaluator)
+            ConnectorExpressionEvaluator evaluator,
+            HetuMetastore hetuMetastore)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -67,6 +70,7 @@ public class ConnectorContextInstance
         this.functionBundleFactory = requireNonNull(functionBundleFactory, "functionBundleFactory is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.hetuMetastore = hetuMetastore;
     }
 
     @Override
@@ -133,5 +137,11 @@ public class ConnectorContextInstance
     public ConnectorExpressionEvaluator getExpressionEvaluator()
     {
         return evaluator;
+    }
+
+    @Override
+    public HetuMetastore getHetuMetastore()
+    {
+        return hetuMetastore;
     }
 }

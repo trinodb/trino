@@ -19,6 +19,7 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -259,5 +260,18 @@ public interface Connector
     default Set<ConnectorCapabilities> getCapabilities()
     {
         return emptySet();
+    }
+
+    /**
+     * Returns the list of catalogs available from the remote data source.
+     * Used by the Dynamic Catalog (DC) feature to discover and register
+     * sub-catalogs at startup. Connectors that do not support dynamic
+     * catalog discovery should use the default implementation.
+     *
+     * @return a collection of catalog names available from the remote data source
+     */
+    default Collection<String> getCatalogs()
+    {
+        return emptyList();
     }
 }

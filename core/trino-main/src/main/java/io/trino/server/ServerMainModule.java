@@ -56,6 +56,7 @@ import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.filesystem.FileSystemClientManager;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.LocalMemoryManagerExporter;
@@ -80,6 +81,7 @@ import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TypeRegistry;
+import io.trino.metastore.HetuMetaStoreManager;
 import io.trino.node.InternalNode;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
@@ -96,6 +98,7 @@ import io.trino.operator.index.IndexManager;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
+import io.trino.seedstore.SeedStoreManager;
 import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
@@ -148,6 +151,8 @@ import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
+import io.trino.statestore.LocalStateStoreProvider;
+import io.trino.statestore.StateStoreProvider;
 import io.trino.tracing.ForTracing;
 import io.trino.tracing.TracingMetadata;
 import io.trino.type.BlockTypeOperators;
@@ -159,6 +164,7 @@ import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
+import io.trino.util.LicenseUtils;
 
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -437,12 +443,23 @@ public class ServerMainModule
         // node status resource
         jaxrsBinder(binder).bind(StatusResource.class);
 
+        // license
+        binder.bind(LicenseUtils.class).in(Scopes.SINGLETON);
+        binder.bind(Authenticator.class).in(Scopes.SINGLETON);
+
         // plugin manager
         newOptionalBinder(binder, PluginInstaller.class).setDefault()
                 .to(PluginManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PluginsProvider.class).setDefault()
                 .to(ServerPluginsProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ServerPluginsProviderConfig.class);
+
+        // seed store
+        binder.bind(SeedStoreManager.class).in(Scopes.SINGLETON);
+        // file system
+        binder.bind(FileSystemClientManager.class).in(Scopes.SINGLETON);
+        // meta store
+        binder.bind(HetuMetaStoreManager.class).in(Scopes.SINGLETON);
 
         // SIMD support
         binder.bind(BlockEncodingSimdSupport.class).in(Scopes.SINGLETON);
@@ -489,6 +506,9 @@ public class ServerMainModule
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForExchange.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForAsyncHttp.class));
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForAsyncHttp.class));
+
+        // State store
+        binder.bind(StateStoreProvider.class).to(LocalStateStoreProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides

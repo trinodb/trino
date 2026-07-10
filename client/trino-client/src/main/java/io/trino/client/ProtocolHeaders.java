@@ -35,6 +35,7 @@ import static io.trino.client.ProtocolHeaders.Headers.REQUEST_SESSION;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_SOURCE;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_TIME_ZONE;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_TRACE_TOKEN;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ROUTE_GROUP;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_TRANSACTION_ID;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_USER;
 import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_ADDED_PREPARE;
@@ -70,6 +71,7 @@ public final class ProtocolHeaders
         REQUEST_TIME_ZONE("Time-Zone"),
         REQUEST_LANGUAGE("Language"),
         REQUEST_TRACE_TOKEN("Trace-Token"),
+        REQUEST_ROUTE_GROUP("Routing-Group"),
         REQUEST_SESSION("Session"),
         REQUEST_ROLE("Role"),
         REQUEST_PREPARED_STATEMENT("Prepared-Statement"),
@@ -119,6 +121,7 @@ public final class ProtocolHeaders
     private final String requestTimeZone;
     private final String requestLanguage;
     private final String requestTraceToken;
+    private final String requestRouteGroup;
     private final String requestSession;
     private final String requestRole;
     private final String requestPreparedStatement;
@@ -168,6 +171,7 @@ public final class ProtocolHeaders
         requestTimeZone = REQUEST_TIME_ZONE.withProtocolName(name);
         requestLanguage = REQUEST_LANGUAGE.withProtocolName(name);
         requestTraceToken = REQUEST_TRACE_TOKEN.withProtocolName(name);
+        requestRouteGroup = REQUEST_ROUTE_GROUP.withProtocolName(name);
         requestSession = REQUEST_SESSION.withProtocolName(name);
         requestRole = REQUEST_ROLE.withProtocolName(name);
         requestPreparedStatement = REQUEST_PREPARED_STATEMENT.withProtocolName(name);
@@ -257,6 +261,11 @@ public final class ProtocolHeaders
     public String requestTraceToken()
     {
         return requestTraceToken;
+    }
+
+    public String requestRouteGroup()
+    {
+        return requestRouteGroup;
     }
 
     public String requestSession()

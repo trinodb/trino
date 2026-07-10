@@ -1863,4 +1863,40 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+
+    default Optional<ConnectorNewTableLayout> getOfNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<ConnectorNewTableLayout> getNewInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<ConnectorNewTableLayout> getNewUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle,
+            Constraint constraint, boolean includeColumnStatistics)
+    {
+        return getTableStatistics(session, tableHandle);
+    }
+
+    default boolean isExecutionPlanCacheSupported(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return false;
+    }
+
+    default long getTableModificationTime(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return 0;
+    }
+
+    default boolean isPreAggregationSupported(ConnectorSession session)
+    {
+        return false;
+    }
 }

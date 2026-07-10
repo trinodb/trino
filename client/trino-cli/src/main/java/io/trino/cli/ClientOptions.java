@@ -71,6 +71,7 @@ import static io.trino.client.uri.PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTER
 import static io.trino.client.uri.PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.PropertyName.PASSWORD;
 import static io.trino.client.uri.PropertyName.RESOURCE_ESTIMATES;
+import static io.trino.client.uri.PropertyName.ROUTE_GROUP;
 import static io.trino.client.uri.PropertyName.SCHEMA;
 import static io.trino.client.uri.PropertyName.SESSION_PROPERTIES;
 import static io.trino.client.uri.PropertyName.SESSION_USER;
@@ -213,6 +214,10 @@ public class ClientOptions
     @PropertyMapping(TRACE_TOKEN)
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
     public Optional<String> traceToken;
+
+    @PropertyMapping(ROUTE_GROUP)
+    @Option(names = "--route-group", paramLabel = "<route>", description = "Route group")
+    public Optional<String> routeGroup;
 
     @PropertyMapping(CATALOG)
     @Option(names = "--catalog", paramLabel = "<catalog>", description = "Default catalog")
@@ -442,6 +447,7 @@ public class ClientOptions
         clientInfo.ifPresent(builder::setClientInfo);
         clientTags.ifPresent(builder::setClientTags);
         traceToken.ifPresent(builder::setTraceToken);
+        routeGroup.ifPresent(builder::setRouteGroup);
         socksProxy.ifPresent(builder::setSocksProxy);
         httpProxy.ifPresent(builder::setHttpProxy);
         builder.setTimeZone(timeZone);

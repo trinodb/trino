@@ -27,6 +27,7 @@ enum ClientInfoProperty
     CLIENT_INFO("ClientInfo"),
     CLIENT_TAGS("ClientTags"),
     TRACE_TOKEN("TraceToken"),
+    ROUTE_GROUP("RouteGroup"),
     /**/;
 
     private static final Map<String, ClientInfoProperty> BY_NAME = Stream.of(values())

@@ -24,6 +24,7 @@ import io.trino.connector.system.SystemTablesProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.InternalFunctionBundleFactory;
 import io.trino.metadata.Metadata;
+import io.trino.metastore.HetuMetaStoreManager;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.operator.FlatHashStrategyCompiler;
@@ -59,6 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class DefaultCatalogFactory
         implements CatalogFactory
 {
+    private final HetuMetaStoreManager hetuMetaStoreManager;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
@@ -81,6 +83,7 @@ public class DefaultCatalogFactory
 
     @Inject
     public DefaultCatalogFactory(
+            HetuMetaStoreManager hetuMetaStoreManager,
             Metadata metadata,
             AccessControl accessControl,
             InternalNode currentNode,
@@ -97,6 +100,7 @@ public class DefaultCatalogFactory
             SecretsResolver secretsResolver,
             ConnectorExpressionEvaluator evaluator)
     {
+        this.hetuMetaStoreManager = hetuMetaStoreManager;
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
@@ -206,7 +210,8 @@ public class DefaultCatalogFactory
                 pageIndexerFactory,
                 new InternalFunctionBundleFactory(),
                 blocksHashFactory,
-                evaluator);
+                evaluator,
+                hetuMetaStoreManager != null ? hetuMetaStoreManager.getHetuMetastore() : null);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName

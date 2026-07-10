@@ -28,13 +28,17 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogVersion;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorName;
+import io.trino.util.CatalogStoreUtil;
 import jakarta.annotation.PreDestroy;
+import org.jasypt.exceptions.EncryptionOperationNotPossibleException;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +58,7 @@ import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.util.Executors.executeUntilFailure;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -94,9 +99,14 @@ public class StaticCatalogManager
             Map<String, String> properties;
             try {
                 properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
+                CatalogStoreUtil catalogStoreUtil = new CatalogStoreUtil();
+                catalogStoreUtil.decryptEncryptedProperties(properties);
             }
             catch (IOException e) {
                 throw new UncheckedIOException("Error reading catalog property file " + file, e);
+            }
+            catch (EncryptionOperationNotPossibleException e) {
+                throw new TrinoException(CATALOG_NOT_AVAILABLE, String.format("catalog %s configured with invalid encryted properties", catalogName));
             }
 
             String connectorName = properties.remove("connector.name");
@@ -160,7 +170,25 @@ public class StaticCatalogManager
                             CatalogName catalogName = catalog.name();
                             log.info("-- Loading catalog %s --", catalogName);
                             CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                            catalogs.put(catalogName, newCatalog);
+                            if ("cluster".equalsIgnoreCase(newCatalog.getConnectorName().toString())) {
+                                Connector dcConnector = newCatalog.getMaterializedConnector(CatalogHandle.CatalogHandleType.NORMAL).getConnector();
+                                Collection<String> subCatalogs = dcConnector.getCatalogs();
+                                CatalogHandle catalogHandle = newCatalog.getCatalogHandle();
+                                for (String subCatalog : subCatalogs) {
+                                    String newCatalogName = catalogName + "." + subCatalog.toLowerCase(ENGLISH);
+                                    CatalogName dcCatalog = new CatalogName(newCatalogName);
+                                    log.debug("-- Loading sub-catalog %s --", newCatalogName);
+                                    CatalogHandle newCatalogHandle = CatalogHandle.createRootCatalogHandle(dcCatalog, catalogHandle.getVersion());
+                                    CatalogConnector newCatalogConnector = catalogFactory.createCatalog(
+                                            newCatalogHandle,
+                                            newCatalog.getConnectorName(),
+                                            dcConnector);
+                                    catalogs.put(dcCatalog, newCatalogConnector);
+                                }
+                            }
+                            else {
+                                catalogs.put(catalogName, newCatalog);
+                            }
                             log.info("-- Added catalog %s using connector %s --", catalogName, catalog.connectorName());
                             return null;
                         })
@@ -221,6 +249,21 @@ public class StaticCatalogManager
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
         CatalogConnector catalogConnector = catalogs.get(catalogHandle.getCatalogName());
+        if (catalogConnector == null) {
+            // DC (Dynamic Catalog) support: sub-catalogs are stored with dotted names like "cluster.mydb".
+            // If the direct lookup fails, search for a sub-catalog whose root name matches.
+            String catalogNameString = catalogHandle.getCatalogName().toString();
+            for (CatalogName key : catalogs.keySet()) {
+                String keyString = key.toString();
+                if (keyString.contains(".")) {
+                    String rootName = keyString.substring(0, keyString.indexOf('.'));
+                    if (rootName.equals(catalogNameString)) {
+                        catalogConnector = catalogs.get(key);
+                        break;
+                    }
+                }
+            }
+        }
         if (catalogConnector == null) {
             throw new TrinoException(CATALOG_NOT_FOUND, "No catalog '%s'".formatted(catalogHandle.getCatalogName()));
         }

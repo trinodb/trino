@@ -30,6 +30,7 @@
     <modules>
         <module>client/trino-cli</module>
         <module>client/trino-client</module>
+        <module>client/trino-encrypt</module>
         <module>client/trino-jdbc</module>
         <module>core/trino-grammar</module>
         <module>core/trino-main</module>
@@ -64,6 +65,7 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-cluster</module>
         <module>plugin/trino-datasketches</module>
         <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>
@@ -76,8 +78,10 @@
         <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-faker</module>
         <module>plugin/trino-functions-python</module>
+        <module>plugin/trino-gbase</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
+        <module>plugin/trino-hetu-metastore</module>
         <module>plugin/trino-hive</module>
         <module>plugin/trino-http-event-listener</module>
         <module>plugin/trino-http-server-event-listener</module>
@@ -119,6 +123,8 @@
         <module>plugin/trino-thrift-testing-server</module>
         <module>plugin/trino-tpcds</module>
         <module>plugin/trino-tpch</module>
+        <module>plugin/trino-vertica</module>
+        <module>plugin/trino-vdm</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>
@@ -941,6 +947,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-cluster</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-delta-lake</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -955,6 +967,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-elasticsearch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-encrypt</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1030,6 +1048,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-s3</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-gbase</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1454,6 +1478,18 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-tpch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-vertica</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-vdm</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2203,6 +2239,12 @@
                         <artifactId>waffle-jna</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.openjdk.jol</groupId>
+                <artifactId>jol-core</artifactId>
+                <version>0.17</version>
             </dependency>
 
             <dependency>

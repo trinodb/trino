@@ -29,8 +29,10 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.TypeRegistry;
+import io.trino.metastore.HetuMetaStoreManager;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
+import io.trino.seedstore.SeedStoreManager;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
@@ -43,16 +45,20 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.function.LanguageFunctionEngine;
+import io.trino.spi.metastore.HetuMetaStoreFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.seedstore.SeedStoreFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.spool.SpoolingManagerFactory;
+import io.trino.spi.statestore.StateStoreFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.statestore.StateStoreProvider;
 
 import java.net.URL;
 import java.util.List;
@@ -118,6 +124,10 @@ public class PluginManager
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
 
+    private final StateStoreProvider localStateStoreProvider;
+    private final SeedStoreManager seedStoreManager;
+    private final HetuMetaStoreManager hetuMetaStoreManager;
+
     @Inject
     public PluginManager(
             PluginsProvider pluginsProvider,
@@ -136,6 +146,9 @@ public class PluginManager
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
+            StateStoreProvider localStateStoreProvider,
+            SeedStoreManager seedStoreManager,
+            HetuMetaStoreManager hetuMetaStoreManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             SpoolingManagerRegistry spoolingManagerRegistry)
     {
@@ -155,6 +168,9 @@ public class PluginManager
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.localStateStoreProvider = localStateStoreProvider;
+        this.seedStoreManager = seedStoreManager;
+        this.hetuMetaStoreManager = hetuMetaStoreManager;
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
     }
@@ -236,6 +252,21 @@ public class PluginManager
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
             this.connectorFactory.addConnectorFactory(connectorFactory);
+        }
+
+        for (StateStoreFactory stateStoreFactory : plugin.getStateStoreFactories()) {
+            log.info("Registering state store %s", stateStoreFactory.getName());
+            localStateStoreProvider.addStateStoreFactory(stateStoreFactory);
+        }
+
+        for (SeedStoreFactory seedStoreFactory : plugin.getSeedStoreFactories()) {
+            log.info("Registering seed store %s", seedStoreFactory.getName());
+            seedStoreManager.addSeedStoreFactory(seedStoreFactory);
+        }
+
+        for (HetuMetaStoreFactory hetuMetaStoreFactory : plugin.getHetuMetaStoreFactories()) {
+            log.info("Registering hetu metastore %s", hetuMetaStoreFactory.getName());
+            hetuMetaStoreManager.addHetuMetaStoreFactory(hetuMetaStoreFactory);
         }
 
         Set<Class<?>> functions = plugin.getFunctions();

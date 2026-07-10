@@ -18,4 +18,9 @@ import org.apache.hadoop.security.UserGroupInformation;
 public interface HadoopAuthentication
 {
     UserGroupInformation getUserGroupInformation();
+
+    default String getKrb5Conf()
+    {
+        return null;
+    }
 }

@@ -27,6 +27,7 @@ public class MetastoreKerberosConfig
     private String hiveMetastoreClientPrincipal;
     private String hiveMetastoreClientKeytab;
     private String hiveMetastoreCredentialCachePath;
+    private String hiveMetastoreKrb5;
 
     @NotNull
     public String getHiveMetastoreServicePrincipal()
@@ -88,5 +89,19 @@ public class MetastoreKerberosConfig
     public boolean isConfigValid()
     {
         return getHiveMetastoreClientKeytab().isPresent() ^ getHiveMetastoreClientCredentialCacheLocation().isPresent();
+    }
+
+    @NotNull
+    public Optional<String> getHiveMetastoreKrb5()
+    {
+        return Optional.ofNullable(hiveMetastoreKrb5);
+    }
+
+    @Config("hive.metastore.krb5.conf.path")
+    @ConfigDescription("Krb5 file path used to access HDFS")
+    public MetastoreKerberosConfig setHiveMetastoreKrb5(String hiveMetastoreKrb5)
+    {
+        this.hiveMetastoreKrb5 = hiveMetastoreKrb5;
+        return this;
     }
 }

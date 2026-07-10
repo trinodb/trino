@@ -20,6 +20,19 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.asiainfo.zodiac</groupId>
+            <artifactId>Athena</artifactId>
+            <type>jar</type>
+            <version>1.0.0</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>javax.inject</artifactId>
+                    <groupId>org.glassfish.hk2.external</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>com.clearspring.analytics</groupId>
             <artifactId>stream</artifactId>
         </dependency>
@@ -43,6 +56,11 @@
             <groupId>com.github.ishugaliy</groupId>
             <artifactId>allgood-consistent-hash</artifactId>
             <version>1.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
         </dependency>
 
         <dependency>
@@ -365,6 +383,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jasypt</groupId>
+            <artifactId>jasypt</artifactId>
+            <version>1.9.3</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
         </dependency>
@@ -382,6 +406,13 @@
         <dependency>
             <groupId>org.roaringbitmap</groupId>
             <artifactId>RoaringBitmap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.11.8</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

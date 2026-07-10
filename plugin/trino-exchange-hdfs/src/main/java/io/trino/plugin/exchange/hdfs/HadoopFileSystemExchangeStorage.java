@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.File;
 import java.io.IOException;
@@ -67,6 +68,15 @@ public class HadoopFileSystemExchangeStorage
             checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
             hdfsConfig.addResource(new Path(resourcePath.getPath()));
         }
+
+        String authenType = hdfsConfig.get("hadoop.security.authentication", "simple");
+        boolean isAuthentication = hdfsConfig.getBoolean("hadoop.security.authorization", false);
+        if ("kerberos".equalsIgnoreCase(authenType) && isAuthentication) {
+            System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
+            UserGroupInformation.setConfiguration(hdfsConfig);
+            UserGroupInformation.loginUserFromKeytab(config.getKerberosPrincipal(), config.getKeytab().getAbsolutePath());
+        }
+
         fileSystem = FileSystem.get(hdfsConfig);
         blockSize = toIntExact(config.getHdfsStorageBlockSize().toBytes());
     }

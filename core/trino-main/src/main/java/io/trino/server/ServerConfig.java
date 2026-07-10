@@ -30,6 +30,7 @@ public class ServerConfig
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean queryResultsCompressionEnabled = true;
     private Optional<String> queryInfoUrlTemplate = Optional.empty();
+    private String licensePath;
 
     public boolean isCoordinator()
     {
@@ -102,6 +103,18 @@ public class ServerConfig
     public ServerConfig setQueryInfoUrlTemplate(String queryInfoUrlTemplate)
     {
         this.queryInfoUrlTemplate = Optional.ofNullable(queryInfoUrlTemplate);
+        return this;
+    }
+
+    public String getLicensePath()
+    {
+        return licensePath;
+    }
+
+    @Config("coordinator.license-path")
+    public ServerConfig setLicensePath(String licensePath)
+    {
+        this.licensePath = licensePath;
         return this;
     }
 }

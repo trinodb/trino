@@ -18,6 +18,7 @@ import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.authentication.util.KerberosName;
 
 import javax.security.auth.Subject;
 
@@ -29,6 +30,7 @@ public class KerberosHadoopAuthentication
         implements HadoopAuthentication
 {
     private final KerberosAuthentication kerberosAuthentication;
+    private final Configuration configuration;
 
     public static KerberosHadoopAuthentication createKerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfigurationInitializer initializer)
     {
@@ -45,18 +47,35 @@ public class KerberosHadoopAuthentication
 
         UserGroupInformation.setConfiguration(configuration);
 
-        return new KerberosHadoopAuthentication(kerberosAuthentication);
+        String authToLocalRules = configuration.get("hadoop.security.auth_to_local");
+        if (authToLocalRules == null) {
+            // KerberosName#rules static field must be initialized if hadoop.security.auth_to_local is null
+            KerberosName.setRules("DEFAULT");
+        }
+        else {
+            KerberosName.setRules(authToLocalRules);
+        }
+
+        return new KerberosHadoopAuthentication(kerberosAuthentication, configuration);
     }
 
-    private KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication)
+    private KerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, Configuration configuration)
     {
         this.kerberosAuthentication = requireNonNull(kerberosAuthentication, "kerberosAuthentication is null");
+        this.configuration = configuration;
     }
 
     @Override
     public UserGroupInformation getUserGroupInformation()
     {
+        UserGroupInformation.reset();
+        UserGroupInformation.setConfiguration(configuration);
         Subject subject = kerberosAuthentication.getSubject();
         return createUserGroupInformationForSubject(subject);
+    }
+
+    public String getKrb5Conf()
+    {
+        return this.kerberosAuthentication.getKrb5Conf();
     }
 }

@@ -31,6 +31,7 @@ public class KerberosAuthentication
 
     private final KerberosPrincipal principal;
     private final Configuration configuration;
+    private final String krb5Conf;
 
     public KerberosAuthentication(KerberosConfiguration kerberosConfiguration)
     {
@@ -40,6 +41,12 @@ public class KerberosAuthentication
             kerberosConfiguration = kerberosConfiguration.withDebug();
         }
         this.configuration = kerberosConfiguration.getConfiguration();
+        this.krb5Conf = kerberosConfiguration.krb5Conf();
+    }
+
+    public String getKrb5Conf()
+    {
+        return this.krb5Conf;
     }
 
     public Subject getSubject()

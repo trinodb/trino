@@ -26,6 +26,12 @@ public interface ConnectionFactory
     Connection openConnection(ConnectorSession session)
             throws SQLException;
 
+    default Connection openConnection()
+            throws SQLException
+    {
+        return null;
+    }
+
     @Override
     @PreDestroy
     default void close()

@@ -62,6 +62,18 @@ public class DriverConnectionFactory
         return connection;
     }
 
+    @Override
+    public Connection openConnection()
+            throws SQLException
+    {
+        Properties properties = new Properties();
+        properties.putAll(connectionProperties);
+        properties.putAll(credentialPropertiesProvider.getCredentialProperties(null));
+        Connection connection = dataSource.getConnection(properties);
+        checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
+        return connection;
+    }
+
     private Properties getCredentialProperties(ConnectorIdentity identity)
     {
         Properties properties = new Properties();

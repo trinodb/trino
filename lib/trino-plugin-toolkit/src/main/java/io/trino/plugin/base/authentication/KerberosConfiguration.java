@@ -35,7 +35,7 @@ import static java.nio.file.Files.isReadable;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<String, String> options)
+public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<String, String> options, String krb5Conf)
 {
     private static final String KERBEROS_LOGIN_MODULE = "com.sun.security.auth.module.Krb5LoginModule";
 
@@ -52,7 +52,7 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
         ImmutableMap.Builder<String, String> optionsBuilder = ImmutableMap.builder();
         optionsBuilder.putAll(options)
                 .put("debug", "true");
-        return new KerberosConfiguration(kerberosPrincipal, optionsBuilder.buildOrThrow());
+        return new KerberosConfiguration(kerberosPrincipal, optionsBuilder.buildOrThrow(), krb5Conf);
     }
 
     public Configuration getConfiguration()
@@ -77,6 +77,7 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
         private KerberosPrincipal kerberosPrincipal;
         private Optional<String> keytabLocation = Optional.empty();
         private Optional<String> credentialCacheLocation = Optional.empty();
+        private Optional<String> krb5Conf = Optional.empty();
 
         public Builder withKerberosPrincipal(String kerberosPrincipal)
         {
@@ -88,6 +89,13 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
         {
             verifyFile(keytabLocation);
             this.keytabLocation = Optional.of(keytabLocation);
+            return this;
+        }
+
+        public Builder withKrb5Conf(String krb5Conf)
+        {
+            verifyFile(krb5Conf);
+            this.krb5Conf = Optional.of(krb5Conf);
             return this;
         }
 
@@ -103,6 +111,7 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
             ImmutableMap.Builder<String, String> optionsBuilder = ImmutableMap.<String, String>builder()
                     .put("doNotPrompt", "true")
                     .put("isInitiator", "true")
+                    .put("refreshKrb5Config", "true")
                     .put("principal", kerberosPrincipal.getName());
 
             checkArgument(keytabLocation.isPresent() ^ credentialCacheLocation.isPresent(), "Either keytab or credential cache must be specified");
@@ -119,7 +128,7 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
                             .put("renewTGT", "true")
                             .put("ticketCache", credentialCache));
 
-            return new KerberosConfiguration(kerberosPrincipal, optionsBuilder.buildOrThrow());
+            return new KerberosConfiguration(kerberosPrincipal, optionsBuilder.buildOrThrow(), krb5Conf.orElse(null));
         }
 
         private static KerberosPrincipal createKerberosPrincipal(String principal)

@@ -165,6 +165,8 @@ class StatementClientV1
 
         session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
 
+        session.getRouteGroup().ifPresent(route -> builder.addHeader(TRINO_HEADERS.requestRouteGroup(), route));
+
         if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
             builder.addHeader(TRINO_HEADERS.requestClientTags(), Joiner.on(",").join(session.getClientTags()));
         }

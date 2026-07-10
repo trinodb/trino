@@ -36,7 +36,8 @@ public class TestMetastoreKerberosConfig
                 .setHiveMetastoreServicePrincipal(null)
                 .setHiveMetastoreClientPrincipal(null)
                 .setHiveMetastoreClientKeytab(null)
-                .setHiveMetastoreClientCredentialCacheLocation(null));
+                .setHiveMetastoreClientCredentialCacheLocation(null)
+                .setHiveMetastoreKrb5(null));
     }
 
     @Test

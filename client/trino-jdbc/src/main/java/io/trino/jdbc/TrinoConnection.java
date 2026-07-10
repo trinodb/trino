@@ -89,6 +89,7 @@ import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_TAGS;
+import static io.trino.jdbc.ClientInfoProperty.ROUTE_GROUP;
 import static io.trino.jdbc.ClientInfoProperty.TRACE_TOKEN;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
@@ -178,6 +179,7 @@ public class TrinoConnection
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, Joiner.on(",").join(tags)));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
+        uri.getRouteGroup().ifPresent(route -> clientInfo.put(ROUTE_GROUP, route));
 
         roles.putAll(uri.getRoles());
         timeZoneId.set(uri.getTimeZone());
@@ -911,6 +913,7 @@ public class TrinoConnection
                 .originalRoles(ImmutableSet.copyOf(originalRoles))
                 .source(source)
                 .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
+                .routeGroup(Optional.ofNullable(clientInfo.get(ROUTE_GROUP)))
                 .clientTags(ImmutableSet.copyOf(clientTags))
                 .clientInfo(clientInfo.get(CLIENT_INFO))
                 .catalog(catalog.get())

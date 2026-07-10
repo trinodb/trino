@@ -441,6 +441,7 @@ public class PlanTester
         this.evaluator = new InternalConnectorExpressionEvaluator(plannerContext);
         NodeInfo nodeInfo = new NodeInfo("test");
         catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
+                null,
                 metadata,
                 accessControl,
                 CURRENT_NODE,
@@ -543,6 +544,9 @@ public class PlanTester
                 typeRegistry,
                 TESTING_BLOCK_ENCODING_MANAGER,
                 new HandleResolver(),
+                null,
+                null,
+                null,
                 exchangeManagerRegistry,
                 spoolingManagerRegistry);
 

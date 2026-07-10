@@ -33,6 +33,9 @@ public class ExchangeHdfsConfig
     private DataSize hdfsStorageBlockSize = DataSize.of(4, MEGABYTE);
     private boolean skipDirectorySchemeValidation;
     private List<File> resourceConfigFiles = ImmutableList.of();
+    private File kerberosConfig;
+    private String kerberosPrincipal;
+    private File keytab;
 
     @NotNull
     @MinDataSize("4MB")
@@ -75,6 +78,44 @@ public class ExchangeHdfsConfig
         this.resourceConfigFiles = files.stream()
                 .map(File::new)
                 .collect(toImmutableList());
+        return this;
+    }
+
+    @FileExists
+    public File getKerberosConfig()
+    {
+        return kerberosConfig;
+    }
+
+    @Config("hdfs.authentication.krb5.config")
+    public ExchangeHdfsConfig setKerberosConfig(File kerberosConfig)
+    {
+        this.kerberosConfig = kerberosConfig;
+        return this;
+    }
+
+    public String getKerberosPrincipal()
+    {
+        return kerberosPrincipal;
+    }
+
+    @Config("hdfs.authentication.krb5.principal")
+    public ExchangeHdfsConfig setKerberosPrincipal(String kerberosPrincipal)
+    {
+        this.kerberosPrincipal = kerberosPrincipal;
+        return this;
+    }
+
+    @FileExists
+    public File getKeytab()
+    {
+        return keytab;
+    }
+
+    @Config("hdfs.authentication.krb5.keytab")
+    public ExchangeHdfsConfig setKeytab(File keytab)
+    {
+        this.keytab = keytab;
         return this;
     }
 }

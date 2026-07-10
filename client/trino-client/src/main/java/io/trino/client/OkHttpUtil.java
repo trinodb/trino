@@ -34,11 +34,13 @@ import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
 import org.ietf.jgss.GSSCredential;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -297,10 +299,20 @@ public final class OkHttpUtil
             sslContext.init(keyManagers, new TrustManager[] {trustManager}, null);
 
             clientBuilder.sslSocketFactory(new SingleLabelDomainSNISSLSocketFactory(sslContext.getSocketFactory()), trustManager);
-            clientBuilder.hostnameVerifier(LegacyHostnameVerifier.INSTANCE);
+            clientBuilder.hostnameVerifier(new TrustAllHostnameVerifier());
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
+    }
+
+    private static class TrustAllHostnameVerifier
+            implements HostnameVerifier
+    {
+        @Override
+        public boolean verify(String hostname, SSLSession session)
+        {
+            return true;
         }
     }
 

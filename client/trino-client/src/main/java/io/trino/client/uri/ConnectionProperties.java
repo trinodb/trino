@@ -103,6 +103,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Set<String>> CLIENT_TAGS = new ClientTags();
     public static final ConnectionProperty<String, Map<String, String>> EXTRA_HEADERS = new ExtraHeaders();
     public static final ConnectionProperty<String, String> TRACE_TOKEN = new TraceToken();
+    public static final ConnectionProperty<String, String> ROUTE_GROUP = new RoutingGroup();
     public static final ConnectionProperty<String, Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String, String> SOURCE = new Source();
     public static final ConnectionProperty<String, String> CATALOG = new Catalog();
@@ -158,6 +159,7 @@ final class ConnectionProperties
             .add(LOCALE)
             .add(PASSWORD)
             .add(RESOURCE_ESTIMATES)
+            .add(ROUTE_GROUP)
             .add(ROLES)
             .add(SCHEMA)
             .add(SESSION_PROPERTIES)
@@ -376,6 +378,15 @@ final class ConnectionProperties
         public TraceToken()
         {
             super(PropertyName.TRACE_TOKEN, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class RoutingGroup
+            extends AbstractConnectionProperty<String, String>
+    {
+        public RoutingGroup()
+        {
+            super(PropertyName.ROUTE_GROUP, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

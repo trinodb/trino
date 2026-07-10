@@ -69,6 +69,7 @@ public class ThriftMetastoreAuthenticationModule
                     .withKerberosPrincipal(principal);
             config.getHiveMetastoreClientKeytab().ifPresent(builder::withKeytabLocation);
             config.getHiveMetastoreClientCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
+            config.getHiveMetastoreKrb5().ifPresent(builder::withKrb5Conf);
             return new CachingKerberosAuthentication(new KerberosAuthentication(builder.build()));
         }
     }

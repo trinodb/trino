@@ -14,16 +14,20 @@
 package io.trino.hdfs.authentication;
 
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import org.apache.hadoop.security.HadoopKerberosName;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
+import static io.trino.plugin.base.util.KerberosUtils.INSTANCE;
 import static java.util.Objects.requireNonNull;
 
 public class CachingKerberosHadoopAuthentication
@@ -46,6 +50,14 @@ public class CachingKerberosHadoopAuthentication
     public synchronized UserGroupInformation getUserGroupInformation()
     {
         if (nextRefreshTime < System.currentTimeMillis()) {
+            try {
+                INSTANCE.refreshKrb5Conf(this.delegate.getKrb5Conf());
+                HadoopKerberosName.resetDefaultRealm();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+
             Subject existingSubject = userGroupInformation.getSubject();
             UserGroupInformation newUserGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
             Subject newSubject = newUserGroupInformation.getSubject();

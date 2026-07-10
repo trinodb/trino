@@ -27,6 +27,7 @@ public class HdfsKerberosConfig
     private String hdfsTrinoPrincipal;
     private String hdfsTrinoKeytab;
     private String hdfsTrinoCredentialCacheLocation;
+    private String hdfsTrinoKrb5Conf;
 
     @NotNull
     public String getHdfsTrinoPrincipal()
@@ -76,5 +77,19 @@ public class HdfsKerberosConfig
     public boolean isConfigValid()
     {
         return getHdfsTrinoKeytab().isPresent() ^ getHdfsTrinoCredentialCacheLocation().isPresent();
+    }
+
+    @NotNull
+    public Optional<@FileExists String> getHdfsTrinoKrb5Conf()
+    {
+        return Optional.ofNullable(hdfsTrinoKrb5Conf);
+    }
+
+    @Config("hive.hdfs.trino.krb5.conf")
+    @ConfigDescription("Trino krb5 config used to access HDFS")
+    public HdfsKerberosConfig setHdfsTrinoKrb5Conf(String hdfsTrinoKrb5Conf)
+    {
+        this.hdfsTrinoKrb5Conf = hdfsTrinoKrb5Conf;
+        return this;
     }
 }
