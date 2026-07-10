@@ -54,7 +54,7 @@ public class RowConstructorCodeGenerator
     private final RowType rowType;
     private final List<Expression> arguments;
     // Arbitrary value chosen to balance the code size vs performance trade off. Not perf tested.
-    private static final int MEGAMORPHIC_FIELD_COUNT = 64;
+    static final int MEGAMORPHIC_FIELD_COUNT = 64;
 
     // number of fields to initialize in a single method for large rows
     private static final int LARGE_ROW_BATCH_SIZE = 100;

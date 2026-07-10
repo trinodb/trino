@@ -29,6 +29,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableCache;
 import io.trino.metadata.FunctionManager;
@@ -582,7 +583,7 @@ public class PageFunctionCompiler
                 classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(compactLayout, callSiteBinder),
+                fieldReferenceCompiler(compactLayout, callSiteBinder, scope),
                 functionManager,
                 metadata,
                 typeManager,
@@ -638,15 +639,19 @@ public class PageFunctionCompiler
         };
     }
 
-    private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder)
+    private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, Scope filterScope)
     {
         return (reference, scope) -> {
             int field = compactLayout.get(Symbol.from(reference));
+            // Scope identity distinguishes the filter method from generated helpers, which cannot access block variables.
+            BytecodeExpression block = scope == filterScope
+                    ? scope.getVariable("block_" + field)
+                    : scope.getVariable("page").invoke("getBlock", Block.class, constantInt(field));
             return generateInputReference(
                     callSiteBinder,
                     scope,
                     reference.type(),
-                    scope.getVariable("block_" + field),
+                    block,
                     scope.getVariable("position"));
         };
     }
