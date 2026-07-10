@@ -1003,9 +1003,18 @@ public class TrinoRestCatalog
     private TableIdentifier findRemoteTable(ConnectorSession session, TableIdentifier tableIdentifier)
     {
         Namespace remoteNamespace = toRemoteNamespace(session, tableIdentifier.namespace());
+        SessionContext context = convert(session);
+        TableIdentifier exactIdentifier = TableIdentifier.of(remoteNamespace, tableIdentifier.name());
+
+        // 1. OPTIMISTIC CHECK (Case-Sensitive Fast-Path)
+        if (restSessionCatalog.tableExists(context, exactIdentifier)) {
+            return exactIdentifier;
+        }
+
+        // 2. CASE-INSENSITIVE FALLBACK: scan listing
         List<TableIdentifier> tableIdentifiers;
         try {
-            tableIdentifiers = restSessionCatalog.listTables(convert(session), remoteNamespace);
+            tableIdentifiers = restSessionCatalog.listTables(context, remoteNamespace);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list tables", e);
@@ -1020,7 +1029,7 @@ public class TrinoRestCatalog
                 matchingTable = identifier;
             }
         }
-        return matchingTable == null ? TableIdentifier.of(remoteNamespace, tableIdentifier.name()) : matchingTable;
+        return matchingTable == null ? exactIdentifier : matchingTable;
     }
 
     private TableIdentifier toRemoteView(ConnectorSession session, SchemaTableName schemaViewName, boolean getCached)
@@ -1036,6 +1045,15 @@ public class TrinoRestCatalog
         }
 
         Namespace remoteNamespace = toRemoteNamespace(session, tableIdentifier.namespace());
+        SessionContext context = convert(session);
+        TableIdentifier exactIdentifier = TableIdentifier.of(remoteNamespace, tableIdentifier.name());
+
+        // 1. OPTIMISTIC CHECK (Case-Sensitive Fast-Path)
+        if (restSessionCatalog.viewExists(context, exactIdentifier)) {
+            return exactIdentifier;
+        }
+
+        // 2. CASE-INSENSITIVE FALLBACK: scan listing
         List<TableIdentifier> tableIdentifiers;
         try {
             tableIdentifiers = restSessionCatalog.listViews(convert(session), remoteNamespace);
@@ -1053,7 +1071,7 @@ public class TrinoRestCatalog
                 matchingView = identifier;
             }
         }
-        return matchingView == null ? TableIdentifier.of(remoteNamespace, tableIdentifier.name()) : matchingView;
+        return matchingView == null ? exactIdentifier : matchingView;
     }
 
     private TableIdentifier toRemoteObject(TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider, boolean getCached)
