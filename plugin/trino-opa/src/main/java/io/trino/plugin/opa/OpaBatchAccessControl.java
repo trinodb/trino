@@ -50,6 +50,7 @@ public final class OpaBatchAccessControl
     private final JsonCodec<OpaBatchQueryResult> batchResultCodec;
     private final URI opaBatchedPolicyUri;
     private final OpaHttpClient opaHttpClient;
+    private final Set<String> extraCredentialsKeys;
 
     @Inject
     public OpaBatchAccessControl(
@@ -64,6 +65,7 @@ public final class OpaBatchAccessControl
         this.opaBatchedPolicyUri = config.getOpaBatchUri().orElseThrow();
         this.batchResultCodec = requireNonNull(batchResultCodec, "batchResultCodec is null");
         this.opaHttpClient = requireNonNull(opaHttpClient, "opaHttpClient is null");
+        this.extraCredentialsKeys = ImmutableSet.copyOf(config.getExtraCredentialsKeys());
     }
 
     @Override
