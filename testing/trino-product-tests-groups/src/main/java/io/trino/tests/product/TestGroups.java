@@ -92,7 +92,6 @@ public final class TestGroups
     public static final String SNOWFLAKE = "snowflake";
     public static final String DELTA_LAKE_OSS = "delta-lake-oss";
     public static final String DELTA_LAKE_HDFS = "delta-lake-hdfs";
-    public static final String DELTA_LAKE_MINIO = "delta-lake-minio";
     public static final String DELTA_LAKE_AZURE = "delta-lake-azure";
     public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
     // DELTA_LAKE_DATABRICKS runs tests against oldest and newest Databricks runtimes

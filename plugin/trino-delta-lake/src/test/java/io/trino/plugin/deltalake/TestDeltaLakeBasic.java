@@ -138,6 +138,8 @@ public class TestDeltaLakeBasic
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
+            new ResourceTable("region_oss_deltalake", "deltalake/region"),
+            new ResourceTable("region_73_lts", "databricks73/region"),
             new ResourceTable("region_91_lts", "databricks91/region"),
             new ResourceTable("region_104_lts", "databricks104/region"),
             new ResourceTable("region_113_lts", "databricks113/region"),
@@ -244,6 +246,22 @@ public class TestDeltaLakeBasic
             assertQuery(format("SELECT DISTINCT age FROM %s", table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
             assertQuery(format("SELECT name FROM %s WHERE age = 42", table.tableName()), "VALUES ('Alice'), ('Emma')");
         }
+    }
+
+    @Test
+    void testOssDeltaLake()
+    {
+        assertThat(query("SELECT * FROM region_oss_deltalake"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
+    }
+
+    @Test
+    void testDatabricks73()
+    {
+        assertThat(query("SELECT * FROM region_73_lts"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
     }
 
     @Test

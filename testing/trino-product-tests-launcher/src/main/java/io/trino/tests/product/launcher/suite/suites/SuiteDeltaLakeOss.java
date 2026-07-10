@@ -15,7 +15,6 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLake;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLakeCaching;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeKerberizedHdfs;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeOss;
@@ -27,7 +26,6 @@ import java.util.List;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_ALLUXIO_CACHING;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_HDFS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_MINIO;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
@@ -38,10 +36,6 @@ public class SuiteDeltaLakeOss
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(EnvMultinodeMinioDataLake.class)
-                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_MINIO)
-                        .build(),
-
                 testOnEnvironment(EnvSinglenodeDeltaLakeKerberizedHdfs.class)
                         .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_HDFS)
                         .build(),

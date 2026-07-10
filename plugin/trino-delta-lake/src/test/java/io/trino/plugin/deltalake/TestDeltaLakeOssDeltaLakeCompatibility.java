@@ -18,6 +18,6 @@ public class TestDeltaLakeOssDeltaLakeCompatibility
 {
     public TestDeltaLakeOssDeltaLakeCompatibility()
     {
-        super("io/trino/plugin/deltalake/testing/resources/ossdeltalake/");
+        super("deltalake/");
     }
 }
