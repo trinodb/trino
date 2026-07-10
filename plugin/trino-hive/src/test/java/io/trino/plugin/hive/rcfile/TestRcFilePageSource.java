@@ -32,9 +32,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -81,6 +85,65 @@ final class TestRcFilePageSource
             page.selectPositions(positions, 150, 2);
             assertThat(blockValues(page.getBlock(0))).containsExactly(10L, 20L);
             assertThat(blockValues(page.getBlock(1))).containsExactly(100L, 200L);
+        }
+    }
+
+    @Test
+    void testSelectRange(@TempDir Path tempDir)
+            throws Exception
+    {
+        assertSelection(tempDir, page -> page.selectPositions(0, 4), 0, 1, 2, 3);
+        assertSelection(tempDir, page -> page.selectPositions(ROW_COUNT - 3, 3), ROW_COUNT - 3, ROW_COUNT - 2, ROW_COUNT - 1);
+        assertSelection(tempDir, page -> page.selectPositions(0, 0));
+        assertSelection(
+                tempDir,
+                page -> {
+                    page.selectPositions(2, 5);
+                    page.selectPositions(new int[] {0, 3}, 0, 2);
+                },
+                2,
+                5);
+        assertSelection(
+                tempDir,
+                page -> {
+                    page.selectPositions(new int[] {1, 3, 5, 7}, 0, 4);
+                    page.selectPositions(1, 2);
+                },
+                3,
+                5);
+        assertSelection(
+                tempDir,
+                page -> {
+                    page.selectPositions(1, 6);
+                    page.selectPositions(2, 3);
+                },
+                3,
+                4,
+                5);
+        assertSelection(
+                tempDir,
+                page -> assertThatThrownBy(() -> page.selectPositions(ROW_COUNT - 1, 2))
+                        .isInstanceOf(IndexOutOfBoundsException.class),
+                IntStream.range(0, ROW_COUNT).toArray());
+    }
+
+    // columnA is loaded before the selection
+    private static void assertSelection(Path tempDir, Consumer<SourcePage> selection, int... expectedPositions)
+            throws IOException
+    {
+        try (RcFilePageSource pageSource = createPageSource(tempDir.resolve("test.rc").toFile())) {
+            SourcePage page = pageSource.getNextSourcePage();
+            page.getBlock(0);
+            selection.accept(page);
+
+            List<Long> expectedRows = Arrays.stream(expectedPositions)
+                    .mapToObj(position -> (long) position)
+                    .collect(toImmutableList());
+            assertThat(page.getPositionCount()).isEqualTo(expectedPositions.length);
+            assertThat(blockValues(page.getBlock(0))).isEqualTo(expectedRows);
+            assertThat(blockValues(page.getBlock(1))).isEqualTo(expectedRows.stream()
+                    .map(row -> row * 10)
+                    .collect(toImmutableList()));
         }
     }
 

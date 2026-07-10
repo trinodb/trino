@@ -90,4 +90,11 @@ final class PositionCountSourcePage
         }
         positionCount = size;
     }
+
+    @Override
+    public void selectPositions(int offset, int size)
+    {
+        Objects.checkFromIndexSize(offset, size, positionCount);
+        positionCount = size;
+    }
 }
