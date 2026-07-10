@@ -106,6 +106,11 @@ The following configuration properties are available:
     order to begin the OAuth 2.0 authorization process. Providing this value
     while OIDC discovery is enabled overrides the value from the OpenID provider
     metadata document.
+* - `http-server.authentication.oauth2.domain-hint`
+  - Domain hint to restrict SSO account selection to a specific domain. When
+    set, it is included in the authorization URL as a `domain_hint` parameter
+    together with `prompt=select_account`, which some IdPs (for example Azure
+    AD) use to filter the account picker shown to users during login.
 * - `http-server.authentication.oauth2.token-url`
   - The URL of the endpoint on the authorization server which Trino uses to
     obtain an access token. Providing this value while OIDC discovery is enabled
