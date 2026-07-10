@@ -86,6 +86,7 @@ import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.gen.RowConstructorCodeGenerator.MEGAMORPHIC_FIELD_COUNT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -287,6 +288,23 @@ public class TestPageFunctionCompiler
         Page page = createLongBlockPage(0);
         Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
         assertThat(hiddenType.getObjectValue(result, 0)).isEqualTo(42);
+    }
+
+    @Test
+    void testFilterWithLargeInputBackedRow()
+    {
+        int fieldCount = MEGAMORPHIC_FIELD_COUNT + 1;
+        Reference input = new Reference(BIGINT, "$col_0");
+        Row row = new Row(nCopies(fieldCount, input), RowType.anonymous(nCopies(fieldCount, BIGINT)));
+        Expression filter = comparison(GREATER_THAN, new FieldReference(row, fieldCount - 1), new Constant(BIGINT, 2L));
+
+        PageFilter compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileFilter(filter, ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0), Optional.empty())
+                .get();
+
+        Page page = createLongBlockPage(0, 1, 2, 3, 4);
+        SourcePage inputPage = compiled.getInputChannels().getInputChannels(SourcePage.create(page));
+        assertThat(compiled.filter(SESSION, inputPage).size()).isEqualTo(2);
     }
 
     @Test
