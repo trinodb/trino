@@ -78,6 +78,7 @@ ARTIFACTS = {
     'thrift':  ('trino-thrift', 'zip'),
     'tpcds':  ('trino-tpcds', 'zip'),
     'tpch':  ('trino-tpch', 'zip'),
+    'trino':  ('trino-trino', 'zip'),
 }
 
 def filename(artifact, version, extension):
