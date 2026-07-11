@@ -82,4 +82,6 @@
 
 ## TPC-DS connector
 
+## Trino connector
+
 ## SPI
