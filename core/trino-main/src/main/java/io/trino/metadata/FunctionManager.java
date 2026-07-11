@@ -29,6 +29,7 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunction;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InOut;
@@ -45,6 +46,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -76,6 +78,7 @@ public class FunctionManager
     }
 
     private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final NonEvictableCache<ResolvedFunction, Optional<ColumnarScalarFunction>> specializedColumnarScalarCache;
     private final NonEvictableCache<ResolvedFunction, AggregationImplementation> specializedAggregationCache;
     private final NonEvictableCache<ResolvedFunction, WindowFunctionSupplier> specializedWindowCache;
 
@@ -87,6 +90,10 @@ public class FunctionManager
     public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, GlobalFunctionCatalog globalFunctionCatalog, LanguageFunctionProvider languageFunctionProvider)
     {
         specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .expireAfterWrite(ofHours(1)));
+
+        specializedColumnarScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(ofHours(1)));
 
@@ -134,6 +141,40 @@ public class FunctionManager
             scalarFunctionImplementation = reportIfNeverFailsViolated(resolvedFunction, scalarFunctionImplementation);
         }
         return scalarFunctionImplementation;
+    }
+
+    public Optional<ColumnarScalarFunction> getColumnarScalarFunction(ResolvedFunction resolvedFunction)
+    {
+        if (isTrinoSqlLanguageFunction(resolvedFunction.functionId())) {
+            return Optional.empty();
+        }
+
+        try {
+            return uncheckedCacheGet(specializedColumnarScalarCache, resolvedFunction, () -> getColumnarScalarFunctionInternal(resolvedFunction));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw new RuntimeException(e.getCause());
+        }
+    }
+
+    private Optional<ColumnarScalarFunction> getColumnarScalarFunctionInternal(ResolvedFunction resolvedFunction)
+    {
+        Optional<ColumnarScalarFunction> implementation = getFunctionProvider(resolvedFunction).getColumnarScalarFunction(
+                resolvedFunction.functionId(),
+                resolvedFunction.signature(),
+                getFunctionDependencies(resolvedFunction));
+        if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
+            implementation = implementation.map(delegate -> (session, arguments, selectedPositions) -> {
+                try {
+                    return delegate.evaluate(session, arguments, selectedPositions);
+                }
+                catch (Throwable throwable) {
+                    throw neverFailsViolated(resolvedFunction.signature().toString(), throwable);
+                }
+            });
+        }
+        return implementation;
     }
 
     private static ScalarFunctionImplementation reportIfNeverFailsViolated(ResolvedFunction resolvedFunction, ScalarFunctionImplementation scalarFunctionImplementation)
