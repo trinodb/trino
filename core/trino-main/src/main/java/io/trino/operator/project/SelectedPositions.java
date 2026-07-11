@@ -13,6 +13,9 @@
  */
 package io.trino.operator.project;
 
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -20,6 +23,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.System.arraycopy;
+import static java.util.Arrays.copyOfRange;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
@@ -98,6 +102,25 @@ public class SelectedPositions
     public int size()
     {
         return size;
+    }
+
+    /**
+     * Returns a block containing the selected positions of the specified block, without
+     * copying the values of the block.
+     */
+    public Block select(Block block)
+    {
+        if (isList) {
+            if (block instanceof ValueBlock) {
+                // The view retains the positions array, which the caller may reuse for the next page
+                return block.getPositions(copyOfRange(positions, offset, offset + size), 0, size);
+            }
+            return block.getPositions(positions, offset, size);
+        }
+        if (offset == 0 && size == block.getPositionCount()) {
+            return block;
+        }
+        return block.getRegion(offset, size);
     }
 
     public SelectedPositions subRange(int start, int end)

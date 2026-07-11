@@ -15,17 +15,22 @@ package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.IntArrayBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static io.trino.operator.project.SelectedPositions.positionsList;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,6 +62,17 @@ public class TestSelectedPositions
         assertThat(NON_EMPTY_LIST.difference(EMPTY_LIST)).isEqualTo(NON_EMPTY_LIST);
         assertThat(EMPTY_RANGE.difference(NON_EMPTY_RANGE)).isEqualTo(EMPTY_RANGE);
         assertThat(NON_EMPTY_RANGE.difference(EMPTY_RANGE)).isEqualTo(NON_EMPTY_RANGE);
+    }
+
+    @Test
+    public void testSelectDoesNotRetainPositions()
+    {
+        int[] positions = {0, 3, 1};
+        Block selected = positionsList(positions, 1, 2).select(new IntArrayBlock(4, Optional.empty(), new int[] {10, 11, 12, 13}));
+        // The caller may reuse the positions array for the next page
+        Arrays.fill(positions, 2);
+        assertThat(INTEGER.getInt(selected, 0)).isEqualTo(13);
+        assertThat(INTEGER.getInt(selected, 1)).isEqualTo(11);
     }
 
     @ParameterizedTest
