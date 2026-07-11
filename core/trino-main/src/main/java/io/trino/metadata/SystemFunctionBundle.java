@@ -102,6 +102,7 @@ import io.trino.operator.scalar.ArrayElementAtFunction;
 import io.trino.operator.scalar.ArrayExceptFunction;
 import io.trino.operator.scalar.ArrayFilterFunction;
 import io.trino.operator.scalar.ArrayFirstFunction;
+import io.trino.operator.scalar.ArrayFlattenFunction;
 import io.trino.operator.scalar.ArrayHistogramFunction;
 import io.trino.operator.scalar.ArrayIntersectFunction;
 import io.trino.operator.scalar.ArrayJoin;
@@ -294,7 +295,6 @@ import io.trino.type.setdigest.SetDigestOperators;
 
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
-import static io.trino.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
 import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
 import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
@@ -580,7 +580,7 @@ public final class SystemFunctionBundle
                 .function(MAP_ELEMENT_AT)
                 .function(new MapConcatFunction(blockTypeOperators))
                 .function(new MapToMapCast(blockTypeOperators))
-                .function(ARRAY_FLATTEN_FUNCTION)
+                .scalar(ArrayFlattenFunction.class)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY, JSON_STRING_ARRAY_EXTRACT_SCALAR)
                 .aggregates(ArrayAggregationFunction.class)

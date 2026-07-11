@@ -21,11 +21,13 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -75,7 +77,7 @@ public class BenchmarkColumnarScalarFunctions
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    @Param({"map_keys", "map_values", "map_entries"})
+    @Param({"map_keys", "map_values", "map_entries", "flatten"})
     public String function;
 
     @Param({"flat", "dictionary", "rle"})
@@ -89,11 +91,23 @@ public class BenchmarkColumnarScalarFunctions
     @Setup
     public void setup()
     {
-        MapType inputType = new MapType(BIGINT, VARCHAR, TYPE_OPERATORS);
-        Expression expression = call(
-                FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
-                new Reference(inputType, "input"));
-        inputPage = new Page(encode(createMapBlock(inputType), encoding));
+        Type inputType;
+        Expression expression;
+        if (function.equals("flatten")) {
+            ArrayType innerArrayType = new ArrayType(VARCHAR);
+            inputType = new ArrayType(innerArrayType);
+            expression = call(
+                    FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
+                    new Reference(inputType, "input"));
+            inputPage = new Page(encode(createNestedArrayBlock((ArrayType) inputType), encoding));
+        }
+        else {
+            inputType = new MapType(BIGINT, VARCHAR, TYPE_OPERATORS);
+            expression = call(
+                    FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
+                    new Reference(inputType, "input"));
+            inputPage = new Page(encode(createMapBlock((MapType) inputType), encoding));
+        }
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
 
         PageFunctionCompiler compiler = FUNCTIONS.getPageFunctionCompiler();
@@ -140,6 +154,26 @@ public class BenchmarkColumnarScalarFunctions
         return builder.build();
     }
 
+    private static Block createNestedArrayBlock(ArrayType outerArrayType)
+    {
+        ArrayBlockBuilder builder = outerArrayType.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            int value = position;
+            builder.buildEntry(innerArrays -> {
+                ArrayBlockBuilder innerArrayBuilder = (ArrayBlockBuilder) innerArrays;
+                for (int array = 0; array < 4; array++) {
+                    int arrayIndex = array;
+                    innerArrayBuilder.buildEntry(elements -> {
+                        for (int element = 0; element < ELEMENTS_PER_VALUE / 4; element++) {
+                            VARCHAR.writeSlice(elements, Slices.utf8Slice("value-" + value + "-" + arrayIndex + "-" + element));
+                        }
+                    });
+                }
+            });
+        }
+        return builder.build();
+    }
+
     private static Block encode(Block block, String encoding)
     {
         return switch (encoding) {
@@ -159,7 +193,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "rle")) {
                 this.function = function;
                 this.encoding = encoding;

@@ -13,59 +13,66 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionMetadata;
-import io.trino.spi.function.Signature;
-import io.trino.spi.type.ArrayType;
+import io.trino.spi.block.ColumnarArray;
+import io.trino.spi.function.ColumnarScalarImplementation;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
-import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeTemplates.arrayType;
-import static io.trino.spi.type.TypeTemplates.typeVariable;
-import static io.trino.util.Reflection.methodHandle;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.set;
 import static java.lang.Math.toIntExact;
 
-public class ArrayFlattenFunction
-        extends SqlScalarFunction
+@ScalarFunction("flatten")
+@Description("Flattens the given array")
+public final class ArrayFlattenFunction
 {
-    public static final ArrayFlattenFunction ARRAY_FLATTEN_FUNCTION = new ArrayFlattenFunction();
-    private static final String FUNCTION_NAME = "flatten";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayFlattenFunction.class, FUNCTION_NAME, Type.class, Type.class, Block.class);
+    private ArrayFlattenFunction() {}
 
-    private ArrayFlattenFunction()
+    @ColumnarScalarImplementation
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block flattenColumnar(@SqlType("array(array(E))") Block arrayColumn)
     {
-        super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
-                .signature(Signature.builder()
-                        .typeVariable("E")
-                        .returnType(arrayType(typeVariable("E")))
-                        .argumentType(arrayType(arrayType(typeVariable("E"))))
-                        .build())
-                .description("Flattens the given array")
-                .build());
+        ColumnarArray outerArrays = ColumnarArray.toColumnarArray(arrayColumn);
+        ColumnarArray innerArrays = ColumnarArray.toColumnarArray(outerArrays.getElementsBlock());
+
+        int positionCount = outerArrays.getPositionCount();
+        int[] offsets = new int[positionCount + 1];
+        long[] valueIsValid = outerArrays.mayHaveNull() ? allocateWords(positionCount, false) : null;
+        for (int position = 0; position < positionCount; position++) {
+            if (!outerArrays.isNull(position)) {
+                if (valueIsValid != null) {
+                    set(valueIsValid, 0, position);
+                }
+                int innerOffset = outerArrays.getOffset(position);
+                int innerCount = outerArrays.getLength(position);
+                int elementCount = 0;
+                for (int innerPosition = innerOffset; innerPosition < innerOffset + innerCount; innerPosition++) {
+                    elementCount += innerArrays.getLength(innerPosition);
+                }
+                offsets[position + 1] = offsets[position] + elementCount;
+            }
+            else {
+                offsets[position + 1] = offsets[position];
+            }
+        }
+        return ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(valueIsValid), offsets, innerArrays.getElementsBlock());
     }
 
-    @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
-    {
-        ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
-        MethodHandle methodHandle = METHOD_HANDLE
-                .bindTo(arrayType.getElementType())
-                .bindTo(arrayType);
-        return new ChoicesSpecializedSqlScalarFunction(
-                boundSignature,
-                FAIL_ON_NULL,
-                ImmutableList.of(NEVER_NULL),
-                methodHandle);
-    }
-
-    public static Block flatten(Type type, Type arrayType, Block array)
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block flatten(
+            @TypeParameter("E") Type type,
+            @TypeParameter("array(E)") Type arrayType,
+            @SqlType("array(array(E))") Block array)
     {
         if (array.getPositionCount() == 0) {
             return type.createBlockBuilder(null, 0).build();
