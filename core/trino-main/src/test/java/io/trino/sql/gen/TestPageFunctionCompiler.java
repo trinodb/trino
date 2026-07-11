@@ -25,6 +25,8 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.project.ColumnarScalarFunctionPageProjection;
+import io.trino.operator.project.GeneratedPageProjection;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -113,6 +115,55 @@ public class TestPageFunctionCompiler
             FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
             new Reference(BIGINT, "$col_0"),
             new Constant(BIGINT, 10L));
+
+    @Test
+    public void testColumnarMapProjection()
+    {
+        MapType mapType = new MapType(BIGINT, BIGINT, TYPE_OPERATORS);
+        ArrayType arrayType = new ArrayType(BIGINT);
+        ResolvedFunction mapKeys = FUNCTION_RESOLUTION.resolveFunction("map_keys", fromTypes(mapType));
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(mapKeys, new Reference(mapType, "map")),
+                        ImmutableMap.of(new Symbol(mapType, "map"), 0),
+                        Optional.empty())
+                .get();
+
+        assertThat(projection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+
+        PageProjection nestedProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(mapKeys, call(FUNCTION_RESOLUTION.getCoercion(mapType, mapType), new Reference(mapType, "map"))),
+                        ImmutableMap.of(new Symbol(mapType, "map"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(nestedProjection).isInstanceOf(GeneratedPageProjection.class);
+
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, 4);
+        builder.buildEntry((keyBuilder, valueBuilder) -> {
+            BIGINT.writeLong(keyBuilder, 11);
+            BIGINT.writeLong(valueBuilder, 101);
+            BIGINT.writeLong(keyBuilder, 12);
+            BIGINT.writeLong(valueBuilder, 102);
+        });
+        builder.appendNull();
+        builder.buildEntry((_, _) -> {});
+        builder.buildEntry((keyBuilder, valueBuilder) -> {
+            BIGINT.writeLong(keyBuilder, 41);
+            BIGINT.writeLong(valueBuilder, 401);
+        });
+        Page page = new Page(builder.build());
+
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, 4));
+        assertThat(arrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(11L, 12L));
+        assertThat(result.isNull(1)).isTrue();
+        assertThat(arrayType.getObjectValue(result, 2)).isEqualTo(ImmutableList.of());
+        assertThat(arrayType.getObjectValue(result, 3)).isEqualTo(ImmutableList.of(41L));
+
+        result = project(projection, page, SelectedPositions.positionsList(new int[] {3, 0}, 0, 2));
+        assertThat(arrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(41L));
+        assertThat(arrayType.getObjectValue(result, 1)).isEqualTo(ImmutableList.of(11L, 12L));
+    }
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()

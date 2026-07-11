@@ -228,7 +228,8 @@ public final class MapKeys
             @TypeParameter("K") Type keyType,
             @SqlType("map(K,V)") Block mapColumn)
     {
-        return projectMapKeys(mapColumn);
+        ColumnarMap map = ColumnarMap.toColumnarMap(mapColumn);
+        return MapBlockProjection.project(map, map.getKeysBlock());
     }
 }
 ```
