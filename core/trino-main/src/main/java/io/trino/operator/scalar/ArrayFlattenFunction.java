@@ -13,61 +13,113 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionDependencies;
-import io.trino.spi.function.FunctionMetadata;
-import io.trino.spi.function.Signature;
-import io.trino.spi.type.ArrayType;
+import io.trino.spi.block.ColumnarArray;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.function.ColumnarScalar;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
-import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeTemplates.arrayType;
-import static io.trino.spi.type.TypeTemplates.typeVariable;
-import static io.trino.util.Reflection.methodHandle;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.function.SelectedPositions.positionsRange;
 import static java.lang.Math.addExact;
 import static java.lang.Math.toIntExact;
 
-public class ArrayFlattenFunction
-        extends SqlScalarFunction
+@ScalarFunction("flatten")
+@Description("Flattens the given array")
+public final class ArrayFlattenFunction
 {
-    public static final ArrayFlattenFunction ARRAY_FLATTEN_FUNCTION = new ArrayFlattenFunction();
-    private static final String FUNCTION_NAME = "flatten";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayFlattenFunction.class, FUNCTION_NAME, Type.class, Type.class, Block.class);
+    private ArrayFlattenFunction() {}
 
-    private ArrayFlattenFunction()
+    @ColumnarScalar
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block flattenColumnar(SelectedPositions selectedPositions, @SqlType("array(array(E))") Block arrayColumn)
     {
-        super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
-                .signature(Signature.builder()
-                        .typeVariable("E")
-                        .returnType(arrayType(typeVariable("E")))
-                        .argumentType(arrayType(arrayType(typeVariable("E"))))
-                        .build())
-                .description("Flattens the given array")
-                .build());
+        if (selectedPositions.isList() && !(arrayColumn instanceof ArrayBlock arrays && arrays.getRawElementBlock() instanceof ValueBlock)) {
+            // Encoded arrays are expanded to every array they reference, so only the selected arrays are copied first
+            Block selectedArrays = arrayColumn.copyPositions(selectedPositions.positions(), selectedPositions.offset(), selectedPositions.size());
+            return flattenColumnar(positionsRange(0, selectedPositions.size()), selectedArrays);
+        }
+
+        ColumnarArray outerArrays = ColumnarArray.toColumnarArray(arrayColumn);
+        ColumnarArray innerArrays = ColumnarArray.toColumnarArray(outerArrays.getElementsBlock());
+
+        int positionCount = outerArrays.getPositionCount();
+        // Gathering the selected elements is proportional to their count, while flattening every array is proportional
+        // to the positions, so gather when the selected arrays are expected to have fewer elements than there are positions
+        long elementCount = elementOffset(outerArrays, innerArrays, positionCount) - elementOffset(outerArrays, innerArrays, 0);
+        if (selectedPositions.isList() && selectedPositions.size() * elementCount < (long) positionCount * positionCount) {
+            return flattenSelected(selectedPositions, outerArrays, innerArrays);
+        }
+
+        // Both levels are contiguous and null arrays have no entries, so the elements of an outer
+        // array start where the elements of its first inner array start
+        int[] offsets = new int[positionCount + 1];
+        for (int position = 0; position <= positionCount; position++) {
+            offsets[position] = elementOffset(outerArrays, innerArrays, position);
+        }
+        long[] valueIsValid = null;
+        if (outerArrays.mayHaveNull()) {
+            valueIsValid = allocateWords(positionCount, false);
+            for (int position = 0; position < positionCount; position++) {
+                if (!outerArrays.isNull(position)) {
+                    set(valueIsValid, 0, position);
+                }
+            }
+        }
+        return selectedPositions.select(ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(valueIsValid), offsets, innerArrays.getElementsBlock()));
     }
 
-    @Override
-    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    private static Block flattenSelected(SelectedPositions selectedPositions, ColumnarArray outerArrays, ColumnarArray innerArrays)
     {
-        ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
-        MethodHandle methodHandle = METHOD_HANDLE
-                .bindTo(arrayType.getElementType())
-                .bindTo(arrayType);
-        return new ChoicesSpecializedSqlScalarFunction(
-                boundSignature,
-                FAIL_ON_NULL,
-                ImmutableList.of(NEVER_NULL),
-                methodHandle);
+        int size = selectedPositions.size();
+        long selectedElementCount = 0;
+        for (int index = 0; index < size; index++) {
+            int position = selectedPositions.position(index);
+            selectedElementCount += elementOffset(outerArrays, innerArrays, position + 1) - elementOffset(outerArrays, innerArrays, position);
+        }
+
+        int[] offsets = new int[size + 1];
+        int[] ids = new int[toIntExact(selectedElementCount)];
+        long[] valueIsValid = outerArrays.mayHaveNull() ? allocateWords(size, false) : null;
+        int nextId = 0;
+        for (int index = 0; index < size; index++) {
+            int position = selectedPositions.position(index);
+            if (valueIsValid != null && !outerArrays.isNull(position)) {
+                set(valueIsValid, 0, index);
+            }
+            int end = elementOffset(outerArrays, innerArrays, position + 1);
+            for (int element = elementOffset(outerArrays, innerArrays, position); element < end; element++) {
+                ids[nextId++] = element;
+            }
+            offsets[index + 1] = nextId;
+        }
+        Block elements = DictionaryBlock.create(ids.length, innerArrays.getElementsBlock(), ids);
+        return ArrayBlock.fromElementBlock(size, Optional.ofNullable(valueIsValid), offsets, elements);
     }
 
-    public static Block flatten(Type type, Type arrayType, Block array)
+    private static int elementOffset(ColumnarArray outerArrays, ColumnarArray innerArrays, int position)
+    {
+        return innerArrays.getOffset(outerArrays.getOffset(position));
+    }
+
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block flatten(
+            @TypeParameter("E") Type type,
+            @TypeParameter("array(E)") Type arrayType,
+            @SqlType("array(array(E))") Block array)
     {
         int expectedEntries = 0;
         for (int i = 0; i < array.getPositionCount(); i++) {
