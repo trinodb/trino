@@ -23,10 +23,9 @@ import java.util.Arrays;
 import java.util.function.Predicate;
 
 import static io.trino.spi.block.Bitmap.countTransitions;
+import static io.trino.spi.block.Bitmap.expandBits;
 import static io.trino.spi.block.Bitmap.getBits;
 import static io.trino.spi.block.Bitmap.isSet;
-import static io.trino.spi.block.Bitmap.orPackedBits;
-import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Long.bitCount;
 import static java.lang.Math.max;
@@ -121,25 +120,7 @@ final class ReaderUtils
     public static long[] unpackBitNulls(long[] values, long[] valueIsValid, int positionCount)
     {
         long[] result = new long[wordsForBits(positionCount)];
-
-        int inputPosition = 0;
-        for (int outputPosition = 0; outputPosition < positionCount; outputPosition += Long.SIZE) {
-            int bitsInWord = min(Long.SIZE, positionCount - outputPosition);
-            long validBits = getBits(valueIsValid, 0, outputPosition, bitsInWord);
-            int validCount = bitCount(validBits);
-            if (validCount == bitsInWord) {
-                orPackedBits(result, 0, outputPosition, getBits(values, 0, inputPosition, bitsInWord), bitsInWord);
-                inputPosition += bitsInWord;
-                continue;
-            }
-            while (validBits != 0) {
-                int validPosition = Long.numberOfTrailingZeros(validBits);
-                if (isSet(values, 0, inputPosition++)) {
-                    set(result, 0, outputPosition + validPosition);
-                }
-                validBits &= validBits - 1;
-            }
-        }
+        expandBits(values, 0, valueIsValid, 0, result, 0, positionCount);
         return result;
     }
 
