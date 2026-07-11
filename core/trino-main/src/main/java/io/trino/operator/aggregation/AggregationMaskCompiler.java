@@ -27,10 +27,12 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.Page;
 import io.trino.spi.block.BitArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
+import jakarta.annotation.Nullable;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -50,6 +52,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
+import static io.airlift.bytecode.expression.BytecodeExpressions.greaterThanOrEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNotNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
@@ -59,6 +62,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static java.util.Arrays.stream;
 
 public final class AggregationMaskCompiler
 {
@@ -73,12 +77,18 @@ public final class AggregationMaskCompiler
                 type(AggregationMaskBuilder.class));
 
         FieldDefinition selectedPositionsField = definition.declareField(a(PRIVATE), "selectedPositions", int[].class);
+        FieldDefinition nonNullArgumentChannelsField = definition.declareField(a(PRIVATE, FINAL), "nonNullArgumentChannels", int[].class);
+        FieldDefinition validitiesField = definition.declareField(a(PRIVATE, FINAL), "validities", Bitmap[].class);
 
         MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
         constructor.getBody().comment("super();")
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class)
                 .append(constructor.getThis().setField(selectedPositionsField, newArray(type(int[].class), 0)))
+                .append(constructor.getThis().setField(
+                        nonNullArgumentChannelsField,
+                        newArray(type(int[].class), stream(nonNullArgumentChannels).mapToObj(channel -> constantInt(channel)).toList())))
+                .append(constructor.getThis().setField(validitiesField, newArray(type(Bitmap[].class), nonNullArgumentChannels.length)))
                 .ret();
 
         Parameter argumentsParameter = arg("arguments", type(Page.class));
@@ -187,6 +197,27 @@ public final class AggregationMaskCompiler
                                                         .append(selectedPositionsIndex.increment()))))))
                 .ifFalse(new BytecodeBlock()
                         .append(maskValueBlock.set(maskBlock.cast(BitArrayBlock.class)))
+                        .append(selectedPositionsIndex.set(invokeStatic(
+                                AggregationMaskCompiler.class,
+                                "selectPositionsByWord",
+                                int.class,
+                                selectedPositions,
+                                positionCount,
+                                maskValueBlock,
+                                argumentsParameter,
+                                method.getThis().getField(nonNullArgumentChannelsField),
+                                method.getThis().getField(validitiesField))))
+                        .append(new IfStatement()
+                                .condition(greaterThanOrEqual(selectedPositionsIndex, constantInt(0)))
+                                .ifTrue(invokeStatic(
+                                        AggregationMask.class,
+                                        "createSelectedPositions",
+                                        AggregationMask.class,
+                                        positionCount,
+                                        selectedPositions,
+                                        selectedPositionsIndex)
+                                        .ret()))
+                        .append(selectedPositionsIndex.set(constantInt(0)))
                         .append(new ForLoop()
                                 .initialize(pagePosition.set(constantInt(0)))
                                 .condition(lessThan(pagePosition, positionCount))
@@ -244,5 +275,48 @@ public final class AggregationMaskCompiler
             return rle.getValue().isNull(0);
         }
         return false;
+    }
+
+    @UsedByGeneratedCode
+    public static int selectPositionsByWord(int[] selectedPositions, int positionCount, @Nullable BitArrayBlock maskBlock, Page arguments, int[] nonNullArgumentChannels, Bitmap[] validities)
+    {
+        for (int index = 0; index < nonNullArgumentChannels.length; index++) {
+            validities[index] = null;
+            Block block = arguments.getBlock(nonNullArgumentChannels[index]);
+            if (!block.mayHaveNull()) {
+                continue;
+            }
+            if (!(block instanceof ValueBlock valueBlock)) {
+                return -1;
+            }
+            validities[index] = valueBlock.getValidityBitmap().orElse(null);
+            if (validities[index] == null) {
+                return -1;
+            }
+        }
+
+        int selectedPositionsIndex = 0;
+        for (int position = 0; position < positionCount; position += Long.SIZE) {
+            int bitsInWord = Math.min(Long.SIZE, positionCount - position);
+            long selected = bitsInWord == Long.SIZE ? -1L : (1L << bitsInWord) - 1;
+            if (maskBlock != null) {
+                selected &= Bitmap.getBits(maskBlock.getRawValues(), maskBlock.getRawValuesOffset(), position, bitsInWord);
+                long[] maskValidity = maskBlock.getRawValueIsValid();
+                if (maskValidity != null) {
+                    selected &= Bitmap.getBits(maskValidity, maskBlock.getRawValuesOffset(), position, bitsInWord);
+                }
+            }
+            for (Bitmap validity : validities) {
+                if (validity != null) {
+                    selected &= Bitmap.getBits(validity.getRawWords(), validity.getRawBitOffset(), position, bitsInWord);
+                }
+            }
+
+            while (selected != 0) {
+                selectedPositions[selectedPositionsIndex++] = position + Long.numberOfTrailingZeros(selected);
+                selected &= selected - 1;
+            }
+        }
+        return selectedPositionsIndex;
     }
 }
