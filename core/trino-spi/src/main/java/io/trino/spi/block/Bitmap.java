@@ -386,6 +386,26 @@ public final class Bitmap
         return compacted;
     }
 
+    /// Returns a compact offset-zero copy of the logical bit range.
+    ///
+    /// If the input is already offset-zero with the exact word count, the original array is returned. Unlike
+    /// [compactBitmap(long[], int, int)], an all-set range is retained because these bits represent values rather than
+    /// optional validity.
+    static long[] compactBits(long[] rawWords, int rawBitOffset, int bitCount)
+    {
+        requireNonNull(rawWords, "rawWords is null");
+        checkBitRange(rawWords, rawBitOffset, bitCount);
+
+        int wordCount = wordsForBits(bitCount);
+        if (rawBitOffset == 0 && rawWords.length == wordCount) {
+            return rawWords;
+        }
+
+        long[] compacted = new long[wordCount];
+        copyBits(rawWords, rawBitOffset, compacted, 0, bitCount);
+        return compacted;
+    }
+
     /// Copies the logical range and appends one unset bit, preserving `rawBitOffset` in the returned bitmap.
     static long[] copyBitmapAndAppendUnset(@Nullable long[] rawWords, int rawBitOffset, int bitCount)
     {

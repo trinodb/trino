@@ -32,10 +32,17 @@ final class EncoderUtil
             return;
         }
 
+        encodeBitmapAsLongs(sliceOutput, validity, offset, positionCount);
+    }
+
+    public static void encodeBitmapAsLongs(SliceOutput sliceOutput, long[] bitmap, int offset, int positionCount)
+    {
+        Bitmap.checkBitRange(bitmap, offset, positionCount);
+
         int wordCount = wordsForBits(positionCount);
         for (int wordIndex = 0; wordIndex < wordCount; wordIndex++) {
             int position = wordIndex << 6;
-            long word = getAlignedWord(validity, offset, position);
+            long word = getAlignedWord(bitmap, offset, position);
             int remaining = positionCount - position;
             if (remaining < Long.SIZE) {
                 word &= lowBitsMask(remaining);
@@ -51,8 +58,13 @@ final class EncoderUtil
             return null;
         }
 
-        long[] validity = new long[wordsForBits(positionCount)];
-        sliceInput.readLongs(validity);
-        return validity;
+        return decodeBitmapAsLongs(sliceInput, positionCount);
+    }
+
+    public static long[] decodeBitmapAsLongs(SliceInput sliceInput, int positionCount)
+    {
+        long[] bitmap = new long[wordsForBits(positionCount)];
+        sliceInput.readLongs(bitmap);
+        return bitmap;
     }
 }
