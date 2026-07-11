@@ -40,14 +40,19 @@ abstract class AbstractTestBlockBuilder<T>
     public void verifyTestData()
     {
         List<T> values = getTestValues();
+        verifyTestValues(values);
+
+        ValueBlock valueBlock = blockFromValues(values);
+        assertThat(blockToValues(valueBlock)).isEqualTo(values);
+    }
+
+    protected void verifyTestValues(List<T> values)
+    {
         assertThat(values)
                 .hasSize(5)
                 .doesNotHaveDuplicates()
                 .doesNotContainNull()
                 .doesNotContain(getUnusedTestValue());
-
-        ValueBlock valueBlock = blockFromValues(values);
-        assertThat(blockToValues(valueBlock)).isEqualTo(values);
     }
 
     @Test
