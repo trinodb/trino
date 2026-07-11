@@ -42,6 +42,7 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
@@ -217,21 +218,26 @@ public final class IrExpressions
         }
     }
 
+    /// Builds an expression that references `value` more than once while evaluating it exactly once. A
+    /// trivial `value` (a reference or constant) is passed to `body` directly, keeping the result free of
+    /// a wrapping [Let]; any other `value` is bound to a fresh symbol (named with `namePrefix`) and `body`
+    /// receives a reference to that symbol, so the operand is evaluated a single time.
+    public static Expression bindIfNecessary(SymbolAllocator allocator, String namePrefix, Expression value, Function<Expression, Expression> body)
+    {
+        if (value instanceof Reference || value instanceof Constant) {
+            return body.apply(value);
+        }
+        Symbol bound = allocator.newSymbol(namePrefix, value.type());
+        return new Let(bound, value, body.apply(bound.toSymbolReference()));
+    }
+
     /// Lower a BETWEEN to `value >= min AND value <= max`, wrapping `value` in a [Let] when it is
     /// non-trivial so the operand is evaluated exactly once.
     public static Expression between(Metadata metadata, SymbolAllocator allocator, Expression value, Expression min, Expression max)
     {
-        // Inline trivial values directly so the result stays a plain AND of comparisons.
-        if (value instanceof Reference || value instanceof Constant) {
-            return new Logical(AND, ImmutableList.of(
-                    comparison(metadata, GREATER_THAN_OR_EQUAL, value, min),
-                    comparison(metadata, LESS_THAN_OR_EQUAL, value, max)));
-        }
-        Symbol bound = allocator.newSymbol("between", value.type());
-        Reference reference = new Reference(value.type(), bound.name());
-        return new Let(bound, value, new Logical(AND, ImmutableList.of(
-                comparison(metadata, GREATER_THAN_OR_EQUAL, reference, min),
-                comparison(metadata, LESS_THAN_OR_EQUAL, reference, max))));
+        return bindIfNecessary(allocator, "between", value, operand -> new Logical(AND, ImmutableList.of(
+                comparison(metadata, GREATER_THAN_OR_EQUAL, operand, min),
+                comparison(metadata, LESS_THAN_OR_EQUAL, operand, max))));
     }
 
     /// Recognize a BETWEEN-shape as produced by [#between]. `between` builds `min <= value AND
@@ -293,21 +299,13 @@ public final class IrExpressions
     public static Expression nullIf(Metadata metadata, TypeManager typeManager, SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
     {
         Expression secondForComparison = second.type().equals(comparisonType) ? second : cast(typeManager, second, comparisonType);
-        // Inline trivial values directly so the result stays a plain Case expression.
-        if (first instanceof Reference || first instanceof Constant) {
-            Expression firstForComparison = first.type().equals(comparisonType) ? first : cast(typeManager, first, comparisonType);
+        return bindIfNecessary(allocator, "nullif", first, operand -> {
+            Expression operandForComparison = first.type().equals(comparisonType) ? operand : cast(typeManager, operand, comparisonType);
             return ifExpression(
-                    comparison(metadata, EQUAL, firstForComparison, secondForComparison),
+                    comparison(metadata, EQUAL, operandForComparison, secondForComparison),
                     constantNull(first.type()),
-                    first);
-        }
-        Symbol bound = allocator.newSymbol("nullif", first.type());
-        Reference reference = new Reference(first.type(), bound.name());
-        Expression referenceForComparison = first.type().equals(comparisonType) ? reference : cast(typeManager, reference, comparisonType);
-        return new Let(bound, first, ifExpression(
-                comparison(metadata, EQUAL, referenceForComparison, secondForComparison),
-                constantNull(first.type()),
-                reference));
+                    operand);
+        });
     }
 
     /// Recognize a NULLIF-shape as produced by [#nullIf] in either the trivial-value form
