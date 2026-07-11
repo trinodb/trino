@@ -78,7 +78,7 @@ public class BenchmarkColumnarScalarFunctions
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    @Param({"map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice"})
+    @Param({"map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at"})
     public String function;
 
     @Param({"flat", "dictionary", "rle"})
@@ -94,10 +94,10 @@ public class BenchmarkColumnarScalarFunctions
     {
         Type inputType;
         Expression expression;
-        if (ImmutableList.of("flatten", "reverse", "trim_array", "slice").contains(function)) {
+        if (ImmutableList.of("flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at").contains(function)) {
             ArrayType innerArrayType = new ArrayType(VARCHAR);
             inputType = new ArrayType(innerArrayType);
-            if (function.equals("trim_array")) {
+            if (function.equals("element_at") || function.equals("trim_array")) {
                 expression = call(
                         FUNCTIONS.resolveFunction(function, fromTypes(inputType, BIGINT)),
                         new Reference(inputType, "input"),
@@ -209,7 +209,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "rle")) {
                 this.function = function;
                 this.encoding = encoding;

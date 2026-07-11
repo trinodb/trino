@@ -85,6 +85,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -191,6 +192,39 @@ public class TestPageFunctionCompiler
                 .compileProjection(expression, ImmutableMap.of(input, 0), Optional.empty())
                 .get();
         assertThat(projection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+    }
+
+    @Test
+    public void testColumnarArrayElementProjectionIsLimitedToNestedTypes()
+    {
+        ArrayType primitiveArrayType = new ArrayType(BIGINT);
+        ResolvedFunction primitiveArrayFirst = FUNCTION_RESOLUTION.resolveFunction("array_first", fromTypes(primitiveArrayType));
+        PageProjection primitiveProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(primitiveArrayFirst, new Reference(primitiveArrayType, "array")),
+                        ImmutableMap.of(new Symbol(primitiveArrayType, "array"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(primitiveProjection).isInstanceOf(GeneratedPageProjection.class);
+
+        ArrayType nestedArrayType = new ArrayType(primitiveArrayType);
+        ResolvedFunction nestedArrayFirst = FUNCTION_RESOLUTION.resolveFunction("array_first", fromTypes(nestedArrayType));
+        PageProjection nestedProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(nestedArrayFirst, new Reference(nestedArrayType, "array")),
+                        ImmutableMap.of(new Symbol(nestedArrayType, "array"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(nestedProjection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+
+        ResolvedFunction nestedSubscript = FUNCTION_RESOLUTION.resolveOperator(SUBSCRIPT, ImmutableList.of(nestedArrayType, BIGINT));
+        PageProjection subscriptProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        call(nestedSubscript, new Reference(nestedArrayType, "array"), new Constant(BIGINT, 1L)),
+                        ImmutableMap.of(new Symbol(nestedArrayType, "array"), 0),
+                        Optional.empty())
+                .get();
+        assertThat(subscriptProjection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
     }
 
     @Test

@@ -18,14 +18,21 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunctionImplementation;
+import io.trino.spi.function.ColumnarScalarSpecializer;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
+import static io.trino.operator.scalar.ArrayElementBlockProjection.project;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -76,6 +83,16 @@ public class ArraySubscriptOperator
                         .build())
                 .nullable()
                 .build());
+    }
+
+    @ColumnarScalarSpecializer
+    public static Optional<ColumnarScalarFunctionImplementation> specializeColumnar(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        Type returnType = boundSignature.getReturnType();
+        if (!(returnType instanceof ArrayType || returnType instanceof MapType || returnType instanceof RowType)) {
+            return Optional.empty();
+        }
+        return Optional.of((_, arguments) -> project(arguments.getBlock(0), arguments.getBlock(1), ArrayElementBlockProjection.Selection.SUBSCRIPT));
     }
 
     @Override
