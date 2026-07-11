@@ -34,6 +34,8 @@ import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableCache;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.operator.project.ColumnarScalarFunctionPageProjection;
+import io.trino.operator.project.ColumnarScalarFunctionPageProjection.Argument;
 import io.trino.operator.project.ConstantPageProjection;
 import io.trino.operator.project.GeneratedPageProjection;
 import io.trino.operator.project.InputChannels;
@@ -47,8 +49,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.function.ColumnarScalarFunctionImplementation;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -61,6 +65,9 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -107,6 +114,8 @@ public class PageFunctionCompiler
     private final TypeManager typeManager;
 
     private record CompiledProjection(MethodHandle constructor, boolean deterministic) {}
+
+    private record ProjectionArguments(InputChannels inputChannels, List<Argument> arguments) {}
 
     private final NonEvictableCache<Expression, CompiledProjection> projectionCache;
     private final NonEvictableCache<Expression, Class<? extends PageFilter>> filterCache;
@@ -169,6 +178,11 @@ public class PageFunctionCompiler
 
     public Supplier<PageProjection> compileProjection(Expression projection, Map<Symbol, Integer> layout, Optional<String> classNameSuffix)
     {
+        return compileProjection(projection, layout, classNameSuffix, true);
+    }
+
+    Supplier<PageProjection> compileProjection(Expression projection, Map<Symbol, Integer> layout, Optional<String> classNameSuffix, boolean preferColumnar)
+    {
         requireNonNull(projection, "projection is null");
 
         if (projection instanceof Reference reference) {
@@ -182,6 +196,13 @@ public class PageFunctionCompiler
         if (projection instanceof Constant constant) {
             ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.value(), constant.type());
             return () -> projectionFunction;
+        }
+
+        if (preferColumnar && projection instanceof Call call) {
+            Optional<Supplier<PageProjection>> columnarProjection = compileColumnarProjection(call, layout);
+            if (columnarProjection.isPresent()) {
+                return columnarProjection.get();
+            }
         }
 
         CompiledProjection compiled;
@@ -207,6 +228,51 @@ public class PageFunctionCompiler
         MethodHandle constructor = compiled.constructor();
         boolean deterministic = compiled.deterministic();
         return () -> new GeneratedPageProjection(projection, deterministic, result.inputChannels(), constructor);
+    }
+
+    private Optional<Supplier<PageProjection>> compileColumnarProjection(Call call, Map<Symbol, Integer> layout)
+    {
+        Optional<ProjectionArguments> projectionArguments = createProjectionArguments(call.arguments(), layout);
+        if (projectionArguments.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<ColumnarScalarFunctionImplementation> implementation = functionManager.getColumnarScalarFunctionImplementation(call.function());
+        if (implementation.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ProjectionArguments arguments = projectionArguments.orElseThrow();
+        boolean deterministic = isDeterministic(call);
+        return Optional.of(() -> new ColumnarScalarFunctionPageProjection(
+                call,
+                deterministic,
+                arguments.inputChannels(),
+                arguments.arguments(),
+                implementation.orElseThrow()));
+    }
+
+    private static Optional<ProjectionArguments> createProjectionArguments(List<Expression> expressions, Map<Symbol, Integer> layout)
+    {
+        List<Argument> arguments = new ArrayList<>(expressions.size());
+        Map<Integer, Integer> inputChannels = new LinkedHashMap<>();
+        for (Expression argument : expressions) {
+            if (argument instanceof Reference reference) {
+                Integer sourceChannel = layout.get(Symbol.from(reference));
+                if (sourceChannel == null) {
+                    return Optional.empty();
+                }
+                int inputChannel = inputChannels.computeIfAbsent(sourceChannel, _ -> inputChannels.size());
+                arguments.add(Argument.input(inputChannel));
+            }
+            else if (argument instanceof Constant constant) {
+                arguments.add(Argument.constant(constant.getValueAsBlock()));
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(new ProjectionArguments(new InputChannels(List.copyOf(inputChannels.keySet())), List.copyOf(arguments)));
     }
 
     private CompiledProjection compileProjectionClass(Expression projection, Map<Symbol, Integer> layout, Optional<String> classNameSuffix)

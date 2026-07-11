@@ -29,6 +29,7 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.ColumnarScalarFunctionImplementation;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InOut;
@@ -45,6 +46,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -134,6 +136,29 @@ public class FunctionManager
             scalarFunctionImplementation = reportIfNeverFailsViolated(resolvedFunction, scalarFunctionImplementation);
         }
         return scalarFunctionImplementation;
+    }
+
+    public Optional<ColumnarScalarFunctionImplementation> getColumnarScalarFunctionImplementation(ResolvedFunction resolvedFunction)
+    {
+        if (isTrinoSqlLanguageFunction(resolvedFunction.functionId())) {
+            return Optional.empty();
+        }
+
+        Optional<ColumnarScalarFunctionImplementation> implementation = getFunctionProvider(resolvedFunction).getColumnarScalarFunctionImplementation(
+                resolvedFunction.functionId(),
+                resolvedFunction.signature(),
+                getFunctionDependencies(resolvedFunction));
+        if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
+            implementation = implementation.map(delegate -> (session, arguments) -> {
+                try {
+                    return delegate.evaluate(session, arguments);
+                }
+                catch (Throwable throwable) {
+                    throw neverFailsViolated(resolvedFunction.signature().toString(), throwable);
+                }
+            });
+        }
+        return implementation;
     }
 
     private static ScalarFunctionImplementation reportIfNeverFailsViolated(ResolvedFunction resolvedFunction, ScalarFunctionImplementation scalarFunctionImplementation)
