@@ -234,11 +234,12 @@ public final class MapKeys
     @TypeParameter("V")
     @SqlType("array(K)")
     public static Block getKeysColumnar(
-            @TypeParameter("K") Type keyType,
             SelectedPositions selectedPositions,
             @SqlType("map(K,V)") Block mapColumn)
     {
-        return projectMapKeys(mapColumn);
+        // map_keys never fails, so it can project every position and select the result
+        ColumnarMap map = ColumnarMap.toColumnarMap(mapColumn);
+        return selectedPositions.select(MapBlockProjection.project(map, map.getKeysBlock()));
     }
 }
 ```

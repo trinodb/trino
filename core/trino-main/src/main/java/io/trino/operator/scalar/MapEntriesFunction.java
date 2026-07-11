@@ -15,11 +15,15 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.ColumnarMap;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.function.ColumnarScalarImplementation;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
@@ -27,12 +31,26 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.operator.scalar.MapBlockProjection.project;
 
 @ScalarFunction(value = "map_entries", neverFails = true)
 @Description("Construct an array of entries from a given map")
 public class MapEntriesFunction
 {
     private final BufferedArrayValueBuilder arrayValueBuilder;
+
+    @ColumnarScalarImplementation
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(row(K,V))")
+    public static Block mapEntriesColumnar(SelectedPositions selectedPositions, @SqlType("map(K,V)") Block mapColumn)
+    {
+        ColumnarMap map = ColumnarMap.toColumnarMap(mapColumn);
+        Block entries = RowBlock.fromFieldBlocks(
+                map.getKeysBlock().getPositionCount(),
+                new Block[] {map.getKeysBlock(), map.getValuesBlock()});
+        return selectedPositions.select(project(mapColumn, map, entries));
+    }
 
     @TypeParameter("K")
     @TypeParameter("V")
