@@ -224,6 +224,34 @@ public final class Bitmap
         }
     }
 
+    /// Expands a contiguous source bit range into the set positions of a selection bitmap.
+    ///
+    /// The first source bit is written to the first set selection bit, the second source bit to the second set
+    /// selection bit, and so on. Unselected destination positions are cleared. The source must contain at least as
+    /// many bits as there are set selection bits in the requested range.
+    public static void expandBits(
+            long[] sourceRawWords,
+            int sourceRawBitOffset,
+            long[] selectionRawWords,
+            int selectionRawBitOffset,
+            long[] destinationRawWords,
+            int destinationRawBitOffset,
+            int bitCount)
+    {
+        int sourcePosition = 0;
+        for (int destinationPosition = 0; destinationPosition < bitCount; destinationPosition += Long.SIZE) {
+            int bitsInWord = Math.min(Long.SIZE, bitCount - destinationPosition);
+            long selection = getBits(selectionRawWords, selectionRawBitOffset, destinationPosition, bitsInWord);
+            int selectedCount = Long.bitCount(selection);
+            long source = selectedCount == 0 ? 0 : getBits(sourceRawWords, sourceRawBitOffset, sourcePosition, selectedCount);
+            long expanded = Long.expand(source, selection);
+
+            clearBits(destinationRawWords, destinationRawBitOffset, destinationPosition, bitsInWord);
+            orPackedBits(destinationRawWords, destinationRawBitOffset, destinationPosition, expanded, bitsInWord);
+            sourcePosition += selectedCount;
+        }
+    }
+
     /// Copies selected source positions into a contiguous destination range, replacing the destination bits.
     public static void copyBits(long[] sourceRawWords, int sourceRawBitOffset, int[] sourcePositions, int sourcePositionsOffset, long[] destinationRawWords, int destinationRawBitOffset, int bitCount)
     {

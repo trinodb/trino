@@ -15,12 +15,15 @@ package io.trino.spi.block;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Random;
+
 import static io.trino.spi.block.Bitmap.allocateWords;
 import static io.trino.spi.block.Bitmap.clear;
 import static io.trino.spi.block.Bitmap.clearBits;
 import static io.trino.spi.block.Bitmap.compactBitmap;
 import static io.trino.spi.block.Bitmap.copyBits;
 import static io.trino.spi.block.Bitmap.countTransitions;
+import static io.trino.spi.block.Bitmap.expandBits;
 import static io.trino.spi.block.Bitmap.getAlignedWord;
 import static io.trino.spi.block.Bitmap.getBits;
 import static io.trino.spi.block.Bitmap.hasSetBit;
@@ -158,6 +161,56 @@ final class TestBitmap
         assertThat(isSet(destination, 0, 6)).isTrue();
         assertThat(isSet(destination, 0, 7)).isTrue();
         assertThat(isSet(destination, 0, 8)).isTrue();
+    }
+
+    @Test
+    void testExpandBits()
+    {
+        Random random = new Random(832748234L);
+        for (int sourceOffset : new int[] {0, 1, 7, 63}) {
+            for (int selectionOffset : new int[] {0, 1, 7, 63}) {
+                for (int destinationOffset : new int[] {0, 1, 7, 63}) {
+                    for (int bitCount : new int[] {0, 1, 7, 63, 64, 65, 127, 128, 129}) {
+                        long[] selection = new long[wordsForBits(selectionOffset + bitCount)];
+                        int selectedCount = 0;
+                        for (int position = 0; position < bitCount; position++) {
+                            if (random.nextBoolean()) {
+                                set(selection, selectionOffset, position);
+                                selectedCount++;
+                            }
+                        }
+
+                        long[] source = new long[wordsForBits(sourceOffset + selectedCount)];
+                        for (int position = 0; position < selectedCount; position++) {
+                            if (random.nextBoolean()) {
+                                set(source, sourceOffset, position);
+                            }
+                        }
+
+                        long[] actual = allocateWords(destinationOffset + bitCount, true);
+                        long[] expected = actual.clone();
+                        int sourcePosition = 0;
+                        for (int position = 0; position < bitCount; position++) {
+                            if (isSet(selection, selectionOffset, position)) {
+                                if (isSet(source, sourceOffset, sourcePosition)) {
+                                    set(expected, destinationOffset, position);
+                                }
+                                else {
+                                    clear(expected, destinationOffset, position);
+                                }
+                                sourcePosition++;
+                            }
+                            else {
+                                clear(expected, destinationOffset, position);
+                            }
+                        }
+
+                        expandBits(source, sourceOffset, selection, selectionOffset, actual, destinationOffset, bitCount);
+                        assertThat(actual).isEqualTo(expected);
+                    }
+                }
+            }
+        }
     }
 
     @Test

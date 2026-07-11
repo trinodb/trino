@@ -16,8 +16,10 @@ package io.trino.parquet.reader.flat;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
+import static io.trino.parquet.reader.flat.BitColumnAdapter.BIT_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -58,6 +60,31 @@ final class TestColumnAdapter
 
         for (int position = 0; position <= positionCount; position++) {
             assertThat(destination.getOffsets()[position]).isEqualTo((position + 1) / 2 * 10);
+        }
+    }
+
+    @Test
+    void testUnpackBitNullValues()
+    {
+        int positionCount = 129;
+        long[] valueIsValid = alternatingValidity(positionCount);
+        int nonNullCount = (positionCount + 1) / 2;
+        BitBuffer source = new BitBuffer(nonNullCount);
+        BitBuffer destination = new BitBuffer(positionCount);
+        for (int position = 0; position < nonNullCount; position += 3) {
+            set(source.getValues(), 0, position);
+        }
+
+        BIT_ADAPTER.unpackNullValues(source, destination, valueIsValid, 0, nonNullCount, positionCount);
+
+        int sourcePosition = 0;
+        for (int position = 0; position < positionCount; position++) {
+            boolean expected = false;
+            if (isSet(valueIsValid, 0, position)) {
+                expected = sourcePosition % 3 == 0;
+                sourcePosition++;
+            }
+            assertThat(isSet(destination.getValues(), 0, position)).isEqualTo(expected);
         }
     }
 

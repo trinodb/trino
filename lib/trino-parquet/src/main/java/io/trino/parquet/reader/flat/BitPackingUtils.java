@@ -46,23 +46,13 @@ public class BitPackingUtils
         return bitCount(packedByte);
     }
 
-    public static void unpack(byte[] values, int offset, byte packedByte, int startBit, int endBit)
+    /**
+     * @return number of set bits (non-nulls)
+     */
+    public static int unpack(long[] values, int offset, long packedBits)
     {
-        for (int i = 0; i < endBit - startBit; i++) {
-            values[offset + i] = (byte) ((packedByte >>> (startBit + i)) & 1);
-        }
-    }
-
-    public static void unpack8FromByte(byte[] values, int offset, byte packedByte)
-    {
-        values[offset] = (byte) (packedByte & 1);
-        values[offset + 1] = (byte) ((packedByte >>> 1) & 1);
-        values[offset + 2] = (byte) ((packedByte >>> 2) & 1);
-        values[offset + 3] = (byte) ((packedByte >>> 3) & 1);
-        values[offset + 4] = (byte) ((packedByte >>> 4) & 1);
-        values[offset + 5] = (byte) ((packedByte >>> 5) & 1);
-        values[offset + 6] = (byte) ((packedByte >>> 6) & 1);
-        values[offset + 7] = (byte) ((packedByte >>> 7) & 1);
+        orPackedBits(values, 0, offset, packedBits, Long.SIZE);
+        return Long.bitCount(packedBits);
     }
 
     public static int bitCount(byte value)

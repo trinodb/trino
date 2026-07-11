@@ -28,7 +28,7 @@ public class BooleanPlainValueDecoders
 
     public static ValueDecoder<BitBuffer> createBooleanPlainValueDecoder(boolean vectorizedDecodingEnabled)
     {
-        return vectorizedDecodingEnabled ? new VectorBooleanPlainValueDecoder() : new BooleanPlainValueDecoder();
+        return new BooleanPlainValueDecoder();
     }
 
     private abstract static class AbstractBooleanPlainValueDecoder
@@ -87,6 +87,12 @@ public class BooleanPlainValueDecoders
             }
 
             // Read full bytes
+            while (length >= Long.SIZE) {
+                BitPackingUtils.unpack(rawValues, offset, input.readLong());
+                offset += Long.SIZE;
+                length -= Long.SIZE;
+            }
+
             int bytesToRead = length / Byte.SIZE;
             while (bytesToRead > 0) {
                 byte packedByte = input.readByte();
@@ -94,47 +100,6 @@ public class BooleanPlainValueDecoders
                 bytesToRead--;
                 offset += Byte.SIZE;
             }
-
-            // Partially read the last byte
-            alreadyReadBits = length % Byte.SIZE;
-            if (alreadyReadBits != 0) {
-                partiallyReadByte = input.readByte();
-                unpack(rawValues, offset, partiallyReadByte, 0, alreadyReadBits);
-            }
-        }
-    }
-
-    private static final class VectorBooleanPlainValueDecoder
-            extends AbstractBooleanPlainValueDecoder
-    {
-        @Override
-        public void read(BitBuffer values, int offset, int length)
-        {
-            long[] rawValues = values.getValues();
-            clearBits(rawValues, 0, offset, length);
-            if (alreadyReadBits != 0) { // Use partially unpacked byte
-                int bitsRemaining = Byte.SIZE - alreadyReadBits;
-                int chunkSize = min(bitsRemaining, length);
-                unpack(rawValues, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
-                alreadyReadBits = (alreadyReadBits + chunkSize) % Byte.SIZE; // Set to 0 when full byte reached
-                if (length == chunkSize) {
-                    return;
-                }
-                offset += chunkSize;
-                length -= chunkSize;
-            }
-
-            // Read full bytes
-            int bytesToRead = length / Byte.SIZE;
-            byte[] inputArray = input.getByteArray();
-            int inputOffset = input.getByteArrayOffset();
-            int inputBytesRead = 0;
-            while (inputBytesRead < bytesToRead) {
-                BitPackingUtils.unpack(rawValues, offset, inputArray[inputOffset + inputBytesRead]);
-                offset += Byte.SIZE;
-                inputBytesRead++;
-            }
-            input.skip(inputBytesRead);
 
             // Partially read the last byte
             alreadyReadBits = length % Byte.SIZE;
