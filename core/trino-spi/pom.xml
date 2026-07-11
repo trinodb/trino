@@ -326,6 +326,11 @@
                                     <code>java.method.visibilityIncreased</code>
                                     <old>method boolean[] io.trino.spi.block.VariableWidthBlock::getRawValueIsNull()</old>
                                 </item>
+                                <!-- Boolean values now use bit-packed blocks. -->
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.type.BooleanType::wrapByteArrayAsBooleanBlockWithoutNulls(byte[])</old>
+                                </item>
                                 <!-- Block null representation changed from boolean null arrays to validity bitmaps. -->
                                 <item>
                                     <code>java.method.parameterTypeParameterChanged</code>

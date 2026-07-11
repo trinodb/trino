@@ -14,8 +14,8 @@
 package io.trino.operator.aggregation;
 
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
+import static io.trino.spi.block.Bitmap.allocateWords;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -198,7 +199,7 @@ public class TestAggregationMaskCompiler
 
     private static Block createMaskBlock(int positionCount, byte[] mask)
     {
-        return new ByteArrayBlock(positionCount, Optional.empty(), mask);
+        return new BitArrayBlock(positionCount, Optional.empty(), toBits(mask));
     }
 
     private static Block createMaskBlockRle(int positionCount, byte mask)
@@ -215,16 +216,14 @@ public class TestAggregationMaskCompiler
             newMask[i * 2] = mask[i];
             newMask[(i * 2) + 1] = (byte) (mask[i] == 0 ? 1 : 0);
         }
-        Block block = DictionaryBlock.create(positionCount * 2, new ByteArrayBlock(positionCount * 2, Optional.empty(), newMask), IntStream.range(0, positionCount * 2).toArray());
+        Block block = DictionaryBlock.create(positionCount * 2, createMaskBlock(positionCount * 2, newMask), IntStream.range(0, positionCount * 2).toArray());
         return block.getPositions(IntStream.range(0, positionCount).map(i -> i * 2).toArray(), 0, positionCount);
     }
 
     private static Block createMaskBlockNulls(boolean[] nulls)
     {
         int positionCount = nulls.length;
-        byte[] mask = new byte[positionCount];
-        Arrays.fill(mask, (byte) 1);
-        return new ByteArrayBlock(positionCount, Optional.of(toValidity(nulls)), mask);
+        return new BitArrayBlock(positionCount, Optional.of(toValidity(nulls)), allocateWords(positionCount, true));
     }
 
     private static Block createMaskBlockNullsRle(int positionCount, boolean nullValue)
@@ -241,6 +240,17 @@ public class TestAggregationMaskCompiler
             }
         }
         return validity;
+    }
+
+    private static long[] toBits(byte[] values)
+    {
+        long[] bits = new long[wordsForBits(values.length)];
+        for (int position = 0; position < values.length; position++) {
+            if (values[position] != 0) {
+                set(bits, 0, position);
+            }
+        }
+        return bits;
     }
 
     private static Page buildSingleColumnPage(int positionCount)

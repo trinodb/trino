@@ -17,8 +17,8 @@ import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -31,6 +31,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.booleanData;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.toValidityBitmap;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 /**
@@ -71,10 +73,10 @@ public final class TrinoThriftBoolean
     {
         checkArgument(BOOLEAN.equals(desiredType), "type doesn't match: %s", desiredType);
         int numberOfRecords = numberOfRecords();
-        return new ByteArrayBlock(
+        return new BitArrayBlock(
                 numberOfRecords,
                 toValidityBitmap(nulls),
-                booleans == null ? new byte[numberOfRecords] : toByteArray(booleans));
+                booleans == null ? new long[wordsForBits(numberOfRecords)] : toBitArray(booleans));
     }
 
     @Override
@@ -147,12 +149,14 @@ public final class TrinoThriftBoolean
         return nulls == null || booleans == null || nulls.length == booleans.length;
     }
 
-    private static byte[] toByteArray(boolean[] booleans)
+    private static long[] toBitArray(boolean[] booleans)
     {
-        byte[] bytes = new byte[booleans.length];
-        for (int i = 0; i < booleans.length; i++) {
-            bytes[i] = booleans[i] ? (byte) 1 : (byte) 0;
+        long[] bits = new long[wordsForBits(booleans.length)];
+        for (int position = 0; position < booleans.length; position++) {
+            if (booleans[position]) {
+                set(bits, 0, position);
+            }
         }
-        return bytes;
+        return bits;
     }
 }

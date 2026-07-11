@@ -21,8 +21,8 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.stream.BooleanInputStream;
 import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
@@ -39,11 +39,12 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
-import static io.trino.orc.reader.ReaderUtils.unpackByteNulls;
+import static io.trino.orc.reader.ReaderUtils.unpackBitNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanColumnReader
@@ -66,7 +67,7 @@ public class BooleanColumnReader
 
     private boolean rowGroupOpen;
 
-    private byte[] nonNullValueTemp = new byte[0];
+    private long[] nonNullValueTemp = new long[0];
 
     private final LocalMemoryContext memoryContext;
 
@@ -145,8 +146,9 @@ public class BooleanColumnReader
             throws IOException
     {
         verifyNotNull(dataStream);
-        byte[] values = dataStream.getSetBits(nextBatchSize);
-        return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
+        long[] values = new long[wordsForBits(nextBatchSize)];
+        dataStream.getSetBits(nextBatchSize, values);
+        return new BitArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
     private Block readNullBlock(long[] valueIsValid, int nonNullCount)
@@ -154,16 +156,18 @@ public class BooleanColumnReader
     {
         verifyNotNull(dataStream);
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
-        if (nonNullValueTemp.length < minNonNullValueSize) {
-            nonNullValueTemp = new byte[minNonNullValueSize];
+        int requiredWords = wordsForBits(minNonNullValueSize);
+        if (nonNullValueTemp.length < requiredWords) {
+            nonNullValueTemp = new long[requiredWords];
             memoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
-        dataStream.getSetBits(nonNullValueTemp, nonNullCount);
+        fill(nonNullValueTemp, 0, wordsForBits(nonNullCount), 0);
+        dataStream.getSetBits(nonNullCount, nonNullValueTemp);
 
-        byte[] result = unpackByteNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
+        long[] result = unpackBitNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new ByteArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
+        return new BitArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
     private void openRowGroup()
