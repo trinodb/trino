@@ -29,6 +29,8 @@ import io.trino.operator.project.ColumnarScalarFunctionPageProjection;
 import io.trino.operator.project.GeneratedPageProjection;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.RowConstructorPageProjection;
+import io.trino.operator.project.RowFieldPageProjection;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
@@ -36,7 +38,9 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.SourcePage;
@@ -164,6 +168,43 @@ public class TestPageFunctionCompiler
         result = project(projection, page, SelectedPositions.positionsList(new int[] {3, 0}, 0, 2));
         assertThat(arrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(41L));
         assertThat(arrayType.getObjectValue(result, 1)).isEqualTo(ImmutableList.of(11L, 12L));
+    }
+
+    @Test
+    public void testColumnarRowProjections()
+    {
+        RowType inputRowType = RowType.anonymous(ImmutableList.of(BIGINT));
+        BlockBuilder fieldBuilder = BIGINT.createFixedSizeBlockBuilder(3);
+        BIGINT.writeLong(fieldBuilder, 11);
+        fieldBuilder.appendNull();
+        BIGINT.writeLong(fieldBuilder, 31);
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(3, Optional.of(new long[] {0b101}), new Block[] {fieldBuilder.build()});
+
+        FieldReference fieldReference = new FieldReference(new Reference(inputRowType, "row"), 0);
+        PageProjection fieldProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(fieldReference, ImmutableMap.of(new Symbol(inputRowType, "row"), 0), Optional.empty())
+                .get();
+        assertThat(fieldProjection).isInstanceOf(RowFieldPageProjection.class);
+
+        Block fieldResult = project(fieldProjection, new Page(rowBlock), SelectedPositions.positionsRange(0, 3));
+        assertThat(BIGINT.getLong(fieldResult, 0)).isEqualTo(11);
+        assertThat(fieldResult.isNull(1)).isTrue();
+        assertThat(BIGINT.getLong(fieldResult, 2)).isEqualTo(31);
+
+        fieldResult = project(fieldProjection, new Page(rowBlock), SelectedPositions.positionsList(new int[] {2, 0}, 0, 2));
+        assertThat(fieldResult).isInstanceOf(DictionaryBlock.class);
+        assertThat(BIGINT.getLong(fieldResult, 0)).isEqualTo(31);
+        assertThat(BIGINT.getLong(fieldResult, 1)).isEqualTo(11);
+
+        Row row = new Row(ImmutableList.of(new Reference(BIGINT, "value"), new Constant(BIGINT, 7L)));
+        PageProjection rowProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(row, ImmutableMap.of(new Symbol(BIGINT, "value"), 0), Optional.empty())
+                .get();
+        assertThat(rowProjection).isInstanceOf(RowConstructorPageProjection.class);
+
+        Block rowResult = project(rowProjection, createLongBlockPage(10, 20, 30), SelectedPositions.positionsList(new int[] {2, 0}, 0, 2));
+        assertThat(row.type().getObjectValue(rowResult, 0)).isEqualTo(ImmutableList.of(30L, 7L));
+        assertThat(row.type().getObjectValue(rowResult, 1)).isEqualTo(ImmutableList.of(10L, 7L));
     }
 
     @Test

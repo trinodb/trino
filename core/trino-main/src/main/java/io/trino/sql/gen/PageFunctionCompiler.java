@@ -43,6 +43,8 @@ import io.trino.operator.project.InputPageProjection;
 import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.RowConstructorPageProjection;
+import io.trino.operator.project.RowFieldPageProjection;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -55,8 +57,10 @@ import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import jakarta.annotation.Nullable;
@@ -66,6 +70,7 @@ import org.weakref.jmx.Nested;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -198,6 +203,25 @@ public class PageFunctionCompiler
             return () -> projectionFunction;
         }
 
+        if (preferColumnar && projection instanceof FieldReference fieldReference) {
+            Optional<Supplier<PageProjection>> rowFieldProjection = compileRowFieldProjection(fieldReference, layout);
+            if (rowFieldProjection.isPresent()) {
+                return rowFieldProjection.get();
+            }
+        }
+
+        if (preferColumnar && projection instanceof Row row) {
+            Optional<ProjectionArguments> projectionArguments = createProjectionArguments(row.items(), layout);
+            if (projectionArguments.isPresent()) {
+                ProjectionArguments arguments = projectionArguments.orElseThrow();
+                return () -> new RowConstructorPageProjection(
+                        row,
+                        isDeterministic(row),
+                        arguments.inputChannels(),
+                        arguments.arguments());
+            }
+        }
+
         if (preferColumnar && projection instanceof Call call) {
             Optional<Supplier<PageProjection>> columnarProjection = compileColumnarProjection(call, layout);
             if (columnarProjection.isPresent()) {
@@ -273,6 +297,26 @@ public class PageFunctionCompiler
             }
         }
         return Optional.of(new ProjectionArguments(new InputChannels(List.copyOf(inputChannels.keySet())), List.copyOf(arguments)));
+    }
+
+    private static Optional<Supplier<PageProjection>> compileRowFieldProjection(FieldReference fieldReference, Map<Symbol, Integer> layout)
+    {
+        List<Integer> fields = new ArrayList<>();
+        Expression base = fieldReference;
+        while (base instanceof FieldReference field) {
+            fields.add(field.field());
+            base = field.base();
+        }
+        if (!(base instanceof Reference reference)) {
+            return Optional.empty();
+        }
+
+        Integer inputChannel = layout.get(Symbol.from(reference));
+        if (inputChannel == null) {
+            return Optional.empty();
+        }
+        Collections.reverse(fields);
+        return Optional.of(() -> new RowFieldPageProjection(fieldReference, inputChannel, fields));
     }
 
     private CompiledProjection compileProjectionClass(Expression projection, Map<Symbol, Integer> layout, Optional<String> classNameSuffix)

@@ -23,17 +23,22 @@ import io.trino.operator.project.PageProjection;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -78,7 +83,7 @@ public class BenchmarkColumnarScalarFunctions
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    @Param({"map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at"})
+    @Param({"map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "row_field", "row_constructor"})
     public String function;
 
     @Param({"flat", "dictionary", "rle"})
@@ -94,6 +99,7 @@ public class BenchmarkColumnarScalarFunctions
     {
         Type inputType;
         Expression expression;
+        Map<Symbol, Integer> layout;
         if (ImmutableList.of("flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at").contains(function)) {
             ArrayType innerArrayType = new ArrayType(VARCHAR);
             inputType = new ArrayType(innerArrayType);
@@ -116,6 +122,28 @@ public class BenchmarkColumnarScalarFunctions
                         new Reference(inputType, "input"));
             }
             inputPage = new Page(encode(createNestedArrayBlock((ArrayType) inputType), encoding));
+            layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
+        }
+        else if (function.equals("row_field")) {
+            inputType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
+            expression = new FieldReference(new Reference(inputType, "input"), 2);
+            inputPage = new Page(encode(createRowBlock(), encoding));
+            layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
+        }
+        else if (function.equals("row_constructor")) {
+            inputType = VARCHAR;
+            ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, Integer> layoutBuilder = ImmutableMap.builder();
+            Block[] blocks = new Block[4];
+            for (int field = 0; field < blocks.length; field++) {
+                String name = "field" + field;
+                fields.add(new Reference(VARCHAR, name));
+                layoutBuilder.put(new Symbol(VARCHAR, name), field);
+                blocks[field] = encode(createVarcharBlock(field), encoding);
+            }
+            expression = new Row(fields.build());
+            inputPage = new Page(blocks);
+            layout = layoutBuilder.buildOrThrow();
         }
         else {
             inputType = new MapType(BIGINT, VARCHAR, TYPE_OPERATORS);
@@ -123,8 +151,8 @@ public class BenchmarkColumnarScalarFunctions
                     FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
                     new Reference(inputType, "input"));
             inputPage = new Page(encode(createMapBlock((MapType) inputType), encoding));
+            layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
         }
-        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(inputType, "input"), 0);
 
         PageFunctionCompiler compiler = FUNCTIONS.getPageFunctionCompiler();
         outputType = expression.type();
@@ -190,6 +218,24 @@ public class BenchmarkColumnarScalarFunctions
         return builder.build();
     }
 
+    private static Block createRowBlock()
+    {
+        Block[] fields = new Block[4];
+        for (int field = 0; field < fields.length; field++) {
+            fields[field] = createVarcharBlock(field);
+        }
+        return RowBlock.fromFieldBlocks(POSITION_COUNT, fields);
+    }
+
+    private static Block createVarcharBlock(int field)
+    {
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            VARCHAR.writeSlice(builder, Slices.utf8Slice("field-" + field + "-value-" + position));
+        }
+        return builder.build();
+    }
+
     private static Block encode(Block block, String encoding)
     {
         return switch (encoding) {
@@ -209,7 +255,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "rle")) {
                 this.function = function;
                 this.encoding = encoding;
