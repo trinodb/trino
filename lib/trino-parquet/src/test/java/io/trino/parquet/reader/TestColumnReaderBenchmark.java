@@ -31,10 +31,13 @@ public class TestColumnReaderBenchmark
             throws IOException
     {
         for (ParquetEncoding encoding : ImmutableList.of(PLAIN, RLE)) {
-            BenchmarkBooleanColumnReader benchmark = new BenchmarkBooleanColumnReader();
-            benchmark.encoding = encoding;
-            benchmark.setup();
-            benchmark.read();
+            for (BenchmarkBooleanColumnReader.DataGenerator dataGenerator : BenchmarkBooleanColumnReader.DataGenerator.values()) {
+                BenchmarkBooleanColumnReader benchmark = new BenchmarkBooleanColumnReader();
+                benchmark.encoding = encoding;
+                benchmark.dataGenerator = dataGenerator;
+                benchmark.setup();
+                benchmark.read();
+            }
         }
     }
 

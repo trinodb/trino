@@ -22,6 +22,7 @@ import java.util.Optional;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.Bitmap.clear;
 import static io.trino.spi.block.Bitmap.copyBits;
+import static io.trino.spi.block.Bitmap.expandBits;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static java.lang.Math.toIntExact;
@@ -64,6 +65,16 @@ public class BitColumnAdapter
     public void copyValues(BitBuffer source, int sourceIndex, BitBuffer destination, int destinationIndex, int length)
     {
         copyBits(source.getValues(), sourceIndex, destination.getValues(), destinationIndex, length);
+    }
+
+    @Override
+    public void unpackNullValues(BitBuffer source, BitBuffer destination, long[] valueIsValid, int destOffset, int nonNullCount, int totalValuesCount)
+    {
+        // Bit buffers are zero-initialized, so an all-null range needs no value writes.
+        if (nonNullCount == 0) {
+            return;
+        }
+        expandBits(source.getValues(), 0, valueIsValid, destOffset, destination.getValues(), destOffset, totalValuesCount);
     }
 
     @Override
