@@ -20,8 +20,8 @@ import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -125,7 +125,7 @@ public class TestMemoryPagesStore
         assertThat(readPage.getBlock(2))
                 .isInstanceOf(RunLengthEncodedBlock.class);
         assertThat(readPage.getBlock(2).getUnderlyingValueBlock())
-                .isInstanceOf(ByteArrayBlock.class);
+                .isInstanceOf(BitArrayBlock.class);
     }
 
     @Test

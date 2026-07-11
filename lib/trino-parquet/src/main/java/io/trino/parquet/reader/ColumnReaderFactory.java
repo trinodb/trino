@@ -51,6 +51,7 @@ import java.util.Optional;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.reader.decoders.ValueDecoder.createLevelsDecoder;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
+import static io.trino.parquet.reader.flat.BitColumnAdapter.BIT_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.Fixed12ColumnAdapter.FIXED12_ADAPTER;
@@ -104,7 +105,7 @@ public final class ColumnReaderFactory
         LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ColumnReader.class.getSimpleName());
         ValueDecoders valueDecoders = new ValueDecoders(field, vectorizedDecodingEnabled);
         if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
-            return createColumnReader(field, valueDecoders::getBooleanDecoder, BYTE_ADAPTER, memoryContext);
+            return createColumnReader(field, valueDecoders::getBooleanDecoder, BIT_ADAPTER, memoryContext);
         }
         if (TINYINT.equals(type) && isIntegerOrDecimalPrimitive(primitiveType)) {
             if (isZeroScaleShortDecimalAnnotation(annotation)) {

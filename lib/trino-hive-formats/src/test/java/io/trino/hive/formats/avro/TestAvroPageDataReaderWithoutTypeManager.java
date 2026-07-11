@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.spi.Page;
-import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.MapBlock;
@@ -118,8 +118,8 @@ public class TestAvroPageDataReaderWithoutTypeManager
                 mb = (MapBlock) mb.getRegion(0, 1);
                 assertBlockEquals(MAP_VARCHAR_VARCHAR, mb, expected);
 
-                ByteArrayBlock block = (ByteArrayBlock) p.getBlock(readerSchema.getFields().size() - 1);
-                assertThat(block.getByte(0)).isGreaterThan((byte) 0);
+                BitArrayBlock block = (BitArrayBlock) p.getBlock(readerSchema.getFields().size() - 1);
+                assertThat(block.getBoolean(0)).isTrue();
                 totalRecords += p.getPositionCount();
             }
             assertThat(totalRecords).isEqualTo(count);

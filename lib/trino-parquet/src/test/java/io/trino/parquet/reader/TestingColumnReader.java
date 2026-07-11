@@ -22,6 +22,7 @@ import io.airlift.slice.Slices;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
@@ -124,7 +125,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestingColumnReader
 {
     private static final Map<Type, Class<? extends Block>> BLOCK_CLASSES = ImmutableMap.<Type, Class<? extends Block>>builder()
-            .put(BooleanType.BOOLEAN, ByteArrayBlock.class)
+            .put(BooleanType.BOOLEAN, BitArrayBlock.class)
             .put(BIGINT, LongArrayBlock.class)
             .put(INTEGER, IntArrayBlock.class)
             .put(SMALLINT, ShortArrayBlock.class)
