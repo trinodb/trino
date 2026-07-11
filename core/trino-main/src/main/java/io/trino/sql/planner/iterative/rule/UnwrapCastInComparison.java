@@ -42,6 +42,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.TypeCoercion;
@@ -52,6 +53,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneOffsetTransition;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -78,6 +80,7 @@ import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -430,24 +433,40 @@ public class UnwrapCastInComparison
             Expression nextDateTimestamp = new Constant(sourceType, coerce(date + 1, targetToSource));
 
             return switch (operator) {
-                case EQUAL -> Optional.of(
-                        and(
-                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
-                                comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, nextDateTimestamp)));
-                case NOT_EQUAL -> Optional.of(
-                        or(
-                                comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, dateTimestamp),
-                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
+                case EQUAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
+                        and(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), LESS_THAN, operand, nextDateTimestamp))));
+                case NOT_EQUAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
+                        or(comparison(plannerContext.getMetadata(), LESS_THAN, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, nextDateTimestamp))));
                 case LESS_THAN -> Optional.of(comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, dateTimestamp));
                 case LESS_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, nextDateTimestamp));
                 case GREATER_THAN -> Optional.of(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
                 case GREATER_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
-                case IDENTICAL -> Optional.of(
-                        and(
-                                not(plannerContext.getMetadata(), new IsNull(timestampExpression)),
-                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
-                                comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, nextDateTimestamp)));
+                case IDENTICAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
+                        and(not(plannerContext.getMetadata(), new IsNull(operand)),
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), LESS_THAN, operand, nextDateTimestamp))));
             };
+        }
+
+        private Expression bindSourceIfNecessary(Expression source, Function<Expression, Expression> body)
+        {
+            // A cast over a reference or constant is cheap and deterministic, and must stay inline so a later
+            // unwrap pass can reach the underlying column and push the predicate into the scan; bind anything
+            // else once so a non-trivial source is evaluated a single time.
+            if (isCastOverTrivial(source)) {
+                return body.apply(source);
+            }
+            return bindIfNecessary(symbolAllocator, "operand", source, body);
+        }
+
+        private static boolean isCastOverTrivial(Expression value)
+        {
+            return value instanceof Cast cast
+                    && (cast.expression() instanceof Reference
+                    || cast.expression() instanceof Constant
+                    || isCastOverTrivial(cast.expression()));
         }
 
         private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)

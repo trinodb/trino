@@ -14,6 +14,8 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.graph.SuccessorsFunction;
+import com.google.common.graph.Traverser;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
@@ -21,10 +23,12 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -32,6 +36,9 @@ import io.trino.type.DateTimes;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -61,10 +68,12 @@ import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
 import static io.trino.type.Reals.toReal;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnwrapCastInComparison
         extends BasePlanTest
@@ -850,6 +859,113 @@ public class TestUnwrapCastInComparison
                 output(
                         filter(comparison(EQUAL, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 42.0)),
                                 values("a"))));
+    }
+
+    @Test
+    public void testTimestampToDateBindsNonTrivialOperandOnce()
+    {
+        // Unwrapping CAST(f(a) AS date) <op> DATE '...' into a range references the operand more than once
+        // (twice for EQUAL/NOT_EQUAL, three times for IDENTICAL). A non-trivial operand must be bound via
+        // Let so it is evaluated once: this is required for correctness when it is non-deterministic (each
+        // occurrence would otherwise evaluate independently, so the range would no longer denote a single
+        // value) and avoids re-evaluating an expensive one.
+
+        // A deterministic but non-trivial operand.
+        ResolvedFunction dateTrunc = FUNCTIONS.resolveFunction("date_trunc", fromTypes(createVarcharType(4), createTimestampType(6)));
+        Expression deterministic = new Call(dateTrunc, ImmutableList.of(
+                new Constant(createVarcharType(4), Slices.utf8Slice("hour")),
+                new Reference(createTimestampType(6), "a")));
+
+        // A non-deterministic operand of the same timestamp type (this is the case the binding exists for).
+        ResolvedFunction fromUnixtime = FUNCTIONS.resolveFunction("from_unixtime", fromTypes(DOUBLE));
+        Expression nonDeterministic = new Cast(
+                new Call(fromUnixtime, ImmutableList.of(new Call(RANDOM, ImmutableList.of()))),
+                createTimestampType(6));
+
+        for (ComparisonOperator operator : asList(EQUAL, NOT_EQUAL, IDENTICAL)) {
+            assertBoundOnce(operator, deterministic);
+            assertBoundOnce(operator, nonDeterministic);
+        }
+    }
+
+    private static void assertBoundOnce(ComparisonOperator operator, Expression operand)
+    {
+        Expression unwrapped = unwrapCasts(
+                TEST_SESSION,
+                FUNCTIONS.getPlannerContext(),
+                new SymbolAllocator(),
+                comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2021-06-01"))));
+
+        // Exactly one Let binds the operand (wherever the operator places it in the tree; NOT_EQUAL, for
+        // instance, wraps the range in a NOT) and the operand is evaluated a single time: it appears only as
+        // that bound value, never in the body.
+        List<Let> bindings = letsBinding(unwrapped, operand);
+        assertThat(bindings).as("operator %s", operator).hasSize(1);
+        assertThat(occurrences(bindings.getFirst().body(), operand)).as("operator %s body", operator).isEqualTo(0);
+        assertThat(occurrences(unwrapped, operand)).as("operator %s total", operator).isEqualTo(1);
+    }
+
+    private static List<Let> letsBinding(Expression tree, Expression operand)
+    {
+        ImmutableList.Builder<Let> bindings = ImmutableList.builder();
+        for (Expression node : Traverser.forTree((SuccessorsFunction<Expression>) Expression::children).depthFirstPreOrder(tree)) {
+            if (node instanceof Let let && let.value().equals(operand)) {
+                bindings.add(let);
+            }
+        }
+        return bindings.build();
+    }
+
+    @Test
+    public void testTimestampToDateKeepsTrivialOperandInline()
+    {
+        // A column reference is cheap and deterministic, so it is duplicated directly rather than bound via
+        // Let. Keeping the bare column comparisons preserves range-based pruning.
+        Reference operand = new Reference(createTimestampType(6), "a");
+
+        for (ComparisonOperator operator : asList(EQUAL, NOT_EQUAL, IDENTICAL)) {
+            Expression unwrapped = unwrapCasts(
+                    TEST_SESSION,
+                    FUNCTIONS.getPlannerContext(),
+                    new SymbolAllocator(),
+                    comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2021-06-01"))));
+
+            assertThat(unwrapped).as("operator %s", operator).isNotInstanceOf(Let.class);
+            // The reference stays inline in each comparison rather than being bound once.
+            assertThat(occurrences(unwrapped, operand)).as("operator %s", operator).isGreaterThanOrEqualTo(2);
+        }
+    }
+
+    @Test
+    public void testTimestampToDateKeepsCastOfReferenceInline()
+    {
+        // The cast source may itself be a cast over a column (a date column coerced to timestamp). A cast
+        // chain over a reference is cheap and deterministic, so it stays inline rather than bound. Keeping
+        // the inner cast visible lets a later unwrap pass collapse the predicate onto the column and push it
+        // into the scan (e.g. Iceberg partition pruning); binding it in a Let would block that.
+        Expression operand = new Cast(new Reference(DATE, "a"), createTimestampType(6));
+
+        for (ComparisonOperator operator : asList(EQUAL, NOT_EQUAL, IDENTICAL)) {
+            Expression unwrapped = unwrapCasts(
+                    TEST_SESSION,
+                    FUNCTIONS.getPlannerContext(),
+                    new SymbolAllocator(),
+                    comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate("2021-06-01"))));
+
+            assertThat(unwrapped).as("operator %s", operator).isNotInstanceOf(Let.class);
+            assertThat(occurrences(unwrapped, operand)).as("operator %s", operator).isGreaterThanOrEqualTo(2);
+        }
+    }
+
+    private static int occurrences(Expression tree, Expression target)
+    {
+        int count = 0;
+        for (Expression node : Traverser.forTree((SuccessorsFunction<Expression>) Expression::children).depthFirstPreOrder(tree)) {
+            if (node.equals(target)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private void testUnwrap(String inputType, String inputPredicate, Expression expectedPredicate)
