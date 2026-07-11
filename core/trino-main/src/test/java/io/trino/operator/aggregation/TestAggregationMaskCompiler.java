@@ -92,7 +92,7 @@ public class TestAggregationMaskCompiler
         AggregationMask aggregationMask = maskBuilder.buildAggregationMask(buildSingleColumnPage(0), Optional.empty());
         assertAggregationMaskAll(aggregationMask, 0);
 
-        for (int positionCount = 7; positionCount < 10; positionCount++) {
+        for (int positionCount : new int[] {7, 8, 9, 63, 64, 65, 127, 128, 129}) {
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPageRle(positionCount, Optional.of(true)), Optional.empty()), positionCount);
 
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.empty()), positionCount);
@@ -129,7 +129,7 @@ public class TestAggregationMaskCompiler
     {
         AggregationMaskBuilder maskBuilder = maskBuilderSupplier.get();
 
-        for (int positionCount = 7; positionCount < 10; positionCount++) {
+        for (int positionCount : new int[] {7, 8, 9, 63, 64, 65, 127, 128, 129}) {
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockRle(positionCount, (byte) 1))), positionCount);
 
             byte[] mask = new byte[positionCount];
@@ -169,7 +169,7 @@ public class TestAggregationMaskCompiler
     {
         AggregationMaskBuilder maskBuilder = maskBuilderSupplier.get();
 
-        for (int positionCount = 7; positionCount < 10; positionCount++) {
+        for (int positionCount : new int[] {7, 8, 9, 63, 64, 65, 127, 128, 129}) {
             byte[] mask = new byte[positionCount];
             Arrays.fill(mask, (byte) 1);
 
