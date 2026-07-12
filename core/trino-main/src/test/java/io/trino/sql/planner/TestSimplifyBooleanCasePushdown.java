@@ -31,9 +31,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 
 /**
- * A {@code Case} is opaque to {@link io.trino.sql.planner.DomainTranslator}, so a predicate buried in one
- * cannot be pushed down. {@link io.trino.sql.ir.optimizer.rule.SimplifyBooleanCase} dissolves it into a
- * logical expression.
+ * A {@code Case} and a {@code Coalesce} are both opaque to {@link io.trino.sql.planner.DomainTranslator}, so a
+ * predicate buried in one cannot be pushed down. {@link io.trino.sql.ir.optimizer.rule.SimplifyBooleanCase} and
+ * {@link io.trino.sql.ir.optimizer.rule.SimplifyBooleanCoalesce} dissolve them into logical expressions.
  */
 final class TestSimplifyBooleanCasePushdown
         extends BasePlanTest
@@ -50,5 +50,16 @@ final class TestSimplifyBooleanCasePushdown
                                 comparison(GREATER_THAN, new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 5L)),
                                 comparison(IDENTICAL, comparison(EQUAL, new Reference(BIGINT, "custkey"), new Constant(BIGINT, 1L)), TRUE)),
                         tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "custkey", "custkey")))));
+    }
+
+    @Test
+    void nullSafeCoalesceIsDissolved()
+    {
+        // COALESCE(pred, false) collapses to $identical(pred, true) instead of staying an opaque Coalesce.
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE COALESCE(orderkey > 5, false)",
+                anyTree(filter(
+                        comparison(IDENTICAL, comparison(GREATER_THAN, new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 5L)), TRUE),
+                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))));
     }
 }

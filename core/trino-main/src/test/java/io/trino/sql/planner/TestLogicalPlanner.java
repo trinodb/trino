@@ -112,10 +112,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -1331,7 +1331,9 @@ public class TestLogicalPlanner
                         strictProject(
                                 ImmutableMap.of(
                                         "ORDERKEY", expression(new Reference(BIGINT, "ORDERKEY")),
-                                        "exists", expression(new Coalesce(new Reference(BOOLEAN, "AGGR_BOOL"), FALSE))),
+                                        // EXISTS desugars to Coalesce(bool_or(..), false), which SimplifyBooleanCoalesce
+                                        // rewrites to the equivalent $identical(bool_or(..), true).
+                                        "exists", expression(comparison(IDENTICAL, new Reference(BOOLEAN, "AGGR_BOOL"), TRUE))),
                                 aggregation(
                                         singleGroupingSet("ORDERKEY", "UNIQUE"),
                                         ImmutableMap.of(Optional.of("AGGR_BOOL"), aggregationFunction("bool_or", ImmutableList.of("SUBQUERY"))),

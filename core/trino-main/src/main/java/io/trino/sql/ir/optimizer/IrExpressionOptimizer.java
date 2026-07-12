@@ -62,6 +62,7 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantMatchClauses;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantTry;
 import io.trino.sql.ir.optimizer.rule.SimplifyBooleanCase;
+import io.trino.sql.ir.optimizer.rule.SimplifyBooleanCoalesce;
 import io.trino.sql.ir.optimizer.rule.SimplifyCharLength;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
@@ -123,6 +124,7 @@ public class IrExpressionOptimizer
                 new SimplifyStackedArithmeticNegation(),
                 new FlattenCoalesce(),
                 new RemoveRedundantCoalesceArguments(context),
+                new SimplifyBooleanCoalesce(context),
                 new EvaluateLogical(),
                 new FlattenLogical(),
                 new RemoveRedundantLogicalTerms(),
