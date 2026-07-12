@@ -19,8 +19,13 @@ env:
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError"
   MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
   MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress"
-  MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
-  MAVEN_TEST: "-B -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
+  # Scalpel is disabled by default in .mvn/maven.config, CI jobs that want incremental builds opt in explicitly.
+  # uncommitted and untracked changes are ignored because CI builds run on a clean checkout, but some jobs
+  # create files in the workspace before invoking Maven.
+  # Project selection with -pl disables Scalpel because it maps changed files only to modules present in the
+  # reactor, so it could silently drop modules that are impacted through modules outside of the selection.
+  MAVEN_SCALPEL: "-Dscalpel.enabled=true -Dscalpel.uncommitted=false -Dscalpel.untracked=false -Dscalpel.disableOnSelectedProjects=true -Dscalpel.baseBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
+  MAVEN_TEST: "-B -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -Dscalpel.enabled=true -Dscalpel.uncommitted=false -Dscalpel.untracked=false -Dscalpel.disableOnSelectedProjects=true -Dscalpel.baseBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
   # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
@@ -55,8 +60,8 @@ jobs:
         id: filter
         if: github.event_name == 'pull_request'
         with:
-          # Note: `docs` output is currently unused. The docs changes are tested by maven-checks job, leveraging GIB impact analysis.
-          # TODO remove use of non_docs filters and remove `path-filters` job. Use GIB impact analysis to guard job skipping.
+          # Note: `docs` output is currently unused. The docs changes are tested by maven-checks job, leveraging Scalpel impact analysis.
+          # TODO remove use of non_docs filters and remove `path-filters` job. Use Scalpel impact analysis to guard job skipping.
           filters: |
             docs: 'docs/**'
             non_docs: '!docs/**'
@@ -209,7 +214,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
         with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for Scalpel
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -223,12 +228,13 @@ jobs:
         run: |
           # build everything to make sure dependencies of impacted modules are present
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -pl '!:trino-docs,!:trino-server'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
-          $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
+          # Upstream modules were already installed by the previous step, so don't rebuild them (-Dscalpel.alsoMake=false).
+          $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_SCALPEL} -Dscalpel.alsoMake=false -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server'
       - name: Cancel merge queue workflow
         if: ${{ failure() && github.event_name == 'merge_group' }}
@@ -257,18 +263,21 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server'
+          # build a list of impacted modules over the full reactor before the trimmed install below
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -Dscalpel.mode=report -P disable-check-spi-dependencies
+          ./.github/bin/build-matrix-from-impacted.py -v -i impacted-modules.log
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -pl '!:trino-docs,!:trino-server'
       - name: Test old JDBC vs current server
         id: tests-old
         run: |
-          if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
+          if [ ! -f impacted-modules.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver impacted-modules.log; then
             testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
           fi
       - name: Test current JDBC vs old server
         id: tests-current
         if: always()
         run: |
-          if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
+          if [ ! -f impacted-modules.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server impacted-modules.log; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
           fi
       - name: Upload test results
@@ -291,7 +300,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
         with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for Scalpel
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -304,11 +313,15 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server'
+          # write the impact analysis report for the Maven Tests step over the full reactor,
+          # outside of target/ so that it survives the clean install below
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -Dscalpel.mode=report -Dscalpel.reportFile=scalpel-report.json -P disable-check-spi-dependencies
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -pl '!:trino-docs,!:trino-server'
       - name: Maven Tests
         id: tests
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl '
+          # modules covered by other CI jobs
+          EXCLUSIONS='
             !:trino-base-jdbc,
             !:trino-bigquery,
             !:trino-cassandra,
@@ -363,6 +376,12 @@ jobs:
             !:trino-tests,
             !:trino-thrift,
             !:trino-web-ui'
+          MODULES=$(./.github/bin/build-matrix-from-impacted.py -v --select "${EXCLUSIONS}" -r scalpel-report.json)
+          if [ -z "${MODULES}" ]; then
+            echo "No impacted modules to test"
+          else
+            $MAVEN test ${MAVEN_TEST} -Dscalpel.enabled=false -pl "${MODULES}"
+          fi
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
@@ -384,7 +403,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
         with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for Scalpel
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -405,12 +424,10 @@ jobs:
       - name: Maven validate
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -Dscalpel.mode=report -P disable-check-spi-dependencies
       - name: Set matrix
         id: set-matrix
         run: |
-          # GIB doesn't run on master, so make sure the file always exist
-          touch gib-impacted.log
           cat <<EOF > .github/test-matrix.yaml
           include:
             - modules:
@@ -488,7 +505,7 @@ jobs:
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: testing/trino-tests }
           EOF
-          ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
+          ./.github/bin/build-matrix-from-impacted.py -v -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
@@ -508,7 +525,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
         with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for Scalpel
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -521,7 +538,9 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
+          # Scalpel trims unimpacted upstream modules from the -am selection, their artifacts come from the
+          # ~/.m2 cache (-Dscalpel.alsoMake=false matches the old GIB buildUpstreamMode=impacted behavior)
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -Dscalpel.disableOnSelectedProjects=false -Dscalpel.alsoMake=false -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
         id: tests
         if: >-
@@ -836,7 +855,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
         with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for Scalpel
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -866,10 +885,9 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # build a list of impacted modules, ignoring modules that cannot affect either product tests or Trino
-          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-tests,!:trino-faulttolerant-tests'
-          # GIB doesn't run on master, so make sure the file always exist
-          touch gib-impacted.log
-          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -Dscalpel.mode=report
+          ./.github/bin/build-matrix-from-impacted.py -v -i impacted-modules.log -e docs testing/trino-tests testing/trino-faulttolerant-tests
+          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i impacted-modules.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
           echo "Impacted plugin features:"
           cat impacted-features.log
       - name: Product tests artifact
@@ -1031,7 +1049,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.0
         with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for Scalpel
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
@@ -1067,10 +1085,9 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # build a list of impacted modules, ignoring modules that cannot affect either product tests or Trino
-          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-tests,!:trino-faulttolerant-tests'
-          # GIB doesn't run on master, so make sure the file always exist
-          touch gib-impacted.log
-          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_SCALPEL} -Dscalpel.mode=report
+          ./.github/bin/build-matrix-from-impacted.py -v -i impacted-modules.log -e docs testing/trino-tests testing/trino-faulttolerant-tests
+          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i impacted-modules.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
           echo "Impacted plugin features:"
           cat impacted-features.log
       - name: Product tests artifact

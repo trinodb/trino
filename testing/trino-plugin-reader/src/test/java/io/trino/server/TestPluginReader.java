@@ -36,12 +36,34 @@ class TestPluginReader
                 .setErr(new PrintWriter(writer));
 
         String[] command = ImmutableList.<String>builder()
-                .add("--impacted-modules", "src/test/resources/gib-impacted.log")
+                .add("--impacted-modules", "src/test/resources/impacted-modules.log")
                 .add("--plugin-dir", "src/test/resources/server-plugins")
                 .add("--root-pom", "src/test/resources/pom.xml")
                 .build()
                 .toArray(String[]::new);
 
+        int exitCode = cmd.execute(command);
+        assertThat(exitCode).isEqualTo(0);
+        assertThat(writer.toString()).isEqualTo("");
+    }
+
+    @Test
+    void testCallMissingImpactedModules()
+    {
+        PluginReader pluginReader = new PluginReader();
+        StringWriter writer = new StringWriter();
+        CommandLine cmd = new CommandLine(pluginReader)
+                .setOut(new PrintWriter(writer))
+                .setErr(new PrintWriter(writer));
+
+        String[] command = ImmutableList.<String>builder()
+                .add("--impacted-modules", "src/test/resources/nonexistent.log")
+                .add("--plugin-dir", "src/test/resources/server-plugins")
+                .add("--root-pom", "src/test/resources/pom.xml")
+                .build()
+                .toArray(String[]::new);
+
+        // a missing impacted modules file means everything is impacted, so all features are printed
         int exitCode = cmd.execute(command);
         assertThat(exitCode).isEqualTo(0);
         assertThat(writer.toString()).isEqualTo("");
@@ -57,7 +79,7 @@ class TestPluginReader
                 .setErr(new PrintWriter(writer));
 
         String[] command = ImmutableList.<String>builder()
-                .add("--impacted-modules", "src/test/resources/gib-impacted.log")
+                .add("--impacted-modules", "src/test/resources/impacted-modules.log")
                 .add("--plugin-dir", "src/test/resources/server-plugins")
                 .add("--plugin-dir", tempDir.toString())
                 .add("--root-pom", "src/test/resources/pom.xml")

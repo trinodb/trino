@@ -251,8 +251,13 @@ testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar \
     -p core/trino-server/target/trino-server-*-hardlinks/plugin
 ```
 
-A list of modules modified on a particular Git branch can be obtained by enabling the `gib` profile
-when building Trino. It's saved as `gib-impacted.log`.
+A list of modules modified on a particular Git branch can be obtained by running the
+[Scalpel](https://github.com/maveniverse/scalpel) extension in report mode and converting
+the report with a helper script:
+```bash
+./mvnw validate -Dscalpel.enabled=true -Dscalpel.mode=report
+.github/bin/build-matrix-from-impacted.py -i impacted-modules.log
+```
 
 > Note: all product tests should be run when there are changes in any common files, including:
 > any modules from `core` or `trino-server`, product tests or product tests launcher itself,
