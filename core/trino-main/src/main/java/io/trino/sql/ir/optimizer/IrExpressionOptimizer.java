@@ -61,6 +61,7 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantMatchClauses;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantTry;
+import io.trino.sql.ir.optimizer.rule.SimplifyBooleanCase;
 import io.trino.sql.ir.optimizer.rule.SimplifyCharLength;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
@@ -129,6 +130,7 @@ public class IrExpressionOptimizer
                 new DistributeComparisonOverCase(context),
                 new SimplifyRedundantCase(context),
                 new ExtractCommonConjunctFromCase(context),
+                new SimplifyBooleanCase(context),
                 new SpecializeCastWithJsonParse(context),
                 new SpecializeTransformWithJsonParse(context)));
     }
