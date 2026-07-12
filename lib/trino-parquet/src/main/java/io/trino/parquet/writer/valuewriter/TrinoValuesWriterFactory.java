@@ -19,7 +19,6 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
-import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 
@@ -49,7 +48,7 @@ public class TrinoValuesWriterFactory
     public ValuesWriter newValuesWriter(ColumnDescriptor descriptor, Optional<BloomFilter> bloomFilter)
     {
         return switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
-            case BOOLEAN -> new ParquetValuesWriterAdapter(new BooleanPlainValuesWriter()); // no dictionary encoding for boolean
+            case BOOLEAN -> new TrinoBooleanPlainValuesWriter(maxPageSize); // no dictionary encoding for boolean
             case FIXED_LEN_BYTE_ARRAY -> getFixedLenByteArrayValuesWriter(descriptor, bloomFilter);
             case BINARY -> getBinaryValuesWriter(descriptor, bloomFilter);
             case INT32 -> getInt32ValuesWriter(descriptor, bloomFilter);
