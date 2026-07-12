@@ -523,6 +523,40 @@ public class TestHiveSparkCompatibility
     public void testReadTrinoCreatedParquetTable()
     {
         testReadTrinoCreatedTable("using_parquet", "PARQUET");
+        testReadTrinoCreatedParquetBooleanSequence();
+    }
+
+    private void testReadTrinoCreatedParquetBooleanSequence()
+    {
+        String tableName = "trino_created_parquet_boolean_sequence_" + randomNameSuffix();
+        String trinoTableName = format("%s.default.%s", TRINO_CATALOG, tableName);
+
+        try {
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s (position integer, value boolean) WITH (format = 'PARQUET')",
+                    trinoTableName));
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s " +
+                            "SELECT position, CASE " +
+                            "WHEN position %% 5 = 0 THEN NULL " +
+                            "WHEN position %% 2 = 0 THEN true " +
+                            "ELSE false END " +
+                            "FROM UNNEST(sequence(0, 161)) AS t(position)",
+                    trinoTableName));
+
+            // Cross multiple validity and non-null value word boundaries, with differing bit offsets.
+            ImmutableList.Builder<Row> expected = ImmutableList.builder();
+            for (int position = 0; position < 162; position++) {
+                Boolean value = position % 5 == 0 ? null : position % 2 == 0;
+                expected.add(row(position, value));
+            }
+
+            assertThat(onTrino().executeQuery("SELECT DISTINCT \"$path\" FROM " + trinoTableName).getRowsCount()).isEqualTo(1);
+            assertThat(onSpark().executeQuery("SELECT position, value FROM " + tableName)).containsOnly(expected.build());
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+        }
     }
 
     private void testReadTrinoCreatedTable(String tableName, String tableFormat)
