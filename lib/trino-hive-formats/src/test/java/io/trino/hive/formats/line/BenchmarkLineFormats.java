@@ -16,6 +16,7 @@ package io.trino.hive.formats.line;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.hive.formats.encodings.text.TextEncodingOptions;
+import io.trino.hive.formats.line.csv.CsvDeserializer;
 import io.trino.hive.formats.line.simple.SimpleDeserializer;
 import io.trino.hive.formats.line.text.TextLineReader;
 import io.trino.spi.Page;
@@ -126,6 +127,11 @@ public class BenchmarkLineFormats
     private List<Type> types;
     private LineDeserializer deserializer;
 
+    // CSV only supports varchar columns, so it reads the same values as text
+    private byte[] csvData;
+    private List<Type> csvTypes;
+    private LineDeserializer csvDeserializer;
+
     @Setup
     public void setup()
             throws IOException
@@ -154,6 +160,53 @@ public class BenchmarkLineFormats
         data = builder.toString().getBytes(StandardCharsets.UTF_8);
 
         deserializer = new SimpleDeserializer(columns, TextEncodingOptions.DEFAULT_SIMPLE_OPTIONS, columnCount);
+
+        List<Column> csvColumns = new ArrayList<>();
+        for (int i = 0; i < columnCount; i++) {
+            csvColumns.add(new Column("column_" + i, VARCHAR, i));
+        }
+        csvTypes = csvColumns.stream()
+                .map(Column::type)
+                .collect(Collectors.toList());
+        csvDeserializer = new CsvDeserializer(csvColumns, ',', '"', '\\');
+
+        random = new Random(3846);
+        StringBuilder csvBuilder = new StringBuilder();
+        for (int line = 0; line < LINE_COUNT; line++) {
+            for (int column = 0; column < columnCount; column++) {
+                if (column > 0) {
+                    csvBuilder.append(',');
+                }
+                csvBuilder.append(columnType.generateValue(random));
+            }
+            csvBuilder.append('\n');
+        }
+        csvData = csvBuilder.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * CSV read path: newline scan, field split, and value decode into pages.
+     */
+    @Benchmark
+    public List<Page> deserializeCsv()
+            throws IOException
+    {
+        TextLineReader reader = TextLineReader.createUncompressedReader(new ByteArrayInputStream(csvData), BUFFER_SIZE);
+        LineBuffer lineBuffer = new LineBuffer(1024, MAX_LINE_LENGTH);
+        PageBuilder pageBuilder = new PageBuilder(csvTypes);
+
+        List<Page> pages = new ArrayList<>();
+        while (reader.readLine(lineBuffer)) {
+            csvDeserializer.deserialize(lineBuffer, pageBuilder);
+            if (pageBuilder.isFull()) {
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        }
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
+        return pages;
     }
 
     /**

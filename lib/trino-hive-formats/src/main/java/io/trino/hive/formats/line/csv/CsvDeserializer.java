@@ -14,6 +14,7 @@
 package io.trino.hive.formats.line.csv;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineBuffer;
@@ -27,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.ByteSearch.indexOfByte;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -43,8 +45,19 @@ public class CsvDeserializer
     private final char quoteChar;
     private final char escapeChar;
 
+    private static final int MISSING_FIELD = -1;
+
     private final StringBuilder buffer = new StringBuilder(1024);
     private final String[] rowValues;
+
+    // a line with no quote and no escape character is a plain split on the separator, and can be
+    // read straight from the line buffer without decoding a String for the line or for any field
+    private final boolean byteLevelSplitPossible;
+    private final byte separatorByte;
+    private final byte quoteByte;
+    private final byte escapeByte;
+    private final int[] fieldOffsets;
+    private final int[] fieldLengths;
 
     public CsvDeserializer(List<Column> columns, char separatorChar, char quoteChar, char escapeChar)
     {
@@ -68,6 +81,15 @@ public class CsvDeserializer
         this.separatorChar = separatorChar;
         this.quoteChar = quoteChar;
         this.escapeChar = escapeChar;
+
+        this.fieldOffsets = new int[columnCount];
+        this.fieldLengths = new int[columnCount];
+        // Only ASCII characters can be matched against UTF-8 bytes, because an ASCII byte never
+        // occurs inside a multi byte UTF-8 sequence.
+        this.byteLevelSplitPossible = separatorChar < 128 && quoteChar < 128 && escapeChar < 128;
+        this.separatorByte = (byte) separatorChar;
+        this.quoteByte = (byte) quoteChar;
+        this.escapeByte = (byte) escapeChar;
     }
 
     @Override
@@ -79,6 +101,11 @@ public class CsvDeserializer
     @Override
     public void deserialize(LineBuffer lineBuffer, PageBuilder builder)
     {
+        if (byteLevelSplitPossible && !lineBuffer.isEmpty() && !columns.isEmpty() && isUnquoted(lineBuffer)) {
+            deserializeUnquoted(lineBuffer, builder);
+            return;
+        }
+
         parseLine(lineBuffer);
 
         builder.declarePosition();
@@ -90,6 +117,56 @@ public class CsvDeserializer
             }
             else {
                 VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(fieldValue));
+            }
+        }
+    }
+
+    /**
+     * A line with neither character present cannot take any of the quote or escape branches of
+     * {@link #parseLine}, so it reduces to a plain split on the separator.
+     */
+    private boolean isUnquoted(LineBuffer lineBuffer)
+    {
+        byte[] buffer = lineBuffer.getBuffer();
+        int length = lineBuffer.getLength();
+        return indexOfByte(buffer, 0, length, quoteByte, escapeByte) < 0;
+    }
+
+    private void deserializeUnquoted(LineBuffer lineBuffer, PageBuilder builder)
+    {
+        byte[] buffer = lineBuffer.getBuffer();
+        int end = lineBuffer.getLength();
+
+        Arrays.fill(fieldLengths, MISSING_FIELD);
+        int fieldIndex = 0;
+        int offset = 0;
+        while (fieldIndex < fieldLengths.length) {
+            int separatorOffset = indexOfByte(buffer, offset, end, separatorByte);
+            if (separatorOffset < 0) {
+                break;
+            }
+            fieldOffsets[fieldIndex] = offset;
+            fieldLengths[fieldIndex] = separatorOffset - offset;
+            fieldIndex++;
+            offset = separatorOffset + 1;
+        }
+        // a trailing unterminated field is still a value, but fields beyond the last column are dropped
+        if (fieldIndex < fieldLengths.length) {
+            fieldOffsets[fieldIndex] = offset;
+            fieldLengths[fieldIndex] = end - offset;
+        }
+
+        Slice line = Slices.wrappedBuffer(buffer, 0, end);
+        builder.declarePosition();
+        for (int i = 0; i < columns.size(); i++) {
+            BlockBuilder blockBuilder = builder.getBlockBuilder(i);
+            int ordinal = columns.get(i).ordinal();
+            int length = fieldLengths[ordinal];
+            if (length == MISSING_FIELD) {
+                blockBuilder.appendNull();
+            }
+            else {
+                VARCHAR.writeSlice(blockBuilder, line, fieldOffsets[ordinal], length);
             }
         }
     }
