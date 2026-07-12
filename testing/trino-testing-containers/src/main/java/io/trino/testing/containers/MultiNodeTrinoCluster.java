@@ -248,6 +248,7 @@ public class MultiNodeTrinoCluster
         private String imageName = TrinoTestImages.getDefaultTrinoImage();
         private final Map<String, Map<String, String>> catalogs = new HashMap<>();
         private final Map<String, String> configProperties = new HashMap<>();
+        private final Map<String, String> files = new HashMap<>();
         private Map<String, String> exchangeManagerProperties;
         private Network network;
         private int workerCount = 1;
@@ -334,6 +335,17 @@ public class MultiNodeTrinoCluster
         }
 
         /**
+         * Creates a file with the specified contents on all nodes.
+         */
+        public Builder withFile(String containerPath, String contents)
+        {
+            requireNonNull(containerPath, "containerPath is null");
+            requireNonNull(contents, "contents is null");
+            files.put(containerPath, contents);
+            return this;
+        }
+
+        /**
          * Configures the exchange manager for fault-tolerant execution.
          * The exchange manager configuration is applied to all nodes in the cluster.
          *
@@ -394,6 +406,12 @@ public class MultiNodeTrinoCluster
                         "/etc/trino/catalog/" + catalogName + ".properties");
             }
 
+            for (Map.Entry<String, String> file : files.entrySet()) {
+                coordinator.withCopyToContainer(
+                        Transferable.of(file.getValue()),
+                        file.getKey());
+            }
+
             // Add config properties to coordinator
             if (!configProperties.isEmpty()) {
                 coordinator.withCopyToContainer(
@@ -433,6 +451,12 @@ public class MultiNodeTrinoCluster
                 // Add catalog configurations to worker
                 for (Map.Entry<String, Map<String, String>> catalog : catalogs.entrySet()) {
                     worker.withCatalog(catalog.getKey(), catalog.getValue());
+                }
+
+                for (Map.Entry<String, String> file : files.entrySet()) {
+                    worker.withCopyToContainer(
+                            Transferable.of(file.getValue()),
+                            file.getKey());
                 }
 
                 // Add config properties to worker
