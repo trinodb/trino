@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,6 +84,62 @@ public class TestNumberParser
         Slice slice = Slices.utf8Slice("xx1.5yy");
         assertThat(NumberParser.parseDouble(slice, 2, 3)).isEqualTo(1.5);
         assertThat(NumberParser.parseFloat(slice, 2, 3)).isEqualTo(1.5f);
+    }
+
+    @Test
+    public void testShortDecimalMatchesBigDecimal()
+    {
+        for (int scale : new int[] {0, 1, 2, 6, 12, 18}) {
+            for (String value : new String[] {
+                    "0", "-0", "1", "-1", "1.5", "-1.5", "0.5", "-0.5", ".5", "1.", "12.345", "-12.345",
+                    // half up must round away from zero on both signs, and only at the boundary
+                    "0.4", "0.5", "0.6", "-0.4", "-0.5", "-0.6",
+                    "1.05", "1.15", "1.25", "-1.05", "-1.15", "-1.25",
+                    "0.049", "0.05", "0.051", "-0.049", "-0.05", "-0.051",
+                    "9.999999999999999", "0.000000000000000001", "000001.5",
+            }) {
+                assertShortDecimalMatchesBigDecimal(value, scale);
+            }
+        }
+    }
+
+    @Test
+    public void testRandomShortDecimalsMatchBigDecimal()
+    {
+        Random random = new Random(555);
+        for (int i = 0; i < 200_000; i++) {
+            assertShortDecimalMatchesBigDecimal(randomDecimal(random), random.nextInt(19));
+        }
+    }
+
+    @Test
+    public void testNotShortDecimal()
+    {
+        // exponents and malformed input are left to BigDecimal
+        for (String value : new String[] {"1e5", "1.5E3", "", ".", "-", "abc", "1.2.3", "Infinity", "NaN", " 1.5"}) {
+            Slice slice = Slices.utf8Slice(value);
+            assertThat(NumberParser.parseShortDecimal(slice, 0, slice.length(), 2))
+                    .describedAs("parseShortDecimal(%s)", value)
+                    .isEqualTo(NumberParser.NOT_SHORT_DECIMAL);
+        }
+    }
+
+    /**
+     * The unscaled value must be identical to what the BigDecimal path produces, so that switching
+     * a column to the byte level parser cannot change a query result.
+     */
+    private static void assertShortDecimalMatchesBigDecimal(String value, int scale)
+    {
+        Slice slice = Slices.utf8Slice(value);
+        long actual = NumberParser.parseShortDecimal(slice, 0, slice.length(), scale);
+        if (actual == NumberParser.NOT_SHORT_DECIMAL) {
+            return;
+        }
+
+        BigDecimal expected = new BigDecimal(value).setScale(scale, RoundingMode.HALF_UP);
+        assertThat(actual)
+                .describedAs("parseShortDecimal(%s, scale=%s)", value, scale)
+                .isEqualTo(expected.unscaledValue().longValueExact());
     }
 
     private static String randomDecimal(Random random)

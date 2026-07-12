@@ -78,7 +78,123 @@ public final class NumberParser
     private static final int SCALE_MASK = (1 << SCALE_BITS) - 1;
     private static final int NEGATIVE_BIT = 1 << SCALE_BITS;
 
+    /**
+     * Largest accumulator value that can take another digit without overflowing.
+     */
+    private static final long MAX_UNSCALED_ACCUMULATOR = (Long.MAX_VALUE - 9) / 10;
+
+    private static final long[] LONG_POWERS_OF_TEN = new long[19];
+
+    static {
+        long longPower = 1;
+        for (int i = 0; i < LONG_POWERS_OF_TEN.length; i++) {
+            LONG_POWERS_OF_TEN[i] = longPower;
+            if (i + 1 < LONG_POWERS_OF_TEN.length) {
+                longPower *= 10;
+            }
+        }
+    }
+
+    /**
+     * Returned by {@link #parseShortDecimal} when the value is not a plain decimal, or does not fit
+     * in a long. A short decimal has a precision of at most 18, so its unscaled value is bounded by
+     * 10^18 and can never be this.
+     */
+    public static final long NOT_SHORT_DECIMAL = Long.MIN_VALUE;
+
     private NumberParser() {}
+
+    /**
+     * Parses a plain decimal into an unscaled long at {@code scale}, rounding half up, exactly as
+     * {@code new BigDecimal(value).setScale(scale, HALF_UP)} would. Returns
+     * {@link #NOT_SHORT_DECIMAL} for anything else, including exponents and malformed input.
+     * <p>
+     * The caller must still reject values that exceed the precision of the target type.
+     */
+    public static long parseShortDecimal(Slice slice, int offset, int length, int scale)
+    {
+        int index = offset;
+        int end = offset + length;
+        if (index == end) {
+            return NOT_SHORT_DECIMAL;
+        }
+
+        boolean negative = false;
+        byte first = slice.getByte(index);
+        if (first == '-') {
+            negative = true;
+            index++;
+        }
+        else if (first == '+') {
+            index++;
+        }
+
+        long unscaled = 0;
+        int digits = 0;
+        int inputScale = 0;
+        boolean decimalPoint = false;
+        while (index < end) {
+            byte current = slice.getByte(index);
+            if (current >= '0' && current <= '9') {
+                if (unscaled > MAX_UNSCALED_ACCUMULATOR) {
+                    return NOT_SHORT_DECIMAL;
+                }
+                unscaled = unscaled * 10 + (current - '0');
+                digits++;
+                if (decimalPoint) {
+                    inputScale++;
+                }
+            }
+            else if (current == '.' && !decimalPoint) {
+                decimalPoint = true;
+            }
+            else {
+                return NOT_SHORT_DECIMAL;
+            }
+            index++;
+        }
+
+        if (digits == 0) {
+            return NOT_SHORT_DECIMAL;
+        }
+
+        if (inputScale > scale) {
+            int dropped = inputScale - scale;
+            if (dropped >= LONG_POWERS_OF_TEN.length) {
+                return NOT_SHORT_DECIMAL;
+            }
+            long divisor = LONG_POWERS_OF_TEN[dropped];
+            long quotient = unscaled / divisor;
+            long remainder = unscaled - (quotient * divisor);
+            // half up rounds away from zero when the discarded fraction is at least one half, and
+            // the value is still unsigned here, so away from zero is up
+            if (remainder * 2 >= divisor) {
+                quotient++;
+            }
+            unscaled = quotient;
+        }
+        else if (inputScale < scale) {
+            int added = scale - inputScale;
+            if (added >= LONG_POWERS_OF_TEN.length) {
+                return NOT_SHORT_DECIMAL;
+            }
+            long multiplier = LONG_POWERS_OF_TEN[added];
+            if (unscaled > Long.MAX_VALUE / multiplier) {
+                return NOT_SHORT_DECIMAL;
+            }
+            unscaled *= multiplier;
+        }
+
+        return negative ? -unscaled : unscaled;
+    }
+
+    /**
+     * Returns 10^exponent, for an exponent of at most 18.
+     */
+    public static long longPowerOfTen(int exponent)
+    {
+        return LONG_POWERS_OF_TEN[exponent];
+    }
 
     public static double parseDouble(Slice slice, int offset, int length)
     {
