@@ -62,7 +62,9 @@ public class BenchmarkLineFormats
 {
     private static final int LINE_COUNT = 200_000;
     private static final int BUFFER_SIZE = 8 * 1024;
-    private static final int MAX_LINE_LENGTH = 4 * 1024;
+    private static final int MAX_LINE_LENGTH = 8 * 1024;
+    private static final int WIDE_TABLE_COLUMNS = 100;
+    private static final int NARROW_PROJECTION = 3;
 
     public enum ColumnType
     {
@@ -132,6 +134,12 @@ public class BenchmarkLineFormats
     private List<Type> csvTypes;
     private LineDeserializer csvDeserializer;
 
+    // a wide table with only the leading columns projected, which is the common shape of a Hive
+    // text table that is not read in full
+    private byte[] wideData;
+    private List<Type> narrowTypes;
+    private LineDeserializer narrowDeserializer;
+
     @Setup
     public void setup()
             throws IOException
@@ -182,6 +190,53 @@ public class BenchmarkLineFormats
             csvBuilder.append('\n');
         }
         csvData = csvBuilder.toString().getBytes(StandardCharsets.UTF_8);
+
+        List<Column> narrowColumns = new ArrayList<>();
+        for (int i = 0; i < NARROW_PROJECTION; i++) {
+            narrowColumns.add(new Column("column_" + i, columnType.getType(), i));
+        }
+        narrowTypes = narrowColumns.stream()
+                .map(Column::type)
+                .collect(Collectors.toList());
+        narrowDeserializer = new SimpleDeserializer(narrowColumns, TextEncodingOptions.DEFAULT_SIMPLE_OPTIONS, WIDE_TABLE_COLUMNS);
+
+        random = new Random(3846);
+        StringBuilder wideBuilder = new StringBuilder();
+        for (int line = 0; line < LINE_COUNT; line++) {
+            for (int column = 0; column < WIDE_TABLE_COLUMNS; column++) {
+                if (column > 0) {
+                    wideBuilder.append((char) separator);
+                }
+                wideBuilder.append(columnType.generateValue(random));
+            }
+            wideBuilder.append('\n');
+        }
+        wideData = wideBuilder.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Reads only the leading columns of a wide table, so the line does not need to be split past them.
+     */
+    @Benchmark
+    public List<Page> deserializeSimpleNarrowProjection()
+            throws IOException
+    {
+        TextLineReader reader = TextLineReader.createUncompressedReader(new ByteArrayInputStream(wideData), BUFFER_SIZE);
+        LineBuffer lineBuffer = new LineBuffer(1024, MAX_LINE_LENGTH);
+        PageBuilder pageBuilder = new PageBuilder(narrowTypes);
+
+        List<Page> pages = new ArrayList<>();
+        while (reader.readLine(lineBuffer)) {
+            narrowDeserializer.deserialize(lineBuffer, pageBuilder);
+            if (pageBuilder.isFull()) {
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        }
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
+        return pages;
     }
 
     /**

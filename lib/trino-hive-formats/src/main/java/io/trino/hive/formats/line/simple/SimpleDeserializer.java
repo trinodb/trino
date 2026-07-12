@@ -48,6 +48,8 @@ public class SimpleDeserializer
     private final byte separator;
     private final Byte escapeByte;
     private final boolean lastColumnTakesRest;
+    // fields after this one are not read, so the line does not need to be split any further
+    private final int lastReadOrdinal;
 
     public SimpleDeserializer(List<Column> columns, TextEncodingOptions textEncodingOptions, int tableColumnCount)
     {
@@ -67,6 +69,11 @@ public class SimpleDeserializer
             columnEncodings[column.ordinal()] = columnEncodingFactory.getEncoding(column.type());
             readColumnIndexes[column.ordinal()] = i;
         }
+
+        this.lastReadOrdinal = this.columns.stream()
+                .mapToInt(Column::ordinal)
+                .max()
+                .orElse(-1);
     }
 
     @Override
@@ -106,6 +113,10 @@ public class SimpleDeserializer
                     // no need to process the remaining bytes as they are all assigned to the last column
                     break;
                 }
+                if (fieldIndex > lastReadOrdinal) {
+                    // every column that is read has been decoded, so the rest of the line is not split
+                    return;
+                }
                 offset = separatorOffset + 1;
             }
         }
@@ -119,6 +130,10 @@ public class SimpleDeserializer
                     if (lastColumnTakesRest && fieldIndex == columnEncodings.length - 1) {
                         // no need to process the remaining bytes as they are all assigned to the last column
                         break;
+                    }
+                    if (fieldIndex > lastReadOrdinal) {
+                        // every column that is read has been decoded, so the rest of the line is not split
+                        return;
                     }
                 }
                 else if (currentByte == escapeByte) {
