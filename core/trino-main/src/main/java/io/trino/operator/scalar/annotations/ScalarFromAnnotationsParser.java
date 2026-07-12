@@ -20,6 +20,8 @@ import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.scalar.ParametricScalar;
 import io.trino.operator.scalar.ScalarHeader;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import io.trino.spi.function.ColumnarScalarImplementation;
+import io.trino.spi.function.ColumnarScalarSpecializer;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.Signature;
@@ -60,7 +62,17 @@ public final class ScalarFromAnnotationsParser
             // Non-static function only makes sense in classes annotated with @ScalarFunction or @ScalarOperator.
             builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructor(clazz), deprecated));
         }
-        return builder.build();
+        List<SqlScalarFunction> functions = builder.build();
+        for (Method method : findColumnarMethods(clazz)) {
+            List<ScalarHeader> headers = ScalarHeader.fromAnnotatedElement(method);
+            checkCondition(functions.stream().anyMatch(function ->
+                            headers.stream().anyMatch(header -> function.getFunctionMetadata().getNames().contains(header.getName())) &&
+                                    matchesColumnarImplementation(method, function.getFunctionMetadata().getSignature())),
+                    FUNCTION_IMPLEMENTATION_ERROR,
+                    "Columnar method [%s] does not match a scalar overload",
+                    method);
+        }
+        return functions;
     }
 
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class<?> annotated)
@@ -70,13 +82,16 @@ public final class ScalarFromAnnotationsParser
         checkArgument(!classHeaders.isEmpty(), "Class [%s] that defines function must be annotated with @ScalarFunction or @ScalarOperator", annotated.getName());
 
         for (ScalarHeader header : classHeaders) {
-            List<Method> methods = FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
+            List<Method> methods = FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class).stream()
+                    .filter(method -> !isColumnarMethod(method))
+                    .toList();
+            List<Method> columnarMethods = findColumnarMethods(annotated);
             checkCondition(!methods.isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Parametric class [%s] does not have any annotated methods", annotated.getName());
             for (Method method : methods) {
                 checkArgument(method.getAnnotation(ScalarFunction.class) == null, "Parametric class method [%s] is annotated with @ScalarFunction", method);
                 checkArgument(method.getAnnotation(ScalarOperator.class) == null, "Parametric class method [%s] is annotated with @ScalarOperator", method);
             }
-            builder.add(new ScalarHeaderAndMethods(header, methods));
+            builder.add(new ScalarHeaderAndMethods(header, methods, columnarMethods, false));
         }
 
         return builder.build();
@@ -85,13 +100,26 @@ public final class ScalarFromAnnotationsParser
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
-        for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, ScalarFunction.class, ScalarOperator.class, SqlType.class)) {
+        List<Method> columnarMethods = findColumnarMethods(annotated);
+        for (Method columnarMethod : columnarMethods) {
+            checkCondition(columnarMethod.getAnnotation(ScalarFunction.class) != null || columnarMethod.getAnnotation(ScalarOperator.class) != null,
+                    FUNCTION_IMPLEMENTATION_ERROR,
+                    "Columnar method [%s] in a function set is missing @ScalarFunction or @ScalarOperator",
+                    columnarMethod);
+        }
+        for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, ScalarFunction.class, ScalarOperator.class, SqlType.class).stream()
+                .filter(candidate -> !isColumnarMethod(candidate))
+                .toList()) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     FUNCTION_IMPLEMENTATION_ERROR,
                     "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator",
                     method);
             for (ScalarHeader header : ScalarHeader.fromAnnotatedElement(method)) {
-                builder.add(new ScalarHeaderAndMethods(header, ImmutableList.of(method)));
+                List<Method> matchingColumnarMethods = columnarMethods.stream()
+                        .filter(columnarMethod -> ScalarHeader.fromAnnotatedElement(columnarMethod).stream()
+                                .anyMatch(columnarHeader -> columnarHeader.getName().equals(header.getName()) && columnarHeader.getOperatorType().equals(header.getOperatorType())))
+                        .toList();
+                builder.add(new ScalarHeaderAndMethods(header, ImmutableList.of(method), matchingColumnarMethods, true));
             }
         }
         List<ScalarHeaderAndMethods> methods = builder.build();
@@ -125,6 +153,12 @@ public final class ScalarFromAnnotationsParser
         }
         ParametricImplementationsGroup<ParametricScalarImplementation> implementations = implementationsBuilder.build();
         Signature scalarSignature = implementations.getSignature();
+        Optional<ColumnarScalarImplementationParser.Implementations> columnarImplementations =
+                ColumnarScalarImplementationParser.parse(scalar.columnarMethods(), scalarSignature);
+        checkCondition(scalar.allowUnmatchedColumnarMethods() || scalar.columnarMethods().isEmpty() || columnarImplementations.isPresent(),
+                FUNCTION_IMPLEMENTATION_ERROR,
+                "Columnar implementation does not match scalar signature %s",
+                scalarSignature);
 
         scalar.header().getOperatorType().ifPresent(operatorType ->
                 validateOperator(
@@ -132,15 +166,32 @@ public final class ScalarFromAnnotationsParser
                         scalarSignature.getReturnType(),
                         scalarSignature.getArgumentTypes()));
 
-        return new ParametricScalar(scalarSignature, scalar.header(), implementations, deprecated);
+        return new ParametricScalar(scalarSignature, scalar.header(), implementations, columnarImplementations, deprecated);
     }
 
-    private record ScalarHeaderAndMethods(ScalarHeader header, List<Method> methods)
+    private static List<Method> findColumnarMethods(Class<?> annotated)
+    {
+        return FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, ColumnarScalarImplementation.class, ColumnarScalarSpecializer.class);
+    }
+
+    private static boolean isColumnarMethod(Method method)
+    {
+        return method.isAnnotationPresent(ColumnarScalarImplementation.class) || method.isAnnotationPresent(ColumnarScalarSpecializer.class);
+    }
+
+    private static boolean matchesColumnarImplementation(Method method, Signature scalarSignature)
+    {
+        return method.isAnnotationPresent(ColumnarScalarSpecializer.class) ||
+                ColumnarScalarImplementationParser.matchesDirectImplementation(method, scalarSignature);
+    }
+
+    private record ScalarHeaderAndMethods(ScalarHeader header, List<Method> methods, List<Method> columnarMethods, boolean allowUnmatchedColumnarMethods)
     {
         private ScalarHeaderAndMethods
         {
             requireNonNull(header);
             requireNonNull(methods);
+            requireNonNull(columnarMethods);
         }
     }
 }

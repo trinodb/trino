@@ -17,7 +17,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.cache.NonEvictableCache;
+import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.operator.scalar.annotations.ColumnarScalarImplementationParser;
 import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.trino.operator.window.SqlWindowFunction;
 import io.trino.operator.window.WindowAnnotationsParser;
@@ -27,6 +29,7 @@ import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.ColumnarScalarFunctionImplementation;
+import io.trino.spi.function.ColumnarScalarSpecializer;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -40,6 +43,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -197,10 +201,14 @@ public class InternalFunctionBundle
             FunctionDependencies functionDependencies)
     {
         BiFunction<BoundSignature, FunctionDependencies, Optional<ColumnarScalarFunctionImplementation>> specializer = columnarScalarFunctions.get(functionId);
-        if (specializer == null) {
-            return Optional.empty();
+        if (specializer != null) {
+            return specializer.apply(boundSignature, functionDependencies);
         }
-        return specializer.apply(boundSignature, functionDependencies);
+        SqlFunction function = getSqlFunction(functionId);
+        if (function instanceof SqlScalarFunction scalarFunction) {
+            return scalarFunction.getColumnarScalarFunctionImplementation(boundSignature, functionDependencies);
+        }
+        return Optional.empty();
     }
 
     private SpecializedSqlScalarFunction specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
@@ -297,29 +305,6 @@ public class InternalFunctionBundle
             return this;
         }
 
-        public InternalFunctionBundleBuilder columnarScalar(
-                Class<?> clazz,
-                BiFunction<BoundSignature, FunctionDependencies, Optional<ColumnarScalarFunctionImplementation>> specializer)
-        {
-            List<? extends SqlFunction> scalarFunctions = ScalarFromAnnotationsParser.parseFunctionDefinition(clazz);
-            checkArgument(scalarFunctions.size() == 1, "Expected exactly one scalar function in %s, but found %s", clazz.getName(), scalarFunctions.size());
-            SqlFunction function = scalarFunctions.getFirst();
-            functions.add(function);
-            registerColumnarScalar(function, specializer);
-            return this;
-        }
-
-        public InternalFunctionBundleBuilder columnarScalars(
-                Class<?> clazz,
-                BiFunction<BoundSignature, FunctionDependencies, Optional<ColumnarScalarFunctionImplementation>> specializer)
-        {
-            List<SqlScalarFunction> scalarFunctions = ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz);
-            checkArgument(!scalarFunctions.isEmpty(), "No scalar functions found in %s", clazz.getName());
-            functions.addAll(scalarFunctions);
-            scalarFunctions.forEach(function -> registerColumnarScalar(function, specializer));
-            return this;
-        }
-
         public InternalFunctionBundleBuilder scalars(Class<?> clazz)
         {
             functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
@@ -362,15 +347,13 @@ public class InternalFunctionBundle
         {
             requireNonNull(sqlFunction, "sqlFunction is null");
             functions.add(sqlFunction);
-            return this;
-        }
-
-        public InternalFunctionBundleBuilder columnarFunction(
-                SqlFunction sqlFunction,
-                BiFunction<BoundSignature, FunctionDependencies, Optional<ColumnarScalarFunctionImplementation>> specializer)
-        {
-            function(sqlFunction);
-            registerColumnarScalar(sqlFunction, specializer);
+            if (sqlFunction instanceof SqlScalarFunction) {
+                List<Method> specializers = FunctionsParserHelper.findPublicMethodsWithAnnotation(sqlFunction.getClass(), ColumnarScalarSpecializer.class);
+                checkArgument(specializers.size() <= 1, "Scalar function %s has more than one @ColumnarScalarSpecializer method", sqlFunction.getFunctionMetadata().getSignature());
+                if (!specializers.isEmpty()) {
+                    registerColumnarScalar(sqlFunction, ColumnarScalarImplementationParser.parseSpecializer(specializers.getFirst()));
+                }
+            }
             return this;
         }
 

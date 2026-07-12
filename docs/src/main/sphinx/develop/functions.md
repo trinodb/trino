@@ -188,6 +188,91 @@ public final class IsEqualOrNullFunction
 }
 ```
 
+## Columnar scalar implementations
+
+A scalar function can provide an optional implementation that evaluates a
+whole column at once. Add one only when the function can operate directly on
+the structure of its input blocks, such as projecting fields or rearranging
+nested values. For ordinary value computation, the generated row loop is
+normally simpler and faster than a handwritten column loop.
+
+The engine uses the columnar implementation when the function call is a
+top-level projection and every argument is a direct input column or a
+constant. Constants are supplied as run-length encoded blocks. The input has
+already been restricted to the selected positions, and the result must have
+exactly the same position count. When these conditions are not met, or when a
+specializer returns empty, the normal scalar implementation is used.
+
+Use `@ColumnarScalarImplementation` when applicability can be expressed by the
+normal SQL signature and specialization annotations:
+
+```java
+@ScalarFunction("map_keys")
+public final class MapKeys
+{
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(K)")
+    public static Block getKeys(
+            @TypeParameter("K") Type keyType,
+            @SqlType("map(K,V)") SqlMap map)
+    {
+        return map.getRawKeyBlock().getRegion(map.getRawOffset(), map.getSize());
+    }
+
+    @ColumnarScalarImplementation
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(K)")
+    public static Block getKeysColumnar(
+            @TypeParameter("K") Type keyType,
+            @SqlType("map(K,V)") Block mapColumn)
+    {
+        return projectMapKeys(mapColumn);
+    }
+}
+```
+
+A directly annotated method must be `public static`, return `Block`, and have
+the same SQL signature as the scalar function. Each SQL argument is declared
+with `@SqlType` and represented by a `Block`, regardless of the type's normal
+Java container. The method can also receive `ConnectorSession` and the same
+injected type, literal, function, operator, and cast dependencies supported by
+ordinary scalar implementations. Injected parameters and the session must
+precede the SQL arguments.
+
+The columnar method owns the function's null and failure semantics. It cannot
+use `@SqlNullable`, block-position annotations, scalar invocation conventions,
+or function-valued SQL arguments. Zero-argument columnar methods are not
+supported because no input column supplies the selected position count.
+
+Use `@ColumnarScalarSpecializer` when applicability depends on the complete
+bound signature and cannot be described cleanly with the normal specialization
+annotations:
+
+```java
+@ColumnarScalarSpecializer
+public static Optional<ColumnarScalarFunctionImplementation> specializeColumnar(
+        BoundSignature signature,
+        FunctionDependencies dependencies)
+{
+    if (!isNestedType(signature.getReturnType())) {
+        return Optional.empty();
+    }
+    return Optional.of((session, arguments) -> selectNestedValues(arguments));
+}
+```
+
+The specializer method must be `public static` and have exactly the signature
+shown above. Its `SourcePage` channels correspond to SQL arguments in order and
+already contain only the selected positions. The implementation must not call
+`SourcePage.selectPositions()`.
+
+In a function-set class, annotate a columnar method or specializer with the
+same `@ScalarFunction` or `@ScalarOperator` annotation as the scalar overloads
+to associate them. A function cannot mix direct columnar methods and a
+columnar specializer for the same SQL signature.
+
 ## Another scalar function example
 
 The `lowercaser` function takes a single `VARCHAR` argument and returns a
