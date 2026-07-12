@@ -19,10 +19,13 @@ import io.airlift.units.Duration;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -47,6 +50,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -294,24 +298,16 @@ public final class DateTimeFunctions
         return MILLISECONDS.toDays(dateTime.getMillis());
     }
 
-    @Description("Truncate to the specified precision in the session timezone")
-    @ScalarFunction("date_trunc")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.DATE)
-    public static long truncateDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date)
+    private static long truncateDate(DateTimeField field, long date)
     {
-        long millis = getDateField(UTC_CHRONOLOGY, unit).roundFloor(DAYS.toMillis(date));
+        long millis = field.roundFloor(DAYS.toMillis(date));
         return MILLISECONDS.toDays(millis);
     }
 
-    @Description("Add the specified amount of date to the given date")
-    @LiteralParameters("x")
-    @ScalarFunction("date_add")
-    @SqlType(StandardTypes.DATE)
-    public static long addFieldValueDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
+    private static long addFieldValueDate(DateTimeField field, long value, long date)
     {
         try {
-            long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), value);
+            long millis = field.add(DAYS.toMillis(date), value);
             return MILLISECONDS.toDays(millis);
         }
         catch (IllegalArgumentException | ArithmeticException e) {
@@ -319,13 +315,125 @@ public final class DateTimeFunctions
         }
     }
 
+    private static long diffDate(DateTimeField field, long date1, long date2)
+    {
+        return field.getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
+    }
+
+    public static long diffDate(Slice unit, long date1, long date2)
+    {
+        return diffDate(getDateField(UTC_CHRONOLOGY, unit), date1, date2);
+    }
+
+    @Description("Truncate to the specified precision in the session timezone")
+    @ScalarFunction("date_trunc")
+    public static final class DateTrunc
+    {
+        private DateTrunc() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.DATE)
+            public static long truncateDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date)
+            {
+                return DateTimeFunctions.truncateDate(getDateField(UTC_CHRONOLOGY, unit), date);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 0)
+        public static final class ConstantUnit
+        {
+            private final DateTimeField field;
+
+            public ConstantUnit(@ConstantArgument(0) Slice unit)
+            {
+                field = getDateField(UTC_CHRONOLOGY, unit);
+            }
+
+            @SqlType(StandardTypes.DATE)
+            public long truncateDate(@SqlType(StandardTypes.DATE) long date)
+            {
+                return DateTimeFunctions.truncateDate(field, date);
+            }
+        }
+    }
+
+    @Description("Add the specified amount of date to the given date")
+    @ScalarFunction("date_add")
+    public static final class DateAdd
+    {
+        private DateAdd() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.DATE)
+            public static long addFieldValueDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
+            {
+                return DateTimeFunctions.addFieldValueDate(getDateField(UTC_CHRONOLOGY, unit), value, date);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 0)
+        public static final class ConstantUnit
+        {
+            private final DateTimeField field;
+
+            public ConstantUnit(@ConstantArgument(0) Slice unit)
+            {
+                field = getDateField(UTC_CHRONOLOGY, unit);
+            }
+
+            @SqlType(StandardTypes.DATE)
+            public long addFieldValueDate(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
+            {
+                return DateTimeFunctions.addFieldValueDate(field, value, date);
+            }
+        }
+    }
+
     @Description("Difference of the given dates in the given unit")
     @ScalarFunction("date_diff")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.BIGINT)
-    public static long diffDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
+    public static final class DateDiff
     {
-        return getDateField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
+        private DateDiff() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters("x")
+            @SqlType(StandardTypes.BIGINT)
+            public static long diffDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
+            {
+                return DateTimeFunctions.diffDate(getDateField(UTC_CHRONOLOGY, unit), date1, date2);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 0)
+        public static final class ConstantUnit
+        {
+            private final DateTimeField field;
+
+            public ConstantUnit(@ConstantArgument(0) Slice unit)
+            {
+                field = getDateField(UTC_CHRONOLOGY, unit);
+            }
+
+            @SqlType(StandardTypes.BIGINT)
+            public long diffDate(@SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
+            {
+                return DateTimeFunctions.diffDate(field, date1, date2);
+            }
+        }
     }
 
     /**
@@ -375,30 +483,78 @@ public final class DateTimeFunctions
 
     public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
     {
+        return getTimestampFieldProvider(unit).apply(chronology);
+    }
+
+    public static Function<ISOChronology, DateTimeField> getTimestampFieldProvider(Slice unit)
+    {
         for (DateTimeFieldProvider timestampField : TIMESTAMP_FIELDS) {
             if (timestampField.match(unit)) {
-                return timestampField.apply(chronology);
+                return timestampField.dateTimeFieldProvider();
             }
         }
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit.toStringUtf8() + "' is not a valid TIMESTAMP field");
     }
 
-    @Description("Parses the specified date/time by the given format")
-    @ScalarFunction
-    @LiteralParameters({"x", "y"})
-    @SqlType("timestamp(3) with time zone")
-    public static long parseDatetime(ConnectorSession session, @SqlType("varchar(x)") Slice datetime, @SqlType("varchar(y)") Slice formatString)
+    private static long parseDatetime(ConnectorSession session, Slice datetime, DateTimeFormatter formatter)
     {
         try {
             return packDateTimeWithZone(parseDateTimeHelper(
-                    DateTimeFormat.forPattern(formatString.toStringUtf8())
-                            .withChronology(getChronology(session.getTimeZoneKey()))
+                    formatter.withChronology(getChronology(session.getTimeZoneKey()))
                             .withOffsetParsed()
                             .withLocale(session.getLocale()),
                     datetime.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    private static DateTimeFormatter createJodaDateTimeFormatter(Slice formatString)
+    {
+        try {
+            return DateTimeFormat.forPattern(formatString.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    @Description("Parses the specified date/time by the given format")
+    @ScalarFunction("parse_datetime")
+    public static final class ParseDateTime
+    {
+        private ParseDateTime() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters({"x", "y"})
+            @SqlType("timestamp(3) with time zone")
+            public static long parseDatetime(ConnectorSession session, @SqlType("varchar(x)") Slice datetime, @SqlType("varchar(y)") Slice formatString)
+            {
+                return DateTimeFunctions.parseDatetime(session, datetime, createJodaDateTimeFormatter(formatString));
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantFormat
+        {
+            private final DateTimeFormatter formatter;
+
+            public ConstantFormat(@ConstantArgument(1) Slice formatString)
+            {
+                formatter = createJodaDateTimeFormatter(formatString);
+            }
+
+            @LiteralParameters("x")
+            @SqlType("timestamp(3) with time zone")
+            public long parseDatetime(ConnectorSession session, @SqlType("varchar(x)") Slice datetime)
+            {
+                return DateTimeFunctions.parseDatetime(session, datetime, formatter);
+            }
         }
     }
 
@@ -414,26 +570,20 @@ public final class DateTimeFunctions
 
     public static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(chronology)
-                .withLocale(locale);
+        return dateFormat(chronology, locale, timestamp, DATETIME_FORMATTER_CACHE.get(formatString));
+    }
+
+    public static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, DateTimeFormatter formatter)
+    {
+        formatter = formatter.withChronology(chronology).withLocale(locale);
 
         return utf8Slice(formatter.print(timestamp));
     }
 
-    @ScalarFunction
-    @LiteralParameters({"x", "y"})
-    @SqlType("timestamp(3)") // TODO: increase precision?
-    public static long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
+    public static long dateParse(ConnectorSession session, Slice dateTime, Slice formatString)
     {
         if (ISO_8601_DATE_FORMAT.equals(formatString)) {
-            try {
-                long days = DateTimeUtils.parseDate(dateTime);
-                return scaleEpochMillisToMicros(days * MILLISECONDS_PER_DAY);
-            }
-            catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
-            }
+            return dateParseIso8601(dateTime);
         }
 
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
@@ -445,6 +595,68 @@ public final class DateTimeFunctions
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    private static long dateParseIso8601(Slice dateTime)
+    {
+        try {
+            long days = DateTimeUtils.parseDate(dateTime);
+            return scaleEpochMillisToMicros(days * MILLISECONDS_PER_DAY);
+        }
+        catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    private static long dateParse(ConnectorSession session, Slice dateTime, DateTimeFormatter formatter)
+    {
+        formatter = formatter.withZoneUTC().withLocale(session.getLocale());
+        try {
+            return scaleEpochMillisToMicros(formatter.parseMillis(dateTime.toStringUtf8()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    @ScalarFunction("date_parse")
+    public static final class DateParse
+    {
+        private DateParse() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters({"x", "y"})
+            @SqlType("timestamp(3)") // TODO: increase precision?
+            public static long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
+            {
+                return DateTimeFunctions.dateParse(session, dateTime, formatString);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantFormat
+        {
+            private final Optional<DateTimeFormatter> formatter;
+
+            public ConstantFormat(@ConstantArgument(1) Slice formatString)
+            {
+                formatter = ISO_8601_DATE_FORMAT.equals(formatString) ? Optional.empty() : Optional.of(createDateTimeFormatter(formatString));
+            }
+
+            @LiteralParameters("x")
+            @SqlType("timestamp(3)")
+            public long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime)
+            {
+                if (formatter.isEmpty()) {
+                    return dateParseIso8601(dateTime);
+                }
+                return DateTimeFunctions.dateParse(session, dateTime, formatter.orElseThrow());
+            }
         }
     }
 

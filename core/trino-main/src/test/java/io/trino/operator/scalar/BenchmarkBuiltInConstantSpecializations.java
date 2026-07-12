@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
+import io.trino.operator.scalar.timestamp.FormatDateTime;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -29,6 +30,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @BenchmarkMode(Mode.AverageTime)
@@ -61,6 +63,18 @@ public class BenchmarkBuiltInConstantSpecializations
         return data.translate.translate(data.source);
     }
 
+    @Benchmark
+    public Slice formatDateTimeDynamic(BenchmarkData data)
+    {
+        return FormatDateTime.Row.format(SESSION, data.timestamp, data.format);
+    }
+
+    @Benchmark
+    public Slice formatDateTimeSpecialized(BenchmarkData data)
+    {
+        return data.formatDateTime.format(SESSION, data.timestamp);
+    }
+
     @State(Scope.Thread)
     public static class BenchmarkData
     {
@@ -72,6 +86,10 @@ public class BenchmarkBuiltInConstantSpecializations
         private final Slice from = Slices.utf8Slice("\u00e1\u00e9\u00ed\u00f3\u00fa\u00c1\u00c9\u00cd\u00d3\u00da\u00e4\u00eb\u00ef\u00f6\u00fc\u00c4\u00cb\u00cf\u00d6\u00dc\u00e2\u00ea\u00ee\u00f4\u00fb\u00c2\u00ca\u00ce\u00d4\u00db\u00e3\u1ebd\u0129\u00f5\u0169\u00c3\u1ebc\u0128\u00d5\u0168");
         private final Slice to = Slices.utf8Slice("aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU");
         private final StringFunctions.Translate.ConstantTranslation translate = new StringFunctions.Translate.ConstantTranslation(from, to);
+
+        private final long timestamp = 1_589_112_000_000_000L;
+        private final Slice format = Slices.utf8Slice("yyyy-MM-dd HH:mm:ss.SSS");
+        private final FormatDateTime.ConstantFormat formatDateTime = new FormatDateTime.ConstantFormat(format);
     }
 
     @Test
@@ -80,6 +98,7 @@ public class BenchmarkBuiltInConstantSpecializations
         BenchmarkData data = new BenchmarkData();
         assertThat(wordStemSpecialized(data)).isEqualTo(wordStemDynamic(data));
         assertThat(translateSpecialized(data)).isEqualTo(translateDynamic(data));
+        assertThat(formatDateTimeSpecialized(data)).isEqualTo(formatDateTimeDynamic(data));
     }
 
     static void main()
