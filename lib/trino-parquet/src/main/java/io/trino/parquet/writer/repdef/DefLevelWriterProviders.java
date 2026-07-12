@@ -15,11 +15,13 @@ package io.trino.parquet.writer.repdef;
 
 import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariantBlock;
 
 import java.util.Optional;
@@ -93,6 +95,16 @@ public final class DefLevelWriterProviders
                     if (!block.mayHaveNull()) {
                         encoder.writeRepeatInteger(maxDefinitionLevel, positionsCount);
                         nonNullsCount = positionsCount;
+                    }
+                    else if (block instanceof ValueBlock valueBlock) {
+                        Optional<Bitmap> validity = valueBlock.getValidityBitmap();
+                        if (validity.isPresent()) {
+                            nonNullsCount = encoder.writeBitmap(validity.orElseThrow(), offset, positionsCount, maxDefinitionLevel, maxDefinitionLevel - 1);
+                        }
+                        else {
+                            encoder.writeRepeatInteger(maxDefinitionLevel, positionsCount);
+                            nonNullsCount = positionsCount;
+                        }
                     }
                     else {
                         for (int position = offset; position < offset + positionsCount; position++) {
