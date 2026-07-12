@@ -15,7 +15,7 @@ package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
-import io.trino.tests.product.teradata.FunctionsEnvironment;
+import io.trino.tests.product.tpc.TpcdsEnvironment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +31,7 @@ public final class SuiteTpcds
 
         List<TestRunResult> results = new ArrayList<>();
 
-        results.add(SuiteRunner.forEnvironment(FunctionsEnvironment.class)
+        results.add(SuiteRunner.forEnvironment(TpcdsEnvironment.class)
                 .includeTag(TestGroup.ConfiguredFeatures.class)
                 .includeTag(TestGroup.Tpcds.class)
                 .run());
