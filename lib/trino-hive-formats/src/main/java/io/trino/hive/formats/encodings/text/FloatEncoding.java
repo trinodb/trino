@@ -16,6 +16,7 @@ package io.trino.hive.formats.encodings.text;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.FileCorruptionException;
+import io.trino.hive.formats.NumberParser;
 import io.trino.hive.formats.encodings.ColumnData;
 import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.spi.block.Block;
@@ -91,7 +92,7 @@ public class FloatEncoding
             throws FileCorruptionException
     {
         try {
-            float value = Float.parseFloat(slice.toStringAscii(offset, length));
+            float value = NumberParser.parseFloat(slice, offset, length);
             type.writeLong(builder, Float.floatToIntBits(value));
         }
         catch (NumberFormatException e) {
@@ -103,7 +104,7 @@ public class FloatEncoding
             throws FileCorruptionException
     {
         try {
-            return Float.parseFloat(slice.toStringAscii(start, length));
+            return NumberParser.parseFloat(slice, start, length);
         }
         catch (NumberFormatException e) {
             throw new FileCorruptionException(e, "Invalid float value");
