@@ -177,9 +177,10 @@ public class TestSimplifyExpressions
         assertSimplifies(
                 new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "V"))), new Reference(BOOLEAN, "Z"))), new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "V"))), new Reference(BOOLEAN, "V"))))),
                 new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "V"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"))))));
+        // after common predicate extraction, X absorbs the residual disjunction (Z OR V OR X)
         assertSimplifies(
                 new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "Z"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "V"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "Y"), new Reference(BOOLEAN, "X"))))))),
-                new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "Z"), new Reference(BOOLEAN, "V"), new Reference(BOOLEAN, "X"))))));
+                new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "X"), new Reference(BOOLEAN, "Y"))));
         assertSimplifies(
                 new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"), new Reference(BOOLEAN, "C"), new Reference(BOOLEAN, "D"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "B"), new Reference(BOOLEAN, "E"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A"), new Reference(BOOLEAN, "F"))))),
                 new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A"), new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B"), new Reference(BOOLEAN, "C"), new Reference(BOOLEAN, "D"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "B"), new Reference(BOOLEAN, "E"))), new Reference(BOOLEAN, "F"))))));

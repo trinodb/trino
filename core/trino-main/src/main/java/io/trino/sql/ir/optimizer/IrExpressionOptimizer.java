@@ -37,6 +37,8 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverMatch;
+import io.trino.sql.ir.optimizer.rule.DistributeIsNullOverCase;
+import io.trino.sql.ir.optimizer.rule.DistributeIsNullOverMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateArray;
 import io.trino.sql.ir.optimizer.rule.EvaluateBind;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
@@ -52,8 +54,14 @@ import io.trino.sql.ir.optimizer.rule.EvaluateMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
+import io.trino.sql.ir.optimizer.rule.FlattenConcat;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
+import io.trino.sql.ir.optimizer.rule.FlattenNestedCase;
+import io.trino.sql.ir.optimizer.rule.FlattenNestedMatch;
 import io.trino.sql.ir.optimizer.rule.InlineTrivialLet;
+import io.trino.sql.ir.optimizer.rule.MergeCaseClauses;
+import io.trino.sql.ir.optimizer.rule.MergeMatchClauses;
+import io.trino.sql.ir.optimizer.rule.RemoveAbsorbedLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
@@ -67,7 +75,9 @@ import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantTryCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
+import io.trino.sql.ir.optimizer.rule.SimplifyStackedCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
+import io.trino.sql.ir.optimizer.rule.SpecializeCaseToMatch;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
 import io.trino.sql.planner.Symbol;
@@ -110,23 +120,35 @@ public class IrExpressionOptimizer
                 new EvaluateIn(context),
                 new EvaluateCallWithNullInput(),
                 new RemoveRedundantMatchClauses(context),
+                new FlattenNestedMatch(),
+                new MergeMatchClauses(context),
                 new RemoveRedundantCaseClauses(),
+                new FlattenNestedCase(),
+                new MergeCaseClauses(context),
                 new RemoveRedundantTry(context),
                 new RemoveRedundantInItems(context),
                 new SimplifyContinuousInValues(context),
                 new SimplifyRedundantCast(),
+                new SimplifyStackedCast(context),
                 new SimplifyRedundantTryCast(context),
                 new SimplifyCharLength(context),
                 new SimplifyStackedNot(),
                 new SimplifyStackedArithmeticNegation(),
                 new FlattenCoalesce(),
+                new FlattenConcat(context),
                 new RemoveRedundantCoalesceArguments(context),
                 new EvaluateLogical(),
                 new FlattenLogical(),
                 new RemoveRedundantLogicalTerms(),
+                new RemoveAbsorbedLogicalTerms(context),
                 new DistributeComparisonOverMatch(context),
                 new DistributeComparisonOverCase(context),
+                new DistributeIsNullOverMatch(),
+                new DistributeIsNullOverCase(),
                 new SimplifyRedundantCase(context),
+                // must run after SimplifyRedundantCase: constant boolean results are better
+                // expressed as plain logic than as a Match
+                new SpecializeCaseToMatch(context),
                 new SpecializeCastWithJsonParse(context),
                 new SpecializeTransformWithJsonParse(context)));
     }

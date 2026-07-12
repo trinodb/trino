@@ -33,6 +33,7 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -41,6 +42,7 @@ import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
@@ -56,6 +58,7 @@ public class TestSimplifyFilterPredicate
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
 
     @Test
     public void testSimplifyIfExpression()
@@ -488,6 +491,76 @@ public class TestSimplifyFilterPredicate
                         filter(
                                 FALSE,
                                 values("a", "b")));
+    }
+
+    @Test
+    public void testNullSafeEquality()
+    {
+        // a = b OR (a IS NULL AND b IS NULL) -> a IS NOT DISTINCT FROM b
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Logical(OR, ImmutableList.of(
+                                comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                                new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new IsNull(new Reference(BIGINT, "b")))))),
+                        p.values(p.symbol("a"), p.symbol("b"))))
+                .matches(
+                        filter(
+                                comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                                values("a", "b")));
+
+        // the null conjunction can precede the equality, and its terms can be in either order
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Logical(OR, ImmutableList.of(
+                                new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "b")), new IsNull(new Reference(BIGINT, "a")))),
+                                comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                        p.values(p.symbol("a"), p.symbol("b"))))
+                .matches(
+                        filter(
+                                comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                                values("a", "b")));
+
+        // unrelated disjunction terms are preserved
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Logical(OR, ImmutableList.of(
+                                new Reference(BOOLEAN, "c"),
+                                comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                                new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new IsNull(new Reference(BIGINT, "b")))))),
+                        p.values(p.symbol("a"), p.symbol("b"), p.symbol("c", BOOLEAN))))
+                .matches(
+                        filter(
+                                new Logical(OR, ImmutableList.of(
+                                        new Reference(BOOLEAN, "c"),
+                                        comparison(IDENTICAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                values("a", "b", "c")));
+
+        // the null conjunction must test exactly the compared expressions
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Logical(OR, ImmutableList.of(
+                                comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                                new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new IsNull(new Reference(BIGINT, "c")))))),
+                        p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"))))
+                .doesNotFire();
+
+        // a conjunction with additional terms is not the null-safe equality pattern
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Logical(OR, ImmutableList.of(
+                                comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")),
+                                new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new IsNull(new Reference(BIGINT, "b")), new Reference(BOOLEAN, "c"))))),
+                        p.values(p.symbol("a"), p.symbol("b"), p.symbol("c", BOOLEAN))))
+                .doesNotFire();
+
+        // non-deterministic sides may evaluate to different values in the two occurrences
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Logical(OR, ImmutableList.of(
+                                comparison(EQUAL, new Call(RANDOM, ImmutableList.of()), new Reference(DOUBLE, "a")),
+                                new Logical(AND, ImmutableList.of(new IsNull(new Call(RANDOM, ImmutableList.of())), new IsNull(new Reference(DOUBLE, "a")))))),
+                        p.values(p.symbol("a", DOUBLE))))
+                .doesNotFire();
     }
 
     private static Expression not(Expression expression)
