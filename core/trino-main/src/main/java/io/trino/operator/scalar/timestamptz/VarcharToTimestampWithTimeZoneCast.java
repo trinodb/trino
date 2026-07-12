@@ -22,6 +22,7 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.type.DateTimes;
+import io.trino.type.DateTimes.PlainDateTime;
 
 import java.time.DateTimeException;
 import java.time.ZoneId;
@@ -40,6 +41,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.longTimestampWithTimeZone;
+import static io.trino.type.DateTimes.parsePlainDateTime;
 import static io.trino.type.DateTimes.rescale;
 
 // fallible
@@ -53,7 +55,7 @@ public final class VarcharToTimestampWithTimeZoneCast
     public static long castToShort(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return toShort((int) precision, trim(value).toStringUtf8(), timezone -> {
+            return toShort((int) precision, trim(value), timezone -> {
                 if (timezone == null) {
                     return session.getTimeZoneKey().getZoneId();
                 }
@@ -70,7 +72,7 @@ public final class VarcharToTimestampWithTimeZoneCast
     public static LongTimestampWithTimeZone castToLong(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return toLong((int) precision, trim(value).toStringUtf8(), timezone -> {
+            return toLong((int) precision, trim(value), timezone -> {
                 if (timezone == null) {
                     return session.getTimeZoneKey().getZoneId();
                 }
@@ -80,6 +82,38 @@ public final class VarcharToTimestampWithTimeZoneCast
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
         }
+    }
+
+    public static long toShort(int precision, Slice value, Function<String, ZoneId> zoneId)
+    {
+        checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
+
+        PlainDateTime parsed = parsePlainDateTime(value);
+        if (parsed == null) {
+            return toShort(precision, value.toStringUtf8(), zoneId);
+        }
+
+        ZoneId zone;
+        long epochSecond;
+        try {
+            // the value carries no time zone, which is what the pattern based path reports as null
+            zone = zoneId.apply(null);
+            epochSecond = ZonedDateTime.of(parsed.year(), parsed.month(), parsed.day(), parsed.hour(), parsed.minute(), parsed.second(), 0, zone)
+                    .toEpochSecond();
+        }
+        catch (DateTimeException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+        }
+
+        long fractionValue = parsed.fractionValue();
+        int actualPrecision = parsed.fractionPrecision();
+        if (actualPrecision > precision) {
+            fractionValue = round(fractionValue, actualPrecision - precision);
+        }
+
+        return packDateTimeWithZone(
+                epochSecond * MILLISECONDS_PER_SECOND + rescale(fractionValue, actualPrecision, MAX_SHORT_PRECISION),
+                getTimeZoneKey(zone.getId()));
     }
 
     public static long toShort(int precision, String value, Function<String, ZoneId> zoneId)
@@ -133,6 +167,36 @@ public final class VarcharToTimestampWithTimeZoneCast
 
         long millisOfSecond = rescale(fractionValue, actualPrecision, MAX_SHORT_PRECISION);
         return packDateTimeWithZone(epochSecond * MILLISECONDS_PER_SECOND + millisOfSecond, getTimeZoneKey(zone.getId()));
+    }
+
+    public static LongTimestampWithTimeZone toLong(int precision, Slice value, Function<String, ZoneId> zoneId)
+    {
+        checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_PRECISION, "precision out of range");
+
+        PlainDateTime parsed = parsePlainDateTime(value);
+        if (parsed == null) {
+            return toLong(precision, value.toStringUtf8(), zoneId);
+        }
+
+        ZoneId zone;
+        long epochSecond;
+        try {
+            // the value carries no time zone, which is what the pattern based path reports as null
+            zone = zoneId.apply(null);
+            epochSecond = ZonedDateTime.of(parsed.year(), parsed.month(), parsed.day(), parsed.hour(), parsed.minute(), parsed.second(), 0, zone)
+                    .toEpochSecond();
+        }
+        catch (DateTimeException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+        }
+
+        long fractionValue = parsed.fractionValue();
+        int actualPrecision = parsed.fractionPrecision();
+        if (actualPrecision > precision) {
+            fractionValue = round(fractionValue, actualPrecision - precision);
+        }
+
+        return longTimestampWithTimeZone(epochSecond, rescale(fractionValue, actualPrecision, MAX_PRECISION), zone);
     }
 
     public static LongTimestampWithTimeZone toLong(int precision, String value, Function<String, ZoneId> zoneId)
