@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -76,10 +77,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testEquals()
     {
-        testUnwrap("date", "year(a) = -0001", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))));
-        testUnwrap("date", "year(a) = 1960", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))));
-        testUnwrap("date", "year(a) = 2022", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
-        testUnwrap("date", "year(a) = 9999", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))));
+        testUnwrap("date", "year(a) = -0001", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-12-31")))));
+        testUnwrap("date", "year(a) = 1960", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-12-31")))));
+        testUnwrap("date", "year(a) = 2022", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-12-31")))));
+        testUnwrap("date", "year(a) = 9999", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-12-31")))));
 
         testUnwrap("timestamp", "year(a) = -0001", between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-01-01 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-12-31 23:59:59.999"))));
         testUnwrap("timestamp", "year(a) = 1960", between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-01-01 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-12-31 23:59:59.999"))));
@@ -104,17 +105,17 @@ public class TestUnwrapYearInComparison
     @Test
     public void testInPredicate()
     {
-        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", new Logical(OR, ImmutableList.of(between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1000-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("1000-12-31"))), between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1400-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("1400-12-31"))), between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1800-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("1800-12-31"))))));
+        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", new Logical(OR, ImmutableList.of(between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1000-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1000-12-31")))), between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1400-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1400-12-31")))), between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1800-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1800-12-31")))))));
         testUnwrap("timestamp", "year(a) IN (1000, 1400, 1800)", new Logical(OR, ImmutableList.of(between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1000-01-01 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1000-12-31 23:59:59.999"))), between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1400-01-01 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1400-12-31 23:59:59.999"))), between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1800-01-01 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1800-12-31 23:59:59.999"))))));
     }
 
     @Test
     public void testNotEquals()
     {
-        testUnwrap("date", "year(a) <> -0001", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))))));
-        testUnwrap("date", "year(a) <> 1960", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))))));
-        testUnwrap("date", "year(a) <> 2022", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))))));
-        testUnwrap("date", "year(a) <> 9999", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))))));
+        testUnwrap("date", "year(a) <> -0001", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-12-31")))))));
+        testUnwrap("date", "year(a) <> 1960", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-12-31")))))));
+        testUnwrap("date", "year(a) <> 2022", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-12-31")))))));
+        testUnwrap("date", "year(a) <> 9999", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-12-31")))))));
 
         testUnwrap("timestamp", "year(a) <> -0001", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-01-01 00:00:00.000"))), comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-12-31 23:59:59.999"))))));
         testUnwrap("timestamp", "year(a) <> 1960", new Logical(OR, ImmutableList.of(comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-01-01 00:00:00.000"))), comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-12-31 23:59:59.999"))))));
@@ -139,10 +140,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testLessThan()
     {
-        testUnwrap("date", "year(a) < -0001", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01"))));
-        testUnwrap("date", "year(a) < 1960", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01"))));
-        testUnwrap("date", "year(a) < 2022", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01"))));
-        testUnwrap("date", "year(a) < 9999", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01"))));
+        testUnwrap("date", "year(a) < -0001", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-01-01")))));
+        testUnwrap("date", "year(a) < 1960", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-01-01")))));
+        testUnwrap("date", "year(a) < 2022", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-01-01")))));
+        testUnwrap("date", "year(a) < 9999", comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-01-01")))));
 
         testUnwrap("timestamp", "year(a) < -0001", comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-01-01 00:00:00.000"))));
         testUnwrap("timestamp", "year(a) < 1960", comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-01-01 00:00:00.000"))));
@@ -167,10 +168,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testLessThanOrEqual()
     {
-        testUnwrap("date", "year(a) <= -0001", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))));
-        testUnwrap("date", "year(a) <= 1960", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))));
-        testUnwrap("date", "year(a) <= 2022", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
-        testUnwrap("date", "year(a) <= 9999", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))));
+        testUnwrap("date", "year(a) <= -0001", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-12-31")))));
+        testUnwrap("date", "year(a) <= 1960", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-12-31")))));
+        testUnwrap("date", "year(a) <= 2022", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-12-31")))));
+        testUnwrap("date", "year(a) <= 9999", comparison(LESS_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-12-31")))));
 
         testUnwrap("timestamp", "year(a) <= -0001", comparison(LESS_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-12-31 23:59:59.999"))));
         testUnwrap("timestamp", "year(a) <= 1960", comparison(LESS_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-12-31 23:59:59.999"))));
@@ -195,10 +196,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testGreaterThan()
     {
-        testUnwrap("date", "year(a) > -0001", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))));
-        testUnwrap("date", "year(a) > 1960", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))));
-        testUnwrap("date", "year(a) > 2022", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
-        testUnwrap("date", "year(a) > 9999", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))));
+        testUnwrap("date", "year(a) > -0001", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-12-31")))));
+        testUnwrap("date", "year(a) > 1960", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-12-31")))));
+        testUnwrap("date", "year(a) > 2022", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-12-31")))));
+        testUnwrap("date", "year(a) > 9999", comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-12-31")))));
 
         testUnwrap("timestamp", "year(a) > -0001", comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-12-31 23:59:59.999"))));
         testUnwrap("timestamp", "year(a) > 1960", comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-12-31 23:59:59.999"))));
@@ -223,10 +224,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testGreaterThanOrEqual()
     {
-        testUnwrap("date", "year(a) >= -0001", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01"))));
-        testUnwrap("date", "year(a) >= 1960", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01"))));
-        testUnwrap("date", "year(a) >= 2022", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01"))));
-        testUnwrap("date", "year(a) >= 9999", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01"))));
+        testUnwrap("date", "year(a) >= -0001", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-01-01")))));
+        testUnwrap("date", "year(a) >= 1960", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-01-01")))));
+        testUnwrap("date", "year(a) >= 2022", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-01-01")))));
+        testUnwrap("date", "year(a) >= 9999", comparison(GREATER_THAN_OR_EQUAL, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-01-01")))));
 
         testUnwrap("timestamp", "year(a) >= -0001", comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-01-01 00:00:00.000"))));
         testUnwrap("timestamp", "year(a) >= 1960", comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-01-01 00:00:00.000"))));
@@ -251,10 +252,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testDistinctFrom()
     {
-        testUnwrap("date", "year(a) IS DISTINCT FROM -0001", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 1960", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 2022", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 9999", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01"))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM -0001", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("-0001-12-31")))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 1960", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("1960-12-31")))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 2022", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-12-31")))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 9999", new Logical(OR, ImmutableList.of(new IsNull(new Reference(DATE, "a")), comparison(LESS_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-01-01")))), comparison(GREATER_THAN, new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("9999-12-31")))))));
 
         testUnwrap("timestamp", "year(a) IS DISTINCT FROM -0001", new Logical(OR, ImmutableList.of(new IsNull(new Reference(createTimestampType(3), "a")), comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-01-01 00:00:00.000"))), comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "-0001-12-31 23:59:59.999"))))));
         testUnwrap("timestamp", "year(a) IS DISTINCT FROM 1960", new Logical(OR, ImmutableList.of(new IsNull(new Reference(createTimestampType(3), "a")), comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-01-01 00:00:00.000"))), comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1960-12-31 23:59:59.999"))))));
@@ -295,7 +296,7 @@ public class TestUnwrapYearInComparison
     {
         // smoke tests for various type combinations
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("date", format("year(a) = %s '2022'", type), between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
+            testUnwrap("date", format("year(a) = %s '2022'", type), between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-12-31")))));
         }
     }
 
@@ -311,14 +312,14 @@ public class TestUnwrapYearInComparison
                         .build(),
                 output(
                         filter(
-                                between(new Reference(DATE, "A"), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))),
+                                between(new Reference(DATE, "A"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2022-12-31")))),
                                 values("A"))));
     }
 
     @Test
     public void testLeapYear()
     {
-        testUnwrap("date", "year(a) = 2024", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate("2024-01-01")), new Constant(DATE, (long) DateTimeUtils.parseDate("2024-12-31"))));
+        testUnwrap("date", "year(a) = 2024", between(new Reference(DATE, "a"), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2024-01-01"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2024-12-31")))));
         testUnwrap("timestamp", "year(a) = 2024", between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "2024-01-01 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "2024-12-31 23:59:59.999"))));
     }
 

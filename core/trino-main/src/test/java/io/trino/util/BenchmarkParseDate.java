@@ -13,6 +13,7 @@
  */
 package io.trino.util;
 
+import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -26,6 +27,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
@@ -42,25 +44,24 @@ public class BenchmarkParseDate
     @Benchmark
     public void parseDate(BenchmarkData data, Blackhole blackhole)
     {
-        for (String dt : data.dates) {
-            blackhole.consume(DateTimeUtils.parseDate(dt));
+        for (Slice date : data.dates) {
+            blackhole.consume(DateTimeUtils.parseDate(date));
         }
     }
 
     @State(Thread)
     public static class BenchmarkData
     {
-        String[] dates;
+        Slice[] dates;
 
         @Setup
         public void setup()
         {
-            dates = new String[100];
+            dates = new Slice[100];
             // use the 100 consecutive dates start from 2023-01-01
-            String startDate = "2023-01-01";
-            int days = DateTimeUtils.parseDate(startDate);
+            int days = DateTimeUtils.parseDate(utf8Slice("2023-01-01"));
             for (int i = 0; i < dates.length; i++) {
-                dates[i] = DateTimeUtils.printDate(days + i);
+                dates[i] = utf8Slice(DateTimeUtils.printDate(days + i));
             }
         }
     }

@@ -282,7 +282,7 @@ public class TestCheckpointWriter
                                 .put("byt", 10L)
                                 .put("fl", (long) Float.floatToIntBits(0.100f))
                                 .put("dou", 0.101d)
-                                .put("dat", (long) parseDate("2000-01-01"))
+                                .put("dat", (long) parseDate(utf8Slice("2000-01-01")))
                                 .put("row", new SqlRow(0, minMaxRowFieldBlocks))
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()
@@ -297,7 +297,7 @@ public class TestCheckpointWriter
                                 .put("byt", 20L)
                                 .put("fl", (long) Float.floatToIntBits(0.200f))
                                 .put("dou", 0.202d)
-                                .put("dat", (long) parseDate("3000-01-01"))
+                                .put("dat", (long) parseDate(utf8Slice("3000-01-01")))
                                 .put("row", new SqlRow(0, minMaxRowFieldBlocks))
                                 .buildOrThrow()),
                         Optional.of(ImmutableMap.<String, Object>builder()

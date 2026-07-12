@@ -538,7 +538,7 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 TextNode.valueOf("2024-01-02"),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
-                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate("2024-01-02"))));
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
 
         // text item: TIME shape
         assertThat(pathResult(
@@ -575,8 +575,8 @@ public class TestJsonPathEvaluator
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("2024-01-02"), TextNode.valueOf("2024-01-03"))),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isEqualTo(sequence(
-                        new TypedValue(DATE, (long) parseDate("2024-01-02")),
-                        new TypedValue(DATE, (long) parseDate("2024-01-03"))));
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))),
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-03")))));
 
         // in strict mode the array is not unwrapped, so it is not a text item
         assertThatThrownBy(() -> evaluate(
@@ -617,7 +617,7 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 TextNode.valueOf("01/02/2024"),
                 path(true, datetimeMethod("MM/DD/YYYY"))))
-                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate("2024-01-02"))));
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
 
         assertThat(pathResult(
                 TextNode.valueOf("2024-01-02 12:34:56.789"),
@@ -634,15 +634,15 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 TextNode.valueOf("24-01-02"),
                 path(true, datetimeMethod("RR-MM-DD"))))
-                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate("2024-01-02"))));
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
 
         // multiple inputs -- array is automatically unwrapped in lax mode
         assertThat(pathResult(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("01/02/2024"), TextNode.valueOf("01/03/2024"))),
                 path(true, datetimeMethod("MM/DD/YYYY"))))
                 .isEqualTo(sequence(
-                        new TypedValue(DATE, (long) parseDate("2024-01-02")),
-                        new TypedValue(DATE, (long) parseDate("2024-01-03"))));
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))),
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-03")))));
 
         // the value does not match the template
         assertThatThrownBy(() -> evaluate(
