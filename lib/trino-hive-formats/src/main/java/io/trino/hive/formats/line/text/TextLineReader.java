@@ -21,6 +21,8 @@ import io.trino.hive.formats.line.LineReader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.OptionalLong;
 import java.util.function.LongSupplier;
 
@@ -29,12 +31,18 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.addExact;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 
 public final class TextLineReader
         implements LineReader
 {
     private static final int INSTANCE_SIZE = instanceSize(TextLineReader.class);
+
+    // little endian, so that the lowest matching byte is the one with the fewest trailing zeros
+    private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, LITTLE_ENDIAN);
+    private static final long NEWLINE_PATTERN = repeat((byte) '\n');
+    private static final long CARRIAGE_RETURN_PATTERN = repeat((byte) '\r');
 
     private final InputStream in;
     private final byte[] buffer;
@@ -231,6 +239,17 @@ public final class TextLineReader
 
     private boolean seekToStartOfLineTerminator()
     {
+        // scan eight bytes at a time for either line terminator
+        while (bufferPosition + Long.BYTES <= bufferEnd) {
+            long word = (long) LONG_HANDLE.get(buffer, bufferPosition);
+            long matches = match(word, NEWLINE_PATTERN) | match(word, CARRIAGE_RETURN_PATTERN);
+            if (matches != 0) {
+                bufferPosition += Long.numberOfTrailingZeros(matches) >>> 3;
+                return true;
+            }
+            bufferPosition += Long.BYTES;
+        }
+
         while (bufferPosition < bufferEnd) {
             if (isEndOfLineCharacter(buffer[bufferPosition])) {
                 return true;
@@ -238,6 +257,21 @@ public final class TextLineReader
             bufferPosition++;
         }
         return false;
+    }
+
+    private static long repeat(byte value)
+    {
+        return (value & 0xFFL) * 0x01_01_01_01_01_01_01_01L;
+    }
+
+    /**
+     * Sets the high bit of every byte in {@code word} that equals the byte broadcast in
+     * {@code repeatedValue}, and clears it everywhere else (Hacker's Delight 6-1).
+     */
+    private static long match(long word, long repeatedValue)
+    {
+        long comparison = word ^ repeatedValue;
+        return (comparison - 0x01_01_01_01_01_01_01_01L) & ~comparison & 0x80_80_80_80_80_80_80_80L;
     }
 
     private static boolean isEndOfLineCharacter(byte currentByte)
