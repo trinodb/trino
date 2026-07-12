@@ -126,7 +126,7 @@ public class TestNumberParser
     public void testLongRespectsOffsetAndLength()
     {
         Slice slice = Slices.utf8Slice("xx-123yy");
-        assertThat(NumberParser.parseLong(slice, 2, 4)).isEqualTo(-123);
+        assertThat(NumberParser.parseTrimmedLong(slice, 2, 4)).isEqualTo(-123);
     }
 
     private static String randomInteger(Random random)
@@ -164,14 +164,45 @@ public class TestNumberParser
         }
 
         if (expected == null) {
-            assertThatThrownBy(() -> NumberParser.parseLong(slice, 0, slice.length()))
-                    .describedAs("parseLong(%s)", value)
+            assertThatThrownBy(() -> NumberParser.parseTrimmedLong(slice, 0, slice.length()))
+                    .describedAs("parseTrimmedLong(%s)", value)
                     .isInstanceOf(NumberFormatException.class);
         }
         else {
-            assertThat(NumberParser.parseLong(slice, 0, slice.length()))
-                    .describedAs("parseLong(%s)", value)
+            assertThat(NumberParser.parseTrimmedLong(slice, 0, slice.length()))
+                    .describedAs("parseTrimmedLong(%s)", value)
                     .isEqualTo(expected);
+        }
+    }
+
+    @Test
+    public void testUntrimmedLongMatchesJdk()
+    {
+        // the Hive coercions do not trim, so surrounding whitespace must be rejected
+        for (String value : new String[] {
+                "0", "1", "-1", "+1", "123", "-123", "9223372036854775807", "-9223372036854775808",
+                "9223372036854775808", "-9223372036854775809", "\u0661\u0662\u0663",
+                " 123", "123 ", "  123  ", "\t123", "", " ", "abc", "1.5",
+        }) {
+            Slice slice = Slices.utf8Slice(value);
+
+            Long expected = null;
+            try {
+                expected = Long.parseLong(value);
+            }
+            catch (NumberFormatException _) {
+            }
+
+            if (expected == null) {
+                assertThatThrownBy(() -> NumberParser.parseLong(slice, 0, slice.length()))
+                        .describedAs("parseLong(%s)", value)
+                        .isInstanceOf(NumberFormatException.class);
+            }
+            else {
+                assertThat(NumberParser.parseLong(slice, 0, slice.length()))
+                        .describedAs("parseLong(%s)", value)
+                        .isEqualTo(expected);
+            }
         }
     }
 

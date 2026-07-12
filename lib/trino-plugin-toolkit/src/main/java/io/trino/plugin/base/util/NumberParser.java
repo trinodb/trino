@@ -114,23 +114,36 @@ public final class NumberParser
     /**
      * Parses an integer exactly as {@code Long.parseLong(value.toStringUtf8().trim())} would,
      * including the exception it throws for malformed input and for overflow.
-     * <p>
-     * Anything that is not ASCII whitespace, a sign, or an ASCII digit falls back to the JDK, which
-     * also accepts digits outside ASCII, such as Arabic-Indic ones.
      */
-    public static long parseLong(Slice slice, int offset, int length)
+    public static long parseTrimmedLong(Slice slice, int offset, int length)
     {
         int index = offset;
         int end = offset + length;
 
-        // String.trim removes every character up to and including the space, and a byte of a multi
-        // byte UTF-8 sequence always has the high bit set, so it is never trimmed
+        // String.trim removes every character up to and including the space, and every byte of a
+        // multi byte UTF-8 sequence has the high bit set, so trimming bytes trims the same
+        // characters that String.trim does
         while (index < end && isTrimmed(slice.getByte(index))) {
             index++;
         }
         while (end > index && isTrimmed(slice.getByte(end - 1))) {
             end--;
         }
+        return parseLong(slice, index, end - index);
+    }
+
+    /**
+     * Parses an integer exactly as {@code Long.parseLong(value.toStringUtf8())} would, including the
+     * exception it throws for malformed input and for overflow. Surrounding whitespace is rejected,
+     * just as the JDK rejects it.
+     * <p>
+     * Anything that is not a sign or an ASCII digit falls back to the JDK, which also accepts digits
+     * outside ASCII, such as Arabic-Indic ones.
+     */
+    public static long parseLong(Slice slice, int offset, int length)
+    {
+        int index = offset;
+        int end = offset + length;
         if (index == end) {
             return parseLongWithJdk(slice, offset, length);
         }
@@ -178,7 +191,7 @@ public final class NumberParser
 
     private static long parseLongWithJdk(Slice slice, int offset, int length)
     {
-        return Long.parseLong(slice.toString(offset, length, UTF_8).trim());
+        return Long.parseLong(slice.toString(offset, length, UTF_8));
     }
 
     private static boolean isTrimmed(byte value)
