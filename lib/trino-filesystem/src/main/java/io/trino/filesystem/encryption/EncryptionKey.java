@@ -13,14 +13,16 @@
  */
 package io.trino.filesystem.encryption;
 
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static java.util.Objects.requireNonNull;
 
 public record EncryptionKey(byte[] key, String algorithm)
 {
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     public EncryptionKey
     {
         requireNonNull(algorithm, "algorithm is null");
@@ -30,7 +32,7 @@ public record EncryptionKey(byte[] key, String algorithm)
     public static EncryptionKey randomAes256()
     {
         byte[] key = new byte[32];
-        ThreadLocalRandom.current().nextBytes(key);
+        SECURE_RANDOM.nextBytes(key);
         return ofAes256(key);
     }
 
