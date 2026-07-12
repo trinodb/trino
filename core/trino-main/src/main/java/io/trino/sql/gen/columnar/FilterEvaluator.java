@@ -26,6 +26,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 
@@ -36,6 +37,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.AndFilterEvaluator.createAndExpressionEvaluator;
 import static io.trino.sql.gen.columnar.OrFilterEvaluator.createOrExpressionEvaluator;
 import static io.trino.sql.ir.IrExpressions.mayFail;
@@ -77,12 +79,16 @@ public sealed interface FilterEvaluator
     {
         return switch (expression) {
             case Constant constant when constant.value() instanceof Boolean booleanValue -> booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
+            case Reference reference when reference.type().equals(BOOLEAN) -> createReferenceExpressionEvaluator(compiler, reference, layout, dynamicFilter);
             case Call call -> {
                 if (isNotExpression(call)) {
                     // "not(is_null(reference))" is handled explicitly as it is easy.
                     // more generic cases like "not(equal(reference, constant))" are not handled yet
                     if (call.arguments().getFirst() instanceof IsNull isNull) {
                         yield createIsNotNullExpressionEvaluator(compiler, call, isNull, layout, dynamicFilter);
+                    }
+                    if (call.arguments().getFirst() instanceof Reference reference && reference.type().equals(BOOLEAN)) {
+                        yield createReferenceExpressionEvaluator(compiler, call, layout, dynamicFilter);
                     }
                     yield Optional.empty();
                 }
@@ -112,6 +118,12 @@ public sealed interface FilterEvaluator
     private static Optional<Supplier<FilterEvaluator>> createInExpressionEvaluator(ColumnarFilterCompiler compiler, In in, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(in, layout, dynamicFilter);
+        return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
+    }
+
+    private static Optional<Supplier<FilterEvaluator>> createReferenceExpressionEvaluator(ColumnarFilterCompiler compiler, Expression expression, Map<Symbol, Integer> layout, boolean dynamicFilter)
+    {
+        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(expression, layout, dynamicFilter);
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
