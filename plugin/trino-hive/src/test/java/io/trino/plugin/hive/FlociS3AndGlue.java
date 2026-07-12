@@ -81,15 +81,22 @@ public final class FlociS3AndGlue
                 .buildOrThrow();
     }
 
-    public Map<String, String> s3AndGlueProperties()
+    public Map<String, String> s3Properties()
     {
         return ImmutableMap.<String, String>builder()
-                .putAll(glueProperties())
                 .put("s3.endpoint", floci.endpoint().toString())
                 .put("s3.region", FLOCI_REGION)
                 .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
                 .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
                 .put("s3.path-style-access", "true")
+                .buildOrThrow();
+    }
+
+    public Map<String, String> s3AndGlueProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .putAll(glueProperties())
+                .putAll(s3Properties())
                 .buildOrThrow();
     }
 
