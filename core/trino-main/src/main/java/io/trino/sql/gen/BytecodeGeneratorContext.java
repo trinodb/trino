@@ -137,7 +137,7 @@ public class BytecodeGeneratorContext
 
         Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
 
-        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder);
+        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, arguments, argumentCompilers, callSiteBinder);
     }
 
     private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(Expression argument)
