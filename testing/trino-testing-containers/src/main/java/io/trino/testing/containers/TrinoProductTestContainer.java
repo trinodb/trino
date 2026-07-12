@@ -180,7 +180,7 @@ public final class TrinoProductTestContainer
 
     public static class Builder
     {
-        private String imageName = DEFAULT_IMAGE + ":latest";
+        private String imageName = TrinoTestImages.getDefaultTrinoImage();
         private final Map<String, Map<String, String>> catalogs = new HashMap<>();
         private Network network;
         private String networkAlias;
