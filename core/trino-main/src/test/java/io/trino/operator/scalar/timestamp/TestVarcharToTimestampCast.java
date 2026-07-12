@@ -14,12 +14,19 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZoneId;
 import java.util.Random;
+import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_PRECISION;
+import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -115,6 +122,85 @@ public class TestVarcharToTimestampCast
             String value = randomTimestamp(random);
             assertShortMatchesPattern(random.nextInt(7), value);
             assertLongMatchesPattern(7 + random.nextInt(6), value);
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneMatchesPattern()
+    {
+        // a value with no time zone resolves against the session zone rather than UTC, so cover a
+        // zone with an offset, and one with daylight saving, where a wrong zone would show up
+        // a short timestamp with time zone is packed as milliseconds, so its precision stops at 3,
+        // not at 6 as it does for a timestamp
+        Random random = new Random(1234);
+        for (ZoneId zone : new ZoneId[] {UTC, ZoneId.of("America/New_York"), ZoneId.of("Asia/Kathmandu"), ZoneId.of("Australia/Lord_Howe")}) {
+            for (String value : VALUES) {
+                assertTimestampWithTimeZoneMatchesPattern(random.nextInt(MAX_SHORT_PRECISION + 1), value, zone);
+                assertLongTimestampWithTimeZoneMatchesPattern(MAX_SHORT_PRECISION + 1 + random.nextInt(MAX_PRECISION - MAX_SHORT_PRECISION), value, zone);
+            }
+            for (int i = 0; i < 2_000; i++) {
+                String value = randomTimestamp(random);
+                assertTimestampWithTimeZoneMatchesPattern(random.nextInt(MAX_SHORT_PRECISION + 1), value, zone);
+                assertLongTimestampWithTimeZoneMatchesPattern(MAX_SHORT_PRECISION + 1 + random.nextInt(MAX_PRECISION - MAX_SHORT_PRECISION), value, zone);
+            }
+        }
+    }
+
+    private static void assertTimestampWithTimeZoneMatchesPattern(int precision, String value, ZoneId sessionZone)
+    {
+        Function<String, ZoneId> zoneId = timezone -> timezone == null ? sessionZone : ZoneId.of(timezone);
+        Slice slice = utf8Slice(value);
+        String context = "precision=%s value='%s' zone=%s".formatted(precision, value, sessionZone);
+
+        Long expected = null;
+        RuntimeException expectedFailure = null;
+        try {
+            expected = VarcharToTimestampWithTimeZoneCast.toShort(precision, value, zoneId);
+        }
+        catch (RuntimeException e) {
+            expectedFailure = e;
+        }
+
+        if (expectedFailure != null) {
+            RuntimeException failure = expectedFailure;
+            assertThatThrownBy(() -> VarcharToTimestampWithTimeZoneCast.toShort(precision, slice, zoneId))
+                    .describedAs(context)
+                    .isInstanceOf(failure.getClass())
+                    .hasMessage(failure.getMessage());
+        }
+        else {
+            assertThat(VarcharToTimestampWithTimeZoneCast.toShort(precision, slice, zoneId))
+                    .describedAs(context)
+                    .isEqualTo(expected);
+        }
+    }
+
+    private static void assertLongTimestampWithTimeZoneMatchesPattern(int precision, String value, ZoneId sessionZone)
+    {
+        Function<String, ZoneId> zoneId = timezone -> timezone == null ? sessionZone : ZoneId.of(timezone);
+        Slice slice = utf8Slice(value);
+        String context = "precision=%s value='%s' zone=%s".formatted(precision, value, sessionZone);
+
+        LongTimestampWithTimeZone expected = null;
+        RuntimeException expectedFailure = null;
+        try {
+            expected = VarcharToTimestampWithTimeZoneCast.toLong(precision, value, zoneId);
+        }
+        catch (RuntimeException e) {
+            expectedFailure = e;
+        }
+
+        if (expectedFailure != null) {
+            RuntimeException failure = expectedFailure;
+            assertThatThrownBy(() -> VarcharToTimestampWithTimeZoneCast.toLong(precision, slice, zoneId))
+                    .describedAs(context)
+                    .isInstanceOf(failure.getClass())
+                    .hasMessage(failure.getMessage());
+        }
+        else {
+            assertThat(VarcharToTimestampWithTimeZoneCast.toLong(precision, slice, zoneId))
+                    .describedAs(context)
+                    .isEqualTo(expected);
         }
     }
 
