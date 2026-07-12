@@ -16,10 +16,17 @@ package io.trino.parquet;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.plugin.tpcds.TpcdsRecordSet;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
+import io.trino.tpcds.Results;
+import io.trino.tpcds.Session;
+import io.trino.tpcds.Table;
+import io.trino.tpcds.column.Column;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
@@ -48,6 +55,35 @@ public final class BenchmarkParquetFormatUtils
     public static final long MIN_DATA_SIZE = DataSize.of(50, MEGABYTE).toBytes();
 
     private BenchmarkParquetFormatUtils() {}
+
+    public static TestData createTpcdsDataSet(Table table)
+    {
+        List<Column> columns = ImmutableList.copyOf(table.getColumns());
+        Session session = Session.getDefaultSession()
+                .withScale(1)
+                .withParallelism(1)
+                .withChunkNumber(1)
+                .withTable(table);
+        TpcdsRecordSet recordSet = new TpcdsRecordSet(Results.constructResults(table, session), columns);
+
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        long dataSize = 0;
+        try (RecordPageSource pageSource = new RecordPageSource(recordSet)) {
+            while (!pageSource.isFinished() && dataSize < MIN_DATA_SIZE) {
+                SourcePage sourcePage = pageSource.getNextSourcePage();
+                if (sourcePage != null) {
+                    Page page = sourcePage.getPage();
+                    pages.add(page);
+                    dataSize += page.getSizeInBytes();
+                }
+            }
+        }
+
+        return new TestData(
+                columns.stream().map(Column::getName).collect(toImmutableList()),
+                recordSet.getColumnTypes(),
+                pages.build());
+    }
 
     @SafeVarargs
     public static <E extends TpchEntity> TestData createTpchDataSet(TpchTable<E> tpchTable, TpchColumn<E>... columns)

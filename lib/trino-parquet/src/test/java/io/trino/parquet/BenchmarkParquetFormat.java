@@ -55,14 +55,17 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.MIN_DATA_SIZE;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.createTempDir;
+import static io.trino.parquet.BenchmarkParquetFormatUtils.createTpcdsDataSet;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.createTpchDataSet;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.nextRandomBetween;
 import static io.trino.parquet.BenchmarkParquetFormatUtils.printResults;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.tpcds.Table.STORE_SALES;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -140,6 +143,20 @@ public class BenchmarkParquetFormat
 
     public enum DataSet
     {
+        BOOLEAN_10_PERCENT_NULLS {
+            @Override
+            public TestData createTestData()
+            {
+                return createBooleanDataSet(10);
+            }
+        },
+        TPCDS_STORE_SALES {
+            @Override
+            public TestData createTestData()
+            {
+                return createTpcdsDataSet(STORE_SALES);
+            }
+        },
         LINEITEM {
             @Override
             public TestData createTestData()
@@ -294,6 +311,32 @@ public class BenchmarkParquetFormat
                 return new TestData(ImmutableList.of("map"), ImmutableList.of(type), pages.build());
             }
         };
+
+        private static TestData createBooleanDataSet(int nullsPercentage)
+        {
+            Random random = new Random(1234);
+            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BOOLEAN));
+            ImmutableList.Builder<Page> pages = ImmutableList.builder();
+            long dataSize = 0;
+            while (dataSize < MIN_DATA_SIZE) {
+                pageBuilder.declarePosition();
+                BlockBuilder builder = pageBuilder.getBlockBuilder(0);
+                if (random.nextInt(100) < nullsPercentage) {
+                    builder.appendNull();
+                }
+                else {
+                    BOOLEAN.writeBoolean(builder, random.nextBoolean());
+                }
+
+                if (pageBuilder.isFull()) {
+                    Page page = pageBuilder.build();
+                    pages.add(page);
+                    pageBuilder.reset();
+                    dataSize += page.getSizeInBytes();
+                }
+            }
+            return new TestData(ImmutableList.of("boolean"), ImmutableList.of(BOOLEAN), pages.build());
+        }
 
         public abstract TestData createTestData();
     }
