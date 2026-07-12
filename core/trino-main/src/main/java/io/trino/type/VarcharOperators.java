@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.Reals.toReal;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class VarcharOperators
@@ -111,7 +112,7 @@ public final class VarcharOperators
     public static long castToBigint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Long.parseLong(slice.toStringUtf8().trim());
+            return NumberParser.parseLong(slice, 0, slice.length());
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
@@ -125,7 +126,7 @@ public final class VarcharOperators
     public static long castToInteger(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Integer.parseInt(slice.toStringUtf8().trim());
+            return toIntExact(NumberParser.parseLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
@@ -139,7 +140,7 @@ public final class VarcharOperators
     public static long castToSmallint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Short.parseShort(slice.toStringUtf8().trim());
+            return toShortExact(NumberParser.parseLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
@@ -153,7 +154,7 @@ public final class VarcharOperators
     public static long castToTinyint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Byte.parseByte(slice.toStringUtf8().trim());
+            return toByteExact(NumberParser.parseLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
@@ -187,5 +188,21 @@ public final class VarcharOperators
     public static Slice castToBinary(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
+    }
+
+    private static long toShortExact(long value)
+    {
+        if (value != (short) value) {
+            throw new ArithmeticException("short overflow");
+        }
+        return value;
+    }
+
+    private static long toByteExact(long value)
+    {
+        if (value != (byte) value) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return value;
     }
 }
