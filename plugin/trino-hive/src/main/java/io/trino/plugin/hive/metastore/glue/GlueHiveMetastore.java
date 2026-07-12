@@ -281,6 +281,10 @@ public class GlueHiveMetastore
         catch (EntityNotFoundException e) {
             return Optional.empty();
         }
+        catch (AccessDeniedException e) {
+            // permission denied may actually mean "does not exist"
+            return Optional.empty();
+        }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
@@ -480,6 +484,10 @@ public class GlueHiveMetastore
             return Optional.of(GlueConverter.fromGlueTable(result.table(), databaseName));
         }
         catch (EntityNotFoundException e) {
+            return Optional.empty();
+        }
+        catch (AccessDeniedException e) {
+            // permission denied may actually mean "does not exist"
             return Optional.empty();
         }
         catch (SdkException e) {
