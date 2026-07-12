@@ -26,9 +26,9 @@ import io.trino.spi.type.Type;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.formats.HiveFormatUtils.writeDecimal;
-import static io.trino.hive.formats.NumberParser.NOT_SHORT_DECIMAL;
-import static io.trino.hive.formats.NumberParser.longPowerOfTen;
-import static io.trino.hive.formats.NumberParser.parseShortDecimal;
+import static io.trino.plugin.base.util.NumberParser.NOT_SHORT_DECIMAL;
+import static io.trino.plugin.base.util.NumberParser.longPowerOfTen;
+import static io.trino.plugin.base.util.NumberParser.parseShortDecimal;
 
 public class DecimalEncoding
         implements TextColumnEncoding

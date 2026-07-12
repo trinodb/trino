@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.hive.formats;
+package io.trino.plugin.base.util;
 
 import io.airlift.slice.Slice;
 
