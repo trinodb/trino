@@ -75,6 +75,7 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
@@ -226,12 +227,16 @@ public class ColumnarFilterCompiler
                         if (call.arguments().getFirst() instanceof IsNull isNull) {
                             yield Optional.of(createIsNotNullColumnarFilter(isNull));
                         }
+                        if (call.arguments().getFirst() instanceof Reference reference && reference.type().equals(BOOLEAN)) {
+                            yield Optional.of(BooleanColumnarFilter.Negated.class);
+                        }
                         yield Optional.empty();
                     }
                     yield Optional.of(new CallColumnarFilterGenerator(call.function(), call.arguments(), layout, functionManager).generateColumnarFilter());
                 }
                 case IsNull isNull -> Optional.of(createIsNullColumnarFilter(isNull));
                 case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, functionManager).generateColumnarFilter());
+                case Reference reference when reference.type().equals(BOOLEAN) -> Optional.of(BooleanColumnarFilter.class);
                 default -> Optional.empty();
             };
         }

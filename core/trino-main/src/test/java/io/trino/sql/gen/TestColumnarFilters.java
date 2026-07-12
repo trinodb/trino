@@ -29,6 +29,7 @@ import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.IntArrayBlock;
@@ -115,6 +116,7 @@ public class TestColumnarFilters
     private static final int INT_CHANNEL_C = 5;
     private static final int ARRAY_CHANNEL = 6;
     private static final int REAL_CHANNEL = 7;
+    private static final int BOOLEAN_CHANNEL = 8;
 
     private static final String COL_ROW_NUM = "$col_" + ROW_NUM_CHANNEL;
     private static final String COL_DOUBLE = "$col_" + DOUBLE_CHANNEL;
@@ -124,6 +126,7 @@ public class TestColumnarFilters
     private static final String COL_INT_C = "$col_" + INT_CHANNEL_C;
     private static final String COL_ARRAY = "$col_" + ARRAY_CHANNEL;
     private static final String COL_REAL = "$col_" + REAL_CHANNEL;
+    private static final String COL_BOOLEAN = "$col_" + BOOLEAN_CHANNEL;
 
     private static final Type ARRAY_CHANNEL_TYPE = new ArrayType(INTEGER);
     private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.<Symbol, Integer>builder()
@@ -135,6 +138,7 @@ public class TestColumnarFilters
             .put(new Symbol(INTEGER, COL_INT_C), INT_CHANNEL_C)
             .put(new Symbol(ARRAY_CHANNEL_TYPE, COL_ARRAY), ARRAY_CHANNEL)
             .put(new Symbol(REAL, COL_REAL), REAL_CHANNEL)
+            .put(new Symbol(BOOLEAN, COL_BOOLEAN), BOOLEAN_CHANNEL)
             .buildOrThrow();
     private static final FullConnectorSession FULL_CONNECTOR_SESSION = new FullConnectorSession(
             TestingSession.testSessionBuilder().build(),
@@ -240,6 +244,20 @@ public class TestColumnarFilters
         Expression falseFilter = new Constant(BOOLEAN, false);
         assertThatColumnarFilterEvaluationIsSupported(falseFilter);
         verifyFilter(inputPages, falseFilter);
+    }
+
+    @ParameterizedTest
+    @MethodSource("inputProviders")
+    public void testBooleanReference(NullsProvider nullsProvider, boolean dictionaryEncoded)
+    {
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
+        Expression reference = new Reference(BOOLEAN, COL_BOOLEAN);
+        assertThatColumnarFilterEvaluationIsSupported(reference);
+        verifyFilter(inputPages, reference);
+
+        Expression notReference = createNotExpression(reference);
+        assertThatColumnarFilterEvaluationIsSupported(notReference);
+        verifyFilter(inputPages, notReference);
     }
 
     @ParameterizedTest
@@ -688,7 +706,8 @@ public class TestColumnarFilters
                     createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
                     createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
                     createArraysBlock(positionsCount, nullsProvider),
-                    createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded)));
+                    createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createBooleansBlock(positionsCount, nullsProvider, dictionaryEncoded)));
             rowCount += positionsCount;
         }
         return builder.build();
@@ -727,6 +746,26 @@ public class TestColumnarFilters
             }
         }
         return new IntArrayBlock(positionsCount, validity, values);
+    }
+
+    private static Block createBooleansBlock(int positionsCount, NullsProvider nullsProvider, boolean dictionaryEncoded)
+    {
+        if (dictionaryEncoded) {
+            boolean containsNulls = nullsProvider != NullsProvider.NO_NULLS && nullsProvider != NullsProvider.NO_NULLS_WITH_MAY_HAVE_NULL;
+            int dictionarySize = 2 + (containsNulls ? 1 : 0);
+            Optional<long[]> dictionaryValidity = getDictionaryValidity(nullsProvider, dictionarySize);
+            Block dictionary = new BitArrayBlock(dictionarySize, dictionaryValidity, new long[] {1});
+            return createDictionaryBlock(positionsCount, nullsProvider, dictionary);
+        }
+
+        Optional<long[]> validity = nullsProvider.getValidityWords(positionsCount);
+        long[] values = new long[wordsForBits(positionsCount)];
+        for (int position = 0; position < positionsCount; position++) {
+            if ((validity.isEmpty() || isSet(validity.orElseThrow(), 0, position)) && RANDOM.nextBoolean()) {
+                set(values, 0, position);
+            }
+        }
+        return new BitArrayBlock(positionsCount, validity, values);
     }
 
     private static Block createDoublesBlock(int positionsCount, NullsProvider nullsProvider, boolean dictionaryEncoded)
