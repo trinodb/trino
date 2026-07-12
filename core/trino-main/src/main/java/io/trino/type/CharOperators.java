@@ -80,7 +80,7 @@ public final class CharOperators
     public static long castToBigint(@SqlType("char(x)") Slice slice)
     {
         try {
-            return Long.parseLong(slice.toStringUtf8().trim());
+            return NumberParser.parseLong(slice, 0, slice.length());
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
@@ -94,7 +94,7 @@ public final class CharOperators
     public static long castToInteger(@SqlType("char(x)") Slice slice)
     {
         try {
-            return Integer.parseInt(slice.toStringUtf8().trim());
+            return toIntExact(NumberParser.parseLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
@@ -108,7 +108,7 @@ public final class CharOperators
     public static long castToSmallint(@SqlType("char(x)") Slice slice)
     {
         try {
-            return Short.parseShort(slice.toStringUtf8().trim());
+            return toShortExact(NumberParser.parseLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
@@ -122,7 +122,7 @@ public final class CharOperators
     public static long castToTinyint(@SqlType("char(x)") Slice slice)
     {
         try {
-            return Byte.parseByte(slice.toStringUtf8().trim());
+            return toByteExact(NumberParser.parseLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
@@ -155,5 +155,21 @@ public final class CharOperators
     public static Slice castToBinary(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
         return padSpaces(slice, toIntExact(x));
+    }
+
+    private static long toShortExact(long value)
+    {
+        if (value != (short) value) {
+            throw new ArithmeticException("short overflow");
+        }
+        return value;
+    }
+
+    private static long toByteExact(long value)
+    {
+        if (value != (byte) value) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return value;
     }
 }
