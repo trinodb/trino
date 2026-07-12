@@ -140,6 +140,9 @@ public class BenchmarkLineFormats
     private List<Type> narrowTypes;
     private LineDeserializer narrowDeserializer;
 
+    // escaping enabled, over values that do not actually contain an escape, which is the common case
+    private LineDeserializer escapedDeserializer;
+
     @Setup
     public void setup()
             throws IOException
@@ -212,6 +215,36 @@ public class BenchmarkLineFormats
             wideBuilder.append('\n');
         }
         wideData = wideBuilder.toString().getBytes(StandardCharsets.UTF_8);
+
+        TextEncodingOptions escapedOptions = TextEncodingOptions.builder()
+                .escapeByte((byte) '\\')
+                .build();
+        escapedDeserializer = new SimpleDeserializer(columns, escapedOptions, columnCount);
+    }
+
+    /**
+     * Reads a table with escaping enabled. The values contain no escapes, which is the common case.
+     */
+    @Benchmark
+    public List<Page> deserializeSimpleEscaped()
+            throws IOException
+    {
+        TextLineReader reader = TextLineReader.createUncompressedReader(new ByteArrayInputStream(data), BUFFER_SIZE);
+        LineBuffer lineBuffer = new LineBuffer(1024, MAX_LINE_LENGTH);
+        PageBuilder pageBuilder = new PageBuilder(types);
+
+        List<Page> pages = new ArrayList<>();
+        while (reader.readLine(lineBuffer)) {
+            escapedDeserializer.deserialize(lineBuffer, pageBuilder);
+            if (pageBuilder.isFull()) {
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        }
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
+        return pages;
     }
 
     /**
