@@ -166,6 +166,34 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testColumnarArrayProjections()
+    {
+        ArrayType arrayType = new ArrayType(BIGINT);
+        ArrayType nestedArrayType = new ArrayType(arrayType);
+
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("reverse", fromTypes(arrayType)), new Reference(arrayType, "array")),
+                new Symbol(arrayType, "array"));
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("trim_array", fromTypes(arrayType, BIGINT)), new Reference(arrayType, "array"), new Constant(BIGINT, 1L)),
+                new Symbol(arrayType, "array"));
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("slice", fromTypes(arrayType, BIGINT, BIGINT)), new Reference(arrayType, "array"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)),
+                new Symbol(arrayType, "array"));
+        assertColumnarProjection(
+                call(FUNCTION_RESOLUTION.resolveFunction("flatten", fromTypes(nestedArrayType)), new Reference(nestedArrayType, "array")),
+                new Symbol(nestedArrayType, "array"));
+    }
+
+    private static void assertColumnarProjection(Expression expression, Symbol input)
+    {
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(expression, ImmutableMap.of(input, 0), Optional.empty())
+                .get();
+        assertThat(projection).isInstanceOf(ColumnarScalarFunctionPageProjection.class);
+    }
+
+    @Test
     public void testFailureDoesNotCorruptFutureResults()
     {
         PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();

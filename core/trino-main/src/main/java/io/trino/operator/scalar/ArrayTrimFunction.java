@@ -13,7 +13,9 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.operator.scalar.ArrayBlockProjection.Region;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.ColumnarScalarImplementation;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -21,6 +23,7 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
+import static io.trino.operator.scalar.ArrayBlockProjection.project;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
@@ -30,6 +33,20 @@ import static java.lang.Math.toIntExact;
 public final class ArrayTrimFunction
 {
     private ArrayTrimFunction() {}
+
+    @ColumnarScalarImplementation
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block trimColumnar(
+            @SqlType("array(E)") Block arrayColumn,
+            @SqlType(StandardTypes.BIGINT) Block sizeColumn)
+    {
+        return project(arrayColumn, sizeColumn, null, (arrayLength, size, _) -> {
+            checkCondition(size >= 0, INVALID_FUNCTION_ARGUMENT, "size must not be negative: %s", size);
+            checkCondition(size <= arrayLength, INVALID_FUNCTION_ARGUMENT, "size must not exceed array cardinality %s: %s", arrayLength, size);
+            return new Region(0, toIntExact(arrayLength - size));
+        });
+    }
 
     @TypeParameter("E")
     @SqlType("array(E)")

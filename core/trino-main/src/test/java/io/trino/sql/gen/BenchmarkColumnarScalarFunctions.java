@@ -31,6 +31,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -77,7 +78,7 @@ public class BenchmarkColumnarScalarFunctions
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    @Param({"map_keys", "map_values", "map_entries", "flatten"})
+    @Param({"map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice"})
     public String function;
 
     @Param({"flat", "dictionary", "rle"})
@@ -93,12 +94,27 @@ public class BenchmarkColumnarScalarFunctions
     {
         Type inputType;
         Expression expression;
-        if (function.equals("flatten")) {
+        if (ImmutableList.of("flatten", "reverse", "trim_array", "slice").contains(function)) {
             ArrayType innerArrayType = new ArrayType(VARCHAR);
             inputType = new ArrayType(innerArrayType);
-            expression = call(
-                    FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
-                    new Reference(inputType, "input"));
+            if (function.equals("trim_array")) {
+                expression = call(
+                        FUNCTIONS.resolveFunction(function, fromTypes(inputType, BIGINT)),
+                        new Reference(inputType, "input"),
+                        new Constant(BIGINT, 2L));
+            }
+            else if (function.equals("slice")) {
+                expression = call(
+                        FUNCTIONS.resolveFunction(function, fromTypes(inputType, BIGINT, BIGINT)),
+                        new Reference(inputType, "input"),
+                        new Constant(BIGINT, 2L),
+                        new Constant(BIGINT, 4L));
+            }
+            else {
+                expression = call(
+                        FUNCTIONS.resolveFunction(function, fromTypes(inputType)),
+                        new Reference(inputType, "input"));
+            }
             inputPage = new Page(encode(createNestedArrayBlock((ArrayType) inputType), encoding));
         }
         else {
@@ -193,7 +209,7 @@ public class BenchmarkColumnarScalarFunctions
     @Test
     public void testBenchmark()
     {
-        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten")) {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "rle")) {
                 this.function = function;
                 this.encoding = encoding;
