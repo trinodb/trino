@@ -47,6 +47,9 @@ import java.util.function.Predicate;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.NumberParser.NOT_SHORT_DECIMAL;
+import static io.trino.plugin.base.util.NumberParser.longPowerOfTen;
+import static io.trino.plugin.base.util.NumberParser.parseShortDecimal;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -611,10 +614,22 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long varcharToShortDecimal(Slice value, long precision, long scale, long tenToScale)
     {
+        int intScale = DecimalConversions.intScale(scale);
+
+        long unscaled = parseShortDecimal(value, 0, value.length(), intScale);
+        if (unscaled != NOT_SHORT_DECIMAL) {
+            // a short decimal has a precision of at most 18, so the bound always fits in a long
+            long bound = longPowerOfTen((int) precision);
+            if (unscaled <= -bound || unscaled >= bound) {
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value too large.", value.toStringUtf8(), precision, scale));
+            }
+            return unscaled;
+        }
+
         BigDecimal result;
         String stringValue = value.toString(UTF_8);
         try {
-            result = new BigDecimal(stringValue).setScale(DecimalConversions.intScale(scale), HALF_UP);
+            result = new BigDecimal(stringValue).setScale(intScale, HALF_UP);
         }
         catch (NumberFormatException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
