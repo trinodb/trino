@@ -698,27 +698,30 @@ class PathEvaluationVisitor
 
     private static TypedValue getDatetime(TypedValue typedValue)
     {
-        String value = ((Slice) typedValue.getObjectValue()).toStringUtf8();
+        Slice slice = (Slice) typedValue.getObjectValue();
 
         // The standard datetime shapes are unambiguously distinguishable by their separators:
         // a TIMESTAMP value has a space between date and time, a TIME value has at least one
         // colon, and a DATE value has neither. Dispatch on shape so each input passes through
-        // the matching parser exactly once.
-        if (value.indexOf(' ') >= 0) {
+        // the matching parser exactly once. Only the timestamp and time parsers need the value as a
+        // String, so a date never decodes one.
+        if (slice.indexOfByte(' ') >= 0) {
+            String value = slice.toStringUtf8();
             int precision = extractTimestampPrecision(value);
             if (timestampHasTimeZone(value)) {
                 return TypedValue.fromValueAsObject(createTimestampWithTimeZoneType(precision), parseTimestampWithTimeZone(precision, value));
             }
             return TypedValue.fromValueAsObject(createTimestampType(precision), parseTimestamp(precision, value));
         }
-        if (value.indexOf(':') >= 0) {
+        if (slice.indexOfByte(':') >= 0) {
+            String value = slice.toStringUtf8();
             int precision = extractTimePrecision(value);
             if (timeHasTimeZone(value)) {
                 return TypedValue.fromValueAsObject(createTimeWithTimeZoneType(precision), parseTimeWithTimeZone(precision, value));
             }
             return new TypedValue(createTimeType(precision), parseTime(value));
         }
-        return new TypedValue(DATE, (long) parseDate(value));
+        return new TypedValue(DATE, parseDate(slice));
     }
 
     @Override
