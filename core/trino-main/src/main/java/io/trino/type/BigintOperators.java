@@ -27,7 +27,8 @@ import io.trino.spi.type.TrinoNumber;
 
 import java.math.BigDecimal;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.NumberFormatter.decimalLength;
+import static io.trino.plugin.base.util.NumberFormatter.formatLong;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -218,11 +219,9 @@ public final class BigintOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.BIGINT) long value)
     {
-        // todo optimize me
-        String stringValue = String.valueOf(value);
-        // String is all-ASCII, so String.length() here returns actual code points count
-        if (stringValue.length() <= x) {
-            return utf8Slice(stringValue);
+        // the rendering is all ASCII, so its length in bytes is also its length in code points
+        if (decimalLength(value) <= x) {
+            return formatLong(value);
         }
 
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
