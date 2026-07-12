@@ -18,8 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.project.InputChannels;
+import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -28,12 +31,15 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.gen.columnar.PageFilterEvaluator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
@@ -88,6 +94,9 @@ public class BenchmarkColumnarScalarFunctions
 
     @Param({"flat", "dictionary", "rle"})
     public String encoding;
+
+    @Param({"all", "sparse"})
+    public String selection;
 
     private Page inputPage;
     private Type outputType;
@@ -158,8 +167,13 @@ public class BenchmarkColumnarScalarFunctions
         outputType = expression.type();
         PageProjection columnar = compiler.compileProjection(expression, layout, Optional.empty(), true).get();
         PageProjection row = compiler.compileProjection(expression, layout, Optional.empty(), false).get();
-        columnarProcessor = new PageProcessor(Optional.empty(), Optional.empty(), ImmutableList.of(columnar), OptionalInt.of(POSITION_COUNT));
-        rowProcessor = new PageProcessor(Optional.empty(), Optional.empty(), ImmutableList.of(row), OptionalInt.of(POSITION_COUNT));
+        Optional<FilterEvaluator> filter = switch (selection) {
+            case "all" -> Optional.empty();
+            case "sparse" -> Optional.of(new PageFilterEvaluator(new SparsePageFilter(POSITION_COUNT)));
+            default -> throw new IllegalArgumentException("Unknown selection: " + selection);
+        };
+        columnarProcessor = new PageProcessor(filter, Optional.empty(), ImmutableList.of(columnar), OptionalInt.of(POSITION_COUNT));
+        rowProcessor = new PageProcessor(filter, Optional.empty(), ImmutableList.of(row), OptionalInt.of(POSITION_COUNT));
     }
 
     @Benchmark
@@ -236,6 +250,39 @@ public class BenchmarkColumnarScalarFunctions
         return builder.build();
     }
 
+    private static final class SparsePageFilter
+            implements PageFilter
+    {
+        private final SelectedPositions selectedPositions;
+
+        private SparsePageFilter(int positionCount)
+        {
+            int[] positions = new int[positionCount / 8];
+            for (int index = 0; index < positions.length; index++) {
+                positions[index] = index * 8;
+            }
+            selectedPositions = SelectedPositions.positionsList(positions, 0, positions.length);
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
+        }
+
+        @Override
+        public InputChannels getInputChannels()
+        {
+            return new InputChannels();
+        }
+
+        @Override
+        public SelectedPositions filter(ConnectorSession session, SourcePage page)
+        {
+            return selectedPositions;
+        }
+    }
+
     private static Block encode(Block block, String encoding)
     {
         return switch (encoding) {
@@ -257,14 +304,17 @@ public class BenchmarkColumnarScalarFunctions
     {
         for (String function : ImmutableList.of("map_keys", "map_values", "map_entries", "flatten", "reverse", "trim_array", "slice", "array_first", "array_last", "element_at", "row_field", "row_constructor")) {
             for (String encoding : ImmutableList.of("flat", "dictionary", "rle")) {
-                this.function = function;
-                this.encoding = encoding;
-                setup();
-                Page columnarResult = process(columnarProcessor).getFirst().orElseThrow();
-                Page rowResult = process(rowProcessor).getFirst().orElseThrow();
-                assertBlockEquals(outputType, columnarResult.getBlock(0), rowResult.getBlock(0));
-                columnar(new Blackhole("Today's password is swordfish. I understand instantiating Blackholes directly is dangerous."));
-                rowOriented(new Blackhole("Today's password is swordfish. I understand instantiating Blackholes directly is dangerous."));
+                for (String selection : ImmutableList.of("all", "sparse")) {
+                    this.function = function;
+                    this.encoding = encoding;
+                    this.selection = selection;
+                    setup();
+                    Page columnarResult = process(columnarProcessor).getFirst().orElseThrow();
+                    Page rowResult = process(rowProcessor).getFirst().orElseThrow();
+                    assertBlockEquals(outputType, columnarResult.getBlock(0), rowResult.getBlock(0));
+                    columnar(new Blackhole("Today's password is swordfish. I understand instantiating Blackholes directly is dangerous."));
+                    rowOriented(new Blackhole("Today's password is swordfish. I understand instantiating Blackholes directly is dangerous."));
+                }
             }
         }
     }
