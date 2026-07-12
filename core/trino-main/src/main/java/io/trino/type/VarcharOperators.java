@@ -112,7 +112,7 @@ public final class VarcharOperators
     public static long castToBigint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return NumberParser.parseLong(slice, 0, slice.length());
+            return NumberParser.parseTrimmedLong(slice, 0, slice.length());
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
@@ -126,7 +126,7 @@ public final class VarcharOperators
     public static long castToInteger(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return toIntExact(NumberParser.parseLong(slice, 0, slice.length()));
+            return toIntExact(NumberParser.parseTrimmedLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
@@ -140,7 +140,7 @@ public final class VarcharOperators
     public static long castToSmallint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return toShortExact(NumberParser.parseLong(slice, 0, slice.length()));
+            return toShortExact(NumberParser.parseTrimmedLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
@@ -154,7 +154,7 @@ public final class VarcharOperators
     public static long castToTinyint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return toByteExact(NumberParser.parseLong(slice, 0, slice.length()));
+            return toByteExact(NumberParser.parseTrimmedLong(slice, 0, slice.length()));
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));

@@ -54,6 +54,9 @@ public class TestVarcharToIntegralNumericCoercer
         assertVarcharToIntegralCoercion("String", TINYINT, null);
         assertVarcharToIntegralCoercion("1s", TINYINT, null);
         assertVarcharToIntegralCoercion("1e+0", TINYINT, null);
+        // Hive does not trim, so surrounding whitespace is not a number
+        assertVarcharToIntegralCoercion(" 1", TINYINT, null);
+        assertVarcharToIntegralCoercion("1 ", TINYINT, null);
     }
 
     @Test

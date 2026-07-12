@@ -25,6 +25,7 @@ import java.util.Set;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.NumberParser.parseLong;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
@@ -109,7 +110,8 @@ public final class BooleanCoercer
             try {
                 // Apache Hive reads 0 as false, numeric string as true and non-numeric string as null for ORC file format
                 // https://github.com/apache/orc/blob/fb1c4cb9461d207db652fc253396e57640ed805b/java/core/src/java/org/apache/orc/impl/ConvertTreeReaderFactory.java#L567
-                toType.writeBoolean(blockBuilder, !(Long.parseLong(fromType.getSlice(block, position).toStringUtf8()) == 0));
+                Slice value = fromType.getSlice(block, position);
+                toType.writeBoolean(blockBuilder, parseLong(value, 0, value.length()) != 0);
             }
             catch (NumberFormatException e) {
                 blockBuilder.appendNull();
