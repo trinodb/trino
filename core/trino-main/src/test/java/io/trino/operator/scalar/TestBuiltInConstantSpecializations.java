@@ -71,4 +71,86 @@ public class TestBuiltInConstantSpecializations
                 """))
                 .matches("VALUES VARCHAR 'X#', VARCHAR 'X$'");
     }
+
+    @Test
+    public void testDynamicFormatArguments()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT format_datetime(value, format)
+                FROM (VALUES
+                    (TIMESTAMP '2020-05-10 12:34:56', 'yyyy-MM-dd'),
+                    (TIMESTAMP '2020-05-10 12:34:56', 'HH:mm:ss')) t(value, format)
+                """))
+                .matches("VALUES VARCHAR '2020-05-10', VARCHAR '12:34:56'");
+
+        assertThat(assertions.query(
+                """
+                SELECT date_format(value, format)
+                FROM (VALUES
+                    (TIMESTAMP '2020-05-10 12:34:56', '%Y-%m-%d'),
+                    (TIMESTAMP '2020-05-10 12:34:56', '%H:%i:%s')) t(value, format)
+                """))
+                .matches("VALUES VARCHAR '2020-05-10', VARCHAR '12:34:56'");
+
+        assertThat(assertions.query(
+                """
+                SELECT date_parse(value, format)
+                FROM (VALUES ('2020-05-10', '%Y-%m-%d'), ('12:34:56', '%H:%i:%s')) t(value, format)
+                """))
+                .matches("VALUES TIMESTAMP '2020-05-10 00:00:00.000', TIMESTAMP '1970-01-01 12:34:56.000'");
+
+        assertThat(assertions.query(
+                """
+                SELECT parse_datetime(value, format)
+                FROM (VALUES ('2020-05-10 12:34 +0000', 'yyyy-MM-dd HH:mm Z')) t(value, format)
+                """))
+                .matches("VALUES TIMESTAMP '2020-05-10 12:34:00.000 +00:00'");
+    }
+
+    @Test
+    public void testDynamicDateUnits()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT date_trunc(unit, value), date_add(unit, 2, value), date_diff(unit, value, DATE '2022-05-17')
+                FROM (VALUES
+                    ('day', DATE '2022-05-10'),
+                    ('month', DATE '2022-03-10')) t(unit, value)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (DATE '2022-05-10', DATE '2022-05-12', BIGINT '7'),
+                            (DATE '2022-03-01', DATE '2022-05-10', BIGINT '2')
+                        """);
+
+        assertThat(assertions.query(
+                """
+                SELECT date_trunc(unit, value), date_add(unit, 2, value), date_diff(unit, value, TIMESTAMP '2022-05-17 12:00:00')
+                FROM (VALUES
+                    ('day', TIMESTAMP '2022-05-10 12:34:56'),
+                    ('month', TIMESTAMP '2022-03-10 12:34:56')) t(unit, value)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (TIMESTAMP '2022-05-10 00:00:00', TIMESTAMP '2022-05-12 12:34:56', BIGINT '6'),
+                            (TIMESTAMP '2022-03-01 00:00:00', TIMESTAMP '2022-05-10 12:34:56', BIGINT '2')
+                        """);
+
+        assertThat(assertions.query(
+                """
+                SELECT date_trunc(unit, value), date_add(unit, 2, value), date_diff(unit, value, TIMESTAMP '2022-05-17 12:00:00 UTC')
+                FROM (VALUES
+                    ('day', TIMESTAMP '2022-05-10 12:34:56 UTC'),
+                    ('month', TIMESTAMP '2022-03-10 12:34:56 UTC')) t(unit, value)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (TIMESTAMP '2022-05-10 00:00:00 UTC', TIMESTAMP '2022-05-12 12:34:56 UTC', BIGINT '6'),
+                            (TIMESTAMP '2022-03-01 00:00:00 UTC', TIMESTAMP '2022-05-10 12:34:56 UTC', BIGINT '2')
+                        """);
+    }
 }
