@@ -27,6 +27,7 @@ import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -118,7 +119,70 @@ public class TestSimpleFormat
     private static final VarcharType VARCHAR_3 = createVarcharType(3);
     private static final CharType CHAR_200 = createCharType(200);
     private static final CharType CHAR_3 = createCharType(3);
+    // the default LazySimpleSerDe field separator
+    private static final String FIELD_SEPARATOR = "\u0001";
     private static final TextEncodingOptions NOPE_NULL_OPTION = TextEncodingOptions.builder().nullSequence(utf8Slice("NOPE")).build();
+
+    @Test
+    public void testReadsSubsetOfColumns()
+            throws IOException
+    {
+        // A line is only split as far as the last column that is read, so cover projections that
+        // stop before the end of the table, that skip columns, and that read only a trailing column.
+        int tableColumnCount = 8;
+        String line = IntStream.range(0, tableColumnCount)
+                .mapToObj(ordinal -> "value" + ordinal)
+                .collect(joining(FIELD_SEPARATOR));
+
+        assertSubsetOfColumns(tableColumnCount, line, ImmutableList.of(0));
+        assertSubsetOfColumns(tableColumnCount, line, ImmutableList.of(0, 1, 2));
+        assertSubsetOfColumns(tableColumnCount, line, ImmutableList.of(0, 3));
+        assertSubsetOfColumns(tableColumnCount, line, ImmutableList.of(2, 5));
+        assertSubsetOfColumns(tableColumnCount, line, ImmutableList.of(5));
+        assertSubsetOfColumns(tableColumnCount, line, ImmutableList.of(7));
+        assertSubsetOfColumns(tableColumnCount, line, ImmutableList.of(0, 7));
+
+        // a column beyond the end of the line is null, even when the scan stops early
+        String shortLine = "value0" + FIELD_SEPARATOR + "value1";
+        assertThat(readColumns(tableColumnCount, shortLine, ImmutableList.of(0, 1)))
+                .containsExactly("value0", "value1");
+        assertThat(readColumns(tableColumnCount, shortLine, ImmutableList.of(1, 5)))
+                .containsExactly("value1", null);
+        assertThat(readColumns(tableColumnCount, shortLine, ImmutableList.of(5)))
+                .containsExactly((String) null);
+    }
+
+    private static void assertSubsetOfColumns(int tableColumnCount, String line, List<Integer> ordinals)
+            throws IOException
+    {
+        assertThat(readColumns(tableColumnCount, line, ordinals))
+                .isEqualTo(ordinals.stream()
+                        .map(ordinal -> "value" + ordinal)
+                        .collect(toImmutableList()));
+    }
+
+    private static List<String> readColumns(int tableColumnCount, String line, List<Integer> ordinals)
+            throws IOException
+    {
+        List<Column> columns = ordinals.stream()
+                .map(ordinal -> new Column("value" + ordinal, VARCHAR, ordinal))
+                .collect(toImmutableList());
+
+        LineDeserializer deserializer = new SimpleDeserializer(columns, TextEncodingOptions.DEFAULT_SIMPLE_OPTIONS, tableColumnCount);
+        PageBuilder pageBuilder = new PageBuilder(1, columns.stream()
+                .map(Column::type)
+                .collect(toImmutableList()));
+        deserializer.deserialize(createLineBuffer(utf8Slice(line)), pageBuilder);
+        Page page = pageBuilder.build();
+
+        assertThat(page.getPositionCount()).isEqualTo(1);
+        List<String> values = new ArrayList<>();
+        for (int channel = 0; channel < columns.size(); channel++) {
+            Block block = page.getBlock(channel);
+            values.add(block.isNull(0) ? null : VARCHAR.getSlice(block, 0).toStringUtf8());
+        }
+        return values;
+    }
 
     @Test
     public void testTable()
