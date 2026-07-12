@@ -35,7 +35,7 @@ import trinoLogo from './assets/trino.svg'
 import { QueryDetails } from './components/QueryDetails'
 import { WorkerStatus } from './components/WorkerStatus'
 import { loader } from '@monaco-editor/react'
-import * as monaco from 'monaco-editor'
+import * as monaco from './monaco'
 
 const App = () => {
     const config = useConfigStore()
