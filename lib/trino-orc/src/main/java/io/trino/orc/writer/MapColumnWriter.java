@@ -113,18 +113,16 @@ public class MapColumnWriter
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
+        nonNullValueCount += presentStream.writeBlock(block);
         ColumnarMap columnarMap = toColumnarMap(block);
         writeColumnarMap(columnarMap);
     }
 
     private void writeColumnarMap(ColumnarMap columnarMap)
     {
-        // write nulls and lengths
+        // write lengths
         for (int position = 0; position < columnarMap.getPositionCount(); position++) {
-            boolean present = !columnarMap.isNull(position);
-            presentStream.writeBoolean(present);
-            if (present) {
-                nonNullValueCount++;
+            if (!columnarMap.isNull(position)) {
                 lengthStream.writeLong(columnarMap.getEntryCount(position));
             }
         }

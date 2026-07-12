@@ -110,14 +110,7 @@ public class VariantColumnWriter
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
-        // record nulls
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            boolean present = !block.isNull(position);
-            presentStream.writeBoolean(present);
-            if (present) {
-                nonNullValueCount++;
-            }
-        }
+        nonNullValueCount += presentStream.writeBlock(block);
 
         // write null-suppressed field values
         VariantNestedBlocks nested = VariantBlock.getNullSuppressedNestedFields(block);
