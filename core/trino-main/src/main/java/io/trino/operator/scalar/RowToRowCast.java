@@ -68,7 +68,7 @@ import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.collectArguments;
@@ -163,7 +163,7 @@ public class RowToRowCast
         List<Type> toTypes = toType.getFieldTypes();
         List<Type> fromTypes = fromType.getFieldTypes();
 
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
 
         // Embed the hash code of input and output types into the generated class name instead of the raw type names,
         // which ensures the class name does not hit the length limitation or invalid characters.
@@ -223,7 +223,7 @@ public class RowToRowCast
         }
 
         body.append(newInstance(SqlRow.class, constantInt(0), fieldBlocks).ret());
-        return defineClass(definition, Object.class, binder.getBindings(), RowToRowCast.class.getClassLoader());
+        return defineHiddenClass(definition, Object.class, binder.getClassData());
     }
 
     private static MethodHandle getNullSafeWrite(Type type)

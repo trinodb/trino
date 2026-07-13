@@ -21,11 +21,13 @@ public final class Binding
 {
     private final long bindingId;
     private final MethodType type;
+    private final boolean classDataConstant;
 
-    public Binding(long bindingId, MethodType type)
+    public Binding(long bindingId, MethodType type, boolean classDataConstant)
     {
         this.bindingId = bindingId;
         this.type = type;
+        this.classDataConstant = classDataConstant;
     }
 
     public long getBindingId()
@@ -38,12 +40,22 @@ public final class Binding
         return type;
     }
 
+    /**
+     * True when the binding is a constant value stored in the class data of a hidden class,
+     * loadable directly as a dynamic constant.
+     */
+    public boolean isClassDataConstant()
+    {
+        return classDataConstant;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("bindingId", bindingId)
                 .add("type", type)
+                .add("classDataConstant", classDataConstant)
                 .toString();
     }
 }

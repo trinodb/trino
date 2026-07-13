@@ -21,8 +21,13 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
+import static java.lang.constant.ConstantDescs.DEFAULT_NAME;
+import static java.lang.invoke.MethodHandles.constant;
+import static java.util.Objects.requireNonNull;
 
 public final class Bootstrap
 {
@@ -41,6 +46,24 @@ public final class Bootstrap
 
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
+        if (callerLookup.lookupClass().isHidden()) {
+            // hidden class defined with the call site bindings attached as class data
+            List<?> bindings;
+            try {
+                bindings = MethodHandles.classData(callerLookup, DEFAULT_NAME, List.class);
+            }
+            catch (IllegalAccessException e) {
+                throw new IllegalArgumentException("Failed to read class data of " + callerLookup.lookupClass().getName(), e);
+            }
+            checkArgument(bindings != null, "Expected %s to have call site bindings as class data", callerLookup.lookupClass().getName());
+
+            Object binding = requireNonNull(bindings.get(toIntExact(bindingId)), "binding is null");
+            if (binding instanceof MethodHandle handle) {
+                return new ConstantCallSite(handle);
+            }
+            return new ConstantCallSite(constant(type.returnType(), binding));
+        }
+
         ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
         checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
 

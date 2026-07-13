@@ -116,7 +116,7 @@ public class CallColumnarFilterGenerator
                 type(Object.class),
                 type(ColumnarFilter.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition inputChannelsField = generateGetInputChannels(classDefinition);
