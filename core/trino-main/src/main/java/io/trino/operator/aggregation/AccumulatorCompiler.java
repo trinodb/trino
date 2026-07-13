@@ -728,23 +728,28 @@ public final class AccumulatorCompiler
         BytecodeBlock loopBody = new BytecodeBlock();
 
         loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
-        for (FieldDefinition stateField : stateFields) {
-            if (grouped) {
-                Variable groupIds = scope.getVariable("groupIds");
+        if (grouped) {
+            Variable groupIds = scope.getVariable("groupIds");
+            for (FieldDefinition stateField : stateFields) {
                 loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIds.getElement(position)));
             }
-            loopBody.append(thisVariable.getField(stateField));
         }
         for (int i = 0; i < stateCount; i++) {
             FieldDefinition stateSerializerField = stateFieldAndDescriptors.get(i).getStateSerializerField();
             loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i), position, scratchStates.get(i).cast(AccumulatorState.class)));
-            loopBody.append(scratchStates.get(i));
+        }
+        List<BytecodeExpression> combineArguments = new ArrayList<>();
+        for (FieldDefinition stateField : stateFields) {
+            combineArguments.add(thisVariable.getField(stateField));
+        }
+        for (int i = 0; i < stateCount; i++) {
+            combineArguments.add(scratchStates.get(i));
         }
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
-            loopBody.append(scope.getThis().getField(lambdaProviderField)
+            combineArguments.add(scope.getThis().getField(lambdaProviderField)
                     .invoke("get", Object.class));
         }
-        loopBody.append(invoke(callSiteBinder.bind(combineFunction.get()), "combine"));
+        loopBody.append(invoke(callSiteBinder.bind(combineFunction.get()), "combine", combineArguments));
 
         body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
                 .ret();
@@ -922,9 +927,9 @@ public final class AccumulatorCompiler
         }
 
         body.comment("output(state_0, state_1, ..., out)");
-        states.forEach(body::append);
-        body.append(out);
-        body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+        List<BytecodeExpression> outputArguments = new ArrayList<>(states);
+        outputArguments.add(out);
+        body.append(invoke(callSiteBinder.bind(outputFunction), "output", outputArguments));
 
         body.ret();
     }
@@ -954,9 +959,9 @@ public final class AccumulatorCompiler
         }
 
         body.comment("output(state_0, state_1, ..., out)");
-        states.forEach(body::append);
-        body.append(out);
-        body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+        List<BytecodeExpression> outputArguments = new ArrayList<>(states);
+        outputArguments.add(out);
+        body.append(invoke(callSiteBinder.bind(outputFunction), "output", outputArguments));
 
         body.ret();
     }
