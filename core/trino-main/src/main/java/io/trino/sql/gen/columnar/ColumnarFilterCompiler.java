@@ -35,6 +35,7 @@ import io.trino.operator.project.InputChannels;
 import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.ir.Call;
@@ -44,6 +45,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
@@ -90,6 +92,8 @@ public class ColumnarFilterCompiler
     // Optional is used to cache failure to generate filter for unsupported cases
     private final NonEvictableCache<Expression, Optional<Class<? extends ColumnarFilter>>> filterCache;
     private final CacheStatsMBean filterCacheStats;
+    // One generated IN class per (value type, set class), shared across dynamic filters.
+    private final NonEvictableCache<InSetDynamicFilterKey, Class<? extends ColumnarFilter>> inSetDynamicFilterCache;
 
     @Inject
     public ColumnarFilterCompiler(PlannerContext plannerContext, CompilerConfig config)
@@ -113,6 +117,7 @@ public class ColumnarFilterCompiler
             filterCache = null;
             filterCacheStats = null;
         }
+        inSetDynamicFilterCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(64));
     }
 
     @Nullable
@@ -135,6 +140,13 @@ public class ColumnarFilterCompiler
 
     public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout)
     {
+        return generateFilter(filter, layout, false);
+    }
+
+    // dynamicFilter=true routes IN predicates to a separate per-type class, bypassing filterCache so
+    // their large value lists are not retained in the cache.
+    public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
+    {
         // Compact the layout to consecutive indices (0, 1, 2, ...). The compiled filter uses these
         // compact indices to access blocks from the InputChannelsSourcePage, which translates
         // compact index back to the original page channel. This must be done before compilation
@@ -143,6 +155,13 @@ public class ColumnarFilterCompiler
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
         Map<Symbol, Integer> compactLayout = result.compactLayout();
         InputChannels inputChannels = result.inputChannels();
+
+        if (dynamicFilter && filter instanceof In in) {
+            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, functionManager);
+            if (generator.isPresent()) {
+                return Optional.of(compileInSetDynamicFilter(generator.get(), inputChannels));
+            }
+        }
 
         Optional<Class<? extends ColumnarFilter>> filterClass;
         if (filterCache == null) {
@@ -170,6 +189,31 @@ public class ColumnarFilterCompiler
             }
         });
     }
+
+    // Caches the value-independent IN filter class per (value type, set class) and binds the value set
+    // for the current filter. The generator decides eligibility; this only handles reuse and instantiation.
+    private Supplier<ColumnarFilter> compileInSetDynamicFilter(InSetDynamicFilterGenerator generator, InputChannels inputChannels)
+    {
+        Class<? extends LongSet> setClass = generator.setClass();
+        Class<? extends ColumnarFilter> clazz;
+        try {
+            clazz = inSetDynamicFilterCache.get(new InSetDynamicFilterKey(generator.valueType(), setClass), generator::generateColumnarFilter);
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
+        LongSet valueSet = generator.valueSet();
+        return () -> {
+            try {
+                return clazz.getConstructor(InputChannels.class, setClass).newInstance(inputChannels, valueSet);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new TrinoException(COMPILER_ERROR, e);
+            }
+        };
+    }
+
+    private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
 
     private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(Expression filter, Map<Symbol, Integer> layout)
     {
