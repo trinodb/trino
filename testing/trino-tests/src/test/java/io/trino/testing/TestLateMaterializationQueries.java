@@ -52,6 +52,13 @@ final class TestLateMaterializationQueries
     }
 
     @Test
+    void testScanWithoutFilter()
+    {
+        // no filter or projection: a table scan hands masked pages straight to the partial TopN
+        assertDecodeSkipped("SELECT * FROM orders ORDER BY orderkey LIMIT 10");
+    }
+
+    @Test
     void testProjectionWithoutFilter()
     {
         // computed projection without a filter still hands masked pages to the partial TopN

@@ -75,6 +75,23 @@ public class OutputValidatingSourceOperator
     }
 
     @Override
+    public boolean producesMaskedOutput()
+    {
+        return delegate.producesMaskedOutput();
+    }
+
+    @Override
+    public MaskedPage getMaskedOutput()
+    {
+        MaskedPage maskedPage = delegate.getMaskedOutput();
+        if (maskedPage != null) {
+            // masked output validates lazily inside materialize(), so deferred channels stay undecoded
+            maskedPage.setOutputValidator(page -> validateOutputPageTypes(page, outputTypes, debugContextSupplier));
+        }
+        return maskedPage;
+    }
+
+    @Override
     public ListenableFuture<Void> startMemoryRevoke()
     {
         return delegate.startMemoryRevoke();
