@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
@@ -78,6 +79,7 @@ public class DefaultCatalogFactory
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
     private final SecretsResolver secretsResolver;
     private final ConnectorExpressionEvaluator evaluator;
+    private final CacheManagerRegistry cacheManagerRegistry;
 
     @Inject
     public DefaultCatalogFactory(
@@ -95,7 +97,8 @@ public class DefaultCatalogFactory
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
             SecretsResolver secretsResolver,
-            ConnectorExpressionEvaluator evaluator)
+            ConnectorExpressionEvaluator evaluator,
+            CacheManagerRegistry cacheManagerRegistry)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -112,6 +115,7 @@ public class DefaultCatalogFactory
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
     }
 
     @Override
@@ -206,7 +210,8 @@ public class DefaultCatalogFactory
                 pageIndexerFactory,
                 new InternalFunctionBundleFactory(),
                 blocksHashFactory,
-                evaluator);
+                evaluator,
+                cacheManagerRegistry.createConnectorCacheFactory(catalogName));
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName
