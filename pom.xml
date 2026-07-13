@@ -64,6 +64,7 @@
         <module>plugin/trino-base-jdbc</module>
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
+        <module>plugin/trino-blob-cache-alluxio</module>
         <module>plugin/trino-blob-cache-memory</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
@@ -923,6 +924,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-blackhole</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-blob-cache-alluxio</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
