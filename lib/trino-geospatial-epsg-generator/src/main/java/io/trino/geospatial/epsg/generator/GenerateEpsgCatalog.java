@@ -65,6 +65,10 @@ public final class GenerateEpsgCatalog
         }
 
         Path outputDirectory = Path.of(args[0]);
+        // Derby (backing the embedded EPSG dataset) writes derby.log to the JVM working directory
+        // by default, which is the repository root when invoked via exec:java. A stray untracked
+        // file there makes gitflow-incremental-builder consider the root module changed.
+        System.setProperty("derby.stream.error.file", Path.of(System.getProperty("java.io.tmpdir"), "derby.log").toString());
         Path resourceDirectory = outputDirectory.resolve("io/trino/geospatial/epsg");
         Files.createDirectories(resourceDirectory);
         Files.deleteIfExists(resourceDirectory.resolve("epsg-catalog.bin.gz"));
