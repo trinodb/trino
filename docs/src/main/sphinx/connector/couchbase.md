@@ -60,7 +60,7 @@ The following configuration properties are available:
 | Trino Type                                        | Couchbase Type | Comments                                                      |
 |---------------------------------------------------|----------------|---------------------------------------------------------------|
 | DATE                                              | NUMBER         | Stored as number of days since Unix Epoch                     |
-| Integer, Floating point types (except BIGDECIMAL) | NUMBER         | Passed as-is to SDK JSON serializer                           |
+| Integer, Floating point types (except DECIMAL)    | NUMBER         | Passed as-is to SDK JSON serializer                           |
 | DECIMAL                                           | STRING         | Stored as string to avoid precision loss during serialization |
 | String/char types                                 | STRING         | Passed as-is to SDK JSON serializer                           |
 | BOOLEAN                                           | BOOLEAN        | Passed as-is to SDK JSON serializer                           |
