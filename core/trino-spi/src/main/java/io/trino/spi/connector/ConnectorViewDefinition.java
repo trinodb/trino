@@ -26,11 +26,18 @@ import static java.util.stream.Collectors.joining;
 
 public class ConnectorViewDefinition
 {
+    public enum WhenStaleBehavior
+    {
+        FAIL,
+        REFRESH,
+    }
+
     private final String originalSql;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<ViewColumn> columns;
     private final Optional<String> comment;
+    private final Optional<WhenStaleBehavior> whenStaleBehavior;
     private final Optional<String> owner;
     private final boolean runAsInvoker;
     private final List<CatalogSchemaName> path;
@@ -44,13 +51,15 @@ public class ConnectorViewDefinition
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("runAsInvoker") boolean runAsInvoker,
-            @JsonProperty("path") List<CatalogSchemaName> path)
+            @JsonProperty("path") List<CatalogSchemaName> path,
+            @JsonProperty("whenStaleBehavior") Optional<WhenStaleBehavior> whenStaleBehavior)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
+        this.whenStaleBehavior = requireNonNull(whenStaleBehavior, "whenStaleBehavior is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.runAsInvoker = runAsInvoker;
         this.path = path == null ? List.of() : List.copyOf(path);
@@ -96,6 +105,12 @@ public class ConnectorViewDefinition
     }
 
     @JsonProperty
+    public Optional<WhenStaleBehavior> getWhenStaleBehavior()
+    {
+        return whenStaleBehavior;
+    }
+
+    @JsonProperty
     public Optional<String> getOwner()
     {
         return owner;
@@ -123,7 +138,8 @@ public class ConnectorViewDefinition
                 comment,
                 Optional.empty(),
                 runAsInvoker,
-                path);
+                path,
+                whenStaleBehavior);
     }
 
     @Override
@@ -132,6 +148,7 @@ public class ConnectorViewDefinition
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
         owner.ifPresent(value -> joiner.add("owner=" + value));
         comment.ifPresent(value -> joiner.add("comment=" + value));
+        whenStaleBehavior.ifPresent(value -> joiner.add("whenStaleBehavior=" + value));
         joiner.add("runAsInvoker=" + runAsInvoker);
         joiner.add("columns=" + columns);
         catalog.ifPresent(value -> joiner.add("catalog=" + value));

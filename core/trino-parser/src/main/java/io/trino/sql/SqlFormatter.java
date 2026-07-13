@@ -1226,6 +1226,10 @@ public final class SqlFormatter
                     .append(" SECURITY ")
                     .append(security.name()));
 
+            node.getWhenStaleBehavior().ifPresent(whenStale -> builder
+                    .append(" WHEN STALE ")
+                    .append(whenStale.name()));
+
             builder.append(formatPropertiesMultiLine(node.getProperties()));
 
             builder.append(" AS\n");
