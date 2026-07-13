@@ -83,6 +83,11 @@ public @interface TestGroup
     @Tag("smoke")
     @interface Smoke {}
 
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("compatibility")
+    @interface Compatibility {}
+
     // JDBC
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
