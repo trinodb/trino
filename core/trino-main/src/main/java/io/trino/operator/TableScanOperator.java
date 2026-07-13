@@ -21,9 +21,13 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.project.InputPageProjection;
+import io.trino.operator.project.PageProcessorMetrics;
+import io.trino.operator.project.PageProjectionsProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
@@ -40,11 +44,15 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
+import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
+import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
@@ -132,12 +140,20 @@ public class TableScanOperator
     private final Optional<ConnectorTableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
     private final LocalMemoryContext pageSourceMemoryContext;
+    // identity projections expose the source page's channels unchanged for masked output
+    private final ConnectorSession connectorSession;
+    private final PageProjectionsProcessor identityProjectionsProcessor;
+    private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
+    private final LocalMemoryContext maskedOutputMemoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
 
     @Nullable
     private Split split;
     @Nullable
     private ConnectorPageSource source;
+    // a handed-off masked page whose decoded bytes are accounted on the next request
+    @Nullable
+    private SourcePage unaccountedPage;
 
     private boolean finished;
     private boolean released;
@@ -161,6 +177,12 @@ public class TableScanOperator
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.pageSourceMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-ConnectorPageSource");
+        this.connectorSession = operatorContext.getSession().toConnectorSession();
+        this.maskedOutputMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-MaskedOutput");
+        List<InputPageProjection> projections = IntStream.range(0, this.columns.size())
+                .mapToObj(InputPageProjection::new)
+                .collect(toImmutableList());
+        this.identityProjectionsProcessor = new PageProjectionsProcessor(projections, MAX_BATCH_SIZE);
     }
 
     @Override
@@ -223,6 +245,7 @@ public class TableScanOperator
         blocked.set(null);
 
         if (source != null) {
+            accountProcessedBytes();
             try {
                 source.close();
             }
@@ -276,6 +299,7 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
+        accountProcessedBytes();
         SourcePage sourcePage = getNextSourcePage();
         if (source == null) {
             return null;
@@ -292,6 +316,43 @@ public class TableScanOperator
         }
         recordStats(positionCount, sizeInBytes);
         return page;
+    }
+
+    @Override
+    public boolean producesMaskedOutput()
+    {
+        return true;
+    }
+
+    @Override
+    public MaskedPage getMaskedOutput()
+    {
+        // the previous masked page has now been consumed, so account the bytes the consumer decoded from it
+        accountProcessedBytes();
+        SourcePage sourcePage = getNextSourcePage();
+        if (source == null) {
+            return null;
+        }
+        int positionCount = 0;
+        if (sourcePage != null) {
+            positionCount = sourcePage.getPositionCount();
+        }
+        // record positions now; decoded bytes are counted on the next request, once the consumer has read them
+        recordStats(positionCount, 0);
+        if (sourcePage == null || positionCount == 0) {
+            return null;
+        }
+        unaccountedPage = sourcePage;
+        return MaskedPage.applyMask(connectorSession, sourcePage, positionsRange(0, positionCount), identityProjectionsProcessor, maskedOutputMemoryContext, pageProcessorMetrics);
+    }
+
+    private void accountProcessedBytes()
+    {
+        if (unaccountedPage != null) {
+            // columns the consumer never decoded are not loaded, so getSizeInBytes counts only the bytes actually decoded
+            operatorContext.recordProcessedInput(unaccountedPage.getSizeInBytes(), 0);
+            unaccountedPage = null;
+        }
     }
 
     @Nullable
