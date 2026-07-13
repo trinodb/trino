@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +56,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import jakarta.annotation.Nullable;
@@ -65,6 +67,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
@@ -88,6 +91,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.createStatisticsValidationBuilder;
 import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
@@ -101,8 +105,10 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 
 public class ParquetReader
         implements Closeable
@@ -111,6 +117,16 @@ public class ParquetReader
 
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
+    private static final int MAX_FIXED_WIDTH_SELECTED_PERCENTAGE = 5;
+    private static final int MAX_NULLABLE_FIXED_WIDTH_SELECTED_PERCENTAGE = 20;
+    private static final int MAX_DICTIONARY_SELECTED_PERCENTAGE = 10;
+    private static final int MAX_BINARY_SELECTED_PERCENTAGE = 25;
+    private static final long VERY_WIDE_BINARY_BYTES = 1_024;
+    private static final int MAX_VERY_WIDE_BINARY_PROJECTED_COLUMNS = 4;
+    private static final int MIN_SKIPPED_POSITIONS_PER_RUN = 300;
+    private static final long MIN_SKIPPED_PAGE_BYTES = 4 * 1024;
+    private static final int MAX_PAGE_AWARE_SELECTED_PERCENTAGE = 75;
+    private static final int MAX_RETAINED_TO_LOGICAL_SIZE_RATIO = 2;
     public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
     public static final String COLUMN_INDEX_ROWS_FILTERED = "ParquetColumnIndexRowsFiltered";
 
@@ -142,6 +158,7 @@ public class ParquetReader
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
     private final Map<Integer, ColumnReader> columnReaders;
+    private final Map<Integer, SelectedPositionsPushdownCharacteristics> selectedPositionsPushdownCharacteristics = new HashMap<>();
     private final Map<Integer, Double> maxBytesPerCell;
     private double maxCombinedBytesPerRow;
     private final ParquetReaderOptions options;
@@ -157,9 +174,13 @@ public class ParquetReader
     private final Map<String, Metric<?>> codecMetrics;
 
     private int currentPageId;
+    private int completedRowGroupDataPageReadCount;
+    private int selectedPositionsFallbackCount;
+    private int selectedPositionsPushdownCount;
 
     private long columnIndexRowsFiltered = -1;
     private final Optional<FileDecryptionContext> decryptionContext;
+    private final boolean forceSelectedPositionsPushdown;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
@@ -174,6 +195,38 @@ public class ParquetReader
             Optional<TupleDomainParquetPredicate> parquetPredicate,
             Optional<ParquetWriteValidation> writeValidation,
             Optional<FileDecryptionContext> decryptionContext)
+            throws IOException
+    {
+        this(fileCreatedBy,
+                columnFields,
+                appendRowNumberColumn,
+                rowGroups,
+                dataSource,
+                timeZone,
+                memoryContext,
+                options,
+                exceptionTransform,
+                parquetPredicate,
+                writeValidation,
+                decryptionContext,
+                false);
+    }
+
+    @VisibleForTesting
+    public ParquetReader(
+            Optional<String> fileCreatedBy,
+            List<Column> columnFields,
+            boolean appendRowNumberColumn,
+            List<RowGroupInfo> rowGroups,
+            ParquetDataSource dataSource,
+            DateTimeZone timeZone,
+            AggregatedMemoryContext memoryContext,
+            ParquetReaderOptions options,
+            Function<Exception, RuntimeException> exceptionTransform,
+            Optional<TupleDomainParquetPredicate> parquetPredicate,
+            Optional<ParquetWriteValidation> writeValidation,
+            Optional<FileDecryptionContext> decryptionContext,
+            boolean forceSelectedPositionsPushdown)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -192,6 +245,7 @@ public class ParquetReader
         this.columnReaders = new HashMap<>();
         this.maxBytesPerCell = new HashMap<>();
         this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
+        this.forceSelectedPositionsPushdown = forceSelectedPositionsPushdown;
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         validateWrite(
@@ -299,13 +353,17 @@ public class ParquetReader
         private final long batchStartRow = lastBatchStartRow();
         private final long[] batchRowNumbers = currentBatchRowNumbers;
         private SelectedPositions selectedPositions;
+        @Nullable
+        private SelectedPositionsReadMode[] selectedPositionsReadModes;
+        private int unloadedSelectedColumns;
+        private boolean selectedPositionsPushedDown;
 
         private long sizeInBytes;
         private long retainedSizeInBytes;
 
         public ParquetSourcePage(int positionCount)
         {
-            selectedPositions = new SelectedPositions(positionCount, null);
+            selectedPositions = SelectedPositions.allPositions(positionCount);
             retainedSizeInBytes = shallowRetainedSizeInBytes();
         }
 
@@ -332,6 +390,7 @@ public class ParquetReader
             return INSTANCE_SIZE +
                     sizeOf(blocks) +
                     sizeOf(batchRowNumbers) +
+                    sizeOf(selectedPositionsReadModes) +
                     selectedPositions.retainedSizeInBytes();
         }
 
@@ -342,6 +401,9 @@ public class ParquetReader
             consumer.accept(blocks, sizeOf(blocks));
             if (batchRowNumbers != null) {
                 consumer.accept(batchRowNumbers, sizeOf(batchRowNumbers));
+            }
+            if (selectedPositionsReadModes != null) {
+                consumer.accept(selectedPositionsReadModes, sizeOf(selectedPositionsReadModes));
             }
             consumer.accept(selectedPositions, selectedPositions.retainedSizeInBytes());
             for (Block block : blocks) {
@@ -368,13 +430,20 @@ public class ParquetReader
                 }
                 else {
                     try {
-                        // todo use selected positions to improve read performance
-                        block = readBlock(columnFields.get(channel).field());
+                        Field field = columnFields.get(channel).field();
+                        SelectedPositionsReadMode readMode = selectedPositionsReadModes == null
+                                ? getSelectedPositionsReadMode(field, selectedPositions, unloadedSelectedColumns)
+                                : requireNonNull(selectedPositionsReadModes[channel], "selected positions read mode is null");
+                        block = switch (readMode) {
+                            case FULL -> compactIfRetainingExcessData(selectedPositions.apply(readBlock(field)));
+                            case PAGE -> compactIfRetainingExcessData(readPrimitivePageFiltered((PrimitiveField) field, selectedPositions).getBlock());
+                            case ROW -> compactIfRetainingExcessData(readPrimitive((PrimitiveField) field, selectedPositions).getBlock());
+                        };
+                        recordSelectionDecision(readMode);
                     }
                     catch (IOException e) {
                         throw exceptionTransform.apply(e);
                     }
-                    block = selectedPositions.apply(block);
                 }
                 blocks[channel] = block;
                 sizeInBytes += block.getSizeInBytes();
@@ -394,30 +463,214 @@ public class ParquetReader
         }
 
         @Override
+        public boolean trySelectPositions(int[] positions, int offset, int size)
+        {
+            if (!options.isSelectedPositionsPushdownEnabled()) {
+                return false;
+            }
+            SelectedPositions newSelectedPositions = selectedPositions.selectPositionsView(positions, offset, size);
+            SelectedPositionsReadMode[] readModes = new SelectedPositionsReadMode[columnFields.size()];
+            int unloadedColumnCount = countUnloadedColumns();
+            boolean beneficial = false;
+            for (int channel = 0; channel < columnFields.size(); channel++) {
+                if (blocks[channel] == null) {
+                    try {
+                        readModes[channel] = getSelectedPositionsReadMode(columnFields.get(channel).field(), newSelectedPositions, unloadedColumnCount);
+                    }
+                    catch (IOException e) {
+                        throw exceptionTransform.apply(e);
+                    }
+                    beneficial |= readModes[channel] != SelectedPositionsReadMode.FULL;
+                }
+            }
+            if (!beneficial) {
+                selectedPositionsReadModes = null;
+                return false;
+            }
+
+            selectedPositionsReadModes = readModes;
+            SelectedPositions retainedSelectedPositions = selectedPositions.hasPositions()
+                    ? newSelectedPositions
+                    : newSelectedPositions.retainedCopy();
+            selectPositions(retainedSelectedPositions, positions, offset, size);
+            resetSelectionTracking();
+            return true;
+        }
+
+        @Override
         public void selectPositions(int[] positions, int offset, int size)
         {
-            selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            selectedPositionsReadModes = null;
+            SelectedPositions newSelectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            selectPositions(newSelectedPositions, positions, offset, size);
+            resetSelectionTracking();
+        }
+
+        private void resetSelectionTracking()
+        {
+            unloadedSelectedColumns = countUnloadedColumns();
+            selectedPositionsPushedDown = false;
+            if (unloadedSelectedColumns == 0) {
+                selectedPositionsFallbackCount++;
+            }
+        }
+
+        private int countUnloadedColumns()
+        {
+            int unloadedColumnCount = 0;
+            for (int channel = 0; channel < columnFields.size(); channel++) {
+                if (blocks[channel] == null) {
+                    unloadedColumnCount++;
+                }
+            }
+            return unloadedColumnCount;
+        }
+
+        private void recordSelectionDecision(SelectedPositionsReadMode readMode)
+        {
+            if (unloadedSelectedColumns == 0) {
+                return;
+            }
+            unloadedSelectedColumns--;
+            if (readMode != SelectedPositionsReadMode.FULL && !selectedPositionsPushedDown) {
+                selectedPositionsPushedDown = true;
+                selectedPositionsPushdownCount++;
+            }
+            if (unloadedSelectedColumns == 0 && !selectedPositionsPushedDown) {
+                selectedPositionsFallbackCount++;
+            }
+        }
+
+        private void selectPositions(SelectedPositions newSelectedPositions, int[] positions, int offset, int size)
+        {
+            selectedPositions = newSelectedPositions;
+            sizeInBytes = 0;
             retainedSizeInBytes = shallowRetainedSizeInBytes();
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
                     // loaded blocks already reflect the previous selection, so the incoming
                     // positions apply to them directly
-                    block = block.getPositions(positions, offset, size);
+                    block = selectedPositionsReadModes == null
+                            ? block.getPositions(positions, offset, size)
+                            : block.copyPositions(positions, offset, size);
+                    sizeInBytes += block.getSizeInBytes();
                     retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }
             }
         }
+
+        private Block compactIfRetainingExcessData(Block block)
+        {
+            if (!selectedPositions.hasPositions()) {
+                return block;
+            }
+            long sizeInBytes = block.getSizeInBytes();
+            // Selected reads can return dictionary views over a much larger decoded block.
+            if (sizeInBytes > 0 && block.getRetainedSizeInBytes() > sizeInBytes * MAX_RETAINED_TO_LOGICAL_SIZE_RATIO) {
+                if (block instanceof DictionaryBlock dictionaryBlock) {
+                    return dictionaryBlock.compact();
+                }
+                return block.copyRegion(0, block.getPositionCount());
+            }
+            return block;
+        }
     }
 
-    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    private record SelectedPositions(
+            int originalPositionCount,
+            int positionCount,
+            @Nullable int[] positions,
+            int positionsOffset,
+            SelectionAnalysis analysis)
     {
         private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
+        private static final long ANALYSIS_INSTANCE_SIZE = instanceSize(SelectionAnalysis.class);
+
+        private static SelectedPositions allPositions(int positionCount)
+        {
+            return new SelectedPositions(positionCount, positionCount, null, 0, SelectionAnalysis.analyzed(true, positionCount == 0 ? 0 : 1, 0));
+        }
 
         public long retainedSizeInBytes()
         {
-            return INSTANCE_SIZE + sizeOf(positions);
+            return INSTANCE_SIZE + ANALYSIS_INSTANCE_SIZE + sizeOf(positions);
+        }
+
+        public boolean hasPositions()
+        {
+            return positions != null;
+        }
+
+        public boolean strictlyAscending()
+        {
+            analyze();
+            return analysis.strictlyAscending;
+        }
+
+        public boolean isSingleRunAtPageEdge()
+        {
+            return positionCount > 0
+                    && selectedRunCount() == 1
+                    && (positions[positionsOffset] == 0 || positions[positionsOffset + positionCount - 1] == originalPositionCount - 1);
+        }
+
+        public int selectedRunCount()
+        {
+            analyze();
+            return analysis.selectedRunCount;
+        }
+
+        public int maxSkippedPositionCount()
+        {
+            analyze();
+            return analysis.maxSkippedPositionCount;
+        }
+
+        public boolean hasRowSelectionLocality()
+        {
+            if (analysis.analyzed) {
+                return meetsRowSelectionLocality(
+                        originalPositionCount - positionCount,
+                        analysis.selectedRunCount,
+                        analysis.maxSkippedPositionCount);
+            }
+
+            checkFromIndexSize(positionsOffset, positionCount, positions.length);
+            int skippedPositionCount = originalPositionCount - positionCount;
+
+            // Each disjoint window with excess span contains at least one distinct run break.
+            int maximumBeneficialRunCount = skippedPositionCount / MIN_SKIPPED_POSITIONS_PER_RUN;
+            if (positionCount > 1 && maximumBeneficialRunCount < positionCount) {
+                int sampleStride = toIntExact((positionCount - 1L + maximumBeneficialRunCount) / (maximumBeneficialRunCount + 1));
+                int minimumSelectedRunCount = 1;
+                for (int index = 0; index < positionCount - 1; index += sampleStride) {
+                    int nextIndex = min(index + sampleStride, positionCount - 1);
+                    if ((long) positions[positionsOffset + nextIndex] - positions[positionsOffset + index] > nextIndex - index
+                            && ++minimumSelectedRunCount > maximumBeneficialRunCount) {
+                        return false;
+                    }
+                }
+            }
+
+            analyze();
+            return analysis.strictlyAscending
+                    && meetsRowSelectionLocality(skippedPositionCount, analysis.selectedRunCount, analysis.maxSkippedPositionCount);
+        }
+
+        public boolean mayHaveMinimumPotentialSkippedBytes(long estimatedUncompressedBytesPerValue, long minimumSkippedPageBytes)
+        {
+            if (positionCount == 0) {
+                return hasMinimumPotentialSkippedBytes(originalPositionCount, estimatedUncompressedBytesPerValue, minimumSkippedPageBytes);
+            }
+            int maximumPotentialSkippedPositions = max(positions[positionsOffset], originalPositionCount - positions[positionsOffset + positionCount - 1] - 1);
+            for (int index = 0; index < positionCount - 1; index += 64) {
+                int nextIndex = min(index + 64, positionCount - 1);
+                int skippedPositions = positions[positionsOffset + nextIndex] - positions[positionsOffset + index] - (nextIndex - index);
+                maximumPotentialSkippedPositions = max(maximumPotentialSkippedPositions, skippedPositions);
+            }
+            return hasMinimumPotentialSkippedBytes(maximumPotentialSkippedPositions, estimatedUncompressedBytesPerValue, minimumSkippedPageBytes);
         }
 
         @CheckReturnValue
@@ -426,14 +679,14 @@ public class ParquetReader
             if (positions == null) {
                 return block;
             }
-            return block.getPositions(positions, 0, positionCount);
+            return block.getPositions(positions, positionsOffset, positionCount);
         }
 
         public Block createRowNumberBlock(long batchStartRow, @Nullable long[] batchRowNumbers)
         {
             long[] rowNumbers = new long[positionCount];
             for (int i = 0; i < positionCount; i++) {
-                int position = positions == null ? i : positions[i];
+                int position = positions == null ? i : positions[positionsOffset + i];
                 if (batchRowNumbers == null) {
                     rowNumbers[i] = batchStartRow + position;
                 }
@@ -447,19 +700,284 @@ public class ParquetReader
         @CheckReturnValue
         public SelectedPositions selectPositions(int[] positions, int offset, int size)
         {
+            checkFromIndexSize(offset, size, positions.length);
+            int[] newPositions = new int[size];
             if (this.positions == null) {
                 for (int i = 0; i < size; i++) {
-                    checkIndex(offset + i, positionCount);
+                    int selectedPosition = positions[offset + i];
+                    checkIndex(selectedPosition, positionCount);
+                    newPositions[i] = selectedPosition;
                 }
-                return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
+            }
+            else {
+                for (int i = 0; i < size; i++) {
+                    int selectedPosition = positions[offset + i];
+                    checkIndex(selectedPosition, positionCount);
+                    newPositions[i] = this.positions[positionsOffset + selectedPosition];
+                }
             }
 
-            int[] newPositions = new int[size];
-            for (int i = 0; i < size; i++) {
-                newPositions[i] = this.positions[positions[offset + i]];
-            }
-            return new SelectedPositions(size, newPositions);
+            return create(originalPositionCount, newPositions, 0, size);
         }
+
+        public SelectedPositions selectPositionsView(int[] positions, int offset, int size)
+        {
+            if (this.positions != null) {
+                return selectPositions(positions, offset, size);
+            }
+            checkFromIndexSize(offset, size, positions.length);
+            return new SelectedPositions(originalPositionCount, size, positions, offset, new SelectionAnalysis());
+        }
+
+        public SelectedPositions retainedCopy()
+        {
+            analyze();
+            int[] retainedPositions = Arrays.copyOfRange(positions, positionsOffset, positionsOffset + positionCount);
+            return new SelectedPositions(originalPositionCount, positionCount, retainedPositions, 0, analysis);
+        }
+
+        private static SelectedPositions create(int originalPositionCount, int[] positions, int offset, int size)
+        {
+            return new SelectedPositions(originalPositionCount, size, positions, offset, new SelectionAnalysis());
+        }
+
+        private void analyze()
+        {
+            if (analysis.analyzed) {
+                return;
+            }
+            checkFromIndexSize(positionsOffset, positionCount, positions.length);
+            boolean strictlyAscending = true;
+            int selectedRunCount = positionCount == 0 ? 0 : 1;
+            int maxSkippedPositionCount = positionCount == 0 ? originalPositionCount : positions[positionsOffset];
+            for (int i = 0; i < positionCount; i++) {
+                checkIndex(positions[positionsOffset + i], originalPositionCount);
+                if (i > 0) {
+                    if (positions[positionsOffset + i] <= positions[positionsOffset + i - 1]) {
+                        strictlyAscending = false;
+                    }
+                    else if (positions[positionsOffset + i] != positions[positionsOffset + i - 1] + 1) {
+                        selectedRunCount++;
+                        maxSkippedPositionCount = max(maxSkippedPositionCount, positions[positionsOffset + i] - positions[positionsOffset + i - 1] - 1);
+                    }
+                }
+            }
+            if (positionCount > 0 && strictlyAscending) {
+                maxSkippedPositionCount = max(maxSkippedPositionCount, originalPositionCount - positions[positionsOffset + positionCount - 1] - 1);
+            }
+            analysis.set(strictlyAscending, selectedRunCount, maxSkippedPositionCount);
+        }
+    }
+
+    private static final class SelectionAnalysis
+    {
+        private boolean analyzed;
+        private boolean strictlyAscending;
+        private int selectedRunCount;
+        private int maxSkippedPositionCount;
+
+        private static SelectionAnalysis analyzed(boolean strictlyAscending, int selectedRunCount, int maxSkippedPositionCount)
+        {
+            SelectionAnalysis analysis = new SelectionAnalysis();
+            analysis.set(strictlyAscending, selectedRunCount, maxSkippedPositionCount);
+            return analysis;
+        }
+
+        private void set(boolean strictlyAscending, int selectedRunCount, int maxSkippedPositionCount)
+        {
+            this.analyzed = true;
+            this.strictlyAscending = strictlyAscending;
+            this.selectedRunCount = selectedRunCount;
+            this.maxSkippedPositionCount = maxSkippedPositionCount;
+        }
+    }
+
+    private record SelectedPositionsPushdownCharacteristics(
+            PrimitiveTypeName primitiveType,
+            long estimatedUncompressedBytesPerValue,
+            boolean dictionaryEncoded,
+            boolean hasNulls) {}
+
+    private enum SelectedPositionsReadMode
+    {
+        FULL,
+        PAGE,
+        ROW,
+    }
+
+    private SelectedPositionsReadMode getSelectedPositionsReadMode(Field field, SelectedPositions selectedPositions, int unloadedColumnCount)
+            throws IOException
+    {
+        if (!selectedPositions.hasPositions()) {
+            return SelectedPositionsReadMode.FULL;
+        }
+        if (!(field instanceof PrimitiveField primitiveField)) {
+            return SelectedPositionsReadMode.FULL;
+        }
+        if (primitiveField.getDescriptor().getPath().length != 1
+                || primitiveField.getRepetitionLevel() != 0
+                || !columnReaders.get(primitiveField.getId()).supportsSelectedPositions()) {
+            return SelectedPositionsReadMode.FULL;
+        }
+        if (forceSelectedPositionsPushdown) {
+            return selectedPositions.strictlyAscending() ? SelectedPositionsReadMode.ROW : SelectedPositionsReadMode.FULL;
+        }
+        SelectedPositionsPushdownCharacteristics characteristics = selectedPositionsPushdownCharacteristics.get(primitiveField.getId());
+        if (characteristics == null) {
+            ColumnChunkMetadata metadata = currentBlockMetadata.getColumnChunkMetaData(primitiveField.getDescriptor());
+            long valueCount = metadata.getValueCount();
+            boolean hasNulls = !primitiveField.isRequired()
+                    && (metadata.getStatistics() == null
+                    || !metadata.getStatistics().isNumNullsSet()
+                    || metadata.getStatistics().getNumNulls() > 0);
+            characteristics = new SelectedPositionsPushdownCharacteristics(
+                    primitiveField.getDescriptor().getPrimitiveType().getPrimitiveTypeName(),
+                    valueCount == 0 ? 1 : max(1, metadata.getTotalUncompressedSize() / valueCount),
+                    isOnlyDictionaryEncodingPages(metadata),
+                    hasNulls);
+            selectedPositionsPushdownCharacteristics.put(primitiveField.getId(), characteristics);
+        }
+        boolean potentiallyRowSelectionBeneficial = isRowSelectionBeneficial(
+                batchSize,
+                selectedPositions.positionCount(),
+                0,
+                0,
+                characteristics.primitiveType(),
+                characteristics.dictionaryEncoded(),
+                characteristics.hasNulls(),
+                characteristics.estimatedUncompressedBytesPerValue(),
+                unloadedColumnCount);
+        boolean potentiallyPageBeneficial = isPageSelectionBeneficial(primitiveField, characteristics)
+                && selectedPercentageAtMost(batchSize, selectedPositions.positionCount(), MAX_PAGE_AWARE_SELECTED_PERCENTAGE)
+                && selectedPositions.mayHaveMinimumPotentialSkippedBytes(characteristics.estimatedUncompressedBytesPerValue(), MIN_SKIPPED_PAGE_BYTES);
+        if (!potentiallyRowSelectionBeneficial && !potentiallyPageBeneficial) {
+            return SelectedPositionsReadMode.FULL;
+        }
+
+        if (!potentiallyPageBeneficial && !selectedPositions.hasRowSelectionLocality()) {
+            return SelectedPositionsReadMode.FULL;
+        }
+        if (!selectedPositions.strictlyAscending()) {
+            return SelectedPositionsReadMode.FULL;
+        }
+
+        boolean rowSelectionBeneficial = isRowSelectionBeneficial(
+                batchSize,
+                selectedPositions.positionCount(),
+                selectedPositions.selectedRunCount(),
+                selectedPositions.maxSkippedPositionCount(),
+                characteristics.primitiveType(),
+                characteristics.dictionaryEncoded(),
+                characteristics.hasNulls(),
+                characteristics.estimatedUncompressedBytesPerValue(),
+                unloadedColumnCount);
+        if (rowSelectionBeneficial && !selectedPositions.isSingleRunAtPageEdge()) {
+            return SelectedPositionsReadMode.ROW;
+        }
+
+        potentiallyPageBeneficial &= hasMinimumPotentialSkippedBytes(
+                selectedPositions.maxSkippedPositionCount(),
+                characteristics.estimatedUncompressedBytesPerValue(),
+                MIN_SKIPPED_PAGE_BYTES);
+        if (!potentiallyPageBeneficial) {
+            return SelectedPositionsReadMode.FULL;
+        }
+
+        ColumnReader columnReader = initializeColumnReader(primitiveField);
+        long skippedPageBytes = columnReader.preparePageFilteredRead(
+                selectedPositions.positions(),
+                selectedPositions.positionsOffset(),
+                selectedPositions.positionCount(),
+                options.getMaxReadBlockSize().toBytes());
+        return skippedPageBytes >= MIN_SKIPPED_PAGE_BYTES ? SelectedPositionsReadMode.PAGE : SelectedPositionsReadMode.FULL;
+    }
+
+    private static boolean isPageSelectionBeneficial(PrimitiveField field, SelectedPositionsPushdownCharacteristics characteristics)
+    {
+        if (characteristics.dictionaryEncoded()) {
+            return false;
+        }
+        if (field.getType() instanceof DecimalType) {
+            return true;
+        }
+        return switch (characteristics.primitiveType()) {
+            case BOOLEAN, INT32, INT64, FLOAT -> false;
+            default -> true;
+        };
+    }
+
+    @VisibleForTesting
+    static boolean isRowSelectionBeneficial(
+            int batchSize,
+            int selectedPositionCount,
+            int selectedRunCount,
+            int maxSkippedPositionCount,
+            PrimitiveTypeName primitiveType,
+            boolean dictionaryEncoded,
+            boolean hasNulls,
+            long estimatedUncompressedBytesPerValue,
+            int projectedColumnCount)
+    {
+        checkArgument(batchSize >= 0, "batchSize is negative");
+        checkArgument(selectedPositionCount >= 0 && selectedPositionCount <= batchSize, "selectedPositionCount is invalid");
+        checkArgument(selectedRunCount >= 0 && selectedRunCount <= selectedPositionCount, "selectedRunCount is invalid");
+        checkArgument(maxSkippedPositionCount >= 0 && maxSkippedPositionCount <= batchSize - selectedPositionCount, "maxSkippedPositionCount is invalid");
+        requireNonNull(primitiveType, "primitiveType is null");
+        checkArgument(estimatedUncompressedBytesPerValue > 0, "estimatedUncompressedBytesPerValue must be positive");
+        checkArgument(projectedColumnCount > 0, "projectedColumnCount must be positive");
+
+        if (selectedPositionCount == 0) {
+            return true;
+        }
+
+        int skippedPositionCount = batchSize - selectedPositionCount;
+        // A single large gap cannot amortize the seek/read overhead of the remaining runs.
+        if (!meetsRowSelectionLocality(skippedPositionCount, selectedRunCount, maxSkippedPositionCount)) {
+            return false;
+        }
+        // The generic seek/read path regresses packed Boolean values without a selection-aware decoder.
+        if (primitiveType == PrimitiveTypeName.BOOLEAN) {
+            return false;
+        }
+        if (dictionaryEncoded) {
+            return selectedPercentageAtMost(batchSize, selectedPositionCount, MAX_DICTIONARY_SELECTED_PERCENTAGE);
+        }
+        if (primitiveType == BINARY) {
+            if (estimatedUncompressedBytesPerValue >= VERY_WIDE_BINARY_BYTES
+                    && projectedColumnCount > MAX_VERY_WIDE_BINARY_PROJECTED_COLUMNS) {
+                return false;
+            }
+            return selectedPercentageAtMost(batchSize, selectedPositionCount, MAX_BINARY_SELECTED_PERCENTAGE);
+        }
+        int maximumSelectedPercentage = hasNulls ? MAX_NULLABLE_FIXED_WIDTH_SELECTED_PERCENTAGE : MAX_FIXED_WIDTH_SELECTED_PERCENTAGE;
+        return selectedPercentageAtMost(batchSize, selectedPositionCount, maximumSelectedPercentage);
+    }
+
+    private static boolean selectedPercentageAtMost(int batchSize, int selectedPositionCount, int percentage)
+    {
+        return selectedPositionCount <= ((long) batchSize * percentage + 50) / 100;
+    }
+
+    private static boolean hasMinimumSkippedPositionsPerRun(int skippedPositionCount, int selectedRunCount, int minimumSkippedPositionsPerRun)
+    {
+        return (long) skippedPositionCount >= (long) selectedRunCount * minimumSkippedPositionsPerRun;
+    }
+
+    private static boolean meetsRowSelectionLocality(int skippedPositionCount, int selectedRunCount, int maxSkippedPositionCount)
+    {
+        if (!hasMinimumSkippedPositionsPerRun(skippedPositionCount, selectedRunCount, MIN_SKIPPED_POSITIONS_PER_RUN)) {
+            return false;
+        }
+        return selectedRunCount <= 1 || hasMinimumSkippedPositionsPerRun(
+                skippedPositionCount - maxSkippedPositionCount,
+                selectedRunCount - 1,
+                MIN_SKIPPED_POSITIONS_PER_RUN);
+    }
+
+    private static boolean hasMinimumPotentialSkippedBytes(int skippedPositionCount, long estimatedUncompressedBytesPerValue, long minimumSkippedPageBytes)
+    {
+        return skippedPositionCount > 0
+                && estimatedUncompressedBytesPerValue >= (minimumSkippedPageBytes + skippedPositionCount - 1) / skippedPositionCount;
     }
 
     /**
@@ -468,6 +986,26 @@ public class ParquetReader
     public long lastBatchStartRow()
     {
         return firstRowIndexInGroup + nextRowInGroup - batchSize;
+    }
+
+    @VisibleForTesting
+    public int getDataPageReadCount()
+    {
+        return completedRowGroupDataPageReadCount + columnReaders.values().stream()
+                .mapToInt(ColumnReader::getDataPageReadCount)
+                .sum();
+    }
+
+    @VisibleForTesting
+    public int getSelectedPositionsFallbackCount()
+    {
+        return selectedPositionsFallbackCount;
+    }
+
+    @VisibleForTesting
+    public int getSelectedPositionsPushdownCount()
+    {
+        return selectedPositionsPushdownCount;
     }
 
     private int nextBatch()
@@ -720,6 +1258,57 @@ public class ParquetReader
     private ColumnChunk readPrimitive(PrimitiveField field)
             throws IOException
     {
+        return readPrimitive(field, null);
+    }
+
+    private ColumnChunk readPrimitive(PrimitiveField field, @Nullable SelectedPositions selectedPositions)
+            throws IOException
+    {
+        ColumnReader columnReader = initializeColumnReader(field);
+        ColumnChunk columnChunk;
+        if (selectedPositions != null && selectedPositions.positions() != null) {
+            columnChunk = columnReader.readPrimitive(selectedPositions.positions(), selectedPositions.positionsOffset(), selectedPositions.positionCount());
+        }
+        else {
+            columnChunk = columnReader.readPrimitive();
+        }
+
+        updateMaxBytesPerCell(field.getId(), columnChunk);
+        return columnChunk;
+    }
+
+    private ColumnChunk readPrimitivePageFiltered(PrimitiveField field, SelectedPositions selectedPositions)
+            throws IOException
+    {
+        ColumnReader columnReader = initializeColumnReader(field);
+        ColumnChunk columnChunk = columnReader.readPrimitivePageFiltered(
+                selectedPositions.positions(),
+                selectedPositions.positionsOffset(),
+                selectedPositions.positionCount());
+        updateMaxBytesPerCell(field.getId(), columnChunk);
+        return columnChunk;
+    }
+
+    private void updateMaxBytesPerCell(int fieldId, ColumnChunk columnChunk)
+    {
+        if (columnChunk.getMaxBlockPositionCount() == 0) {
+            return;
+        }
+        double previousBytesPerCell = maxBytesPerCell.getOrDefault(fieldId, 0.0);
+        double bytesPerCell = max(previousBytesPerCell, ((double) columnChunk.getMaxBlockSize()) / columnChunk.getMaxBlockPositionCount());
+
+        if (bytesPerCell != previousBytesPerCell) {
+            maxBytesPerCell.put(fieldId, bytesPerCell);
+            maxCombinedBytesPerRow = max(0, maxCombinedBytesPerRow + bytesPerCell - previousBytesPerCell);
+            maxBatchSize = maxCombinedBytesPerRow == 0
+                    ? options.getMaxReadBlockRowCount()
+                    : toIntExact(min(options.getMaxReadBlockRowCount(), max(1, (long) (options.getMaxReadBlockSize().toBytes() / maxCombinedBytesPerRow))));
+        }
+    }
+
+    private ColumnReader initializeColumnReader(PrimitiveField field)
+            throws IOException
+    {
         ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
         ColumnReader columnReader = columnReaders.get(fieldId);
@@ -744,18 +1333,7 @@ public class ParquetReader
                             options.getMaxPageReadSize().toBytes()),
                     Optional.ofNullable(rowRanges));
         }
-        ColumnChunk columnChunk = columnReader.readPrimitive();
-
-        // update max size per primitive column chunk
-        double bytesPerCell = ((double) columnChunk.getMaxBlockSize()) / batchSize;
-        double bytesPerCellDelta = bytesPerCell - maxBytesPerCell.getOrDefault(fieldId, 0.0);
-        if (bytesPerCellDelta > 0) {
-            // update batch size
-            maxCombinedBytesPerRow += bytesPerCellDelta;
-            maxBatchSize = toIntExact(min(maxBatchSize, max(1, (long) (options.getMaxReadBlockSize().toBytes() / maxCombinedBytesPerRow))));
-            maxBytesPerCell.put(fieldId, bytesPerCell);
-        }
-        return columnChunk;
+        return columnReader;
     }
 
     public List<Column> getColumnFields()
@@ -777,6 +1355,10 @@ public class ParquetReader
 
     private void initializeColumnReaders()
     {
+        completedRowGroupDataPageReadCount += columnReaders.values().stream()
+                .mapToInt(ColumnReader::getDataPageReadCount)
+                .sum();
+        selectedPositionsPushdownCharacteristics.clear();
         for (PrimitiveField field : primitiveFields) {
             columnReaders.put(
                     field.getId(),

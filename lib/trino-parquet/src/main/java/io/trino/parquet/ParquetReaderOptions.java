@@ -39,6 +39,7 @@ public class ParquetReaderOptions
     private final boolean useColumnIndex;
     private final boolean useBloomFilter;
     private final DataSize smallFileThreshold;
+    private final boolean selectedPositionsPushdownEnabled;
     private final boolean vectorizedDecodingEnabled;
     private final DataSize footerReadSize;
     private final DataSize maxFooterReadSize;
@@ -54,6 +55,7 @@ public class ParquetReaderOptions
         useColumnIndex = true;
         useBloomFilter = true;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
+        selectedPositionsPushdownEnabled = true;
         vectorizedDecodingEnabled = true;
         footerReadSize = DEFAULT_FOOTER_READ_SIZE;
         maxFooterReadSize = DEFAULT_MAX_FOOTER_READ_SIZE;
@@ -69,6 +71,7 @@ public class ParquetReaderOptions
             boolean useColumnIndex,
             boolean useBloomFilter,
             DataSize smallFileThreshold,
+            boolean selectedPositionsPushdownEnabled,
             boolean vectorizedDecodingEnabled,
             DataSize footerReadSize,
             DataSize maxFooterReadSize,
@@ -83,6 +86,7 @@ public class ParquetReaderOptions
         this.useColumnIndex = useColumnIndex;
         this.useBloomFilter = useBloomFilter;
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
+        this.selectedPositionsPushdownEnabled = selectedPositionsPushdownEnabled;
         this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
         this.footerReadSize = requireNonNull(footerReadSize, "footerReadSize is null");
         checkArgument(footerReadSize.toBytes() >= 8, "footerReadSize must be at least 8 bytes");
@@ -150,6 +154,11 @@ public class ParquetReaderOptions
         return smallFileThreshold;
     }
 
+    public boolean isSelectedPositionsPushdownEnabled()
+    {
+        return selectedPositionsPushdownEnabled;
+    }
+
     public DataSize getMaxFooterReadSize()
     {
         return maxFooterReadSize;
@@ -175,6 +184,7 @@ public class ParquetReaderOptions
         private boolean useColumnIndex;
         private boolean useBloomFilter;
         private DataSize smallFileThreshold;
+        private boolean selectedPositionsPushdownEnabled;
         private boolean vectorizedDecodingEnabled;
         private DataSize footerReadSize;
         private DataSize maxFooterReadSize;
@@ -191,6 +201,7 @@ public class ParquetReaderOptions
             this.useColumnIndex = parquetReaderOptions.useColumnIndex;
             this.useBloomFilter = parquetReaderOptions.useBloomFilter;
             this.smallFileThreshold = parquetReaderOptions.smallFileThreshold;
+            this.selectedPositionsPushdownEnabled = parquetReaderOptions.selectedPositionsPushdownEnabled;
             this.vectorizedDecodingEnabled = parquetReaderOptions.vectorizedDecodingEnabled;
             this.footerReadSize = parquetReaderOptions.footerReadSize;
             this.maxFooterReadSize = parquetReaderOptions.maxFooterReadSize;
@@ -245,6 +256,12 @@ public class ParquetReaderOptions
             return this;
         }
 
+        public Builder withSelectedPositionsPushdownEnabled(boolean selectedPositionsPushdownEnabled)
+        {
+            this.selectedPositionsPushdownEnabled = selectedPositionsPushdownEnabled;
+            return this;
+        }
+
         public Builder withVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
         {
             this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
@@ -280,6 +297,7 @@ public class ParquetReaderOptions
                     useColumnIndex,
                     useBloomFilter,
                     smallFileThreshold,
+                    selectedPositionsPushdownEnabled,
                     vectorizedDecodingEnabled,
                     footerReadSize,
                     maxFooterReadSize,
