@@ -883,7 +883,8 @@ public final class AccumulatorCompiler
     private static MethodDefinition generateSerializeStateMethod(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
     {
         Parameter fieldBuilders = arg("fieldBuilders", type(List.class, BlockBuilder.class));
-        MethodDefinition method = definition.declareMethod(a(PRIVATE), "serializeState", type(void.class), fieldBuilders);
+        // public so the LambdaCapture bootstrap can find it with findVirtual
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "serializeState", type(void.class), fieldBuilders);
 
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody();

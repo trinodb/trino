@@ -36,6 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static io.trino.sql.gen.LambdaCapture.LAMBDA_CAPTURE_METHOD;
 import static org.objectweb.asm.Type.getMethodType;
 import static org.objectweb.asm.Type.getType;
 
@@ -77,12 +78,35 @@ public final class LambdaMetafactoryGenerator
                 targetMethod.getParameterTypes());
 
         Type interfaceMethodType = toMethodType(interfaceMethod);
+
+        if (!targetMethod.getAccess().contains(Access.STATIC)) {
+            // LambdaMetafactory cannot reference an instance method of a hidden class from
+            // the proxy it spins, so instance targets link through LambdaCapture, which
+            // generates the proxy itself. The receiver is passed as Object because the
+            // invoked type cannot name the hidden class either.
+            List<BytecodeExpression> arguments = new ArrayList<>();
+            arguments.add(additionalArguments.get(0).cast(Object.class));
+            arguments.addAll(additionalArguments.subList(1, additionalArguments.size()));
+            return invokeDynamic(
+                    LAMBDA_CAPTURE_METHOD,
+                    ImmutableList.of(
+                            interfaceMethodType,
+                            targetMethod.getName(),
+                            getMethodType(targetMethod.getMethodDescriptor()),
+                            interfaceMethodType),
+                    interfaceMethod.getName(),
+                    type(interfaceType),
+                    arguments);
+        }
+
+        // the metafactory supports static implementation methods of hidden classes directly:
+        // it passes the implementation to the proxy as class data instead of naming the class
         return invokeDynamic(
                 METAFACTORY,
                 ImmutableList.of(
                         interfaceMethodType,
                         new Handle(
-                                targetMethod.getAccess().contains(Access.STATIC) ? Opcodes.H_INVOKESTATIC : Opcodes.H_INVOKEVIRTUAL,
+                                Opcodes.H_INVOKESTATIC,
                                 targetMethod.getDeclaringClass().getName(),
                                 targetMethod.getName(),
                                 targetMethod.getMethodDescriptor(),
