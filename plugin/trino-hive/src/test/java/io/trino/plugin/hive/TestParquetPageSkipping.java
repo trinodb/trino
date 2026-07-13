@@ -20,12 +20,15 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URL;
+import java.util.List;
 import java.util.UUID;
 
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
@@ -99,6 +102,46 @@ public class TestParquetPageSkipping
         testPageSkipping("clerk", "varchar(15)", new Object[][] {{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}});
         testPageSkipping("custkey", "integer", new Object[][] {{4, 634, 640, 1493}});
         testPageSkipping("custkey", "smallint", new Object[][] {{4, 634, 640, 1493}});
+    }
+
+    @Test
+    public void testSelectedPositionsPushdown()
+    {
+        String tableName = "test_selected_positions_pushdown_" + randomNameSuffix();
+        try {
+            assertUpdate(
+                    """
+                    CREATE TABLE %s (
+                        filter_key bigint,
+                        payload varchar,
+                        bucket integer)
+                    WITH (
+                        format = 'PARQUET',
+                        bucketed_by = ARRAY['bucket'],
+                        bucket_count = 1,
+                        sorted_by = ARRAY['filter_key'])
+                    """.formatted(tableName));
+            assertUpdate(
+                    """
+                    INSERT INTO %s
+                    SELECT value, CAST(value AS varchar) || 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 0
+                    FROM UNNEST(sequence(0, 8191)) AS t(value)
+                    """.formatted(tableName),
+                    8_192);
+
+            MaterializedResult allRows = computeActual("SELECT filter_key, payload FROM " + tableName + " ORDER BY filter_key");
+            List<MaterializedRow> expectedRows = allRows.getMaterializedRows().stream()
+                    .filter(row -> ((long) row.getField(0) % 1_024) >= 400)
+                    .filter(row -> ((long) row.getField(0) % 1_024) <= 407)
+                    .toList();
+            MaterializedResult selectedRows = computeActual(
+                    "SELECT filter_key, payload FROM " + tableName + " WHERE filter_key % 1024 BETWEEN 400 AND 407 ORDER BY filter_key");
+
+            assertThat(selectedRows.getMaterializedRows()).containsExactlyElementsOf(expectedRows);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     private void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)

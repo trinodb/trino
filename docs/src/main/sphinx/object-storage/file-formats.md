@@ -111,6 +111,11 @@ with Parquet files performed by supported object storage connectors:
     entirely. The equivalent catalog session property is named
     `parquet_small_file_threshold`.
   - `3MB`
+* - `parquet.selected-positions-pushdown-enabled`
+  - Allow the Parquet reader to use rows selected by query filters to skip
+    decoding rejected values and decompressing entirely unselected data pages
+    when beneficial. Set to `false` to disable filter selection pushdown.
+  - `true`
 * - `parquet.experimental.vectorized-decoding.enabled`
   - Enable using Java Vector API (SIMD) for faster decoding of parquet files.
     The equivalent catalog session property is

@@ -160,6 +160,21 @@ public class ParquetReaderConfig
         return options.getSmallFileThreshold();
     }
 
+    public boolean isSelectedPositionsPushdownEnabled()
+    {
+        return options.isSelectedPositionsPushdownEnabled();
+    }
+
+    @Config("parquet.selected-positions-pushdown-enabled")
+    @ConfigDescription("Enable pushing selected positions into Parquet column readers")
+    public ParquetReaderConfig setSelectedPositionsPushdownEnabled(boolean selectedPositionsPushdownEnabled)
+    {
+        options = ParquetReaderOptions.builder(options)
+                .withSelectedPositionsPushdownEnabled(selectedPositionsPushdownEnabled)
+                .build();
+        return this;
+    }
+
     @Config("parquet.experimental.vectorized-decoding.enabled")
     @ConfigDescription("Enable using Java Vector API for faster decoding of parquet files")
     public ParquetReaderConfig setVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
