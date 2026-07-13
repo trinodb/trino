@@ -65,7 +65,7 @@ import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -117,7 +117,7 @@ public final class ArrayTransformFunction
 
     private static MethodHandle generateTransform(Type inputType, Type outputType)
     {
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("ArrayTransform"),
@@ -140,7 +140,7 @@ public final class ArrayTransformFunction
 
         method.getBody().append(arrayValueBuilder.invoke("build", Block.class, entryCount, arrayBuilder).ret());
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), ArrayTransformFunction.class.getClassLoader());
+        Class<?> generatedClass = defineHiddenClass(definition, Object.class, binder.getClassData());
         try {
             return lookup().findStatic(generatedClass, "transform", MethodType.methodType(Block.class, BufferedArrayValueBuilder.class, Block.class, UnaryFunctionInterface.class));
         }

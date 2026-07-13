@@ -95,7 +95,7 @@ import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Objects.requireNonNull;
@@ -215,9 +215,9 @@ public class PageFunctionCompiler
 
         Class<?> pageProjectionWorkClass;
         try {
-            CallSiteBinder callSiteBinder = new CallSiteBinder();
+            CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
             ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(projection, result.compactLayout(), callSiteBinder, classNameSuffix);
-            pageProjectionWorkClass = defineClass(pageProjectionWorkDefinition, PageProjectionWork.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+            pageProjectionWorkClass = defineHiddenClass(pageProjectionWorkDefinition, PageProjectionWork.class, callSiteBinder.getClassData());
         }
         catch (TrinoException e) {
             throw e;
@@ -422,9 +422,9 @@ public class PageFunctionCompiler
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
 
         try {
-            CallSiteBinder callSiteBinder = new CallSiteBinder();
+            CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
             ClassDefinition classDefinition = defineFilterClass(filter, result.compactLayout(), callSiteBinder, classNameSuffix);
-            return defineClass(classDefinition, PageFilter.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+            return defineHiddenClass(classDefinition, PageFilter.class, callSiteBinder.getClassData());
         }
         catch (TrinoException e) {
             throw e;

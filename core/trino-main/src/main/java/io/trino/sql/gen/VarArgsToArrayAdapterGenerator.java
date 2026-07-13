@@ -39,7 +39,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Collections.nCopies;
@@ -110,7 +110,7 @@ public final class VarArgsToArrayAdapterGenerator
         checkArgument(methodType.returnType() == returnType, "returnType does not match");
         checkArgument(methodType.parameterList().equals(ImmutableList.of(Object.class, javaArrayType)), "parameter types do not match");
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
         ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName("VarArgsToListAdapter"), type(Object.class));
         classDefinition.declareDefaultConstructor(a(PRIVATE));
 
@@ -148,7 +148,7 @@ public final class VarArgsToArrayAdapterGenerator
                         .ret());
 
         // define class
-        Class<?> generatedClass = defineClass(classDefinition, Object.class, callSiteBinder.getBindings(), VarArgsToArrayAdapterGenerator.class.getClassLoader());
+        Class<?> generatedClass = defineHiddenClass(classDefinition, Object.class, callSiteBinder.getClassData());
         return new MethodHandleAndConstructor(
                 Reflection.methodHandle(
                         generatedClass,
