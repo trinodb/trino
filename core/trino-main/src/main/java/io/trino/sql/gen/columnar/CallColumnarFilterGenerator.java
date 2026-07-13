@@ -67,6 +67,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.sql.gen.BytecodeUtils.loadBindingHandle;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstance;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.declareBlockVariables;
@@ -312,9 +313,14 @@ public class CallColumnarFilterGenerator
         Optional<BytecodeNode> instance = implementation.getInstanceFactory()
                 .map(instanceFactory);
 
+        MethodType methodType = binding.getType();
+        boolean classDataBinding = binding.getKind() == Binding.Kind.CLASS_DATA_HANDLE;
+        if (classDataBinding) {
+            block.append(loadBindingHandle(binding));
+        }
+
         // Index of current parameter in the MethodHandle
         int currentParameterIndex = 0;
-        MethodType methodType = binding.getType();
         boolean instanceIsBound = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
@@ -341,7 +347,12 @@ public class CallColumnarFilterGenerator
                 throw new UnsupportedOperationException(format("Unsupported argument expression: %s", argumentExpression));
             }
         }
-        block.append(invoke(binding, functionName));
+        if (classDataBinding) {
+            block.invokeVirtual(MethodHandle.class, "invokeExact", methodType.returnType(), methodType.parameterArray());
+        }
+        else {
+            block.append(invoke(binding, functionName));
+        }
         return block;
     }
 

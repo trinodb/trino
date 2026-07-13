@@ -158,6 +158,16 @@ public final class BytecodeUtils
         return loadConstant(binding);
     }
 
+    /**
+     * Loads the method handle of a class data binding so a caller that pushes arguments onto
+     * the operand stack can place the handle below them and then invoke it exactly.
+     */
+    public static BytecodeExpression loadBindingHandle(Binding binding)
+    {
+        checkArgument(binding.getKind() == Binding.Kind.CLASS_DATA_HANDLE, "binding %s is not a class data handle", binding);
+        return constantClassDataAt(toIntExact(binding.getBindingId()), MethodHandle.class);
+    }
+
     public static BytecodeExpression loadConstant(Binding binding)
     {
         if (binding.getKind() == Binding.Kind.CLASS_DATA_CONSTANT) {
@@ -288,7 +298,14 @@ public final class BytecodeUtils
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
+        boolean classDataBinding = binding.getKind() == Binding.Kind.CLASS_DATA_HANDLE;
         List<Class<?>> stackTypes = new ArrayList<>();
+        if (classDataBinding) {
+            // the handle sits below the arguments and is tracked as a stack type,
+            // so null shortcuts pop it together with the arguments
+            block.append(loadBindingHandle(binding));
+            stackTypes.add(MethodHandle.class);
+        }
         boolean instanceIsBound = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
@@ -351,7 +368,12 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, functionName));
+        if (classDataBinding) {
+            block.invokeVirtual(MethodHandle.class, "invokeExact", methodType.returnType(), methodType.parameterArray());
+        }
+        else {
+            block.append(invoke(binding, functionName));
+        }
 
         if (functionNullability.isReturnNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
@@ -455,14 +477,13 @@ public final class BytecodeUtils
                 yield constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
             }
             case CLASS_DATA_HANDLE -> {
-                if (parameters.isEmpty() && binding.getType().parameterCount() > 0) {
-                    // the arguments are already on the operand stack, which only invokedynamic
-                    // can consume directly: a method handle receiver cannot be inserted below them
-                    yield invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
-                }
+                // sites that push arguments onto the operand stack must load the handle below
+                // them with loadBindingHandle and invoke it directly, since a method handle
+                // receiver cannot be inserted under already pushed arguments
+                checkArgument(parameters.size() == binding.getType().parameterCount(), "arguments of class data binding %s must be passed explicitly", binding);
                 // the handle is a dynamic constant, so the JIT inlines through the exact
                 // invocation just like a constant call site produced by a bootstrap
-                yield constantClassDataAt(toIntExact(binding.getBindingId()), MethodHandle.class)
+                yield loadBindingHandle(binding)
                         .invoke(
                                 "invokeExact",
                                 binding.getType().returnType(),
