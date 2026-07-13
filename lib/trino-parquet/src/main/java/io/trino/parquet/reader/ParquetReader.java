@@ -259,12 +259,13 @@ public class ParquetReader
             throws IOException
     {
         // Release memory usage from column readers
+        columnReaders.values().forEach(ColumnReader::close);
         columnReaders.clear();
-        currentRowGroupMemoryContext.close();
 
         for (ChunkedInputStream chunkedInputStream : chunkReaders.values()) {
             chunkedInputStream.close();
         }
+        currentRowGroupMemoryContext.close();
         dataSource.close();
 
         if (writeChecksumBuilder.isPresent()) {
@@ -501,9 +502,10 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
             throws IOException
     {
+        columnReaders.values().forEach(ColumnReader::close);
+        freeCurrentRowGroupBuffers();
         currentRowGroupMemoryContext.close();
         currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
-        freeCurrentRowGroupBuffers();
 
         if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
             StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();

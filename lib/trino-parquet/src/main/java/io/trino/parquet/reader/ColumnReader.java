@@ -17,6 +17,8 @@ import java.util.Optional;
 
 public interface ColumnReader
 {
+    void close();
+
     boolean hasPageReader();
 
     void setPageReader(PageReader pageReader, Optional<FilteredRowRanges> rowRanges);
@@ -33,5 +35,20 @@ public interface ColumnReader
     default ColumnChunk readPrimitive(int[] positions, int offset, int positionCount)
     {
         throw new UnsupportedOperationException("Selected positions are not supported");
+    }
+
+    default ColumnChunk readPrimitivePageFiltered(int[] positions, int offset, int positionCount)
+    {
+        throw new UnsupportedOperationException("Page-filtered positions are not supported");
+    }
+
+    default int getDataPageReadCount()
+    {
+        return 0;
+    }
+
+    default long preparePageFilteredRead(int[] positions, int offset, int positionCount, long maxBufferedBytes)
+    {
+        return 0;
     }
 }
