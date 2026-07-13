@@ -19,15 +19,33 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class Binding
 {
+    public enum Kind
+    {
+        /**
+         * Resolved through an invokedynamic bootstrap reading the {@code DynamicClassLoader} bindings.
+         */
+        CALL_SITE,
+        /**
+         * A method handle stored in the class data of a hidden class, loaded as a dynamic
+         * constant and invoked exactly.
+         */
+        CLASS_DATA_HANDLE,
+        /**
+         * A constant value stored in the class data of a hidden class, loaded directly
+         * as a dynamic constant.
+         */
+        CLASS_DATA_CONSTANT,
+    }
+
     private final long bindingId;
     private final MethodType type;
-    private final boolean classDataConstant;
+    private final Kind kind;
 
-    public Binding(long bindingId, MethodType type, boolean classDataConstant)
+    public Binding(long bindingId, MethodType type, Kind kind)
     {
         this.bindingId = bindingId;
         this.type = type;
-        this.classDataConstant = classDataConstant;
+        this.kind = kind;
     }
 
     public long getBindingId()
@@ -40,13 +58,9 @@ public final class Binding
         return type;
     }
 
-    /**
-     * True when the binding is a constant value stored in the class data of a hidden class,
-     * loadable directly as a dynamic constant.
-     */
-    public boolean isClassDataConstant()
+    public Kind getKind()
     {
-        return classDataConstant;
+        return kind;
     }
 
     @Override
@@ -55,7 +69,7 @@ public final class Binding
         return toStringHelper(this)
                 .add("bindingId", bindingId)
                 .add("type", type)
-                .add("classDataConstant", classDataConstant)
+                .add("kind", kind)
                 .toString();
     }
 }

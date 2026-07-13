@@ -69,21 +69,21 @@ public final class CallSiteBinder
             method = method.asType(type);
         }
 
-        return addBinding(method, type, false);
+        return addBinding(method, type, hiddenClassGeneration ? Binding.Kind.CLASS_DATA_HANDLE : Binding.Kind.CALL_SITE);
     }
 
     public Binding bind(Object constant, Class<?> type)
     {
         if (hiddenClassGeneration) {
             // stored raw so it can be loaded as a dynamic constant from the class data
-            return addBinding(constant, methodType(getAccessibleType(type)), true);
+            return addBinding(constant, methodType(getAccessibleType(type)), Binding.Kind.CLASS_DATA_CONSTANT);
         }
         return bind(MethodHandles.constant(type, constant));
     }
 
-    private Binding addBinding(Object value, MethodType type, boolean classDataConstant)
+    private Binding addBinding(Object value, MethodType type, Binding.Kind kind)
     {
-        Binding binding = new Binding(bindings.size(), type, classDataConstant);
+        Binding binding = new Binding(bindings.size(), type, kind);
         bindings.add(value);
         return binding;
     }
