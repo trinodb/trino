@@ -38,8 +38,9 @@ public final class ColumnarFilterEvaluator
         if (activePositions.isEmpty()) {
             return new SelectionResult(activePositions, 0);
         }
-        // Should load only the blocks necessary for evaluating the kernel and unwrap lazy blocks
-        SourcePage loadedPage = filter.getInputChannels().getInputChannels(page);
+        // Materialize only the filter inputs here so reader code does not consume
+        // the generated filter's JIT inlining budget.
+        SourcePage loadedPage = SourcePage.create(filter.getInputChannels().getInputChannels(page).getPage());
         if (outputPositions.length < activePositions.size()) {
             outputPositions = new int[activePositions.size()];
         }

@@ -25,6 +25,7 @@ import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -369,13 +370,32 @@ public final class TransformConnectorPageSource
         }
 
         @Override
+        public boolean trySelectPositions(int[] positions, int offset, int size)
+        {
+            if (!sourcePage.trySelectPositions(positions, offset, size)) {
+                return false;
+            }
+            selectLoadedBlocks(positions, offset, size);
+            return true;
+        }
+
+        @Override
         public void selectPositions(int[] positions, int offset, int size)
         {
             sourcePage.selectPositions(positions, offset, size);
+            selectLoadedBlocks(positions, offset, size);
+        }
+
+        private void selectLoadedBlocks(int[] positions, int offset, int size)
+        {
+            int[] retainedPositions = null;
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
-                    blocks[i] = block.getPositions(positions, offset, size);
+                    if (retainedPositions == null) {
+                        retainedPositions = Arrays.copyOfRange(positions, offset, offset + size);
+                    }
+                    blocks[i] = block.getPositions(retainedPositions, 0, size);
                 }
             }
         }
