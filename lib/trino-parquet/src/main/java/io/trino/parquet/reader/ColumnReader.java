@@ -24,4 +24,14 @@ public interface ColumnReader
     void prepareNextRead(int batchSize);
 
     ColumnChunk readPrimitive();
+
+    default boolean supportsSelectedPositions()
+    {
+        return false;
+    }
+
+    default ColumnChunk readPrimitive(int[] positions, int offset, int positionCount)
+    {
+        throw new UnsupportedOperationException("Selected positions are not supported");
+    }
 }

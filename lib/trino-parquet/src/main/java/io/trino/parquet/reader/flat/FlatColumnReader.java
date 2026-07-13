@@ -38,7 +38,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.Bitmap.wordsForBits;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 public class FlatColumnReader<BufferType>
@@ -101,6 +103,31 @@ public class FlatColumnReader<BufferType>
     }
 
     @Override
+    public boolean supportsSelectedPositions()
+    {
+        return true;
+    }
+
+    @Override
+    public ColumnChunk readPrimitive(int[] positions, int offset, int positionCount)
+    {
+        checkFromIndexSize(offset, positionCount, positions.length);
+
+        seek();
+        ColumnChunk columnChunk;
+        if (isNonNull()) {
+            columnChunk = readNonNull(positions, offset, positionCount);
+        }
+        else {
+            columnChunk = readNullable(positions, offset, positionCount);
+        }
+
+        readOffset = 0;
+        nextBatchSize = 0;
+        return columnChunk;
+    }
+
+    @Override
     public void prepareNextRead(int batchSize)
     {
         readOffset += nextBatchSize;
@@ -112,7 +139,12 @@ public class FlatColumnReader<BufferType>
         if (readOffset > 0) {
             log.debug("seek field %s, readOffset %d, remainingPageValueCount %d", field, readOffset, remainingPageValueCount);
         }
-        int remainingInBatch = readOffset;
+        skipRows(readOffset);
+    }
+
+    private void skipRows(int rowCount)
+    {
+        int remainingInBatch = rowCount;
         while (remainingInBatch > 0) {
             if (remainingPageValueCount == 0) {
                 remainingInBatch = seekToNextPage(remainingInBatch);
@@ -176,13 +208,36 @@ public class FlatColumnReader<BufferType>
         return valuesBuffer.createNullableBlock(valueIsValid, field.getType());
     }
 
+    private ColumnChunk readNullable(int[] positions, int offset, int positionCount)
+    {
+        log.debug("readNullable selected field %s, nextBatchSize %d, positionCount %d, remainingPageValueCount %d", field, nextBatchSize, positionCount, remainingPageValueCount);
+        NullableValuesBuffer<BufferType> valuesBuffer = createNullableValuesBuffer(positionCount);
+        long[] valueIsValid = new long[wordsForBits(positionCount)];
+        readSelectedPositions(positions, offset, positionCount, (outputOffset, runLength) -> readNullableRows(valuesBuffer, valueIsValid, outputOffset, runLength));
+        return valuesBuffer.createNullableBlock(valueIsValid, field.getType());
+    }
+
     @VisibleForTesting
     ColumnChunk readNonNull()
     {
         log.debug("readNonNull field %s, nextBatchSize %d, remainingPageValueCount %d", field, nextBatchSize, remainingPageValueCount);
         NonNullValuesBuffer<BufferType> valuesBuffer = createNonNullValuesBuffer(nextBatchSize);
-        int remainingInBatch = nextBatchSize;
-        int offset = 0;
+        readNonNullRows(valuesBuffer, 0, nextBatchSize);
+        return valuesBuffer.createNonNullBlock(field.getType());
+    }
+
+    private ColumnChunk readNonNull(int[] positions, int offset, int positionCount)
+    {
+        log.debug("readNonNull selected field %s, nextBatchSize %d, positionCount %d, remainingPageValueCount %d", field, nextBatchSize, positionCount, remainingPageValueCount);
+        NonNullValuesBuffer<BufferType> valuesBuffer = createNonNullValuesBuffer(positionCount);
+        readSelectedPositions(positions, offset, positionCount, (outputOffset, runLength) -> readNonNullRows(valuesBuffer, outputOffset, runLength));
+        return valuesBuffer.createNonNullBlock(field.getType());
+    }
+
+    private void readNonNullRows(NonNullValuesBuffer<BufferType> valuesBuffer, int offset, int rowCount)
+    {
+        int remainingInBatch = rowCount;
+        int outputOffset = offset;
         while (remainingInBatch > 0) {
             if (remainingPageValueCount == 0) {
                 if (!readNextPage()) {
@@ -193,14 +248,64 @@ public class FlatColumnReader<BufferType>
             if (skipToRowRangesStart()) {
                 continue;
             }
-            int chunkSize = rowRanges.advanceRange(Math.min(remainingPageValueCount, remainingInBatch));
+            int chunkSize = rowRanges.advanceRange(min(remainingPageValueCount, remainingInBatch));
 
-            valuesBuffer.readNonNullValues(valueDecoder, offset, chunkSize);
-            offset += chunkSize;
+            valuesBuffer.readNonNullValues(valueDecoder, outputOffset, chunkSize);
+            outputOffset += chunkSize;
             remainingInBatch -= chunkSize;
             remainingPageValueCount -= chunkSize;
         }
-        return valuesBuffer.createNonNullBlock(field.getType());
+    }
+
+    private void readNullableRows(NullableValuesBuffer<BufferType> valuesBuffer, long[] valueIsValid, int offset, int rowCount)
+    {
+        int remainingInBatch = rowCount;
+        int outputOffset = offset;
+        while (remainingInBatch > 0) {
+            if (remainingPageValueCount == 0) {
+                if (!readNextPage()) {
+                    throwEndOfBatchException(remainingInBatch);
+                }
+            }
+
+            if (skipToRowRangesStart()) {
+                continue;
+            }
+            int chunkSize = rowRanges.advanceRange(min(remainingPageValueCount, remainingInBatch));
+            int nonNullCount = definitionLevelDecoder.readNext(valueIsValid, outputOffset, chunkSize);
+            if (nonNullCount == chunkSize) {
+                setBits(valueIsValid, 0, outputOffset, chunkSize);
+            }
+
+            valuesBuffer.readNullableValues(valueDecoder, valueIsValid, outputOffset, nonNullCount, chunkSize);
+
+            outputOffset += chunkSize;
+            remainingInBatch -= chunkSize;
+            remainingPageValueCount -= chunkSize;
+        }
+    }
+
+    private void readSelectedPositions(int[] positions, int offset, int positionCount, SelectedPositionsReader selectedPositionsReader)
+    {
+        int batchPosition = 0;
+        int outputOffset = 0;
+        int endOffset = offset + positionCount;
+        for (int positionOffset = offset; positionOffset < endOffset; positionOffset++) {
+            int position = positions[positionOffset];
+            checkArgument(position >= batchPosition, "positions must be strictly ascending");
+            checkArgument(position < nextBatchSize, "position %s is outside of batch size %s", position, nextBatchSize);
+            skipRows(position - batchPosition);
+
+            int runLength = 1;
+            while (positionOffset + runLength < endOffset && positions[positionOffset + runLength] == position + runLength) {
+                runLength++;
+            }
+            selectedPositionsReader.read(outputOffset, runLength);
+            positionOffset += runLength - 1;
+            batchPosition = position + runLength;
+            outputOffset += runLength;
+        }
+        skipRows(nextBatchSize - batchPosition);
     }
 
     /**
@@ -283,6 +388,11 @@ public class FlatColumnReader<BufferType>
 
         remainingPageValueCount = page.getValueCount();
         return page;
+    }
+
+    private interface SelectedPositionsReader
+    {
+        void read(int outputOffset, int runLength);
     }
 
     private void readFlatPageV1(DataPageV1 page)
