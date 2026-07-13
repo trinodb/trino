@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -57,6 +58,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -218,6 +220,23 @@ public abstract class BaseIcebergSystemTables
                     .isEqualTo(new MaterializedRow(DEFAULT_PRECISION, 1, 1, 0L, null));
             assertThat(computeScalar("SELECT data.new_col FROM \"" + table.getName() + "$partitions\""))
                     .isNull();
+        }
+    }
+
+    @Test
+    public void testPartitionsTableWithManyColumns()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/30311: the data column builds one
+        // ROW(min, max, null_count, nan_count) per column, and packing those fields into partial row
+        // constructors by a fixed count exceeded the 64KB JVM method size limit for bulky field types
+        String columns = IntStream.rangeClosed(1, 121)
+                .mapToObj(column -> "col_%03d timestamp(6) with time zone".formatted(column))
+                .collect(joining(", "));
+
+        try (TestTable table = newTrinoTable("test_partitions_many_columns", "(" + columns + ")")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (col_001) VALUES TIMESTAMP '2022-01-01 12:00:00.000000 UTC'", 1);
+            assertThat(computeActual("SELECT data FROM \"" + table.getName() + "$partitions\"").getRowCount())
+                    .isEqualTo(1);
         }
     }
 
