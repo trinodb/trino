@@ -40,7 +40,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.InputReferenceCompiler.InputReferenceNode;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,6 +54,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.OpCode.NOP;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
@@ -66,6 +66,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -153,12 +154,15 @@ public final class BytecodeUtils
 
     public static BytecodeExpression loadConstant(CallSiteBinder callSiteBinder, Object constant, Class<?> type)
     {
-        Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
+        Binding binding = callSiteBinder.bind(constant, type);
         return loadConstant(binding);
     }
 
     public static BytecodeExpression loadConstant(Binding binding)
     {
+        if (binding.isClassDataConstant()) {
+            return constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
+        }
         return invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),

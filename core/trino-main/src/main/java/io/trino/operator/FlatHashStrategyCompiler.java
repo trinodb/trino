@@ -22,7 +22,6 @@ import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -38,16 +37,22 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -80,9 +85,10 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -147,7 +153,7 @@ public final class FlatHashStrategyCompiler
             fixedOffset += 1 + type.getFlatFixedSize();
         }
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
         List<ChunkClass> chunkClasses = new ArrayList<>();
         int chunkNumber = 0;
         // generate a separate class for each chunk of 500 types to avoid hitting the JVM method size and constant pool limits
@@ -155,6 +161,21 @@ public final class FlatHashStrategyCompiler
         for (List<KeyField> chunk : Lists.partition(keyFields, COLUMNS_PER_CHUNK)) {
             chunkClasses.add(compileFlatHashStrategyChunk(callSiteBinder, chunk, chunkNumber, singleChunkClass));
             chunkNumber++;
+        }
+
+        // The chunk classes are hidden and cannot be referenced by name from the strategy
+        // class, so their entry points are invoked through bound method handles. The chunk
+        // classes only need the bindings created so far, so sharing the binder is safe.
+        List<ChunkBindings> chunkBindings = new ArrayList<>();
+        for (ChunkClass chunkClass : chunkClasses) {
+            Class<?> definedChunk = defineHiddenClass(chunkClass.definition(), Object.class, callSiteBinder.getClassData());
+            chunkBindings.add(new ChunkBindings(
+                    bindChunkMethod(callSiteBinder, definedChunk, chunkClass.getTotalVariableWidth()),
+                    bindChunkMethod(callSiteBinder, definedChunk, chunkClass.readFlatChunk()),
+                    bindChunkMethod(callSiteBinder, definedChunk, chunkClass.writeFlatChunk()),
+                    bindChunkMethod(callSiteBinder, definedChunk, chunkClass.identicalMethodChunk()),
+                    bindChunkMethod(callSiteBinder, definedChunk, chunkClass.hashBlockChunk()),
+                    bindChunkMethod(callSiteBinder, definedChunk, chunkClass.hashFlatChunk())));
         }
 
         ClassDefinition definition = new ClassDefinition(
@@ -181,20 +202,16 @@ public final class FlatHashStrategyCompiler
         definition.declareMethod(a(PUBLIC), "getTotalFlatFixedLength", type(int.class)).getBody()
                 .append(constantInt(fixedOffset).ret());
 
-        generateGetTotalVariableWidth(definition, chunkClasses);
+        generateGetTotalVariableWidth(definition, chunkBindings);
 
-        generateReadFlat(definition, chunkClasses);
-        generateWriteFlat(definition, chunkClasses);
-        generateIdenticalMethod(definition, chunkClasses);
-        generateHashBlock(definition, chunkClasses);
-        generateHashFlat(definition, chunkClasses, singleChunkClass);
+        generateReadFlat(definition, chunkBindings);
+        generateWriteFlat(definition, chunkBindings);
+        generateIdenticalMethod(definition, chunkBindings);
+        generateHashBlock(definition, chunkBindings);
+        generateHashFlat(definition, chunkBindings, singleChunkClass);
 
         try {
-            DynamicClassLoader classLoader = new DynamicClassLoader(FlatHashStrategyCompiler.class.getClassLoader(), callSiteBinder.getBindings());
-            for (ChunkClass chunkClass : chunkClasses) {
-                defineClass(chunkClass.definition(), Object.class, classLoader);
-            }
-            return defineClass(definition, FlatHashStrategy.class, classLoader)
+            return defineHiddenClass(definition, FlatHashStrategy.class, callSiteBinder.getClassData())
                     .getConstructor()
                     .newInstance();
         }
@@ -236,7 +253,7 @@ public final class FlatHashStrategyCompiler
                 hashFlatChunk);
     }
 
-    private static void generateGetTotalVariableWidth(ClassDefinition definition, List<ChunkClass> chunkClasses)
+    private static void generateGetTotalVariableWidth(ClassDefinition definition, List<ChunkBindings> chunkBindings)
     {
         Parameter blocks = arg("blocks", type(Block[].class));
         Parameter position = arg("position", type(int.class));
@@ -250,8 +267,8 @@ public final class FlatHashStrategyCompiler
 
         Scope scope = methodDefinition.getScope();
         Variable variableWidth = scope.declareVariable("variableWidth", body, constantLong(0));
-        for (ChunkClass chunkClass : chunkClasses) {
-            body.append(variableWidth.set(add(variableWidth, invokeStatic(chunkClass.getTotalVariableWidth(), blocks, position))));
+        for (ChunkBindings chunk : chunkBindings) {
+            body.append(variableWidth.set(add(variableWidth, invoke(chunk.getTotalVariableWidth(), "getTotalVariableWidth", blocks, position))));
         }
         body.append(invokeStatic(Math.class, "toIntExact", int.class, variableWidth).ret());
     }
@@ -285,7 +302,7 @@ public final class FlatHashStrategyCompiler
         return methodDefinition;
     }
 
-    private static void generateReadFlat(ClassDefinition definition, List<ChunkClass> chunkClasses)
+    private static void generateReadFlat(ClassDefinition definition, List<ChunkBindings> chunkBindings)
     {
         Parameter fixedChunk = arg("fixedChunk", type(byte[].class));
         Parameter fixedOffset = arg("fixedOffset", type(int.class));
@@ -302,8 +319,8 @@ public final class FlatHashStrategyCompiler
                 variableOffset,
                 blockBuilders);
         BytecodeBlock body = methodDefinition.getBody();
-        for (ChunkClass chunkClass : chunkClasses) {
-            body.append(variableOffset.set(invokeStatic(chunkClass.readFlatChunk(), fixedChunk, fixedOffset, variableChunk, variableOffset, blockBuilders)));
+        for (ChunkBindings chunk : chunkBindings) {
+            body.append(variableOffset.set(invoke(chunk.readFlatChunk(), "readFlat", fixedChunk, fixedOffset, variableChunk, variableOffset, blockBuilders)));
         }
         body.ret();
     }
@@ -357,7 +374,7 @@ public final class FlatHashStrategyCompiler
         return methodDefinition;
     }
 
-    private static void generateWriteFlat(ClassDefinition definition, List<ChunkClass> chunkClasses)
+    private static void generateWriteFlat(ClassDefinition definition, List<ChunkBindings> chunkBindings)
     {
         Parameter blocks = arg("blocks", type(Block[].class));
         Parameter position = arg("position", type(int.class));
@@ -376,8 +393,8 @@ public final class FlatHashStrategyCompiler
                 variableChunk,
                 variableOffset);
         BytecodeBlock body = methodDefinition.getBody();
-        for (ChunkClass chunkClass : chunkClasses) {
-            body.append(variableOffset.set(invokeStatic(chunkClass.writeFlatChunk(), blocks, position, fixedChunk, fixedOffset, variableChunk, variableOffset)));
+        for (ChunkBindings chunk : chunkBindings) {
+            body.append(variableOffset.set(invoke(chunk.writeFlatChunk(), "writeFlat", blocks, position, fixedChunk, fixedOffset, variableChunk, variableOffset)));
         }
         body.ret();
     }
@@ -431,7 +448,7 @@ public final class FlatHashStrategyCompiler
         return methodDefinition;
     }
 
-    private static void generateIdenticalMethod(ClassDefinition definition, List<ChunkClass> chunkClasses)
+    private static void generateIdenticalMethod(ClassDefinition definition, List<ChunkBindings> chunkBindings)
     {
         Parameter leftFixedChunk = arg("leftFixedChunk", type(byte[].class));
         Parameter leftFixedOffset = arg("leftFixedOffset", type(int.class));
@@ -452,9 +469,9 @@ public final class FlatHashStrategyCompiler
         BytecodeBlock body = methodDefinition.getBody();
         // leftVariableChunkOffset = FlatHashStrategyCompiler.checkVariableWidthOffsetArgument(leftVariableChunkOffset)
         body.append(leftVariableChunkOffset.set(invokeStatic(FlatHashStrategyCompiler.class, "checkVariableWidthOffsetArgument", int.class, leftVariableChunkOffset)));
-        for (ChunkClass chunkClass : chunkClasses) {
+        for (ChunkBindings chunk : chunkBindings) {
             // leftVariableChunkOffset = Chunk.valueIdentical(leftFixedChunk, leftFixedOffset, leftVariableChunk, leftVariableChunkOffset, rightBlocks, rightPosition);
-            body.append(leftVariableChunkOffset.set(invokeStatic(chunkClass.identicalMethodChunk(), leftFixedChunk, leftFixedOffset, leftVariableChunk, leftVariableChunkOffset, rightBlocks, rightPosition)));
+            body.append(leftVariableChunkOffset.set(invoke(chunk.identicalMethodChunk(), "valueIdentical", leftFixedChunk, leftFixedOffset, leftVariableChunk, leftVariableChunkOffset, rightBlocks, rightPosition)));
             // if (leftVariableChunkOffset < 0) {
             //    return false;
             // }
@@ -633,7 +650,7 @@ public final class FlatHashStrategyCompiler
         return methodDefinition;
     }
 
-    private static void generateHashBlock(ClassDefinition definition, List<ChunkClass> chunkClasses)
+    private static void generateHashBlock(ClassDefinition definition, List<ChunkBindings> chunkBindings)
     {
         Parameter blocks = arg("blocks", type(Block[].class));
         Parameter position = arg("position", type(int.class));
@@ -647,8 +664,8 @@ public final class FlatHashStrategyCompiler
 
         Scope scope = methodDefinition.getScope();
         Variable result = scope.declareVariable("result", body, constantLong(INITIAL_HASH_VALUE));
-        for (ChunkClass chunkClass : chunkClasses) {
-            body.append(result.set(invokeStatic(chunkClass.hashBlockChunk(), blocks, position, result)));
+        for (ChunkBindings chunk : chunkBindings) {
+            body.append(result.set(invoke(chunk.hashBlockChunk(), "hashBlocks", blocks, position, result)));
         }
         body.append(result.ret());
     }
@@ -690,7 +707,7 @@ public final class FlatHashStrategyCompiler
         return methodDefinition;
     }
 
-    private static void generateHashFlat(ClassDefinition definition, List<ChunkClass> chunkClasses, boolean singleChunkClass)
+    private static void generateHashFlat(ClassDefinition definition, List<ChunkBindings> chunkBindings, boolean singleChunkClass)
     {
         Parameter fixedChunk = arg("fixedChunk", type(byte[].class));
         Parameter fixedOffset = arg("fixedOffset", type(int.class));
@@ -707,9 +724,9 @@ public final class FlatHashStrategyCompiler
         BytecodeBlock body = methodDefinition.getBody();
 
         if (singleChunkClass) {
-            ChunkClass chunkClass = getOnlyElement(chunkClasses);
+            ChunkBindings chunk = getOnlyElement(chunkBindings);
             // single chunk implementation takes variableChunkOffset directly
-            body.append(invokeStatic(chunkClass.hashFlatChunk(), fixedChunk, fixedOffset, variableChunk, variableChunkOffset, constantLong(INITIAL_HASH_VALUE)).ret());
+            body.append(invoke(chunk.hashFlatChunk(), "hashFlat", fixedChunk, fixedOffset, variableChunk, variableChunkOffset, constantLong(INITIAL_HASH_VALUE)).ret());
         }
         else {
             // multi chunk implementation must pass variableChunkOffset as a MutableVariableWidthOffset to propagate the
@@ -717,8 +734,8 @@ public final class FlatHashStrategyCompiler
             Scope scope = methodDefinition.getScope();
             Variable result = scope.declareVariable("result", body, constantLong(INITIAL_HASH_VALUE));
             Variable mutableVariableWidthOffset = scope.declareVariable("mutableOffset", body, newInstance(MutableVariableWidthOffset.class, variableChunkOffset));
-            for (ChunkClass chunkClass : chunkClasses) {
-                body.append(result.set(invokeStatic(chunkClass.hashFlatChunk(), fixedChunk, fixedOffset, variableChunk, mutableVariableWidthOffset, result)));
+            for (ChunkBindings chunk : chunkBindings) {
+                body.append(result.set(invoke(chunk.hashFlatChunk(), "hashFlat", fixedChunk, fixedOffset, variableChunk, mutableVariableWidthOffset, result)));
             }
             body.append(result.ret());
         }
@@ -877,4 +894,27 @@ public final class FlatHashStrategyCompiler
             MethodDefinition identicalMethodChunk,
             MethodDefinition hashBlockChunk,
             MethodDefinition hashFlatChunk) {}
+
+    private record ChunkBindings(
+            Binding getTotalVariableWidth,
+            Binding readFlatChunk,
+            Binding writeFlatChunk,
+            Binding identicalMethodChunk,
+            Binding hashBlockChunk,
+            Binding hashFlatChunk) {}
+
+    private static Binding bindChunkMethod(CallSiteBinder callSiteBinder, Class<?> chunkClass, MethodDefinition method)
+    {
+        Method chunkMethod = Arrays.stream(chunkClass.getMethods())
+                .filter(candidate -> Modifier.isStatic(candidate.getModifiers()))
+                .filter(candidate -> candidate.getName().equals(method.getName()))
+                .filter(candidate -> candidate.getParameterCount() == method.getParameterTypes().size())
+                .collect(onlyElement());
+        try {
+            return callSiteBinder.bind(MethodHandles.lookup().unreflect(chunkMethod));
+        }
+        catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

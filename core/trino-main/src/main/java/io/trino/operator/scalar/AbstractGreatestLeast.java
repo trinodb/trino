@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -59,7 +58,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
@@ -145,7 +144,7 @@ public abstract class AbstractGreatestLeast
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
 
         Variable value = scope.declareVariable(wrap(javaTypes.get(0)), "value");
 
@@ -178,7 +177,7 @@ public abstract class AbstractGreatestLeast
 
         body.append(value.ret());
 
-        Class<?> clazz = defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
+        Class<?> clazz = defineHiddenClass(definition, Object.class, binder.getClassData());
         return methodHandle(clazz, method.getName(), javaTypes.toArray(new Class<?>[0]));
     }
 }
