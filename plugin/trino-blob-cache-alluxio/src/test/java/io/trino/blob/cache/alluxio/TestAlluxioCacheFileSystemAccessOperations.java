@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.alluxio;
+package io.trino.blob.cache.alluxio;
 
 import alluxio.client.file.cache.PageId;
 import alluxio.client.file.cache.PageStore;
@@ -30,8 +30,9 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheFileSystem;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
-import io.trino.filesystem.tracing.TracingFileSystemCache;
+import io.trino.filesystem.tracing.TracingBlobCache;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
+import io.trino.spi.cache.BlobCache;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingTelemetry;
 import org.junit.jupiter.api.AfterAll;
@@ -51,7 +52,8 @@ import java.util.List;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.filesystem.alluxio.TestingCacheKeyProvider.testingCacheKeyForLocation;
+import static io.trino.blob.cache.alluxio.TestingBlobCache.testingBlobCache;
+import static io.trino.blob.cache.alluxio.TestingCacheKeyProvider.testingCacheKeyForLocation;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
@@ -75,7 +77,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
     private final TestingTelemetry testingTelemetry = TestingTelemetry.create("alluxio-cache");
     private final TestingCacheKeyProvider cacheKeyProvider = new TestingCacheKeyProvider();
     private TracingFileSystemFactory tracingFileSystemFactory;
-    private AlluxioFileSystemCache alluxioCache;
+    private AlluxioCache alluxioCache;
     private CacheFileSystem fileSystem;
     private Path tempDirectory;
     private PageStore pageStore;
@@ -87,15 +89,16 @@ public class TestAlluxioCacheFileSystemAccessOperations
         tempDirectory = Files.createTempDirectory("test");
         Path cacheDirectory = Files.createDirectory(tempDirectory.resolve("cache"));
 
-        AlluxioFileSystemCacheConfig configuration = new AlluxioFileSystemCacheConfig()
+        AlluxioCacheConfig configuration = new AlluxioCacheConfig()
                 .setCacheDirectories(ImmutableList.of(cacheDirectory.toAbsolutePath().toString()))
                 .disableTTL()
                 .setCachePageSize(DataSize.ofBytes(PAGE_SIZE))
                 .setMaxCacheSizes(ImmutableList.of(DataSize.ofBytes(CACHE_SIZE)));
 
         tracingFileSystemFactory = new TracingFileSystemFactory(testingTelemetry.getTracer(), new MemoryFileSystemFactory());
-        alluxioCache = new AlluxioFileSystemCache(testingTelemetry.getTracer(), configuration, new AlluxioCacheStats());
-        fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(ConnectorIdentity.ofUser("hello")), new TracingFileSystemCache(testingTelemetry.getTracer(), alluxioCache), cacheKeyProvider);
+        alluxioCache = new AlluxioCache(testingTelemetry.getTracer(), configuration);
+        BlobCache testBlobCache = new TracingBlobCache(testingTelemetry.getTracer(), testingBlobCache(alluxioCache, new AlluxioCacheStats()));
+        fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(ConnectorIdentity.ofUser("hello")), testBlobCache, cacheKeyProvider);
         pageStore = PageStore.create(Iterables.getOnlyElement(PageStoreOptions.create(AlluxioConfigurationFactory.create(configuration))));
     }
 
@@ -284,7 +287,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
                         .build());
 
         TrinoInputFile inputFile = fileSystem.newInputFile(location);
-        String fileId = alluxioCache.uriStatus(inputFile, cacheKeyProvider.getCacheKey(inputFile).get()).getCacheContext().getCacheIdentifier();
+        String fileId = AlluxioCache.cacheIdentifier(cacheKeyProvider.getCacheKey(inputFile).orElseThrow());
 
         // Drop this file
         pageStore.delete(new PageId(fileId, 0));
@@ -321,7 +324,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
                         .build());
 
         TrinoInputFile inputFile = fileSystem.newInputFile(location);
-        String fileId = alluxioCache.uriStatus(inputFile, cacheKeyProvider.getCacheKey(inputFile).get()).getCacheContext().getCacheIdentifier();
+        String fileId = AlluxioCache.cacheIdentifier(cacheKeyProvider.getCacheKey(inputFile).orElseThrow());
 
         // Drop this file
         pageStore.put(new PageId(fileId, 0), new byte[0]);
@@ -481,7 +484,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
 
     private static String cacheKey(Location location, int cacheVersion)
     {
-        return testingCacheKeyForLocation(location, cacheVersion);
+        return testingCacheKeyForLocation(location, cacheVersion).toString();
     }
 
     private static String getLocation(SpanData span)

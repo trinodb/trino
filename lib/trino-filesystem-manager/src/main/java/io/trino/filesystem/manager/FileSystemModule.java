@@ -23,40 +23,48 @@ import io.airlift.configuration.ConfigPropertyMetadata;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.filesystem.cache.CacheSplitAffinityProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.filesystem.cache.SplitAffinityProvider;
-import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.local.LocalFileSystemConfig;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.filesystem.memory.MemoryFileSystemCache;
-import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.cache.BlobCache;
+import io.trino.spi.cache.CacheRequirements;
 import io.trino.spi.connector.ConnectorContext;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.spi.cache.CacheCapability.CAN_EXCEED_HEAP_SIZE;
+import static io.trino.spi.cache.CacheCapability.LOW_LATENCY;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
         extends AbstractConfigurationAwareModule
 {
+    // Table data working sets read by worker scans exceed memory by design
+    private static final CacheRequirements DATA_CACHE_REQUIREMENTS = new CacheRequirements("filesystem.data", Set.of(CAN_EXCEED_HEAP_SIZE));
+
+    // Small, hot metadata files on the coordinator planning path: hits must not do I/O
+    private static final CacheRequirements METADATA_CACHE_REQUIREMENTS = new CacheRequirements("filesystem.metadata", Set.of(LOW_LATENCY));
+
     private final String catalogName;
     private final ConnectorContext context;
     private final boolean isCoordinator;
@@ -117,15 +125,29 @@ public class FileSystemModule
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, SplitAffinityProvider.class).setDefault().to(NoopSplitAffinityProvider.class).in(Scopes.SINGLETON);
 
-        newOptionalBinder(binder, TrinoFileSystemCache.class);
-        newOptionalBinder(binder, MemoryFileSystemCache.class);
+        if (config.isCacheEnabled() && isCoordinator) {
+            newOptionalBinder(binder, SplitAffinityProvider.class).setBinding().to(CacheSplitAffinityProvider.class).in(Scopes.SINGLETON);
+        }
+    }
 
+    @Provides
+    @Singleton
+    Optional<BlobCache> createBlobCache(FileSystemConfig config)
+    {
         if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(isCoordinator));
+            // The operator explicitly enabled caching for this catalog, so every node must
+            // have a manager providing it
+            return Optional.of(context.getCacheFactory().createBlobCache(DATA_CACHE_REQUIREMENTS)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "fs.cache.enabled is set for catalog %s but no loaded blob cache manager provides %s: configure one via cache-manager.config-files".formatted(
+                                    catalogName, DATA_CACHE_REQUIREMENTS.capabilities()))));
         }
-        if (coordinatorFileCaching) {
-            install(new MemoryFileSystemCacheModule(isCoordinator));
+        if (coordinatorFileCaching && isCoordinator) {
+            // Metadata caching is an engine default, not an operator opt-in: degrade quietly
+            // when no manager provides it
+            return context.getCacheFactory().createBlobCache(METADATA_CACHE_REQUIREMENTS);
         }
+        return Optional.empty();
     }
 
     @Provides
@@ -134,8 +156,7 @@ public class FileSystemModule
             FileSystemConfig config,
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             Map<String, TrinoFileSystemFactory> factories,
-            Optional<TrinoFileSystemCache> fileSystemCache,
-            Optional<MemoryFileSystemCache> memoryFileSystemCache,
+            Optional<BlobCache> blobCache,
             Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
@@ -153,12 +174,8 @@ public class FileSystemModule
             delegate = new TrackingFileSystemFactory(delegate);
         }
 
-        if (fileSystemCache.isPresent()) {
-            return new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
-        }
-        // use MemoryFileSystemCache only when no other TrinoFileSystemCache is configured
-        if (memoryFileSystemCache.isPresent()) {
-            return new CacheFileSystemFactory(tracer, delegate, memoryFileSystemCache.orElseThrow(), keyProvider.orElseThrow());
+        if (blobCache.isPresent()) {
+            return new CacheFileSystemFactory(tracer, delegate, blobCache.orElseThrow(), keyProvider.orElseThrow());
         }
         return delegate;
     }

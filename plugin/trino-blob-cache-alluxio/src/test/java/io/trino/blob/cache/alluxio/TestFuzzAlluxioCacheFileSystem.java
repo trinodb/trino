@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.alluxio;
+package io.trino.blob.cache.alluxio;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -30,10 +29,14 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Random;
 
+import static io.airlift.tracing.Tracing.noopTracer;
+import static io.trino.blob.cache.alluxio.TestingBlobCache.testingBlobCache;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -178,13 +181,16 @@ public class TestFuzzAlluxioCacheFileSystem
             tempDirectory = Files.createTempDirectory("test");
             Path cacheDirectory = Files.createDirectory(tempDirectory.resolve("cache"));
 
-            AlluxioFileSystemCacheConfig configuration = new AlluxioFileSystemCacheConfig()
+            AlluxioCacheConfig configuration = new AlluxioCacheConfig()
                     .setCacheDirectories(ImmutableList.of(cacheDirectory.toAbsolutePath().toString()))
                     .setCachePageSize(PAGE_SIZE)
                     .disableTTL()
                     .setMaxCacheSizes(ImmutableList.of(CACHE_SIZE));
-            AlluxioFileSystemCache alluxioCache = new AlluxioFileSystemCache(Tracing.noopTracer(), configuration, new AlluxioCacheStats());
-            return new CacheFileSystem(new IncompleteStreamMemoryFileSystem(), alluxioCache, new TestingCacheKeyProvider());
+            AlluxioCache alluxioCache = new AlluxioCache(noopTracer(), configuration);
+            return new CacheFileSystem(
+                    new IncompleteStreamMemoryFileSystem(),
+                    testingBlobCache(alluxioCache, new AlluxioCacheStats()),
+                    new TestingCacheKeyProvider());
         }
 
         @Override
@@ -196,7 +202,23 @@ public class TestFuzzAlluxioCacheFileSystem
         @Override
         public void close()
         {
-            tempDirectory.toFile().delete();
+            if (tempDirectory == null) {
+                return;
+            }
+            try (var paths = Files.walk(tempDirectory)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            }
+                            catch (IOException e) {
+                                throw new UncheckedIOException(e);
+                            }
+                        });
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 

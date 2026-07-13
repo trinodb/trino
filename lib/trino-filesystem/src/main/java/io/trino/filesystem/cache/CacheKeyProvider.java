@@ -13,7 +13,9 @@
  */
 package io.trino.filesystem.cache;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.spi.cache.CacheKey;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -23,6 +25,17 @@ public interface CacheKeyProvider
     /**
      * Get the cache key of a TrinoInputFile. Returns Optional.empty() if the file is not cacheable.
      */
-    Optional<String> getCacheKey(TrinoInputFile inputFile)
+    Optional<CacheKey> getCacheKey(TrinoInputFile inputFile)
             throws IOException;
+
+    /**
+     * Prefix of every key produced by {@link #getCacheKey} for the file at the given location,
+     * used to invalidate all cached entries (all versions and variants) of that file without
+     * accessing the file system. Returns Optional.empty() if entries for the location cannot be
+     * identified by a key prefix.
+     */
+    default Optional<CacheKey> getCacheKeyPrefix(Location location)
+    {
+        return Optional.of(CacheKey.of(location.toString()));
+    }
 }

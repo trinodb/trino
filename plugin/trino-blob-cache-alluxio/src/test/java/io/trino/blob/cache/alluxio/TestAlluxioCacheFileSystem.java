@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.alluxio;
+package io.trino.blob.cache.alluxio;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.stream.Stream;
 
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.trino.blob.cache.alluxio.TestingBlobCache.testingBlobCache;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -44,7 +45,7 @@ public class TestAlluxioCacheFileSystem
 {
     private MemoryFileSystem memoryFileSystem;
     private CacheFileSystem fileSystem;
-    private AlluxioFileSystemCache cache;
+    private AlluxioCache cache;
     private Path tempDirectory;
 
     @BeforeAll
@@ -54,14 +55,14 @@ public class TestAlluxioCacheFileSystem
         tempDirectory = Files.createTempDirectory("test");
         Path cacheDirectory = tempDirectory.resolve("cache");
         Files.createDirectory(cacheDirectory);
-        AlluxioFileSystemCacheConfig configuration = new AlluxioFileSystemCacheConfig()
+        AlluxioCacheConfig configuration = new AlluxioCacheConfig()
                 .setCacheDirectories(ImmutableList.of(cacheDirectory.toAbsolutePath().toString()))
                 .setCachePageSize(DataSize.valueOf("32003B"))
                 .disableTTL()
                 .setMaxCacheSizes(ImmutableList.of(DataSize.valueOf("100MB")));
         memoryFileSystem = new IncompleteStreamMemoryFileSystem();
-        cache = new AlluxioFileSystemCache(noopTracer(), configuration, new AlluxioCacheStats());
-        fileSystem = new CacheFileSystem(memoryFileSystem, cache, new DefaultCacheKeyProvider());
+        cache = new AlluxioCache(noopTracer(), configuration);
+        fileSystem = new CacheFileSystem(memoryFileSystem, testingBlobCache(cache, new AlluxioCacheStats()), new DefaultCacheKeyProvider());
     }
 
     @AfterAll

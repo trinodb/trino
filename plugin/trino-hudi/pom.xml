@@ -231,6 +231,13 @@
         </dependency>
 
         <dependency>
+            <!-- required by hudi-client-common's LockManager used when writing test tables -->
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hdfs</artifactId>
             <scope>test</scope>

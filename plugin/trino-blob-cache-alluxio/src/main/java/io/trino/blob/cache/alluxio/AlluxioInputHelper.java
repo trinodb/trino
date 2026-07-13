@@ -19,7 +19,6 @@ import alluxio.client.file.cache.CacheManager;
 import alluxio.client.file.cache.PageId;
 import alluxio.conf.AlluxioConfiguration;
 import alluxio.conf.PropertyKey;
-import com.google.common.primitives.Ints;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 
@@ -33,8 +32,6 @@ import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
 import static io.trino.filesystem.tracing.Tracing.withTracing;
-import static java.lang.Integer.max;
-import static java.lang.Math.addExact;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -50,12 +47,6 @@ public class AlluxioInputHelper
     private final String location;
     private final int pageSize;
     private final long fileLength;
-    private final int bufferSize;
-    private final byte[] readBuffer;
-
-    // Tracks the start and end positions of the portion of the file in the buffer
-    private long bufferStartPosition;
-    private long bufferEndPosition;
 
     public AlluxioInputHelper(
             Tracer tracer,
@@ -74,9 +65,6 @@ public class AlluxioInputHelper
         this.pageSize = (int) requireNonNull(configuration, "configuration is null").getBytes(PropertyKey.USER_CLIENT_CACHE_PAGE_SIZE);
         this.statistics = requireNonNull(statistics, "statistics is null");
         this.location = requireNonNull(location, "location is null");
-        // Buffer to reduce the cost of doing page aligned reads for small sequential reads pattern
-        this.bufferSize = pageSize;
-        this.readBuffer = new byte[bufferSize];
     }
 
     public int doCacheRead(long position, byte[] bytes, int offset, int length)
@@ -88,23 +76,7 @@ public class AlluxioInputHelper
                 .setAttribute(CACHE_FILE_READ_POSITION, position)
                 .startSpan();
 
-        return withTracing(span, () -> {
-            int bytesRead = doBufferRead(position, bytes, offset, length);
-            return addExact(bytesRead, doInternalCacheRead(position + bytesRead, bytes, offset + bytesRead, length - bytesRead));
-        });
-    }
-
-    private int doBufferRead(long position, byte[] bytes, int offset, int length)
-    {
-        if (length == 0) {
-            return 0;
-        }
-        if (position < bufferStartPosition || position >= bufferEndPosition) {
-            return 0;
-        }
-        int bytesToCopy = min(length, Ints.saturatedCast(bufferEndPosition - position));
-        System.arraycopy(readBuffer, Ints.saturatedCast(position - bufferStartPosition), bytes, offset, bytesToCopy);
-        return bytesToCopy;
+        return withTracing(span, () -> doInternalCacheRead(position, bytes, offset, length));
     }
 
     private int doInternalCacheRead(long position, byte[] bytes, int offset, int length)
@@ -141,36 +113,7 @@ public class AlluxioInputHelper
         }
         CacheContext cacheContext = status.getCacheContext();
         PageId pageId = new PageId(cacheContext.getCacheIdentifier(), currentPage);
-        if (bytesLeftInPage > length && bufferSize > length) { // Read page into buffer
-            int putBytes = putBuffer(currentPageOffset, pageId, cacheContext);
-            if (putBytes <= 0) {
-                return putBytes;
-            }
-            return doBufferRead(position, buffer, offset, length);
-        }
-        else {
-            return cacheManager.get(pageId, currentPageOffset, bytesToReadInPage, buffer, offset, cacheContext);
-        }
-    }
-
-    private int putBuffer(int pageOffset, PageId pageId, CacheContext cacheContext)
-    {
-        pageOffset = min(pageOffset, max(pageSize - bufferSize, 0));
-        long bufferStart = pageOffset + (pageId.getPageIndex() * pageSize);
-        int bytesToReadInPage = Ints.saturatedCast(min(pageSize - pageOffset, fileLength - bufferStart));
-        int bytesRead = cacheManager.get(pageId, pageOffset, min(bytesToReadInPage, bufferSize), readBuffer, 0, cacheContext);
-        if (bytesRead < 0) {
-            // Buffer could be corrupted
-            bufferStartPosition = 0;
-            bufferEndPosition = 0;
-            return bytesRead;
-        }
-        if (bytesRead == 0) {
-            return bytesRead;
-        }
-        bufferStartPosition = pageOffset + (pageId.getPageIndex() * pageSize);
-        bufferEndPosition = bufferStartPosition + bytesRead;
-        return bytesRead;
+        return cacheManager.get(pageId, currentPageOffset, bytesToReadInPage, buffer, offset, cacheContext);
     }
 
     public record PageAlignedRead(long pageStart, long pageEnd, int pageOffset)
