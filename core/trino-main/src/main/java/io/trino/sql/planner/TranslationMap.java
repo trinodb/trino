@@ -169,6 +169,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -1012,7 +1013,9 @@ public class TranslationMap
         return new Call(
                 accessor.inputFunction(),
                 ImmutableList.of(
-                        new io.trino.sql.ir.Cast(resolveSimplifiedAccessorColumn(accessor.column()), VARCHAR),
+                        new Call(
+                                plannerContext.getMetadata().resolveBuiltinFunction("json_format", fromTypes(JSON)),
+                                ImmutableList.of(resolveSimplifiedAccessorColumn(accessor.column()))),
                         new Constant(BOOLEAN, false)));
     }
 

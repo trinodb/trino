@@ -40,9 +40,22 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.foo
-                FROM (VALUES (CAST('{"foo":"bar"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"foo":"bar"}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"bar\"]'");
+    }
+
+    @Test
+    public void testMemberAccessorOnJsonStringYieldsNull()
+    {
+        // CAST(varchar AS JSON) produces a JSON string, not a parsed object. Member access on a JSON
+        // scalar matches nothing, so the accessor navigates the value itself and yields NULL.
+        assertThat(assertions.query(
+                """
+                SELECT j.foo
+                FROM (VALUES (CAST('{"foo":"bar"}' AS JSON))) AS t(j)
+                """))
+                .matches("VALUES CAST(NULL AS VARCHAR)");
     }
 
     @Test
@@ -51,7 +64,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.a.b
-                FROM (VALUES (CAST('{"a":{"b":42}}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"a":{"b":42}}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[42]'");
     }
@@ -62,7 +75,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.a
-                FROM (VALUES (CAST('{"a":{"b":42}}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"a":{"b":42}}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '{\"b\":42}'");
     }
@@ -73,7 +86,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.absent
-                FROM (VALUES (CAST('{"foo":"bar"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"foo":"bar"}')) AS t(j)
                 """))
                 .matches("VALUES CAST(NULL AS VARCHAR)");
     }
@@ -84,7 +97,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j."FooBar"
-                FROM (VALUES (CAST('{"FooBar":"matched","foobar":"not matched"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"FooBar":"matched","foobar":"not matched"}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"matched\"]'");
     }
@@ -95,7 +108,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j."Outer Key"."Inner Key"
-                FROM (VALUES (CAST('{"Outer Key":{"Inner Key":"matched","inner key":"not matched"}}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"Outer Key":{"Inner Key":"matched","inner key":"not matched"}}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"matched\"]'");
 
@@ -103,7 +116,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.wrapper."Inner Key".leaf
-                FROM (VALUES (CAST('{"wrapper":{"Inner Key":{"leaf":42}}}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"wrapper":{"Inner Key":{"leaf":42}}}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[42]'");
     }
@@ -125,7 +138,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[1]
-                FROM (VALUES (CAST('[10, 20, 30]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[10, 20, 30]')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[20]'");
     }
@@ -136,7 +149,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.items[0]
-                FROM (VALUES (CAST('{"items":["a","b","c"]}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"items":["a","b","c"]}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"a\"]'");
     }
@@ -147,7 +160,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[0].label
-                FROM (VALUES (CAST('[{"label":"hi"}]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[{"label":"hi"}]')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"hi\"]'");
     }
@@ -158,7 +171,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.rows[1].cells[0]
-                FROM (VALUES (CAST('{"rows":[{"cells":[1]},{"cells":[42,43]}]}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"rows":[{"cells":[1]},{"cells":[42,43]}]}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[42]'");
     }
@@ -169,7 +182,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[99]
-                FROM (VALUES (CAST('[1, 2, 3]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[1, 2, 3]')) AS t(j)
                 """))
                 .matches("VALUES CAST(NULL AS VARCHAR)");
     }
@@ -183,7 +196,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[-1]
-                FROM (VALUES (CAST('[1, 2, 3]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[1, 2, 3]')) AS t(j)
                 """))
                 .matches("VALUES CAST(NULL AS VARCHAR)");
     }
@@ -204,7 +217,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.*
-                FROM (VALUES (CAST('{"a":1,"b":2}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"a":1,"b":2}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[1,2]'");
     }
@@ -215,17 +228,18 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.payload.*
-                FROM (VALUES (CAST('{"payload":{"x":"a","y":"b"}}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"payload":{"x":"a","y":"b"}}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"a\",\"b\"]'");
 
-        // member values of mixed types are all collected
+        // member values of mixed types are all collected; a JSON value has canonical (sorted) key
+        // order, so the members surface as v, w, x, y, z
         assertThat(assertions.query(
                 """
                 SELECT j.payload.*
-                FROM (VALUES (CAST('{"payload":{"x":"a","y":true,"z":1,"w":[2],"v":{"k":3}}}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"payload":{"x":"a","y":true,"z":1,"w":[2],"v":{"k":3}}}')) AS t(j)
                 """))
-                .matches("VALUES VARCHAR '[\"a\",true,1,[2],{\"k\":3}]'");
+                .matches("VALUES VARCHAR '[{\"k\":3},[2],\"a\",true,1]'");
     }
 
     @Test
@@ -236,15 +250,15 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT t.*
-                FROM (VALUES (CAST('{"a":1}' AS JSON))) AS t(t)
+                FROM (VALUES (JSON '{"a":1}')) AS t(t)
                 """))
-                .matches("VALUES CAST('{\"a\":1}' AS JSON)");
+                .matches("VALUES JSON '{\"a\":1}'");
 
         // with no relation named j in scope, the JSON wildcard applies to the column
         assertThat(assertions.query(
                 """
                 SELECT j.*
-                FROM (VALUES (CAST('{"a":1}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"a":1}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[1]'");
     }
@@ -255,7 +269,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[0].*
-                FROM (VALUES (CAST('[{"x":1,"y":2}]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[{"x":1,"y":2}]')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[1,2]'");
     }
@@ -276,7 +290,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.n.bigint()
-                FROM (VALUES (CAST('{"n":42}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"n":42}')) AS t(j)
                 """))
                 .matches("VALUES BIGINT '42'");
     }
@@ -291,7 +305,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.n.bigint()
-                FROM (VALUES (CAST('{"n":42}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"n":42}')) AS t(j)
                 """))
                 .matches("VALUES BIGINT '42'");
 
@@ -299,7 +313,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.something(1)
-                FROM (VALUES (CAST('{"n":42}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"n":42}')) AS t(j)
                 """))
                 .failure()
                 .hasMessageContaining("something");
@@ -309,7 +323,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.n.bigint(1)
-                FROM (VALUES (CAST('{"n":42}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"n":42}')) AS t(j)
                 """))
                 .failure()
                 .hasMessageContaining("bigint");
@@ -319,7 +333,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.n.decimal(4294967297)
-                FROM (VALUES (CAST('{"n":42}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"n":42}')) AS t(j)
                 """))
                 .failure()
                 .hasMessageContaining("decimal");
@@ -328,7 +342,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.n."BIGINT"()
-                FROM (VALUES (CAST('{"n":42}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"n":42}')) AS t(j)
                 """))
                 .failure()
                 .hasMessageContaining("not registered");
@@ -342,7 +356,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.bigint()
-                FROM (VALUES (CAST('42' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '42')) AS t(j)
                 """))
                 .matches("VALUES BIGINT '42'");
     }
@@ -353,7 +367,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.label.string()
-                FROM (VALUES (CAST('{"label":"hi"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"label":"hi"}')) AS t(j)
                 """))
                 .matches("VALUES CAST('hi' AS VARCHAR)");
     }
@@ -364,7 +378,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.ok.boolean()
-                FROM (VALUES (CAST('{"ok":true}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"ok":true}')) AS t(j)
                 """))
                 .matches("VALUES TRUE");
     }
@@ -375,7 +389,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.x.integer()
-                FROM (VALUES (CAST('{"x":17}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"x":17}')) AS t(j)
                 """))
                 .matches("VALUES INTEGER '17'");
     }
@@ -386,7 +400,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.d.number()
-                FROM (VALUES (CAST('{"d":3.5}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"d":3.5}')) AS t(j)
                 """))
                 .matches("VALUES DOUBLE '3.5'");
     }
@@ -397,7 +411,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.price.decimal(10, 2)
-                FROM (VALUES (CAST('{"price":19.99}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"price":19.99}')) AS t(j)
                 """))
                 .matches("VALUES CAST(19.99 AS DECIMAL(10, 2))");
     }
@@ -408,7 +422,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.ts.timestamp(3)
-                FROM (VALUES (CAST('{"ts":"2024-01-02 03:04:05.678"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"ts":"2024-01-02 03:04:05.678"}')) AS t(j)
                 """))
                 .matches("VALUES TIMESTAMP '2024-01-02 03:04:05.678'");
     }
@@ -419,7 +433,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.missing.bigint()
-                FROM (VALUES (CAST('{"present":1}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"present":1}')) AS t(j)
                 """))
                 .matches("VALUES CAST(NULL AS BIGINT)");
     }
@@ -430,7 +444,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.items[1].bigint()
-                FROM (VALUES (CAST('{"items":[10, 20, 30]}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"items":[10, 20, 30]}')) AS t(j)
                 """))
                 .matches("VALUES BIGINT '20'");
     }
@@ -441,7 +455,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[*]
-                FROM (VALUES (CAST('[10, 20, 30]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[10, 20, 30]')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[10,20,30]'");
     }
@@ -452,7 +466,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.items[*]
-                FROM (VALUES (CAST('{"items":["a","b"]}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"items":["a","b"]}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"a\",\"b\"]'");
     }
@@ -463,7 +477,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.rows[*].x
-                FROM (VALUES (CAST('{"rows":[{"x":1},{"x":2}]}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"rows":[{"x":1},{"x":2}]}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[1,2]'");
     }
@@ -486,7 +500,7 @@ public class TestJsonSimplifiedAccessor
         // "[*] not allowed" message.
         assertThat(assertions.query(
                 """
-                SELECT badcol[*] FROM (VALUES (CAST('[1]' AS JSON))) AS t(j)
+                SELECT badcol[*] FROM (VALUES (JSON '[1]')) AS t(j)
                 """))
                 .failure().hasMessageContaining("Column 'badcol' cannot be resolved");
     }
@@ -497,7 +511,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.'foo'
-                FROM (VALUES (CAST('{"foo":1}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"foo":1}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[1]'");
     }
@@ -508,7 +522,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.'foo bar'
-                FROM (VALUES (CAST('{"foo bar":"yes"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"foo bar":"yes"}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[\"yes\"]'");
     }
@@ -519,7 +533,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.'count'.bigint()
-                FROM (VALUES (CAST('{"count":42}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"count":42}')) AS t(j)
                 """))
                 .matches("VALUES BIGINT '42'");
     }
@@ -532,7 +546,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.Foo
-                FROM (VALUES (CAST('{"foo":1,"Foo":2}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"foo":1,"Foo":2}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[2]'");
     }
@@ -543,7 +557,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j."Foo"
-                FROM (VALUES (CAST('{"foo":1,"Foo":2}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"foo":1,"Foo":2}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[2]'");
     }
@@ -554,7 +568,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[*].*
-                FROM (VALUES (CAST('[{"a":1,"b":2}]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[{"a":1,"b":2}]')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[1,2]'");
     }
@@ -565,7 +579,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.items[*].*
-                FROM (VALUES (CAST('{"items":[{"a":1,"b":2}]}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"items":[{"a":1,"b":2}]}')) AS t(j)
                 """))
                 .matches("VALUES VARCHAR '[1,2]'");
     }
@@ -576,7 +590,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.d.date()
-                FROM (VALUES (CAST('{"d":"2024-01-02"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"d":"2024-01-02"}')) AS t(j)
                 """))
                 .matches("VALUES DATE '2024-01-02'");
     }
@@ -587,7 +601,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.t.time()
-                FROM (VALUES (CAST('{"t":"03:04:05.678"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"t":"03:04:05.678"}')) AS t(j)
                 """))
                 .matches("VALUES TIME '03:04:05.678'");
     }
@@ -598,7 +612,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.t.time(0)
-                FROM (VALUES (CAST('{"t":"03:04:05"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"t":"03:04:05"}')) AS t(j)
                 """))
                 .matches("VALUES TIME '03:04:05'");
     }
@@ -609,7 +623,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.t.time_tz(3)
-                FROM (VALUES (CAST('{"t":"03:04:05.678+01:00"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"t":"03:04:05.678+01:00"}')) AS t(j)
                 """))
                 .matches("VALUES TIME '03:04:05.678+01:00'");
     }
@@ -620,7 +634,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j.ts.timestamp_tz(3)
-                FROM (VALUES (CAST('{"ts":"2024-01-02 03:04:05.678 UTC"}' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '{"ts":"2024-01-02 03:04:05.678 UTC"}')) AS t(j)
                 """))
                 .matches("VALUES TIMESTAMP '2024-01-02 03:04:05.678 UTC'");
     }
@@ -631,7 +645,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT j[-1]
-                FROM (VALUES (CAST('[10, 20, 30]' AS JSON))) AS t(j)
+                FROM (VALUES (JSON '[10, 20, 30]')) AS t(j)
                 """))
                 .matches("VALUES CAST(NULL AS VARCHAR)");
     }
@@ -645,7 +659,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT (SELECT o.j.foo)
-                FROM (VALUES (CAST('{"foo":1}' AS JSON))) AS o(j)
+                FROM (VALUES (JSON '{"foo":1}')) AS o(j)
                 """))
                 .matches("VALUES VARCHAR '[1]'");
     }
@@ -656,7 +670,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT (SELECT o.j.items[0].bigint())
-                FROM (VALUES (CAST('{"items":[42]}' AS JSON))) AS o(j)
+                FROM (VALUES (JSON '{"items":[42]}')) AS o(j)
                 """))
                 .matches("VALUES BIGINT '42'");
     }
@@ -667,7 +681,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT (SELECT o.j.*)
-                FROM (VALUES (CAST('{"foo":1}' AS JSON))) AS o(j)
+                FROM (VALUES (JSON '{"foo":1}')) AS o(j)
                 """))
                 .matches("VALUES VARCHAR '[1]'");
     }
@@ -683,7 +697,7 @@ public class TestJsonSimplifiedAccessor
         assertThat(assertions.query(
                 """
                 SELECT (SELECT o.j.foo.bigint())
-                FROM (VALUES (CAST('{"foo":42}' AS JSON))) AS o(j)
+                FROM (VALUES (JSON '{"foo":42}')) AS o(j)
                 """))
                 .failure().hasMessageContaining("JSON simplified accessor over a column from an outer scope is not supported");
     }
