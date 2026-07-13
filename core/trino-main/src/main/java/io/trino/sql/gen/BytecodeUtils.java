@@ -157,14 +157,10 @@ public final class BytecodeUtils
 
     public static BytecodeExpression loadConstant(Binding binding)
     {
-        if (binding.isClassDataConstant()) {
+        if (binding.getKind() == Binding.Kind.CLASS_DATA_CONSTANT) {
             return constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
         }
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(binding.getBindingId()),
-                "constant_" + binding.getBindingId(),
-                binding.getType().returnType());
+        return invoke(binding, "constant_" + binding.getBindingId());
     }
 
     public static BytecodeNode generateInvocation(
@@ -450,8 +446,29 @@ public final class BytecodeUtils
 
     public static BytecodeExpression invoke(Binding binding, String name, List<BytecodeExpression> parameters)
     {
-        // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
+        return switch (binding.getKind()) {
+            case CLASS_DATA_CONSTANT -> {
+                checkArgument(parameters.isEmpty(), "constant binding %s invoked with arguments", binding);
+                yield constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
+            }
+            case CLASS_DATA_HANDLE -> {
+                if (parameters.isEmpty() && binding.getType().parameterCount() > 0) {
+                    // the arguments are already on the operand stack, which only invokedynamic
+                    // can consume directly: a method handle receiver cannot be inserted below them
+                    yield invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
+                }
+                // the handle is a dynamic constant, so the JIT inlines through the exact
+                // invocation just like a constant call site produced by a bootstrap
+                yield constantClassDataAt(toIntExact(binding.getBindingId()), MethodHandle.class)
+                        .invoke(
+                                "invokeExact",
+                                binding.getType().returnType(),
+                                binding.getType().parameterList(),
+                                parameters.toArray(new BytecodeExpression[0]));
+            }
+            // ensure that name doesn't have a special characters
+            case CALL_SITE -> invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
+        };
     }
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
