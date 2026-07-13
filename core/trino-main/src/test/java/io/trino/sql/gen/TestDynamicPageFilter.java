@@ -352,6 +352,31 @@ public class TestDynamicPageFilter
     }
 
     @Test
+    public void testDynamicFilterSkipsCompilerCache()
+    {
+        ColumnarFilterCompiler compiler = new ColumnarFilterCompiler(PLANNER_CONTEXT, new CompilerConfig());
+        ColumnHandle column = new TestingColumnHandle("column");
+        Symbol symbol = new Symbol(BIGINT, "A");
+        DynamicPageFilter pageFilter = new DynamicPageFilter(
+                PLANNER_CONTEXT,
+                SESSION,
+                ImmutableMap.of(symbol, column),
+                ImmutableMap.of(symbol, 0),
+                1,
+                true);
+        TestingDynamicFilter dynamicFilter = new TestingDynamicFilter(1);
+        // 8+ values skip the lookupswitch path so the dynamic filter takes the set-field route
+        dynamicFilter.update(TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, multipleValues(BIGINT, ImmutableList.of(1L, 3L, 5L, 7L, 9L, 11L, 13L, 15L)))));
+
+        FilterEvaluator filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(compiler, dynamicFilter).get();
+        filterPage(SourcePage.create(new Page(createLongSequenceBlock(0, 10))), filterEvaluator);
+
+        assertThat(compiler.getFilterCache().getRequestCount()).isEqualTo(0);
+        assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(0);
+    }
+
+    @Test
     public void testIneffectiveFilter()
     {
         ColumnHandle column = new TestingColumnHandle("column");

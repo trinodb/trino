@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen.columnar;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
@@ -20,6 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
@@ -67,6 +69,45 @@ public class TestColumnarFilterCompiler
         int count = filter.filterPositionsRange(SESSION, output, 0, 5, page);
         // values > 2 at positions 3, 4
         assertThat(count).isEqualTo(2);
+    }
+
+    @Test
+    public void testDynamicFilterInReusesGeneratedClass()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+        Reference reference = new Reference(BIGINT, "$col_0");
+        // Lists of 8+ values skip the lookupswitch path and take the set-field route
+        Expression in1 = new In(reference, ImmutableList.of(
+                new Constant(BIGINT, 1L),
+                new Constant(BIGINT, 3L),
+                new Constant(BIGINT, 5L),
+                new Constant(BIGINT, 7L),
+                new Constant(BIGINT, 9L),
+                new Constant(BIGINT, 11L),
+                new Constant(BIGINT, 13L),
+                new Constant(BIGINT, 15L)));
+        Expression in2 = new In(reference, ImmutableList.of(
+                new Constant(BIGINT, 0L),
+                new Constant(BIGINT, 2L),
+                new Constant(BIGINT, 4L),
+                new Constant(BIGINT, 6L),
+                new Constant(BIGINT, 8L),
+                new Constant(BIGINT, 10L),
+                new Constant(BIGINT, 12L),
+                new Constant(BIGINT, 14L)));
+
+        ColumnarFilter filter1 = compiler.generateFilter(in1, layout, true).orElseThrow().get();
+        ColumnarFilter filter2 = compiler.generateFilter(in2, layout, true).orElseThrow().get();
+
+        // Different value sets share one generated class and stay out of the shared cache
+        assertThat(filter2.getClass()).isEqualTo(filter1.getClass());
+        assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(0);
+
+        SourcePage page = filter1.getInputChannels().getInputChannels(SourcePage.create(new Page(createLongSequenceBlock(0, 10))));
+        int[] output = new int[10];
+        // matches values 1, 3, 5, 7, 9
+        assertThat(filter1.filterPositionsRange(SESSION, output, 0, 10, page)).isEqualTo(5);
     }
 
     @Test

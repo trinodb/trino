@@ -68,12 +68,12 @@ public sealed interface FilterEvaluator
             boolean filterReorderingEnabled)
     {
         if (columnarFilterEvaluationEnabled && filter.isPresent()) {
-            return createColumnarFilterEvaluator(filter.get(), layout, columnarFilterCompiler, filterReorderingEnabled);
+            return createColumnarFilterEvaluator(filter.get(), layout, columnarFilterCompiler, filterReorderingEnabled, false);
         }
         return Optional.empty();
     }
 
-    static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(Expression expression, Map<Symbol, Integer> layout, ColumnarFilterCompiler compiler, boolean filterReorderingEnabled)
+    static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(Expression expression, Map<Symbol, Integer> layout, ColumnarFilterCompiler compiler, boolean filterReorderingEnabled, boolean dynamicFilter)
     {
         return switch (expression) {
             case Constant constant when constant.value() instanceof Boolean booleanValue -> booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
@@ -82,16 +82,16 @@ public sealed interface FilterEvaluator
                     // "not(is_null(reference))" is handled explicitly as it is easy.
                     // more generic cases like "not(equal(reference, constant))" are not handled yet
                     if (call.arguments().getFirst() instanceof IsNull isNull) {
-                        yield createIsNotNullExpressionEvaluator(compiler, call, isNull, layout);
+                        yield createIsNotNullExpressionEvaluator(compiler, call, isNull, layout, dynamicFilter);
                     }
                     yield Optional.empty();
                 }
-                yield createCallExpressionEvaluator(compiler, call, layout);
+                yield createCallExpressionEvaluator(compiler, call, layout, dynamicFilter);
             }
-            case IsNull isNull -> createIsNullExpressionEvaluator(compiler, isNull, layout);
-            case Logical logical when logical.operator() == Logical.Operator.AND -> createAndExpressionEvaluator(compiler, logical, layout, filterReorderingEnabled);
-            case Logical logical when logical.operator() == Logical.Operator.OR -> createOrExpressionEvaluator(compiler, logical, layout, filterReorderingEnabled);
-            case In in -> createInExpressionEvaluator(compiler, in, layout);
+            case IsNull isNull -> createIsNullExpressionEvaluator(compiler, isNull, layout, dynamicFilter);
+            case Logical logical when logical.operator() == Logical.Operator.AND -> createAndExpressionEvaluator(compiler, logical, layout, filterReorderingEnabled, dynamicFilter);
+            case Logical logical when logical.operator() == Logical.Operator.OR -> createOrExpressionEvaluator(compiler, logical, layout, filterReorderingEnabled, dynamicFilter);
+            case In in -> createInExpressionEvaluator(compiler, in, layout, dynamicFilter);
             default -> Optional.empty();
         };
     }
@@ -109,15 +109,15 @@ public sealed interface FilterEvaluator
         return terms.stream().noneMatch(term -> mayFail(plannerContext, term));
     }
 
-    private static Optional<Supplier<FilterEvaluator>> createInExpressionEvaluator(ColumnarFilterCompiler compiler, In in, Map<Symbol, Integer> layout)
+    private static Optional<Supplier<FilterEvaluator>> createInExpressionEvaluator(ColumnarFilterCompiler compiler, In in, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
-        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(in, layout);
+        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(in, layout, dynamicFilter);
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
-    private static Optional<Supplier<FilterEvaluator>> createCallExpressionEvaluator(ColumnarFilterCompiler compiler, Call call, Map<Symbol, Integer> layout)
+    private static Optional<Supplier<FilterEvaluator>> createCallExpressionEvaluator(ColumnarFilterCompiler compiler, Call call, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
-        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(call, layout);
+        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(call, layout, dynamicFilter);
         boolean isDeterministic = DeterminismEvaluator.isDeterministic(call);
         return compiledFilter.map(filterSupplier -> () -> {
             ColumnarFilter filter = filterSupplier.get();
@@ -125,23 +125,23 @@ public sealed interface FilterEvaluator
         });
     }
 
-    private static Optional<Supplier<FilterEvaluator>> createIsNotNullExpressionEvaluator(ColumnarFilterCompiler compiler, Call call, IsNull isNull, Map<Symbol, Integer> layout)
+    private static Optional<Supplier<FilterEvaluator>> createIsNotNullExpressionEvaluator(ColumnarFilterCompiler compiler, Call call, IsNull isNull, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         checkArgument(isNotExpression(call), "call %s should be not", call);
         checkArgument(call.arguments().size() == 1);
         Type argumentType = isNull.value().type();
         checkArgument(!argumentType.equals(UNKNOWN), "argumentType %s should not be UNKNOWN", argumentType);
 
-        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(call, layout);
+        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(call, layout, dynamicFilter);
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
-    private static Optional<Supplier<FilterEvaluator>> createIsNullExpressionEvaluator(ColumnarFilterCompiler compiler, IsNull isNull, Map<Symbol, Integer> layout)
+    private static Optional<Supplier<FilterEvaluator>> createIsNullExpressionEvaluator(ColumnarFilterCompiler compiler, IsNull isNull, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
         Type argumentType = isNull.value().type();
         checkArgument(!argumentType.equals(UNKNOWN), "argumentType %s should not be UNKNOWN", argumentType);
 
-        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(isNull, layout);
+        Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(isNull, layout, dynamicFilter);
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
