@@ -17,6 +17,7 @@ import io.trino.spi.block.Block;
 
 import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnChunk
@@ -24,6 +25,7 @@ public class ColumnChunk
     private final Block block;
     private final int[] definitionLevels;
     private final int[] repetitionLevels;
+    private final int maxBlockPositionCount;
     private OptionalLong maxBlockSize;
 
     public ColumnChunk(Block block, int[] definitionLevels, int[] repetitionLevels)
@@ -33,10 +35,17 @@ public class ColumnChunk
 
     public ColumnChunk(Block block, int[] definitionLevels, int[] repetitionLevels, OptionalLong maxBlockSize)
     {
+        this(block, definitionLevels, repetitionLevels, maxBlockSize, block.getPositionCount());
+    }
+
+    public ColumnChunk(Block block, int[] definitionLevels, int[] repetitionLevels, OptionalLong maxBlockSize, int maxBlockPositionCount)
+    {
         this.block = requireNonNull(block, "block is null");
         this.definitionLevels = requireNonNull(definitionLevels, "definitionLevels is null");
         this.repetitionLevels = requireNonNull(repetitionLevels, "repetitionLevels is null");
         this.maxBlockSize = maxBlockSize;
+        checkArgument(maxBlockPositionCount >= block.getPositionCount(), "maxBlockPositionCount is less than block position count");
+        this.maxBlockPositionCount = maxBlockPositionCount;
     }
 
     public Block getBlock()
@@ -60,5 +69,10 @@ public class ColumnChunk
             maxBlockSize = OptionalLong.of(block.getSizeInBytes());
         }
         return maxBlockSize.getAsLong();
+    }
+
+    public int getMaxBlockPositionCount()
+    {
+        return maxBlockPositionCount;
     }
 }

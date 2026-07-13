@@ -23,6 +23,7 @@ import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.AbstractColumnReaderTest;
+import io.trino.parquet.reader.ColumnChunk;
 import io.trino.parquet.reader.ColumnReader;
 import io.trino.parquet.reader.ColumnReaderFactory;
 import io.trino.parquet.reader.PageReader;
@@ -241,6 +242,143 @@ public class TestFlatColumnReader
 
         reader.prepareNextRead(2);
         assertThat(intValues(reader.readPrimitive().getBlock())).containsExactly(10, 11);
+    }
+
+    @Test
+    public void testEmptySelectionsDeferCompressedPageAcrossBatches()
+            throws IOException
+    {
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(FIELD);
+        PageReader pageReader = getPlainPageReaderMock(
+                createPlainDataPage(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+                createPlainDataPage(10, 11));
+        reader.setPageReader(pageReader, Optional.empty());
+
+        reader.prepareNextRead(4);
+        assertThat(reader.readPrimitive(new int[0], 0, 0).getBlock().getPositionCount()).isZero();
+        assertThat(pageReader.getDataPageReadCount()).isZero();
+
+        reader.prepareNextRead(6);
+        assertThat(reader.readPrimitive(new int[0], 0, 0).getBlock().getPositionCount()).isZero();
+        assertThat(pageReader.getDataPageReadCount()).isZero();
+
+        reader.prepareNextRead(2);
+        assertThat(intValues(reader.readPrimitive().getBlock())).containsExactly(10, 11);
+        assertThat(pageReader.getDataPageReadCount()).isOne();
+    }
+
+    @Test
+    public void testSelectedPositionOpensDeferredCompressedPage()
+            throws IOException
+    {
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(FIELD);
+        PageReader pageReader = getPlainPageReaderMock(
+                createPlainDataPage(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+                createPlainDataPage(10, 11));
+        reader.setPageReader(pageReader, Optional.empty());
+
+        reader.prepareNextRead(4);
+        assertThat(reader.readPrimitive(new int[0], 0, 0).getBlock().getPositionCount()).isZero();
+        assertThat(pageReader.getDataPageReadCount()).isZero();
+
+        reader.prepareNextRead(4);
+        assertThat(intValues(reader.readPrimitive(new int[] {1}, 0, 1).getBlock())).containsExactly(5);
+        assertThat(pageReader.getDataPageReadCount()).isOne();
+
+        reader.prepareNextRead(4);
+        assertThat(intValues(reader.readPrimitive().getBlock())).containsExactly(8, 9, 10, 11);
+        assertThat(pageReader.getDataPageReadCount()).isEqualTo(2);
+    }
+
+    @Test
+    public void testNullableSelectedPositionsOpenDeferredCompressedPage()
+            throws IOException
+    {
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(OPTIONAL_FIELD);
+        PageReader pageReader = getPlainPageReaderMock(
+                createNullablePage(0, null, 2, 3, 4, null, 6, 7, 8, 9),
+                createNullablePage(10, 11));
+        reader.setPageReader(pageReader, Optional.empty());
+
+        reader.prepareNextRead(4);
+        assertThat(reader.readPrimitive(new int[0], 0, 0).getBlock().getPositionCount()).isZero();
+        assertThat(pageReader.getDataPageReadCount()).isZero();
+
+        reader.prepareNextRead(4);
+        assertThat(nullableIntValues(reader.readPrimitive(new int[] {1, 2}, 0, 2).getBlock())).containsExactly(null, 6);
+        assertThat(pageReader.getDataPageReadCount()).isOne();
+    }
+
+    @Test
+    public void testReadSelectedPositionsSkipsDataPages()
+            throws IOException
+    {
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(FIELD);
+        PageReader pageReader = getPlainPageReaderMock(
+                createPlainDataPage(0, 1, 2, 3, 4),
+                createPlainDataPage(5, 6, 7, 8, 9),
+                createPlainDataPage(10, 11, 12, 13, 14),
+                createPlainDataPage(15, 16, 17, 18, 19));
+        reader.setPageReader(pageReader, Optional.empty());
+
+        reader.prepareNextRead(20);
+        assertThat(reader.preparePageFilteredRead(new int[] {11, 12}, 0, 2, Long.MAX_VALUE)).isPositive();
+        ColumnChunk selectedChunk = reader.readPrimitivePageFiltered(new int[] {11, 12}, 0, 2);
+        Block selected = selectedChunk.getBlock();
+
+        assertThat(intValues(selected)).containsExactly(11, 12);
+        assertThat(selectedChunk.getMaxBlockSize()).isGreaterThan(selected.getSizeInBytes());
+        assertThat(pageReader.getDataPageReadCount()).isOne();
+        assertThat(pageReader.hasNext()).isFalse();
+    }
+
+    @Test
+    public void testPageLookaheadIsByteBounded()
+            throws IOException
+    {
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(FIELD);
+        PageReader pageReader = getPlainPageReaderMock(
+                createPlainDataPage(0, 1, 2, 3, 4),
+                createPlainDataPage(5, 6, 7, 8, 9),
+                createPlainDataPage(10, 11, 12, 13, 14));
+        reader.setPageReader(pageReader, Optional.empty());
+
+        reader.prepareNextRead(15);
+        assertThat(reader.preparePageFilteredRead(new int[] {11}, 0, 1, 1)).isEqualTo(5 * Integer.BYTES);
+        assertThat(pageReader.getRetainedPageBytes()).isGreaterThan(1);
+    }
+
+    @Test
+    public void testReadNullablePositionsWithPageFiltering()
+            throws IOException
+    {
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(OPTIONAL_FIELD);
+        PageReader pageReader = getPlainPageReaderMock(
+                createNullablePage(0, null, 2, 3, null),
+                createNullablePage(5, null, 7, null, 9),
+                createNullablePage(10, 11, null, 13, 14));
+        reader.setPageReader(pageReader, Optional.empty());
+
+        reader.prepareNextRead(15);
+        int[] positions = {1, 11};
+        assertThat(reader.preparePageFilteredRead(positions, 0, positions.length, Long.MAX_VALUE)).isPositive();
+        Block selected = reader.readPrimitivePageFiltered(positions, 0, positions.length).getBlock();
+
+        assertThat(nullableIntValues(selected)).containsExactly(null, 11);
+        assertThat(pageReader.getDataPageReadCount()).isEqualTo(2);
+    }
+
+    @Test
+    public void testSelectedRunOutsideBatch()
+            throws IOException
+    {
+        FlatColumnReader<?> reader = (FlatColumnReader<?>) createColumnReader(FIELD);
+        reader.setPageReader(getPlainPageReaderMock(createPlainDataPage(0, 1, 2, 3)), Optional.empty());
+        reader.prepareNextRead(4);
+
+        assertThatThrownBy(() -> reader.readPrimitive(new int[] {3, 4}, 0, 2))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("position 4 is outside of batch size 4");
     }
 
     @Test
