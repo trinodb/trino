@@ -68,7 +68,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.inlineIf;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
@@ -84,7 +83,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -345,11 +343,9 @@ public final class FlatHashStrategyCompiler
 
         for (KeyField keyField : keyFields) {
             BytecodeBlock readNonNull = new BytecodeBlock()
-                    .append(invokeDynamic(
-                            BOOTSTRAP_METHOD,
-                            ImmutableList.of(callSiteBinder.bind(keyField.readFlatMethod()).getBindingId()),
+                    .append(invoke(
+                            callSiteBinder.bind(keyField.readFlatMethod()),
                             "readFlat",
-                            void.class,
                             fixedChunk,
                             add(fixedOffset, constantInt(keyField.fieldFixedOffset())),
                             variableChunk,
@@ -420,11 +416,9 @@ public final class FlatHashStrategyCompiler
         BytecodeBlock body = methodDefinition.getBody();
         for (KeyField keyField : keyFields) {
             BytecodeBlock writeNonNullFlat = new BytecodeBlock()
-                    .append(invokeDynamic(
-                            BOOTSTRAP_METHOD,
-                            ImmutableList.of(callSiteBinder.bind(keyField.writeFlatMethod()).getBindingId()),
+                    .append(invoke(
+                            callSiteBinder.bind(keyField.writeFlatMethod()),
                             "writeFlat",
-                            void.class,
                             blocks.getElement(keyField.index()),
                             position,
                             fixedChunk,
@@ -569,11 +563,9 @@ public final class FlatHashStrategyCompiler
                 .condition(rightIsNull)
                 .ifTrue(constantFalse().ret()));
 
-        body.append(invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(keyField.identicalFlatBlockMethod()).getBindingId()),
+        body.append(invoke(
+                callSiteBinder.bind(keyField.identicalFlatBlockMethod()),
                 "identical",
-                boolean.class,
                 leftFixedChunk,
                 add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())),
                 constantNull(byte[].class),
@@ -630,11 +622,9 @@ public final class FlatHashStrategyCompiler
         // else {
         //   return -1;
         // }
-        body.append(new IfStatement().condition(invokeDynamic(
-                        BOOTSTRAP_METHOD,
-                        ImmutableList.of(callSiteBinder.bind(keyField.identicalFlatBlockMethod()).getBindingId()),
+        body.append(new IfStatement().condition(invoke(
+                        callSiteBinder.bind(keyField.identicalFlatBlockMethod()),
                         "identical",
-                        boolean.class,
                         leftFixedChunk,
                         add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())),
                         leftVariableChunk,
@@ -694,11 +684,9 @@ public final class FlatHashStrategyCompiler
             body.append(new IfStatement()
                     .condition(block.invoke("isNull", boolean.class, position))
                     .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
-                    .ifFalse(hash.set(invokeDynamic(
-                            BOOTSTRAP_METHOD,
-                            ImmutableList.of(callSiteBinder.bind(keyField.hashBlockMethod()).getBindingId()),
+                    .ifFalse(hash.set(invoke(
+                            callSiteBinder.bind(keyField.hashBlockMethod()),
                             "hash",
-                            long.class,
                             block,
                             position))));
             body.append(result.set(invokeStatic(CombineHashFunction.class, "getHash", long.class, result, hash)));
@@ -764,11 +752,9 @@ public final class FlatHashStrategyCompiler
         Variable hash = scope.declareVariable(long.class, "hash");
 
         for (KeyField keyField : keyFields) {
-            BytecodeBlock hashNonNull = new BytecodeBlock().append(hash.set(invokeDynamic(
-                    BOOTSTRAP_METHOD,
-                    ImmutableList.of(callSiteBinder.bind(keyField.hashFlatMethod()).getBindingId()),
+            BytecodeBlock hashNonNull = new BytecodeBlock().append(hash.set(invoke(
+                    callSiteBinder.bind(keyField.hashFlatMethod()),
                     "hash",
-                    long.class,
                     fixedChunk,
                     add(fixedOffset, constantInt(keyField.fieldFixedOffset())),
                     variableChunk,
@@ -833,11 +819,9 @@ public final class FlatHashStrategyCompiler
             body.append(new IfStatement()
                     .condition(notEqual(fixedChunk.getElement(add(fixedOffset, constantInt(keyField.fieldIsNullOffset()))).cast(int.class), constantInt(0)))
                     .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
-                    .ifFalse(hash.set(invokeDynamic(
-                            BOOTSTRAP_METHOD,
-                            ImmutableList.of(callSiteBinder.bind(keyField.hashFlatMethod()).getBindingId()),
+                    .ifFalse(hash.set(invoke(
+                            callSiteBinder.bind(keyField.hashFlatMethod()),
                             "hash",
-                            long.class,
                             fixedChunk,
                             add(fixedOffset, constantInt(keyField.fieldFixedOffset())),
                             variableChunk,

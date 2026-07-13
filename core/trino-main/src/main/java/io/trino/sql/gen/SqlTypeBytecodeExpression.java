@@ -17,15 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.airlift.bytecode.instruction.InvokeInstruction;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.Type;
 
-import java.lang.reflect.Method;
 import java.util.List;
 
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression
@@ -37,7 +35,7 @@ public class SqlTypeBytecodeExpression
         requireNonNull(type, "type is null");
 
         Binding binding = callSiteBinder.bind(type, Type.class);
-        return new SqlTypeBytecodeExpression(type, callSiteBinder.getAccessibleType(type.getJavaType()), binding, BOOTSTRAP_METHOD);
+        return new SqlTypeBytecodeExpression(type, callSiteBinder.getAccessibleType(type.getJavaType()), binding);
     }
 
     private static String generateName(Type type)
@@ -53,21 +51,19 @@ public class SqlTypeBytecodeExpression
     private final Type type;
     private final Class<?> accessibleJavaElementType;
     private final Binding binding;
-    private final Method bootstrapMethod;
 
-    private SqlTypeBytecodeExpression(Type type, Class<?> accessibleJavaElementType, Binding binding, Method bootstrapMethod)
+    private SqlTypeBytecodeExpression(Type type, Class<?> accessibleJavaElementType, Binding binding)
     {
         super(type(Type.class));
         this.type = requireNonNull(type, "type is null");
         this.accessibleJavaElementType = requireNonNull(accessibleJavaElementType, "accessibleJavaElementType is null");
         this.binding = requireNonNull(binding, "binding is null");
-        this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
     }
 
     @Override
     public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
-        return InvokeInstruction.invokeDynamic(generateName(type), binding.getType(), bootstrapMethod, binding.getBindingId());
+        return loadConstant(binding);
     }
 
     @Override
