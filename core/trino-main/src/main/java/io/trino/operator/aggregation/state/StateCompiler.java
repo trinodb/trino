@@ -216,7 +216,7 @@ public final class StateCompiler
                 type(Object.class),
                 type(AccumulatorStateSerializer.class));
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // Generate constructor
         definition.declareDefaultConstructor(a(PUBLIC));
@@ -427,7 +427,7 @@ public final class StateCompiler
 
     public static AccumulatorStateFactory<InOut> generateInOutStateFactory(Type type)
     {
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition singleStateClassDefinition = generateInOutSingleStateClass(type, callSiteBinder);
         ClassDefinition groupedStateClassDefinition = generateInOutGroupedStateClass(type, callSiteBinder);
 
@@ -810,7 +810,7 @@ public final class StateCompiler
 
         // The state classes are hidden and cannot be instantiated by name, so the factory
         // invokes their constructor handles bound as class data constants
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         MethodHandle singleStateConstructor = constructorMethodHandle(singleStateClass).asType(methodType(AccumulatorState.class));
         definition.declareMethod(a(PUBLIC), "createSingleState", type(AccumulatorState.class))

@@ -55,7 +55,6 @@ import static io.airlift.bytecode.OpCode.NOP;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
@@ -63,7 +62,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -161,13 +159,13 @@ public final class BytecodeUtils
      */
     public static BytecodeExpression loadBindingHandle(Binding binding)
     {
-        checkArgument(binding.getKind() == Binding.Kind.CLASS_DATA_HANDLE, "binding %s is not a class data handle", binding);
+        checkArgument(binding.getKind() == Binding.Kind.HANDLE, "binding %s is not a class data handle", binding);
         return constantClassDataAt(toIntExact(binding.getBindingId()), MethodHandle.class);
     }
 
     public static BytecodeExpression loadConstant(Binding binding)
     {
-        if (binding.getKind() == Binding.Kind.CLASS_DATA_CONSTANT) {
+        if (binding.getKind() == Binding.Kind.CONSTANT) {
             return constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
         }
         return invoke(binding, "constant_" + binding.getBindingId());
@@ -295,7 +293,7 @@ public final class BytecodeUtils
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
-        boolean classDataBinding = binding.getKind() == Binding.Kind.CLASS_DATA_HANDLE;
+        boolean classDataBinding = binding.getKind() == Binding.Kind.HANDLE;
         List<Class<?>> stackTypes = new ArrayList<>();
         if (classDataBinding) {
             // the handle sits below the arguments and is tracked as a stack type,
@@ -469,11 +467,11 @@ public final class BytecodeUtils
     public static BytecodeExpression invoke(Binding binding, String name, List<BytecodeExpression> parameters)
     {
         return switch (binding.getKind()) {
-            case CLASS_DATA_CONSTANT -> {
+            case CONSTANT -> {
                 checkArgument(parameters.isEmpty(), "constant binding %s invoked with arguments", binding);
                 yield constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
             }
-            case CLASS_DATA_HANDLE -> {
+            case HANDLE -> {
                 // sites that push arguments onto the operand stack must load the handle below
                 // them with loadBindingHandle and invoke it directly, since a method handle
                 // receiver cannot be inserted under already pushed arguments
@@ -487,8 +485,6 @@ public final class BytecodeUtils
                                 binding.getType().parameterList(),
                                 parameters.toArray(new BytecodeExpression[0]));
             }
-            // ensure that name doesn't have a special characters
-            case CALL_SITE -> invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
         };
     }
 

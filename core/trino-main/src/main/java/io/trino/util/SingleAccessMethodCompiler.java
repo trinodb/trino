@@ -69,7 +69,7 @@ public final class SingleAccessMethodCompiler
                 type(method.getReturnType()),
                 parameters);
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         BytecodeExpression invocation = invoke(
                 callSiteBinder.bind(adaptedMethodHandle),
                 method.getName(),

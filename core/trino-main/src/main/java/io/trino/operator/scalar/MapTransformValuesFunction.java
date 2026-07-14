@@ -126,7 +126,7 @@ public final class MapTransformValuesFunction
 
     private static MethodHandle generateTransform(Type keyType, Type valueType, Type transformedValueType)
     {
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("MapTransformValue"),

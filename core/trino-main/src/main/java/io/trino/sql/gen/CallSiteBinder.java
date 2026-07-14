@@ -14,10 +14,8 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,46 +24,22 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.invoke.MethodType.methodType;
-import static java.util.Objects.requireNonNull;
 
+/**
+ * Binds method handles and constants used by a generated class. The bindings are attached
+ * to the hidden class as class data: constants load as dynamic constants and method handles
+ * are invoked exactly through a dynamic constant load.
+ */
 public final class CallSiteBinder
 {
-    private final ClassLoader classLoader;
-    private final boolean hiddenClassGeneration;
+    private final ClassLoader classLoader = CallSiteBinder.class.getClassLoader();
     private final List<Object> bindings = new ArrayList<>();
     // Bindings deduplicate by identity: repeated types and cached operator handles are
     // bound once per generated class, and identical dynamic constant loads then share a
     // single constant pool entry and resolution
     private final Map<MethodHandle, Binding> methodHandleBindings = new IdentityHashMap<>();
     private final Map<ConstantKey, Binding> constantBindings = new HashMap<>();
-
-    public CallSiteBinder()
-    {
-        this(CallSiteBinder.class.getClassLoader());
-    }
-
-    public CallSiteBinder(ClassLoader classLoader)
-    {
-        this(classLoader, false);
-    }
-
-    private CallSiteBinder(ClassLoader classLoader, boolean hiddenClassGeneration)
-    {
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
-        this.hiddenClassGeneration = hiddenClassGeneration;
-    }
-
-    /**
-     * Binder for classes defined with {@code CompilerUtils.defineHiddenClass}: bindings are
-     * attached to the class as class data instead of a {@code DynamicClassLoader}, and bound
-     * constants are loaded as dynamic constants.
-     */
-    public static CallSiteBinder forHiddenClassGeneration()
-    {
-        return new CallSiteBinder(CallSiteBinder.class.getClassLoader(), true);
-    }
 
     public Binding bind(MethodHandle method)
     {
@@ -77,19 +51,16 @@ public final class CallSiteBinder
                 handle = handle.asType(type);
             }
 
-            return addBinding(handle, type, hiddenClassGeneration ? Binding.Kind.CLASS_DATA_HANDLE : Binding.Kind.CALL_SITE);
+            return addBinding(handle, type, Binding.Kind.HANDLE);
         });
     }
 
     public Binding bind(Object constant, Class<?> type)
     {
-        return constantBindings.computeIfAbsent(new ConstantKey(constant, type), _ -> {
-            if (hiddenClassGeneration) {
-                // stored raw so it can be loaded as a dynamic constant from the class data
-                return addBinding(constant, methodType(getAccessibleType(type)), Binding.Kind.CLASS_DATA_CONSTANT);
-            }
-            return bind(MethodHandles.constant(type, constant));
-        });
+        // stored raw so it can be loaded as a dynamic constant from the class data
+        return constantBindings.computeIfAbsent(
+                new ConstantKey(constant, type),
+                _ -> addBinding(constant, methodType(getAccessibleType(type)), Binding.Kind.CONSTANT));
     }
 
     private Binding addBinding(Object value, MethodType type, Binding.Kind kind)
@@ -99,34 +70,8 @@ public final class CallSiteBinder
         return binding;
     }
 
-    private record ConstantKey(Object constant, Class<?> type)
-    {
-        @Override
-        public boolean equals(Object other)
-        {
-            return other instanceof ConstantKey that && constant == that.constant && type == that.type;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return System.identityHashCode(constant) * 31 + type.hashCode();
-        }
-    }
-
-    public Map<Long, MethodHandle> getBindings()
-    {
-        checkState(!hiddenClassGeneration, "hidden class bindings must be retrieved with getClassData");
-        ImmutableMap.Builder<Long, MethodHandle> map = ImmutableMap.builder();
-        for (int i = 0; i < bindings.size(); i++) {
-            map.put((long) i, (MethodHandle) bindings.get(i));
-        }
-        return map.buildOrThrow();
-    }
-
     public List<Object> getClassData()
     {
-        checkState(hiddenClassGeneration, "class data is only available for hidden class generation");
         return ImmutableList.copyOf(bindings);
     }
 
@@ -164,8 +109,22 @@ public final class CallSiteBinder
     public String toString()
     {
         return toStringHelper(this)
-                .add("hiddenClassGeneration", hiddenClassGeneration)
                 .add("bindings", bindings)
                 .toString();
+    }
+
+    private record ConstantKey(Object constant, Class<?> type)
+    {
+        @Override
+        public boolean equals(Object other)
+        {
+            return other instanceof ConstantKey that && constant == that.constant && type == that.type;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return System.identityHashCode(constant) * 31 + type.hashCode();
+        }
     }
 }

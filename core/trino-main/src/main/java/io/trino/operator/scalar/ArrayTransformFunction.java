@@ -117,7 +117,7 @@ public final class ArrayTransformFunction
 
     private static MethodHandle generateTransform(Type inputType, Type outputType)
     {
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("ArrayTransform"),

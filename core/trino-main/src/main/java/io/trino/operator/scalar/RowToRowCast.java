@@ -162,7 +162,7 @@ public class RowToRowCast
         List<Type> toTypes = toType.getFieldTypes();
         List<Type> fromTypes = fromType.getFieldTypes();
 
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
 
         // Embed the hash code of input and output types into the generated class name instead of the raw type names,
         // which ensures the class name does not hit the length limitation or invalid characters.
