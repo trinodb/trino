@@ -34,7 +34,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -71,7 +71,7 @@ public class JsonExistsFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(BOOLEAN)
-                        .argumentTypes(type(JSON_2016), type(JsonPath2016Type.NAME), typeVariable("T"), type(TINYINT))
+                        .argumentTypes(type(JSON_2016), type(SqlJsonPathType.NAME), typeVariable("T"), type(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false)

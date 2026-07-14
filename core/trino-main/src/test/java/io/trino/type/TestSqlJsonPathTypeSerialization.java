@@ -78,7 +78,7 @@ import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestJsonPath2016TypeSerialization
+public class TestSqlJsonPathTypeSerialization
 {
     private static final JsonMapper OBJECT_MAPPER = new JsonMapperProvider()
             .withJsonDeserializers(ImmutableMap.of(
@@ -89,7 +89,7 @@ public class TestJsonPath2016TypeSerialization
                     Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
             .get();
     public static final JsonCodec<IrJsonPath> JSON_PATH_CODEC = new JsonCodecFactory(OBJECT_MAPPER).jsonCodec(IrJsonPath.class);
-    public static final Type JSON_PATH_2016 = new JsonPath2016Type(JSON_PATH_CODEC);
+    public static final Type JSON_PATH_2016 = new SqlJsonPathType(JSON_PATH_CODEC);
     private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test

@@ -39,7 +39,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -81,7 +81,7 @@ public class JsonQueryFunction
                         .returnType(type(JSON_2016))
                         .argumentTypes(
                                 type(JSON_2016),
-                                type(JsonPath2016Type.NAME),
+                                type(SqlJsonPathType.NAME),
                                 typeVariable("T"),
                                 type(TINYINT),
                                 type(TINYINT),

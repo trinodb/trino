@@ -177,7 +177,7 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 import jakarta.annotation.Nullable;
@@ -594,7 +594,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonValueExpression(ValueColumn column, JsonPathAnalysis pathAnalysis, Scope scope, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonValueExpression(
                 "JSON_TABLE",
                 column,
@@ -611,7 +611,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonQueryExpression(QueryColumn column, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonQueryExpression(
                 column,
                 column.getWrapperBehavior(),
@@ -968,7 +968,7 @@ public class ExpressionAnalyzer
                     getInputFunction(VARCHAR, JsonFormat.JSON, expression),
                     plannerContext.getMetadata().resolveBuiltinFunction(JSON_QUERY_FUNCTION_NAME, fromTypes(ImmutableList.of(
                             JSON_2016,
-                            plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)),
+                            plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)),
                             JSON_NO_PARAMETERS_ROW_TYPE,
                             TINYINT,
                             TINYINT,
@@ -985,7 +985,7 @@ public class ExpressionAnalyzer
                     getInputFunction(VARCHAR, JsonFormat.JSON, expression),
                     plannerContext.getMetadata().resolveBuiltinFunction(JSON_VALUE_FUNCTION_NAME, fromTypes(ImmutableList.of(
                             JSON_2016,
-                            plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)),
+                            plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)),
                             JSON_NO_PARAMETERS_ROW_TYPE,
                             returnedType,
                             TINYINT,
@@ -4062,7 +4062,7 @@ public class ExpressionAnalyzer
 
             return ImmutableList.of(
                     JSON_2016, // input expression
-                    plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), // parsed JSON path representation
+                    plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)), // parsed JSON path representation
                     parametersRowType); // passed parameters
         }
 

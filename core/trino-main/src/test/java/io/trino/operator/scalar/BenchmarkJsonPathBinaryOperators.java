@@ -42,7 +42,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -142,7 +142,7 @@ public class BenchmarkJsonPathBinaryOperators
         private static PageProcessor createJsonValuePageProcessor()
         {
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-            Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME));
+            Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(SqlJsonPathType.NAME));
 
             IrPathNode path = new IrArithmeticBinary(
                     ADD,

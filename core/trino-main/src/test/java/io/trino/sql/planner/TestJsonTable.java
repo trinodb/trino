@@ -73,7 +73,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.TableArgumentValue.Builder.tableArgument;
 import static io.trino.type.Json2016Type.JSON_2016;
-import static io.trino.type.TestJsonPath2016TypeSerialization.JSON_PATH_2016;
+import static io.trino.type.TestSqlJsonPathTypeSerialization.JSON_PATH_2016;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonTable
