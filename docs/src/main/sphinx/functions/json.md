@@ -2017,6 +2017,22 @@ Casting to `ARRAY` and `MAP` is supported when the element type of
 the array is one of the supported types, or when the key type of the map
 is `VARCHAR` and value type of the map is one of the supported types.
 
+Casts use the SQL type carried by the JSON scalar. Integer and decimal literals
+without an exponent retain exact values, using `INTEGER`, `BIGINT`, `DECIMAL`,
+or `NUMBER` as needed. Literals containing `e` or `E` use approximate `DOUBLE`
+semantics. For example, a decimal-form value can be cast to `BIGINT` without
+first rounding through `DOUBLE`:
+
+```sql
+SELECT CAST(JSON '1234567890123456789.0' AS BIGINT);
+-- 1234567890123456789
+```
+
+Scalar numeric casts can report the error code of the corresponding SQL
+conversion, including numeric overflow. Casts to arrays, maps, and rows wrap
+conversion failures as `INVALID_CAST_ARGUMENT`, with context about the failed
+collection cast. Invalid JSON shapes also produce `INVALID_CAST_ARGUMENT`.
+
 Casting to `DATE` or `TIME` requires the JSON value to be a string holding a
 valid date or time, or a JSON value that already carries a date or a time. Any
 other JSON value, including a number, is rejected:

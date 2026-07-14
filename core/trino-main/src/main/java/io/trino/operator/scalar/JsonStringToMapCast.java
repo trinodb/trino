@@ -14,16 +14,21 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
+import io.trino.util.JsonUtil.StreamingBlockBuilderAppender;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.operator.scalar.JsonFunctions.jsonParse;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -33,12 +38,14 @@ import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastFromJson;
+import static io.trino.util.Reflection.methodHandle;
 
 public final class JsonStringToMapCast
         extends SqlScalarFunction
 {
     public static final JsonStringToMapCast JSON_STRING_TO_MAP = new JsonStringToMapCast();
     public static final String JSON_STRING_TO_MAP_NAME = "$internal$json_string_to_map_cast";
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonStringToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, StreamingBlockBuilderAppender.class, Slice.class);
 
     private JsonStringToMapCast()
     {
@@ -63,11 +70,18 @@ public final class JsonStringToMapCast
         checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
 
         BlockBuilderAppender mapAppender = BlockBuilderAppender.createBlockBuilderAppender(mapType);
-        MethodHandle methodHandle = JsonToMapCast.TEXT_METHOD_HANDLE.bindTo(mapType).bindTo(mapAppender);
+        StreamingBlockBuilderAppender streamingAppender = StreamingBlockBuilderAppender.create(mapType);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(mapAppender).bindTo(streamingAppender);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);
+    }
+
+    @UsedByGeneratedCode
+    public static SqlMap toMap(MapType mapType, BlockBuilderAppender mapAppender, StreamingBlockBuilderAppender streamingAppender, Slice input)
+    {
+        return JsonToMapCast.toMap(mapType, mapAppender, streamingAppender, jsonParse(input));
     }
 }

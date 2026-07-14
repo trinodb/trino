@@ -21,6 +21,7 @@ import io.trino.operator.scalar.JsonPath;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -35,10 +36,8 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME;
-import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -49,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSpecializeTransformWithJsonParse
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction JSON_STRING_TO_ARRAY = FUNCTIONS.getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, new ArrayType(VARCHAR));
+    private static final ResolvedFunction JSON_PARSE = FUNCTIONS.resolveFunction("json_parse", fromTypes(VARCHAR));
     private static final ResolvedFunction TRANSFORM = FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(new ArrayType(VARCHAR), new FunctionType(List.of(VARCHAR), VARCHAR)));
     private static final ResolvedFunction JSON_EXTRACT_SCALAR = FUNCTIONS.resolveFunction("json_extract_scalar", fromTypes(VARCHAR, JsonPathType.JSON_PATH));
 
@@ -57,21 +56,24 @@ public class TestSpecializeTransformWithJsonParse
     void testArray()
     {
         JsonPath jsonPath = new JsonPath("$");
-        assertThat(optimize(
-                new Call(TRANSFORM,
+        Expression expression = new Call(TRANSFORM,
+                ImmutableList.of(
+                        new Cast(new Call(JSON_PARSE, ImmutableList.of(new Reference(VARCHAR, "json_string"))), new ArrayType(VARCHAR)),
+                        new Lambda(
+                                ImmutableList.of(new Symbol(VARCHAR, "json_array")),
+                                new Call(JSON_EXTRACT_SCALAR, ImmutableList.of(
+                                        new Reference(VARCHAR, "json_array"),
+                                        new Constant(JsonPathType.JSON_PATH, jsonPath))))));
+        Optional<Expression> expected = Optional.of(
+                new Call(
+                        PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, ImmutableList.of(VARCHAR, JsonPathType.JSON_PATH)),
                         ImmutableList.of(
-                                new Call(JSON_STRING_TO_ARRAY, ImmutableList.of(new Reference(VARCHAR, "json_string"))),
-                                new Lambda(
-                                        ImmutableList.of(new Symbol(VARCHAR, "json_array")),
-                                        new Call(JSON_EXTRACT_SCALAR, ImmutableList.of(
-                                                new Reference(VARCHAR, "json_array"),
-                                                new Constant(JsonPathType.JSON_PATH, jsonPath))))))))
-                .isEqualTo(Optional.of(
-                        new Call(
-                                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, ImmutableList.of(VARCHAR, JsonPathType.JSON_PATH)),
-                                ImmutableList.of(
-                                        new Reference(VARCHAR, "json_string"),
-                                        new Constant(JsonPathType.JSON_PATH, jsonPath)))));
+                                new Reference(VARCHAR, "json_string"),
+                                new Constant(JsonPathType.JSON_PATH, jsonPath))));
+        assertThat(optimize(expression)).isEqualTo(expected);
+        assertThat(IrExpressionOptimizer.newOptimizer(PLANNER_CONTEXT)
+                .process(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()))
+                .isEqualTo(expected);
     }
 
     private Optional<Expression> optimize(Expression expression)
