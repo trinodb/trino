@@ -36,8 +36,9 @@ import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRA
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.util.JsonUtil.canCastFromJson;
 
-/// Implements supported `CAST(json_parse(x) AS T)` expressions with adapters
-/// to the ordinary JSON cast converters, preserving parse-first error precedence.
+/// Streams `CAST(json_parse(x) AS T)` through the ordinary JSON cast converters,
+/// avoiding intermediate JSON encoding. The adapters retry the unfused expression
+/// on failure to preserve parse-first error precedence and diagnostics.
 public class SpecializeCastWithJsonParse
         implements IrOptimizerRule
 {
@@ -68,7 +69,7 @@ public class SpecializeCastWithJsonParse
 
     private static boolean containsRow(Type type)
     {
-        // Row-containing targets retain the ordinary cast expression.
+        // The streaming cast implementation does not support rows, including nested rows.
         return type instanceof RowType || type.getTypeParameters().stream().anyMatch(SpecializeCastWithJsonParse::containsRow);
     }
 }
