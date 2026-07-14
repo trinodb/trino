@@ -251,7 +251,7 @@ public class TestRowOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(json_parse(a) as ROW(BIGINT))")
                 .binding("a", "'null 123 some invalid JSON content'")::evaluate)
-                .hasMessage("Cannot cast to row(bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+                .hasMessage("Cannot convert value to JSON: 'null 123 some invalid JSON content'");
 
         assertThat(assertions.expression("CAST(a as ROW(VARCHAR, BIGINT))")
                 .binding("a", "JSON '[null, null]'"))

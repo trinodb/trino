@@ -13,8 +13,6 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -40,7 +38,6 @@ import io.trino.spi.variant.Variant;
 import io.trino.util.JsonCastException;
 import io.trino.util.variant.VariantUtil;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.function.Predicate;
 
@@ -74,11 +71,8 @@ import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.util.Failures.checkCondition;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonParser;
-import static io.trino.util.JsonUtil.currentTokenAsLongDecimal;
-import static io.trino.util.JsonUtil.currentTokenAsShortDecimal;
+import static io.trino.util.JsonUtil.itemAsLongDecimal;
+import static io.trino.util.JsonUtil.itemAsShortDecimal;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
@@ -133,8 +127,6 @@ public final class DecimalCasts
     public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(JSON.getTypeDescriptor()), true, MAY_FAIL, "jsonToShortDecimal", "jsonToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_VARIANT_CAST = castFunctionFromDecimalTo(VARIANT.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToVariant", "longDecimalToVariant");
     public static final SqlScalarFunction VARIANT_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(VARIANT.getTypeDescriptor()), true, MAY_FAIL, "variantToShortDecimal", "variantToLongDecimal");
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeDescriptor to, Predicate<BoundSignature> neverFails, String... methodNames)
     {
@@ -674,30 +666,22 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Int128 jsonToLongDecimal(Json jsonValue, long precision, long scale, Int128 tenToScale)
     {
-        Slice json = JsonItems.toText(jsonValue);
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
-            parser.nextToken();
-            Int128 result = currentTokenAsLongDecimal(parser, intPrecision(precision), DecimalConversions.intScale(scale));
-            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
-            return result;
+        try {
+            return itemAsLongDecimal(jsonValue, intPrecision(precision), DecimalConversions.intScale(scale));
         }
-        catch (IOException | NumberFormatException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
+        catch (NumberFormatException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", JsonItems.toText(jsonValue).toStringUtf8(), precision, scale), e);
         }
     }
 
     @UsedByGeneratedCode
     public static Long jsonToShortDecimal(Json jsonValue, long precision, long scale, long tenToScale)
     {
-        Slice json = JsonItems.toText(jsonValue);
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
-            parser.nextToken();
-            Long result = currentTokenAsShortDecimal(parser, intPrecision(precision), DecimalConversions.intScale(scale));
-            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
-            return result;
+        try {
+            return itemAsShortDecimal(jsonValue, intPrecision(precision), DecimalConversions.intScale(scale));
         }
-        catch (IOException | NumberFormatException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
+        catch (NumberFormatException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", JsonItems.toText(jsonValue).toStringUtf8(), precision, scale), e);
         }
     }
 

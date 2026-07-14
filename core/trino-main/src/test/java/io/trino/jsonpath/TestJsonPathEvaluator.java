@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.BigIntegerNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.LongNode;
@@ -28,13 +29,17 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Shorts;
+import io.airlift.slice.Slice;
 import io.trino.json.Json;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
 import io.trino.json.TypedValue;
 import io.trino.jsonpath.ir.IrDatetimeMethod;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.jsonpath.ir.IrPathNode;
 import io.trino.jsonpath.ir.IrPredicate;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TrinoNumber;
@@ -48,6 +53,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.DateTimeException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -124,6 +130,8 @@ import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -1757,8 +1765,73 @@ public class TestJsonPathEvaluator
     {
         List<Json> result = createPathVisitor(input, path.isLax()).process(path.getRoot(), new PathEvaluationContext());
         return result.stream()
-                .map(item -> item instanceof TypedValue typed ? (Object) typed : (Object) JsonItems.toJsonNode((Json) item))
+                .map(item -> item instanceof TypedValue typed ? (Object) typed : (Object) toJsonNode((Json) item))
                 .collect(toImmutableList());
+    }
+
+    /// Materializes a [Json] back into the Jackson [JsonNode] shape this test's expectations were
+    /// written against. Local to the test: it is the only caller of a `Json → JsonNode` conversion,
+    /// and it is deliberately lossy where this test doesn't care (object members go through a
+    /// [LinkedHashMap], collapsing the duplicate keys the value model otherwise preserves).
+    private static JsonNode toJsonNode(Json json)
+    {
+        return switch (json.kind()) {
+            case NULL -> NullNode.getInstance();
+            case ERROR -> throw new IllegalStateException("Cannot materialize JSON_ERROR as JsonNode");
+            case ARRAY -> {
+                ArrayNode array = new ArrayNode(JsonNodeFactory.instance);
+                json.forEachArrayElement(child -> array.add(toJsonNode(child)));
+                yield array;
+            }
+            case OBJECT -> {
+                Map<String, JsonNode> members = new LinkedHashMap<>();
+                json.forEachObjectMember((key, value) -> members.put(key, toJsonNode(value)));
+                yield new ObjectNode(JsonNodeFactory.instance, members);
+            }
+            case SCALAR -> scalarToJsonNode(json);
+        };
+    }
+
+    private static JsonNode scalarToJsonNode(Json json)
+    {
+        TypedValue value = json.materializeScalar();
+        return switch (json.scalarType()) {
+            case BOOLEAN -> BooleanNode.valueOf(value.getBooleanValue());
+            case VARCHAR -> TextNode.valueOf(((Slice) value.getObjectValue()).toStringUtf8());
+            // JSON has no datetime type: a datetime item renders as the canonical SQL literal.
+            case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> TextNode.valueOf(JsonItemEncoding.datetimeText(value));
+            case BIGINT -> LongNode.valueOf(value.getLongValue());
+            case INTEGER -> IntNode.valueOf(toIntExact(value.getLongValue()));
+            case SMALLINT, TINYINT -> ShortNode.valueOf(Shorts.checkedCast(value.getLongValue()));
+            case DOUBLE -> DoubleNode.valueOf(value.getDoubleValue());
+            case REAL -> FloatNode.valueOf(intBitsToFloat(toIntExact(value.getLongValue())));
+            case DECIMAL -> {
+                DecimalType decimalType = (DecimalType) value.type();
+                BigInteger unscaledValue = decimalType.isShort()
+                        ? BigInteger.valueOf(value.getLongValue())
+                        : ((Int128) value.getObjectValue()).toBigInteger();
+                // A scale-0 decimal round-trips via BigIntegerNode so the parser sees
+                // VALUE_NUMBER_INT (preserved as text) rather than VALUE_NUMBER_FLOAT, which
+                // forces a Double conversion in Jackson and silently loses precision.
+                yield decimalType.getScale() == 0
+                        ? BigIntegerNode.valueOf(unscaledValue)
+                        : DecimalNode.valueOf(new BigDecimal(unscaledValue, decimalType.getScale()));
+            }
+            case NUMBER -> {
+                TrinoNumber number = (TrinoNumber) value.getObjectValue();
+                yield switch (number.toBigDecimal()) {
+                    // Integer-valued BigDecimals round-trip via BigIntegerNode so the parser sees
+                    // VALUE_NUMBER_INT (preserved as text) rather than VALUE_NUMBER_FLOAT (which
+                    // forces a Double conversion in Jackson and silently loses precision).
+                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> decimal.scale() <= 0
+                            ? BigIntegerNode.valueOf(decimal.toBigInteger())
+                            : DecimalNode.valueOf(decimal);
+                    // NaN / Infinity have no JSON number form; emit as JSON strings to preserve the value.
+                    case TrinoNumber.NotANumber _ -> TextNode.valueOf("NaN");
+                    case TrinoNumber.Infinity(boolean negative) -> TextNode.valueOf(negative ? "-Infinity" : "+Infinity");
+                };
+            }
+        };
     }
 
     private static AssertProvider<? extends RecursiveComparisonAssert<?>> predicateResult(JsonNode input, Object currentItem, boolean lax, IrPredicate predicate)

@@ -15,9 +15,7 @@ package io.trino.operator.scalar;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.Json;
 import io.trino.json.JsonItems;
@@ -31,7 +29,9 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.util.JsonCastException;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
+import io.trino.util.JsonUtil.StreamingBlockBuilderAppender;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -44,8 +44,6 @@ import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastFromJson;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -54,10 +52,7 @@ public class JsonToArrayCast
         extends SqlScalarFunction
 {
     public static final JsonToArrayCast JSON_TO_ARRAY = new JsonToArrayCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArray", ArrayType.class, BlockBuilderAppender.class, Json.class);
-    static final MethodHandle TEXT_METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArrayFromText", ArrayType.class, BlockBuilderAppender.class, Slice.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArray", ArrayType.class, BlockBuilderAppender.class, StreamingBlockBuilderAppender.class, Json.class);
 
     private JsonToArrayCast()
     {
@@ -79,7 +74,8 @@ public class JsonToArrayCast
         checkCondition(canCastFromJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", arrayType);
 
         BlockBuilderAppender arrayAppender = BlockBuilderAppender.createBlockBuilderAppender(arrayType);
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType).bindTo(arrayAppender);
+        StreamingBlockBuilderAppender streamingAppender = StreamingBlockBuilderAppender.create(arrayType);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType).bindTo(arrayAppender).bindTo(streamingAppender);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
@@ -88,36 +84,45 @@ public class JsonToArrayCast
     }
 
     @UsedByGeneratedCode
-    public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, Json json)
+    public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, StreamingBlockBuilderAppender streamingAppender, Json json)
     {
-        return toArrayFromText(arrayType, arrayAppender, JsonItems.toText(json));
-    }
-
-    @UsedByGeneratedCode
-    public static Block toArrayFromText(ArrayType arrayType, BlockBuilderAppender arrayAppender, Slice jsonText)
-    {
-        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, jsonText)) {
-            jsonParser.nextToken();
-            if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
-                if (jsonParser.nextToken() != null) {
-                    throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+        try {
+            // Raw-text JSON (the common connector case) streams straight from its bytes, so the value
+            // is not paid for with a throwaway tree; typed-encoded JSON keeps the value-model path.
+            // isNull() would parse the tree for raw text, so the top-level null is read from the stream.
+            if (streamingAppender != null && json.isRawText()) {
+                try (JsonParser parser = JsonItems.createStreamingParser(json.rawText())) {
+                    if (parser.nextToken() == JsonToken.VALUE_NULL) {
+                        checkNoTrailingToken(parser);
+                        return null;
+                    }
+                    BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 1);
+                    streamingAppender.append(parser, blockBuilder);
+                    checkNoTrailingToken(parser);
+                    return (Block) arrayType.getObject(blockBuilder.build(), 0);
                 }
+            }
+            if (json.isNull()) {
                 return null;
             }
-
             BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 1);
-            arrayAppender.append(jsonParser, blockBuilder);
-            if (jsonParser.nextToken() != null) {
-                throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
-            }
+            arrayAppender.append(json, blockBuilder);
             Block block = blockBuilder.build();
-            return arrayType.getObject(block, 0);
+            return (Block) arrayType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", arrayType, e.getMessage(), truncateIfNecessaryForErrorMessage(jsonText)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", arrayType, e.getMessage(), truncateIfNecessaryForErrorMessage(JsonItems.toText(json))), e);
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", arrayType, truncateIfNecessaryForErrorMessage(jsonText)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", arrayType, truncateIfNecessaryForErrorMessage(JsonItems.toText(json))), e);
+        }
+    }
+
+    private static void checkNoTrailingToken(JsonParser parser)
+            throws IOException
+    {
+        if (parser.nextToken() != null) {
+            throw new JsonCastException(format("Unexpected trailing token: %s", parser.getText()));
         }
     }
 }
