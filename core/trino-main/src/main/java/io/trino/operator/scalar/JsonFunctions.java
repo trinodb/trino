@@ -424,8 +424,16 @@ public final class JsonFunctions
         if (!jsonValue.isArray()) {
             return null;
         }
-        return jsonValue.anyArrayElement(item -> item.isScalar() && item.scalarType() == TypeTag.VARCHAR
-                && value.equals(item.materializeScalar().getObjectValue()));
+        return jsonValue.anyArrayElement(item -> {
+            if (!item.isScalar()) {
+                return false;
+            }
+            return switch (item.scalarType()) {
+                case VARCHAR -> value.equals(item.materializeScalar().getObjectValue());
+                case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> value.equals(JsonExtract.extract(JsonItems.toText(item), new JsonExtract.ScalarValueJsonExtractor()));
+                default -> false;
+            };
+        });
     }
 
     private static Boolean jsonArrayContainsText(Slice json, Slice value)

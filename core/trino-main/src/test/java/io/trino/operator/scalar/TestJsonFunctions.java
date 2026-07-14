@@ -57,6 +57,18 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testDatetimeStringContainment()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT json_array_contains(
+                    json_query(JSON '["2020-01-01"]', 'lax $[*].datetime()' RETURNING JSON WITH ARRAY WRAPPER),
+                    '2020-01-01')
+                """))
+                .matches("VALUES true");
+    }
+
+    @Test
     public void testExponentOverflowIsInvalidInput()
     {
         assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '1e309'").evaluate())

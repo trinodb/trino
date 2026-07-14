@@ -18,6 +18,7 @@ import io.trino.json.Json;
 import io.trino.json.JsonArray;
 import io.trino.json.JsonItemBuilder;
 import io.trino.json.JsonItemEncoding.TypeTag;
+import io.trino.json.JsonItems;
 import io.trino.json.TypedValue;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
 import io.trino.operator.scalar.json.JsonOutputFunctions;
@@ -34,6 +35,7 @@ import java.util.List;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
@@ -100,6 +102,24 @@ public class TestJsonOutputFunctions
         Json decimal = JsonOutputFunctions.jsonToJson(new TypedValue(createDecimalType(4, 2), 100L), ERROR.ordinal(), false);
         assertThat(decimal.materializeScalar().type()).isEqualTo(createDecimalType(4, 2));
         assertThat(decimal.materializeScalar().getLongValue()).isEqualTo(100);
+    }
+
+    @Test
+    public void testDatetimeOutputPreservesTypes()
+    {
+        for (Json value : List.of(
+                JsonItemBuilder.encodeDate(19724),
+                JsonItemBuilder.encodeTime(12, 1234),
+                JsonItemBuilder.encodeTimeWithTimeZone(12, 1234, 60),
+                JsonItemBuilder.encodeTimestamp(12, 1234, 567),
+                JsonItemBuilder.encodeTimestampWithTimeZone(12, 1234, 567, UTC_KEY.getKey()))) {
+            Json result = JsonOutputFunctions.jsonToJson(value, ERROR.ordinal(), false);
+            assertThat(result).isSameAs(value);
+            assertThat(result.materializeScalar().type()).isEqualTo(value.materializeScalar().type());
+            assertThat(JsonFunctions.jsonExtract(value, new JsonPath("$"))).isSameAs(value);
+            assertThat(JsonFunctions.jsonExtractScalar(value, new JsonPath("$")))
+                    .isEqualTo(JsonFunctions.varcharJsonExtractScalar(JsonItems.toText(value), new JsonPath("$")));
+        }
     }
 
     @Test

@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -326,10 +327,10 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[$number]' PASSING 5 AS \"number\")"))
                 .matches("VALUES cast(null AS varchar)");
 
-        // parameter cannot be converted to JSON -- returns null, because NULL ON ERROR is implicit
+        // datetime parameters preserve their value in the JSON result
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\")"))
-                .matches("VALUES cast(null AS varchar)");
+                .matches("VALUES VARCHAR '\"2001-01-31\"'");
 
         // parameter cast to varchar
         assertThat(assertions.query(
@@ -644,5 +645,64 @@ public class TestJsonQueryFunction
                                 omit quotes)
                 """))
                 .matches("VALUES cast(NULL as varchar)");
+    }
+
+    @Test
+    public void testCharResultCoercionPolicy()
+    {
+        for (boolean legacyCoercion : new boolean[] {true, false}) {
+            Session session = assertions.sessionBuilder()
+                    .setSystemProperty("legacy_varchar_to_char_coercion", Boolean.toString(legacyCoercion))
+                    .build();
+
+            assertThat(assertions.query(
+                    session,
+                    "SELECT length(JSON_VALUE(JSON 'null', 'lax $x' PASSING CAST('a' AS CHAR(3)) AS \"x\"))"))
+                    .matches("VALUES BIGINT '" + (legacyCoercion ? 3 : 1) + "'");
+
+            assertThat(assertions.query(session,
+                    """
+                    WITH t(j) AS (
+                        VALUES JSON_QUERY(JSON 'null', 'lax $x'
+                            PASSING CAST('a' AS CHAR(3)) AS "x" RETURNING JSON)
+                    )
+                    SELECT length(JSON_VALUE(j, 'lax $')),
+                           length(JSON_VALUE(ARRAY[j][1], 'lax $'))
+                    FROM t
+                    """))
+                    .matches("VALUES (BIGINT '3', BIGINT '3')");
+
+            for (String wrapper : new String[] {"WITHOUT ARRAY WRAPPER", "WITH CONDITIONAL ARRAY WRAPPER", "WITH UNCONDITIONAL ARRAY WRAPPER"}) {
+                String expected = wrapper.startsWith("WITHOUT") ? "\"é\\uD83D\\uDE42  \"" : "[\"é\\uD83D\\uDE42  \"]";
+                assertThat(assertions.query(
+                        session,
+                        "SELECT JSON_QUERY(JSON 'null', 'lax $x' PASSING CAST('é🙂' AS CHAR(4)) AS \"x\" RETURNING VARCHAR " + wrapper + " ERROR ON ERROR)"))
+                        .matches("VALUES VARCHAR '" + expected + "'");
+            }
+        }
+    }
+
+    @Test
+    public void testDatetimeResults()
+    {
+        for (String value : new String[] {"2026-09-30", "12:34:56"}) {
+            for (String errorBehavior : new String[] {"", " ERROR ON ERROR"}) {
+                assertThat(assertions.query(
+                        "SELECT json_query(JSON '\"" + value + "\"', 'lax $.datetime()' RETURNING VARCHAR" + errorBehavior + ")"))
+                        .matches("VALUES VARCHAR '\"" + value + "\"'");
+                assertThat(assertions.query(
+                        "SELECT json_format(json_query(JSON '\"" + value + "\"', 'lax $.datetime()' RETURNING JSON" + errorBehavior + "))"))
+                        .matches("VALUES VARCHAR '\"" + value + "\"'");
+            }
+            for (String wrapper : new String[] {"WITH CONDITIONAL ARRAY WRAPPER", "WITH UNCONDITIONAL ARRAY WRAPPER"}) {
+                assertThat(assertions.query(
+                        "SELECT json_format(json_query(JSON '\"" + value + "\"', 'lax $.datetime()' RETURNING JSON " + wrapper + " ERROR ON ERROR))"))
+                        .matches("VALUES VARCHAR '[\"" + value + "\"]'");
+            }
+        }
+
+        assertThat(assertions.query(
+                "SELECT json_format(json_query(JSON 'null', 'lax $value' PASSING DATE '2026-09-30' AS \"value\" RETURNING JSON ERROR ON ERROR))"))
+                .matches("VALUES VARCHAR '\"2026-09-30\"'");
     }
 }

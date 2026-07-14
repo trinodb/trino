@@ -15,6 +15,11 @@ arrays and objects. Constructing a container around an existing JSON value count
 toward the same limit. Exceeding the limit raises a SQL error; `JSON_QUERY` handles
 construction failures according to its `ON ERROR` clause.
 
+SQL/JSON output preserves the declared padding of `CHAR` values as JSON strings.
+This includes `JSON_QUERY` results from `PASSING` parameters, with or without an
+array wrapper. Ordinary SQL `PASSING` values retain their SQL type during path
+evaluation and follow the session coercion policy.
+
 Trino supports three functions for querying JSON data:
 {ref}`json_exists<json-exists>`,
 {ref}`json_query<json-query>`, and {ref}`json_value<json-value>`. Each of them
@@ -1928,11 +1933,35 @@ from a standalone `NULL` will produce SQL `NULL` instead of
 
 ## Cast from JSON
 
+Direct casts from JSON to `TIMESTAMP`, `TIME WITH TIME ZONE`, and
+`TIMESTAMP WITH TIME ZONE` are not currently available. `JSON_VALUE` can extract a
+typed datetime scalar using a matching `RETURNING` type, for example:
+
+```sql
+SELECT json_value(
+    CAST(TIMESTAMP '2024-01-02 03:04:05.123456789' AS JSON),
+    'strict $' RETURNING TIMESTAMP(9));
+```
+
+
 Casting to `BOOLEAN`, `TINYINT`, `SMALLINT`, `INTEGER`,
-`BIGINT`, `REAL`, `DOUBLE` or `VARCHAR` is supported.
+`BIGINT`, `REAL`, `DOUBLE`, `VARCHAR`, `DATE` or `TIME` is supported.
 Casting to `ARRAY` and `MAP` is supported when the element type of
 the array is one of the supported types, or when the key type of the map
 is `VARCHAR` and value type of the map is one of the supported types.
+
+Casting to `DATE` or `TIME` requires the JSON value to be a string holding a
+valid date or time, or a JSON value that already carries a date or a time. Any
+other JSON value, including a number, is rejected:
+
+```
+SELECT CAST(JSON '"2001-01-31"' AS DATE);      --> DATE '2001-01-31'
+SELECT CAST(JSON '"01:23:45.678"' AS TIME(3)); --> TIME '01:23:45.678'
+SELECT CAST(JSON 'null' AS DATE);              --> NULL
+SELECT CAST(JSON '42' AS DATE);
+--> failure: "Cannot cast JSON value to date; expected a JSON string or a JSON date"
+```
+
 Behaviors of the casts are shown with the examples below:
 
 ```

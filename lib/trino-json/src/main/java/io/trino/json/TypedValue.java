@@ -19,12 +19,17 @@ import io.trino.json.JsonItemEncoding.TypeTag;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -282,6 +287,21 @@ public final class TypedValue
         }
         if (type == NumberType.NUMBER) {
             return TypeTag.NUMBER;
+        }
+        if (type == DateType.DATE) {
+            return TypeTag.DATE;
+        }
+        if (type instanceof TimeType) {
+            return TypeTag.TIME;
+        }
+        if (type instanceof TimeWithTimeZoneType) {
+            return TypeTag.TIME_WITH_TIME_ZONE;
+        }
+        if (type instanceof TimestampType) {
+            return TypeTag.TIMESTAMP;
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return TypeTag.TIMESTAMP_WITH_TIME_ZONE;
         }
         return null;
     }

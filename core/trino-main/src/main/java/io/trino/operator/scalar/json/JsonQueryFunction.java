@@ -14,9 +14,11 @@
 package io.trino.operator.scalar.json;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.Json;
 import io.trino.json.JsonItemBuilder;
+import io.trino.json.JsonItems;
 import io.trino.json.JsonNestingDepthException;
 import io.trino.json.TypedValue;
 import io.trino.jsonpath.JsonPathEvaluator;
@@ -35,6 +37,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
@@ -47,18 +50,17 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.trino.json.JsonItems.MAX_NESTING_DEPTH;
-import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJson;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryFunction
@@ -148,36 +150,18 @@ public class JsonQueryFunction
             evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
             invocationContext.setEvaluator(evaluator);
         }
-        List<Json> pathResult;
+        List<Json> sequence;
         try {
-            pathResult = evaluator.evaluate(inputExpression, parameters);
+            sequence = evaluator.evaluate(inputExpression, parameters);
         }
         catch (PathEvaluationException e) {
             return handleSpecialCase(errorBehavior, () -> e);
         }
 
         // handle empty sequence
-        if (pathResult.isEmpty()) {
+        if (sequence.isEmpty()) {
             return handleSpecialCase(emptyBehavior, () -> new JsonOutputConversionException("JSON path found no items"));
         }
-
-        // translate sequence to Json items: TypedValue items are encoded back into Json
-        ImmutableList.Builder<Json> builder = ImmutableList.builder();
-        for (Json item : pathResult) {
-            if (item instanceof TypedValue typedValue) {
-                Optional<Json> json = getJson(typedValue);
-                if (json.isEmpty()) {
-                    return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException(format(
-                            "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
-                            typedValue.type())));
-                }
-                builder.add(json.get());
-            }
-            else {
-                builder.add((Json) item);
-            }
-        }
-        List<Json> sequence = builder.build();
 
         // apply array wrapper behavior
         try {
@@ -200,7 +184,9 @@ public class JsonQueryFunction
 
         // singleton sequence - return the only item
         if (sequence.size() == 1) {
-            return sequence.get(0);
+            Json item = normalizeChar(sequence.get(0));
+            // Expose the encoded scalar type after preserving SQL CHAR padding.
+            return item instanceof TypedValue scalar ? JsonItems.encodeScalar(scalar) : item;
             // if the only item is a VARCHAR scalar, need to apply the KEEP / OMIT QUOTES behavior. this is done by the JSON output function
         }
 
@@ -211,9 +197,17 @@ public class JsonQueryFunction
     {
         return JsonItemBuilder.encodeArray(array -> {
             for (Json element : elements) {
-                array.nest(element);
+                array.nest(normalizeChar(element));
             }
         }, MAX_NESTING_DEPTH);
+    }
+
+    private static Json normalizeChar(Json item)
+    {
+        if (item instanceof TypedValue scalar && scalar.type() instanceof CharType charType) {
+            return JsonItemBuilder.encodeVarchar(padSpaces((Slice) scalar.value(), charType));
+        }
+        return item;
     }
 
     private static Json handleSpecialCase(long behavior, Supplier<TrinoException> error)

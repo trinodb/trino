@@ -27,10 +27,12 @@ import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.json.JsonItemBuilder;
 import io.trino.json.JsonItemEncoding.TypeTag;
+import io.trino.json.JsonItems;
 import io.trino.json.TypedValue;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
@@ -38,6 +40,10 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.VarcharType;
@@ -84,14 +90,14 @@ public final class SqlJsonLiteralConverter
         }
         return switch (json.scalarType()) {
             case BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, DECIMAL, NUMBER -> Optional.of(json.materializeScalar());
-            case BOOLEAN, VARCHAR -> Optional.empty();
+            case BOOLEAN, VARCHAR, DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> Optional.empty();
         };
     }
 
     /// Encodes a [TypedValue] back into a self-contained [Json] payload. Used when
     /// the path engine needs to emit a SQL scalar as a JSON value (e.g., to be
     /// returned by JSON_QUERY when the result is a typed scalar). Empty when the SQL
-    /// type has no JSON representation (datetime types, arbitrary user types).
+    /// type has no JSON representation (for example, arbitrary user types).
     public static Optional<Json> getJson(TypedValue typedValue)
     {
         return Optional.ofNullable(switch (typedValue.type()) {
@@ -108,14 +114,14 @@ public final class SqlJsonLiteralConverter
             case DoubleType _ -> JsonItemBuilder.encodeDouble(typedValue.getDoubleValue());
             case RealType _ -> JsonItemBuilder.encode(w -> w.realBits(toIntExact(typedValue.getLongValue())));
             case NumberType _ -> JsonItemBuilder.encodeNumber((TrinoNumber) typedValue.getObjectValue());
+            case DateType _, TimeType _, TimeWithTimeZoneType _, TimestampType _, TimestampWithTimeZoneType _ -> JsonItems.encodeScalar(typedValue);
             default -> null;
         });
     }
 
     /// SPI-channel adapter: produces a [JsonNode] for callers that still return
-    /// JsonNode through the JsonType binding (JSON_QUERY, JSON_OBJECT, JSON_ARRAY,
-    /// json_table). Mirrors [#getJson]; empty when the SQL type has no JSON
-    /// representation.
+    /// JsonNode. This legacy adapter handles primitive JSON values; datetime metadata
+    /// requires [#getJson].
     public static Optional<JsonNode> getJsonNode(TypedValue typedValue)
     {
         return Optional.ofNullable(switch (typedValue.type()) {

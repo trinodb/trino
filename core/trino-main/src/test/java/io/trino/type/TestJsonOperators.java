@@ -15,6 +15,8 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.json.JsonItemBuilder;
+import io.trino.operator.scalar.JsonOperators;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.query.QueryAssertions;
@@ -33,6 +35,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -40,6 +43,7 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -1143,6 +1147,85 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "'abc'"))
                 .neverFails();
+    }
+
+    @Test
+    public void testCastToDate()
+    {
+        assertThat(assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON 'null'"))
+                .isNull(DATE);
+
+        assertThat(assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON '\"2026-05-21\"'"))
+                .hasType(DATE)
+                .matches("DATE '2026-05-21'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON '42'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast JSON value to date; expected a JSON string or a JSON date");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON '\"not-a-date\"'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTime()
+    {
+        assertThat(assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON 'null'"))
+                .isNull(createTimeType(3));
+
+        assertThat(assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON '\"01:23:45.678\"'"))
+                .matches("TIME '01:23:45.678'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON '12'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast JSON value to time; expected a JSON string or a JSON time");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON '\"not-a-time\"'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testDatetimeStringCastEdges()
+    {
+        for (String value : ImmutableList.of("12:34:56.1235", "23:59:59.9995", "00:00:00.000000000001")) {
+            for (int precision : ImmutableList.of(0, 3, 6, 12)) {
+                assertThat(assertions.expression("CAST(a AS TIME(" + precision + "))")
+                        .binding("a", "JSON '\"" + value + "\"'"))
+                        .matches("CAST('" + value + "' AS TIME(" + precision + "))");
+            }
+        }
+        for (String value : ImmutableList.of("25:00:00", "12:34:56+25:00", "12:34:56-99:00")) {
+            assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS TIME(3))")
+                    .binding("a", "'" + value + "'").evaluate())
+                    .hasErrorCode(INVALID_CAST_ARGUMENT);
+            assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS TIME(3))")
+                    .binding("a", "JSON '\"" + value + "\"'").evaluate())
+                    .hasErrorCode(INVALID_CAST_ARGUMENT);
+        }
+        for (String value : ImmutableList.of("2023-02-29", "2024-13-01", "2024-01-01+25:00")) {
+            assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS DATE)")
+                    .binding("a", "'" + value + "'").evaluate())
+                    .hasErrorCode(INVALID_CAST_ARGUMENT);
+            assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS DATE)")
+                    .binding("a", "JSON '\"" + value + "\"'").evaluate())
+                    .hasErrorCode(INVALID_CAST_ARGUMENT);
+        }
+        assertThat(assertions.expression("CAST(CAST(DATE '2024-02-29' AS JSON) AS DATE)"))
+                .matches("DATE '2024-02-29'");
+        assertThat(JsonOperators.castToTime(3, JsonItemBuilder.encodeTime(12, 86_399_999_999_999_999L)))
+                .isZero();
+        assertThat(JsonOperators.castToTime(12, JsonItemBuilder.encodeTime(12, 45_296_123_456_789_012L)))
+                .isEqualTo(45_296_123_456_789_012L);
+        assertThat(assertions.expression("json_value(CAST(TIMESTAMP '2024-01-02 03:04:05.123456789' AS JSON), 'strict $' RETURNING TIMESTAMP(9))"))
+                .matches("TIMESTAMP '2024-01-02 03:04:05.123456789'");
     }
 
     @Test
