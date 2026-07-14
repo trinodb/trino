@@ -334,6 +334,23 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testCompiledClassesAreHidden()
+            throws ReflectiveOperationException
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
+
+        PageProjection projection = compiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty()).get();
+        Field workFactoryField = projection.getClass().getDeclaredField("pageProjectionWorkFactory");
+        workFactoryField.setAccessible(true);
+        Class<?> workClass = ((MethodHandle) workFactoryField.get(projection)).type().returnType();
+        assertThat(workClass.isHidden()).isTrue();
+
+        Expression filter = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+        PageFilter pageFilter = compiler.compileFilter(filter, LAYOUT, Optional.empty()).get();
+        assertThat(pageFilter.getClass().isHidden()).isTrue();
+    }
+
+    @Test
     public void testProjectionCache()
     {
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
