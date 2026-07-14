@@ -344,6 +344,8 @@ public class TestPageFunctionCompiler
         workFactoryField.setAccessible(true);
         Class<?> workClass = ((MethodHandle) workFactoryField.get(projection)).type().returnType();
         assertThat(workClass.isHidden()).isTrue();
+        // names are stable unless class dumping is enabled; the JVM appends the unique suffix
+        assertThat(workClass.getName()).matches("io\\.trino\\.\\$gen\\.PageProjectionWork/0x[0-9a-f]+");
 
         Expression filter = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
         PageFilter pageFilter = compiler.compileFilter(filter, LAYOUT, Optional.empty()).get();
