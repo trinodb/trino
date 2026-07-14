@@ -203,7 +203,7 @@
         <dep.jna.version>5.19.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
-        <dep.netty.version>4.2.15.Final</dep.netty.version>
+        <dep.netty.version>4.2.16.Final</dep.netty.version>
         <dep.okhttp.version>5.4.0</dep.okhttp.version>
         <dep.okio.version>3.17.0</dep.okio.version>
         <dep.parquet.version>1.17.1</dep.parquet.version>
