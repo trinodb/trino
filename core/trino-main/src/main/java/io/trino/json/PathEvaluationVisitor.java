@@ -55,15 +55,21 @@ import io.trino.json.ir.JsonLiteralConversionException;
 import io.trino.json.ir.SqlJsonLiteralConverter;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
@@ -78,6 +84,7 @@ import io.trino.type.VarcharOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.LongUnaryOperator;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -186,100 +193,61 @@ class PathEvaluationVisitor
     private static TypedValue getAbsoluteValue(TypedValue typedValue)
     {
         Type type = typedValue.getType();
-
-        if (type.equals(BIGINT)) {
-            long value = typedValue.getLongValue();
-            if (value >= 0) {
-                return typedValue;
+        return switch (type) {
+            case BigintType _ -> absLong(typedValue, type, value -> abs(value));
+            case IntegerType _ -> absLong(typedValue, type, value -> absInteger(value));
+            case SmallintType _ -> absLong(typedValue, type, value -> absSmallint(value));
+            case TinyintType _ -> absLong(typedValue, type, value -> absTinyint(value));
+            case DoubleType _ -> {
+                double value = typedValue.getDoubleValue();
+                yield value >= 0 ? typedValue : new TypedValue(type, abs(value));
             }
-            long absValue;
-            try {
-                absValue = abs(value);
+            case RealType _ -> {
+                float value = intBitsToFloat((int) typedValue.getLongValue());
+                yield value > 0 ? typedValue : new TypedValue(type, floatToRawIntBits(Math.abs(value)));
             }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, absValue);
-        }
-        if (type.equals(INTEGER)) {
-            long value = typedValue.getLongValue();
-            if (value >= 0) {
-                return typedValue;
-            }
-            long absValue;
-            try {
-                absValue = absInteger(value);
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, absValue);
-        }
-        if (type.equals(SMALLINT)) {
-            long value = typedValue.getLongValue();
-            if (value >= 0) {
-                return typedValue;
-            }
-            long absValue;
-            try {
-                absValue = absSmallint(value);
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, absValue);
-        }
-        if (type.equals(TINYINT)) {
-            long value = typedValue.getLongValue();
-            if (value >= 0) {
-                return typedValue;
-            }
-            long absValue;
-            try {
-                absValue = absTinyint(value);
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, absValue);
-        }
-        if (type.equals(DOUBLE)) {
-            double value = typedValue.getDoubleValue();
-            if (value >= 0) {
-                return typedValue;
-            }
-            return new TypedValue(type, abs(value));
-        }
-        if (type.equals(REAL)) {
-            float value = intBitsToFloat((int) typedValue.getLongValue());
-            if (value > 0) {
-                return typedValue;
-            }
-            return new TypedValue(type, floatToRawIntBits(Math.abs(value)));
-        }
-        if (type instanceof DecimalType decimalType) {
-            if (decimalType.isShort()) {
-                long value = typedValue.getLongValue();
-                if (value > 0) {
-                    return typedValue;
+            case DecimalType decimalType -> {
+                if (decimalType.isShort()) {
+                    long value = typedValue.getLongValue();
+                    yield value > 0 ? typedValue : new TypedValue(type, -value);
                 }
-                return new TypedValue(type, -value);
-            }
-            Int128 value = (Int128) typedValue.getObjectValue();
-            if (value.isNegative()) {
-                Int128 result;
+                Int128 value = (Int128) typedValue.getObjectValue();
+                if (!value.isNegative()) {
+                    yield typedValue;
+                }
                 try {
-                    result = DecimalOperators.Negation.negate((Int128) typedValue.getObjectValue());
+                    yield new TypedValue(type, DecimalOperators.Negation.negate(value));
                 }
                 catch (Exception e) {
                     throw new PathEvaluationException(e);
                 }
-                return new TypedValue(type, result);
             }
+            default -> throw itemTypeError("NUMBER", type.getDisplayName());
+        };
+    }
+
+    private static TypedValue absLong(TypedValue typedValue, Type type, LongUnaryOperator absFunction)
+    {
+        long value = typedValue.getLongValue();
+        if (value >= 0) {
             return typedValue;
         }
+        try {
+            return new TypedValue(type, absFunction.applyAsLong(value));
+        }
+        catch (Exception e) {
+            throw new PathEvaluationException(e);
+        }
+    }
 
-        throw itemTypeError("NUMBER", type.getDisplayName());
+    private static TypedValue negateLong(TypedValue typedValue, Type type, LongUnaryOperator negateFunction)
+    {
+        try {
+            return new TypedValue(type, negateFunction.applyAsLong(typedValue.getLongValue()));
+        }
+        catch (Exception e) {
+            throw new PathEvaluationException(e);
+        }
     }
 
     @Override
@@ -390,68 +358,26 @@ class PathEvaluationVisitor
     private static TypedValue negate(TypedValue typedValue)
     {
         Type type = typedValue.getType();
-
-        if (type.equals(BIGINT)) {
-            long negatedValue;
-            try {
-                negatedValue = BigintOperators.negate(typedValue.getLongValue());
+        return switch (type) {
+            case BigintType _ -> negateLong(typedValue, type, value -> BigintOperators.negate(value));
+            case IntegerType _ -> negateLong(typedValue, type, value -> IntegerOperators.negate(value));
+            case SmallintType _ -> negateLong(typedValue, type, value -> SmallintOperators.negate(value));
+            case TinyintType _ -> negateLong(typedValue, type, value -> TinyintOperators.negate(value));
+            case DoubleType _ -> new TypedValue(type, -typedValue.getDoubleValue());
+            case RealType _ -> new TypedValue(type, RealOperators.negate(typedValue.getLongValue()));
+            case DecimalType decimalType -> {
+                if (decimalType.isShort()) {
+                    yield new TypedValue(type, -typedValue.getLongValue());
+                }
+                try {
+                    yield new TypedValue(type, DecimalOperators.Negation.negate((Int128) typedValue.getObjectValue()));
+                }
+                catch (Exception e) {
+                    throw new PathEvaluationException(e);
+                }
             }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, negatedValue);
-        }
-        if (type.equals(INTEGER)) {
-            long negatedValue;
-            try {
-                negatedValue = IntegerOperators.negate(typedValue.getLongValue());
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, negatedValue);
-        }
-        if (type.equals(SMALLINT)) {
-            long negatedValue;
-            try {
-                negatedValue = SmallintOperators.negate(typedValue.getLongValue());
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, negatedValue);
-        }
-        if (type.equals(TINYINT)) {
-            long negatedValue;
-            try {
-                negatedValue = TinyintOperators.negate(typedValue.getLongValue());
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, negatedValue);
-        }
-        if (type.equals(DOUBLE)) {
-            return new TypedValue(type, -typedValue.getDoubleValue());
-        }
-        if (type.equals(REAL)) {
-            return new TypedValue(type, RealOperators.negate(typedValue.getLongValue()));
-        }
-        if (type instanceof DecimalType decimalType) {
-            if (decimalType.isShort()) {
-                return new TypedValue(type, -typedValue.getLongValue());
-            }
-            Int128 negatedValue;
-            try {
-                negatedValue = DecimalOperators.Negation.negate((Int128) typedValue.getObjectValue());
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-            return new TypedValue(type, negatedValue);
-        }
-
-        throw new IllegalStateException("unexpected type" + type.getDisplayName());
+            default -> throw new IllegalStateException("unexpected type " + type.getDisplayName());
+        };
     }
 
     @Override
@@ -545,42 +471,41 @@ class PathEvaluationVisitor
         }
         TypedValue value = (TypedValue) object;
         Type type = value.getType();
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return value.getLongValue();
-        }
-        if (type.equals(DOUBLE)) {
-            try {
-                return DoubleOperators.castToBigint(value.getDoubleValue());
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> value.getLongValue();
+            case DoubleType _ -> {
+                try {
+                    yield DoubleOperators.castToBigint(value.getDoubleValue());
+                }
+                catch (Exception e) {
+                    throw new PathEvaluationException(e);
+                }
             }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
+            case RealType _ -> {
+                try {
+                    yield RealOperators.castToBigint(value.getLongValue());
+                }
+                catch (Exception e) {
+                    throw new PathEvaluationException(e);
+                }
             }
-        }
-        if (type.equals(REAL)) {
-            try {
-                return RealOperators.castToBigint(value.getLongValue());
+            case DecimalType decimalType -> {
+                int precision = decimalType.getPrecision();
+                int scale = decimalType.getScale();
+                if (decimalType.isShort()) {
+                    long tenToScale = longTenToNth(DecimalConversions.intScale(scale));
+                    yield DecimalCasts.shortDecimalToBigint(value.getLongValue(), precision, scale, tenToScale);
+                }
+                Int128 tenToScale = Int128Math.powerOfTen(DecimalConversions.intScale(scale));
+                try {
+                    yield DecimalCasts.longDecimalToBigint((Int128) value.getObjectValue(), precision, scale, tenToScale);
+                }
+                catch (Exception e) {
+                    throw new PathEvaluationException(e);
+                }
             }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-        }
-        if (type instanceof DecimalType decimalType) {
-            int precision = decimalType.getPrecision();
-            int scale = decimalType.getScale();
-            if (decimalType.isShort()) {
-                long tenToScale = longTenToNth(DecimalConversions.intScale(scale));
-                return DecimalCasts.shortDecimalToBigint(value.getLongValue(), precision, scale, tenToScale);
-            }
-            Int128 tenToScale = Int128Math.powerOfTen(DecimalConversions.intScale(scale));
-            try {
-                return DecimalCasts.longDecimalToBigint((Int128) value.getObjectValue(), precision, scale, tenToScale);
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-        }
-
-        throw itemTypeError("NUMBER", type.getDisplayName());
+            default -> throw itemTypeError("NUMBER", type.getDisplayName());
+        };
     }
 
     @Override
@@ -611,39 +536,28 @@ class PathEvaluationVisitor
     private static TypedValue getCeiling(TypedValue typedValue)
     {
         Type type = typedValue.getType();
-
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return typedValue;
-        }
-        if (type.equals(DOUBLE)) {
-            return new TypedValue(type, Math.ceil(typedValue.getDoubleValue()));
-        }
-        if (type.equals(REAL)) {
-            return new TypedValue(type, ceilingReal(typedValue.getLongValue()));
-        }
-        if (type instanceof DecimalType decimalType) {
-            int scale = decimalType.getScale();
-            DecimalType resultType = DecimalType.createDecimalType(decimalType.getPrecision() - scale + Math.min(scale, 1), 0);
-            if (decimalType.isShort()) {
-                return new TypedValue(resultType, ceilingShort(scale, typedValue.getLongValue()));
-            }
-            if (resultType.isShort()) {
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> typedValue;
+            case DoubleType _ -> new TypedValue(type, Math.ceil(typedValue.getDoubleValue()));
+            case RealType _ -> new TypedValue(type, ceilingReal(typedValue.getLongValue()));
+            case DecimalType decimalType -> {
+                int scale = decimalType.getScale();
+                DecimalType resultType = DecimalType.createDecimalType(decimalType.getPrecision() - scale + Math.min(scale, 1), 0);
+                if (decimalType.isShort()) {
+                    yield new TypedValue(resultType, ceilingShort(scale, typedValue.getLongValue()));
+                }
                 try {
-                    return new TypedValue(resultType, ceilingLongShort(scale, (Int128) typedValue.getObjectValue()));
+                    yield new TypedValue(resultType,
+                            resultType.isShort()
+                                    ? ceilingLongShort(scale, (Int128) typedValue.getObjectValue())
+                                    : ceilingLong(scale, (Int128) typedValue.getObjectValue()));
                 }
                 catch (Exception e) {
                     throw new PathEvaluationException(e);
                 }
             }
-            try {
-                return new TypedValue(resultType, ceilingLong(scale, (Int128) typedValue.getObjectValue()));
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-        }
-
-        throw itemTypeError("NUMBER", type.getDisplayName());
+            default -> throw itemTypeError("NUMBER", type.getDisplayName());
+        };
     }
 
     @Override
@@ -783,36 +697,30 @@ class PathEvaluationVisitor
     private static TypedValue getDouble(TypedValue typedValue)
     {
         Type type = typedValue.getType();
-
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return new TypedValue(DOUBLE, (double) typedValue.getLongValue());
-        }
-        if (type.equals(DOUBLE)) {
-            return typedValue;
-        }
-        if (type.equals(REAL)) {
-            return new TypedValue(DOUBLE, RealOperators.castToDouble(typedValue.getLongValue()));
-        }
-        if (type instanceof DecimalType decimalType) {
-            int precision = decimalType.getPrecision();
-            int scale = decimalType.getScale();
-            if (decimalType.isShort()) {
-                long tenToScale = longTenToNth(DecimalConversions.intScale(scale));
-                return new TypedValue(DOUBLE, shortDecimalToDouble(typedValue.getLongValue(), precision, scale, tenToScale));
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> new TypedValue(DOUBLE, (double) typedValue.getLongValue());
+            case DoubleType _ -> typedValue;
+            case RealType _ -> new TypedValue(DOUBLE, RealOperators.castToDouble(typedValue.getLongValue()));
+            case DecimalType decimalType -> {
+                int precision = decimalType.getPrecision();
+                int scale = decimalType.getScale();
+                if (decimalType.isShort()) {
+                    long tenToScale = longTenToNth(DecimalConversions.intScale(scale));
+                    yield new TypedValue(DOUBLE, shortDecimalToDouble(typedValue.getLongValue(), precision, scale, tenToScale));
+                }
+                Int128 tenToScale = Int128Math.powerOfTen(DecimalConversions.intScale(scale));
+                yield new TypedValue(DOUBLE, longDecimalToDouble((Int128) typedValue.getObjectValue(), precision, scale, tenToScale));
             }
-            Int128 tenToScale = Int128Math.powerOfTen(DecimalConversions.intScale(scale));
-            return new TypedValue(DOUBLE, longDecimalToDouble((Int128) typedValue.getObjectValue(), precision, scale, tenToScale));
-        }
-        if (type instanceof VarcharType || type instanceof CharType) {
-            try {
-                return new TypedValue(DOUBLE, VarcharOperators.castToDouble((Slice) typedValue.getObjectValue()));
+            case VarcharType _, CharType _ -> {
+                try {
+                    yield new TypedValue(DOUBLE, VarcharOperators.castToDouble((Slice) typedValue.getObjectValue()));
+                }
+                catch (Exception e) {
+                    throw new PathEvaluationException(e);
+                }
             }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-        }
-
-        throw itemTypeError("NUMBER or TEXT", type.getDisplayName());
+            default -> throw itemTypeError("NUMBER or TEXT", type.getDisplayName());
+        };
     }
 
     @Override
@@ -864,39 +772,28 @@ class PathEvaluationVisitor
     private static TypedValue getFloor(TypedValue typedValue)
     {
         Type type = typedValue.getType();
-
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return typedValue;
-        }
-        if (type.equals(DOUBLE)) {
-            return new TypedValue(type, Math.floor(typedValue.getDoubleValue()));
-        }
-        if (type.equals(REAL)) {
-            return new TypedValue(type, floorReal(typedValue.getLongValue()));
-        }
-        if (type instanceof DecimalType decimalType) {
-            int scale = decimalType.getScale();
-            DecimalType resultType = DecimalType.createDecimalType(decimalType.getPrecision() - scale + Math.min(scale, 1), 0);
-            if (decimalType.isShort()) {
-                return new TypedValue(resultType, floorShort(scale, typedValue.getLongValue()));
-            }
-            if (resultType.isShort()) {
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> typedValue;
+            case DoubleType _ -> new TypedValue(type, Math.floor(typedValue.getDoubleValue()));
+            case RealType _ -> new TypedValue(type, floorReal(typedValue.getLongValue()));
+            case DecimalType decimalType -> {
+                int scale = decimalType.getScale();
+                DecimalType resultType = DecimalType.createDecimalType(decimalType.getPrecision() - scale + Math.min(scale, 1), 0);
+                if (decimalType.isShort()) {
+                    yield new TypedValue(resultType, floorShort(scale, typedValue.getLongValue()));
+                }
                 try {
-                    return new TypedValue(resultType, floorLongShort(scale, (Int128) typedValue.getObjectValue()));
+                    yield new TypedValue(resultType,
+                            resultType.isShort()
+                                    ? floorLongShort(scale, (Int128) typedValue.getObjectValue())
+                                    : floorLong(scale, (Int128) typedValue.getObjectValue()));
                 }
                 catch (Exception e) {
                     throw new PathEvaluationException(e);
                 }
             }
-            try {
-                return new TypedValue(resultType, floorLong(scale, (Int128) typedValue.getObjectValue()));
-            }
-            catch (Exception e) {
-                throw new PathEvaluationException(e);
-            }
-        }
-
-        throw itemTypeError("NUMBER", type.getDisplayName());
+            default -> throw itemTypeError("NUMBER", type.getDisplayName());
+        };
     }
 
     @Override

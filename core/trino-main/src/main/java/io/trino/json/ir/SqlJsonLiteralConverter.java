@@ -26,10 +26,16 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.VarcharType;
 
 import java.math.BigDecimal;
@@ -48,7 +54,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -114,45 +119,22 @@ public final class SqlJsonLiteralConverter
 
     public static Optional<JsonNode> getJsonNode(TypedValue typedValue)
     {
-        Type type = typedValue.getType();
-        if (type.equals(BOOLEAN)) {
-            return Optional.of(BooleanNode.valueOf(typedValue.getBooleanValue()));
-        }
-        if (type instanceof CharType charType) {
-            return Optional.of(TextNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8()));
-        }
-        if (type instanceof VarcharType) {
-            return Optional.of(TextNode.valueOf(((Slice) typedValue.getObjectValue()).toStringUtf8()));
-        }
-        if (type.equals(BIGINT)) {
-            return Optional.of(LongNode.valueOf(typedValue.getLongValue()));
-        }
-        if (type.equals(INTEGER)) {
-            return Optional.of(IntNode.valueOf(toIntExact(typedValue.getLongValue())));
-        }
-        if (type.equals(SMALLINT)) {
-            return Optional.of(ShortNode.valueOf(Shorts.checkedCast(typedValue.getLongValue())));
-        }
-        if (type.equals(TINYINT)) {
-            return Optional.of(ShortNode.valueOf(Shorts.checkedCast(typedValue.getLongValue())));
-        }
-        if (type instanceof DecimalType decimalType) {
-            BigInteger unscaledValue;
-            if (decimalType.isShort()) {
-                unscaledValue = BigInteger.valueOf(typedValue.getLongValue());
+        return Optional.ofNullable(switch (typedValue.getType()) {
+            case BooleanType _ -> BooleanNode.valueOf(typedValue.getBooleanValue());
+            case CharType charType -> TextNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8());
+            case VarcharType _ -> TextNode.valueOf(((Slice) typedValue.getObjectValue()).toStringUtf8());
+            case BigintType _ -> LongNode.valueOf(typedValue.getLongValue());
+            case IntegerType _ -> IntNode.valueOf(toIntExact(typedValue.getLongValue()));
+            case SmallintType _, TinyintType _ -> ShortNode.valueOf(Shorts.checkedCast(typedValue.getLongValue()));
+            case DecimalType decimalType -> {
+                BigInteger unscaledValue = decimalType.isShort()
+                        ? BigInteger.valueOf(typedValue.getLongValue())
+                        : ((Int128) typedValue.getObjectValue()).toBigInteger();
+                yield DecimalNode.valueOf(new BigDecimal(unscaledValue, decimalType.getScale()));
             }
-            else {
-                unscaledValue = ((Int128) typedValue.getObjectValue()).toBigInteger();
-            }
-            return Optional.of(DecimalNode.valueOf(new BigDecimal(unscaledValue, decimalType.getScale())));
-        }
-        if (type.equals(DOUBLE)) {
-            return Optional.of(DoubleNode.valueOf(typedValue.getDoubleValue()));
-        }
-        if (type.equals(REAL)) {
-            return Optional.of(FloatNode.valueOf(intBitsToFloat(toIntExact(typedValue.getLongValue()))));
-        }
-
-        return Optional.empty();
+            case DoubleType _ -> DoubleNode.valueOf(typedValue.getDoubleValue());
+            case RealType _ -> FloatNode.valueOf(intBitsToFloat(toIntExact(typedValue.getLongValue())));
+            default -> null;
+        });
     }
 }
