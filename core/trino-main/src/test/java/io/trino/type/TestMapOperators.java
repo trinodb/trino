@@ -405,7 +405,7 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as MAP(BIGINT, BIGINT))")
                 .binding("a", "'null 123 some invalid JSON content'")::evaluate)
-                .hasMessage("Cannot cast to map(bigint, bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+                .hasMessage("Cannot convert value to JSON: 'null 123 some invalid JSON content'");
 
         assertThat(assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{}'"))
@@ -563,7 +563,7 @@ public class TestMapOperators
                 .hasType(mapType(BIGINT, VARCHAR))
                 .isEqualTo(asMap(
                         ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
-                        asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null)));
+                        asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null)));
 
         assertThat(assertions.expression("cast(a as MAP(VARCHAR, JSON))")
                 .binding("a", "JSON '{\"k1\": 5, \"k2\": 3.14, \"k3\":[1, 2, 3], \"k4\":\"e\", \"k5\":{\"a\": \"b\"}, \"k6\":null, \"k7\":\"null\", \"k8\":[null]}'"))
@@ -644,22 +644,22 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '[1, 2]'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Expected a json object, but got [\n[1,2]")
+                .hasMessage("Cannot cast to map(bigint, bigint). Expected a json object, but got ARRAY\n[1,2]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, MAP(VARCHAR, BIGINT)))")
                 .binding("a", "JSON '{\"a\": 1, \"b\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got 1\n{\"a\":1,\"b\":2}")
+                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got INTEGER\n{\"a\":1,\"b\":2}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "JSON '{\"a\": 1, \"b\": []}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint). Unexpected token when cast to bigint: [\n{\"a\":1,\"b\":[]}")
+                .hasMessage("Cannot cast to map(varchar, bigint). Unexpected ARRAY when cast to bigint\n{\"a\":1,\"b\":[]}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, MAP(VARCHAR, BIGINT)))")
                 .binding("a", "JSON '{\"1\": {\"a\": 1}, \"2\": []}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got [\n{\"1\":{\"a\":1},\"2\":[]}")
+                .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got ARRAY\n{\"1\":{\"a\":1},\"2\":[]}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // unchecked_to_json validates its input, so malformed JSON fails at injection time.
@@ -685,7 +685,7 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, INTEGER))")
                 .binding("a", "JSON '{\"a\": 1234567890123.456}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1234567890123.456}")
+                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1234567890123\n{\"a\":1234567890123.456}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")

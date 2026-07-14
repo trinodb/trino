@@ -447,7 +447,7 @@ public class TestArrayOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(json_parse(a) AS array(BIGINT))")
                 .binding("a", "'null 123 some invalid JSON content'")::evaluate)
-                .hasMessage("Cannot cast to array(bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+                .hasMessage("Cannot convert value to JSON: 'null 123 some invalid JSON content'");
 
         assertThat(assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "JSON '[]'"))
@@ -523,7 +523,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(VARCHAR))")
                 .binding("a", "JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]'"))
                 .hasType(new ArrayType(VARCHAR))
-                .isEqualTo(asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null));
+                .isEqualTo(asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
 
         assertThat(assertions.expression("CAST(a AS array(JSON))")
                 .binding("a", "JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]'"))
@@ -581,22 +581,22 @@ public class TestArrayOperators
         // invalid cast
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "JSON '{\"a\": 1}'").evaluate())
-                .hasMessage("Cannot cast to array(bigint). Expected a json array, but got {\n{\"a\":1}")
+                .hasMessage("Cannot cast to array(bigint). Expected a json array, but got OBJECT\n{\"a\":1}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(ARRAY(BIGINT)))")
                 .binding("a", "JSON '[1, 2, 3]'").evaluate())
-                .hasMessage("Cannot cast to array(array(bigint)). Expected a json array, but got 1\n[1,2,3]")
+                .hasMessage("Cannot cast to array(array(bigint)). Expected a json array, but got INTEGER\n[1,2,3]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "JSON '[1, {}]'").evaluate())
-                .hasMessage("Cannot cast to array(bigint). Unexpected token when cast to bigint: {\n[1,{}]")
+                .hasMessage("Cannot cast to array(bigint). Unexpected OBJECT when cast to bigint\n[1,{}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(ARRAY(BIGINT)))")
                 .binding("a", "JSON '[[1], {}]'").evaluate())
-                .hasMessage("Cannot cast to array(array(bigint)). Expected a json array, but got {\n[[1],{}]")
+                .hasMessage("Cannot cast to array(array(bigint)). Expected a json array, but got OBJECT\n[[1],{}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // unchecked_to_json validates its input, so malformed JSON fails at injection time
@@ -623,7 +623,7 @@ public class TestArrayOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(INTEGER))")
                 .binding("a", "JSON '[1234567890123.456]'").evaluate())
-                .hasMessage("Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1234567890123.456]")
+                .hasMessage("Cannot cast to array(integer). Out of range for integer: 1234567890123\n[1234567890123.456]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertThat(assertions.expression("CAST(a AS array(DECIMAL(10,5)))")
@@ -1240,19 +1240,18 @@ public class TestArrayOperators
 
         // array with various types including scientific notation and string "null"
         String inputJsonArray = "[true, false, 12, 12.3, 1.23E1, 0, 0.000000000000000, 0e1000, 0e-1000, 1, 100000000000000000000000000000000000000000000000000000000000000000000e-68, 0.100000000000000, \"puppies\", \"kittens\", \"null\", null]";
-        // The literal and json_parse paths both parse the raw text, so 100...0e-68 is an
-        // approximate literal (double, "1.0E0") on both, and the two bindings agree.
+        // Both bindings converge: the cast reads the JSON value's items, so the result does not
+        // depend on whether the plan carried the JSON as a literal or as json_parse. An exact
+        // literal (12.3) is a DECIMAL and renders as itself; an exponent literal (1.23E1,
+        // 100...0e-68, 0e1000) is approximate, so it is a double and renders in scientific form.
         assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
                 .binding("a", "JSON '" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))
-                .matches("ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]");
-        // Same source, but the SpecializeCastWithJsonParse rule rewrites to
-        // JsonStringToArrayCast which keeps the input text as-is and parses on read,
-        // so Double-cast scientific forms ("0E0", "1.0E0") survive.
+                .matches("ARRAY[VARCHAR 'true', 'false', '12', '12.3', '1.23E1', '0', '0.000000000000000', '0E0', '0E0', '1', '1.0E0', '0.100000000000000', 'puppies', 'kittens', 'null', null]");
         assertThat(assertions.expression("cast(json_parse(a) as ARRAY(VARCHAR))")
                 .binding("a", "'" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))
-                .matches("ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]");
+                .matches("ARRAY[VARCHAR 'true', 'false', '12', '12.3', '1.23E1', '0', '0.000000000000000', '0E0', '0E0', '1', '1.0E0', '0.100000000000000', 'puppies', 'kittens', 'null', null]");
 
         // Number with leading zeros
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as ARRAY(VARCHAR))")
@@ -1261,15 +1260,13 @@ public class TestArrayOperators
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as ARRAY(VARCHAR))")
                 .binding("a", "JSON '[000.0]'")::evaluate)
                 .hasMessage("line 3:16: '[000.0]' is not a valid JSON literal");
-        // Number with leading zeros with json_parse, exercising SpecializeCastWithJsonParse
+        // Malformed JSON is rejected when the value is built, before any cast runs.
         assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as ARRAY(VARCHAR))")
                 .binding("a", "'[000]'")::evaluate)
-                // TODO the exception message could be better
-                .hasMessage("Cannot cast to array(varchar).\n[000]");
+                .hasMessage("Cannot convert value to JSON: '[000]'");
         assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as ARRAY(VARCHAR))")
                 .binding("a", "'[000.0]'")::evaluate)
-                // TODO the exception message could be better
-                .hasMessage("Cannot cast to array(varchar).\n[000.0]");
+                .hasMessage("Cannot convert value to JSON: '[000.0]'");
 
         // non-array JSON should fail
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(VARCHAR))")
