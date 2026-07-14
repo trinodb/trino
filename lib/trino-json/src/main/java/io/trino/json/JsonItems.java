@@ -27,20 +27,13 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
 import com.fasterxml.jackson.databind.node.FloatNode;
 import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ShortNode;
-import com.fasterxml.jackson.databind.node.TextNode;
-import com.google.common.primitives.Shorts;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.json.JsonItemBuilder.JsonItemWriter;
@@ -78,9 +71,7 @@ import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -91,7 +82,6 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -689,7 +679,8 @@ public final class JsonItems
         }
     }
 
-    private static String parseString(JsonParser parser)
+    /// Reads the current string value or field name, rejecting unpaired Unicode surrogates.
+    public static String parseString(JsonParser parser)
             throws IOException
     {
         String text = parser.getText();
@@ -817,75 +808,6 @@ public final class JsonItems
             }
             default -> throw new IllegalArgumentException("Unsupported JSON node type: " + node.getNodeType());
         }
-    }
-
-    /// Materializes a [Json] back into a Jackson [JsonNode] tree. Inverse of
-    /// [#fromJsonNode]: scalar tags map to the JsonNode subtype that the corresponding
-    /// numeric path-engine literal would have selected (BIGINT → LongNode,
-    /// INTEGER → IntNode, etc.). Used by IR plan-layer callers that still hand around
-    /// JsonNode trees (e.g. `IrConstantJsonSequence` content). Throws on
-    /// [Json.Kind#ERROR] — the path engine carries its error sentinel as a
-    /// [JsonItemBuilder#JSON_ERROR] [Json] value, so an error result never needs to
-    /// cross the JsonNode boundary.
-    public static JsonNode toJsonNode(Json json)
-    {
-        return switch (json.kind()) {
-            case NULL -> NullNode.getInstance();
-            case ERROR -> throw new IllegalStateException("Cannot materialize JSON_ERROR as JsonNode");
-            case ARRAY -> {
-                ArrayNode array = new ArrayNode(JsonNodeFactory.instance);
-                json.forEachArrayElement(child -> array.add(toJsonNode(child)));
-                yield array;
-            }
-            case OBJECT -> {
-                Map<String, JsonNode> members = new LinkedHashMap<>();
-                json.forEachObjectMember((key, value) -> members.put(key, toJsonNode(value)));
-                yield new ObjectNode(JsonNodeFactory.instance, members);
-            }
-            case SCALAR -> scalarToJsonNode(json);
-        };
-    }
-
-    private static JsonNode scalarToJsonNode(Json json)
-    {
-        TypedValue value = json.materializeScalar();
-        return switch (json.scalarType()) {
-            case BOOLEAN -> BooleanNode.valueOf(value.getBooleanValue());
-            case VARCHAR -> TextNode.valueOf(((Slice) value.getObjectValue()).toStringUtf8());
-            // JSON has no datetime type: a datetime item renders as the canonical SQL literal.
-            case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> TextNode.valueOf(JsonItemEncoding.datetimeText(value));
-            case BIGINT -> LongNode.valueOf(value.getLongValue());
-            case INTEGER -> IntNode.valueOf(toIntExact(value.getLongValue()));
-            case SMALLINT, TINYINT -> ShortNode.valueOf(Shorts.checkedCast(value.getLongValue()));
-            case DOUBLE -> DoubleNode.valueOf(value.getDoubleValue());
-            case REAL -> FloatNode.valueOf(intBitsToFloat(toIntExact(value.getLongValue())));
-            case DECIMAL -> {
-                DecimalType decimalType = (DecimalType) value.type();
-                BigInteger unscaledValue = decimalType.isShort()
-                        ? BigInteger.valueOf(value.getLongValue())
-                        : ((Int128) value.getObjectValue()).toBigInteger();
-                // A scale-0 decimal round-trips via BigIntegerNode so the parser sees
-                // VALUE_NUMBER_INT (preserved as text) rather than VALUE_NUMBER_FLOAT, which
-                // forces a Double conversion in Jackson and silently loses precision.
-                yield decimalType.getScale() == 0
-                        ? BigIntegerNode.valueOf(unscaledValue)
-                        : DecimalNode.valueOf(new BigDecimal(unscaledValue, decimalType.getScale()));
-            }
-            case NUMBER -> {
-                TrinoNumber number = (TrinoNumber) value.getObjectValue();
-                yield switch (number.toBigDecimal()) {
-                    // Integer-valued BigDecimals round-trip via BigIntegerNode so the parser sees
-                    // VALUE_NUMBER_INT (preserved as text) rather than VALUE_NUMBER_FLOAT (which
-                    // forces a Double conversion in Jackson and silently loses precision).
-                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> decimal.scale() <= 0
-                            ? BigIntegerNode.valueOf(decimal.toBigInteger())
-                            : DecimalNode.valueOf(decimal);
-                    // NaN / Infinity have no JSON number form; emit as JSON strings to preserve the value.
-                    case TrinoNumber.NotANumber _ -> TextNode.valueOf("NaN");
-                    case TrinoNumber.Infinity(boolean negative) -> TextNode.valueOf(negative ? "-Infinity" : "+Infinity");
-                };
-            }
-        };
     }
 
     private static void writeNumber(JsonItemWriter writer, JsonNode node)

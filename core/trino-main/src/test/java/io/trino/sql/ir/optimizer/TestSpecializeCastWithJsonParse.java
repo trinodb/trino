@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -27,12 +28,12 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
-import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -42,6 +43,7 @@ import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.JsonType.JSON;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpecializeCastWithJsonParse
@@ -72,13 +74,23 @@ public class TestSpecializeCastWithJsonParse
     }
 
     @Test
-    void testRow()
+    void testUnsupportedTargets()
     {
-        assertThat(optimize(
-                new Cast(new Call(JSON_PARSE, ImmutableList.of(new Reference(VARCHAR, "x"))), anonymousRow(BIGINT, BIGINT))))
-                .isEqualTo(Optional.of(new Call(
-                        PLANNER_CONTEXT.getMetadata().getCoercion(SQL_STANDARD, builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, anonymousRow(BIGINT, BIGINT)),
-                        ImmutableList.of(new Reference(VARCHAR, "x")))));
+        for (Type type : List.of(
+                BIGINT,
+                anonymousRow(BIGINT),
+                new ArrayType(anonymousRow(BIGINT)),
+                new MapType(VARCHAR, new ArrayType(anonymousRow(BIGINT)), new TypeOperators()))) {
+            assertThat(optimize(new Cast(new Call(JSON_PARSE, ImmutableList.of(new Reference(VARCHAR, "x"))), type)))
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    void testOtherJsonSource()
+    {
+        assertThat(optimize(new Cast(new Reference(JSON, "x"), new ArrayType(BIGINT))))
+                .isEmpty();
     }
 
     private Optional<Expression> optimize(Expression expression)

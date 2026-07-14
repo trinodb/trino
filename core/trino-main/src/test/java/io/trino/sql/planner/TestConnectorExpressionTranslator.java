@@ -32,7 +32,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Bind;
@@ -69,7 +68,6 @@ import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NA
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
-import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
@@ -750,16 +748,6 @@ public class TestConnectorExpressionTranslator
                             new io.trino.spi.expression.Call(
                                     new MapType(VARCHAR_TYPE, VARCHAR_TYPE, TESTING_TYPE_MANAGER.getTypeOperators()),
                                     new FunctionName(JSON_STRING_TO_MAP_NAME),
-                                    List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
-
-                    assertTranslationRoundTrips(
-                            transactionSession,
-                            new Call(
-                                    PLANNER_CONTEXT.getMetadata().getCoercion(SQL_STANDARD, builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, RowType.anonymousRow(VARCHAR)),
-                                    ImmutableList.of(new Reference(VARCHAR_TYPE, "varchar_symbol_1"))),
-                            new io.trino.spi.expression.Call(
-                                    RowType.anonymousRow(VARCHAR),
-                                    new FunctionName(JSON_STRING_TO_ROW_NAME),
                                     List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
                 });
     }

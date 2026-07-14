@@ -64,6 +64,13 @@ public class TestJsonTransformFusion
     }
 
     @Test
+    public void testValueFidelity()
+    {
+        assertEquivalent("$", List.of("[]", "null", "[null,1,1.20,1e0,-0e0,\"text\",{},[]]"));
+        assertEquivalent("$.a", List.of("[{\"a\":1,\"a\":2},{\"a\":3,\"a\":4}]", "[null,{},1]"));
+    }
+
+    @Test
     public void testInvalidInput()
     {
         assertEquivalentErrors("$", List.of(
@@ -90,6 +97,7 @@ public class TestJsonTransformFusion
     @Test
     public void testNestingLimit()
     {
+        assertEquivalent("$", List.of("[".repeat(1024) + "0" + "]".repeat(1024)));
         assertEquivalentErrors("$", List.of("[".repeat(1025) + "0" + "]".repeat(1025)));
     }
 
