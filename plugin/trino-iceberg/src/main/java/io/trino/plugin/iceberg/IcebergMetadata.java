@@ -299,6 +299,11 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLE_FUNCTIONS;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.TRINO_QUERY_START_TIME;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
@@ -496,12 +501,14 @@ public class IcebergMetadata
 
     public static final int GET_METADATA_BATCH_SIZE = 1000;
     private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
-
-    private static final String DEPENDS_ON_TABLES = "dependsOnTables";
-    private static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
-    private static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
-    // Value should be ISO-8601 formatted time instant
-    private static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
+    // Any procedure added here that commits a NEW snapshot must call
+    // IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies before committing, otherwise the
+    // materialized view's dependency summary is dropped and the next refresh is demoted from incremental to full.
+    private static final Set<IcebergTableProcedureId> MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES = Sets.immutableEnumSet(
+            OPTIMIZE,
+            OPTIMIZE_MANIFESTS,
+            EXPIRE_SNAPSHOTS,
+            REMOVE_ORPHAN_FILES);
 
     private final CatalogName catalogName;
     private final TypeManager typeManager;
@@ -1781,6 +1788,10 @@ public class IcebergMetadata
             throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
         }
 
+        if (getMaterializedViewForStorageTable(session, tableHandle.getSchemaTableName()).isPresent() && !MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES.contains(procedureId)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table procedure %s is not supported on a materialized view storage table".formatted(procedureName));
+        }
+
         return switch (procedureId) {
             case OPTIMIZE -> getTableHandleForOptimize(tableHandle, icebergTable, executeProperties);
             case OPTIMIZE_MANIFESTS -> getTableHandleForOptimizeManifests(session, tableHandle);
@@ -2198,6 +2209,7 @@ public class IcebergMetadata
         rewriteFiles.dataSequenceNumber(snapshot.sequenceNumber());
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.scanManifestsWith(icebergScanExecutor);
+        carryForwardMaterializedViewDependencies(icebergTable, rewriteFiles);
         commitUpdate(rewriteFiles, session, "optimize");
 
         long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
@@ -4143,6 +4155,16 @@ public class IcebergMetadata
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return catalog.getMaterializedView(session, viewName);
+    }
+
+    @Override
+    public Optional<SchemaTableName> getMaterializedViewForStorageTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (!isMaterializedViewStorage(tableName.getTableName())) {
+            return Optional.empty();
+        }
+        SchemaTableName materializedViewName = new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName()));
+        return getMaterializedView(session, materializedViewName).isPresent() ? Optional.of(materializedViewName) : Optional.empty();
     }
 
     @Override
