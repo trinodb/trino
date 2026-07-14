@@ -32,19 +32,15 @@ public class TestCallSiteBinder
     @Test
     public void testBindingKinds()
     {
-        CallSiteBinder hidden = CallSiteBinder.forHiddenClassGeneration();
-        assertThat(hidden.bind(MethodHandles.identity(long.class)).getKind()).isEqualTo(Binding.Kind.CLASS_DATA_HANDLE);
-        assertThat(hidden.bind(BIGINT, Type.class).getKind()).isEqualTo(Binding.Kind.CLASS_DATA_CONSTANT);
-
-        CallSiteBinder legacy = new CallSiteBinder();
-        assertThat(legacy.bind(MethodHandles.identity(long.class)).getKind()).isEqualTo(Binding.Kind.CALL_SITE);
-        assertThat(legacy.bind(BIGINT, Type.class).getKind()).isEqualTo(Binding.Kind.CALL_SITE);
+        CallSiteBinder binder = new CallSiteBinder();
+        assertThat(binder.bind(MethodHandles.identity(long.class)).getKind()).isEqualTo(Binding.Kind.HANDLE);
+        assertThat(binder.bind(BIGINT, Type.class).getKind()).isEqualTo(Binding.Kind.CONSTANT);
     }
 
     @Test
     public void testMethodHandleDeduplication()
     {
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
         MethodHandle handle = MethodHandles.identity(long.class);
 
         Binding first = binder.bind(handle);
@@ -62,7 +58,7 @@ public class TestCallSiteBinder
     @Test
     public void testConstantDeduplication()
     {
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
 
         Binding first = binder.bind(BIGINT, Type.class);
         Binding second = binder.bind(BIGINT, Type.class);
@@ -76,23 +72,9 @@ public class TestCallSiteBinder
     }
 
     @Test
-    public void testBindingsAccessorsMatchGenerationMode()
-    {
-        CallSiteBinder hidden = CallSiteBinder.forHiddenClassGeneration();
-        hidden.bind(MethodHandles.identity(long.class));
-        assertThat(hidden.getClassData()).hasSize(1);
-        assertThatThrownBy(hidden::getBindings).isInstanceOf(IllegalStateException.class);
-
-        CallSiteBinder legacy = new CallSiteBinder();
-        legacy.bind(MethodHandles.identity(long.class));
-        assertThat(legacy.getBindings()).hasSize(1);
-        assertThatThrownBy(legacy::getClassData).isInstanceOf(IllegalStateException.class);
-    }
-
-    @Test
     public void testClassDataInvocationRequiresExplicitArguments()
     {
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
         Binding binding = binder.bind(MethodHandles.identity(long.class));
 
         // explicit arguments produce a dynamic constant invocation
@@ -112,9 +94,9 @@ public class TestCallSiteBinder
     @Test
     public void testZeroArityHandleLoadsAsConstantInvocation()
     {
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
         Binding binding = binder.bind(MethodHandles.constant(long.class, 42L));
-        assertThat(binding.getKind()).isEqualTo(Binding.Kind.CLASS_DATA_HANDLE);
+        assertThat(binding.getKind()).isEqualTo(Binding.Kind.HANDLE);
         assertThat(binding.getType()).isEqualTo(methodType(long.class));
         // no arguments to pass, so the implicit form is unambiguous
         assertThat(invoke(binding, "test")).isNotNull();

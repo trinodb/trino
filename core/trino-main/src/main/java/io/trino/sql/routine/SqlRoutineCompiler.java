@@ -166,7 +166,7 @@ public final class SqlRoutineCompiler
                 makeClassName("SqlRoutine"),
                 type(Object.class));
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, cachedInstanceBinder, routine);

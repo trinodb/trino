@@ -142,7 +142,7 @@ public abstract class AbstractGreatestLeast
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
 
         Variable value = scope.declareVariable(wrap(javaTypes.get(0)), "value");
 

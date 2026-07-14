@@ -251,7 +251,7 @@ public final class LambdaBytecodeGenerator
 
         FieldDefinition sessionField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassDefinition, callSiteBinder);
 
         Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(

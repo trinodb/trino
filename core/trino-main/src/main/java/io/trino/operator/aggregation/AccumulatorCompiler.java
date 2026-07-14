@@ -142,7 +142,7 @@ public final class AccumulatorCompiler
                 type(Object.class),
                 type(accumulatorInterface));
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
         List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
@@ -253,7 +253,7 @@ public final class AccumulatorCompiler
                 type(Object.class),
                 type(WindowAccumulator.class));
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
         List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();

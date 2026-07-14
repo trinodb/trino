@@ -110,7 +110,7 @@ public final class VarArgsToArrayAdapterGenerator
         checkArgument(methodType.returnType() == returnType, "returnType does not match");
         checkArgument(methodType.parameterList().equals(ImmutableList.of(Object.class, javaArrayType)), "parameter types do not match");
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName("VarArgsToListAdapter"), type(Object.class));
         classDefinition.declareDefaultConstructor(a(PRIVATE));
 
