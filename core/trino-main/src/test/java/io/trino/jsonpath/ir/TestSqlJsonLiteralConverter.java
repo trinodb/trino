@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
+import io.trino.json.JsonItemBuilder;
 import io.trino.json.JsonItems;
 import io.trino.json.TypedValue;
 import io.trino.spi.type.Int128;
@@ -40,9 +41,11 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJson;
 import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getNumericTypedValue;
 import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getTextTypedValue;
@@ -73,6 +76,23 @@ public class TestSqlJsonLiteralConverter
             .withStrictTypeChecking(true)
             .withEqualsForType(Slice::equals, Slice.class)
             .build();
+
+    @Test
+    void testDatetimeJsonItems()
+    {
+        for (Json value : List.of(
+                JsonItemBuilder.encodeDate(1),
+                JsonItemBuilder.encodeTime(3, 1_000_000_000L),
+                JsonItemBuilder.encodeTime(12, 1_000_000_123L),
+                JsonItemBuilder.encodeTimeWithTimeZone(3, 1_000_000_000L, 60),
+                JsonItemBuilder.encodeTimeWithTimeZone(12, 1_000_000_123L, 60),
+                JsonItemBuilder.encodeTimestamp(3, 1_230_000L, 0),
+                JsonItemBuilder.encodeTimestamp(12, 1_230_000L, 123_456),
+                JsonItemBuilder.encodeTimestampWithTimeZone(3, 1_230L, 0, (short) 0),
+                JsonItemBuilder.encodeTimestampWithTimeZone(12, 1_230L, 123_456_789, (short) 0))) {
+            assertThat(getJson(value.materializeScalar()).orElseThrow().encoding()).isEqualTo(value.encoding());
+        }
+    }
 
     @Test
     public void testNumberToJson()

@@ -49,6 +49,25 @@ public class TestJsonTable
     }
 
     @Test
+    public void testDatetimeRowSequence()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT * FROM JSON_TABLE(
+                    JSON '"2020-01-01"', 'lax $.datetime()'
+                    COLUMNS(x date PATH 'lax $') ERROR ON ERROR)
+                """))
+                .matches("VALUES DATE '2020-01-01'");
+        assertThat(assertions.query(
+                """
+                SELECT * FROM JSON_TABLE(
+                    JSON '"2020-01-01"', 'lax $.datetime()'
+                    COLUMNS(x date PATH 'lax $'))
+                """))
+                .matches("VALUES DATE '2020-01-01'");
+    }
+
+    @Test
     public void testMalformedLiteralInput()
     {
         assertThat(assertions.execute("SELECT * FROM JSON_TABLE('{bad', 'lax $' COLUMNS(x integer PATH 'lax $.x'))")

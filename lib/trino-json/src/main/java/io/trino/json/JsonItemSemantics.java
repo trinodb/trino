@@ -17,13 +17,21 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TrinoNumber.AsBigDecimal;
@@ -41,7 +49,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 
 /// Equality of [Json] values, and the hash that goes with it. This is the equality the SQL
@@ -133,7 +148,13 @@ public final class JsonItemSemantics
             return leftText != null && rightText != null && leftText.equals(rightText);
         }
 
-        // Booleans and datetimes: equal only to the same SQL type carrying the same value.
+        Datetime leftDatetime = datetimeOf(left);
+        Datetime rightDatetime = datetimeOf(right);
+        if (leftDatetime != null || rightDatetime != null) {
+            return leftDatetime != null && leftDatetime.equals(rightDatetime);
+        }
+
+        // Booleans: equal only to the same SQL type carrying the same value.
         return left.type().equals(right.type()) && Objects.equals(left.value(), right.value());
     }
 
@@ -147,9 +168,79 @@ public final class JsonItemSemantics
         if (text != null) {
             return XxHash64.hash(text);
         }
-        // The remaining scalar type is BOOLEAN. A Type's Java hash can depend on class
-        // identity, whereas SQL hashes must agree across workers.
+        Datetime datetime = datetimeOf(scalar);
+        if (datetime != null) {
+            return datetime.stableHash();
+        }
+        // Type and enum identity hashes cannot participate in distributed SQL hashing.
         return Boolean.hashCode(scalar.getBooleanValue());
+    }
+
+    /// The instant a datetime scalar denotes, independent of the declared precision — so
+    /// `TIME '01:00:00'` and `TIME '01:00:00.000'` are one value, exactly as `1` and `1.0`
+    /// are one number. The time-zoned kinds normalize the way their SQL types compare:
+    /// TIMESTAMP WITH TIME ZONE by the instant (the zone is not significant), TIME WITH
+    /// TIME ZONE by the offset-adjusted time of day. `null` for a scalar that is not a
+    /// datetime.
+    private static Datetime datetimeOf(TypedValue scalar)
+    {
+        return switch (scalar.type()) {
+            case DateType _ -> new Datetime(DatetimeKind.DATE, scalar.getLongValue(), 0);
+            case TimeType _ -> new Datetime(DatetimeKind.TIME, scalar.getLongValue(), 0);
+            case TimeWithTimeZoneType type -> {
+                long picos;
+                int offsetMinutes;
+                if (type.isShort()) {
+                    long packed = scalar.getLongValue();
+                    picos = unpackTimeNanos(packed) * PICOSECONDS_PER_NANOSECOND;
+                    offsetMinutes = unpackOffsetMinutes(packed);
+                }
+                else {
+                    LongTimeWithTimeZone time = (LongTimeWithTimeZone) scalar.value();
+                    picos = time.getPicoseconds();
+                    offsetMinutes = time.getOffsetMinutes();
+                }
+                // Normalize to offset +00:00, modulo a day — mirrors TimeWithTimeZoneTypes,
+                // which is not visible outside the SPI's type package.
+                yield new Datetime(DatetimeKind.TIME_WITH_TIME_ZONE, floorMod(picos - offsetMinutes * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY), 0);
+            }
+            case TimestampType type -> type.isShort()
+                    ? new Datetime(DatetimeKind.TIMESTAMP, scalar.getLongValue(), 0)
+                    : new Datetime(DatetimeKind.TIMESTAMP, ((LongTimestamp) scalar.value()).getEpochMicros(), ((LongTimestamp) scalar.value()).getPicosOfMicro());
+            case TimestampWithTimeZoneType type -> type.isShort()
+                    ? new Datetime(DatetimeKind.TIMESTAMP_WITH_TIME_ZONE, unpackMillisUtc(scalar.getLongValue()), 0)
+                    : new Datetime(
+                    DatetimeKind.TIMESTAMP_WITH_TIME_ZONE,
+                    ((LongTimestampWithTimeZone) scalar.value()).getEpochMillis(),
+                    ((LongTimestampWithTimeZone) scalar.value()).getPicosOfMilli());
+            default -> null;
+        };
+    }
+
+    private enum DatetimeKind
+    {
+        DATE(1),
+        TIME(2),
+        TIME_WITH_TIME_ZONE(3),
+        TIMESTAMP(4),
+        TIMESTAMP_WITH_TIME_ZONE(5);
+
+        private final int stableId;
+
+        DatetimeKind(int stableId)
+        {
+            this.stableId = stableId;
+        }
+    }
+
+    /// A datetime scalar reduced to the value its SQL type compares by. `fraction` carries the
+    /// sub-unit remainder for the kinds whose wide form has one, and is 0 for the rest.
+    private record Datetime(DatetimeKind kind, long value, long fraction)
+    {
+        long stableHash()
+        {
+            return 31L * (31L * kind.stableId + Long.hashCode(value)) + Long.hashCode(fraction);
+        }
     }
 
     /// The number a numeric scalar denotes, independent of the SQL type carrying it. `null` for
