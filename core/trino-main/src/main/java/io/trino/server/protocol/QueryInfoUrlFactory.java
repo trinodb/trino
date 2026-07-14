@@ -53,8 +53,8 @@ public class QueryInfoUrlFactory
     {
         return queryInfoUrl.orElseGet(() ->
                 externalUriInfo.baseUriBuilder()
-                        .path("ui/query.html")
-                        .replaceQuery(queryId.id())
+                        .path("ui")
+                        .fragment("/queries/" + queryId.id())
                         .build());
     }
 }
