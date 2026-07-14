@@ -3827,7 +3827,7 @@ public class ExpressionAnalyzer
             }
 
             if (!isCharacterStringType(returnedType) &&
-                    !isNumericTypeSupportedInJson(returnedType) &&
+                    !isNumericType(returnedType) &&
                     !returnedType.equals(BOOLEAN) &&
                     !isDateTimeType(returnedType) ||
                     returnedType.equals(INTERVAL_DAY_TIME) ||
@@ -4087,7 +4087,7 @@ public class ExpressionAnalyzer
                         }
                         passedType = parameterType;
                     }
-                    else if (isNumericTypeSupportedInJson(parameterType) || parameterType.equals(BOOLEAN)) {
+                    else if (isNumericType(parameterType) || parameterType.equals(BOOLEAN)) {
                         passedType = parameterType;
                     }
                     else if (isDatetime(parameterType)) {
@@ -4257,7 +4257,7 @@ public class ExpressionAnalyzer
                         }
                     }
 
-                    if (!isStringType(valueType) && !isNumericTypeSupportedInJson(valueType) && !valueType.equals(BOOLEAN)) {
+                    if (!isStringType(valueType) && !isNumericType(valueType) && !valueType.equals(BOOLEAN)) {
                         try {
                             plannerContext.getMetadata().getCoercion(charVarcharCoercion, valueType, VARCHAR);
                         }
@@ -4366,7 +4366,7 @@ public class ExpressionAnalyzer
                         }
                     }
 
-                    if (!isStringType(elementType) && !isNumericTypeSupportedInJson(elementType) && !elementType.equals(BOOLEAN)) {
+                    if (!isStringType(elementType) && !isNumericType(elementType) && !elementType.equals(BOOLEAN)) {
                         try {
                             plannerContext.getMetadata().getCoercion(charVarcharCoercion, elementType, VARCHAR);
                         }
@@ -5196,12 +5196,6 @@ public class ExpressionAnalyzer
                 type.equals(REAL) ||
                 type instanceof DecimalType ||
                 type.equals(NUMBER);
-    }
-
-    // TODO (https://github.com/trinodb/trino/issues/31150): Support NUMBER as number in JSON functions
-    static boolean isNumericTypeSupportedInJson(Type type)
-    {
-        return isNumericType(type) && !type.equals(NUMBER);
     }
 
     private static boolean isExactNumericWithScaleZero(Type type)
