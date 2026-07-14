@@ -48,6 +48,79 @@ public class TestJsonQueryFunction
     }
 
     @Test
+    public void testMemberAccessorChain()
+    {
+        // A path that is a plain chain of by-key lookups takes the fast path in
+        // JsonPathEvaluator, which must agree with the general visitor on every
+        // member-accessor rule.
+        String nested = "{\"a\" : {\"b\" : {\"c\" : 42}}}";
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'strict $.a.b.c')"))
+                .matches("VALUES VARCHAR '42'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'lax $.a.b.c')"))
+                .matches("VALUES VARCHAR '42'");
+
+        // strict mode: a missing member is a structural error
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'strict $.a.missing.c' ERROR ON ERROR)"))
+                .failure().hasMessageContaining("missing member 'missing' in JSON object");
+
+        // lax mode: a missing member yields an empty sequence, not an error
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'lax $.a.missing.c')"))
+                .matches("VALUES cast(null AS varchar)");
+
+        // lax mode unwraps arrays before applying the key
+        assertThat(assertions.query(
+                "SELECT json_query('{\"a\" : [{\"b\" : 1}, {\"b\" : 2}]}', 'lax $.a.b' WITH ARRAY WRAPPER)"))
+                .matches("VALUES VARCHAR '[1,2]'");
+
+        // strict mode does not unwrap: the array has no member 'b'
+        assertThat(assertions.query(
+                "SELECT json_query('{\"a\" : [{\"b\" : 1}]}', 'strict $.a.b' ERROR ON ERROR)"))
+                .failure().hasMessageContaining("invalid item type");
+    }
+
+    @Test
+    public void testMemberAccessorFastPathMatchesGeneralVisitor()
+    {
+        // The fast path only runs when there are no PASSING parameters; adding an otherwise
+        // unused one forces the general visitor. The two must agree on the tricky shapes:
+        // duplicate keys (WITHOUT UNIQUE KEYS) and multiply-nested arrays.
+
+        // duplicate keys: every matching member surfaces, in document order, in both modes
+        String duplicateKeys = "{\"a\" : 1, \"a\" : 2}";
+        for (String mode : new String[] {"lax", "strict"}) {
+            assertThat(assertions.query(
+                    "SELECT json_query('" + duplicateKeys + "', '" + mode + " $.a' WITH ARRAY WRAPPER)"))
+                    .describedAs("fast path, " + mode)
+                    .matches("VALUES VARCHAR '[1,2]'");
+            assertThat(assertions.query(
+                    "SELECT json_query('" + duplicateKeys + "', '" + mode + " $.a' PASSING 1 AS x WITH ARRAY WRAPPER)"))
+                    .describedAs("general visitor, " + mode)
+                    .matches("VALUES VARCHAR '[1,2]'");
+        }
+
+        // lax unwraps exactly one array layer per accessor: a singly-nested object is reached,
+        // a doubly-nested one is not (the inner value is still an array, which has no member)
+        assertThat(assertions.query(
+                "SELECT json_query('[{\"a\" : 1}]', 'lax $.a' WITH ARRAY WRAPPER)"))
+                .matches("VALUES VARCHAR '[1]'");
+        assertThat(assertions.query(
+                "SELECT json_query('[{\"a\" : 1}]', 'lax $.a' PASSING 1 AS x WITH ARRAY WRAPPER)"))
+                .matches("VALUES VARCHAR '[1]'");
+        assertThat(assertions.query(
+                "SELECT json_query('[[{\"a\" : 1}]]', 'lax $.a' WITH ARRAY WRAPPER)"))
+                .matches("VALUES cast(null AS varchar)");
+        assertThat(assertions.query(
+                "SELECT json_query('[[{\"a\" : 1}]]', 'lax $.a' PASSING 1 AS x WITH ARRAY WRAPPER)"))
+                .matches("VALUES cast(null AS varchar)");
+    }
+
+    @Test
     public void testJsonQuery()
     {
         assertThat(assertions.query(
