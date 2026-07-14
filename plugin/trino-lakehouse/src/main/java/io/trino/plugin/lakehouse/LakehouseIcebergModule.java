@@ -25,6 +25,8 @@ import io.trino.parquet.cache.MemoryParquetFooterCache;
 import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.CopyOnWriteFileRewriter;
+import io.trino.plugin.iceberg.CopyOnWriteStats;
 import io.trino.plugin.iceberg.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergExecutorModule;
@@ -51,6 +53,7 @@ import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class LakehouseIcebergModule
         extends AbstractConfigurationAwareModule
@@ -72,6 +75,9 @@ public class LakehouseIcebergModule
         binder.bind(DeletionVectorWriter.class).to(DefaultDeletionVectorWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
+        binder.bind(CopyOnWriteFileRewriter.class).in(Scopes.SINGLETON);
+        binder.bind(CopyOnWriteStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(CopyOnWriteStats.class).withGeneratedName();
         binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergFileSystemFactory.class).to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);

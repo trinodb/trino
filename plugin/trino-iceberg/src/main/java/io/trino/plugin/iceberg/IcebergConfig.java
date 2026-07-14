@@ -99,6 +99,7 @@ public class IcebergConfig
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
     private int planningThreads = Runtime.getRuntime().availableProcessors() * 2;
     private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private int copyOnWriteRewriteThreads = Runtime.getRuntime().availableProcessors();
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private int materializedViewRefreshMaxSnapshotsToExpire = 200;
@@ -584,6 +585,20 @@ public class IcebergConfig
     public IcebergConfig setFileDeleteThreads(String fileDeleteThreads)
     {
         this.fileDeleteThreads = ThreadCountParser.DEFAULT.parse(fileDeleteThreads);
+        return this;
+    }
+
+    @Min(1)
+    public int getCopyOnWriteRewriteThreads()
+    {
+        return copyOnWriteRewriteThreads;
+    }
+
+    @Config("iceberg.copy-on-write-rewrite-threads")
+    @ConfigDescription("Number of threads per worker for parallel file rewrites during copy-on-write operations")
+    public IcebergConfig setCopyOnWriteRewriteThreads(String copyOnWriteRewriteThreads)
+    {
+        this.copyOnWriteRewriteThreads = ThreadCountParser.DEFAULT.parse(copyOnWriteRewriteThreads);
         return this;
     }
 
