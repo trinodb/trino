@@ -1062,6 +1062,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<QualifiedObjectName> getMaterializedViewForStorageTable(Session session, QualifiedObjectName tableName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
     {
         throw new UnsupportedOperationException();

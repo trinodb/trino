@@ -1225,6 +1225,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<SchemaTableName> getMaterializedViewForStorageTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getMaterializedViewForStorageTable(session, tableName);
+        }
+    }
+
+    @Override
     public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition viewDefinition)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
