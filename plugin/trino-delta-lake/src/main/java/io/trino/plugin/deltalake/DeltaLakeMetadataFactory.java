@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -37,6 +38,7 @@ import io.trino.spi.type.TypeManager;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
@@ -68,6 +70,7 @@ public class DeltaLakeMetadataFactory
     private final TransactionLogReaderFactory transactionLogReaderFactory;
     private final ConnectorExpressionEvaluator evaluator;
     private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
+    private final Predicate<String> allowedExtraProperties;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -120,6 +123,7 @@ public class DeltaLakeMetadataFactory
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
         this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
+        this.allowedExtraProperties = ImmutableSet.copyOf(requireNonNull(deltaLakeConfig.getAllowedExtraProperties(), "allowedExtraProperties is null"))::contains;
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -160,6 +164,7 @@ public class DeltaLakeMetadataFactory
                 metadataFetchingExecutor,
                 transactionLogReaderFactory,
                 evaluator,
-                tableCredentialsProvider);
+                tableCredentialsProvider,
+                allowedExtraProperties);
     }
 }

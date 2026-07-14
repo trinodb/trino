@@ -193,6 +193,10 @@ values. Typical usage does not require you to configure them.
 * - `delta.deletion-vectors-enabled`
   - Set to `true` for enabling deletion vectors by default when creating new tables.
   - `false`
+* - `delta.allowed-extra-properties`
+  - List of extra properties that are allowed to be set on Delta Lake tables.
+    Each property must be listed explicitly, and matching is case-sensitive.
+  - `[]`
 * - `delta.metadata.parallelism`
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.
@@ -788,9 +792,21 @@ The following table properties are available for use:
     Defaults to `NONE`.
 * - `deletion_vectors_enabled`
   - Enables deletion vectors.
+* - `extra_properties`
+  - Additional properties added to the `configuration` field of the Delta Lake
+    table metadata. The properties are not included in the output of `SHOW
+    CREATE TABLE` statements. Allowed property names are configured with
+    `delta.allowed-extra-properties`. Some connector-managed and
+    protocol-sensitive Delta properties are always rejected.
+    Trino stores extra properties as supplied; their effect depends on whether
+    Trino or another Delta engine recognizes them.
+    When altering a table, supplied extra property keys are added or updated,
+    and omitted keys are preserved.
+    When replacing a table, extra properties that are not specified are removed.
 :::
 
-The following example uses all available table properties:
+The following example uses all available table properties and assumes the
+catalog sets `delta.allowed-extra-properties=delta.checkpoint.writeStatsAsJson`:
 
 ```sql
 CREATE TABLE example.default.example_partitioned_table
@@ -800,7 +816,8 @@ WITH (
   checkpoint_interval = 5,
   change_data_feed_enabled = false,
   column_mapping_mode = 'name',
-  deletion_vectors_enabled = false
+  deletion_vectors_enabled = false,
+  extra_properties = MAP(ARRAY['delta.checkpoint.writeStatsAsJson'], ARRAY['false'])
 )
 AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 ```
