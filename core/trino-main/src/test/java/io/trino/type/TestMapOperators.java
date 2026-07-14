@@ -816,6 +816,103 @@ public class TestMapOperators
     }
 
     @Test
+    public void testContainsKey()
+    {
+        // empty map
+        assertThat(assertions.function("map_contains_key", "map(CAST(ARRAY[] AS ARRAY(BIGINT)), CAST(ARRAY[] AS ARRAY(BIGINT)))", "1"))
+                .isEqualTo(false);
+
+        // missing key
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[1], ARRAY[1e0])", "2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[1.0], ARRAY['a'])", "2.0"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY['a'], ARRAY[true])", "'b'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[true], ARRAY[ARRAY[1]])", "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[ARRAY[1]], ARRAY[1])", "ARRAY[2]"))
+                .isEqualTo(false);
+
+        // present key whose value is null (element_at cannot distinguish this from a missing key)
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[1], ARRAY[null])", "1"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[1.0E0], ARRAY[null])", "1.0E0"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[TRUE], ARRAY[null])", "TRUE"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY['puppies'], ARRAY[null])", "'puppies'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[ARRAY[1]], ARRAY[null])", "ARRAY[1]"))
+                .isEqualTo(true);
+
+        // present key with non-null value, across key types
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[1, 3], ARRAY[2, 4])", "3"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[BIGINT '1', 3], ARRAY[BIGINT '2', 4])", "3"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[1.5E0, 2.5E0], ARRAY[2, 4])", "2.5E0"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY['puppies'], ARRAY['kittens'])", "'puppies'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[TRUE, FALSE], ARRAY[2, 4])", "TRUE"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[ARRAY[1, 2], ARRAY[3]], ARRAY[1e0, 2e0])", "ARRAY[1, 2]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'], ARRAY[1, 2])", "TIMESTAMP '2222-05-10 12:34:56.123456789'"))
+                .isEqualTo(true);
+
+        // key types exercising each specialized dispatch: real (long), long decimal (Int128), row (structural)
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[REAL '1.5', REAL '2.5'], ARRAY[2, 4])", "REAL '2.5'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[DECIMAL '12345678901234567890'], ARRAY[1])", "DECIMAL '12345678901234567890'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[DECIMAL '12345678901234567890'], ARRAY[1])", "DECIMAL '99999999999999999999'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[ROW(1, 2)], ARRAY[9])", "ROW(1, 2)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[ROW(1, 2)], ARRAY[9])", "ROW(1, 3)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[nan()], ARRAY[1])", "nan()"))
+                .isEqualTo(false);
+
+        // null key or null map yields null
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[1], ARRAY[2])", "CAST(NULL AS INTEGER)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("map_contains_key", "CAST(NULL AS MAP(INTEGER, INTEGER))", "1"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[ARRAY[1]], ARRAY[9])", "ARRAY[CAST(NULL AS INTEGER)]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(ARRAY[ROW(1, 2)], ARRAY[9])", "ROW(1, CAST(NULL AS INTEGER))"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("map_contains_key", "map(CAST(ARRAY[] AS ARRAY(ARRAY(INTEGER))), CAST(ARRAY[] AS ARRAY(INTEGER)))", "ARRAY[CAST(NULL AS INTEGER)]"))
+                .isEqualTo(false);
+    }
+
+    @Test
     public void testSubscript()
     {
         assertThat(assertions.expression("a[1]")

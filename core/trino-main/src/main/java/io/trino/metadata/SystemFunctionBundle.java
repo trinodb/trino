@@ -318,6 +318,7 @@ import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
 import static io.trino.operator.scalar.Least.LEAST;
 import static io.trino.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
+import static io.trino.operator.scalar.MapContainsKeyFunction.MAP_CONTAINS_KEY;
 import static io.trino.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
 import static io.trino.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
 import static io.trino.operator.scalar.MapToJsonCast.MAP_TO_JSON;
@@ -578,6 +579,7 @@ public final class SystemFunctionBundle
                 .scalar(ArrayToArrayCast.class)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
+                .function(MAP_CONTAINS_KEY)
                 .function(new MapConcatFunction(blockTypeOperators))
                 .function(new MapToMapCast(blockTypeOperators))
                 .function(ARRAY_FLATTEN_FUNCTION)

@@ -120,6 +120,25 @@ Returns the union of all the given maps. If a key is found in multiple given map
 that key's value in the resulting map comes from the last one of those maps.
 :::
 
+:::{function} map_contains_key(map(K,V), key) -> boolean
+Returns whether the map contains an entry for `key`. Unlike
+`element_at(map, key) IS NOT NULL`, this returns `true` even when the key is
+present with a `NULL` value. Returns `NULL` if either argument is `NULL`. A
+structural `key` that contains a `NULL` element can never match a map key, so
+the result is `false`.
+
+```
+SELECT map_contains_key(MAP(ARRAY[1, 2], ARRAY['x', 'y']), 1);
+-- true
+
+SELECT map_contains_key(MAP(ARRAY[1, 2], ARRAY['x', 'y']), 3);
+-- false
+
+SELECT map_contains_key(MAP(ARRAY[1], ARRAY[NULL]), 1);
+-- true
+```
+:::
+
 :::{function} map_filter(map(K,V), function(K,V,boolean)) -> map(K,V)
 Constructs a map from those entries of `map` for which `function` returns true:
 
