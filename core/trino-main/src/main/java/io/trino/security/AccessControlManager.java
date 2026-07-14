@@ -92,8 +92,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
-import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
-import static io.trino.spi.security.AccessDeniedException.denySetEffectiveIdentity;
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -120,7 +118,6 @@ public class AccessControlManager
     private final CounterStat authorizationSuccess = new CounterStat();
     private final CounterStat authorizationFail = new CounterStat();
     private final SecretsResolver secretsResolver;
-    private final boolean impersonationEnabled;
 
     @Inject
     public AccessControlManager(
@@ -136,7 +133,6 @@ public class AccessControlManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
-        this.impersonationEnabled = config.isImpersonationEnabled();
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControl is null");
@@ -290,10 +286,6 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(userName, "userName is null");
 
-        if (!impersonationEnabled) {
-            denyImpersonateUser(identity.getUser(), userName, "impersonation is disabled");
-        }
-
         systemAuthorizationCheck(control -> control.checkCanImpersonateUser(identity, userName));
     }
 
@@ -306,9 +298,6 @@ public class AccessControlManager
 
         if (identity.getUser().equals(targetIdentity.getUser())) {
             return;
-        }
-        if (!impersonationEnabled) {
-            denySetEffectiveIdentity(identity.getUser(), targetIdentity.getUser(), "impersonation is disabled");
         }
 
         systemAuthorizationCheck(control -> control.checkCanSetEffectiveIdentity(identity, targetIdentity, reason));

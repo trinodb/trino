@@ -251,7 +251,7 @@ public class TestColumnMask
     @Test
     public void testMaskWithDeniedEffectiveIdentity()
     {
-        // deny the identity switch, as security.impersonation-enabled=false would
+        // deny the identity switch
         accessControl.reset();
         accessControl.denyEffectiveIdentity((_, _) -> false);
         accessControl.columnMask(

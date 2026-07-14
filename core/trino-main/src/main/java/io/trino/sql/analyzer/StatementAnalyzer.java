@@ -2706,8 +2706,13 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
                 }
 
+                IdentitySwitchReason reason = IdentitySwitchReason.VIEW_OWNER;
+                if (isMaterializedView) {
+                    reason = IdentitySwitchReason.MATERIALIZED_VIEW_OWNER;
+                }
+
                 analysis.registerTableForView(table, name, isMaterializedView);
-                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table, isMaterializedView ? IdentitySwitchReason.MATERIALIZED_VIEW_OWNER : IdentitySwitchReason.VIEW_OWNER);
+                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table, reason);
                 analysis.unregisterTableForView();
 
                 checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)

@@ -621,6 +621,14 @@ Each impersonation rule is composed of the following fields:
   contain references to subsequences captured during the match against
   *original_user*, and each reference is replaced by the result of evaluating
   the corresponding group respectively.
+- `reasons` (optional): list of identity switch reasons the rule applies to.
+  `IMPERSONATION` matches explicit user impersonation and `SET SESSION
+  AUTHORIZATION`. The other values match [engine-controlled identity
+  switches](system-file-auth-identity-switch): `VIEW_OWNER`,
+  `MATERIALIZED_VIEW_OWNER`, and `FUNCTION_OWNER` match running a `SECURITY
+  DEFINER` view, materialized view, or SQL routine as its owner, and
+  `ROW_FILTER` and `COLUMN_MASK` match evaluating a row filter or column mask
+  under its explicitly configured identity. Defaults to `["IMPERSONATION"]`.
 - `allow` (optional): boolean indicating if the authentication should be
   allowed. Defaults to `true`.
 
@@ -635,6 +643,48 @@ allows a user in the form `team_backend` to impersonate the
 
 ```{literalinclude} user-impersonation.json
 :language: json
+```
+
+(system-file-auth-identity-switch)=
+#### Engine-controlled identity switches
+
+Besides explicit impersonation, Trino can switch the effective identity of a
+part of a query on its own: a `SECURITY DEFINER` view, materialized view, or
+SQL routine runs as its owner, and a row filter or column mask can be
+configured to be evaluated under an explicit identity. Impersonation rules with
+a `reasons` field naming these switches control whether they are allowed.
+
+Unlike explicit impersonation, engine-controlled identity switches are allowed
+by default: they are only denied when a matching rule with `"allow": false`
+exists. Impersonation rules without a `reasons` field apply only to explicit
+impersonation and do not affect these switches, so existing configurations keep
+working unchanged. Switching to the identity of the same user is never denied.
+
+Denying identity switches is useful when group membership is supplied by the
+authentication layer, for example through group claims in an
+[OAuth 2.0](/security/oauth2) or [JWT](/security/jwt) token. Such groups are
+only valid for the authenticated user and cannot be derived for another user,
+so forbidding identity switches keeps group-based authorization decisions
+consistent. The following example denies all identity switches, including
+explicit impersonation, for all users:
+
+```json
+{
+  "impersonation": [
+    {
+      "new_user": ".*",
+      "reasons": [
+        "IMPERSONATION",
+        "VIEW_OWNER",
+        "MATERIALIZED_VIEW_OWNER",
+        "FUNCTION_OWNER",
+        "ROW_FILTER",
+        "COLUMN_MASK"
+      ],
+      "allow": false
+    }
+  ]
+}
 ```
 
 (system-file-auth-principal-rules)=

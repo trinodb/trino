@@ -340,7 +340,7 @@ public class TestRowFilter
     @Test
     public void testFilterWithDeniedEffectiveIdentity()
     {
-        // deny the identity switch, as security.impersonation-enabled=false would
+        // deny the identity switch
         accessControl.reset();
         accessControl.denyEffectiveIdentity((_, _) -> false);
         accessControl.rowFilter(

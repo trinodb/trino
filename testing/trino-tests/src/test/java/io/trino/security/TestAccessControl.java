@@ -550,7 +550,7 @@ public class TestAccessControl
                 "CREATE VIEW " + viewName + " AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
-        // deny the owner switch, as security.impersonation-enabled=false would
+        // deny the owner switch
         getQueryRunner().getAccessControl().denyEffectiveIdentity((_, _) -> false);
 
         assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + viewName))

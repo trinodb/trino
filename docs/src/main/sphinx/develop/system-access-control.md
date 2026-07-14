@@ -22,8 +22,7 @@ name which is used by the administrator in a Trino configuration.
 - Authorizing engine-controlled switches of the query identity, such as `SECURITY DEFINER`
   views and SQL routines, and the explicit identity used to evaluate row filters and column
   masks, through `checkCanSetEffectiveIdentity`. This check defaults to allowing the switch
-  so that existing implementations keep working, and it is additionally governed by the
-  [`security.impersonation-enabled`](disabling-impersonation) configuration property.
+  so that existing implementations keep working.
 - Performing access checks across all catalogs. These access checks happen before
   any connector specific checks and thus can deny permissions that would otherwise
   be allowed by `ConnectorAccessControl`.
