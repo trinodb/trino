@@ -17,7 +17,21 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TrinoNumber.AsBigDecimal;
 
@@ -28,12 +42,26 @@ import java.math.BigInteger;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochMillisAndFraction;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToRawLongBits;
@@ -68,7 +96,8 @@ import static java.lang.Math.toIntExact;
 ///   typed-value           ::= TYPED_VALUE type-body
 ///
 ///   type-body             ::= boolean-body | varchar-body | integral-body | floating-body
-///                           | decimal-body | number-body
+///                           | decimal-body | number-body | date-body | time-body
+///                           | time-tz-body | timestamp-body | timestamp-tz-body
 ///
 ///   boolean-body          ::= BOOLEAN byte                            -- 0 = false, 1 = true
 ///   varchar-body          ::= VARCHAR string
@@ -83,6 +112,15 @@ import static java.lang.Math.toIntExact;
 ///                                                                     -- unscaled length, unscaled
 ///                                                                     -- BigInteger (2's-complement,
 ///                                                                     -- big-endian)
+///   date-body             ::= DATE int32                             -- days from the epoch
+///   time-body             ::= TIME byte int64                        -- precision, picosOfDay
+///   time-tz-body          ::= TIME_WITH_TIME_ZONE byte int64 int32   -- precision, picosOfDay,
+///                                                                     -- offsetMinutes
+///   timestamp-body        ::= TIMESTAMP byte int64 int32             -- precision, epochMicros,
+///                                                                     -- picosOfMicro
+///   timestamp-tz-body     ::= TIMESTAMP_WITH_TIME_ZONE byte int64 int32 int16
+///                                                                     -- precision, epochMillis,
+///                                                                     -- picosOfMilli, timeZoneKey
 ///
 ///   string                ::= int32 byte{length}                     -- length-prefixed UTF-8 bytes
 ///   short-flag            ::= byte                                    -- 0 = short form, 1 = long form
@@ -161,7 +199,9 @@ public final class JsonItemEncoding
 
     /// Type tags for [ItemTag#TYPED_VALUE] bodies. A character string always uses the VARCHAR
     /// tag -- CHAR is not a separate tag, since it carries no significant trailing spaces once
-    /// in JSON. The gap at tag 3 is left reserved.
+    /// in JSON. The datetime tags cover DATE through TIMESTAMP WITH TIME ZONE; the gap at tag 3
+    /// is left reserved.
+    // The widest TIME literal is `HH:MM:SS.` (9 chars) plus TimeType.MAX_PRECISION fractional digits.
     public enum TypeTag
     {
         BOOLEAN(1),
@@ -173,7 +213,12 @@ public final class JsonItemEncoding
         DOUBLE(8),
         REAL(9),
         DECIMAL(10),
-        NUMBER(11);
+        NUMBER(11),
+        DATE(12),
+        TIME(13),
+        TIME_WITH_TIME_ZONE(14),
+        TIMESTAMP(15),
+        TIMESTAMP_WITH_TIME_ZONE(16);
 
         private final byte encoded;
 
@@ -200,6 +245,11 @@ public final class JsonItemEncoding
                 case 9 -> REAL;
                 case 10 -> DECIMAL;
                 case 11 -> NUMBER;
+                case 12 -> DATE;
+                case 13 -> TIME;
+                case 14 -> TIME_WITH_TIME_ZONE;
+                case 15 -> TIMESTAMP;
+                case 16 -> TIMESTAMP_WITH_TIME_ZONE;
                 default -> throw new IllegalArgumentException("Unsupported SQL/JSON typed value tag: " + encoded);
             };
         }
@@ -372,6 +422,60 @@ public final class JsonItemEncoding
         output.appendByte(ItemTag.TYPED_VALUE.encoded());
         output.appendByte(TypeTag.VARCHAR.encoded());
         writeSlice(output, value);
+    }
+
+    /// Encodes a DATE. Body layout: `days:int32` (days from the epoch).
+    public static void appendDate(SliceOutput output, int days)
+    {
+        output.appendByte(ItemTag.TYPED_VALUE.encoded());
+        output.appendByte(TypeTag.DATE.encoded());
+        output.appendInt(days);
+    }
+
+    /// Encodes a TIME(p). Body layout: `precision:byte`, `picosOfDay:int64`. The
+    /// precision travels with the value so the decoded item carries the declared
+    /// `TIME(p)` type rather than a guess derived from the trailing zeros.
+    public static void appendTime(SliceOutput output, int precision, long picosOfDay)
+    {
+        output.appendByte(ItemTag.TYPED_VALUE.encoded());
+        output.appendByte(TypeTag.TIME.encoded());
+        output.appendByte((byte) precision);
+        output.appendLong(picosOfDay);
+    }
+
+    /// Encodes a TIME(p) WITH TIME ZONE. Body layout: `precision:byte`,
+    /// `picosOfDay:int64`, `offsetMinutes:int32`. Always the wide form; the decoder
+    /// re-packs to the short representation when the precision allows it.
+    public static void appendTimeWithTimeZone(SliceOutput output, int precision, long picosOfDay, int offsetMinutes)
+    {
+        output.appendByte(ItemTag.TYPED_VALUE.encoded());
+        output.appendByte(TypeTag.TIME_WITH_TIME_ZONE.encoded());
+        output.appendByte((byte) precision);
+        output.appendLong(picosOfDay);
+        output.appendInt(offsetMinutes);
+    }
+
+    /// Encodes a TIMESTAMP(p). Body layout: `precision:byte`, `epochMicros:int64`,
+    /// `picosOfMicro:int32`.
+    public static void appendTimestamp(SliceOutput output, int precision, long epochMicros, int picosOfMicro)
+    {
+        output.appendByte(ItemTag.TYPED_VALUE.encoded());
+        output.appendByte(TypeTag.TIMESTAMP.encoded());
+        output.appendByte((byte) precision);
+        output.appendLong(epochMicros);
+        output.appendInt(picosOfMicro);
+    }
+
+    /// Encodes a TIMESTAMP(p) WITH TIME ZONE. Body layout: `precision:byte`,
+    /// `epochMillis:int64`, `picosOfMilli:int32`, `timeZoneKey:int16`.
+    public static void appendTimestampWithTimeZone(SliceOutput output, int precision, long epochMillis, int picosOfMilli, short timeZoneKey)
+    {
+        output.appendByte(ItemTag.TYPED_VALUE.encoded());
+        output.appendByte(TypeTag.TIMESTAMP_WITH_TIME_ZONE.encoded());
+        output.appendByte((byte) precision);
+        output.appendLong(epochMillis);
+        output.appendInt(picosOfMilli);
+        output.appendShort(timeZoneKey);
     }
 
     public static void appendShortDecimal(SliceOutput output, int precision, int scale, long value)
@@ -629,8 +733,11 @@ public final class JsonItemEncoding
         return switch (typeTag) {
             case BOOLEAN, TINYINT -> afterTypeTag + Byte.BYTES;
             case SMALLINT -> afterTypeTag + Short.BYTES;
-            case INTEGER, REAL -> afterTypeTag + Integer.BYTES;
+            case INTEGER, REAL, DATE -> afterTypeTag + Integer.BYTES;
             case BIGINT, DOUBLE -> afterTypeTag + Long.BYTES;
+            case TIME -> afterTypeTag + Byte.BYTES + Long.BYTES;
+            case TIME_WITH_TIME_ZONE, TIMESTAMP -> afterTypeTag + Byte.BYTES + Long.BYTES + Integer.BYTES;
+            case TIMESTAMP_WITH_TIME_ZONE -> afterTypeTag + Byte.BYTES + Long.BYTES + Integer.BYTES + Short.BYTES;
             case VARCHAR -> stringEndOffset(slice, afterTypeTag);
             case DECIMAL -> {
                 int afterScale = afterTypeTag + Integer.BYTES + Integer.BYTES;
@@ -669,6 +776,36 @@ public final class JsonItemEncoding
             case DOUBLE -> new TypedValue(DOUBLE, Double.longBitsToDouble(slice.getLong(bodyOffset)));
             case REAL -> new TypedValue(REAL, (long) slice.getInt(bodyOffset));
             case VARCHAR -> new TypedValue(VARCHAR, readStringSlice(slice, bodyOffset));
+            case DATE -> new TypedValue(DATE, (long) slice.getInt(bodyOffset));
+            case TIME -> new TypedValue(createTimeType(slice.getByte(bodyOffset)), slice.getLong(bodyOffset + Byte.BYTES));
+            case TIME_WITH_TIME_ZONE -> {
+                int precision = slice.getByte(bodyOffset);
+                long picosOfDay = slice.getLong(bodyOffset + Byte.BYTES);
+                int offsetMinutes = slice.getInt(bodyOffset + Byte.BYTES + Long.BYTES);
+                TimeWithTimeZoneType type = createTimeWithTimeZoneType(precision);
+                yield type.isShort()
+                        ? new TypedValue(type, packTimeWithTimeZone(picosOfDay / PICOSECONDS_PER_NANOSECOND, offsetMinutes))
+                        : new TypedValue(type, new LongTimeWithTimeZone(picosOfDay, offsetMinutes));
+            }
+            case TIMESTAMP -> {
+                int precision = slice.getByte(bodyOffset);
+                long epochMicros = slice.getLong(bodyOffset + Byte.BYTES);
+                int picosOfMicro = slice.getInt(bodyOffset + Byte.BYTES + Long.BYTES);
+                TimestampType type = createTimestampType(precision);
+                yield type.isShort()
+                        ? new TypedValue(type, epochMicros)
+                        : new TypedValue(type, new LongTimestamp(epochMicros, picosOfMicro));
+            }
+            case TIMESTAMP_WITH_TIME_ZONE -> {
+                int precision = slice.getByte(bodyOffset);
+                long epochMillis = slice.getLong(bodyOffset + Byte.BYTES);
+                int picosOfMilli = slice.getInt(bodyOffset + Byte.BYTES + Long.BYTES);
+                short timeZoneKey = slice.getShort(bodyOffset + Byte.BYTES + Long.BYTES + Integer.BYTES);
+                TimestampWithTimeZoneType type = createTimestampWithTimeZoneType(precision);
+                yield type.isShort()
+                        ? new TypedValue(type, packDateTimeWithZone(epochMillis, timeZoneKey))
+                        : new TypedValue(type, fromEpochMillisAndFraction(epochMillis, picosOfMilli, timeZoneKey));
+            }
             case DECIMAL -> {
                 int precision = slice.getInt(bodyOffset);
                 int scale = slice.getInt(bodyOffset + Integer.BYTES);
@@ -762,6 +899,65 @@ public final class JsonItemEncoding
         }
     }
 
+    /// Renders a datetime scalar as the canonical SQL literal. Delegates to the same casts
+    /// the engine uses for `CAST(x AS VARCHAR)`, so the JSON text of a datetime item and the
+    /// varchar of the SQL value it was built from cannot drift apart.
+    public static String datetimeText(TypedValue value)
+    {
+        return switch (value.type()) {
+            case DateType _ -> new SqlDate(toIntExact(value.getLongValue())).toString();
+            case TimeType type -> SqlTime.newInstance(type.getPrecision(), value.getLongValue()).toString();
+            case TimeWithTimeZoneType type -> {
+                long picos;
+                int offsetMinutes;
+                if (type.isShort()) {
+                    long packed = value.getLongValue();
+                    picos = unpackTimeNanos(packed) * PICOSECONDS_PER_NANOSECOND;
+                    offsetMinutes = unpackOffsetMinutes(packed);
+                }
+                else {
+                    LongTimeWithTimeZone time = (LongTimeWithTimeZone) value.getObjectValue();
+                    picos = time.getPicoseconds();
+                    offsetMinutes = time.getOffsetMinutes();
+                }
+                yield SqlTimeWithTimeZone.newInstance(type.getPrecision(), picos, offsetMinutes).toString();
+            }
+            case TimestampType type -> {
+                long epochMicros;
+                int picosOfMicro;
+                if (type.isShort()) {
+                    epochMicros = value.getLongValue();
+                    picosOfMicro = 0;
+                }
+                else {
+                    LongTimestamp timestamp = (LongTimestamp) value.getObjectValue();
+                    epochMicros = timestamp.getEpochMicros();
+                    picosOfMicro = timestamp.getPicosOfMicro();
+                }
+                yield SqlTimestamp.newInstance(type.getPrecision(), epochMicros, picosOfMicro).toString();
+            }
+            case TimestampWithTimeZoneType type -> {
+                long epochMillis;
+                int picosOfMilli;
+                TimeZoneKey zone;
+                if (type.isShort()) {
+                    long packed = value.getLongValue();
+                    epochMillis = unpackMillisUtc(packed);
+                    picosOfMilli = 0;
+                    zone = unpackZoneKey(packed);
+                }
+                else {
+                    LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value.getObjectValue();
+                    epochMillis = timestamp.getEpochMillis();
+                    picosOfMilli = timestamp.getPicosOfMilli();
+                    zone = getTimeZoneKey(timestamp.getTimeZoneKey());
+                }
+                yield SqlTimestampWithTimeZone.newInstance(type.getPrecision(), epochMillis, picosOfMilli, zone).toString();
+            }
+            default -> throw new IllegalArgumentException("Not a datetime type: " + value.type());
+        };
+    }
+
     private static void writeTypedValueJson(Slice slice, int bodyOffset, JsonGenerator generator)
             throws IOException
     {
@@ -770,6 +966,9 @@ public final class JsonItemEncoding
         switch (typeTag) {
             case BOOLEAN -> generator.writeBoolean(slice.getByte(payload) != 0);
             case VARCHAR -> generator.writeString(readString(slice, payload));
+            // JSON has no datetime type, so a datetime item serializes to the canonical
+            // SQL literal as a JSON string. The type survives in the encoding, not the text.
+            case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> generator.writeString(datetimeText(readTypedValue(slice, bodyOffset - Byte.BYTES)));
             case BIGINT -> generator.writeNumber(slice.getLong(payload));
             case INTEGER -> generator.writeNumber(slice.getInt(payload));
             case SMALLINT -> generator.writeNumber(slice.getShort(payload));

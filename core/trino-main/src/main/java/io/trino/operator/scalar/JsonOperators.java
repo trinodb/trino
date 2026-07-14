@@ -29,6 +29,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.type.DateOperators;
 import io.trino.util.JsonCastException;
@@ -51,6 +52,8 @@ import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.StandardTypes.REAL;
 import static io.trino.spi.type.StandardTypes.SMALLINT;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
@@ -330,8 +333,12 @@ public final class JsonOperators
         if (json.isNull()) {
             return null;
         }
+        if (json.isScalar() && json.scalarType() == TypeTag.DATE) {
+            // A DATE item already carries the SQL value; casting it back is the identity.
+            return json.materializeScalar().getLongValue();
+        }
         if (!json.isScalar() || json.scalarType() != TypeTag.VARCHAR) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to date; expected a JSON string");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to date; expected a JSON string or a JSON date");
         }
         Slice text = (Slice) json.materializeScalar().getObjectValue();
         return DateOperators.castFromVarchar(text);
@@ -346,8 +353,14 @@ public final class JsonOperators
         if (json.isNull()) {
             return null;
         }
+        if (json.isScalar() && json.scalarType() == TypeTag.TIME) {
+            // A TIME item carries picoseconds of the day at its own declared precision; round
+            // it to the target precision the same way TIME-to-TIME casting does.
+            long picos = json.materializeScalar().getLongValue();
+            return round(picos, (int) (TimeType.MAX_PRECISION - precision)) % PICOSECONDS_PER_DAY;
+        }
         if (!json.isScalar() || json.scalarType() != TypeTag.VARCHAR) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to time; expected a JSON string");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to time; expected a JSON string or a JSON time");
         }
         Slice text = (Slice) json.materializeScalar().getObjectValue();
         return TimeOperators.castFromVarchar(precision, text);

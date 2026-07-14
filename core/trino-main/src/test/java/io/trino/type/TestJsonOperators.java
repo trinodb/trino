@@ -1162,7 +1162,7 @@ public class TestJsonOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DATE)")
                 .binding("a", "JSON '42'").evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
-                .hasMessage("Cannot cast JSON value to date; expected a JSON string");
+                .hasMessage("Cannot cast JSON value to date; expected a JSON string or a JSON date");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DATE)")
                 .binding("a", "JSON '\"not-a-date\"'").evaluate())
@@ -1183,7 +1183,7 @@ public class TestJsonOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TIME(3))")
                 .binding("a", "JSON '12'").evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
-                .hasMessage("Cannot cast JSON value to time; expected a JSON string");
+                .hasMessage("Cannot cast JSON value to time; expected a JSON string or a JSON time");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TIME(3))")
                 .binding("a", "JSON '\"not-a-time\"'").evaluate())

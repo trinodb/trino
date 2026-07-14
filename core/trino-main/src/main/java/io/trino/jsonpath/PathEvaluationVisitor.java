@@ -1006,6 +1006,11 @@ class PathEvaluationVisitor
                         case BOOLEAN -> "boolean";
                         case VARCHAR -> "string";
                         case BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, DECIMAL, NUMBER -> "number";
+                        case DATE -> "date";
+                        case TIME -> "time without time zone";
+                        case TIME_WITH_TIME_ZONE -> "time with time zone";
+                        case TIMESTAMP -> "timestamp without time zone";
+                        case TIMESTAMP_WITH_TIME_ZONE -> "timestamp with time zone";
                     };
                     case ERROR -> throw new IllegalStateException("unexpected JSON_ERROR in path result");
                 };
@@ -1040,6 +1045,11 @@ class PathEvaluationVisitor
             case BOOLEAN -> "BOOLEAN";
             case VARCHAR -> "STRING";
             case BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, DECIMAL, NUMBER -> "NUMBER";
+            case DATE -> "DATE";
+            case TIME -> "TIME";
+            case TIME_WITH_TIME_ZONE -> "TIME WITH TIME ZONE";
+            case TIMESTAMP -> "TIMESTAMP";
+            case TIMESTAMP_WITH_TIME_ZONE -> "TIMESTAMP WITH TIME ZONE";
         };
     }
 
