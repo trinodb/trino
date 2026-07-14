@@ -124,7 +124,7 @@ public class JoinFilterFunctionCompiler
                 type(Object.class),
                 type(InternalJoinFilterFunction.class));
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
                 .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize);

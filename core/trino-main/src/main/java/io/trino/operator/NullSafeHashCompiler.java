@@ -78,7 +78,7 @@ public final class NullSafeHashCompiler
     @VisibleForTesting
     public static NullSafeHash compileNullSafeHash(Type type, TypeOperators typeOperators)
     {
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

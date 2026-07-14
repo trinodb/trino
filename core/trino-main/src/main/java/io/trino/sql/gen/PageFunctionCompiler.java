@@ -215,7 +215,7 @@ public class PageFunctionCompiler
 
         Class<?> pageProjectionWorkClass;
         try {
-            CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+            CallSiteBinder callSiteBinder = new CallSiteBinder();
             ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(projection, result.compactLayout(), callSiteBinder, classNameSuffix);
             pageProjectionWorkClass = defineHiddenClass(pageProjectionWorkDefinition, PageProjectionWork.class, callSiteBinder.getClassData());
         }
@@ -422,7 +422,7 @@ public class PageFunctionCompiler
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
 
         try {
-            CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+            CallSiteBinder callSiteBinder = new CallSiteBinder();
             ClassDefinition classDefinition = defineFilterClass(filter, result.compactLayout(), callSiteBinder, classNameSuffix);
             return defineHiddenClass(classDefinition, PageFilter.class, callSiteBinder.getClassData());
         }

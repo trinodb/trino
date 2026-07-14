@@ -76,7 +76,7 @@ final class AggregationLoopBuilder
     public static MethodHandle buildLoop(MethodHandle function, int stateCount, int parameterCount, boolean grouped)
     {
         verifyFunctionSignature(function, stateCount, parameterCount);
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, STATIC, FINAL),
                 makeClassName("AggregationLoop"),

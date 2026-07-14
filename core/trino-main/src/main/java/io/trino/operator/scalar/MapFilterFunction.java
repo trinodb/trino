@@ -114,7 +114,7 @@ public final class MapFilterFunction
 
     private static MethodHandle generateFilter(MapType mapType)
     {
-        CallSiteBinder binder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder binder = new CallSiteBinder();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("MapFilter"),

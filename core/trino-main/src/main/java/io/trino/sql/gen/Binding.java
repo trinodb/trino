@@ -22,19 +22,15 @@ public final class Binding
     public enum Kind
     {
         /**
-         * Resolved through an invokedynamic bootstrap reading the {@code DynamicClassLoader} bindings.
-         */
-        CALL_SITE,
-        /**
          * A method handle stored in the class data of a hidden class, loaded as a dynamic
          * constant and invoked exactly.
          */
-        CLASS_DATA_HANDLE,
+        HANDLE,
         /**
          * A constant value stored in the class data of a hidden class, loaded directly
          * as a dynamic constant.
          */
-        CLASS_DATA_CONSTANT,
+        CONSTANT,
     }
 
     private final long bindingId;

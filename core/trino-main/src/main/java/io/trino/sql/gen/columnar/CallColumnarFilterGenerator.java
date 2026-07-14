@@ -117,7 +117,7 @@ public class CallColumnarFilterGenerator
                 type(Object.class),
                 type(ColumnarFilter.class));
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition inputChannelsField = generateGetInputChannels(classDefinition);
@@ -314,7 +314,7 @@ public class CallColumnarFilterGenerator
                 .map(instanceFactory);
 
         MethodType methodType = binding.getType();
-        boolean classDataBinding = binding.getKind() == Binding.Kind.CLASS_DATA_HANDLE;
+        boolean classDataBinding = binding.getKind() == Binding.Kind.HANDLE;
         if (classDataBinding) {
             block.append(loadBindingHandle(binding));
         }

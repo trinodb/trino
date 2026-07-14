@@ -151,7 +151,7 @@ public final class FlatHashStrategyCompiler
             fixedOffset += 1 + type.getFlatFixedSize();
         }
 
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         List<ChunkClass> chunkClasses = new ArrayList<>();
         int chunkNumber = 0;
         // generate a separate class for each chunk of 500 types to avoid hitting the JVM method size and constant pool limits

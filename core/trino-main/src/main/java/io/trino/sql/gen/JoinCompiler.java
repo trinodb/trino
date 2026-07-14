@@ -211,7 +211,7 @@ public class JoinCompiler
 
     private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, OptionalInt sortChannel)
     {
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),

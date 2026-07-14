@@ -149,7 +149,7 @@ public class InColumnarFilterGenerator
                 makeClassName(ColumnarFilter.class.getSimpleName() + "_in", Optional.empty()),
                 type(Object.class),
                 type(ColumnarFilter.class));
-        CallSiteBinder callSiteBinder = CallSiteBinder.forHiddenClassGeneration();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         FieldDefinition inputChannelsField = generateGetInputChannels(classDefinition);
         generateConstructor(classDefinition, inputChannelsField);
