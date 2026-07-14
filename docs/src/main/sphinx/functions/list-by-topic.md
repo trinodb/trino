@@ -537,6 +537,7 @@ For more details, see {doc}`string`
 - {func}`strpos`
 - {func}`substr`
 - {func}`substring`
+- {func}`title_case`
 - {func}`to_utf8`
 - {func}`translate`
 - {func}`trim`

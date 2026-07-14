@@ -703,6 +703,24 @@ public final class StringFunctions
         return upper(slice);
     }
 
+    @Description("Converts the string to title case")
+    @ScalarFunction(value = "title_case", neverFails = true)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice titleCase(@SqlType("varchar(x)") Slice utf8)
+    {
+        return SliceUtf8.toTitleCase(utf8);
+    }
+
+    @Description("Converts the string to title case")
+    @ScalarFunction(value = "title_case", neverFails = true)
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charTitleCase(@SqlType("char(x)") Slice utf8)
+    {
+        return SliceUtf8.toTitleCase(utf8);
+    }
+
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
     {
         checkCondition(
