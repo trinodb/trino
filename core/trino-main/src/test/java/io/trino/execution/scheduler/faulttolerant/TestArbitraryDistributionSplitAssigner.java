@@ -22,8 +22,8 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
-import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
+import io.trino.execution.scheduler.StableHostAddressProvider;
+import io.trino.execution.scheduler.StableHostAddressProviderConfig;
 import io.trino.metadata.Split;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
@@ -59,7 +59,7 @@ public class TestArbitraryDistributionSplitAssigner
 
     private static final long STANDARD_SPLIT_SIZE_IN_BYTES = 1;
 
-    private static final ConsistentHashingAddressProvider CONSISTENT_HASHING_ADDRESS_PROVIDER = new ConsistentHashingAddressProvider(TestingInternalNodeManager.createDefault(), new ConsistentHashingAddressProviderConfig());
+    private static final StableHostAddressProvider CONSISTENT_HASHING_ADDRESS_PROVIDER = new StableHostAddressProvider(TestingInternalNodeManager.createDefault(), new StableHostAddressProviderConfig());
 
     private static final PlanNodeId PARTITIONED_1 = new PlanNodeId("partitioned-1");
     private static final PlanNodeId PARTITIONED_2 = new PlanNodeId("partitioned-2");

@@ -366,7 +366,7 @@ public class TestSourcePartitionedScheduler
         assertTrinoExceptionThrownBy(() -> {
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
             TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
-            NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig())));
+            NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig())));
 
             PlanFragment plan = createFragment();
             StageExecution stage = createStageExecution(plan, nodeTaskMap);
@@ -503,7 +503,7 @@ public class TestSourcePartitionedScheduler
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()), new Duration(0, SECONDS)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()), new Duration(0, SECONDS)));
 
         PlanFragment plan = createFragment();
         StageExecution stage = createStageExecution(plan, nodeTaskMap);
@@ -546,7 +546,7 @@ public class TestSourcePartitionedScheduler
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()), new Duration(0, SECONDS)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()), new Duration(0, SECONDS)));
 
         PlanFragment plan = createFragment();
         StageExecution stage = createStageExecution(plan, nodeTaskMap);
@@ -586,7 +586,7 @@ public class TestSourcePartitionedScheduler
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         StageExecution stage = createStageExecution(plan, nodeTaskMap);
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig())));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig())));
         DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 QUERY_ID,
@@ -661,7 +661,7 @@ public class TestSourcePartitionedScheduler
                 .setMaxSplitsPerNode(20)
                 .setMinPendingSplitsPerTask(0)
                 .setSplitsBalancingPolicy(splitsBalancingPolicy);
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()), new Duration(0, SECONDS)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()), new Duration(0, SECONDS)));
 
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks);
         return newSourcePartitionedSchedulerAsStageScheduler(
