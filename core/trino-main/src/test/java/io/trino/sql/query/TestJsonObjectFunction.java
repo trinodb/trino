@@ -187,14 +187,13 @@ public class TestJsonObjectFunction
     @Test
     public void testNumberValue()
     {
-        // TODO (https://github.com/trinodb/trino/issues/31150): a number is cast to varchar, so it is rendered as a JSON string instead of a JSON number
         assertThat(assertions.query(
                 "SELECT json_object('key' : CAST(1 AS number))"))
-                .matches("VALUES VARCHAR '{\"key\":\"1\"}'");
+                .matches("VALUES VARCHAR '{\"key\":1}'");
 
         assertThat(assertions.query(
                 "SELECT json_object('key' : CAST(1.5 AS number))"))
-                .matches("VALUES VARCHAR '{\"key\":\"1.5\"}'");
+                .matches("VALUES VARCHAR '{\"key\":1.5}'");
     }
 
     @Test

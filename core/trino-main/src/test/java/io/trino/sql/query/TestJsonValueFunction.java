@@ -357,24 +357,19 @@ public class TestJsonValueFunction
     @Test
     public void testNumber()
     {
-        // TODO (https://github.com/trinodb/trino/issues/31150): number is not supported as the returned type
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1' RETURNING number)"))
-                .failure()
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:8: Invalid return type of function JSON_VALUE: number");
+                .matches("VALUES CAST(1 AS NUMBER)");
 
-        // TODO (https://github.com/trinodb/trino/issues/31150): a number parameter is cast to varchar, so it is a JSON string in the path, not a JSON number
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter' PASSING CAST(1.5 AS number) AS \"parameter\")"))
                 .matches("VALUES cast('1.5' AS varchar)");
 
-        // arithmetic on a JSON string is a path evaluation error, handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter + 1' PASSING CAST(1 AS number) AS \"parameter\")"))
-                .matches("VALUES cast(null AS varchar)");
+                .matches("VALUES VARCHAR '2'");
 
-        // the double() method parses a JSON string
+        // the double() method converts the numeric parameter
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter.double()' PASSING CAST(1 AS number) AS \"parameter\")"))
                 .matches("VALUES VARCHAR '1.0E0'");
