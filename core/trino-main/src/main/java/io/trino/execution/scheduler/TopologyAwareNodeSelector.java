@@ -63,7 +63,7 @@ public class TopologyAwareNodeSelector
     private final int maxUnacknowledgedSplitsPerTask;
     private final List<CounterStat> topologicalSplitCounters;
     private final NetworkTopology networkTopology;
-    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
+    private final StableHostAddressProvider stableHostAddressProvider;
 
     public TopologyAwareNodeSelector(
             InternalNode currentNode,
@@ -76,7 +76,7 @@ public class TopologyAwareNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
             NetworkTopology networkTopology,
-            ConsistentHashingAddressProvider consistentHashingAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -89,7 +89,7 @@ public class TopologyAwareNodeSelector
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkTopology = requireNonNull(networkTopology, "networkTopology is null");
-        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
+        this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
     }
 
     @Override
@@ -153,7 +153,7 @@ public class TopologyAwareNodeSelector
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
             List<HostAddress> preferredAddresses = split.getConnectorSplit().getAffinityKey()
-                    .map(consistentHashingAddressProvider::getHosts)
+                    .map(stableHostAddressProvider::getHosts)
                     .orElseGet(split::getAddresses);
             for (HostAddress host : preferredAddresses) {
                 locations.add(networkTopology.locate(host));

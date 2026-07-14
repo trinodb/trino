@@ -222,7 +222,7 @@ public class TestScaledWriterScheduler
                 nodeManager,
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService()),
-                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
+                new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()));
     }
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)

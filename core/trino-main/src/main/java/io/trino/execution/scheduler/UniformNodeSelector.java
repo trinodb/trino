@@ -69,7 +69,7 @@ public class UniformNodeSelector
     private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final QueueSizeAdjuster queueSizeAdjuster;
-    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
+    private final StableHostAddressProvider stableHostAddressProvider;
 
     public UniformNodeSelector(
             InternalNode currentNode,
@@ -83,7 +83,7 @@ public class UniformNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling,
-            ConsistentHashingAddressProvider consistentHashingAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider)
     {
         this(currentNode,
                 nodeTaskMap,
@@ -96,7 +96,7 @@ public class UniformNodeSelector
                 splitsBalancingPolicy,
                 optimizedLocalScheduling,
                 new QueueSizeAdjuster(minPendingSplitsWeightPerTask, maxAdjustedPendingSplitsWeightPerTask),
-                consistentHashingAddressProvider);
+                stableHostAddressProvider);
     }
 
     @VisibleForTesting
@@ -112,7 +112,7 @@ public class UniformNodeSelector
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling,
             QueueSizeAdjuster queueSizeAdjuster,
-            ConsistentHashingAddressProvider consistentHashingAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -126,7 +126,7 @@ public class UniformNodeSelector
         this.splitsBalancingPolicy = requireNonNull(splitsBalancingPolicy, "splitsBalancingPolicy is null");
         this.optimizedLocalScheduling = optimizedLocalScheduling;
         this.queueSizeAdjuster = queueSizeAdjuster;
-        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
+        this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
     }
 
     @Override
@@ -180,7 +180,7 @@ public class UniformNodeSelector
             else {
                 // optimizedLocalScheduling enables prioritized assignment of splits to local nodes when splits contain locality information
                 List<HostAddress> preferredAddresses = split.getConnectorSplit().getAffinityKey()
-                        .map(consistentHashingAddressProvider::getHosts)
+                        .map(stableHostAddressProvider::getHosts)
                         .orElseGet(split::getAddresses);
                 if (optimizedLocalScheduling && !preferredAddresses.isEmpty()) {
                     candidateNodes = selectExactNodes(nodeMap, preferredAddresses, includeCoordinator);
