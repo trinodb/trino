@@ -16,7 +16,9 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.Json;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -81,6 +83,13 @@ public final class JsonStringToArrayCast
     @UsedByGeneratedCode
     public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, StreamingBlockBuilderAppender streamingAppender, Slice input)
     {
-        return JsonToArrayCast.toArray(arrayType, arrayAppender, streamingAppender, jsonParse(input));
+        try {
+            return JsonToArrayCast.toArray(arrayType, arrayAppender, streamingAppender, Json.unchecked(input));
+        }
+        catch (TrinoException _) {
+            // Reproduce parse-first error precedence and diagnostics, including malformed input
+            // after an element that cannot be cast. Successful inputs are parsed only once.
+            return JsonToArrayCast.toArray(arrayType, arrayAppender, streamingAppender, jsonParse(input));
+        }
     }
 }

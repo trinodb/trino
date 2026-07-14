@@ -16,7 +16,9 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.Json;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -82,6 +84,12 @@ public final class JsonStringToMapCast
     @UsedByGeneratedCode
     public static SqlMap toMap(MapType mapType, BlockBuilderAppender mapAppender, StreamingBlockBuilderAppender streamingAppender, Slice input)
     {
-        return JsonToMapCast.toMap(mapType, mapAppender, streamingAppender, jsonParse(input));
+        try {
+            return JsonToMapCast.toMap(mapType, mapAppender, streamingAppender, Json.unchecked(input));
+        }
+        catch (TrinoException _) {
+            // Parsing must finish before cast errors become observable, just as in the unfused expression.
+            return JsonToMapCast.toMap(mapType, mapAppender, streamingAppender, jsonParse(input));
+        }
     }
 }
