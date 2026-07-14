@@ -149,12 +149,10 @@ public final class AccumulatorCompiler
         for (int i = 0; i < stateDescriptors.size(); i++) {
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
                     stateDescriptors.get(i),
-                    definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
-                    definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
                     definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? GroupedAccumulatorState.class : AccumulatorState.class)));
         }
         List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
-                .map(StateFieldAndDescriptor::getStateField)
+                .map(StateFieldAndDescriptor::stateField)
                 .collect(toImmutableList());
 
         int lambdaCount = implementation.getLambdaInterfaces().size();
@@ -202,10 +200,10 @@ public final class AccumulatorCompiler
                 grouped);
 
         if (grouped) {
-            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
+            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors, callSiteBinder, true);
         }
         else {
-            generateEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
+            generateEvaluateIntermediate(definition, stateFieldAndDescriptors, callSiteBinder, true);
         }
 
         if (grouped) {
@@ -260,12 +258,10 @@ public final class AccumulatorCompiler
         for (int i = 0; i < stateDescriptors.size(); i++) {
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
                     stateDescriptors.get(i),
-                    definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
-                    definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
                     definition.declareField(a(PRIVATE, FINAL), "state_" + i, AccumulatorState.class)));
         }
         List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
-                .map(StateFieldAndDescriptor::getStateField)
+                .map(StateFieldAndDescriptor::stateField)
                 .collect(toImmutableList());
 
         int lambdaCount = implementation.getLambdaInterfaces().size();
@@ -713,16 +709,16 @@ public final class AccumulatorCompiler
 
         Variable position = scope.declareVariable(int.class, "position");
         for (int i = 0; i < stateCount; i++) {
-            FieldDefinition stateFactoryField = stateFieldAndDescriptors.get(i).getStateFactoryField();
-            body.comment(format("scratchState_%s = stateFactory[%s].createSingleState();", i, i))
-                    .append(thisVariable.getField(stateFactoryField))
+            AccumulatorStateDescriptor<?> stateDescriptor = stateFieldAndDescriptors.get(i).descriptor();
+            body.comment(format("scratchState_%s = stateFactory_%s.createSingleState();", i, i))
+                    .append(loadConstant(callSiteBinder, stateDescriptor.getFactory(), AccumulatorStateFactory.class))
                     .invokeInterface(AccumulatorStateFactory.class, "createSingleState", AccumulatorState.class)
                     .checkCast(scratchStates.get(i).getType())
                     .putVariable(scratchStates.get(i));
         }
 
         List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
-                .map(StateFieldAndDescriptor::getStateField)
+                .map(StateFieldAndDescriptor::stateField)
                 .collect(toImmutableList());
 
         BytecodeBlock loopBody = new BytecodeBlock();
@@ -735,8 +731,8 @@ public final class AccumulatorCompiler
             }
         }
         for (int i = 0; i < stateCount; i++) {
-            FieldDefinition stateSerializerField = stateFieldAndDescriptors.get(i).getStateSerializerField();
-            loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i), position, scratchStates.get(i).cast(AccumulatorState.class)));
+            BytecodeExpression stateSerializer = loadConstant(callSiteBinder, stateFieldAndDescriptors.get(i).descriptor().getSerializer(), AccumulatorStateSerializer.class);
+            loopBody.append(stateSerializer.invoke("deserialize", void.class, block.get(i), position, scratchStates.get(i).cast(AccumulatorState.class)));
         }
         List<BytecodeExpression> combineArguments = new ArrayList<>();
         for (FieldDefinition stateField : stateFields) {
@@ -810,7 +806,7 @@ public final class AccumulatorCompiler
         return block;
     }
 
-    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
+    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, CallSiteBinder callSiteBinder, boolean decomposable)
     {
         Parameter groupId = arg("groupId", int.class);
         Parameter out = arg("out", BlockBuilder.class);
@@ -827,8 +823,8 @@ public final class AccumulatorCompiler
         BytecodeBlock body = method.getBody();
 
         if (stateFieldAndDescriptors.size() == 1) {
-            BytecodeExpression stateSerializer = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateSerializerField());
-            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateField());
+            BytecodeExpression stateSerializer = loadConstant(callSiteBinder, getOnlyElement(stateFieldAndDescriptors).descriptor().getSerializer(), AccumulatorStateSerializer.class);
+            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).stateField());
 
             body.append(state.invoke("setGroupId", void.class, groupId))
                     .append(stateSerializer.invoke("serialize", void.class, state.cast(AccumulatorState.class), out))
@@ -836,16 +832,16 @@ public final class AccumulatorCompiler
         }
         else {
             for (StateFieldAndDescriptor stateFieldAndDescriptor : stateFieldAndDescriptors) {
-                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptor.getStateField());
+                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptor.stateField());
                 body.append(state.invoke("setGroupId", void.class, groupId));
             }
 
-            generateSerializeState(definition, stateFieldAndDescriptors, out, thisVariable, body);
+            generateSerializeState(definition, stateFieldAndDescriptors, callSiteBinder, out, thisVariable, body);
             body.ret();
         }
     }
 
-    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
+    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, CallSiteBinder callSiteBinder, boolean decomposable)
     {
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
@@ -865,27 +861,27 @@ public final class AccumulatorCompiler
         BytecodeBlock body = method.getBody();
 
         if (stateFieldAndDescriptors.size() == 1) {
-            BytecodeExpression stateSerializer = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateSerializerField());
-            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateField());
+            BytecodeExpression stateSerializer = loadConstant(callSiteBinder, getOnlyElement(stateFieldAndDescriptors).descriptor().getSerializer(), AccumulatorStateSerializer.class);
+            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).stateField());
 
             body.append(stateSerializer.invoke("serialize", void.class, state.cast(AccumulatorState.class), out))
                     .ret();
         }
         else {
-            generateSerializeState(definition, stateFieldAndDescriptors, out, thisVariable, body);
+            generateSerializeState(definition, stateFieldAndDescriptors, callSiteBinder, out, thisVariable, body);
             body.ret();
         }
     }
 
-    private static void generateSerializeState(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, Parameter out, Variable thisVariable, BytecodeBlock body)
+    private static void generateSerializeState(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, CallSiteBinder callSiteBinder, Parameter out, Variable thisVariable, BytecodeBlock body)
     {
-        MethodDefinition serializeState = generateSerializeStateMethod(definition, stateFieldAndDescriptors);
+        MethodDefinition serializeState = generateSerializeStateMethod(definition, stateFieldAndDescriptors, callSiteBinder);
 
         BytecodeExpression rowEntryBuilder = generateMetafactory(RowValueBuilder.class, serializeState, ImmutableList.of(thisVariable));
         body.append(out.cast(RowBlockBuilder.class).invoke("buildEntry", void.class, rowEntryBuilder));
     }
 
-    private static MethodDefinition generateSerializeStateMethod(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
+    private static MethodDefinition generateSerializeStateMethod(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, CallSiteBinder callSiteBinder)
     {
         Parameter fieldBuilders = arg("fieldBuilders", type(List.class, BlockBuilder.class));
         // public so the LambdaCapture bootstrap can find it with findVirtual
@@ -896,8 +892,8 @@ public final class AccumulatorCompiler
 
         for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
             StateFieldAndDescriptor stateFieldAndDescriptor = stateFieldAndDescriptors.get(i);
-            BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptor.getStateSerializerField());
-            BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptor.getStateField());
+            BytecodeExpression stateSerializer = loadConstant(callSiteBinder, stateFieldAndDescriptor.descriptor().getSerializer(), AccumulatorStateSerializer.class);
+            BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptor.stateField());
             BytecodeExpression fieldBuilder = fieldBuilders.invoke("get", Object.class, constantInt(i)).cast(BlockBuilder.class);
             body.append(stateSerializer.invoke("serialize", void.class, state.cast(AccumulatorState.class), fieldBuilder));
         }
@@ -1011,20 +1007,9 @@ public final class AccumulatorCompiler
         Variable thisVariable = method.getThis();
 
         for (StateFieldAndDescriptor fieldAndDescriptor : stateFieldAndDescriptors) {
-            AccumulatorStateDescriptor<?> accumulatorStateDescriptor = fieldAndDescriptor.getAccumulatorStateDescriptor();
-            body.append(thisVariable.setField(
-                    fieldAndDescriptor.getStateSerializerField(),
-                    loadConstant(callSiteBinder, accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
-            body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateSerializerField()));
-
-            body.append(thisVariable.setField(
-                    fieldAndDescriptor.getStateFactoryField(),
-                    loadConstant(callSiteBinder, accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
-            body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateFactoryField()));
-
-            // create the state object
-            FieldDefinition stateField = fieldAndDescriptor.getStateField();
-            BytecodeExpression stateFactory = thisVariable.getField(fieldAndDescriptor.getStateFactoryField());
+            // the serializer and factory are class data constants; only the state instance lives in a field
+            FieldDefinition stateField = fieldAndDescriptor.stateField();
+            BytecodeExpression stateFactory = loadConstant(callSiteBinder, fieldAndDescriptor.descriptor().getFactory(), AccumulatorStateFactory.class);
             BytecodeExpression createStateInstance = stateFactory.invoke(grouped ? "createGroupedState" : "createSingleState", AccumulatorState.class);
             body.append(thisVariable.setField(stateField, createStateInstance.cast(stateField.getType())));
             body.append(generateRequireNotNull(thisVariable, stateField));
@@ -1069,15 +1054,7 @@ public final class AccumulatorCompiler
         body.append(source.set(sourceArgument.cast(definition.getType())));
 
         for (StateFieldAndDescriptor descriptor : stateFieldAndDescriptors) {
-            FieldDefinition stateSerializerField = descriptor.getStateSerializerField();
-            body.append(thisVariable.setField(stateSerializerField, source.getField(stateSerializerField)));
-            body.append(generateRequireNotNull(thisVariable, stateSerializerField));
-
-            FieldDefinition stateFactoryField = descriptor.getStateFactoryField();
-            body.append(thisVariable.setField(stateFactoryField, source.getField(stateFactoryField)));
-            body.append(generateRequireNotNull(thisVariable, stateFactoryField));
-
-            FieldDefinition stateField = descriptor.getStateField();
+            FieldDefinition stateField = descriptor.stateField();
             body.append(thisVariable.setField(stateField, source.getField(stateField).invoke("copy", AccumulatorState.class).cast(stateField.getType())));
             body.append(generateRequireNotNull(thisVariable, stateField));
         }
@@ -1150,39 +1127,12 @@ public final class AccumulatorCompiler
         return MethodHandles.explicitCastArguments(function, newType);
     }
 
-    private static class StateFieldAndDescriptor
+    private record StateFieldAndDescriptor(AccumulatorStateDescriptor<?> descriptor, FieldDefinition stateField)
     {
-        private final AccumulatorStateDescriptor<?> accumulatorStateDescriptor;
-        private final FieldDefinition stateSerializerField;
-        private final FieldDefinition stateFactoryField;
-        private final FieldDefinition stateField;
-
-        private StateFieldAndDescriptor(AccumulatorStateDescriptor<?> accumulatorStateDescriptor, FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField)
+        private StateFieldAndDescriptor
         {
-            this.accumulatorStateDescriptor = accumulatorStateDescriptor;
-            this.stateSerializerField = requireNonNull(stateSerializerField, "stateSerializerField is null");
-            this.stateFactoryField = requireNonNull(stateFactoryField, "stateFactoryField is null");
-            this.stateField = requireNonNull(stateField, "stateField is null");
-        }
-
-        public AccumulatorStateDescriptor<?> getAccumulatorStateDescriptor()
-        {
-            return accumulatorStateDescriptor;
-        }
-
-        private FieldDefinition getStateSerializerField()
-        {
-            return stateSerializerField;
-        }
-
-        private FieldDefinition getStateFactoryField()
-        {
-            return stateFactoryField;
-        }
-
-        private FieldDefinition getStateField()
-        {
-            return stateField;
+            requireNonNull(descriptor, "descriptor is null");
+            requireNonNull(stateField, "stateField is null");
         }
     }
 }
