@@ -84,7 +84,7 @@ public final class SqlJsonLiteralConverter
         }
         return switch (json.scalarType()) {
             case BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, DECIMAL, NUMBER -> Optional.of(json.materializeScalar());
-            case BOOLEAN, VARCHAR -> Optional.empty();
+            case BOOLEAN, VARCHAR, DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> Optional.empty();
         };
     }
 

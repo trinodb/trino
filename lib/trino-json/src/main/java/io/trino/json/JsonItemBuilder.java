@@ -149,6 +149,31 @@ public final class JsonItemBuilder
         return encode(w -> w.longDecimal(precision, scale, value));
     }
 
+    public static Json encodeDate(int days)
+    {
+        return encode(w -> w.date(days));
+    }
+
+    public static Json encodeTime(int precision, long picosOfDay)
+    {
+        return encode(w -> w.time(precision, picosOfDay));
+    }
+
+    public static Json encodeTimeWithTimeZone(int precision, long picosOfDay, int offsetMinutes)
+    {
+        return encode(w -> w.timeWithTimeZone(precision, picosOfDay, offsetMinutes));
+    }
+
+    public static Json encodeTimestamp(int precision, long epochMicros, int picosOfMicro)
+    {
+        return encode(w -> w.timestamp(precision, epochMicros, picosOfMicro));
+    }
+
+    public static Json encodeTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, short timeZoneKey)
+    {
+        return encode(w -> w.timestampWithTimeZone(precision, epochMillis, picosOfMilli, timeZoneKey));
+    }
+
     public static Json encodeNumber(TrinoNumber value)
     {
         return encode(w -> w.numberValue(value));
@@ -394,6 +419,46 @@ public final class JsonItemBuilder
         {
             beforeValue();
             JsonItemEncoding.appendVarchar(output, value);
+            afterValue();
+            return this;
+        }
+
+        public JsonItemWriter date(int days)
+        {
+            beforeValue();
+            JsonItemEncoding.appendDate(output, days);
+            afterValue();
+            return this;
+        }
+
+        public JsonItemWriter time(int precision, long picosOfDay)
+        {
+            beforeValue();
+            JsonItemEncoding.appendTime(output, precision, picosOfDay);
+            afterValue();
+            return this;
+        }
+
+        public JsonItemWriter timeWithTimeZone(int precision, long picosOfDay, int offsetMinutes)
+        {
+            beforeValue();
+            JsonItemEncoding.appendTimeWithTimeZone(output, precision, picosOfDay, offsetMinutes);
+            afterValue();
+            return this;
+        }
+
+        public JsonItemWriter timestamp(int precision, long epochMicros, int picosOfMicro)
+        {
+            beforeValue();
+            JsonItemEncoding.appendTimestamp(output, precision, epochMicros, picosOfMicro);
+            afterValue();
+            return this;
+        }
+
+        public JsonItemWriter timestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, short timeZoneKey)
+        {
+            beforeValue();
+            JsonItemEncoding.appendTimestampWithTimeZone(output, precision, epochMillis, picosOfMilli, timeZoneKey);
             afterValue();
             return this;
         }

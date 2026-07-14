@@ -47,13 +47,21 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
@@ -72,8 +80,13 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -432,6 +445,18 @@ public final class JsonItems
             TrinoNumber number = (TrinoNumber) scalar.value();
             return header + numberInnerSize(number);
         }
+        if (type == DateType.DATE) {
+            return header + Integer.BYTES;
+        }
+        if (type instanceof TimeType) {
+            return header + Byte.BYTES + Long.BYTES;
+        }
+        if (type instanceof TimeWithTimeZoneType || type instanceof TimestampType) {
+            return header + Byte.BYTES + Long.BYTES + Integer.BYTES;
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return header + Byte.BYTES + Long.BYTES + Integer.BYTES + Short.BYTES;
+        }
         throw new IllegalArgumentException("Unsupported scalar type for tree encoding: " + type);
     }
 
@@ -535,6 +560,52 @@ public final class JsonItems
         }
         else if (type == NumberType.NUMBER) {
             writer.numberValue((TrinoNumber) value.value());
+        }
+        else if (type == DateType.DATE) {
+            writer.date(toIntExact((Long) value.value()));
+        }
+        else if (type instanceof TimeType timeType) {
+            writer.time(timeType.getPrecision(), (Long) value.value());
+        }
+        else if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+            if (timeWithTimeZoneType.isShort()) {
+                long packed = (Long) value.value();
+                writer.timeWithTimeZone(
+                        timeWithTimeZoneType.getPrecision(),
+                        unpackTimeNanos(packed) * PICOSECONDS_PER_NANOSECOND,
+                        unpackOffsetMinutes(packed));
+            }
+            else {
+                LongTimeWithTimeZone time = (LongTimeWithTimeZone) value.value();
+                writer.timeWithTimeZone(timeWithTimeZoneType.getPrecision(), time.getPicoseconds(), time.getOffsetMinutes());
+            }
+        }
+        else if (type instanceof TimestampType timestampType) {
+            if (timestampType.isShort()) {
+                writer.timestamp(timestampType.getPrecision(), (Long) value.value(), 0);
+            }
+            else {
+                LongTimestamp timestamp = (LongTimestamp) value.value();
+                writer.timestamp(timestampType.getPrecision(), timestamp.getEpochMicros(), timestamp.getPicosOfMicro());
+            }
+        }
+        else if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            if (timestampWithTimeZoneType.isShort()) {
+                long packed = (Long) value.value();
+                writer.timestampWithTimeZone(
+                        timestampWithTimeZoneType.getPrecision(),
+                        unpackMillisUtc(packed),
+                        0,
+                        unpackZoneKey(packed).getKey());
+            }
+            else {
+                LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value.value();
+                writer.timestampWithTimeZone(
+                        timestampWithTimeZoneType.getPrecision(),
+                        timestamp.getEpochMillis(),
+                        timestamp.getPicosOfMilli(),
+                        timestamp.getTimeZoneKey());
+            }
         }
         else {
             throw new IllegalArgumentException("Unsupported scalar type for tree encoding: " + type);
@@ -743,6 +814,8 @@ public final class JsonItems
         return switch (json.scalarType()) {
             case BOOLEAN -> BooleanNode.valueOf(value.getBooleanValue());
             case VARCHAR -> TextNode.valueOf(((Slice) value.getObjectValue()).toStringUtf8());
+            // JSON has no datetime type: a datetime item renders as the canonical SQL literal.
+            case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> TextNode.valueOf(JsonItemEncoding.datetimeText(value));
             case BIGINT -> LongNode.valueOf(value.getLongValue());
             case INTEGER -> IntNode.valueOf(toIntExact(value.getLongValue()));
             case SMALLINT, TINYINT -> ShortNode.valueOf(Shorts.checkedCast(value.getLongValue()));

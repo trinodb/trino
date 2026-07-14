@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
+import io.trino.json.JsonItemBuilder;
 import io.trino.json.JsonItems;
 import io.trino.type.JsonType;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /// write function here is what raised the `JdbcPageSink` VerifyException. The read side of the
 /// same boundary (remote text to `Json`) is driven through a real JDBC ResultSet by the
 /// per-dialect `testJson` type-mapping integration tests.
+///
+/// The boundary is a JSON text wire form, so it carries only what JSON text can represent:
+/// a typed datetime item does not survive it, and that intentional loss is pinned below.
 public class TestJsonColumnMapping
 {
     @Test
@@ -58,5 +62,27 @@ public class TestJsonColumnMapping
         ((ObjectWriteFunction) mapping.getWriteFunction()).set(null, 1, value);
 
         assertThat(written[0].toStringUtf8()).isEqualTo("{\"a\":1,\"b\":2}");
+    }
+
+    @Test
+    void typedDatetimeDoesNotSurviveTheRemoteTextBoundary()
+            throws SQLException
+    {
+        // A remote JSON column is text, and JSON text has no datetime type. Sending a typed DATE
+        // item through the write function serializes it to a JSON string, and the read function
+        // (JsonItems.fromText on the remote text) reconstructs it as a VARCHAR -- the type is lost.
+        // Pin that intentional loss rather than let it pass silently; the mapping does not promise
+        // datetimes survive.
+        Slice[] written = new Slice[1];
+        SliceWriteFunction recordingTextWriter = (_, _, value) -> written[0] = value;
+        ColumnMapping mapping = StandardColumnMappings.jsonColumnMapping(JsonType.JSON, recordingTextWriter);
+
+        Json date = JsonItemBuilder.encodeDate(19724); // 2024-01-02
+        ((ObjectWriteFunction) mapping.getWriteFunction()).set(null, 1, date);
+        assertThat(written[0].toStringUtf8()).isEqualTo("\"2024-01-02\"");
+
+        Json readBack = JsonItems.fromText(written[0]);
+        assertThat(readBack).isEqualTo(JsonItemBuilder.encodeVarchar(utf8Slice("2024-01-02")));
+        assertThat(readBack).isNotEqualTo(date);
     }
 }

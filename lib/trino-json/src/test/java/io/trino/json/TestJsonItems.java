@@ -15,8 +15,10 @@ package io.trino.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimeWithTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -25,10 +27,20 @@ import java.util.List;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonItemEncoding.TypeTag.BIGINT;
 import static io.trino.json.JsonItemEncoding.TypeTag.BOOLEAN;
+import static io.trino.json.JsonItemEncoding.TypeTag.DATE;
 import static io.trino.json.JsonItemEncoding.TypeTag.DOUBLE;
 import static io.trino.json.JsonItemEncoding.TypeTag.INTEGER;
+import static io.trino.json.JsonItemEncoding.TypeTag.TIME;
+import static io.trino.json.JsonItemEncoding.TypeTag.TIMESTAMP;
+import static io.trino.json.JsonItemEncoding.TypeTag.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.json.JsonItemEncoding.TypeTag.TIME_WITH_TIME_ZONE;
 import static io.trino.json.JsonItemEncoding.TypeTag.VARCHAR;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /// Verifies the JsonNode → Json adapter: Jackson tree walking, per-number-node-type
@@ -148,6 +160,58 @@ class TestJsonItems
 
         assertThat(JsonItems.fromText(utf8Slice("12")).materializeScalar())
                 .isEqualTo(new TypedValue(IntegerType.INTEGER, 12L));
+    }
+
+    @Test
+    void testDatetimeItemsRoundTrip()
+    {
+        // A datetime item keeps the SQL value and the declared precision, so decoding
+        // reconstructs the exact type it was built from — not a string that looks like one.
+        Json date = JsonItemBuilder.encodeDate(19724);
+        assertThat(date.scalarType()).isEqualTo(DATE);
+        assertThat(date.materializeScalar()).isEqualTo(new TypedValue(DateType.DATE, 19724L));
+        assertThat(JsonItems.toText(date).toStringUtf8()).isEqualTo("\"2024-01-02\"");
+
+        Json time = JsonItemBuilder.encodeTime(3, 11045123000000000L);
+        assertThat(time.scalarType()).isEqualTo(TIME);
+        assertThat(time.materializeScalar()).isEqualTo(new TypedValue(createTimeType(3), 11045123000000000L));
+        assertThat(JsonItems.toText(time).toStringUtf8()).isEqualTo("\"03:04:05.123\"");
+
+        // A precision beyond the short form decodes into the wide Java representation.
+        Json longTime = JsonItemBuilder.encodeTimeWithTimeZone(12, 11045123456789012L, 120);
+        assertThat(longTime.scalarType()).isEqualTo(TIME_WITH_TIME_ZONE);
+        assertThat(longTime.materializeScalar())
+                .isEqualTo(new TypedValue(createTimeWithTimeZoneType(12), new LongTimeWithTimeZone(11045123456789012L, 120)));
+        assertThat(JsonItems.toText(longTime).toStringUtf8()).isEqualTo("\"03:04:05.123456789012+02:00\"");
+
+        Json timestamp = JsonItemBuilder.encodeTimestamp(3, 1704164645123000L, 0);
+        assertThat(timestamp.scalarType()).isEqualTo(TIMESTAMP);
+        assertThat(timestamp.materializeScalar()).isEqualTo(new TypedValue(createTimestampType(3), 1704164645123000L));
+        assertThat(JsonItems.toText(timestamp).toStringUtf8()).isEqualTo("\"2024-01-02 03:04:05.123\"");
+
+        Json timestampWithTimeZone = JsonItemBuilder.encodeTimestampWithTimeZone(3, 1704164645123L, 0, getTimeZoneKey("America/Los_Angeles").getKey());
+        assertThat(timestampWithTimeZone.scalarType()).isEqualTo(TIMESTAMP_WITH_TIME_ZONE);
+        assertThat(timestampWithTimeZone.materializeScalar().type()).isEqualTo(createTimestampWithTimeZoneType(3));
+    }
+
+    @Test
+    void testDatetimeItemEquality()
+    {
+        // Precision is not significant to the value, exactly as it is not for numbers.
+        assertThat(JsonItemBuilder.encodeTime(3, 11045123000000000L))
+                .isEqualTo(JsonItemBuilder.encodeTime(6, 11045123000000000L));
+
+        // TIMESTAMP WITH TIME ZONE compares by the instant; the zone is not significant.
+        Json losAngeles = JsonItemBuilder.encodeTimestampWithTimeZone(3, 1704164645123L, 0, getTimeZoneKey("America/Los_Angeles").getKey());
+        Json utc = JsonItemBuilder.encodeTimestampWithTimeZone(3, 1704164645123L, 0, getTimeZoneKey("UTC").getKey());
+        assertThat(losAngeles).isEqualTo(utc);
+        assertThat(losAngeles.hashCode()).isEqualTo(utc.hashCode());
+
+        // Different kinds are never equal, even when the underlying long agrees.
+        assertThat(JsonItemBuilder.encodeDate(19724)).isNotEqualTo(JsonItemBuilder.encodeTime(0, 19724));
+
+        // A datetime item is not the string it serializes to.
+        assertThat(JsonItemBuilder.encodeDate(19724)).isNotEqualTo(JsonItemBuilder.encodeVarchar(utf8Slice("2024-01-02")));
     }
 
     @Test
