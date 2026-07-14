@@ -224,7 +224,7 @@ import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
@@ -427,7 +427,7 @@ public class PlanTester
                 .get();
         JsonCodecFactory codecFactory = new JsonCodecFactory(mapper);
         JsonCodec<IrJsonPath> irJsonPathJsonCodec = codecFactory.jsonCodec(IrJsonPath.class);
-        typeRegistry.addType(new JsonPath2016Type(irJsonPathJsonCodec));
+        typeRegistry.addType(new SqlJsonPathType(irJsonPathJsonCodec));
         this.expressionCodec = codecFactory.jsonCodec(Expression.class);
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators, new NullSafeHashCompiler(typeOperators));

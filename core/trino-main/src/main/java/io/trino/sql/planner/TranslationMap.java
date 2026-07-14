@@ -131,7 +131,7 @@ import io.trino.sql.tree.WhenClause.Operand;
 import io.trino.sql.tree.WhenClause.Partial;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
@@ -1023,7 +1023,7 @@ public class TranslationMap
     {
         IrJsonPath path = new JsonPathTranslator(session, plannerContext)
                 .rewriteToIr(accessor.pathAnalysis(), ImmutableList.of());
-        return new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), path);
+        return new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)), path);
     }
 
     private io.trino.sql.ir.Expression resolveSimplifiedAccessorColumn(ResolvedField field)
@@ -1499,7 +1499,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
@@ -1533,7 +1533,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)), path);
         Type returnType = resolvedFunction.get().signature().getReturnType();
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
@@ -1582,7 +1582,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)), path);
+        io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(new TypeDescriptor(SqlJsonPathType.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)

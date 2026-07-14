@@ -51,7 +51,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDeserializer;
 
@@ -174,7 +174,7 @@ public final class TestingPlannerContext
 
             JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
             JsonCodec<IrJsonPath> irJsonPathJsonCodec = codecFactory.jsonCodec(IrJsonPath.class);
-            typeRegistry.addType(new JsonPath2016Type(irJsonPathJsonCodec));
+            typeRegistry.addType(new SqlJsonPathType(irJsonPathJsonCodec));
 
             return new PlannerContext(
                     metadata,

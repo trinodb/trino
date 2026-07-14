@@ -26,14 +26,14 @@ import io.trino.spi.type.TypeDescriptor;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
-public class JsonPath2016Type
+public class SqlJsonPathType
         extends AbstractVariableWidthType
 {
-    public static final String NAME = "JsonPath2016";
+    public static final String NAME = "SqlJsonPath";
 
     private final JsonCodec<IrJsonPath> jsonPathCodec;
 
-    public JsonPath2016Type(JsonCodec<IrJsonPath> jsonPathCodec)
+    public SqlJsonPathType(JsonCodec<IrJsonPath> jsonPathCodec)
     {
         super(new TypeDescriptor(NAME), IrJsonPath.class);
         this.jsonPathCodec = requireNonNull(jsonPathCodec, "jsonPathCodec is null");

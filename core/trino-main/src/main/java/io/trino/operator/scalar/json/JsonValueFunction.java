@@ -46,7 +46,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -100,7 +100,7 @@ public class JsonValueFunction
                         .returnType(typeVariable("R"))
                         .argumentTypes(
                                 type(JSON_2016),
-                                type(JsonPath2016Type.NAME),
+                                type(SqlJsonPathType.NAME),
                                 typeVariable("T"),
                                 typeVariable("R"),
                                 type(TINYINT),
