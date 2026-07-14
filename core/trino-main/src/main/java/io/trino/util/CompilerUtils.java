@@ -19,6 +19,8 @@ import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
+import io.trino.spi.TrinoException;
+import org.objectweb.asm.MethodTooLargeException;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -41,6 +43,7 @@ import static io.airlift.bytecode.HiddenClassGenerator.hiddenClassGenerator;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.ParameterizedType.typeFromJavaClassName;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static java.time.ZoneOffset.UTC;
 
 public final class CompilerUtils
@@ -137,6 +140,34 @@ public final class CompilerUtils
                 .omitDebugInfo(DUMP_CLASSES_DIRECTORY.isEmpty())
                 .dumpClassFilesTo(DUMP_CLASSES_DIRECTORY)
                 .defineClass(classDefinition, superType);
+    }
+
+    public static boolean isClassDumpEnabled()
+    {
+        return DUMP_CLASSES_DIRECTORY.isPresent();
+    }
+
+    /**
+     * Generates the class file bytes of a hidden class without defining it. The bytes can be
+     * defined multiple times with {@link #defineHiddenClassFromBytes}, each definition with
+     * its own class data, since all constants live in the class data rather than the bytes.
+     */
+    public static byte[] generateHiddenClassBytes(ClassDefinition classDefinition)
+    {
+        try {
+            return hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
+                    .omitDebugInfo(true)
+                    .generateBytes(classDefinition);
+        }
+        catch (MethodTooLargeException e) {
+            throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT, "Query exceeded maximum method size.", e);
+        }
+    }
+
+    public static <T> Class<? extends T> defineHiddenClassFromBytes(byte[] bytecode, Class<T> superType, List<Object> classData)
+    {
+        return hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
+                .defineHiddenClass(bytecode, superType, Optional.of(ImmutableList.copyOf(classData)));
     }
 
     /**
