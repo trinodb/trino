@@ -19,6 +19,8 @@ import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
+import io.trino.spi.TrinoException;
+import org.objectweb.asm.MethodTooLargeException;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -137,6 +139,35 @@ public final class CompilerUtils
                 .omitDebugInfo(DUMP_CLASSES_DIRECTORY.isEmpty())
                 .dumpClassFilesTo(DUMP_CLASSES_DIRECTORY)
                 .defineClass(classDefinition, superType);
+    }
+
+    public static boolean isClassDumpEnabled()
+    {
+        return DUMP_CLASSES_DIRECTORY.isPresent();
+    }
+
+    /**
+     * Generates the class file bytes of a hidden class without defining it. The bytes can be
+     * defined multiple times with {@link #defineHiddenClassFromBytes}, each definition with
+     * its own class data, since all constants live in the class data rather than the bytes.
+     *
+     * <p>A too-large generated method surfaces as {@link io.airlift.bytecode.CompilationException}
+     * (with {@link MethodTooLargeException} as its cause) and propagates uncaught: callers that
+     * generate bytecode from a user expression know what advice fits their case (too many
+     * columns, too many filters, and so on) and are expected to translate it into their own
+     * {@link TrinoException} by checking {@link com.google.common.base.Throwables#getRootCause}.
+     */
+    public static byte[] generateHiddenClassBytes(ClassDefinition classDefinition)
+    {
+        return hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
+                .omitDebugInfo(true)
+                .generateBytes(classDefinition);
+    }
+
+    public static <T> Class<? extends T> defineHiddenClassFromBytes(byte[] bytecode, Class<T> superType, List<Object> classData)
+    {
+        return hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
+                .defineHiddenClass(bytecode, superType, Optional.of(ImmutableList.copyOf(classData)));
     }
 
     /**
