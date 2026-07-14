@@ -69,6 +69,7 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
@@ -81,6 +82,8 @@ import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.IntFunction;
@@ -214,6 +217,14 @@ class PathEvaluationVisitor
                     throw new PathEvaluationException(e);
                 }
             }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case TrinoNumber.NotANumber _ -> number;
+                    case TrinoNumber.Infinity _ -> TrinoNumber.from(new TrinoNumber.Infinity(false));
+                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.abs());
+                });
+            }
             default -> throw itemTypeError("NUMBER", type.getDisplayName());
         };
     }
@@ -340,6 +351,14 @@ class PathEvaluationVisitor
                 catch (Exception e) {
                     throw new PathEvaluationException(e);
                 }
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case TrinoNumber.NotANumber _ -> number;
+                    case TrinoNumber.Infinity(boolean negative) -> TrinoNumber.from(new TrinoNumber.Infinity(!negative));
+                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.negate());
+                });
             }
             default -> throw new IllegalStateException("unexpected type " + type.getDisplayName());
         };
@@ -529,6 +548,14 @@ class PathEvaluationVisitor
                     throw new PathEvaluationException(e);
                 }
             }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case TrinoNumber.NotANumber _ -> number;
+                    case TrinoNumber.Infinity _ -> number;
+                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.setScale(0, RoundingMode.CEILING));
+                });
+            }
             default -> throw itemTypeError("NUMBER", type.getDisplayName());
         };
     }
@@ -708,6 +735,14 @@ class PathEvaluationVisitor
                     throw new PathEvaluationException(e);
                 }
             }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(DOUBLE, switch (number.toBigDecimal()) {
+                    case TrinoNumber.NotANumber _ -> Double.NaN;
+                    case TrinoNumber.Infinity(boolean negative) -> negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
+                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> decimal.doubleValue();
+                });
+            }
             default -> throw itemTypeError("NUMBER or TEXT", type.getDisplayName());
         };
     }
@@ -772,6 +807,14 @@ class PathEvaluationVisitor
                 catch (Exception e) {
                     throw new PathEvaluationException(e);
                 }
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case TrinoNumber.NotANumber _ -> number;
+                    case TrinoNumber.Infinity _ -> number;
+                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.setScale(0, RoundingMode.FLOOR));
+                });
             }
             default -> throw itemTypeError("NUMBER", type.getDisplayName());
         };

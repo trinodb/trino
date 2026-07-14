@@ -15,6 +15,7 @@ package io.trino.jsonpath;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BigIntegerNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
@@ -37,6 +38,7 @@ import io.trino.jsonpath.ir.IrPathNode;
 import io.trino.jsonpath.ir.IrPredicate;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
@@ -45,6 +47,7 @@ import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguratio
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.DateTimeException;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +65,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -282,6 +286,40 @@ public class TestJsonPathEvaluator
                 path(true, abs(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testArbitraryPrecisionNumber()
+    {
+        // A JSON number that fits neither BIGINT nor DECIMAL(38, s) is carried as NUMBER.
+        // The arithmetic methods compute on it with full precision rather than rejecting it.
+        BigInteger tenToFortieth = BigInteger.TEN.pow(40);
+        BigDecimal halfAbove = new BigDecimal(tenToFortieth).add(new BigDecimal("0.5"));
+
+        assertThat(pathResult(
+                BigIntegerNode.valueOf(tenToFortieth.negate()),
+                path(true, abs(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth)))));
+
+        assertThat(pathResult(
+                BigIntegerNode.valueOf(tenToFortieth),
+                path(true, minus(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth.negate())))));
+
+        assertThat(pathResult(
+                DecimalNode.valueOf(halfAbove),
+                path(true, ceiling(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth.add(BigInteger.ONE))))));
+
+        assertThat(pathResult(
+                DecimalNode.valueOf(halfAbove),
+                path(true, floor(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth)))));
+
+        assertThat(pathResult(
+                BigIntegerNode.valueOf(tenToFortieth),
+                path(true, toDouble(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(DOUBLE, 1e40)));
     }
 
     @Test
