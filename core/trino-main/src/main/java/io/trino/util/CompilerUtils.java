@@ -131,7 +131,9 @@ public final class CompilerUtils
     {
         log.debug("Defining class: %s", classDefinition.getName());
         try {
-            return classGenerator(classLoader).defineClass(classDefinition, superType);
+            return classGenerator(classLoader)
+                    .omitDebugInfo(true)
+                    .defineClass(classDefinition, superType);
         }
         catch (MethodTooLargeException e) {
             throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT, "Query exceeded maximum method size.", e);
@@ -168,7 +170,10 @@ public final class CompilerUtils
     {
         log.debug("Defining hidden class: %s", classDefinition.getName());
         try {
-            return hiddenClassGenerator(lookup).defineHiddenClass(classDefinition, superType, Optional.of(ImmutableList.copyOf(classData)));
+            // production servers never inspect SourceFile, LineNumberTable, or LocalVariableTable
+            return hiddenClassGenerator(lookup)
+                    .omitDebugInfo(true)
+                    .defineHiddenClass(classDefinition, superType, Optional.of(ImmutableList.copyOf(classData)));
         }
         catch (MethodTooLargeException e) {
             throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT, "Query exceeded maximum method size.", e);
