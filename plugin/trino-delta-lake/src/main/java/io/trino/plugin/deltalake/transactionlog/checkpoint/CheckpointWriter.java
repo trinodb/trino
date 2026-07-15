@@ -353,7 +353,8 @@ public class CheckpointWriter
                         parquetFileStatistics.getNumRecords(),
                         parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
                         parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
+                        parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)),
+                        parquetFileStatistics.getTightBounds());
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);
             }
             else {
@@ -419,6 +420,7 @@ public class CheckpointWriter
                 writeMinMaxMapAsFields(fieldBuilders.get(1), statsType, 1, "minValues", stats.getMinValues(), false);
                 writeMinMaxMapAsFields(fieldBuilders.get(2), statsType, 2, "maxValues", stats.getMaxValues(), false);
                 writeNullCountAsFields(fieldBuilders.get(3), statsType, 3, "nullCount", stats.getNullCount());
+                writeBoolean(fieldBuilders.get(4), statsType, 4, "tightBounds", stats.getTightBounds().orElse(null));
             }
             else {
                 int internalFieldId = 0;
@@ -435,6 +437,9 @@ public class CheckpointWriter
                     internalFieldId++;
                 }
                 writeNullCountAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "nullCount", stats.getNullCount());
+                internalFieldId++;
+
+                writeBoolean(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "tightBounds", stats.getTightBounds().orElse(null));
             }
         });
     }
@@ -580,9 +585,13 @@ public class CheckpointWriter
         field.getType().writeLong(blockBuilder, value);
     }
 
-    private void writeBoolean(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, boolean value)
+    private void writeBoolean(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, @Nullable Boolean value)
     {
         RowType.Field field = validateAndGetField(type, fieldId, fieldName);
+        if (value == null) {
+            blockBuilder.appendNull();
+            return;
+        }
         field.getType().writeBoolean(blockBuilder, value);
     }
 

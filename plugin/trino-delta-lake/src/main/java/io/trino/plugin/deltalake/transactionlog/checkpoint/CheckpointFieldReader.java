@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.MapBlock;
@@ -61,6 +62,21 @@ public class CheckpointFieldReader
     {
         int field = requireField(fieldName);
         return BOOLEAN.getBoolean(row.getUnderlyingFieldBlock(field), row.getUnderlyingFieldPosition(field));
+    }
+
+    public Optional<Boolean> getOptionalBoolean(String fieldName)
+    {
+        OptionalInt index = findField(fieldName);
+        if (index.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Block valueBlock = row.getUnderlyingFieldBlock(index.orElseThrow());
+        int position = row.getUnderlyingFieldPosition(index.orElseThrow());
+        if (valueBlock.isNull(position)) {
+            return Optional.empty();
+        }
+        return Optional.of(BOOLEAN.getBoolean(valueBlock, position));
     }
 
     public int getInt(String fieldName)

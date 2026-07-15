@@ -50,6 +50,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -81,6 +82,31 @@ public class TestDeltaLakeFileStatistics
         File statsFile = new File(getClass().getResource("all_type_statistics.json").toURI());
         DeltaLakeFileStatistics fileStatistics = jsonMapper.readValue(statsFile, DeltaLakeJsonFileStatistics.class);
         testStatisticsValues(fileStatistics);
+    }
+
+    @Test
+    void testTightBoundsJsonRoundTrip()
+            throws Exception
+    {
+        DeltaLakeJsonFileStatistics wideBounds = DeltaLakeJsonFileStatistics.create("{\"numRecords\":5,\"tightBounds\":false}");
+        assertThat(wideBounds.getTightBounds()).contains(false);
+        assertThat(DeltaLakeJsonFileStatistics.create(serializeStatsAsJson(wideBounds))).isEqualTo(wideBounds);
+
+        DeltaLakeJsonFileStatistics tightBounds = DeltaLakeJsonFileStatistics.create("{\"numRecords\":5,\"tightBounds\":true}");
+        assertThat(tightBounds.getTightBounds()).contains(true);
+        assertThat(DeltaLakeJsonFileStatistics.create(serializeStatsAsJson(tightBounds))).isEqualTo(tightBounds);
+    }
+
+    @Test
+    void testMissingTightBounds()
+            throws Exception
+    {
+        DeltaLakeJsonFileStatistics statistics = new DeltaLakeJsonFileStatistics(Optional.of(5L), Optional.empty(), Optional.empty(), Optional.empty());
+        assertThat(statistics.getTightBounds()).isEmpty();
+        assertThat(serializeStatsAsJson(statistics)).doesNotContain("tightBounds");
+        assertThat(DeltaLakeJsonFileStatistics.create("{\"numRecords\":5}")).isEqualTo(statistics);
+        assertThat(DeltaLakeJsonFileStatistics.create("{\"numRecords\":5,\"tightBounds\":null}")).isEqualTo(statistics);
+        assertThat(new DeltaLakeParquetFileStatistics(Optional.of(5L), Optional.empty(), Optional.empty(), Optional.empty()).getTightBounds()).isEmpty();
     }
 
     @Test
