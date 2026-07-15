@@ -122,13 +122,14 @@ public class UnwrapYearInComparison
             if (!(matchComparison(expression) instanceof Comparison comparison)) {
                 return expression;
             }
-            // The unwrap logic expects year(...) on the left. A comparison whose year operand is on the
-            // right (e.g. the canonical form of year(x) > literal, which is literal < year(x)) is flipped
-            // so the year call lands on the left; the rebuilt comparison is canonicalized again on the way out.
-            if (isYearCall(comparison.right()) && !isYearCall(comparison.left())) {
-                return unwrapYear(comparison.operator().flip(), comparison.right(), comparison.left());
+            // The unwrap logic expects year(...) on the left. Try the flipped form when the call is on the right,
+            // but preserve the original comparison when it cannot be unwrapped.
+            if (isYearCall(comparison.right())) {
+                return tryUnwrapYear(comparison.operator().flip(), comparison.right(), comparison.left())
+                        .orElse(expression);
             }
-            return unwrapYear(comparison.operator(), comparison.left(), comparison.right());
+            return tryUnwrapYear(comparison.operator(), comparison.left(), comparison.right())
+                    .orElse(expression);
         }
 
         private static boolean isYearCall(Expression expression)
@@ -162,13 +163,6 @@ public class UnwrapYearInComparison
             }
 
             return or(comparisonExpressions.build());
-        }
-
-        // Simplify `year(d) ? value`
-        private Expression unwrapYear(ComparisonOperator operator, Expression left, Expression originalRight)
-        {
-            return tryUnwrapYear(operator, left, originalRight)
-                    .orElseGet(() -> comparison(metadata, operator, left, originalRight));
         }
 
         // Returns the unwrapped form of `year(d) ? value`, or empty when the comparison cannot be unwrapped
