@@ -23,10 +23,29 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodHandles.privateLookupIn;
 
 public final class IsolatedClass
 {
     private IsolatedClass() {}
+
+    // the bytes of the isolated framework classes never change at runtime, so each
+    // isolation reuses one cached copy instead of re-reading the class file resource
+    private static final ClassValue<byte[]> BYTECODE = new ClassValue<>()
+    {
+        @Override
+        protected byte[] computeValue(Class<?> clazz)
+        {
+            try (InputStream stream = clazz.getClassLoader().getResourceAsStream(clazz.getName().replace('.', '/') + ".class")) {
+                checkArgument(stream != null, "Could not obtain byte code for class %s", clazz.getName());
+                return stream.readAllBytes();
+            }
+            catch (IOException e) {
+                throw new RuntimeException(format("Could not obtain byte code for class %s", clazz.getName()), e);
+            }
+        }
+    };
 
     public static <T> Class<? extends T> isolateClass(
             DynamicClassLoader dynamicClassLoader,
@@ -35,9 +54,9 @@ public final class IsolatedClass
             Class<?>... additionalClasses)
     {
         ImmutableMap.Builder<String, byte[]> builder = ImmutableMap.builder();
-        builder.put(implementationClass.getName(), getBytecode(implementationClass));
+        builder.put(implementationClass.getName(), BYTECODE.get(implementationClass));
         for (Class<?> additionalClass : additionalClasses) {
-            builder.put(additionalClass.getName(), getBytecode(additionalClass));
+            builder.put(additionalClass.getName(), BYTECODE.get(additionalClass));
         }
 
         // load classes into a private class loader
@@ -55,14 +74,28 @@ public final class IsolatedClass
         return isolatedClass.asSubclass(publicBaseClass);
     }
 
-    private static byte[] getBytecode(Class<?> clazz)
+    /**
+     * Isolates a single self-contained class as a hidden class: a fresh Klass with fresh
+     * JIT profiles, like {@link #isolateClass}, but without a class loader per copy. The
+     * copy unloads together with its instances instead of waiting for a loader to become
+     * unreachable. Only fits classes with no isolated companions: name-coupled groups
+     * need the shared class loader for their cross-references to resolve to the copies.
+     */
+    public static <T> Class<? extends T> isolateHiddenClass(Class<T> publicBaseClass, Class<? extends T> implementationClass)
     {
-        try (InputStream stream = clazz.getClassLoader().getResourceAsStream(clazz.getName().replace('.', '/') + ".class")) {
-            checkArgument(stream != null, "Could not obtain byte code for class %s", clazz.getName());
-            return stream.readAllBytes();
+        checkArgument(publicBaseClass.isAssignableFrom(implementationClass),
+                "Error isolating class %s, class is not a sub type of %s",
+                implementationClass.getName(),
+                publicBaseClass.getName());
+
+        try {
+            Class<?> isolatedClass = privateLookupIn(implementationClass, lookup())
+                    .defineHiddenClass(BYTECODE.get(implementationClass), false)
+                    .lookupClass();
+            return isolatedClass.asSubclass(publicBaseClass);
         }
-        catch (IOException e) {
-            throw new RuntimeException(format("Could not obtain byte code for class %s", clazz.getName()), e);
+        catch (IllegalAccessException e) {
+            throw new RuntimeException(format("Could not isolate class %s", implementationClass.getName()), e);
         }
     }
 }
