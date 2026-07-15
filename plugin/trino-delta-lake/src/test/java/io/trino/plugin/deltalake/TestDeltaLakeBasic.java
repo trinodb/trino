@@ -1704,6 +1704,19 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testMetadataDeleteWithDeletionVectors()
+    {
+        try (TestTable table = newTrinoTable("test_metadata_delete_dv", "(x int) WITH (deletion_vectors_enabled = true)", List.of("1", "2", "3", "4", "5"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x IN (1, 2)", 2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 3", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 6, 7", 2);
+
+            assertUpdate("DELETE FROM " + table.getName(), 4);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+        }
+    }
+
+    @Test
     void testDeletionVectorsRepeatWithSpecialCharsPartition()
     {
         try (TestTable table = newTrinoTable("test_dv", "(x bigint, y varchar) WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['y'])")) {

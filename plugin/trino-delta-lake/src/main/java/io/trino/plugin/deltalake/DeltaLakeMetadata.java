@@ -4634,9 +4634,11 @@ public class DeltaLakeMetadata
                     continue;
                 }
 
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, addFileEntry.getDeletionVector()));
 
-                Optional<Long> fileRecords = addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords);
+                Optional<Long> fileRecords = addFileEntry.getStats()
+                        .flatMap(DeltaLakeFileStatistics::getNumRecords)
+                        .map(records -> records - addFileEntry.getDeletionVector().map(DeletionVectorEntry::cardinality).orElse(0L));
                 allDeletedFilesStatsPresent &= fileRecords.isPresent();
                 deletedRecords += fileRecords.orElse(0L);
             }
