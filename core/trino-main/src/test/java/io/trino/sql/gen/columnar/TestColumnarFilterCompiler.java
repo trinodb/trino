@@ -110,6 +110,10 @@ public class TestColumnarFilterCompiler
         assertThat(filter2.getClass()).isEqualTo(filter1.getClass());
         assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(0);
 
+        // describes itself like every other columnar filter class, but without the bound
+        // value set, which can be arbitrarily large
+        assertThat(filter1.toString()).startsWith("ColumnarFilter{IN dynamic filter");
+
         SourcePage page = filter1.getInputChannels().getInputChannels(SourcePage.create(new Page(createLongSequenceBlock(0, 10))));
         int[] output = new int[10];
         // matches values 1, 3, 5, 7, 9
@@ -199,6 +203,40 @@ public class TestColumnarFilterCompiler
         assertThat(filterIn(compiler, layout, 3L, 4L)).isEqualTo(2);
         assertThat(filterIn(compiler, layout, 42L, 43L, 44L)).isEqualTo(0);
         assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(0);
+    }
+
+    @Test
+    public void testInFilterDescribesItself()
+    {
+        // IN filters skip the template cache lookup entirely (see testInFilterNotTemplated),
+        // but must still get the same self-describing toString a templated class does
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        Expression expression = new In(
+                new Reference(BIGINT, "$col_0"),
+                ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+        ColumnarFilter filter = compiler.generateFilter(CHAR_VARCHAR_COERCION, expression, layout).orElseThrow().get();
+
+        assertThat(filter.toString()).startsWith("ColumnarFilter{").contains("1").contains("2");
+    }
+
+    @Test
+    public void testGeneratedClassDescribesItself()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        ColumnarFilter first = compiler.generateFilter(
+                CHAR_VARCHAR_COERCION, comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 42L)), layout).orElseThrow().get();
+        // the second filter is defined from the cached template and must describe its own
+        // literal, not the literal of the compilation that created the template
+        ColumnarFilter second = compiler.generateFilter(
+                CHAR_VARCHAR_COERCION, comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 77L)), layout).orElseThrow().get();
+
+        assertThat(compiler.getFilterTemplateCache().getHitRate()).isEqualTo(0.5);
+        assertThat(first.toString()).startsWith("ColumnarFilter{").contains("42");
+        assertThat(second.toString()).contains("77").doesNotContain("42");
     }
 
     private static int filterGreaterThan(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, long value)

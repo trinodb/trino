@@ -83,7 +83,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstance;
+import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstanceWithoutTemplate;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.declareBlockVariables;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockMayHaveNull;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockPositionNotNull;
@@ -147,15 +147,14 @@ public class InColumnarFilterGenerator
 
     public Class<? extends ColumnarFilter> generateColumnarFilter(ClassTemplateCache<ColumnarFilter> templates, Expression filter)
     {
-        return createClassInstance(templates, filter, this::defineFilterClass);
+        // the bound lookup set and any switch labels derive from the constant values, so this
+        // could never serve as a template; skip the template key's structural traversal and
+        // expression copy, which for a large IN list is wasted work on every compilation
+        return createClassInstanceWithoutTemplate(templates, filter, this::defineFilterClass);
     }
 
     private ClassDefinition defineFilterClass(CallSiteBinder callSiteBinder)
     {
-        // the bound lookup set and any switch labels derive from the constant values, so
-        // the generated class cannot serve as a template for other IN lists
-        callSiteBinder.markValueDependent();
-
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(ColumnarFilter.class.getSimpleName() + "_in", Optional.empty()),
