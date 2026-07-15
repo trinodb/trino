@@ -15,17 +15,17 @@ package io.trino.operator.table.json.execution;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
-import io.trino.json.JsonPathEvaluator;
-import io.trino.json.PathEvaluationException;
-import io.trino.json.ir.TypedValue;
+import io.trino.jsonpath.JsonPathEvaluator;
+import io.trino.jsonpath.PathEvaluationException;
+import io.trino.jsonpath.ir.TypedValue;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
+import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJsonNode;
 import static java.lang.String.format;
 
 public final class SequenceEvaluator

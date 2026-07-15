@@ -15,7 +15,7 @@ package io.trino.type;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;

@@ -15,8 +15,8 @@ package io.trino.operator.table.json.execution;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
-import io.trino.json.JsonPathEvaluator;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.JsonPathEvaluator;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Page;

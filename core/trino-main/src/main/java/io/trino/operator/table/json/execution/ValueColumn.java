@@ -14,7 +14,7 @@
 package io.trino.operator.table.json.execution;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.operator.scalar.json.JsonValueFunction.DefaultValueLambda;

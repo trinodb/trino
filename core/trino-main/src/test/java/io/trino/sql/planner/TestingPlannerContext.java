@@ -22,7 +22,7 @@ import io.airlift.json.JsonMapperProvider;
 import io.trino.FeaturesConfig;
 import io.trino.block.BlockJsonSerde;
 import io.trino.connector.CatalogServiceProvider;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
