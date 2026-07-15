@@ -248,20 +248,19 @@ public class UnwrapCastInComparison
             if (lowBound.isEmpty() || highBound.isEmpty()) {
                 return Optional.empty();
             }
+            ComparisonBound normalizedLow = lowBound.orElseThrow();
+            ComparisonBound normalizedHigh = highBound.orElseThrow();
 
             // Rebuild an inclusive BETWEEN when the two comparisons form a lower/upper pair whose strict ends have
             // an inclusive neighbor; otherwise keep them as a conjunction.
-            Optional<Object> inclusiveLow = inclusiveLowBound(sourceType, lowBound.get());
-            Optional<Object> inclusiveHigh = inclusiveHighBound(sourceType, highBound.get());
+            Optional<Object> inclusiveLow = inclusiveLowBound(sourceType, normalizedLow);
+            Optional<Object> inclusiveHigh = inclusiveHighBound(sourceType, normalizedHigh);
             if (inclusiveLow.isEmpty() || inclusiveHigh.isEmpty()) {
                 // The conjunction references the cast source in both halves; bind a non-trivial source once so it is
-                // evaluated a single time, and recompute each half against the bound operand.
-                return Optional.of(bindSourceIfNecessary(source, operand -> {
-                    Cast boundCast = new Cast(operand, cast.type(), cast.kind());
-                    return and(
-                            unwrapCast(GREATER_THAN_OR_EQUAL, boundCast, range.min()),
-                            unwrapCast(LESS_THAN_OR_EQUAL, boundCast, range.max()));
-                }));
+                // evaluated a single time, and rebuild each comparison against the bound operand.
+                return Optional.of(bindSourceIfNecessary(source, operand -> and(
+                        comparison(plannerContext.getMetadata(), normalizedLow.operator(), operand, new Constant(sourceType, normalizedLow.value())),
+                        comparison(plannerContext.getMetadata(), normalizedHigh.operator(), operand, new Constant(sourceType, normalizedHigh.value())))));
             }
             if (compare(sourceType, inclusiveLow.get(), inclusiveHigh.get()) > 0) {
                 return Optional.of(falseIfNotNull(source));
