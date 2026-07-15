@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.DateTimeException;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -44,7 +45,7 @@ public class TestJsonDateTimeTemplate
     public void testParseValue()
     {
         TypedValue date = JsonDateTimeTemplate.parse("YYYY-MM-DD").parseValue("2024-01-02");
-        assertThat(date).isEqualTo(new TypedValue(DATE, (long) parseDate("2024-01-02")));
+        assertThat(date).isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))));
 
         TypedValue timeWithTimeZone = JsonDateTimeTemplate.parse("HH24:MI:SS.FF3TZH:TZM").parseValue("12:34:56.789+05:30");
         assertThat(timeWithTimeZone).isEqualTo(TypedValue.fromValueAsObject(createTimeWithTimeZoneType(3), parseTimeWithTimeZone(3, "12:34:56.789 +05:30")));
@@ -147,24 +148,24 @@ public class TestJsonDateTimeTemplate
         // Templates that specify only the low-order year digits take the remaining digits from a
         // fixed reference year of 1970, so the result does not depend on the current date.
         assertThat(JsonDateTimeTemplate.parse("Y-MM-DD").parseValue("4-01-02"))
-                .isEqualTo(new TypedValue(DATE, (long) parseDate("1974-01-02")));
+                .isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("1974-01-02"))));
         assertThat(JsonDateTimeTemplate.parse("YY-MM-DD").parseValue("24-01-02"))
-                .isEqualTo(new TypedValue(DATE, (long) parseDate("1924-01-02")));
+                .isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("1924-01-02"))));
         assertThat(JsonDateTimeTemplate.parse("YYY-MM-DD").parseValue("024-01-02"))
-                .isEqualTo(new TypedValue(DATE, (long) parseDate("1024-01-02")));
+                .isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("1024-01-02"))));
         assertThat(JsonDateTimeTemplate.parse("YYYY-MM-DD").parseValue("0024-01-02"))
-                .isEqualTo(new TypedValue(DATE, (long) parseDate("0024-01-02")));
+                .isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("0024-01-02"))));
 
         // RR rounds to the nearest century instead: with a reference year of 1970, values below 50
         // belong to the next century and values from 50 up to the current one.
         assertThat(JsonDateTimeTemplate.parse("RR-MM-DD").parseValue("24-01-02"))
-                .isEqualTo(new TypedValue(DATE, (long) parseDate("2024-01-02")));
+                .isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))));
         assertThat(JsonDateTimeTemplate.parse("RR-MM-DD").parseValue("74-01-02"))
-                .isEqualTo(new TypedValue(DATE, (long) parseDate("1974-01-02")));
+                .isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("1974-01-02"))));
 
         // RRRR is fully specified, so there is nothing to round.
         assertThat(JsonDateTimeTemplate.parse("RRRR-MM-DD").parseValue("2024-01-02"))
-                .isEqualTo(new TypedValue(DATE, (long) parseDate("2024-01-02")));
+                .isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))));
     }
 
     @Test
@@ -277,7 +278,7 @@ public class TestJsonDateTimeTemplate
         // the quoted text is verbatim) and must be accepted.
         TypedValue timestamp = JsonDateTimeTemplate.parse("YYYY-\"Q\"MM-DD")
                 .parseValue("2024-Q01-02");
-        assertThat(timestamp).isEqualTo(new TypedValue(DATE, (long) parseDate("2024-01-02")));
+        assertThat(timestamp).isEqualTo(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))));
 
         // Two adjacent DELIMITER characters remain rejected — that combination is ambiguous.
         assertThatThrownBy(() -> JsonDateTimeTemplate.parse("YYYY--MM"))

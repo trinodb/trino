@@ -419,7 +419,7 @@ public class TestColumnarFilters
                 100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(andFilter, layout, COMPILER, true).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(andFilter, layout, COMPILER, true, false).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct returned no positions
@@ -451,7 +451,7 @@ public class TestColumnarFilters
                 100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(orFilter, layout, COMPILER, true).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(orFilter, layout, COMPILER, true, false).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct selected all rows
@@ -930,12 +930,12 @@ public class TestColumnarFilters
 
     private static void assertThatColumnarFilterEvaluationIsSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true)).isPresent();
+        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true, false)).isPresent();
     }
 
     private static void assertThatColumnarFilterEvaluationIsNotSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true)).isEmpty();
+        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true, false)).isEmpty();
     }
 
     @ScalarFunction("custom_is_distinct_from")

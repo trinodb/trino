@@ -1,7 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      # "/" covers workflows in .github/workflows; composite actions must be listed explicitly
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
     cooldown:

@@ -60,6 +60,24 @@ public class BenchmarkRegexpFunctions
         return Re2JRegexpFunctions.regexpLike(data.getSource(), data.getRe2JPattern());
     }
 
+    @Benchmark
+    public Slice benchmarkReplaceJoni(DotStarAroundData data)
+    {
+        return JoniRegexpFunctions.regexpReplace(data.getSource(), data.getJoniPattern(), Slices.EMPTY_SLICE);
+    }
+
+    @Benchmark
+    public long benchmarkCountJoni(DotStarAroundData data)
+    {
+        return JoniRegexpFunctions.regexpCount(data.getSource(), data.getJoniPattern());
+    }
+
+    @Benchmark
+    public Slice benchmarkExtractJoni(DotStarAroundData data)
+    {
+        return JoniRegexpFunctions.regexpExtract(data.getSource(), data.getJoniPattern());
+    }
+
     @State(Thread)
     public static class DotStarAroundData
     {

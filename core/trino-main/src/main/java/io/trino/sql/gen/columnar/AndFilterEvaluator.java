@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public final class AndFilterEvaluator
         implements FilterEvaluator
 {
-    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout, boolean filterReorderingEnabled)
+    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout, boolean filterReorderingEnabled, boolean dynamicFilter)
     {
         checkArgument(logical.operator() == Logical.Operator.AND, "logical %s should be AND", logical);
 
@@ -42,7 +42,7 @@ public final class AndFilterEvaluator
 
         ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builderWithExpectedSize(terms.size());
         for (Expression expression : terms) {
-            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, layout, compiler, filterReorderingEnabled);
+            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, layout, compiler, filterReorderingEnabled, dynamicFilter);
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
             }

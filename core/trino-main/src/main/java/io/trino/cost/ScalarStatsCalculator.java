@@ -44,6 +44,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
@@ -130,7 +131,7 @@ public class ScalarStatsCalculator
                 return processArithmetic(node);
             }
 
-            Expression value = plannerContext.getExpressionOptimizer().process(node, session, new SymbolAllocator(), ImmutableMap.of()).orElse(node);
+            Expression value = plannerContext.getExpressionOptimizer().process(node, session, new SymbolAllocator(extractUnique(node)), ImmutableMap.of()).orElse(node);
 
             if (value instanceof Constant constant && constant.value() == null) {
                 return nullStatsEstimate();

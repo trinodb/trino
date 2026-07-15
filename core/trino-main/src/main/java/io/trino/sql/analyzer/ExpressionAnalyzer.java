@@ -76,6 +76,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
+import io.trino.sql.tree.ArrayWildcardSubscript;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
@@ -145,6 +146,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
@@ -394,6 +396,7 @@ public class ExpressionAnalyzer
 
     // for JSON functions
     private final Map<NodeRef<Node>, JsonPathAnalysis> jsonPathAnalyses = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, Analysis.JsonSimplifiedAccessor> jsonSimplifiedAccessors = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedFunction> jsonInputFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, ResolvedFunction> jsonOutputFunctions = new LinkedHashMap<>();
 
@@ -575,6 +578,12 @@ public class ExpressionAnalyzer
         return visitor.process(expression, context);
     }
 
+    public boolean analyzeJsonWildcardTarget(Expression target, Scope scope, CorrelationSupport correlationSupport)
+    {
+        Visitor visitor = new Visitor(scope, warningCollector);
+        return visitor.analyzeJsonWildcardTarget(target, Context.notInLambda(scope, correlationSupport));
+    }
+
     private RowType analyzeJsonPathInvocation(JsonTable node, Scope scope, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
@@ -701,6 +710,11 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Node>, JsonPathAnalysis> getJsonPathAnalyses()
     {
         return jsonPathAnalyses;
+    }
+
+    public Map<NodeRef<Expression>, Analysis.JsonSimplifiedAccessor> getJsonSimplifiedAccessors()
+    {
+        return jsonSimplifiedAccessors;
     }
 
     public Map<NodeRef<Expression>, ResolvedFunction> getJsonInputFunctions()
@@ -837,15 +851,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                tableColumnReferences.put(new Analysis.TableAndBranch(field.getOriginTable().get(), field.getOriginBranch()), field.getOriginColumnName().get());
-            }
-
-            sourceFields.add(field);
-
-            fieldId.getRelationId()
-                    .getSourceNode()
-                    .ifPresent(source -> referencedFields.put(NodeRef.of(source), field));
+            recordColumnUsage(resolvedField);
 
             ResolvedField previous = columnReferences.put(NodeRef.of(node), resolvedField);
             checkState(previous == null, "%s already known to refer to %s", node, previous);
@@ -856,11 +862,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDereferenceExpression(DereferenceExpression node, Context context)
         {
-            if (isQualifiedAllFieldsReference(node)) {
-                throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
-            }
-
-            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
+            boolean hasWildcard = isQualifiedAllFieldsReference(node);
+            QualifiedName qualifiedName = hasWildcard ? null : DereferenceExpression.getQualifiedName(node);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
@@ -899,9 +902,21 @@ public class ExpressionAnalyzer
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
                 }
-                if (!scope.isColumnReference(qualifiedName)) {
-                    throw missingAttributeException(node, qualifiedName);
+            }
+
+            if (!context.isPatternRecognition()) {
+                Optional<Type> type = tryAnalyzeJsonSimplifiedAccessor(node, context);
+                if (type.isPresent()) {
+                    return setExpressionType(node, type.get());
                 }
+            }
+
+            if (hasWildcard) {
+                throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
+            }
+
+            if (qualifiedName != null && !context.getScope().isColumnReference(qualifiedName)) {
+                throw missingAttributeException(node, qualifiedName);
             }
 
             Type baseType = process(node.getBase(), context);
@@ -930,6 +945,247 @@ public class ExpressionAnalyzer
             }
 
             return setExpressionType(node, rowFieldType);
+        }
+
+        private Optional<Type> tryAnalyzeJsonSimplifiedAccessor(Expression expression, Context context)
+        {
+            return JsonAccessorChain.walk(expression)
+                    .flatMap(chain -> tryRegisterJsonQueryAccessor(expression, chain, Optional.empty(), context));
+        }
+
+        boolean analyzeJsonWildcardTarget(Expression target, Context context)
+        {
+            return JsonAccessorChain.walkForWildcard(target)
+                    .flatMap(chain -> tryRegisterJsonQueryAccessor(target, chain, Optional.of(AccessorStep.WildcardMember.INSTANCE), context))
+                    .isPresent();
+        }
+
+        private Optional<Type> tryRegisterJsonQueryAccessor(Expression expression, JsonAccessorChain chain, Optional<AccessorStep> trailingStep, Context context)
+        {
+            boolean registered = tryRegisterJsonAccessor(expression, chain, trailingStep, context, (column, pathAnalysis) -> new Analysis.JsonSimplifiedAccessor.Query(
+                    column,
+                    pathAnalysis,
+                    getInputFunction(VARCHAR, JsonFormat.JSON, expression),
+                    plannerContext.getMetadata().resolveBuiltinFunction(JSON_QUERY_FUNCTION_NAME, fromTypes(ImmutableList.of(
+                            JSON_2016,
+                            plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)),
+                            JSON_NO_PARAMETERS_ROW_TYPE,
+                            TINYINT,
+                            TINYINT,
+                            TINYINT))),
+                    getOutputFunction(VARCHAR, JsonFormat.JSON, expression)));
+            return registered ? Optional.of(setExpressionType(expression, VARCHAR)) : Optional.empty();
+        }
+
+        private Optional<Type> tryRegisterJsonValueAccessor(Expression expression, JsonAccessorChain chain, Type returnedType, Context context)
+        {
+            boolean registered = tryRegisterJsonAccessor(expression, chain, Optional.empty(), context, (column, pathAnalysis) -> new Analysis.JsonSimplifiedAccessor.Value(
+                    column,
+                    pathAnalysis,
+                    getInputFunction(VARCHAR, JsonFormat.JSON, expression),
+                    plannerContext.getMetadata().resolveBuiltinFunction(JSON_VALUE_FUNCTION_NAME, fromTypes(ImmutableList.of(
+                            JSON_2016,
+                            plannerContext.getTypeManager().getType(new TypeDescriptor(JsonPath2016Type.NAME)),
+                            JSON_NO_PARAMETERS_ROW_TYPE,
+                            returnedType,
+                            TINYINT,
+                            new FunctionType(ImmutableList.of(), returnedType),
+                            TINYINT,
+                            new FunctionType(ImmutableList.of(), returnedType)))),
+                    returnedType));
+            return registered ? Optional.of(returnedType) : Optional.empty();
+        }
+
+        @FunctionalInterface
+        private interface JsonAccessorRecipeBuilder
+        {
+            Analysis.JsonSimplifiedAccessor build(ResolvedField column, JsonPathAnalysis pathAnalysis);
+        }
+
+        /// @return `true` when a simplified-accessor recipe was registered
+        ///         for `expression`; `false` when no prefix of the chain
+        ///         resolved to a JSON column.
+        private boolean tryRegisterJsonAccessor(
+                Expression expression,
+                JsonAccessorChain chain,
+                Optional<AccessorStep> trailingStep,
+                Context context,
+                JsonAccessorRecipeBuilder recipe)
+        {
+            Scope scope = context.getScope();
+            List<Identifier> prefix = chain.prefix();
+            for (int prefixLength = prefix.size(); prefixLength >= 1; prefixLength--) {
+                Optional<ResolvedField> resolved = scope.tryResolveField(expression, QualifiedName.of(prefix.subList(0, prefixLength)));
+                if (resolved.isEmpty()) {
+                    continue;
+                }
+                if (!resolved.get().getType().equals(JSON)) {
+                    return false;
+                }
+                ResolvedField column = resolved.get();
+                registerSimplifiedAccessorColumn(column, chain, prefixLength, expression, context);
+                JsonPathAnalysis pathAnalysis = analyzeSimplifiedAccessorPath(expression, chain, prefixLength, trailingStep);
+                jsonSimplifiedAccessors.put(NodeRef.of(expression), recipe.build(column, pathAnalysis));
+                return true;
+            }
+            return false;
+        }
+
+        private JsonPathAnalysis analyzeSimplifiedAccessorPath(Expression expression, JsonAccessorChain chain, int prefixLength, Optional<AccessorStep> trailingStep)
+        {
+            return new JsonPathAnalyzer(
+                    plannerContext.getMetadata(),
+                    createConstantAnalyzer(plannerContext, accessControl, session, ExpressionAnalyzer.this.parameters, WarningCollector.NOOP))
+                    .analyzeJsonPath(
+                            JsonAccessorChain.buildPath(ImmutableList.<AccessorStep>builder()
+                                    .addAll(chain.prefix().subList(prefixLength, chain.prefix().size()).stream()
+                                            .<AccessorStep>map(AccessorStep.Member::new)
+                                            .iterator())
+                                    .addAll(chain.outerSteps())
+                                    .addAll(trailingStep.stream().iterator())
+                                    .build()),
+                            expression.getLocation().orElseThrow(() -> new IllegalStateException("missing NodeLocation in accessor")));
+        }
+
+        private void registerSimplifiedAccessorColumn(ResolvedField column, JsonAccessorChain chain, int prefixLength, Expression expression, Context context)
+        {
+            Optional<Expression> matched = chain.matchedPrefixExpression(prefixLength);
+            if (matched.isEmpty()) {
+                if (!column.isLocal()) {
+                    throw semanticException(NOT_SUPPORTED, expression, "JSON simplified accessor over a column from an outer scope is not supported");
+                }
+                recordColumnUsage(column);
+                return;
+            }
+            // Route the matched sub-expression through the regular visitor so
+            // it lands in `analysis.columnReferences`, where the outer-scope
+            // correlation machinery picks it up.
+            process(matched.get(), context);
+        }
+
+        private void recordColumnUsage(ResolvedField resolvedField)
+        {
+            Field field = resolvedField.getField();
+            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
+                tableColumnReferences.put(new Analysis.TableAndBranch(field.getOriginTable().get(), field.getOriginBranch()), field.getOriginColumnName().get());
+            }
+            sourceFields.add(field);
+            FieldId.from(resolvedField).getRelationId()
+                    .getSourceNode()
+                    .ifPresent(source -> referencedFields.put(NodeRef.of(source), field));
+        }
+
+        private Optional<Type> tryAnalyzeJsonItemMethodAccessor(FunctionCall node, Context context)
+        {
+            if (context.isPatternRecognition() || context.isInWindow()) {
+                return Optional.empty();
+            }
+            if (node.isDistinct()
+                    || node.getFilter().isPresent()
+                    || node.getOrderBy().isPresent()
+                    || node.getWindow().isPresent()
+                    || node.getProcessingMode().isPresent()
+                    || node.getNullTreatment().isPresent()) {
+                return Optional.empty();
+            }
+            if (node.hasNamedArguments()) {
+                // item methods define only positional precision literals; a named argument
+                // means this is an ordinary function call
+                return Optional.empty();
+            }
+            List<Identifier> parts = node.getName().getOriginalParts();
+            if (parts.size() < 2 || parts.getLast().isDelimited()) {
+                // item-method names are regular identifiers (case-insensitive); a delimited
+                // identifier denotes an ordinary function or member name, never an item method
+                return Optional.empty();
+            }
+            Optional<Type> returnedType = resolveJsonItemMethodReturnType(parts.getLast().getValue(), node.argumentValues());
+            if (returnedType.isEmpty()) {
+                return Optional.empty();
+            }
+            // FunctionCall shape has no Expression sub-node for the receiver
+            // chain (the receiver is the qualified name's prefix). An empty
+            // cursor list keeps `matchedPrefixExpression` empty so outer-scope
+            // resolution falls through to the local-only path.
+            List<Identifier> receiverParts = parts.subList(0, parts.size() - 1);
+            JsonAccessorChain chain = new JsonAccessorChain(receiverParts, ImmutableList.of(), ImmutableList.of());
+            return tryRegisterJsonValueAccessor(node, chain, returnedType.get(), context);
+        }
+
+        private Optional<Type> tryAnalyzeJsonItemMethodAccessor(MethodCall node, Context context)
+        {
+            if (context.isPatternRecognition() || context.isInWindow()) {
+                return Optional.empty();
+            }
+            if (node.getMethod().isDelimited()) {
+                // item-method names are regular identifiers (case-insensitive); a delimited
+                // identifier denotes an ordinary method name, never an item method
+                return Optional.empty();
+            }
+            if (node.getArguments().stream().anyMatch(argument -> argument.getName().isPresent())) {
+                // named arguments denote an ordinary method call, never an item method
+                return Optional.empty();
+            }
+            Optional<Type> returnedType = resolveJsonItemMethodReturnType(
+                    node.getMethod().getValue(),
+                    node.getArguments().stream().map(CallArgument::getValue).collect(toImmutableList()));
+            if (returnedType.isEmpty()) {
+                return Optional.empty();
+            }
+            Optional<JsonAccessorChain> chain = JsonAccessorChain.walk(node.getReceiver());
+            if (chain.isEmpty()) {
+                return Optional.empty();
+            }
+            return tryRegisterJsonValueAccessor(node, chain.get(), returnedType.get(), context);
+        }
+
+        private static Optional<Type> resolveJsonItemMethodReturnType(String methodName, List<Expression> arguments)
+        {
+            List<Integer> integerArguments = new ArrayList<>();
+            for (Expression argument : arguments) {
+                // precision and scale arguments fit in an int; a literal outside that range is not
+                // one of the item-method forms, so the call falls through to method resolution
+                // instead of silently wrapping into a different in-range value
+                if (!(argument instanceof LongLiteral literal) || (int) literal.getParsedValue() != literal.getParsedValue()) {
+                    return Optional.empty();
+                }
+                integerArguments.add((int) literal.getParsedValue());
+            }
+            return switch (methodName.toLowerCase(ENGLISH)) {
+                case "bigint" -> integerArguments.isEmpty() ? Optional.of(BIGINT) : Optional.empty();
+                case "boolean" -> integerArguments.isEmpty() ? Optional.of(BOOLEAN) : Optional.empty();
+                case "date" -> integerArguments.isEmpty() ? Optional.of(DATE) : Optional.empty();
+                case "integer" -> integerArguments.isEmpty() ? Optional.of(INTEGER) : Optional.empty();
+                case "number" -> integerArguments.isEmpty() ? Optional.of(DOUBLE) : Optional.empty();
+                case "string" -> integerArguments.isEmpty() ? Optional.of(VARCHAR) : Optional.empty();
+                case "decimal" -> switch (integerArguments.size()) {
+                    case 0 -> Optional.of(DecimalType.createDecimalType());
+                    case 1 -> Optional.of(DecimalType.createDecimalType(integerArguments.get(0)));
+                    case 2 -> Optional.of(DecimalType.createDecimalType(integerArguments.get(0), integerArguments.get(1)));
+                    default -> Optional.empty();
+                };
+                case "time" -> switch (integerArguments.size()) {
+                    case 0 -> Optional.of(createTimeType(3));
+                    case 1 -> Optional.of(createTimeType(integerArguments.get(0)));
+                    default -> Optional.empty();
+                };
+                case "time_tz" -> switch (integerArguments.size()) {
+                    case 0 -> Optional.of(createTimeWithTimeZoneType(3));
+                    case 1 -> Optional.of(createTimeWithTimeZoneType(integerArguments.get(0)));
+                    default -> Optional.empty();
+                };
+                case "timestamp" -> switch (integerArguments.size()) {
+                    case 0 -> Optional.of(createTimestampType(3));
+                    case 1 -> Optional.of(createTimestampType(integerArguments.get(0)));
+                    default -> Optional.empty();
+                };
+                case "timestamp_tz" -> switch (integerArguments.size()) {
+                    case 0 -> Optional.of(createTimestampWithTimeZoneType(3));
+                    case 1 -> Optional.of(createTimestampWithTimeZoneType(integerArguments.get(0)));
+                    default -> Optional.empty();
+                };
+                default -> Optional.empty();
+            };
         }
 
         @Override
@@ -962,6 +1218,7 @@ public class ExpressionAnalyzer
                 case IsNullPredicate _ -> analyzeIsNull(node.getValue(), node, context);
                 case LikePredicate predicate -> analyzeLike(node.getValue(), predicate, node, context);
                 case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
+                case OverlapsPredicate predicate -> analyzeOverlaps(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
             };
         }
@@ -1116,6 +1373,7 @@ public class ExpressionAnalyzer
                         case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
                         case LikePredicate fragment -> analyzeLike(operand, fragment, whenClause, context);
                         case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
+                        case OverlapsPredicate fragment -> analyzeOverlaps(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
                     }
                 }
@@ -1241,6 +1499,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubscriptExpression(SubscriptExpression node, Context context)
         {
+            if (!context.isPatternRecognition()) {
+                Optional<Type> type = tryAnalyzeJsonSimplifiedAccessor(node, context);
+                if (type.isPresent()) {
+                    return setExpressionType(node, type.get());
+                }
+            }
+
             Type baseType = process(node.getBase(), context);
             // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
             if (baseType instanceof RowType rowType) {
@@ -1264,6 +1529,22 @@ public class ExpressionAnalyzer
 
             // Subscript on Array or Map uses an operator to resolve Type.
             return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
+        }
+
+        @Override
+        protected Type visitArrayWildcardSubscript(ArrayWildcardSubscript node, Context context)
+        {
+            if (!context.isPatternRecognition()) {
+                Optional<Type> type = tryAnalyzeJsonSimplifiedAccessor(node, context);
+                if (type.isPresent()) {
+                    return setExpressionType(node, type.get());
+                }
+            }
+            // Surface any column-not-found or type errors on the base before
+            // reporting the catch-all "[*] not allowed" message — otherwise a
+            // mistyped column reads as a syntax complaint.
+            process(node.getBase(), context);
+            throw semanticException(NOT_SUPPORTED, node, "[*] array wildcard accessor is only allowed over a JSON simplified accessor chain");
         }
 
         @Override
@@ -1449,6 +1730,14 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, Context context)
         {
+            // A JSON item method on a JSON-typed receiver resolves as the item method
+            // (SQL:2023 §6.36 case 3.a), shadowing any real method of the same name —
+            // the same precedence as visitMethodCall
+            Optional<Type> asJsonItemMethod = tryAnalyzeJsonItemMethodAccessor(node, context);
+            if (asJsonItemMethod.isPresent()) {
+                return setExpressionType(node, asJsonItemMethod.get());
+            }
+
             // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
             // of the form A.B(args) is treated as a method invocation if it satisfies
             // the rules for one; otherwise it is a routine invocation.
@@ -1906,6 +2195,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitMethodCall(MethodCall node, Context context)
         {
+            Optional<Type> asJsonItemMethod = tryAnalyzeJsonItemMethodAccessor(node, context);
+            if (asJsonItemMethod.isPresent()) {
+                return setExpressionType(node, asJsonItemMethod.get());
+            }
+
             Type receiverType = process(node.getReceiver(), context);
             String methodName = node.getMethod().getValue();
 
@@ -2784,6 +3078,79 @@ public class ExpressionAnalyzer
             return setExpressionType(node, resultType);
         }
 
+        private Type analyzeOverlaps(Expression value, OverlapsPredicate predicate, Expression anchor, Context context)
+        {
+            RowType leftRow = validatePeriod(value, process(value, context));
+            RowType rightRow = validatePeriod(predicate.getRight(), process(predicate.getRight(), context));
+
+            Type leftStart = leftRow.getFields().get(0).getType();
+            Type leftEnd = leftRow.getFields().get(1).getType();
+            Type rightStart = rightRow.getFields().get(0).getType();
+            Type rightEnd = rightRow.getFields().get(1).getType();
+
+            Optional<Type> commonStart = typeCoercion.getCommonSuperType(leftStart, rightStart);
+            Optional<Type> commonEnd = typeCoercion.getCommonSuperType(leftEnd, rightEnd);
+            if (commonStart.isEmpty() || commonEnd.isEmpty()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Cannot apply OVERLAPS to %s and %s", leftRow, rightRow);
+            }
+
+            Type effectiveEnd;
+            if (isInterval(commonEnd.get())) {
+                try {
+                    effectiveEnd = plannerContext.getMetadata().resolveOperator(ADD, ImmutableList.of(commonStart.get(), commonEnd.get())).signature().getReturnType();
+                }
+                catch (TrinoException e) {
+                    throw semanticException(TYPE_MISMATCH, anchor, "Cannot apply OVERLAPS to %s and %s", leftRow, rightRow);
+                }
+            }
+            else {
+                effectiveEnd = commonEnd.get();
+            }
+            if (typeCoercion.getCommonSuperType(commonStart.get(), effectiveEnd).isEmpty()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Cannot apply OVERLAPS to %s and %s", leftRow, rightRow);
+            }
+
+            RowType commonRow = RowType.anonymous(ImmutableList.of(commonStart.get(), commonEnd.get()));
+            if (!leftRow.equals(commonRow)) {
+                addOrReplaceExpressionCoercion(value, commonRow);
+            }
+            if (!rightRow.equals(commonRow)) {
+                addOrReplaceExpressionCoercion(predicate.getRight(), commonRow);
+            }
+
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private RowType validatePeriod(Expression source, Type type)
+        {
+            if (!(type instanceof RowType row) || row.getFields().size() != 2) {
+                throw semanticException(TYPE_MISMATCH, source, "OVERLAPS operand must be a row of two elements (actual %s)", type);
+            }
+            Type start = row.getFields().get(0).getType();
+            Type end = row.getFields().get(1).getType();
+            if (!isDatetime(start)) {
+                throw semanticException(TYPE_MISMATCH, source, "OVERLAPS period start must be a datetime (actual %s)", start);
+            }
+            if (!isDatetime(end) && !isInterval(end)) {
+                throw semanticException(TYPE_MISMATCH, source, "OVERLAPS period end must be a datetime or interval (actual %s)", end);
+            }
+            return row;
+        }
+
+        private static boolean isDatetime(Type type)
+        {
+            return type instanceof DateType
+                    || type instanceof TimeType
+                    || type instanceof TimeWithTimeZoneType
+                    || type instanceof TimestampType
+                    || type instanceof TimestampWithTimeZoneType;
+        }
+
+        private static boolean isInterval(Type type)
+        {
+            return type == INTERVAL_DAY_TIME || type == INTERVAL_YEAR_MONTH;
+        }
+
         @Override
         protected Type visitCurrentCatalog(CurrentCatalog node, Context context)
         {
@@ -2962,15 +3329,9 @@ public class ExpressionAnalyzer
             return setExpressionType(node, BIGINT);
         }
 
-        private boolean isDateTimeType(Type type)
+        private static boolean isDateTimeType(Type type)
         {
-            return type.equals(DATE) ||
-                    type instanceof TimeType ||
-                    type instanceof TimeWithTimeZoneType ||
-                    type instanceof TimestampType ||
-                    type instanceof TimestampWithTimeZoneType ||
-                    type.equals(INTERVAL_DAY_TIME) ||
-                    type.equals(INTERVAL_YEAR_MONTH);
+            return isDatetime(type) || isInterval(type);
         }
 
         @Override
@@ -3667,7 +4028,7 @@ public class ExpressionAnalyzer
                     else if (isNumericType(parameterType) || parameterType.equals(BOOLEAN)) {
                         passedType = parameterType;
                     }
-                    else if (isDateTimeType(parameterType) && !parameterType.equals(INTERVAL_DAY_TIME) && !parameterType.equals(INTERVAL_YEAR_MONTH)) {
+                    else if (isDatetime(parameterType)) {
                         passedType = parameterType;
                     }
                     else {
@@ -4413,6 +4774,25 @@ public class ExpressionAnalyzer
                 analyzer.getWindowFunctions());
     }
 
+    public static boolean analyzeJsonWildcardAccessor(
+            Session session,
+            PlannerContext plannerContext,
+            StatementAnalyzerFactory statementAnalyzerFactory,
+            AccessControl accessControl,
+            Scope scope,
+            Analysis analysis,
+            Expression target,
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
+        boolean recognized = analyzer.analyzeJsonWildcardTarget(target, scope, correlationSupport);
+        if (recognized) {
+            updateAnalysis(analysis, analyzer, session, accessControl);
+        }
+        return recognized;
+    }
+
     public static ParametersTypeAndAnalysis analyzeJsonPathInvocation(
             JsonTable node,
             Session session,
@@ -4574,6 +4954,7 @@ public class ExpressionAnalyzer
         analysis.setJsonPathAnalyses(analyzer.getJsonPathAnalyses());
         analysis.setJsonInputFunctions(analyzer.getJsonInputFunctions());
         analysis.setJsonOutputFunctions(analyzer.getJsonOutputFunctions());
+        analyzer.getJsonSimplifiedAccessors().forEach((key, value) -> analysis.setJsonSimplifiedAccessor(key.getNode(), value));
         analysis.addPredicateCoercions(analyzer.getPredicateCoercions());
     }
 

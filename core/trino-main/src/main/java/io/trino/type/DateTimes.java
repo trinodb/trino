@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.LongTimeWithTimeZone;
@@ -55,6 +56,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -67,6 +69,161 @@ public final class DateTimes
                     "\\s*(?<timezone>.+)?)?");
     private static final String TIMESTAMP_FORMATTER_PATTERN = "uuuu-MM-dd HH:mm:ss";
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern(TIMESTAMP_FORMATTER_PATTERN);
+
+    /**
+     * The fields of a date and time with no time zone, read straight from the bytes.
+     * <p>
+     * The fields are not validated, exactly as {@link #DATETIME_PATTERN} does not validate the groups
+     * it captures. The caller reports an invalid date the way it always has, when it builds the date
+     * and time from them.
+     */
+    public record PlainDateTime(int year, int month, int day, int hour, int minute, int second, long fractionValue, int fractionPrecision) {}
+
+    /**
+     * Parses {@code yyyy-MM-dd[ HH:mm[:ss[.fraction]]]}, the shape a timestamp almost always has,
+     * straight from the bytes.
+     * <p>
+     * Returns null for everything else, including a signed year, a time zone, and any spacing the
+     * shape above does not cover, so that the caller falls back to {@link #DATETIME_PATTERN}, which
+     * accepts all of it.
+     */
+    public static PlainDateTime parsePlainDateTime(Slice value)
+    {
+        int length = value.length();
+        int index = 0;
+
+        int yearEnd = digitsEnd(value, index, length);
+        int yearDigits = yearEnd - index;
+        // the pattern accepts any number of year digits, but more than nine cannot be a year
+        if (yearDigits < 4 || yearDigits > 9) {
+            return null;
+        }
+        int year = parseDigits(value, index, yearEnd);
+        index = yearEnd;
+
+        if (index == length || value.getByte(index) != '-') {
+            return null;
+        }
+        index++;
+
+        int monthEnd = digitsEnd(value, index, min(index + 2, length));
+        if (monthEnd == index) {
+            return null;
+        }
+        int month = parseDigits(value, index, monthEnd);
+        index = monthEnd;
+
+        if (index == length || value.getByte(index) != '-') {
+            return null;
+        }
+        index++;
+
+        int dayEnd = digitsEnd(value, index, min(index + 2, length));
+        if (dayEnd == index) {
+            return null;
+        }
+        int day = parseDigits(value, index, dayEnd);
+        index = dayEnd;
+
+        int hour = 0;
+        int minute = 0;
+        int second = 0;
+        long fractionValue = 0;
+        int fractionPrecision = 0;
+
+        if (index != length) {
+            if (value.getByte(index) != ' ') {
+                return null;
+            }
+            index++;
+
+            int hourEnd = digitsEnd(value, index, min(index + 2, length));
+            if (hourEnd == index) {
+                return null;
+            }
+            hour = parseDigits(value, index, hourEnd);
+            index = hourEnd;
+
+            if (index == length || value.getByte(index) != ':') {
+                return null;
+            }
+            index++;
+
+            int minuteEnd = digitsEnd(value, index, min(index + 2, length));
+            if (minuteEnd == index) {
+                return null;
+            }
+            minute = parseDigits(value, index, minuteEnd);
+            index = minuteEnd;
+
+            if (index != length) {
+                if (value.getByte(index) != ':') {
+                    return null;
+                }
+                index++;
+
+                int secondEnd = digitsEnd(value, index, min(index + 2, length));
+                if (secondEnd == index) {
+                    return null;
+                }
+                second = parseDigits(value, index, secondEnd);
+                index = secondEnd;
+
+                if (index != length) {
+                    if (value.getByte(index) != '.') {
+                        return null;
+                    }
+                    index++;
+
+                    int fractionEnd = digitsEnd(value, index, length);
+                    // anything left over is a time zone, which the pattern handles
+                    if (fractionEnd == index || fractionEnd != length) {
+                        return null;
+                    }
+                    fractionPrecision = fractionEnd - index;
+                    // the pattern based path parses the fraction with Long.parseLong, which overflows past this
+                    if (fractionPrecision > 18) {
+                        return null;
+                    }
+                    fractionValue = parseLongDigits(value, index, fractionEnd);
+                }
+            }
+        }
+
+        return new PlainDateTime(year, month, day, hour, minute, second, fractionValue, fractionPrecision);
+    }
+
+    private static int digitsEnd(Slice value, int start, int end)
+    {
+        int index = start;
+        while (index < end && isDigit(value.getByte(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private static boolean isDigit(byte value)
+    {
+        return value >= '0' && value <= '9';
+    }
+
+    private static int parseDigits(Slice value, int start, int end)
+    {
+        int result = 0;
+        for (int index = start; index < end; index++) {
+            result = (result * 10) + (value.getByte(index) - '0');
+        }
+        return result;
+    }
+
+    private static long parseLongDigits(Slice value, int start, int end)
+    {
+        long result = 0;
+        for (int index = start; index < end; index++) {
+            result = (result * 10) + (value.getByte(index) - '0');
+        }
+        return result;
+    }
 
     public static final Pattern TIME_PATTERN = Pattern.compile(
             "(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?" +

@@ -272,6 +272,9 @@ is defined.
 In the case of `row_expression.* [ AS ( column_alias [, ...] ) ]`,
 the `row_expression` is an arbitrary expression of type `ROW`.
 All fields of the row define output columns to be included in the result set.
+When the receiver is of type `JSON`, the same surface syntax instead invokes
+the {ref}`JSON simplified accessor <json-simplified-accessor>` — see the JSON
+functions reference for details.
 
 In the case of `relation.*`, all columns of `relation` are included
 in the result set. In this case column aliases are not allowed.

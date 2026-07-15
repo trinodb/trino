@@ -22,7 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.NumberFormatter.formatLong;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static java.lang.String.format;
 
@@ -38,7 +38,8 @@ public class IntegerNumberToVarcharCoercer<F extends Type>
     protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
     {
         long value = fromType.getLong(block, position);
-        Slice converted = utf8Slice(String.valueOf(value));
+        // the rendering is all ASCII, so its length in bytes is also its length in code points
+        Slice converted = formatLong(value);
         if (!toType.isUnbounded() && countCodePoints(converted) > toType.getBoundedLength()) {
             throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of %s exceeds %s bounds", value, toType));
         }

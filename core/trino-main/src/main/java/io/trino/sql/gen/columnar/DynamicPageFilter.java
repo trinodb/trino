@@ -80,9 +80,8 @@ public final class DynamicPageFilter
         this.filterReorderingEnabled = filterReorderingEnabled;
     }
 
-    // Compiled dynamic filter is fixed per-split and generated duration page source creation.
-    // Page source implementations may subsequently implement blocking on completion of dynamic filters, but since
-    // that occurs after page source creation, we cannot be guaranteed a completed dynamic filter here for initial splits
+    // Compiled dynamic filter is generated once per split at PageProcessor#createWorkProcessor.
+    // The supplied FilterEvaluator should not be shared across splits.
     public synchronized Supplier<FilterEvaluator> createDynamicPageFilterEvaluator(ColumnarFilterCompiler compiler, DynamicFilter dynamicFilter)
     {
         requireNonNull(dynamicFilter, "dynamicFilter is null");
@@ -129,7 +128,7 @@ public final class DynamicPageFilter
                     Expression expression = domainTranslator.toPredicate(entry.getValue(), symbol.toSymbolReference());
                     // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
                     expression = irExpressionOptimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
-                    return createColumnarFilterEvaluator(expression, sourceLayout, compiler, filterReorderingEnabled);
+                    return createColumnarFilterEvaluator(expression, sourceLayout, compiler, filterReorderingEnabled, true);
                 })
                 .filter(Optional::isPresent)
                 .map(Optional::get)

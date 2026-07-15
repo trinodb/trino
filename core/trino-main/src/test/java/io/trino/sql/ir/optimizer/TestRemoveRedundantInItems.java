@@ -25,7 +25,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
-import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -40,6 +39,7 @@ import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -141,6 +141,6 @@ public class TestRemoveRedundantInItems
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

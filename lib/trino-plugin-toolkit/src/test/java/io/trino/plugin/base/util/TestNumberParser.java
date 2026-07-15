@@ -87,6 +87,126 @@ public class TestNumberParser
     }
 
     @Test
+    public void testLongMatchesJdk()
+    {
+        for (String value : new String[] {
+                "0", "-0", "+0", "1", "-1", "+1", "123", "-123",
+                "9223372036854775807", "-9223372036854775808",
+                // one past each bound, which must overflow exactly as the JDK does
+                "9223372036854775808", "-9223372036854775809",
+                "99999999999999999999", "-99999999999999999999",
+                "0000000000000000000000123", "-0000000000000000000000123",
+                // String.trim removes everything up to and including the space
+                " 123", "123 ", "  123  ", "\t123\n", "\r123\r",
+                // the JDK accepts digits outside ASCII
+                "١٢٣", " ١٢٣ ", "-١٢٣",
+        }) {
+            assertLongMatchesJdk(value);
+        }
+    }
+
+    @Test
+    public void testMalformedLong()
+    {
+        for (String value : new String[] {"", " ", ".", "-", "+", "1.5", "1e5", "abc", "--1", "1-", "1 5", "12a", "١٢a", " 123"}) {
+            assertLongMatchesJdk(value);
+        }
+    }
+
+    @Test
+    public void testRandomLongsMatchJdk()
+    {
+        Random random = new Random(31337);
+        for (int i = 0; i < 200_000; i++) {
+            assertLongMatchesJdk(randomInteger(random));
+        }
+    }
+
+    @Test
+    public void testLongRespectsOffsetAndLength()
+    {
+        Slice slice = Slices.utf8Slice("xx-123yy");
+        assertThat(NumberParser.parseTrimmedLong(slice, 2, 4)).isEqualTo(-123);
+    }
+
+    private static String randomInteger(Random random)
+    {
+        StringBuilder builder = new StringBuilder();
+        if (random.nextBoolean()) {
+            builder.append(' ');
+        }
+        if (random.nextBoolean()) {
+            builder.append(random.nextBoolean() ? '-' : '+');
+        }
+        int digits = 1 + random.nextInt(21);
+        for (int i = 0; i < digits; i++) {
+            builder.append((char) ('0' + random.nextInt(10)));
+        }
+        if (random.nextBoolean()) {
+            builder.append(' ');
+        }
+        return builder.toString();
+    }
+
+    /**
+     * The value, and the exception for malformed input and overflow, must be identical to the JDK,
+     * so that switching a cast to the byte level parser cannot change a query result.
+     */
+    private static void assertLongMatchesJdk(String value)
+    {
+        Slice slice = Slices.utf8Slice(value);
+
+        Long expected = null;
+        try {
+            expected = Long.parseLong(value.trim());
+        }
+        catch (NumberFormatException _) {
+        }
+
+        if (expected == null) {
+            assertThatThrownBy(() -> NumberParser.parseTrimmedLong(slice, 0, slice.length()))
+                    .describedAs("parseTrimmedLong(%s)", value)
+                    .isInstanceOf(NumberFormatException.class);
+        }
+        else {
+            assertThat(NumberParser.parseTrimmedLong(slice, 0, slice.length()))
+                    .describedAs("parseTrimmedLong(%s)", value)
+                    .isEqualTo(expected);
+        }
+    }
+
+    @Test
+    public void testUntrimmedLongMatchesJdk()
+    {
+        // the Hive coercions do not trim, so surrounding whitespace must be rejected
+        for (String value : new String[] {
+                "0", "1", "-1", "+1", "123", "-123", "9223372036854775807", "-9223372036854775808",
+                "9223372036854775808", "-9223372036854775809", "\u0661\u0662\u0663",
+                " 123", "123 ", "  123  ", "\t123", "", " ", "abc", "1.5",
+        }) {
+            Slice slice = Slices.utf8Slice(value);
+
+            Long expected = null;
+            try {
+                expected = Long.parseLong(value);
+            }
+            catch (NumberFormatException _) {
+            }
+
+            if (expected == null) {
+                assertThatThrownBy(() -> NumberParser.parseLong(slice, 0, slice.length()))
+                        .describedAs("parseLong(%s)", value)
+                        .isInstanceOf(NumberFormatException.class);
+            }
+            else {
+                assertThat(NumberParser.parseLong(slice, 0, slice.length()))
+                        .describedAs("parseLong(%s)", value)
+                        .isEqualTo(expected);
+            }
+        }
+    }
+
+    @Test
     public void testShortDecimalMatchesBigDecimal()
     {
         for (int scale : new int[] {0, 1, 2, 6, 12, 18}) {

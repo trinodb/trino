@@ -487,6 +487,11 @@ public abstract class AstVisitor<R, C>
         return visitPredicate(node, context);
     }
 
+    protected R visitOverlapsPredicate(OverlapsPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
     {
         return visitPredicate(node, context);
@@ -498,6 +503,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitArrayWildcardSubscript(ArrayWildcardSubscript node, C context)
     {
         return visitExpression(node, context);
     }

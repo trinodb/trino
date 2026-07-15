@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
-import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
-import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
 import io.trino.execution.scheduler.FlatNetworkTopology;
 import io.trino.execution.scheduler.NetworkLocation;
 import io.trino.execution.scheduler.NetworkTopology;
@@ -28,6 +26,8 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.NodeSelector;
 import io.trino.execution.scheduler.NodeSelectorFactory;
+import io.trino.execution.scheduler.StableHostAddressProvider;
+import io.trino.execution.scheduler.StableHostAddressProviderConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
@@ -198,11 +198,11 @@ public class BenchmarkNodeScheduler
         {
             InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
-            ConsistentHashingAddressProvider consistentHashingAddressProvider = new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig());
+            StableHostAddressProvider stableHostAddressProvider = new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig());
             return switch (policy) {
-                case "uniform" -> new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, consistentHashingAddressProvider);
-                case "topology" -> new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig(), consistentHashingAddressProvider);
-                case "benchmark" -> new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig(), consistentHashingAddressProvider);
+                case "uniform" -> new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, stableHostAddressProvider);
+                case "topology" -> new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig(), stableHostAddressProvider);
+                case "benchmark" -> new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig(), stableHostAddressProvider);
                 default -> throw new IllegalStateException();
             };
         }

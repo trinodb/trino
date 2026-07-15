@@ -271,6 +271,18 @@ implementation is used:
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
   - `true`
+* - `iceberg.encryption.kms-type`
+  - Key Management Service type for
+    [Iceberg table encryption](https://iceberg.apache.org/docs/latest/encryption/).
+    Possible values are `AWS`, `AZURE`, and `GCP`. Required to read encrypted tables.
+    Writing to encrypted tables is not supported.
+  -
+* - `iceberg.encryption.plaintext-files-allowed-for-encrypted-tables`
+  - Allow reading unencrypted files in tables with encryption enabled. When set
+    to `false`, an error is raised if a file with encryption key metadata is not
+    actually encrypted. The equivalent catalog session property is
+    `plaintext_files_allowed_for_encrypted_tables`.
+  - `false`
 :::
 
 (iceberg-fte-support)=
@@ -1213,6 +1225,16 @@ the table name:
 ```sql
 SELECT * FROM "test_table$properties";
 ```
+
+The same metadata tables are also available for a materialized view (see
+{ref}`iceberg-materialized-views`) by appending the metadata table name to the
+materialized view name. The query resolves against the materialized view's
+storage table:
+
+```sql
+SELECT * FROM "test_materialized_view$files";
+```
+
 
 ##### `$properties` table
 

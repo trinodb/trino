@@ -89,7 +89,7 @@ public class TestSqlParserErrorHandling
                         "line 1:13: Invalid numeric literal: -12223222232535343423232435343"),
                 Arguments.of(
                         "select foo.!",
-                        "line 1:12: mismatched input '!'. Expecting: '*', <identifier>"),
+                        "line 1:12: mismatched input '!'. Expecting: '*', <identifier>, <string>"),
                 Arguments.of(
                         "select foo(,1)",
                         "line 1:12: mismatched input ','. Expecting: ')', '*', 'ALL', 'DISTINCT', 'ORDER', <expression>, <identifier>"),

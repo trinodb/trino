@@ -221,6 +221,7 @@ public class TestSqlKeywords
                         "OVERFLOW",
                         "OVERLAY",
                         "PARTIAL",
+                        "OVERLAPS",
                         "PARTITION",
                         "PARTITIONS",
                         "PASSING",

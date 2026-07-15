@@ -267,6 +267,13 @@ position `start`. Positions start with `1`. A negative starting
 position is interpreted as being relative to the end of the string.
 :::
 
+:::{function} title_case(string) -> varchar
+Returns `string` with the first letter of each word converted to uppercase and
+all remaining letters converted to lowercase. Words are delimited by
+non-alphanumeric characters. For example, `SELECT title_case('hello world')`
+returns `'Hello World'`.
+:::
+
 :::{function} translate(source, from, to) -> varchar
 Returns the `source` string translated by replacing characters found in the
 `from` string with the corresponding characters in the `to` string.  If the `from`

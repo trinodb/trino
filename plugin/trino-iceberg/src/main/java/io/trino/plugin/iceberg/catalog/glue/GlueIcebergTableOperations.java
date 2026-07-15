@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -78,9 +79,10 @@ public class GlueIcebergTableOperations
             String database,
             String table,
             Optional<String> owner,
-            Optional<String> location)
+            Optional<String> location,
+            EncryptionManagerFactory encryptionManagerFactory)
     {
-        super(fileIo, session, database, table, owner, location);
+        super(fileIo, session, database, table, owner, location, encryptionManagerFactory);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.glueClient = requireNonNull(glueClient, "glueClient is null");

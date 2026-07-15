@@ -270,6 +270,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getColumnMappin
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getDeletionVectorsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
+import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.containsSchemaString;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.getLastTransactionVersion;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.isSameTransactionVersion;
@@ -3486,12 +3487,11 @@ public class DeltaLakeMetadata
     {
         Location location = Location.of(tableLocation);
         List<Location> filesToDelete = dataFiles.stream()
-                // DataFileInfo entries with a deletionVector reference existing source files
-                // (via sourceReferencePath), not newly-written files. Skip them to avoid
-                // deleting active data files that are still referenced in the delta log.
-                .filter(info -> info.deletionVector().isEmpty())
-                .map(DataFileInfo::path)
-                .map(location::appendPath)
+                // DataFileInfo entries with a deletion vector reference existing source files,
+                // so clean up the newly written sidecar instead of the active data file.
+                .map(info -> info.deletionVector()
+                        .map(deletionVector -> location.appendPath(toFileName(deletionVector.pathOrInlineDv())))
+                        .orElseGet(() -> location.appendPath(info.path())))
                 .collect(toImmutableList());
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);

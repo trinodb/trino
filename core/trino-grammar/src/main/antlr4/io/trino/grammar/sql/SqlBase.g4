@@ -589,6 +589,7 @@ predicate[ParserRuleContext value]
     | IS NOT? truthValue=(TRUE | FALSE | UNKNOWN)                         #booleanTest
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
     | MATCH UNIQUE? matchType=(SIMPLE | PARTIAL | FULL)? '(' query ')'    #match
+    | OVERLAPS right=valueExpression                                      #overlaps
     ;
 
 valueExpression
@@ -631,8 +632,10 @@ primaryExpression
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
     | '[' (expression (',' expression)*)? ']'                                             #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
+    | value=primaryExpression '[' ASTERISK ']'                                            #arrayWildcardSubscript
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
+    | base=primaryExpression '.' stringField=string                                       #stringLiteralDereference
     | name=CURRENT_DATE                                                                   #currentDate
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
@@ -1292,6 +1295,7 @@ OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
 OVERLAY: 'OVERLAY';
 PARTIAL: 'PARTIAL';
+OVERLAPS: 'OVERLAPS';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PASSING: 'PASSING';

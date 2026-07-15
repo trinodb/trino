@@ -15,6 +15,8 @@ package io.trino.plugin.base.util;
 
 import io.airlift.slice.Slice;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * Parses floating point values directly from their ASCII bytes.
  * <p>
@@ -102,7 +104,100 @@ public final class NumberParser
      */
     public static final long NOT_SHORT_DECIMAL = Long.MIN_VALUE;
 
+    /**
+     * Accumulating another digit past this overflows a long.
+     */
+    private static final long MIN_VALUE_BEFORE_LAST_DIGIT = Long.MIN_VALUE / 10;
+
     private NumberParser() {}
+
+    /**
+     * Parses an integer exactly as {@code Long.parseLong(value.toStringUtf8().trim())} would,
+     * including the exception it throws for malformed input and for overflow.
+     */
+    public static long parseTrimmedLong(Slice slice, int offset, int length)
+    {
+        int index = offset;
+        int end = offset + length;
+
+        // String.trim removes every character up to and including the space, and every byte of a
+        // multi byte UTF-8 sequence has the high bit set, so trimming bytes trims the same
+        // characters that String.trim does
+        while (index < end && isTrimmed(slice.getByte(index))) {
+            index++;
+        }
+        while (end > index && isTrimmed(slice.getByte(end - 1))) {
+            end--;
+        }
+        return parseLong(slice, index, end - index);
+    }
+
+    /**
+     * Parses an integer exactly as {@code Long.parseLong(value.toStringUtf8())} would, including the
+     * exception it throws for malformed input and for overflow. Surrounding whitespace is rejected,
+     * just as the JDK rejects it.
+     * <p>
+     * Anything that is not a sign or an ASCII digit falls back to the JDK, which also accepts digits
+     * outside ASCII, such as Arabic-Indic ones.
+     */
+    public static long parseLong(Slice slice, int offset, int length)
+    {
+        int index = offset;
+        int end = offset + length;
+        if (index == end) {
+            return parseLongWithJdk(slice, offset, length);
+        }
+
+        boolean negative = false;
+        byte first = slice.getByte(index);
+        if (first == '-') {
+            negative = true;
+            index++;
+        }
+        else if (first == '+') {
+            index++;
+        }
+        if (index == end) {
+            return parseLongWithJdk(slice, offset, length);
+        }
+
+        // accumulate towards Long.MIN_VALUE, which has a larger magnitude than Long.MAX_VALUE
+        long value = 0;
+        while (index < end) {
+            int digit = slice.getByte(index) - '0';
+            if (digit < 0 || digit > 9) {
+                return parseLongWithJdk(slice, offset, length);
+            }
+            if (value < MIN_VALUE_BEFORE_LAST_DIGIT) {
+                return parseLongWithJdk(slice, offset, length);
+            }
+            value *= 10;
+            if (value < Long.MIN_VALUE + digit) {
+                return parseLongWithJdk(slice, offset, length);
+            }
+            value -= digit;
+            index++;
+        }
+
+        if (negative) {
+            return value;
+        }
+        if (value == Long.MIN_VALUE) {
+            // the magnitude of Long.MIN_VALUE cannot be represented as a positive long
+            return parseLongWithJdk(slice, offset, length);
+        }
+        return -value;
+    }
+
+    private static long parseLongWithJdk(Slice slice, int offset, int length)
+    {
+        return Long.parseLong(slice.toString(offset, length, UTF_8));
+    }
+
+    private static boolean isTrimmed(byte value)
+    {
+        return value >= 0 && value <= ' ';
+    }
 
     /**
      * Parses a plain decimal into an unscaled long at {@code scale}, rounding half up, exactly as

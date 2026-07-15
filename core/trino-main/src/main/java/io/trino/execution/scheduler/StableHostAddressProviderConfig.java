@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.Min;
 
-public class ConsistentHashingAddressProviderConfig
+public class StableHostAddressProviderConfig
 {
     private int preferredHostsCount = 2;
 
@@ -29,7 +29,7 @@ public class ConsistentHashingAddressProviderConfig
 
     @Config("node-scheduler.cache-preferred-hosts-count")
     @ConfigDescription("Number of preferred worker hosts the scheduler derives from a split's cache key")
-    public ConsistentHashingAddressProviderConfig setPreferredHostsCount(int preferredHostsCount)
+    public StableHostAddressProviderConfig setPreferredHostsCount(int preferredHostsCount)
     {
         this.preferredHostsCount = preferredHostsCount;
         return this;

@@ -56,6 +56,21 @@ public final class MetadataListing
 
     public static SortedSet<String> listCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Domain catalogDomain)
     {
+        Set<String> catalogs = metadata.listCatalogs(session).stream()
+                .filter(CatalogInfo::isOperational)
+                .map(CatalogInfo::catalogName)
+                .filter(stringFilter(catalogDomain))
+                .collect(toImmutableSet());
+        return ImmutableSortedSet.copyOf(accessControl.filterCatalogs(session.toSecurityContext(), catalogs));
+    }
+
+    /**
+     * Like {@link #listCatalogNames(Session, Metadata, AccessControl, Domain)} but also includes catalogs
+     * that failed to load. Use this only when the caller does not access the catalog's connector —
+     * for example, when displaying a catalog list to the user.
+     */
+    public static SortedSet<String> listAllCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Domain catalogDomain)
+    {
         Optional<String> catalogName = tryGetSingleVarcharValue(catalogDomain);
         Set<String> catalogs;
         if (catalogName.isPresent()) {

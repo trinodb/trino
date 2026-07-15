@@ -510,6 +510,13 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitOverlapsPredicate(OverlapsPredicate node, C context)
+    {
+        process(node.getRight(), context);
+        return null;
+    }
+
+    @Override
     protected Void visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
     {
         process(node.getSubquery(), context);

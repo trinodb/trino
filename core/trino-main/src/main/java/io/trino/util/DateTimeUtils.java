@@ -14,6 +14,7 @@
 package io.trino.util;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
@@ -63,7 +64,7 @@ public final class DateTimeUtils
 
     private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
 
-    public static int parseDate(String value)
+    public static int parseDate(Slice value)
     {
         // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever varchar->date conversion (CAST) behavior changes.
 
@@ -76,7 +77,8 @@ public final class DateTimeUtils
         if (days.isPresent()) {
             return days.getAsInt();
         }
-        return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value)));
+        // only the fallback formatter needs the value as a String
+        return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value.toStringUtf8())));
     }
 
     /**
@@ -86,9 +88,10 @@ public final class DateTimeUtils
      * @throws DateTimeException when value matches the expected format but is invalid (month or day number out of range)
      */
     @VisibleForTesting
-    static OptionalInt parseIfIso8601DateFormat(String value)
+    static OptionalInt parseIfIso8601DateFormat(Slice value)
     {
-        if (value.length() != 10 || value.charAt(4) != '-' || value.charAt(7) != '-') {
+        // the format is all ASCII, so a byte length of ten is also a length of ten characters
+        if (value.length() != 10 || value.getByte(4) != '-' || value.getByte(7) != '-') {
             return OptionalInt.empty();
         }
 
@@ -116,13 +119,13 @@ public final class DateTimeUtils
      *
      * @return parsed value or empty if any non digit found
      */
-    private static OptionalInt parseIntSimple(String input, int offset, int length)
+    private static OptionalInt parseIntSimple(Slice input, int offset, int length)
     {
         checkArgument(length > 0, "Invalid length %s", length);
 
         int result = 0;
         for (int i = 0; i < length; i++) {
-            int digit = input.charAt(offset + i) - '0';
+            int digit = input.getByte(offset + i) - '0';
             if (digit < 0 || digit > 9) {
                 return OptionalInt.empty();
             }

@@ -28,7 +28,6 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
@@ -37,6 +36,7 @@ import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -64,6 +64,7 @@ import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -513,24 +514,24 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the date's representation
         assertSimplifies(
-                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(10)),
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2013-02-02"))), createVarcharType(10)),
                 new Constant(createVarcharType(10), Slices.utf8Slice("2013-02-02")));
         assertSimplifies(
-                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(50)),
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2013-02-02"))), createVarcharType(50)),
                 new Constant(createVarcharType(50), Slices.utf8Slice("2013-02-02")));
 
         // cast from date to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)),
-                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)));
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2013-02-02"))), createVarcharType(3)),
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2013-02-02"))), createVarcharType(3)));
         assertSimplifies(
-                comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))),
-                comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))));
+                comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2013-02-02"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))),
+                comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2013-02-02"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))));
     }
 
     private static void assertSimplifies(Expression expression, Expression expected)
     {
-        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), new SymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer()));
+        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), emptySymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer()));
         assertThat(simplified).isEqualTo(normalize(expected));
     }
 
@@ -654,7 +655,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)
     {
-        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), new SymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer());
+        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), emptySymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer());
         assertThat(normalize(rewritten)).isEqualTo(normalize(expected));
     }
 

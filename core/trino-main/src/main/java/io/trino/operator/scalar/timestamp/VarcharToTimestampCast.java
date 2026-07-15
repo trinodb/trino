@@ -21,8 +21,10 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.type.DateTimes;
+import io.trino.type.DateTimes.PlainDateTime;
 
 import java.time.DateTimeException;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
@@ -36,6 +38,7 @@ import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.longTimestamp;
+import static io.trino.type.DateTimes.parsePlainDateTime;
 import static io.trino.type.DateTimes.rescale;
 import static java.time.ZoneOffset.UTC;
 
@@ -50,7 +53,7 @@ public final class VarcharToTimestampCast
     public static long castToShort(@LiteralParameter("p") long precision, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return castToShortTimestamp((int) precision, trim(value).toStringUtf8());
+            return castToShortTimestamp((int) precision, trim(value));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
@@ -62,9 +65,65 @@ public final class VarcharToTimestampCast
     public static LongTimestamp castToLong(@LiteralParameter("p") long precision, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return castToLongTimestamp((int) precision, trim(value).toStringUtf8());
+            return castToLongTimestamp((int) precision, trim(value));
         }
         catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+        }
+    }
+
+    public static long castToShortTimestamp(int precision, Slice value)
+    {
+        checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
+
+        PlainDateTime parsed = parsePlainDateTime(value);
+        if (parsed == null) {
+            return castToShortTimestamp(precision, value.toStringUtf8());
+        }
+
+        long epochSecond = epochSecondAtUtc(parsed, value);
+
+        long fractionValue = parsed.fractionValue();
+        int actualPrecision = parsed.fractionPrecision();
+        if (actualPrecision > precision) {
+            fractionValue = round(fractionValue, actualPrecision - precision);
+        }
+
+        // scale to micros
+        return epochSecond * MICROSECONDS_PER_SECOND + rescale(fractionValue, actualPrecision, 6);
+    }
+
+    public static LongTimestamp castToLongTimestamp(int precision, Slice value)
+    {
+        checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_PRECISION, "precision out of range");
+
+        PlainDateTime parsed = parsePlainDateTime(value);
+        if (parsed == null) {
+            return castToLongTimestamp(precision, value.toStringUtf8());
+        }
+
+        long epochSecond = epochSecondAtUtc(parsed, value);
+
+        long fractionValue = parsed.fractionValue();
+        int actualPrecision = parsed.fractionPrecision();
+        if (actualPrecision > precision) {
+            fractionValue = round(fractionValue, actualPrecision - precision);
+        }
+
+        return longTimestamp(epochSecond, rescale(fractionValue, actualPrecision, 12));
+    }
+
+    /**
+     * With no time zone the pattern based path resolves against UTC, which never shifts the value,
+     * so the fields alone determine the result.
+     */
+    private static long epochSecondAtUtc(PlainDateTime parsed, Slice value)
+    {
+        try {
+            return LocalDateTime.of(parsed.year(), parsed.month(), parsed.day(), parsed.hour(), parsed.minute(), parsed.second())
+                    .toEpochSecond(UTC);
+        }
+        catch (DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
         }
     }

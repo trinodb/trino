@@ -428,7 +428,7 @@ public final class DateTimeFunctions
     {
         if (ISO_8601_DATE_FORMAT.equals(formatString)) {
             try {
-                long days = DateTimeUtils.parseDate(dateTime.toStringUtf8());
+                long days = DateTimeUtils.parseDate(dateTime);
                 return scaleEpochMillisToMicros(days * MILLISECONDS_PER_DAY);
             }
             catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
