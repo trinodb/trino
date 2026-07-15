@@ -4637,7 +4637,9 @@ public class DeltaLakeMetadata
 
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, addFileEntry.getDeletionVector()));
 
+                // Older ANALYZE versions rewrote deletion-vector-backed entries with dataChange=false and logical row counts.
                 Optional<Long> fileRecords = addFileEntry.getStats()
+                        .filter(_ -> addFileEntry.isDataChange() || addFileEntry.getDeletionVector().isEmpty())
                         .flatMap(DeltaLakeFileStatistics::getNumRecords)
                         .map(records -> records - addFileEntry.getDeletionVector().map(DeletionVectorEntry::cardinality).orElse(0L));
                 allDeletedFilesStatsPresent &= fileRecords.isPresent();
