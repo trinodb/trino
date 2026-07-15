@@ -3292,6 +3292,7 @@ class StatementAnalyzer
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             analyzeAggregations(node, sourceScope, orderByScope, groupByAnalysis, sourceExpressions, orderByExpressions);
+            analyzeQualify(node, sourceScope, outputExpressions);
             analyzeWindowFunctionsAndMeasures(node, outputExpressions, orderByExpressions);
 
             if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
@@ -4619,7 +4620,7 @@ class StatementAnalyzer
         {
             ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
 
-            // SELECT expressions and ORDER BY expressions can contain window functions
+            // SELECT expressions, ORDER BY expressions, and QUALIFY expressions can contain window functions
             for (SelectItem item : querySpecification.getSelect().getSelectItems()) {
                 if (item instanceof AllColumns allColumns) {
                     allColumns.getTarget().ifPresent(expressions::add);
@@ -4631,6 +4632,7 @@ class StatementAnalyzer
             for (SortItem sortItem : getSortItemsFromOrderBy(querySpecification.getOrderBy())) {
                 expressions.add(sortItem.getSortKey());
             }
+            querySpecification.getQualify().ifPresent(expressions::add);
 
             for (FunctionCall windowFunction : extractWindowFunctions(expressions.build())) {
                 ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, windowFunction.getWindow().orElseThrow());
@@ -4645,8 +4647,15 @@ class StatementAnalyzer
 
         private void analyzeWindowFunctionsAndMeasures(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
         {
-            analysis.setWindowFunctions(node, analyzeWindowFunctions(node, outputExpressions));
-            analysis.setWindowMeasures(node, extractWindowMeasures(outputExpressions));
+            List<Expression> qualifyExpressions = node.getQualify()
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
+            List<Expression> allOutputExpressions = ImmutableList.<Expression>builder()
+                    .addAll(outputExpressions)
+                    .addAll(qualifyExpressions)
+                    .build();
+            analysis.setWindowFunctions(node, analyzeWindowFunctions(node, allOutputExpressions));
+            analysis.setWindowMeasures(node, extractWindowMeasures(allOutputExpressions));
             if (node.getOrderBy().isPresent()) {
                 OrderBy orderBy = node.getOrderBy().get();
                 analysis.setOrderByWindowFunctions(orderBy, analyzeWindowFunctions(node, orderByExpressions));
@@ -4730,6 +4739,45 @@ class StatementAnalyzer
                 }
 
                 analysis.setHaving(node, predicate);
+            }
+        }
+
+        private void analyzeQualify(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
+        {
+            if (node.getQualify().isPresent()) {
+                Expression predicate = node.getQualify().get();
+
+                // Build alias → expression map from SELECT items so QUALIFY can reference output aliases
+                Map<String, Expression> aliasMap = new LinkedHashMap<>();
+                List<SelectItem> selectItems = node.getSelect().getSelectItems();
+                for (int i = 0; i < selectItems.size(); i++) {
+                    if (selectItems.get(i) instanceof SingleColumn singleColumn && singleColumn.getAlias().isPresent()) {
+                        aliasMap.put(singleColumn.getAlias().get().getCanonicalValue(), outputExpressions.get(i));
+                    }
+                }
+
+                // Rewrite alias references in predicate to their underlying expressions
+                if (!aliasMap.isEmpty()) {
+                    predicate = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+                    {
+                        @Override
+                        public Expression rewriteIdentifier(Identifier identifier, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                        {
+                            Expression aliased = aliasMap.get(identifier.getCanonicalValue());
+                            return aliased != null ? aliased : identifier;
+                        }
+                    }, predicate);
+                }
+
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
+                analysis.recordSubqueries(node, expressionAnalysis);
+
+                Type predicateType = expressionAnalysis.getType(predicate);
+                if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
+                    throw semanticException(TYPE_MISMATCH, predicate, "QUALIFY clause must evaluate to a boolean: actual type %s", predicateType);
+                }
+
+                analysis.setQualify(node, predicate);
             }
         }
 

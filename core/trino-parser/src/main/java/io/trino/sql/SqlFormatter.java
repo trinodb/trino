@@ -752,6 +752,9 @@ public final class SqlFormatter
                         .collect(toImmutableList()), indent + 1);
             }
 
+            node.getQualify().ifPresent(qualify -> append(indent, "QUALIFY " + formatExpression(qualify))
+                    .append('\n'));
+
             node.getOrderBy().ifPresent(orderBy -> process(orderBy, indent));
             node.getOffset().ifPresent(offset -> process(offset, indent));
             node.getLimit().ifPresent(limit -> process(limit, indent));

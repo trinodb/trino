@@ -53,7 +53,7 @@ public class TestSqlParserErrorHandling
                         "line 1:15: mismatched input '''. Expecting: '(', 'JSON_TABLE', 'LATERAL', 'NEAREST', 'TABLE', 'UNNEST', <identifier>"),
                 Arguments.of("select *\nfrom x\nfrom",
                         "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FOR', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
-                                "'LIMIT', 'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>, <identifier>"),
+                                "'LIMIT', 'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'QUALIFY', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>, <identifier>"),
                 Arguments.of(
                         "select *\nfrom x\nwhere from",
                         "line 3:7: mismatched input 'from'. Expecting: <expression>"),
@@ -140,7 +140,7 @@ public class TestSqlParserErrorHandling
                         "line 1:36: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of(
                         "SELECT a AS z FROM t WHERE a. ",
-                        "line 1:29: mismatched input '.'. Expecting: '%', '*', '+', '-', '/', 'AND', 'AT', 'EXCEPT', 'FETCH', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WINDOW', '||', <EOF>, <predicate>"),
+                        "line 1:29: mismatched input '.'. Expecting: '%', '*', '+', '-', '/', 'AND', 'AT', 'EXCEPT', 'FETCH', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'QUALIFY', 'UNION', 'WINDOW', '||', <EOF>, <predicate>"),
                 Arguments.of(
                         "CREATE TABLE t (x bigint) COMMENT ",
                         "line 1:35: mismatched input '<EOF>'. Expecting: <string>"),
@@ -158,7 +158,7 @@ public class TestSqlParserErrorHandling
                         "line 1:23: mismatched input '<EOF>'. Expecting: 'WHERE'"),
                 Arguments.of("SELECT * FROM t t x",
                         "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', " +
-                                "'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>"),
+                                "'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'QUALIFY', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>"),
                 Arguments.of(
                         "SELECT * FROM t WHERE EXISTS (",
                         "line 1:31: mismatched input '<EOF>'. Expecting: <query>"),
@@ -176,7 +176,7 @@ public class TestSqlParserErrorHandling
                         "line 1:15: Zero-length delimited identifier not allowed"),
                 Arguments.of("WITH t AS (SELECT 1 SELECT t.* FROM t",
                         "line 1:21: mismatched input 'SELECT'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
-                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WHERE', 'WINDOW', '[', '||', " +
+                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'QUALIFY', 'UNION', 'WHERE', 'WINDOW', '[', '||', " +
                                 "<identifier>, <predicate>"),
                 Arguments.of(
                         "SHOW CATALOGS LIKE '%$_%' ESCAPE",

@@ -427,6 +427,7 @@ class QueryPlanner
         builder = filter(builder, analysis.getHaving(node), node);
         builder = planWindowFunctions(node, builder, ImmutableList.copyOf(analysis.getWindowFunctions(node)));
         builder = planWindowMeasures(node, builder, ImmutableList.copyOf(analysis.getWindowMeasures(node)));
+        builder = filter(builder, analysis.getQualify(node), node);
 
         List<SelectExpression> selectExpressions = analysis.getSelectExpressions(node);
         List<io.trino.sql.tree.Expression> expressions = selectExpressions.stream()

@@ -575,6 +575,9 @@ public abstract class DefaultTraversalVisitor<C>
         for (WindowDefinition windowDefinition : node.getWindows()) {
             process(windowDefinition, context);
         }
+        if (node.getQualify().isPresent()) {
+            process(node.getQualify().get(), context);
+        }
         if (node.getOrderBy().isPresent()) {
             process(node.getOrderBy().get(), context);
         }
