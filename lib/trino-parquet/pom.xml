@@ -107,6 +107,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
             <scope>provided</scope>
@@ -255,5 +260,23 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <!--
+                        parquet-column's GeospatialStatistics.Builder has a private update(Geometry)
+                        overload, so javac must load org.locationtech.jts.geom.Geometry on the compile
+                        classpath even though our production code never references JTS directly. Declaring
+                        jts-core at compile scope satisfies javac; this override tells dependency:analyze
+                        not to demote it to test scope on our behalf.
+                    -->
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredDependency>org.locationtech.jts:jts-core</ignoredDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>

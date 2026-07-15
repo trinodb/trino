@@ -23,6 +23,7 @@ import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
 import io.trino.parquet.writer.repdef.RepLevelWriterProvider.RepetitionLevelWriter;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
+import io.trino.parquet.writer.valuewriter.GeometryValueWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
 import jakarta.annotation.Nullable;
@@ -34,6 +35,7 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.statistics.geospatial.GeospatialStatistics;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.CompressionCodec;
@@ -212,6 +214,13 @@ public class PrimitiveColumnWriter
                 totalCompressedSize,
                 -1);
         columnMetaData.setStatistics(ParquetMetadataConverter.toParquetStatistics(columnStatistics, MAX_STATISTICS_LENGTH_IN_BYTES));
+        if (primitiveValueWriter instanceof GeometryValueWriter geometryValueWriter) {
+            GeospatialStatistics geoStats = geometryValueWriter.getGeospatialStatisticsBuilder().build();
+            org.apache.parquet.format.GeospatialStatistics formatGeoStats = ParquetMetadataConverter.toParquetGeospatialStatistics(geoStats);
+            if (formatGeoStats != null) {
+                columnMetaData.setGeospatial_statistics(formatGeoStats);
+            }
+        }
         ImmutableList.Builder<PageEncodingStats> pageEncodingStats = ImmutableList.builder();
         dataPagesWithEncoding.entrySet().stream()
                 .map(encodingAndCount -> new PageEncodingStats(PageType.DATA_PAGE, encodingAndCount.getKey(), encodingAndCount.getValue()))
