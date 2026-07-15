@@ -4239,6 +4239,7 @@ public class DeltaLakeMetadata
                 TupleDomain.all(),
                 alwaysTrue())) {
             addFileEntriesWithNoStats = activeFiles
+                    .filter(addFileEntry -> addFileEntry.getDeletionVector().isEmpty())
                     .filter(addFileEntry -> addFileEntry.getStats().isEmpty()
                             || addFileEntry.getStats().get().getNumRecords().isEmpty()
                             || addFileEntry.getStats().get().getMaxValues().isEmpty()
