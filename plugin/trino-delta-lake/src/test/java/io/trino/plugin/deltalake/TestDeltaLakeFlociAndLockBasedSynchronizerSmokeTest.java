@@ -87,17 +87,31 @@ public class TestDeltaLakeFlociAndLockBasedSynchronizerSmokeTest
         testWritesLocked("DELETE FROM %s WHERE a_number = 1");
     }
 
+    @Test
+    public void testDeletionVectorWriteLocked()
+            throws Exception
+    {
+        testWritesLocked("DELETE FROM %s WHERE a_number = 1", true);
+    }
+
     private void testWritesLocked(String writeStatement)
+            throws Exception
+    {
+        testWritesLocked(writeStatement, false);
+    }
+
+    private void testWritesLocked(String writeStatement, boolean deletionVectorsEnabled)
             throws Exception
     {
         String tableName = "test_writes_locked" + randomNameSuffix();
         try {
             assertUpdate(
-                    format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
+                    format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s', deletion_vectors_enabled = %s) AS " +
                                     "VALUES (1, 'ala'), (2, 'ma')",
                             tableName,
                             bucketName,
-                            tableName),
+                            tableName,
+                            deletionVectorsEnabled),
                     2);
 
             Set<String> originalFiles = ImmutableSet.copyOf(getTableFiles(tableName));
