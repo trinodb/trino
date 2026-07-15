@@ -20,7 +20,6 @@ import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -336,8 +335,7 @@ public class JoinFilterFunctionCompiler
                 internalJoinFilterFunctionConstructor = internalJoinFilterFunction
                         .getConstructor(ConnectorSession.class);
 
-                Class<? extends JoinFilterFunction> isolatedJoinFilterFunction = IsolatedClass.isolateClass(
-                        new DynamicClassLoader(getClass().getClassLoader()),
+                Class<? extends JoinFilterFunction> isolatedJoinFilterFunction = IsolatedClass.isolateHiddenClass(
                         JoinFilterFunction.class,
                         StandardJoinFilterFunction.class);
                 isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, LongArrayList.class, List.class);
