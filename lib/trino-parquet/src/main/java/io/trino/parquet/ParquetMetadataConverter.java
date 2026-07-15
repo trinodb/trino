@@ -16,6 +16,9 @@ package io.trino.parquet;
 import io.trino.parquet.metadata.IndexReference;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.column.statistics.geospatial.BoundingBox;
+import org.apache.parquet.column.statistics.geospatial.GeospatialStatistics;
+import org.apache.parquet.column.statistics.geospatial.GeospatialTypes;
 import org.apache.parquet.format.BoundaryOrder;
 import org.apache.parquet.format.BsonType;
 import org.apache.parquet.format.ColumnChunk;
@@ -71,7 +74,9 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -351,6 +356,70 @@ public final class ParquetMetadataConverter
             }
         }
         return statsBuilder.build();
+    }
+
+    public static GeospatialStatistics fromParquetGeospatialStatistics(org.apache.parquet.format.GeospatialStatistics formatStats)
+    {
+        if (formatStats == null) {
+            return null;
+        }
+
+        BoundingBox bbox = null;
+        if (formatStats.isSetBbox()) {
+            org.apache.parquet.format.BoundingBox formatBbox = formatStats.getBbox();
+            // parquet-column BoundingBox uses +/-Infinity to signal "empty" for a dimension (see isEmpty()).
+            // NaN would mark the dimension as invalid instead, which is the wrong signal for Z or M being unset.
+            bbox = new BoundingBox(
+                    formatBbox.isSetXmin() ? formatBbox.getXmin() : Double.POSITIVE_INFINITY,
+                    formatBbox.isSetXmax() ? formatBbox.getXmax() : Double.NEGATIVE_INFINITY,
+                    formatBbox.isSetYmin() ? formatBbox.getYmin() : Double.POSITIVE_INFINITY,
+                    formatBbox.isSetYmax() ? formatBbox.getYmax() : Double.NEGATIVE_INFINITY,
+                    formatBbox.isSetZmin() ? formatBbox.getZmin() : Double.POSITIVE_INFINITY,
+                    formatBbox.isSetZmax() ? formatBbox.getZmax() : Double.NEGATIVE_INFINITY,
+                    formatBbox.isSetMmin() ? formatBbox.getMmin() : Double.POSITIVE_INFINITY,
+                    formatBbox.isSetMmax() ? formatBbox.getMmax() : Double.NEGATIVE_INFINITY);
+        }
+
+        GeospatialTypes geospatialTypes = null;
+        if (formatStats.isSetGeospatial_types()) {
+            geospatialTypes = new GeospatialTypes(new HashSet<>(formatStats.getGeospatial_types()));
+        }
+
+        return new GeospatialStatistics(bbox, geospatialTypes);
+    }
+
+    public static org.apache.parquet.format.GeospatialStatistics toParquetGeospatialStatistics(GeospatialStatistics stats)
+    {
+        if (stats == null || !stats.isValid()) {
+            return null;
+        }
+
+        org.apache.parquet.format.GeospatialStatistics formatStats = new org.apache.parquet.format.GeospatialStatistics();
+
+        BoundingBox bbox = stats.getBoundingBox();
+        if (bbox != null && bbox.isValid() && !bbox.isXYEmpty()) {
+            org.apache.parquet.format.BoundingBox formatBbox = new org.apache.parquet.format.BoundingBox(
+                    bbox.getXMin(), bbox.getXMax(), bbox.getYMin(), bbox.getYMax());
+            if (!bbox.isZEmpty()) {
+                formatBbox.setZmin(bbox.getZMin());
+                formatBbox.setZmax(bbox.getZMax());
+            }
+            if (!bbox.isMEmpty()) {
+                formatBbox.setMmin(bbox.getMMin());
+                formatBbox.setMmax(bbox.getMMax());
+            }
+            formatStats.setBbox(formatBbox);
+        }
+
+        GeospatialTypes geospatialTypes = stats.getGeospatialTypes();
+        if (geospatialTypes != null && geospatialTypes.isValid() && !geospatialTypes.getTypes().isEmpty()) {
+            formatStats.setGeospatial_types(new ArrayList<>(geospatialTypes.getTypes()));
+        }
+
+        if (!formatStats.isSetBbox() && !formatStats.isSetGeospatial_types()) {
+            return null;
+        }
+        return formatStats;
     }
 
     public static IndexReference toColumnIndexReference(ColumnChunk columnChunk)

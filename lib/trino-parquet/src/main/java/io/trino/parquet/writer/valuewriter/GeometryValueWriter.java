@@ -17,26 +17,34 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.statistics.geospatial.GeospatialStatistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static java.util.Objects.requireNonNull;
 
-public class BinaryValueWriter
-        extends PrimitiveValueWriter
+/**
+ * Writes VARBINARY values annotated with a Geometry logical type, additionally
+ * feeding each WKB payload through a parquet-column
+ * {@link org.apache.parquet.column.statistics.geospatial.GeospatialStatistics.Builder}
+ * so that the resulting bounding box can be emitted on the column chunk's
+ * {@code geospatial_statistics} thrift field.
+ */
+public class GeometryValueWriter
+        extends BinaryValueWriter
 {
-    private final Type type;
+    private final GeospatialStatistics.Builder geospatialStatisticsBuilder;
 
-    public BinaryValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public GeometryValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
-        this.type = requireNonNull(type, "type is null");
+        super(valuesWriter, type, parquetType);
+        this.geospatialStatisticsBuilder = GeospatialStatistics.newBuilder(parquetType);
     }
 
-    protected Type getType()
+    public GeospatialStatistics.Builder getGeospatialStatisticsBuilder()
     {
-        return type;
+        return geospatialStatisticsBuilder;
     }
 
     @Override
@@ -44,15 +52,15 @@ public class BinaryValueWriter
     {
         ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
         Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        Type type = getType();
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 Slice slice = type.getSlice(block, i);
-                // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
-                // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
                 Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
                 valuesWriter.writeBytes(binary);
                 statistics.updateStats(binary);
+                geospatialStatisticsBuilder.update(binary);
             }
         }
     }

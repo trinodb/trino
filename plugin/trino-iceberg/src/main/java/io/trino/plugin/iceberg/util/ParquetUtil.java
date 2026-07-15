@@ -25,6 +25,7 @@ import org.apache.iceberg.MetricsModes.MetricsMode;
 import org.apache.iceberg.MetricsUtil;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Literal;
+import org.apache.iceberg.geospatial.GeospatialBound;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Conversions;
@@ -33,8 +34,11 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.BinaryUtil;
 import org.apache.iceberg.util.UnicodeUtil;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.statistics.geospatial.BoundingBox;
+import org.apache.parquet.column.statistics.geospatial.GeospatialStatistics;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -88,6 +92,8 @@ public final class ParquetUtil
         Map<Integer, Long> nullValueCounts = new HashMap<>();
         Map<Integer, Literal<?>> lowerBounds = new HashMap<>();
         Map<Integer, Literal<?>> upperBounds = new HashMap<>();
+        Map<Integer, ByteBuffer> geoLowerBounds = new HashMap<>();
+        Map<Integer, ByteBuffer> geoUpperBounds = new HashMap<>();
         Set<Integer> missingStats = new HashSet<>();
 
         // ignore metrics for fields we failed to determine reliable IDs
@@ -146,14 +152,101 @@ public final class ParquetUtil
 
         updateFromFieldMetrics(fieldMetricsMap, metricsConfig, fileSchema, lowerBounds, upperBounds);
 
+        collectGeospatialBounds(metadata, parquetTypeWithIds, fileSchema, metricsConfig, geoLowerBounds, geoUpperBounds);
+
         return new Metrics(
                 rowCount,
                 columnSizes,
                 valueCounts,
                 nullValueCounts,
                 createNanValueCounts(fieldMetricsMap.values().stream(), metricsConfig, fileSchema),
-                toBufferMap(fileSchema, lowerBounds),
-                toBufferMap(fileSchema, upperBounds));
+                mergeBounds(toBufferMap(fileSchema, lowerBounds), geoLowerBounds),
+                mergeBounds(toBufferMap(fileSchema, upperBounds), geoUpperBounds));
+    }
+
+    private static void collectGeospatialBounds(
+            ParquetMetadata metadata,
+            MessageType parquetTypeWithIds,
+            Schema fileSchema,
+            MetricsConfig metricsConfig,
+            Map<Integer, ByteBuffer> geoLowerBounds,
+            Map<Integer, ByteBuffer> geoUpperBounds)
+    {
+        Map<ColumnPath, GeospatialStatistics> geoStatsByColumn = metadata.getGeospatialStatisticsByColumn();
+        if (geoStatsByColumn.isEmpty()) {
+            return;
+        }
+
+        for (Entry<ColumnPath, GeospatialStatistics> entry : geoStatsByColumn.entrySet()) {
+            String[] path = entry.getKey().toArray();
+            // Iceberg 1.11's MessageTypeToType does not yet map GEOMETRY/GEOGRAPHY logical annotations to
+            // Types.GeometryType/GeographyType (it falls through to BINARY), so consult the parquet
+            // logical annotation and field id directly rather than the derived Iceberg field type.
+            if (!parquetTypeWithIds.containsPath(path)) {
+                continue;
+            }
+            PrimitiveType parquetPrimitive = parquetTypeWithIds.getType(path).asPrimitiveType();
+            LogicalTypeAnnotation annotation = parquetPrimitive.getLogicalTypeAnnotation();
+            if (!(annotation instanceof LogicalTypeAnnotation.GeometryLogicalTypeAnnotation)
+                    && !(annotation instanceof LogicalTypeAnnotation.GeographyLogicalTypeAnnotation)) {
+                continue;
+            }
+            org.apache.parquet.schema.Type.ID parquetId = parquetPrimitive.getId();
+            if (parquetId == null) {
+                continue;
+            }
+            int fieldId = parquetId.intValue();
+
+            MetricsMode metricsMode = MetricsUtil.metricsMode(fileSchema, metricsConfig, fieldId);
+            // Bounding boxes are not truncatable, so any mode that collects bounds behaves like Full.
+            if (metricsMode == MetricsModes.None.get() || metricsMode == MetricsModes.Counts.get()) {
+                continue;
+            }
+
+            GeospatialStatistics stats = entry.getValue();
+            if (stats == null) {
+                continue;
+            }
+            BoundingBox bbox = stats.getBoundingBox();
+            if (bbox == null || !bbox.isValid() || bbox.isXYEmpty()) {
+                continue;
+            }
+
+            geoLowerBounds.put(fieldId, toGeospatialBound(bbox, true).toByteBuffer());
+            geoUpperBounds.put(fieldId, toGeospatialBound(bbox, false).toByteBuffer());
+        }
+    }
+
+    private static GeospatialBound toGeospatialBound(BoundingBox bbox, boolean lower)
+    {
+        double x = lower ? bbox.getXMin() : bbox.getXMax();
+        double y = lower ? bbox.getYMin() : bbox.getYMax();
+        boolean hasZ = !bbox.isZEmpty();
+        boolean hasM = !bbox.isMEmpty();
+        if (!hasZ && !hasM) {
+            return GeospatialBound.createXY(x, y);
+        }
+        if (hasZ && !hasM) {
+            return GeospatialBound.createXYZ(x, y, lower ? bbox.getZMin() : bbox.getZMax());
+        }
+        if (!hasZ) {
+            return GeospatialBound.createXYM(x, y, lower ? bbox.getMMin() : bbox.getMMax());
+        }
+        return GeospatialBound.createXYZM(
+                x,
+                y,
+                lower ? bbox.getZMin() : bbox.getZMax(),
+                lower ? bbox.getMMin() : bbox.getMMax());
+    }
+
+    private static Map<Integer, ByteBuffer> mergeBounds(Map<Integer, ByteBuffer> primary, Map<Integer, ByteBuffer> geo)
+    {
+        if (geo.isEmpty()) {
+            return primary;
+        }
+        Map<Integer, ByteBuffer> merged = new HashMap<>(primary);
+        merged.putAll(geo);
+        return merged;
     }
 
     private static void updateFromFieldMetrics(
@@ -265,6 +358,9 @@ public final class ParquetUtil
                     case FIXED, BINARY -> {
                         lowerBounds.put(id, BinaryUtil.truncateBinaryMin((Literal<ByteBuffer>) min, truncateLength));
                     }
+                    case GEOMETRY, GEOGRAPHY -> {
+                        // Geospatial bounds are handled separately; never routed through this Literal-based path.
+                    }
                     default -> {
                         lowerBounds.put(id, min);
                     }
@@ -301,6 +397,9 @@ public final class ParquetUtil
                         if (truncatedMaxBinary != null) {
                             upperBounds.put(id, truncatedMaxBinary);
                         }
+                    }
+                    case GEOMETRY, GEOGRAPHY -> {
+                        // Geospatial bounds are handled separately; never routed through this Literal-based path.
                     }
                     default -> {
                         upperBounds.put(id, max);
