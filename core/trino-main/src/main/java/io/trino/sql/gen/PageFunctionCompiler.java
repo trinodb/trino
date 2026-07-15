@@ -69,7 +69,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -504,17 +503,6 @@ public class PageFunctionCompiler
         MethodDefinition getInputChannelsMethod = classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(InputChannels.class));
         getInputChannelsMethod.getBody()
                 .append(getInputChannelsMethod.getThis().getField(inputChannelsField))
-                .retObject();
-
-        // toString
-        String toStringResult = toStringHelper(classDefinition.getType()
-                .getJavaClassName())
-                .add("filter", filter)
-                .toString();
-        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
-                .getBody()
-                // bind constant via invokedynamic to avoid constant pool issues due to large strings
-                .append(invoke(callSiteBinder.bind(toStringResult, String.class), "toString"))
                 .retObject();
 
         // constructor(InputChannels inputChannels)

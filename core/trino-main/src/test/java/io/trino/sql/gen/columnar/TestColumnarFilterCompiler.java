@@ -197,6 +197,24 @@ public class TestColumnarFilterCompiler
         assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(0);
     }
 
+    @Test
+    public void testGeneratedClassDescribesItself()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        ColumnarFilter first = compiler.generateFilter(
+                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 42L)), layout).orElseThrow().get();
+        // the second filter is defined from the cached template and must describe its own
+        // literal, not the literal of the compilation that created the template
+        ColumnarFilter second = compiler.generateFilter(
+                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 77L)), layout).orElseThrow().get();
+
+        assertThat(compiler.getFilterTemplateCache().getHitRate()).isEqualTo(0.5);
+        assertThat(first.toString()).startsWith("ColumnarFilter{").contains("42");
+        assertThat(second.toString()).contains("77").doesNotContain("42");
+    }
+
     private static int filterGreaterThan(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, long value)
     {
         Expression expression = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, value));
