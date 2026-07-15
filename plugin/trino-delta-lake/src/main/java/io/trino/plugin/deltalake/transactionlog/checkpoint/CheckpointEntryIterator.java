@@ -593,12 +593,14 @@ public class CheckpointEntryIterator
             maxValues = Optional.of(parseMinMax(stats.getRow("maxValues"), columnsWithMinMaxStats));
         }
         nullCount = Optional.of(parseNullCount(stats.getRow("nullCount"), schema));
+        Optional<Boolean> tightBounds = stats.getOptionalBoolean("tightBounds");
 
         return new DeltaLakeParquetFileStatistics(
                 Optional.of(numRecords),
                 minValues,
                 maxValues,
-                nullCount);
+                nullCount,
+                tightBounds);
     }
 
     private Map<String, Object> parseMinMax(@Nullable SqlRow row, List<DeltaLakeColumnMetadata> eligibleColumns)

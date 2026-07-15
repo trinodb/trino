@@ -144,6 +144,7 @@ public class CheckpointSchemaManager
         statsColumns.add(RowType.field(
                 "nullCount",
                 RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.physicalName()), column.physicalColumnType())).collect(toImmutableList()))));
+        statsColumns.add(RowType.field("tightBounds", BOOLEAN));
 
         MapType stringMap = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
