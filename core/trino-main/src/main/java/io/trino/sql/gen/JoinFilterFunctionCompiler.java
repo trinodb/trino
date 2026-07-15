@@ -55,7 +55,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -140,19 +139,6 @@ public class JoinFilterFunctionCompiler
 
             new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
                     .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize);
-
-            //
-            // toString method
-            //
-            generateToString(
-                    classDefinition,
-                    callSiteBinder,
-                    toStringHelper(classDefinition.getType().getJavaClassName())
-                            // constant values are stripped so that the string is valid for
-                            // every filter sharing this compiled template
-                            .add("filter", ClassTemplateCache.stripConstants(canonicalFilter))
-                            .add("leftBlocksSize", leftBlocksSize)
-                            .toString());
 
             return classDefinition;
         });
@@ -246,15 +232,6 @@ public class JoinFilterFunctionCompiler
                         .condition(wasNullVariable)
                         .ifTrue(constantFalse().ret())
                         .ifFalse(result.ret()));
-    }
-
-    private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
-    {
-        // bind constant via invokedynamic to avoid constant pool issues due to large strings
-        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
-                .getBody()
-                .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
-                .retObject();
     }
 
     public interface JoinFilterFunctionFactory
