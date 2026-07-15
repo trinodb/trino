@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.builderWithExpectedSize;
@@ -63,6 +64,8 @@ public final class GlueIcebergUtil
     private static final int GLUE_COLUMN_COMMENT_LENGTH_LIMIT = 255;
     // Limit per Glue API docs (https://docs.aws.amazon.com/glue/latest/webapi/API_Column.html as of this writing)
     private static final int GLUE_COLUMN_PARAMETER_LENGTH_LIMIT = 512000;
+    // Column comment pattern per Glue API docs (https://docs.aws.amazon.com/glue/latest/webapi/API_Column.html as of this writing)
+    private static final Pattern GLUE_COLUMN_COMMENT_PATTERN = Pattern.compile("[\\u0020-\\uD7FF\\uE000-\\uFFFD\\uD800\\uDC00-\\uDBFF\\uDFFF\\t]*");
 
     public static TableInput getTableInput(
             TypeManager typeManager,
@@ -127,9 +130,11 @@ public final class GlueIcebergUtil
         boolean firstColumn = true;
         for (Types.NestedField icebergColumn : icebergColumns) {
             String glueTypeString = toGlueTypeStringLossy(icebergColumn.type());
+            String columnComment = requireNonNullElse(icebergColumn.doc(), "");
             if (icebergColumn.name().length() > GLUE_COLUMN_NAME_LENGTH_LIMIT ||
-                    requireNonNullElse(icebergColumn.doc(), "").length() > GLUE_COLUMN_COMMENT_LENGTH_LIMIT ||
-                    glueTypeString.length() > GLUE_COLUMN_TYPE_LENGTH_LIMIT) {
+                    columnComment.length() > GLUE_COLUMN_COMMENT_LENGTH_LIMIT ||
+                    glueTypeString.length() > GLUE_COLUMN_TYPE_LENGTH_LIMIT ||
+                    !GLUE_COLUMN_COMMENT_PATTERN.matcher(columnComment).matches()) {
                 return Optional.empty();
             }
             String trinoTypeId = TypeConverter.toTrinoType(icebergColumn.type(), typeManager).getTypeId().getId();

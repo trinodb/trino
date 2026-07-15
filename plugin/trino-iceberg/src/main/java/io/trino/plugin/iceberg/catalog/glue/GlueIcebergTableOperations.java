@@ -36,6 +36,7 @@ import software.amazon.awssdk.services.glue.model.ResourceNumberLimitExceededExc
 import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.ValidationException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -137,7 +138,8 @@ public class GlueIcebergTableOperations
                 case AlreadyExistsException _,
                      EntityNotFoundException _,
                      InvalidInputException _,
-                     ResourceNumberLimitExceededException _ -> io().deleteFile(newMetadataLocation);
+                     ResourceNumberLimitExceededException _,
+                     ValidationException _ -> io().deleteFile(newMetadataLocation);
                 default -> {}
             }
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table creation", e);
@@ -201,7 +203,7 @@ public class GlueIcebergTableOperations
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
             throw new CommitFailedException(e, "Failed to commit to Glue table: %s.%s", database, tableName);
         }
-        catch (EntityNotFoundException | InvalidInputException | ResourceNumberLimitExceededException e) {
+        catch (EntityNotFoundException | InvalidInputException | ResourceNumberLimitExceededException | ValidationException e) {
             // Signal a non-retriable commit failure and eventually clean up metadata files corresponding to the current transaction
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table update", e);
         }
