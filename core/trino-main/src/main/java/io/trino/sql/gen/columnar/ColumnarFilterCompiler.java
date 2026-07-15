@@ -282,20 +282,27 @@ public class ColumnarFilterCompiler
 
     static Class<? extends ColumnarFilter> createClassInstance(ClassTemplateCache<ColumnarFilter> templates, Expression filter, Function<CallSiteBinder, ClassDefinition> generator)
     {
-        try {
-            return templates.defineClass(filter, ImmutableList.of(), generator);
-        }
-        catch (Exception e) {
-            throw handleCompilationError(e);
-        }
+        return wrapCompilation(() -> templates.defineClass(filter, ImmutableList.of(), generator));
+    }
+
+    // for a filter the caller already knows can never serve as a template, like an IN list,
+    // so the template key's structural traversal and expression copy are skipped entirely
+    static Class<? extends ColumnarFilter> createClassInstanceWithoutTemplate(ClassTemplateCache<ColumnarFilter> templates, Expression filter, Function<CallSiteBinder, ClassDefinition> generator)
+    {
+        return wrapCompilation(() -> templates.defineClassWithoutTemplate(filter, ImmutableList.of(), generator));
     }
 
     // for generated classes that are already shared across constant values, like the
     // dynamic filter IN class, which receives its value set as a constructor argument
     static Class<? extends ColumnarFilter> createClassInstanceDirect(CallSiteBinder binder, ClassDefinition classDefinition)
     {
+        return wrapCompilation(() -> defineHiddenClass(classDefinition, ColumnarFilter.class, binder.getClassData()));
+    }
+
+    private static Class<? extends ColumnarFilter> wrapCompilation(Supplier<Class<? extends ColumnarFilter>> compilation)
+    {
         try {
-            return defineHiddenClass(classDefinition, ColumnarFilter.class, binder.getClassData());
+            return compilation.get();
         }
         catch (Exception e) {
             throw handleCompilationError(e);
