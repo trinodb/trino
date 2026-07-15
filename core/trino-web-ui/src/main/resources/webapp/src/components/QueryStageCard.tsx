@@ -69,7 +69,8 @@ import {
     parseDuration,
 } from '../utils/utils'
 import { CodeBlock } from './CodeBlock'
-import { styled } from '@mui/material/styles'
+import { styled, useTheme } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 
 interface IQueryStageCard {
     key: string
@@ -235,6 +236,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
     )
 
     const renderHistogram = (tasks: QueryTask[], timeField: 'totalScheduledTime' | 'totalCpuTime') => {
+        const theme = useTheme<Theme>()
         const inputData = tasks.map((task) => parseDuration(task.stats[timeField]) || 0)
 
         const numBuckets = Math.min(175, Math.floor(Math.sqrt(inputData.length)))
@@ -268,11 +270,13 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 series={[{ data: histogramData, valueFormatter: (value) => `${value} tasks` }]}
                 margin={{ left: 6, right: 0, top: 10, bottom: 6 }}
                 height={112}
+                colors={[theme.palette.secondary.main]}
             />
         )
     }
 
     const renderTasksTimeBarChart = (tasks: QueryTask[], timeField: 'totalScheduledTime' | 'totalCpuTime') => {
+        const theme = useTheme<Theme>()
         const orderedTasks = tasks.slice().sort((a, b) => a.taskStatus.taskId.localeCompare(b.taskStatus.taskId))
 
         const xAxisData: string[] = orderedTasks.map((task) => `Task ${getTaskIdSuffix(task.taskStatus.taskId)}`)
@@ -296,6 +300,7 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
                 ]}
                 margin={{ left: 6, right: 0, top: 10, bottom: 6 }}
                 height={100}
+                colors={[theme.palette.secondary.main]}
             />
         )
     }
