@@ -433,6 +433,33 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testNullLiteralThenBoundLiteral()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(10);
+
+        // a null literal must not share a template with a bound literal at the same site:
+        // the template holds no literal slot for the position, so a hit would replay null
+        Block nullResult = project(compileAddConstant(compiler, new Constant(BIGINT, null)), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(nullResult.isNull(0)).isTrue();
+
+        Block boundResult = project(compileAddConstant(compiler, new Constant(BIGINT, 1L)), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(boundResult.isNull(0)).isFalse();
+        assertThat(BIGINT.getLong(boundResult, 0)).isEqualTo(11);
+    }
+
+    private static PageProjection compileAddConstant(PageFunctionCompiler compiler, Constant constant)
+    {
+        return compiler.compileProjection(
+                call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        new Reference(BIGINT, "$col_0"),
+                        constant),
+                LAYOUT,
+                SQL_STANDARD,
+                Optional.empty()).get();
+    }
+
+    @Test
     public void testValueDependentFilterNotTemplated()
     {
         PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
