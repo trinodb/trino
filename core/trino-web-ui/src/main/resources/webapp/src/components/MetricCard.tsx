@@ -14,7 +14,10 @@
 import { Link as RouterLink } from 'react-router-dom'
 import { Card, CardActionArea, CardContent, Grid, Tooltip, Typography } from '@mui/material'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
-import { styled } from '@mui/material/styles'
+import { styled, useTheme } from '@mui/material/styles'
+import { lineClasses } from '@mui/x-charts/LineChart'
+import { chartsAxisHighlightClasses } from '@mui/x-charts/ChartsAxisHighlight'
+import type { Theme } from '@mui/material/styles'
 
 interface IMetricCardProps {
     title: string
@@ -33,9 +36,11 @@ const StyledLink = styled(RouterLink)(({ theme }) => ({
 }))
 
 export const MetricCard = (props: IMetricCardProps) => {
+    const theme = useTheme<Theme>()
     const { title, values, numberFormatter, link, tooltip } = props
     const lastValue = values[values.length - 1]
     const maxValue = Math.max(...values, 1)
+    const color = theme.palette.secondary.main
 
     return (
         <Card variant="outlined">
@@ -46,10 +51,12 @@ export const MetricCard = (props: IMetricCardProps) => {
                             <Tooltip placement="top-start" title={tooltip}>
                                 {link ? (
                                     <StyledLink to={link}>
-                                        <Typography variant="h6">{title}</Typography>
+                                        <Typography variant="h6" color="textPrimary">
+                                            {title}
+                                        </Typography>
                                     </StyledLink>
                                 ) : (
-                                    <Typography variant="h6" color="info">
+                                    <Typography variant="h6" color="textPrimary">
                                         {title}
                                     </Typography>
                                 )}
@@ -76,6 +83,15 @@ export const MetricCard = (props: IMetricCardProps) => {
                                 area
                                 showHighlight
                                 showTooltip
+                                color={color}
+                                sx={{
+                                    [`& .${lineClasses.area}`]: {
+                                        fillOpacity: 0.2,
+                                    },
+                                    [`& .${lineClasses.line}`]: {
+                                        strokeWidth: 2,
+                                    },
+                                }}
                             />
                         </Grid>
                     </Grid>
