@@ -13,7 +13,7 @@
  */
 package io.trino.operator.table.json;
 
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;

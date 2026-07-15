@@ -33,7 +33,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.BaseEncoding.base16;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.Json2016Type.JSON_2016;

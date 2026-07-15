@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
