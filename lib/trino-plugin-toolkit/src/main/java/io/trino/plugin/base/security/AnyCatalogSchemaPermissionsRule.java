@@ -23,16 +23,16 @@ public class AnyCatalogSchemaPermissionsRule
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> catalogRegex;
-    private final Optional<Pattern> schemaRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
 
-    public AnyCatalogSchemaPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> roleRegex, Optional<Pattern> groupRegex, Optional<Pattern> catalogRegex, Optional<Pattern> schemaRegex)
+    public AnyCatalogSchemaPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> roleRegex, Optional<Pattern> groupRegex, Optional<UserSubstitutingPattern> catalogPattern, Optional<UserSubstitutingPattern> schemaPattern)
     {
         this.userRegex = userRegex;
         this.roleRegex = roleRegex;
         this.groupRegex = groupRegex;
-        this.catalogRegex = catalogRegex;
-        this.schemaRegex = schemaRegex;
+        this.catalogPattern = catalogPattern;
+        this.schemaPattern = schemaPattern;
     }
 
     public boolean match(String user, Set<String> roles, Set<String> groups, String catalogName, String schemaName)
@@ -40,8 +40,9 @@ public class AnyCatalogSchemaPermissionsRule
         return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
                 roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
                 groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
-                catalogRegex.map(regex -> regex.matcher(catalogName).matches()).orElse(true) &&
-                schemaRegex.map(regex -> regex.matcher(schemaName).matches()).orElse(true);
+                // A {user}-bearing pattern may match after substitution — treat as potentially matching
+                catalogPattern.map(p -> p.hasUserPlaceholder() || p.matches(user, catalogName)).orElse(true) &&
+                schemaPattern.map(p -> p.hasUserPlaceholder() || p.matches(user, schemaName)).orElse(true);
     }
 
     @Override
@@ -57,8 +58,12 @@ public class AnyCatalogSchemaPermissionsRule
         return patternEquals(userRegex, that.userRegex) &&
                 patternEquals(roleRegex, that.roleRegex) &&
                 patternEquals(groupRegex, that.groupRegex) &&
-                patternEquals(catalogRegex, that.catalogRegex) &&
-                patternEquals(schemaRegex, that.schemaRegex);
+                Objects.equals(
+                        catalogPattern.map(UserSubstitutingPattern::raw),
+                        that.catalogPattern.map(UserSubstitutingPattern::raw)) &&
+                Objects.equals(
+                        schemaPattern.map(UserSubstitutingPattern::raw),
+                        that.schemaPattern.map(UserSubstitutingPattern::raw));
     }
 
     private static boolean patternEquals(Optional<Pattern> left, Optional<Pattern> right)
@@ -74,6 +79,8 @@ public class AnyCatalogSchemaPermissionsRule
     @Override
     public int hashCode()
     {
-        return Objects.hash(userRegex, roleRegex, groupRegex, catalogRegex, schemaRegex);
+        return Objects.hash(userRegex, roleRegex, groupRegex,
+                catalogPattern.map(UserSubstitutingPattern::raw),
+                schemaPattern.map(UserSubstitutingPattern::raw));
     }
 }
