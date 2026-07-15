@@ -48,6 +48,7 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -70,7 +71,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -80,6 +80,8 @@ public class JoinFilterFunctionCompiler
     private final Metadata metadata;
     private final TypeManager typeManager;
     private final NonEvictableCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories;
+    // Structurally identical filters with different literals share one compiled template
+    private final ClassTemplateCache<InternalJoinFilterFunction> filterTemplates;
 
     @Inject
     public JoinFilterFunctionCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
@@ -91,6 +93,7 @@ public class JoinFilterFunctionCompiler
                 CacheBuilder.newBuilder()
                         .recordStats()
                         .maximumSize(1000));
+        this.filterTemplates = new ClassTemplateCache<>(InternalJoinFilterFunction.class, 1000);
     }
 
     @Managed
@@ -100,49 +103,62 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
+    @Nullable
+    @Managed
+    @Nested
+    public CacheStatsMBean getJoinFilterTemplateCache()
+    {
+        return filterTemplates.getStats();
+    }
+
     public JoinFilterFunctionFactory compileJoinFilterFunction(Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
+        Expression canonicalFilter = canonicalizeReferences(filter, layout);
         try {
             return joinFilterFunctionFactories.get(
-                    new JoinFilterCacheKey(canonicalizeReferences(filter, layout), leftBlocksSize, charVarcharCoercion),
-                    () -> internalCompileFilterFunctionFactory(filter, layout, leftBlocksSize, charVarcharCoercion));
+                    new JoinFilterCacheKey(canonicalFilter, leftBlocksSize, charVarcharCoercion),
+                    () -> internalCompileFilterFunctionFactory(filter, canonicalFilter, layout, leftBlocksSize, charVarcharCoercion));
         }
         catch (ExecutionException e) {
             throw new UncheckedExecutionException(e);
         }
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Expression canonicalFilter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, layout, leftBlocksSize, charVarcharCoercion);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, canonicalFilter, layout, leftBlocksSize, charVarcharCoercion);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Expression canonicalFilter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
-        ClassDefinition classDefinition = new ClassDefinition(
-                a(PUBLIC, FINAL),
-                makeClassName("JoinFilterFunction"),
-                type(Object.class),
-                type(InternalJoinFilterFunction.class));
+        // the canonical filter preserves the constant nodes of the original filter, so the
+        // template machinery can match the bound literal values by identity
+        return filterTemplates.defineClass(canonicalFilter, ImmutableList.of(leftBlocksSize, charVarcharCoercion), callSiteBinder -> {
+            ClassDefinition classDefinition = new ClassDefinition(
+                    a(PUBLIC, FINAL),
+                    makeClassName("JoinFilterFunction"),
+                    type(Object.class),
+                    type(InternalJoinFilterFunction.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+            new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
+                    .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize, charVarcharCoercion);
 
-        new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
-                .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize, charVarcharCoercion);
+            //
+            // toString method
+            //
+            generateToString(
+                    classDefinition,
+                    callSiteBinder,
+                    toStringHelper(classDefinition.getType().getJavaClassName())
+                            // constant values are stripped so that the string is valid for
+                            // every filter sharing this compiled template
+                            .add("filter", ClassTemplateCache.stripConstants(canonicalFilter))
+                            .add("leftBlocksSize", leftBlocksSize)
+                            .toString());
 
-        //
-        // toString method
-        //
-        generateToString(
-                classDefinition,
-                callSiteBinder,
-                toStringHelper(classDefinition.getType().getJavaClassName())
-                        .add("filter", filterExpression)
-                        .add("leftBlocksSize", leftBlocksSize)
-                        .toString());
-
-        return defineHiddenClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getClassData());
+            return classDefinition;
+        });
     }
 
     private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
