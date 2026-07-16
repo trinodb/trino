@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.column.values.dictionary;
+package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -23,16 +23,15 @@ import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
-import io.trino.parquet.writer.valuewriter.DictionaryFallbackValuesWriter;
+import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
+import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter;
+import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFloatDictionaryValuesWriter;
+import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
+import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFloatDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.junit.jupiter.api.Test;
@@ -674,27 +673,27 @@ public class TestDictionaryWriter
 
     private static DictionaryFallbackValuesWriter newPlainBinaryDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
     {
-        return plainFallBack(new PlainBinaryDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding(), new DirectByteBufferAllocator()), initialSize);
+        return plainFallBack(new PlainBinaryDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding()), initialSize);
     }
 
     private static DictionaryFallbackValuesWriter newPlainLongDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
     {
-        return plainFallBack(new PlainLongDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding(), new DirectByteBufferAllocator()), initialSize);
+        return plainFallBack(new PlainLongDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding()), initialSize);
     }
 
     private static DictionaryFallbackValuesWriter newPlainIntegerDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
     {
-        return plainFallBack(new PlainIntegerDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding(), new DirectByteBufferAllocator()), initialSize);
+        return plainFallBack(new PlainIntegerDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding()), initialSize);
     }
 
     private static DictionaryFallbackValuesWriter newPlainDoubleDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
     {
-        return plainFallBack(new PlainDoubleDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding(), new DirectByteBufferAllocator()), initialSize);
+        return plainFallBack(new PlainDoubleDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding()), initialSize);
     }
 
     private static DictionaryFallbackValuesWriter newPlainFloatDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
     {
-        return plainFallBack(new PlainFloatDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding(), new DirectByteBufferAllocator()), initialSize);
+        return plainFallBack(new PlainFloatDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding()), initialSize);
     }
 
     @SuppressWarnings("deprecation")
