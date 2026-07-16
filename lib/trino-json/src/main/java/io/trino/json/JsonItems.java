@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
@@ -118,6 +119,8 @@ public final class JsonItems
                         .maxNestingDepth(MAX_NESTING_DEPTH)
                         .maxNumberLength(Integer.MAX_VALUE)
                         .build())
+                .enable(StreamReadFeature.USE_FAST_DOUBLE_PARSER)
+                .enable(StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER)
                 .build();
     }
 
