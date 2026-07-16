@@ -87,14 +87,17 @@ abstract class BaseIcebergEncryptionFlociTest
                                 .put("s3.region", FLOCI_REGION)
                                 .put("s3.path-style-access", "true")
                                 .put("s3.streaming.part-size", "5MB")
+                                .putAll(kmsProperties())
                                 .buildOrThrow())
                 .setAdditionalOverrideModule(binder -> {
                     kmsKeyId = kmsKey();
                     kmsClient = kmsClient();
                     encryptionManagerFactory = new DefaultEncryptionManagerFactory(Optional.of(kmsClient));
-                    newOptionalBinder(binder, EncryptionManagerFactory.class)
-                            .setBinding()
-                            .toInstance(encryptionManagerFactory);
+                    if (kmsProperties().isEmpty()) {
+                        newOptionalBinder(binder, EncryptionManagerFactory.class)
+                                .setBinding()
+                                .toInstance(encryptionManagerFactory);
+                    }
                 })
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
@@ -115,6 +118,11 @@ abstract class BaseIcebergEncryptionFlociTest
     protected abstract String kmsKey();
 
     protected abstract KeyManagementClient kmsClient();
+
+    protected Map<String, String> kmsProperties()
+    {
+        return ImmutableMap.of();
+    }
 
     @Test
     void testReadEncryptedParquetTable()
