@@ -25,12 +25,14 @@ import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter;
+import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFloatDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 
 import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
+import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static org.apache.parquet.column.Encoding.PLAIN;
@@ -215,6 +218,25 @@ public class TestDictionaryWriter
         decoder = new PlainByteArrayDecoders.BinaryPlainValueDecoder();
         checkDistinct(count, bytes2, decoder, "b");
         checkRepeated(count, bytes3, decoder, "a");
+    }
+
+    @Test
+    public void testFixedLenArrayDictionary()
+            throws IOException
+    {
+        int count = 100;
+        int length = 16;
+        DictionaryFallbackValuesWriter fallbackValuesWriter = newPlainFixedLenArrayDictionaryValuesWriter(length, 200, 10000);
+        writeRepeatedFixed(count, length, fallbackValuesWriter, 0);
+        BytesInput bytes1 = getBytesAndCheckEncoding(fallbackValuesWriter, getDictionaryEncoding());
+        // distinct values overflow the dictionary and force a fall back to plain
+        writeDistinctFixed(count, length, fallbackValuesWriter, 1000);
+        BytesInput bytes2 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
+
+        ValueDecoder<long[]> decoder = getDictionaryDecoder(fallbackValuesWriter, INT128_ADAPTER, new PlainValueDecoders.LongDecimalPlainValueDecoder(length));
+        checkRepeatedFixed(count, bytes1, decoder, 0);
+        decoder = new PlainValueDecoders.LongDecimalPlainValueDecoder(length);
+        checkDistinctFixed(count, bytes2, decoder, 1000);
     }
 
     @Test
@@ -631,11 +653,60 @@ public class TestDictionaryWriter
         }
     }
 
+    private static void checkRepeatedFixed(int count, BytesInput bytes, ValueDecoder<long[]> decoder, int base)
+            throws IOException
+    {
+        decoder.init(new SimpleSliceInputStream(Slices.wrappedBuffer(bytes.toByteArray())));
+        long[] values = new long[count * 2];
+        decoder.read(values, 0, count);
+        for (int i = 0; i < count; i++) {
+            assertThat(values[i * 2]).isEqualTo(0L);
+            assertThat(values[(i * 2) + 1]).isEqualTo((long) (base + (i % 10)));
+        }
+    }
+
+    private static void checkDistinctFixed(int count, BytesInput bytes, ValueDecoder<long[]> decoder, int base)
+            throws IOException
+    {
+        decoder.init(new SimpleSliceInputStream(Slices.wrappedBuffer(bytes.toByteArray())));
+        long[] values = new long[count * 2];
+        decoder.read(values, 0, count);
+        for (int i = 0; i < count; i++) {
+            assertThat(values[i * 2]).isEqualTo(0L);
+            assertThat(values[(i * 2) + 1]).isEqualTo((long) (base + i));
+        }
+    }
+
     private static void writeDistinct(int count, ValuesWriter valuesWriter, String prefix)
     {
         for (int i = 0; i < count; i++) {
             valuesWriter.writeBytes(Slices.utf8Slice(prefix + i));
         }
+    }
+
+    private static void writeRepeatedFixed(int count, int length, ValuesWriter valuesWriter, int base)
+    {
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeBytes(fixedValue(length, base + (i % 10)));
+        }
+    }
+
+    private static void writeDistinctFixed(int count, int length, ValuesWriter valuesWriter, int base)
+    {
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeBytes(fixedValue(length, base + i));
+        }
+    }
+
+    // big-endian fixed-length encoding of a non-negative value; the high bytes stay zero
+    private static Slice fixedValue(int length, int value)
+    {
+        byte[] bytes = new byte[length];
+        bytes[length - 4] = (byte) (value >>> 24);
+        bytes[length - 3] = (byte) (value >>> 16);
+        bytes[length - 2] = (byte) (value >>> 8);
+        bytes[length - 1] = (byte) value;
+        return Slices.wrappedBuffer(bytes);
     }
 
     private static void writeRepeated(int count, ValuesWriter valuesWriter, String prefix)
@@ -672,6 +743,14 @@ public class TestDictionaryWriter
     private static DictionaryFallbackValuesWriter newPlainBinaryDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
     {
         return plainFallBack(new PlainBinaryDictionaryValuesWriter(maxDictionaryByteSize, getDictionaryEncoding(), getDictionaryEncoding()), initialSize);
+    }
+
+    private static DictionaryFallbackValuesWriter newPlainFixedLenArrayDictionaryValuesWriter(int length, int maxDictionaryByteSize, int initialSize)
+    {
+        // fixed-length fallback must emit unprefixed values, matching TrinoValuesWriterFactory
+        return new DictionaryFallbackValuesWriter(
+                new PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryByteSize, length, getDictionaryEncoding(), getDictionaryEncoding()),
+                new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(length, initialSize, initialSize * 5, new DirectByteBufferAllocator())));
     }
 
     private static DictionaryFallbackValuesWriter newPlainLongDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
