@@ -108,6 +108,7 @@ import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalLiteral.Sign;
@@ -1878,6 +1879,49 @@ public class TestSqlParser
 
         assertThat(expression("INTERVAL '1' SECOND(1, 2)"))
                 .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), Optional.of(new NumericParameter(new NodeLocation(1, 21), "1")), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 24), "2"))))));
+    }
+
+    @Test
+    public void testIntervalValueExpression()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+
+        // (e1 - e2) <interval qualifier> desugars to a cast of the datetime difference to the interval type
+        assertThat(expression("(a - b) DAY TO SECOND"))
+                .ignoringLocation()
+                .isEqualTo(new Cast(
+                        location,
+                        new ArithmeticBinaryExpression(location, ArithmeticBinaryExpression.Operator.SUBTRACT, new Identifier(location, "a", false), new Identifier(location, "b", false)),
+                        new IntervalDataType(location, new CompositeIntervalQualifier(location, Optional.empty(), new IntervalField.Day(), new IntervalField.Second(Optional.empty())))));
+
+        // an explicit leading precision rides along on the qualifier
+        assertThat(expression("(a - b) DAY(9) TO SECOND"))
+                .ignoringLocation()
+                .isEqualTo(new Cast(
+                        location,
+                        new ArithmeticBinaryExpression(location, ArithmeticBinaryExpression.Operator.SUBTRACT, new Identifier(location, "a", false), new Identifier(location, "b", false)),
+                        new IntervalDataType(location, new CompositeIntervalQualifier(location, Optional.of(new NumericParameter(location, "9")), new IntervalField.Day(), new IntervalField.Second(Optional.empty())))));
+
+        // a single-field day-time qualifier works too
+        assertThat(expression("(a - b) HOUR"))
+                .ignoringLocation()
+                .isEqualTo(new Cast(
+                        location,
+                        new ArithmeticBinaryExpression(location, ArithmeticBinaryExpression.Operator.SUBTRACT, new Identifier(location, "a", false), new Identifier(location, "b", false)),
+                        new IntervalDataType(location, new SimpleIntervalQualifier(location, Optional.empty(), new IntervalField.Hour()))));
+
+        // a year-month qualifier parses to the same cast form; it is rejected later, during analysis, as
+        // unsupported (a datetime difference is a day-time interval, not a calendar year-month difference)
+        assertThat(expression("(a - b) MONTH"))
+                .ignoringLocation()
+                .isEqualTo(new Cast(
+                        location,
+                        new ArithmeticBinaryExpression(location, ArithmeticBinaryExpression.Operator.SUBTRACT, new Identifier(location, "a", false), new Identifier(location, "b", false)),
+                        new IntervalDataType(location, new SimpleIntervalQualifier(location, Optional.empty(), new IntervalField.Month()))));
+
+        // the parenthesized form requires a subtraction: an addition is not an interval value expression
+        assertExpressionIsInvalid("(a + b) DAY TO SECOND")
+                .withMessageStartingWith("line 1:9: mismatched input 'DAY'");
     }
 
     @Test
