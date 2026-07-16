@@ -54,6 +54,7 @@ import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.io.LocalOutputFile;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.MessageTypeParser;
 import org.apache.parquet.schema.Types;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
@@ -92,10 +93,13 @@ import static io.trino.parquet.reader.ParquetReader.isRowSelectionBeneficial;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.parquet.hadoop.ParquetFileWriter.Mode.OVERWRITE;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
@@ -969,6 +973,74 @@ public class TestParquetReader
             testReadingOldParquetFiles(parquetFile, ImmutableList.of("repeatedInt"), INTEGER, expectedValues);
         }).hasMessage("Unsupported Trino column type (integer) for Parquet column ([repeatedint] repeated int32 repeatedint)")
                 .isInstanceOf(TrinoException.class);
+    }
+
+    @Test
+    public void testBackwardsCompatibleNestedListField(@TempDir Path directory)
+            throws IOException
+    {
+        // LIST whose middle repeated group is named "array" and holds a LIST group.
+        MessageType schema = MessageTypeParser.parseMessageType(
+                """
+                message schema {
+                  optional group nested_list (LIST) {
+                    repeated group array {
+                      optional group inner_list (LIST) {
+                        repeated group array {
+                          optional binary element (STRING);
+                        }
+                      }
+                    }
+                  }
+                }
+                """);
+        Path file = directory.resolve("nested_list.parquet");
+        ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(new LocalOutputFile(file))
+                .withType(schema)
+                .withWriteMode(OVERWRITE);
+        try (ParquetWriter<Group> writer = builder.build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+
+            // [["a", "b"], ["c"]]
+            Group row0 = factory.newGroup();
+            Group outer0 = row0.addGroup("nested_list");
+            Group inner00 = outer0.addGroup("array").addGroup("inner_list");
+            inner00.addGroup("array").append("element", "a");
+            inner00.addGroup("array").append("element", "b");
+            outer0.addGroup("array").addGroup("inner_list").addGroup("array").append("element", "c");
+            writer.write(row0);
+
+            // [null]
+            Group row1 = factory.newGroup();
+            row1.addGroup("nested_list").addGroup("array");
+            writer.write(row1);
+
+            // [[]]
+            Group row2 = factory.newGroup();
+            row2.addGroup("nested_list").addGroup("array").addGroup("inner_list");
+            writer.write(row2);
+
+            // []
+            Group row3 = factory.newGroup();
+            row3.addGroup("nested_list");
+            writer.write(row3);
+
+            // null
+            writer.write(factory.newGroup());
+        }
+
+        testReadingOldParquetFiles(file.toFile(), ImmutableList.of("nested_list"), new ArrayType(new ArrayType(VARCHAR)), Arrays.asList(
+                ImmutableList.of(ImmutableList.of("a", "b"), ImmutableList.of("c")),
+                singletonList(null),
+                ImmutableList.of(ImmutableList.of()),
+                ImmutableList.of(),
+                null));
+        testReadingOldParquetFiles(file.toFile(), ImmutableList.of("nested_list"), new ArrayType(rowType(field("inner_list", new ArrayType(VARCHAR)))), Arrays.asList(
+                ImmutableList.of(ImmutableList.of(ImmutableList.of("a", "b")), ImmutableList.of(ImmutableList.of("c"))),
+                ImmutableList.of(singletonList(null)),
+                ImmutableList.of(ImmutableList.of(ImmutableList.of())),
+                ImmutableList.of(),
+                null));
     }
 
     @Test

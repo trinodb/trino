@@ -76,8 +76,9 @@ public final class ParquetTypeUtils
      * 3. If the repeated field is a group with one field and is named either array or uses the LIST-annotated group's name with _tuple appended then the repeated type is the element type and elements are required.
      * 4. Otherwise, the repeated field's type is the element type with the repeated field's repetition.
      * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
+     * Rule 3 applies only when elementType is a RowType, because a single-field group can only be read as a row.
      */
-    public static ColumnIO getArrayElementColumn(ColumnIO columnIO)
+    public static ColumnIO getArrayElementColumn(Type elementType, ColumnIO columnIO)
     {
         while (columnIO instanceof GroupColumnIO && !columnIO.getType().isRepetition(REPEATED)) {
             columnIO = ((GroupColumnIO) columnIO).getChild(0);
@@ -93,8 +94,9 @@ public final class ParquetTypeUtils
         if (columnIO instanceof GroupColumnIO groupColumnIO &&
                 columnIO.getType().getLogicalTypeAnnotation() == null &&
                 groupColumnIO.getChildrenCount() == 1 &&
-                !columnIO.getName().equals("array") &&
-                !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
+                (!(elementType instanceof RowType) ||
+                        (!columnIO.getName().equals("array") &&
+                                !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")))) {
             return groupColumnIO.getChild(0);
         }
 
@@ -359,7 +361,7 @@ public final class ParquetTypeUtils
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)), false);
+            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(arrayType.getElementType(), groupColumnIO.getChild(0)), false);
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
