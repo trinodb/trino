@@ -120,6 +120,7 @@ public class FeaturesConfig
     private int maxGroupingSets = 2048;
 
     private boolean legacyCatalogRoles;
+    private boolean legacyJsonArrayGet;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
 
     private boolean hideInaccessibleColumns;
@@ -452,6 +453,19 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyCatalogRoles(boolean legacyCatalogRoles)
     {
         this.legacyCatalogRoles = legacyCatalogRoles;
+        return this;
+    }
+
+    public boolean isLegacyJsonArrayGet()
+    {
+        return legacyJsonArrayGet;
+    }
+
+    @Config("deprecated.legacy-json-array-get")
+    @ConfigDescription("Return unquoted string values from json_array_get, preserving the pre-fix broken behavior")
+    public FeaturesConfig setLegacyJsonArrayGet(boolean legacyJsonArrayGet)
+    {
+        this.legacyJsonArrayGet = legacyJsonArrayGet;
         return this;
     }
 

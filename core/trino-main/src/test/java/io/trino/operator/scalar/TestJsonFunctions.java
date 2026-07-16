@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.Session;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.SystemSessionProperties.LEGACY_JSON_ARRAY_GET;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -482,37 +484,37 @@ public class TestJsonFunctions
     {
         assertThat(assertions.function("json_array_get", "'[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "'[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "'[\"\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("");
+                .isEqualTo("\"\"");
 
         assertThat(assertions.function("json_array_get", "'[]'", "0"))
                 .isNull(JSON);
@@ -525,6 +527,56 @@ public class TestJsonFunctions
 
         assertThat(assertions.function("json_array_get", "'[1]'", "-9223372036854775807 - 1"))
                 .isNull(JSON);
+    }
+
+    @Test
+    public void testJsonArrayGetStringEscaping()
+    {
+        // Interior quotes and escapes are preserved in the returned JSON string
+        assertThat(assertions.function("json_array_get", "'[\"he said \\\"hi\\\"\"]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("\"he said \\\"hi\\\"\"");
+
+        // Non-ASCII characters round-trip
+        assertThat(assertions.function("json_array_get", "'[\"café\"]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("\"café\"");
+
+        // Negative-index path also emits properly quoted strings
+        assertThat(assertions.function("json_array_get", "'[\"a\", \"b\", \"c\"]'", "-1"))
+                .hasType(JSON)
+                .isEqualTo("\"c\"");
+    }
+
+    @Test
+    public void testJsonArrayGetLegacySession()
+    {
+        Session legacySession = Session.builder(assertions.getDefaultSession())
+                .setSystemProperty(LEGACY_JSON_ARRAY_GET, "true")
+                .build();
+
+        // Legacy mode: strings returned unquoted (preserving the pre-fix broken behavior)
+        assertThat(assertions.expression("json_array_get('[\"jhfa\"]', 0)", legacySession))
+                .hasType(JSON)
+                .isEqualTo("jhfa");
+
+        assertThat(assertions.expression("json_array_get('[\"a\", \"b\", \"c\"]', -1)", legacySession))
+                .hasType(JSON)
+                .isEqualTo("c");
+
+        // Non-string scalars behave the same in legacy mode
+        assertThat(assertions.expression("json_array_get('[1, 2, 3]', 0)", legacySession))
+                .hasType(JSON)
+                .isEqualTo("1");
+
+        // JSON null still becomes SQL NULL
+        assertThat(assertions.expression("json_array_get('[null]', 0)", legacySession))
+                .isNull(JSON);
+
+        // Nested objects and arrays are unchanged
+        assertThat(assertions.expression("json_array_get('[[1, 2]]', 0)", legacySession))
+                .hasType(JSON)
+                .isEqualTo("[1,2]");
     }
 
     @Test

@@ -20,8 +20,11 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+import io.trino.FullConnectorSession;
+import io.trino.SystemSessionProperties;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -41,11 +44,13 @@ import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_FALSE;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.operator.scalar.JsonExtract.copyCurrentTokenToJsonSlice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -344,27 +349,29 @@ public final class JsonFunctions
     @ScalarFunction("json_array_get")
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice varcharJsonArrayGet(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BIGINT) long index)
+    public static Slice varcharJsonArrayGet(ConnectorSession session, @SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
-        return jsonArrayGet(json, index);
+        return jsonArrayGet(session, json, index);
     }
 
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
+    public static Slice jsonArrayGet(ConnectorSession session, @SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
         // this value cannot be converted to positive number
         if (index == Long.MIN_VALUE) {
             return null;
         }
 
+        boolean legacy = SystemSessionProperties.isLegacyJsonArrayGet(((FullConnectorSession) session).getSession());
+
         try (JsonParser parser = createJsonParser(MAPPING_JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
 
-            List<String> tokens = null;
+            List<Slice> tokens = null;
             if (index < 0) {
                 tokens = new LinkedList<>();
             }
@@ -376,29 +383,37 @@ public final class JsonFunctions
                     return null;
                 }
                 if (token == END_ARRAY) {
-                    if (tokens != null && count >= index * -1) {
-                        return utf8Slice(tokens.get(0));
+                    if (tokens != null && count >= -index) {
+                        return tokens.get(0);
                     }
 
                     return null;
                 }
 
-                String arrayElement;
-                if (token == START_OBJECT || token == START_ARRAY) {
-                    arrayElement = parser.readValueAsTree().toString();
+                Slice arrayElement;
+                if (token == VALUE_NULL) {
+                    // JSON null in the array produces SQL NULL
+                    arrayElement = null;
+                }
+                else if (legacy && token == VALUE_STRING) {
+                    // preserve pre-fix broken behavior: strip surrounding quotes from strings
+                    arrayElement = utf8Slice(parser.getValueAsString());
                 }
                 else {
-                    arrayElement = parser.getValueAsString();
+                    // Emit the token as valid JSON. For strings this keeps the surrounding
+                    // quotes and escapes; for numbers, booleans, objects, and arrays the
+                    // output is byte-identical to what the parser saw.
+                    arrayElement = copyCurrentTokenToJsonSlice(parser);
                 }
 
                 if (count == index) {
-                    return arrayElement == null ? null : utf8Slice(arrayElement);
+                    return arrayElement;
                 }
 
                 if (tokens != null) {
                     tokens.add(arrayElement);
 
-                    if (count >= index * -1) {
+                    if (count >= -index) {
                         tokens.remove(0);
                     }
                 }

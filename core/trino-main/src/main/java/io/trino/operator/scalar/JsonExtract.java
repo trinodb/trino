@@ -124,6 +124,21 @@ public final class JsonExtract
 
     private JsonExtract() {}
 
+    /**
+     * Serialize the token (and any nested structure) that {@code jsonParser} is currently
+     * positioned on into a JSON-valid {@link Slice}. The caller must have positioned the
+     * parser on the first token of the value to copy (i.e. {@code nextToken()} already called).
+     */
+    static Slice copyCurrentTokenToJsonSlice(JsonParser jsonParser)
+            throws IOException
+    {
+        DynamicSliceOutput output = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
+        try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
+            generator.copyCurrentStructure(jsonParser);
+        }
+        return output.slice();
+    }
+
     public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
     {
         requireNonNull(jsonInput, "jsonInput is null");
@@ -297,12 +312,7 @@ public final class JsonExtract
             if (!jsonParser.hasCurrentToken()) {
                 throw new JsonParseException(jsonParser, "Unexpected end of value");
             }
-
-            DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, dynamicSliceOutput)) {
-                jsonGenerator.copyCurrentStructure(jsonParser);
-            }
-            return dynamicSliceOutput.slice();
+            return copyCurrentTokenToJsonSlice(jsonParser);
         }
     }
 

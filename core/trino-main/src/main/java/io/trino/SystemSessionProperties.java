@@ -154,6 +154,7 @@ public final class SystemSessionProperties
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
+    public static final String LEGACY_JSON_ARRAY_GET = "legacy_json_array_get";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
     public static final String RETRY_POLICY = "retry_policy";
@@ -770,6 +771,11 @@ public final class SystemSessionProperties
                         LEGACY_CATALOG_ROLES,
                         "Enable legacy role management syntax that assumed all roles are catalog scoped",
                         featuresConfig.isLegacyCatalogRoles(),
+                        true),
+                booleanProperty(
+                        LEGACY_JSON_ARRAY_GET,
+                        "Return unquoted string values from json_array_get, preserving the pre-fix broken behavior",
+                        featuresConfig.isLegacyJsonArrayGet(),
                         true),
                 booleanProperty(
                         INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED,
@@ -1720,6 +1726,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyCatalogRoles(Session session)
     {
         return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
+    }
+
+    public static boolean isLegacyJsonArrayGet(Session session)
+    {
+        return session.getSystemProperty(LEGACY_JSON_ARRAY_GET, Boolean.class);
     }
 
     public static boolean isIncrementalHashArrayLoadFactorEnabled(Session session)
