@@ -58,6 +58,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.type.UnknownType.UNKNOWN;
 
@@ -97,7 +98,8 @@ public class TestWindowFrameRange
                                                                 Optional.of(new Symbol(UNKNOWN, "key_for_frame_start_comparison")),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
-                                                                Optional.empty()))),
+                                                                Optional.empty(),
+                                                                NO_OTHERS))),
                                 project(
                                         // coerce sort key to compare sort key values with frame start values
                                         ImmutableMap.of("key_for_frame_start_comparison", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(12, 1)))),
@@ -149,7 +151,8 @@ public class TestWindowFrameRange
                                                                 Optional.empty(),
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_end_value")),
-                                                                Optional.of(new Symbol(UNKNOWN, "key_for_frame_end_comparison"))))),
+                                                                Optional.of(new Symbol(UNKNOWN, "key_for_frame_end_comparison")),
+                                                                NO_OTHERS))),
                                 project(
                                         // coerce sort key to compare sort key values with frame end values
                                         ImmutableMap.of("key_for_frame_end_comparison", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(12, 1)))),
@@ -201,7 +204,8 @@ public class TestWindowFrameRange
                                                                 Optional.of(new Symbol(UNKNOWN, "key")),
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_end_value")),
-                                                                Optional.of(new Symbol(UNKNOWN, "key"))))),
+                                                                Optional.of(new Symbol(UNKNOWN, "key")),
+                                                                NO_OTHERS))),
                                 project(
                                         // calculate frame end value (sort key + frame end offset)
                                         ImmutableMap.of("frame_end_value", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "key"), new Reference(INTEGER, "y"))))),

@@ -1190,6 +1190,13 @@ public final class ExpressionFormatter
             builder.append(formatFrameBound(windowFrame.getStart()));
         }
 
+        switch (windowFrame.getExclusion()) {
+            case CURRENT_ROW -> builder.append(" EXCLUDE CURRENT ROW");
+            case GROUP -> builder.append(" EXCLUDE GROUP");
+            case TIES -> builder.append(" EXCLUDE TIES");
+            case NO_OTHERS -> {} // the default; an absent clause parses back to NO_OTHERS, so leave it unprinted
+        }
+
         windowFrame.getAfterMatchSkipTo().ifPresent(skipTo ->
                 builder.append(" ")
                         .append(formatSkipTo(skipTo)));

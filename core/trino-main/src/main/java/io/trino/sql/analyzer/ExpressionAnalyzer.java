@@ -2404,6 +2404,9 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getType() != CURRENT_ROW || frame.getEnd().isEmpty()) {
                         throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
                     }
+                    if (frame.getExclusion() != WindowFrame.Exclusion.NO_OTHERS) {
+                        throw semanticException(INVALID_WINDOW_FRAME, frame, "Frame exclusion is not allowed with pattern recognition");
+                    }
                     PatternRecognitionAnalysis analysis = PatternRecognitionAnalyzer.analyze(
                             frame.getSubsets(),
                             frame.getVariableDefinitions(),

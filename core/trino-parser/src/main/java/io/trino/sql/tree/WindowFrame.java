@@ -30,9 +30,15 @@ public class WindowFrame
         RANGE, ROWS, GROUPS
     }
 
+    public enum Exclusion
+    {
+        CURRENT_ROW, GROUP, TIES, NO_OTHERS
+    }
+
     private final Type type;
     private final FrameBound start;
     private final Optional<FrameBound> end;
+    private final Exclusion exclusion;
     private final List<MeasureDefinition> measures;
     private final Optional<SkipTo> afterMatchSkipTo;
     private final Optional<PatternSearchMode> patternSearchMode;
@@ -44,6 +50,7 @@ public class WindowFrame
             Type type,
             FrameBound start,
             Optional<FrameBound> end,
+            Exclusion exclusion,
             List<MeasureDefinition> measures,
             Optional<SkipTo> afterMatchSkipTo,
             Optional<PatternSearchMode> patternSearchMode,
@@ -51,7 +58,7 @@ public class WindowFrame
             List<SubsetDefinition> subsets,
             List<VariableDefinition> variableDefinitions)
     {
-        this(Optional.empty(), type, start, end, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
+        this(Optional.empty(), type, start, end, exclusion, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
     }
 
     public WindowFrame(
@@ -59,6 +66,7 @@ public class WindowFrame
             Type type,
             FrameBound start,
             Optional<FrameBound> end,
+            Exclusion exclusion,
             List<MeasureDefinition> measures,
             Optional<SkipTo> afterMatchSkipTo,
             Optional<PatternSearchMode> patternSearchMode,
@@ -66,7 +74,7 @@ public class WindowFrame
             List<SubsetDefinition> subsets,
             List<VariableDefinition> variableDefinitions)
     {
-        this(Optional.of(location), type, start, end, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
+        this(Optional.of(location), type, start, end, exclusion, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
     }
 
     private WindowFrame(
@@ -74,6 +82,7 @@ public class WindowFrame
             Type type,
             FrameBound start,
             Optional<FrameBound> end,
+            Exclusion exclusion,
             List<MeasureDefinition> measures,
             Optional<SkipTo> afterMatchSkipTo,
             Optional<PatternSearchMode> patternSearchMode,
@@ -85,6 +94,7 @@ public class WindowFrame
         this.type = requireNonNull(type, "type is null");
         this.start = requireNonNull(start, "start is null");
         this.end = requireNonNull(end, "end is null");
+        this.exclusion = requireNonNull(exclusion, "exclusion is null");
         this.measures = requireNonNull(measures, "measures is null");
         this.afterMatchSkipTo = requireNonNull(afterMatchSkipTo, "afterMatchSkipTo is null");
         this.patternSearchMode = requireNonNull(patternSearchMode, "patternSearchMode is null");
@@ -106,6 +116,11 @@ public class WindowFrame
     public Optional<FrameBound> getEnd()
     {
         return end;
+    }
+
+    public Exclusion getExclusion()
+    {
+        return exclusion;
     }
 
     public List<MeasureDefinition> getMeasures()
@@ -172,6 +187,7 @@ public class WindowFrame
         return type == o.type &&
                 Objects.equals(start, o.start) &&
                 Objects.equals(end, o.end) &&
+                exclusion == o.exclusion &&
                 Objects.equals(measures, o.measures) &&
                 Objects.equals(afterMatchSkipTo, o.afterMatchSkipTo) &&
                 Objects.equals(patternSearchMode, o.patternSearchMode) &&
@@ -183,7 +199,7 @@ public class WindowFrame
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, start, end, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
+        return Objects.hash(type, start, end, exclusion, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
     }
 
     @Override
@@ -193,6 +209,7 @@ public class WindowFrame
                 .add("type", type)
                 .add("start", start)
                 .add("end", end)
+                .add("exclusion", exclusion)
                 .add("measures", measures)
                 .add("afterMatchSkipTo", afterMatchSkipTo)
                 .add("patternSearchMode", patternSearchMode)
@@ -210,6 +227,7 @@ public class WindowFrame
         }
 
         WindowFrame otherNode = (WindowFrame) other;
-        return type == otherNode.type;
+        return type == otherNode.type &&
+                exclusion == otherNode.exclusion;
     }
 }

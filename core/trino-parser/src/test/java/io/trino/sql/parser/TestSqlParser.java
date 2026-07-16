@@ -8336,7 +8336,7 @@ public class TestSqlParser
                                 Optional.of(new Identifier(location(1, 14), "someWindow", false)),
                                 ImmutableList.of(new Identifier(location(1, 38), "x", false)),
                                 Optional.of(new OrderBy(location(1, 40), ImmutableList.of(new SortItem(location(1, 49), new Identifier(location(1, 49), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8353,7 +8353,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(new Identifier(location(1, 27), "x", false)),
                                 Optional.of(new OrderBy(location(1, 29), ImmutableList.of(new SortItem(location(1, 38), new Identifier(location(1, 38), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8442,6 +8442,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(7, 17), CURRENT_ROW),
                                         Optional.of(new FrameBound(location(7, 33), FOLLOWING, new LongLiteral(location(7, 33), "5"))),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(
                                                 new MeasureDefinition(
                                                         location(5, 8),
@@ -8523,6 +8524,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(3, 8), CURRENT_ROW),
                                         Optional.empty(),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(new MeasureDefinition(
                                                 location(2, 12),
                                                 new Identifier(location(2, 12), "z", false),
