@@ -48,7 +48,6 @@ public final class DeletionVectors
     private static final int PORTABLE_ROARING_BITMAP_MAGIC_NUMBER = 1681511377;
     private static final int MAGIC_NUMBER_BYTE_SIZE = 4;
     private static final int BIT_MAP_COUNT_BYTE_SIZE = 8;
-    private static final int BIT_MAP_KEY_BYTE_SIZE = 4;
     private static final int FORMAT_VERSION_V1 = 1;
 
     private static final String UUID_MARKER = "u"; // relative path with random prefix on disk
@@ -96,7 +95,10 @@ public final class DeletionVectors
             pathOrInlineDv = randomPrefix + pathOrInlineDv;
             location = location.appendPath(randomPrefix);
         }
-        int sizeInBytes = MAGIC_NUMBER_BYTE_SIZE + BIT_MAP_COUNT_BYTE_SIZE + BIT_MAP_KEY_BYTE_SIZE + deletedRows.serializedSizeInBytes();
+        for (int index = 0; index < deletedRows.length(); index++) {
+            deletedRows.get(index).runOptimize();
+        }
+        int sizeInBytes = MAGIC_NUMBER_BYTE_SIZE + BIT_MAP_COUNT_BYTE_SIZE + deletedRows.serializedSizeInBytes();
         long cardinality = deletedRows.cardinality();
 
         checkArgument(sizeInBytes > 0, "sizeInBytes must be positive: %s", sizeInBytes);
@@ -133,7 +135,6 @@ public final class DeletionVectors
         for (int i = 0; i < bitmaps.length(); i++) {
             buffer.putInt(i); // Bitmap index
             RoaringBitmap bitmap = bitmaps.get(i);
-            bitmap.runOptimize();
             bitmap.serialize(buffer);
         }
         return buffer.array();
