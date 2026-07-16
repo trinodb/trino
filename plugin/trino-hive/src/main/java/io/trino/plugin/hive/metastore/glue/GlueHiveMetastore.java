@@ -137,6 +137,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -148,6 +149,7 @@ import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
+import static java.lang.String.format;
 
 public class GlueHiveMetastore
         implements HiveMetastore
@@ -481,6 +483,13 @@ public class GlueHiveMetastore
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
+        }
+        catch (AccessDeniedException e) {
+            // Glue/Lake Formation returns AccessDenied when the caller lacks permission (e.g. LF Describe).
+            // Surface it as a permission error instead of converting it to TableNotFoundException: the
+            // latter is misleading (especially for CREATE TABLE, where the table not yet existing is
+            // expected) and masks the real cause, which is the missing Lake Formation permission.
+            throw new TrinoException(PERMISSION_DENIED, format("Cannot access table '%s.%s' in Glue catalog: insufficient Lake Formation permissions", databaseName, tableName), e);
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

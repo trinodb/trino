@@ -686,6 +686,18 @@ public class LakehouseMetadata
             return icebergMetadata.getView(session, viewName);
         }
 
+        // EXPERIMENT (EGANP-6330): proposed fix to short-circuit materialized-view headers before the Hive
+        // view path. Iceberg materialized views are VIRTUAL_VIEW entries with a "/* Presto Materialized View: */"
+        // header; return empty here so getMaterializedView() (iceberg) owns them. Isolated commit — revert if it
+        // doesn't change the observed failures (which originate in the iceberg getMaterializedView path).
+        String viewOriginalText = hiveMetadata.getMetastore()
+                .getTable(viewName.getSchemaName(), viewName.getTableName())
+                .flatMap(Table::getViewOriginalText)
+                .orElse("");
+        if (viewOriginalText.startsWith("/* Presto Materialized View:")
+                || viewOriginalText.startsWith("/* Trino Materialized View:")) {
+            return Optional.empty();
+        }
         return hiveMetadata.getView(session, viewName);
     }
 

@@ -62,6 +62,7 @@ public record IcebergMaterializedViewDefinition(
 
     public static IcebergMaterializedViewDefinition decodeMaterializedViewData(String data)
     {
+        checkCondition(data != null, HIVE_INVALID_VIEW_DATA, "Materialized View data is null");
         checkCondition(data.startsWith(MATERIALIZED_VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "Materialized View data missing prefix: %s", data);
         checkCondition(data.endsWith(MATERIALIZED_VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "Materialized View data missing suffix: %s", data);
         data = data.substring(MATERIALIZED_VIEW_PREFIX.length());

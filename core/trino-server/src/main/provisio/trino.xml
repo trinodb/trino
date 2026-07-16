@@ -272,6 +272,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/router">
+        <artifact id="${project.groupId}:trino-router:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/singlestore">
         <artifact id="${project.groupId}:trino-singlestore:zip:${project.version}">
             <unpack />
