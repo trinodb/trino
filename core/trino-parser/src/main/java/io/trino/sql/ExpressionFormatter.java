@@ -65,6 +65,7 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonConstructor;
@@ -759,6 +760,12 @@ public final class ExpressionFormatter
             }
 
             return builder.toString();
+        }
+
+        @Override
+        protected String visitIntervalValueExpression(IntervalValueExpression node, Void context)
+        {
+            return "((" + process(node.getLeft(), context) + " - " + process(node.getRight(), context) + ") " + process(node.getType().qualifier(), context) + ")";
         }
 
         @Override

@@ -370,9 +370,13 @@ setQuantifier
     ;
 
 selectItem
-    : expression (AS? identifier)?                          #selectSingle
+    : aliasedExpression                                    #selectSingle
     | primaryExpression '.' ASTERISK (AS columnAliases)?    #selectAll
     | ASTERISK                                              #selectAll
+    ;
+
+aliasedExpression
+    : expression (AS? identifier)?
     ;
 
 relation
@@ -414,7 +418,7 @@ pivot
     ;
 
 pivotAggregation
-    : expression (AS? identifier)?
+    : aliasedExpression
     ;
 
 pivotColumns
@@ -424,7 +428,7 @@ pivotColumns
 
 pivotValueGroup
     : '(' expression (',' expression)+ ')' (AS? identifier)?
-    | expression (AS? identifier)?
+    | aliasedExpression
     ;
 
 sampleType
@@ -686,7 +690,9 @@ primaryExpression
         FROM start=valueExpression (FOR length=valueExpression)? ')'                      #overlay
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
+    // Prefer grouping when a following bare field can be an implicit alias.
     | '(' expression ')'                                                                  #parenthesizedExpression
+    | '(' valueExpression ')' intervalQualifier                                           #intervalValueExpression
     | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
     | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
     | JSON_VALUE '('
@@ -737,7 +743,7 @@ literal
     ;
 
 fieldConstructor
-    : expression (AS? identifier)?
+    : aliasedExpression
     ;
 
 jsonPathInvocation

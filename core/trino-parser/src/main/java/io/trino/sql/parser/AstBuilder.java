@@ -147,6 +147,7 @@ import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalQualifier;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
 import io.trino.sql.tree.IterateStatement;
@@ -1567,8 +1568,18 @@ class AstBuilder
     {
         return new SingleColumn(
                 getLocation(context),
-                (Expression) visit(context.expression()),
-                visitIfPresent(context.identifier(), Identifier.class));
+                getAliasedExpression(context.aliasedExpression()),
+                getAlias(context.aliasedExpression()));
+    }
+
+    private Expression getAliasedExpression(SqlBaseParser.AliasedExpressionContext context)
+    {
+        return (Expression) visit(context.expression());
+    }
+
+    private Optional<Identifier> getAlias(SqlBaseParser.AliasedExpressionContext context)
+    {
+        return visitIfPresent(context.identifier(), Identifier.class);
     }
 
     @Override
@@ -2151,16 +2162,15 @@ class AstBuilder
     @Override
     public Node visitPivotAggregation(SqlBaseParser.PivotAggregationContext context)
     {
-        Optional<Identifier> alias = Optional.empty();
-        if (context.identifier() != null) {
-            alias = Optional.of((Identifier) visit(context.identifier()));
-        }
-        return new PivotAggregation(getLocation(context), (Expression) visit(context.expression()), alias);
+        return new PivotAggregation(getLocation(context), getAliasedExpression(context.aliasedExpression()), getAlias(context.aliasedExpression()));
     }
 
     @Override
     public Node visitPivotValueGroup(SqlBaseParser.PivotValueGroupContext context)
     {
+        if (context.aliasedExpression() != null) {
+            return new PivotValueGroup(getLocation(context), List.of(getAliasedExpression(context.aliasedExpression())), getAlias(context.aliasedExpression()));
+        }
         Optional<Identifier> alias = Optional.empty();
         if (context.identifier() != null) {
             alias = Optional.of((Identifier) visit(context.identifier()));
@@ -2647,6 +2657,21 @@ class AstBuilder
     }
 
     @Override
+    public Node visitIntervalValueExpression(SqlBaseParser.IntervalValueExpressionContext context)
+    {
+        Expression expression = (Expression) visit(context.valueExpression());
+        check(expression instanceof ArithmeticBinaryExpression binary && binary.getOperator() == ArithmeticBinaryExpression.Operator.SUBTRACT,
+                "Qualified datetime difference must be a subtraction",
+                context);
+        ArithmeticBinaryExpression subtraction = (ArithmeticBinaryExpression) expression;
+        return new IntervalValueExpression(
+                getLocation(context),
+                subtraction.getLeft(),
+                subtraction.getRight(),
+                new IntervalDataType(getLocation(context), (IntervalQualifier) visit(context.intervalQualifier())));
+    }
+
+    @Override
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
         if (context.fieldConstructor().isEmpty()) {
@@ -2662,8 +2687,8 @@ class AstBuilder
     {
         return new Row.Field(
                 getLocation(context),
-                visitIfPresent(context.identifier(), Identifier.class),
-                (Expression) visit(context.expression()));
+                getAlias(context.aliasedExpression()),
+                getAliasedExpression(context.aliasedExpression()));
     }
 
     @Override
