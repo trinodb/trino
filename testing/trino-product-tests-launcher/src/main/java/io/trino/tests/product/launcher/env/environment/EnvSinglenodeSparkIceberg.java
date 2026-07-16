@@ -32,7 +32,6 @@ import java.io.File;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentDefaults.HADOOP_BASE_IMAGE;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static java.util.Objects.requireNonNull;
@@ -80,26 +79,12 @@ public class EnvSinglenodeSparkIceberg
 
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/iceberg.properties")));
 
-        builder.configureContainers(container -> {
-            if (isTrinoContainer(container.getLogicalName())) {
-                container
-                        .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
-                        .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
-                        .withEnv("AWS_REGION", AWS_REGION)
-                        .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL);
-            }
-        });
-
         builder.addContainer(createLocalStack());
         builder.addContainer(createSpark())
                 .containerDependsOn("spark", HADOOP)
                 .containerDependsOn("spark", LOCALSTACK_CONTAINER);
 
         builder.configureContainer(TESTS, dockerContainer -> dockerContainer
-                .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
-                .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
-                .withEnv("AWS_REGION", AWS_REGION)
-                .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL)
                 // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
                 .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
     }
