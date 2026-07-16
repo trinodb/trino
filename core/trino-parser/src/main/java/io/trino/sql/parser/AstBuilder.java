@@ -2613,6 +2613,26 @@ class AstBuilder
     }
 
     @Override
+    public Node visitIntervalValueExpression(SqlBaseParser.IntervalValueExpressionContext context)
+    {
+        // The SQL <interval value expression> form (e1 - e2) <interval qualifier> is the difference of two
+        // datetimes with an explicit qualifier. A datetime difference is a day-time interval, so it desugars
+        // to a cast of that difference, applying the qualifier's leading precision and the field overflow
+        // check. A year-month (calendar) difference is a distinct operation the day-time result cannot
+        // express; casting to a year-month interval has no implementation, so the analyzer reports it as
+        // unsupported. The qualifier is accepted here so the form is ready for a future implementation.
+        ArithmeticBinaryExpression difference = new ArithmeticBinaryExpression(
+                getLocation(context.MINUS().getSymbol()),
+                ArithmeticBinaryExpression.Operator.SUBTRACT,
+                (Expression) visit(context.left),
+                (Expression) visit(context.right));
+        return new Cast(
+                getLocation(context),
+                difference,
+                new IntervalDataType(getLocation(context), (IntervalQualifier) visit(context.intervalQualifier())));
+    }
+
+    @Override
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
         if (context.fieldConstructor().isEmpty()) {

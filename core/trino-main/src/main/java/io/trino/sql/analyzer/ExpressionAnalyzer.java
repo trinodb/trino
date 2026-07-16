@@ -3406,11 +3406,28 @@ public class ExpressionAnalyzer
                     plannerContext.getMetadata().getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
+                    if (type instanceof IntervalYearMonthType && isDatetimeDifference(node.getExpression())) {
+                        // (e1 - e2) <year-month qualifier>, the SQL <interval value expression>, desugars to a
+                        // cast of the (day-time) datetime difference to a year-month interval. The spec defines
+                        // it as a calendar month/year difference, which Trino does not yet implement. (A cast
+                        // between the interval families is otherwise simply invalid — handled below.)
+                        throw semanticException(NOT_SUPPORTED, node, "Computing a year-month interval difference of datetimes is not yet supported");
+                    }
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
                 }
             }
 
             return setExpressionType(node, type);
+        }
+
+        /// Whether the expression is the difference of two datetimes (`e1 - e2` with datetime operands),
+        /// the source of the SQL `(e1 - e2) <interval qualifier>` value expression.
+        private boolean isDatetimeDifference(Expression expression)
+        {
+            return expression instanceof ArithmeticBinaryExpression binary
+                    && binary.getOperator() == ArithmeticBinaryExpression.Operator.SUBTRACT
+                    && isDatetime(getExpressionType(binary.getLeft()))
+                    && isDatetime(getExpressionType(binary.getRight()));
         }
 
         private Type analyzeIn(Expression value, InPredicate predicate, Expression anchor, Context context)

@@ -22,7 +22,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -577,5 +581,32 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1111111111' - TIMESTAMP '2020-05-01 12:34:56.9999999999'")).matches("INTERVAL -'0 00:00:01.8888888888' DAY(9) TO SECOND(10)");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11111111111' - TIMESTAMP '2020-05-01 12:34:56.99999999999'")).matches("INTERVAL -'0 00:00:01.88888888888' DAY(9) TO SECOND(11)");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111111111111' - TIMESTAMP '2020-05-01 12:34:56.999999999999'")).matches("INTERVAL -'0 00:00:01.888888888888' DAY(9) TO SECOND(12)");
+    }
+
+    @Test
+    public void testQualifiedDifference()
+    {
+        // (e1 - e2) <qualifier> expresses the difference with the written qualifier: a bare leading field
+        // takes the implicit precision of 2
+        assertThat(assertions.expression("(TIMESTAMP '2020-05-01 12:34:56' - TIMESTAMP '2020-05-01 12:34:55') DAY TO SECOND"))
+                .matches("CAST(INTERVAL '0 00:00:01' DAY TO SECOND AS INTERVAL DAY(2) TO SECOND)");
+
+        // an explicit leading precision is honored, so a difference past 99 days fits day(9) but not day(2)
+        assertThat(assertions.expression("(TIMESTAMP '2020-09-01 00:00:00' - TIMESTAMP '2020-05-01 00:00:00') DAY(9) TO SECOND"))
+                .matches("CAST(INTERVAL '123 00:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+
+        assertTrinoExceptionThrownBy(assertions.expression("(TIMESTAMP '2020-09-01 00:00:00' - TIMESTAMP '2020-05-01 00:00:00') DAY TO SECOND")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessageContaining("interval field overflow");
+
+        // a year-month qualifier is accepted syntactically but not yet supported: a calendar year-month
+        // difference between datetimes is a distinct operation, not the day-time difference cast
+        assertTrinoExceptionThrownBy(assertions.expression("(TIMESTAMP '2020-09-01 00:00:00' - TIMESTAMP '2020-05-01 00:00:00') MONTH")::evaluate)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("year-month interval difference of datetimes is not yet supported");
+
+        // a plain cast between the interval families is simply invalid, not an unimplemented feature
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(INTERVAL '1' DAY AS INTERVAL MONTH)")::evaluate)
+                .hasErrorCode(TYPE_MISMATCH);
     }
 }
