@@ -80,7 +80,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.parseLong;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
 
@@ -314,7 +313,7 @@ public final class TableStatisticsReader
         }
 
         Map<Long, StatisticsFile> statsFileBySnapshot = icebergTable.statisticsFiles().stream()
-                .collect(toMap(
+                .collect(toImmutableMap(
                         StatisticsFile::snapshotId,
                         identity(),
                         (file1, file2) -> {

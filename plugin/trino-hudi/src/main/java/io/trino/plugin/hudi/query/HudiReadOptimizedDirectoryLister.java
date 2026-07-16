@@ -33,9 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.min;
 import static org.apache.hudi.common.table.view.HoodieTableFileSystemView.fileListingBasedFileSystemView;
 
@@ -66,7 +66,7 @@ public class HudiReadOptimizedDirectoryLister
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.maxSplitSize = maxSplitSize;
         this.allPartitionInfoMap = hivePartitionNames.stream()
-                .collect(Collectors.toMap(
+                .collect(toImmutableMap(
                         Function.identity(),
                         hivePartitionName -> new HiveHudiPartitionInfo(
                                 hivePartitionName,

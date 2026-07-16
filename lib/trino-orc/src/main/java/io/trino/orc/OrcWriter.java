@@ -59,12 +59,12 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.orc.OrcReader.validateFile;
@@ -520,7 +520,7 @@ public final class OrcWriter
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
-                .collect(Collectors.toMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
+                .collect(toImmutableMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
 
         Footer footer = new Footer(
                 fileRowCount,

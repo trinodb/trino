@@ -355,7 +355,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toMap;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -3391,7 +3390,7 @@ public class HiveMetadata
 
         return withColumnDomains(
                 partitionColumns.stream()
-                        .collect(toMap(identity(), column -> buildColumnDomain(column, partitions))));
+                        .collect(toImmutableMap(identity(), column -> buildColumnDomain(column, partitions))));
     }
 
     private static Domain buildColumnDomain(ColumnHandle column, List<HivePartition> partitions)
@@ -3521,7 +3520,7 @@ public class HiveMetadata
 
         List<String> bucketedBy = bucketInfo.get().bucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
-                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
+                .collect(toImmutableMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
         return Optional.of(new ConnectorTableLayout(
                 new HivePartitioningHandle(
                         bucketInfo.get().bucketingVersion(),

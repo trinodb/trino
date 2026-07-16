@@ -47,9 +47,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -191,7 +191,7 @@ public final class HiveBucketing
 
         HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
         Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager, timestampPrecision).stream()
-                .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
+                .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
         for (String bucketColumnName : hiveBucketProperty.get().bucketedBy()) {

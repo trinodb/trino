@@ -37,10 +37,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 public class ExchangeMetricsCollector
@@ -90,7 +90,7 @@ public class ExchangeMetricsCollector
             return ImmutableMap.of();
         }
         return exchanges.stream()
-                .collect(toMap(
+                .collect(toImmutableMap(
                         Exchange::getId,
                         Exchange::getMetrics));
     }
