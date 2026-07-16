@@ -100,6 +100,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
@@ -113,7 +114,6 @@ import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toMap;
 
 public final class PropertyDerivations
 {
@@ -677,7 +677,7 @@ public final class PropertyDerivations
             checkState(entries != null);
 
             Map<Symbol, NullableValue> constants = entries.stream()
-                    .collect(toMap(Entry::getKey, Entry::getValue));
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
             node.getOrderingScheme().ifPresent(orderingScheme -> localProperties.addAll(orderingScheme.toLocalProperties()));
@@ -880,7 +880,7 @@ public final class PropertyDerivations
 
             Map<Symbol, NullableValue> symbolConstants = globalConstants.entrySet().stream()
                     .filter(entry -> assignments.containsKey(entry.getKey()))
-                    .collect(toMap(entry -> assignments.get(entry.getKey()), Entry::getValue));
+                    .collect(toImmutableMap(entry -> assignments.get(entry.getKey()), Entry::getValue));
             properties.constants(symbolConstants);
 
             // Partitioning properties

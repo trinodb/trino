@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Functions.identity;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
@@ -59,7 +60,6 @@ import static io.trino.hive.formats.HiveClassNames.TWITTER_ELEPHANTBIRD_PROTOBUF
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public enum HiveStorageFormat
 {
@@ -198,7 +198,7 @@ public enum HiveStorageFormat
 
     private static final Map<SerdeAndInputFormat, HiveStorageFormat> HIVE_STORAGE_FORMATS = ImmutableMap.<SerdeAndInputFormat, HiveStorageFormat>builder()
             .putAll(Arrays.stream(values()).collect(
-                    toMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity())))
+                    toImmutableMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity())))
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.DeprecatedParquetInputFormat"), PARQUET)
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "org.apache.hadoop.mapred.TextInputFormat"), PARQUET)
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.MapredParquetInputFormat"), PARQUET)

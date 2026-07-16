@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.cartesianProduct;
 import static io.trino.metastore.Partitions.escapePathName;
@@ -138,7 +139,7 @@ public final class PartitionProjection
     public Map<String, Optional<Partition>> getProjectedPartitionsByNames(Table table, List<String> partitionNames)
     {
         return partitionNames.stream()
-                .collect(Collectors.toMap(
+                .collect(toImmutableMap(
                         partitionName -> partitionName,
                         partitionName -> Optional.of(buildPartitionObject(table, partitionName))));
     }

@@ -95,6 +95,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -126,7 +127,6 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.stream.Collectors.toMap;
 
 @ThreadSafe
 public class QueryStateMachine
@@ -445,7 +445,7 @@ public class QueryStateMachine
             Map<ExchangeId, Metrics> metrics = exchangeMetricsCollector.collectMetrics(queryId);
             this.exchangeMetrics.set(
                     metrics.entrySet().stream()
-                            .collect(toMap(entry -> entry.getKey().getId(), Map.Entry::getValue)));
+                            .collect(toImmutableMap(entry -> entry.getKey().getId(), Map.Entry::getValue)));
         }
         catch (RuntimeException e) {
             QUERY_STATE_LOG.error(e, "Error collecting query exchange metrics: %s", queryId);
