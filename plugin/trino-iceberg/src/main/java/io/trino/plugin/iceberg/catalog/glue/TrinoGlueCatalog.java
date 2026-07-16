@@ -377,6 +377,7 @@ public class TrinoGlueCatalog
                     .collect(toImmutableList());
         }
         catch (ExecutionException e) {
+            throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
     }
