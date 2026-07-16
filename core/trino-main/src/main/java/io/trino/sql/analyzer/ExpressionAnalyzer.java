@@ -121,6 +121,7 @@ import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalQualifier;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
@@ -3440,6 +3441,43 @@ public class ExpressionAnalyzer
             }
 
             Type type = process(node.getInnerExpression(), context);
+            return setExpressionType(node, type);
+        }
+
+        @Override
+        protected Type visitIntervalValueExpression(IntervalValueExpression node, Context context)
+        {
+            Type left = process(node.getLeft(), context);
+            Type right = process(node.getRight(), context);
+            if ((!isDatetime(left) && !left.equals(UNKNOWN)) || (!isDatetime(right) && !right.equals(UNKNOWN)) ||
+                    (left.equals(UNKNOWN) && right.equals(UNKNOWN))) {
+                throw semanticException(TYPE_MISMATCH, node, "Qualified datetime difference requires datetime operands (actual: %s, %s)", left, right);
+            }
+
+            Type type;
+            try {
+                type = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getType()));
+            }
+            catch (TypeNotFoundException e) {
+                throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getType());
+            }
+            if (type instanceof IntervalYearMonthType) {
+                throw semanticException(NOT_SUPPORTED, node, "Computing a year-month interval difference of datetimes is not yet supported");
+            }
+
+            // DATE has no subtraction operator. Measure its elapsed difference from midnight timestamps.
+            Type leftArgument = left instanceof DateType ? createTimestampType(0) : left;
+            Type rightArgument = right instanceof DateType ? createTimestampType(0) : right;
+            BoundSignature signature;
+            try {
+                signature = plannerContext.getMetadata().resolveOperator(charVarcharCoercion, OperatorType.SUBTRACT, ImmutableList.of(leftArgument, rightArgument)).signature();
+                plannerContext.getMetadata().getCoercion(charVarcharCoercion, signature.getReturnType(), type);
+            }
+            catch (OperatorNotFoundException e) {
+                throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
+            }
+            coerceType(node.getLeft(), left, signature.getArgumentTypes().get(0), "Left datetime operand");
+            coerceType(node.getRight(), right, signature.getArgumentTypes().get(1), "Right datetime operand");
             return setExpressionType(node, type);
         }
 

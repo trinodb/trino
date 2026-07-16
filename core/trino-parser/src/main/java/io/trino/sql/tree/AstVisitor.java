@@ -622,6 +622,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitIntervalValueExpression(IntervalValueExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitCast(Cast node, C context)
     {
         return visitExpression(node, context);

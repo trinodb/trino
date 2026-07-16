@@ -89,6 +89,7 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
@@ -454,6 +455,7 @@ public class TranslationMap
                 case IntervalLiteral expression -> translate(expression);
                 case ArithmeticBinaryExpression expression -> translate(expression);
                 case ArithmeticUnaryExpression expression -> translate(expression);
+                case IntervalValueExpression expression -> translate(expression);
                 case Cast expression -> translate(expression);
                 case Row expression -> translate(expression);
                 case NotExpression expression -> translate(expression);
@@ -810,6 +812,14 @@ public class TranslationMap
                         .map(this::translateExpression)
                         .collect(toImmutableList()),
                 (RowType) analysis.getType(expression));
+    }
+
+    private io.trino.sql.ir.Expression translate(IntervalValueExpression expression)
+    {
+        Call difference = new Call(
+                plannerContext.getMetadata().resolveOperator(getCharVarcharCoercion(session), OperatorType.SUBTRACT, ImmutableList.of(getCoercedType(expression.getLeft()), getCoercedType(expression.getRight()))),
+                ImmutableList.of(translateExpression(expression.getLeft()), translateExpression(expression.getRight())));
+        return cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), difference, analysis.getType(expression));
     }
 
     private io.trino.sql.ir.Expression translate(Cast expression)
