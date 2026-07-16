@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.encryption;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import org.apache.iceberg.encryption.EncryptedKey;
@@ -28,7 +27,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.CatalogProperties.ENCRYPTION_KMS_TYPE;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 
 public class DefaultEncryptionManagerFactory
@@ -37,10 +35,10 @@ public class DefaultEncryptionManagerFactory
     private final Optional<KeyManagementClient> keyManagementClient;
 
     @Inject
-    public DefaultEncryptionManagerFactory(IcebergEncryptionConfig encryptionConfig)
+    public DefaultEncryptionManagerFactory(KmsProperties kmsProperties)
     {
-        keyManagementClient = encryptionConfig.getKmsType()
-                .map(DefaultEncryptionManagerFactory::createKeyManagementClient);
+        requireNonNull(kmsProperties, "kmsProperties is null");
+        keyManagementClient = Optional.of(EncryptionUtil.createKmsClient(kmsProperties.get()));
     }
 
     public DefaultEncryptionManagerFactory(Optional<KeyManagementClient> keyManagementClient)
@@ -60,10 +58,5 @@ public class DefaultEncryptionManagerFactory
                 ICEBERG_CATALOG_ERROR,
                 "Can't create encryption manager, because key management client is not configured. Set iceberg.encryption.kms-type catalog property."));
         return EncryptionUtil.createEncryptionManager(encryptionKeys, tableProperties, kmsClient);
-    }
-
-    private static KeyManagementClient createKeyManagementClient(KmsType kmsType)
-    {
-        return EncryptionUtil.createKmsClient(ImmutableMap.of(ENCRYPTION_KMS_TYPE, kmsType.value()));
     }
 }
