@@ -55,7 +55,8 @@ public class AlluxioInput
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
         this.fileLength = requireNonNull(status, "status is null").getLength();
         this.statistics = requireNonNull(statistics, "statistics is null");
-        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), cacheKey, status, cacheManager, configuration, statistics);
+        // Positioned reads are already correctly sized by the caller, so skip the small-read buffer
+        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), cacheKey, status, cacheManager, configuration, statistics, false);
         this.externalReadBytes = new AtomicLong();
     }
 
