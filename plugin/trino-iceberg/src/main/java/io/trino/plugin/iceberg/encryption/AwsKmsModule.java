@@ -15,6 +15,9 @@ package io.trino.plugin.iceberg.encryption;
 
 import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.encryption.AwsKmsConfig;
+
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class AwsKmsModule
         extends AbstractConfigurationAwareModule
@@ -22,6 +25,7 @@ public class AwsKmsModule
     @Override
     protected void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(AwsKmsConfig.class);
         binder.bind(KmsProperties.class).to(AwsKmsProperties.class);
     }
 }
