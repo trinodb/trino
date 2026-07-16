@@ -19,7 +19,6 @@ import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
 import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
