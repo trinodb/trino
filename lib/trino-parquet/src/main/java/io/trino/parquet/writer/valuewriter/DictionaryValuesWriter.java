@@ -14,15 +14,15 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.log.Logger;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.bytes.CapacityByteArrayOutputStream;
@@ -31,16 +31,16 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.values.dictionary.IntList;
 import org.apache.parquet.column.values.dictionary.IntList.IntIterator;
-import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.io.ParquetEncodingException;
-import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static it.unimi.dsi.fastutil.HashCommon.mix;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.apache.parquet.bytes.BytesInput.concat;
@@ -95,7 +95,17 @@ public abstract class DictionaryValuesWriter
 
     protected DictionaryPage dictPage(org.apache.parquet.column.values.ValuesWriter dictPageWriter)
     {
-        return new DictionaryPage(dictPageWriter.getBytes(), lastUsedDictionarySize, encodingForDictionaryPage);
+        return dictPage(dictPageWriter.getBytes());
+    }
+
+    protected DictionaryPage dictPage(BytesInput dictionaryBytes)
+    {
+        return new DictionaryPage(dictionaryBytes, lastUsedDictionarySize, encodingForDictionaryPage);
+    }
+
+    protected static BytesInput toBytesInput(Slice slice)
+    {
+        return BytesInput.from(slice.byteArray(), slice.byteArrayOffset(), slice.length());
     }
 
     public boolean shouldFallBack()
@@ -132,8 +142,14 @@ public abstract class DictionaryValuesWriter
     @Override
     public long getAllocatedSize()
     {
-        // size used in memory
-        return encodedValues.size() * 4L + dictionaryByteSize;
+        // encoded value ids plus the retained dictionary structures
+        return encodedValues.size() * 4L + getDictionaryAllocatedSize();
+    }
+
+    // retained bytes of the dictionary lookup structures held in memory
+    protected long getDictionaryAllocatedSize()
+    {
+        return dictionaryByteSize;
     }
 
     @Override
@@ -223,10 +239,23 @@ public abstract class DictionaryValuesWriter
     public static class PlainBinaryDictionaryValuesWriter
             extends DictionaryValuesWriter
     {
-        /* type specific dictionary content */
-        protected Object2IntMap<Binary> binaryDictionaryContent = new Object2IntOpenHashMap<>();
-        // dictionary values in id order, id equals list index
-        protected List<Binary> dictionaryValues = new ArrayList<>();
+        private static final float FILL_RATIO = 0.75f;
+        // storage is allocated lazily on the first written value; unused writers hold only object headers
+        private static final int INITIAL_ENTRIES = 1024;
+        private static final int INITIAL_DICTIONARY_BYTES = 64;
+        // golden-ratio odd constant for the multiplicative hash
+        private static final long HASH_MULTIPLIER = 0x9E3779B97F4A7C15L;
+
+        // distinct value bytes concatenated in id order; null until the first value is written
+        private SliceOutput dictionaryData;
+        // prefix offsets: value id occupies dictionaryData[offsets[id], offsets[id + 1])
+        private int[] offsets;
+        // open-addressing table; each occupied slot packs the value hash (high 32 bits) and id + 1 (low 32 bits).
+        // an empty slot has zero in the low 32 bits. the cached hash lets rehashing and probing skip recomputation.
+        private long[] table;
+        private int hashMask;
+        private int maxFill;
+        private int dictionarySize;
 
         public PlainBinaryDictionaryValuesWriter(
                 int maxDictionaryByteSize,
@@ -234,41 +263,139 @@ public abstract class DictionaryValuesWriter
                 Encoding encodingForDictionaryPage)
         {
             super(maxDictionaryByteSize, encodingForDataPage, encodingForDictionaryPage);
-            binaryDictionaryContent.defaultReturnValue(-1);
         }
 
         @Override
         public void writeBytes(Slice value)
         {
-            writeBytes(Binary.fromReusedByteArray(value.byteArray(), value.byteArrayOffset(), value.length()));
+            encodedValues.add(putIfAbsent(value));
         }
 
-        @Override
-        public void writeBytes(Binary v)
+        // serialized size contribution of one distinct value
+        protected long entrySize(int valueLength)
         {
-            int id = binaryDictionaryContent.getInt(v);
-            if (id == -1) {
-                id = dictionaryValues.size();
-                Binary copy = v.copy();
-                binaryDictionaryContent.put(copy, id);
-                dictionaryValues.add(copy);
-                // length as int (4 bytes) + actual bytes
-                dictionaryByteSize += 4L + v.length();
+            // length prefix (4 bytes) plus the value bytes
+            return 4L + valueLength;
+        }
+
+        private int putIfAbsent(Slice value)
+        {
+            if (table == null) {
+                allocateStorage();
             }
-            encodedValues.add(id);
+            int length = value.length();
+            int hash = hash(value, length);
+            int slot = findSlot(value, length, hash);
+            long entry = table[slot];
+            if ((int) entry != 0) {
+                return (int) entry - 1;
+            }
+            int id = dictionarySize;
+            dictionaryData.writeBytes(value);
+            offsets[id + 1] = dictionaryData.size();
+            table[slot] = ((long) hash << 32) | (id + 1);
+            dictionaryByteSize += entrySize(length);
+            dictionarySize++;
+            if (dictionarySize >= maxFill) {
+                // -1 so arraySize rounds to the next power of two, doubling the table rather than quadrupling it
+                rehash(maxFill * 2 - 1);
+            }
+            return id;
+        }
+
+        private void allocateStorage()
+        {
+            int hashSize = arraySize(INITIAL_ENTRIES, FILL_RATIO);
+            this.hashMask = hashSize - 1;
+            this.maxFill = calculateMaxFill(hashSize);
+            this.table = new long[hashSize];
+            this.offsets = new int[maxFill + 1];
+            this.dictionaryData = new DynamicSliceOutput(INITIAL_DICTIONARY_BYTES);
+        }
+
+        // multiplicative word-at-a-time hash; cheaper than XxHash64 on short values, mixed to spread the low bits used for the slot index
+        private static int hash(Slice value, int length)
+        {
+            long accumulator = length;
+            int index = 0;
+            for (; index + Long.BYTES <= length; index += Long.BYTES) {
+                accumulator = (accumulator ^ value.getLong(index)) * HASH_MULTIPLIER;
+            }
+            if (index < length) {
+                long tail = 0;
+                for (int shift = 0; index < length; index++, shift += Byte.SIZE) {
+                    tail |= (value.getByte(index) & 0xFFL) << shift;
+                }
+                accumulator = (accumulator ^ tail) * HASH_MULTIPLIER;
+            }
+            return (int) mix(accumulator);
+        }
+
+        private int findSlot(Slice value, int length, int hash)
+        {
+            Slice dictionarySlice = dictionaryData.getUnderlyingSlice();
+            int slot = hash & hashMask;
+            while (true) {
+                long entry = table[slot];
+                if ((int) entry == 0) {
+                    return slot;
+                }
+                if ((int) (entry >>> 32) == hash) {
+                    int id = (int) entry - 1;
+                    int start = offsets[id];
+                    if (value.equals(0, length, dictionarySlice, start, offsets[id + 1] - start)) {
+                        return slot;
+                    }
+                }
+                slot = (slot + 1) & hashMask;
+            }
+        }
+
+        private void rehash(int newSize)
+        {
+            int newHashSize = arraySize(newSize + 1, FILL_RATIO);
+            hashMask = newHashSize - 1;
+            maxFill = calculateMaxFill(newHashSize);
+            offsets = Arrays.copyOf(offsets, maxFill + 1);
+            long[] newTable = new long[newHashSize];
+            for (long entry : table) {
+                if ((int) entry == 0) {
+                    continue;
+                }
+                int slot = (int) (entry >>> 32) & hashMask;
+                while ((int) newTable[slot] != 0) {
+                    slot = (slot + 1) & hashMask;
+                }
+                newTable[slot] = entry;
+            }
+            table = newTable;
+        }
+
+        // slice view of distinct value id backed by the dictionary data
+        protected Slice entry(int id)
+        {
+            int start = offsets[id];
+            return dictionaryData.getUnderlyingSlice().slice(start, offsets[id + 1] - start);
+        }
+
+        // first lastUsedDictionarySize concatenated values (no length prefixes), copied out of the reused arena buffer
+        protected BytesInput usedDictionaryData()
+        {
+            return toBytesInput(dictionaryData.getUnderlyingSlice().slice(0, offsets[lastUsedDictionarySize]).copy());
         }
 
         @Override
         public DictionaryPage toDictPageAndClose()
         {
             if (lastUsedDictionarySize > 0) {
-                // return a dictionary only if we actually used it
-                PlainValuesWriter dictionaryEncoder = new PlainValuesWriter(lastUsedDictionaryByteSize, maxDictionaryByteSize, new HeapByteBufferAllocator());
-                // write only the part of the dict that we used
-                for (int i = 0; i < lastUsedDictionarySize; i++) {
-                    dictionaryEncoder.writeBytes(dictionaryValues.get(i));
+                // PLAIN dictionary page: 4-byte little-endian length prefix then value bytes per entry
+                SliceOutput dictionaryPage = new DynamicSliceOutput(lastUsedDictionaryByteSize);
+                for (int id = 0; id < lastUsedDictionarySize; id++) {
+                    Slice value = entry(id);
+                    dictionaryPage.writeInt(value.length());
+                    dictionaryPage.writeBytes(value);
                 }
-                return dictPage(dictionaryEncoder);
+                return dictPage(toBytesInput(dictionaryPage.slice()));
             }
             return null;
         }
@@ -276,14 +403,26 @@ public abstract class DictionaryValuesWriter
         @Override
         public int getDictionarySize()
         {
-            return binaryDictionaryContent.size();
+            return dictionarySize;
+        }
+
+        @Override
+        protected long getDictionaryAllocatedSize()
+        {
+            if (table == null) {
+                return 0;
+            }
+            return dictionaryData.getRetainedSize() + sizeOf(offsets) + sizeOf(table);
         }
 
         @Override
         protected void clearDictionaryContent()
         {
-            binaryDictionaryContent.clear();
-            dictionaryValues.clear();
+            // release grown buffers; allocateStorage reallocates lazily on the next written value
+            dictionaryData = null;
+            offsets = null;
+            table = null;
+            dictionarySize = 0;
         }
 
         @Override
@@ -292,9 +431,17 @@ public abstract class DictionaryValuesWriter
             // fall back to plain encoding using the id-ordered dictionary values
             IntIterator iterator = encodedValues.iterator();
             while (iterator.hasNext()) {
-                int id = iterator.next();
-                writer.writeBytes(dictionaryValues.get(id));
+                writer.writeBytes(entry(iterator.next()));
             }
+        }
+
+        private static int calculateMaxFill(int hashSize)
+        {
+            int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
+            if (maxFill == hashSize) {
+                maxFill--;
+            }
+            return maxFill;
         }
     }
 
@@ -314,30 +461,18 @@ public abstract class DictionaryValuesWriter
         }
 
         @Override
-        public void writeBytes(Binary value)
+        protected long entrySize(int valueLength)
         {
-            int id = binaryDictionaryContent.getInt(value);
-            if (id == -1) {
-                id = dictionaryValues.size();
-                Binary copy = value.copy();
-                binaryDictionaryContent.put(copy, id);
-                dictionaryValues.add(copy);
-                dictionaryByteSize += length;
-            }
-            encodedValues.add(id);
+            // fixed-length values are serialized without a length prefix
+            return length;
         }
 
         @Override
         public DictionaryPage toDictPageAndClose()
         {
             if (lastUsedDictionarySize > 0) {
-                // return a dictionary only if we actually used it
-                FixedLenByteArrayPlainValuesWriter dictionaryEncoder = new FixedLenByteArrayPlainValuesWriter(length, lastUsedDictionaryByteSize, maxDictionaryByteSize, new HeapByteBufferAllocator());
-                // write only the part of the dict that we used
-                for (int i = 0; i < lastUsedDictionarySize; i++) {
-                    dictionaryEncoder.writeBytes(dictionaryValues.get(i));
-                }
-                return dictPage(dictionaryEncoder);
+                // fixed-length values carry no length prefix, so the stored bytes are already the PLAIN payload
+                return dictPage(usedDictionaryData());
             }
             return null;
         }
