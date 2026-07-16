@@ -106,6 +106,8 @@ public final class IcebergTestUtils
 
     public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
 
+    public static final EncryptionManagerFactory ENCRYPTION_MANAGER_FACTORY = new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig());
+
     private IcebergTestUtils() {}
 
     public static Session withSmallRowGroups(Session session)

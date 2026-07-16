@@ -37,7 +37,6 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
-import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
@@ -81,6 +80,7 @@ import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.spi.type.DateType.DATE;
@@ -590,7 +590,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 ParquetFooterCache.noop(),
                 blocksHashFactory,
                 icebergConfig,
-                new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig()));
+                ENCRYPTION_MANAGER_FACTORY);
         return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),
