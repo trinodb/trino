@@ -62,7 +62,8 @@ public class AlluxioInputStream
         this.location = inputFile.location();
         this.statistics = requireNonNull(statistics, "statistics is null");
         this.key = requireNonNull(key, "key is null");
-        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics);
+        // Sequential reads arrive in small arbitrary chunks, so buffer small reads to amortize page aligned reads
+        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics, true);
     }
 
     @Override
