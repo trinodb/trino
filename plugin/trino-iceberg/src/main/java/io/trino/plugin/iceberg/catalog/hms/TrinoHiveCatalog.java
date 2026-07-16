@@ -488,7 +488,16 @@ public class TrinoHiveCatalog
             metadata = uncheckedCacheGet(
                     tableMetadataCache,
                     schemaTableName,
-                    () -> loadIcebergTable(this, tableOperationsProvider, session, schemaTableName).operations().current());
+                    () -> {
+                        if (!isMaterializedViewStorage(schemaTableName.getTableName())) {
+                            Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                                    .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+                            if (isSomeKindOfAView(table)) {
+                                throw new TableNotFoundException(schemaTableName);
+                            }
+                        }
+                        return loadIcebergTable(this, tableOperationsProvider, session, schemaTableName).operations().current();
+                    });
         }
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());

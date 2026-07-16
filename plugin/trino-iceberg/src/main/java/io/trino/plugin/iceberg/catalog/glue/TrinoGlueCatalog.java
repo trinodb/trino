@@ -586,6 +586,13 @@ public class TrinoGlueCatalog
                     tableMetadataCache,
                     table,
                     () -> {
+                        if (!isMaterializedViewStorage(table.getTableName())) {
+                            Table glueTable = getTable(table, false);
+                            String tableType = getTableType(glueTable);
+                            if (isTrinoView(tableType, glueTable.parameters()) || isTrinoMaterializedView(tableType, glueTable.parameters())) {
+                                throw new TableNotFoundException(table);
+                            }
+                        }
                         TableOperations operations = tableOperationsProvider.createTableOperations(
                                 this,
                                 session,
