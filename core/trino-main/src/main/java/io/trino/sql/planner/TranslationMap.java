@@ -165,6 +165,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -190,11 +191,15 @@ import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.type.IntervalCasts.negatePicos;
+import static io.trino.type.IntervalCasts.roundToLongInterval;
+import static io.trino.type.IntervalDayTimeType.MAX_SHORT_FRACTIONAL_PRECISION;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
+import static io.trino.util.DateTimeUtils.parseDayTimeIntervalToPicos;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -488,10 +493,6 @@ public class TranslationMap
     {
         Type type = analysis.getType(expression);
 
-        // TODO: the value should be interpreted according to the analyzed type. However, currently the analyzed type
-        //       is hard-coded to either INTERVAL DAY TO SECOND or INTERVAL YEAR TO MONTH, as arbitrary precision
-        //       invervals are not yet supported in the underlying type system.
-
         IntervalField start = switch (expression.qualifier()) {
             case SimpleIntervalQualifier simple -> simple.getField();
             case CompositeIntervalQualifier composite -> composite.getFrom();
@@ -502,13 +503,24 @@ public class TranslationMap
             case CompositeIntervalQualifier composite -> Optional.of(composite.getTo());
         };
 
-        return new Constant(
-                type,
-                switch (type) {
-                    case IntervalDayTimeType _ -> expression.getSign().multiplier() * parseDayTimeInterval(expression.getValue(), start, end);
-                    case IntervalYearMonthType _ -> expression.getSign().multiplier() * parseYearMonthInterval(expression.getValue(), start, end);
-                    default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
-                });
+        int sign = expression.getSign().multiplier();
+        Object value = switch (type) {
+            // Round the parsed value to the type's fractional-seconds precision, producing the short
+            // (microsecond) form for a precision of at most 6 and the long (picosecond) form above it.
+            case IntervalDayTimeType intervalType -> {
+                if (intervalType.isShort()) {
+                    yield round(sign * parseDayTimeInterval(expression.getValue(), start, end), MAX_SHORT_FRACTIONAL_PRECISION - intervalType.getFractionalPrecision());
+                }
+                long[] picos = parseDayTimeIntervalToPicos(expression.getValue(), start, end);
+                if (sign < 0) {
+                    picos = negatePicos(picos[0], picos[1]);
+                }
+                yield roundToLongInterval(picos[0], picos[1], intervalType.getFractionalPrecision());
+            }
+            case IntervalYearMonthType _ -> sign * parseYearMonthInterval(expression.getValue(), start, end);
+            default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
+        };
+        return new Constant(type, value);
     }
 
     private io.trino.sql.ir.Expression translate(SearchedCaseExpression expression)
@@ -1217,6 +1229,13 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression atTimeZone(Type valueType, io.trino.sql.ir.Expression value, Type timeZoneType, io.trino.sql.ir.Expression timeZone)
     {
+        // A day-time interval given as the zone offset may carry any qualifier; the time-zone functions take the
+        // canonical interval, so widen it to that qualifier (an identity cast over the shared representation).
+        if (timeZoneType instanceof IntervalDayTimeType && !timeZoneType.equals(IntervalDayTimeType.INTERVAL_DAY_TIME)) {
+            timeZone = cast(plannerContext.getTypeManager(), timeZone, IntervalDayTimeType.INTERVAL_DAY_TIME);
+            timeZoneType = IntervalDayTimeType.INTERVAL_DAY_TIME;
+        }
+
         return switch (valueType) {
             case TimeType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName(AT_TIMEZONE_FUNCTION_NAME)
@@ -1249,7 +1268,7 @@ public class TranslationMap
         RowType rowType = (RowType) left.type();
         Type startType = rowType.getFields().get(0).getType();
         Type secondType = rowType.getFields().get(1).getType();
-        boolean intervalEnd = secondType.equals(IntervalDayTimeType.INTERVAL_DAY_TIME) || secondType.equals(IntervalYearMonthType.INTERVAL_YEAR_MONTH);
+        boolean intervalEnd = secondType instanceof IntervalDayTimeType || secondType instanceof IntervalYearMonthType;
 
         Type endType = intervalEnd
                 ? plannerContext.getMetadata().resolveOperator(OperatorType.ADD, ImmutableList.of(startType, secondType)).signature().getReturnType()
@@ -1337,11 +1356,23 @@ public class TranslationMap
     {
         io.trino.sql.ir.Expression startRaw = new FieldReference(row, 0);
         io.trino.sql.ir.Expression second = new FieldReference(row, 1);
-        io.trino.sql.ir.Expression endRaw = intervalEnd
-                ? new Call(plannerContext.getMetadata().resolveOperator(OperatorType.ADD, ImmutableList.of(startType, secondType)), ImmutableList.of(startRaw, second))
-                : second;
-        io.trino.sql.ir.Expression start = startType.equals(comparisonType) ? startRaw : new io.trino.sql.ir.Cast(startRaw, comparisonType);
-        io.trino.sql.ir.Expression end = endType.equals(comparisonType) ? endRaw : new io.trino.sql.ir.Cast(endRaw, comparisonType);
+        io.trino.sql.ir.Expression endRaw;
+        if (intervalEnd) {
+            // end = start + interval. Coerce each operand to the resolved operator's argument type: a
+            // parametric interval literal (e.g. INTERVAL '5' MONTH is interval month(2)) carries a narrower
+            // qualifier than the operator's canonical interval, so it must be widened before the call.
+            ResolvedFunction add = plannerContext.getMetadata().resolveOperator(OperatorType.ADD, ImmutableList.of(startType, secondType));
+            Type addStartType = add.signature().getArgumentType(0);
+            Type addSecondType = add.signature().getArgumentType(1);
+            endRaw = new Call(add, ImmutableList.of(
+                    startType.equals(addStartType) ? startRaw : cast(plannerContext.getTypeManager(), startRaw, addStartType),
+                    secondType.equals(addSecondType) ? second : cast(plannerContext.getTypeManager(), second, addSecondType)));
+        }
+        else {
+            endRaw = second;
+        }
+        io.trino.sql.ir.Expression start = startType.equals(comparisonType) ? startRaw : cast(plannerContext.getTypeManager(), startRaw, comparisonType);
+        io.trino.sql.ir.Expression end = endType.equals(comparisonType) ? endRaw : cast(plannerContext.getTypeManager(), endRaw, comparisonType);
         return new Endpoints(start, end);
     }
 

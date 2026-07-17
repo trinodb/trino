@@ -972,7 +972,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 session,
                 "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
                         "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
-                "VALUES (1, '0 00:00:01.000')");
+                "VALUES (1, '0 00:00:01')");
     }
 
     @Test
@@ -5315,9 +5315,9 @@ public abstract class AbstractTestEngineOnlyQueries
                         "                ) AS m",
                 "VALUES " +
                         "(1436, 1, 'BIG', 291066.38, null), " +
-                        "(1436, 1, 'SMALL', 1258.33, '28 00:00:00.000'), " +
+                        "(1436, 1, 'SMALL', 1258.33, '28 00:00:00.000000'), " +
                         "(1400, 1, 'BIG', 319491.64, null), " +
-                        "(1400, 1, 'SMALL', 1301.08, '85 00:00:00.000') ");
+                        "(1400, 1, 'SMALL', 1301.08, '85 00:00:00.000000') ");
     }
 
     @Test
@@ -6447,11 +6447,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(functions.get("avg").asList().get(2).getField(1)).isEqualTo("double");
         assertThat(functions.get("avg").asList().get(2).getField(2)).isEqualTo("double");
         assertThat(functions.get("avg").asList().get(2).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(3).getField(1)).isEqualTo("interval day to second");
-        assertThat(functions.get("avg").asList().get(3).getField(2)).isEqualTo("interval day to second");
+        assertThat(functions.get("avg").asList().get(3).getField(1)).isEqualTo("interval day(9) to second(p)");
+        assertThat(functions.get("avg").asList().get(3).getField(2)).isEqualTo("interval day(9) to second(p)");
         assertThat(functions.get("avg").asList().get(3).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(4).getField(1)).isEqualTo("interval year to month");
-        assertThat(functions.get("avg").asList().get(4).getField(2)).isEqualTo("interval year to month");
+        assertThat(functions.get("avg").asList().get(4).getField(1)).isEqualTo("interval year(9) to month");
+        assertThat(functions.get("avg").asList().get(4).getField(2)).isEqualTo("interval year(9) to month");
         assertThat(functions.get("avg").asList().get(4).getField(3)).isEqualTo("aggregate");
         assertThat(functions.get("avg").asList().get(5).getField(1)).isEqualTo("number");
         assertThat(functions.get("avg").asList().get(5).getField(2)).isEqualTo("number");

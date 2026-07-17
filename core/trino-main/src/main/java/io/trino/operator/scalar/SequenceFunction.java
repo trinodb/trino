@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.FixedWidthType;
@@ -75,21 +76,22 @@ public final class SequenceFunction
     public static Block sequenceDateDayToSecond(
             @SqlType(StandardTypes.DATE) long start,
             @SqlType(StandardTypes.DATE) long stop,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
+            @SqlType("interval day(9) to second") long step)
     {
         checkCondition(
-                step % TimeUnit.DAYS.toMillis(1) == 0,
+                step % TimeUnit.DAYS.toMicros(1) == 0,
                 INVALID_FUNCTION_ARGUMENT,
                 "sequence step must be a day interval if start and end values are dates");
-        return fixedWidthSequence(start, stop, step / TimeUnit.DAYS.toMillis(1), DATE);
+        return fixedWidthSequence(start, stop, step / TimeUnit.DAYS.toMicros(1), DATE);
     }
 
     @ScalarFunction("sequence")
+    @LiteralParameters("q")
     @SqlType("array(date)")
     public static Block sequenceDateYearToMonth(
             @SqlType(StandardTypes.DATE) long start,
             @SqlType(StandardTypes.DATE) long stop,
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
+            @SqlType("interval year(q) to month") long step)
     {
         checkValidStep(start, stop, step);
 

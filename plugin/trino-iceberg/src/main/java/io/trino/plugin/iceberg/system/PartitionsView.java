@@ -20,7 +20,9 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSyntax;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Types.NestedField;
@@ -59,14 +61,14 @@ public final class PartitionsView
         boolean hasPartitionColumn;
         if (partitionType.isPresent()) {
             hasPartitionColumn = true;
-            viewColumns.add(new ViewColumn("partition", partitionType.get().rowType().getTypeId(), Optional.empty()));
+            viewColumns.add(new ViewColumn("partition", TypeId.of(TypeSyntax.toSql(partitionType.get().rowType().getTypeDescriptor())), Optional.empty()));
         }
         else {
             hasPartitionColumn = false;
         }
 
         Stream.of("record_count", "file_count", "total_size")
-                .forEach(column -> viewColumns.add(new ViewColumn(column, BIGINT.getTypeId(), Optional.empty())));
+                .forEach(column -> viewColumns.add(new ViewColumn(column, TypeId.of(TypeSyntax.toSql(BIGINT.getTypeDescriptor())), Optional.empty())));
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
                 .map(PartitionField::sourceId)
@@ -82,7 +84,7 @@ public final class PartitionsView
         String dataAggregationSql;
         if (dataColumnType.isPresent()) {
             hasDataColumn = true;
-            viewColumns.add(new ViewColumn("data", dataColumnType.get().getTypeId(), Optional.empty()));
+            viewColumns.add(new ViewColumn("data", TypeId.of(TypeSyntax.toSql(dataColumnType.get().getTypeDescriptor())), Optional.empty()));
             dataAggregationSql = buildDataAggregation(typeManager, nonPartitionPrimitiveColumns);
         }
         else {

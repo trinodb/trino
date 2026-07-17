@@ -27,6 +27,8 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.client.ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.trino.client.ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.client.ClientStandardTypes.ROW;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
@@ -38,6 +40,8 @@ import static java.util.stream.Collectors.joining;
 public class ClientTypeSignature
 {
     private static final Pattern PATTERN = Pattern.compile(".*[<>,].*");
+    // Interval field keywords indexed by the field code carried in the type signature (year=0 .. second=5).
+    private static final String[] INTERVAL_FIELD_KEYWORDS = {"year", "month", "day", "hour", "minute", "second"};
     private final String rawType;
     private final List<ClientTypeSignatureParameter> arguments;
     public static final int VARCHAR_UNBOUNDED_LENGTH = Integer.MAX_VALUE;
@@ -105,9 +109,33 @@ public class ClientTypeSignature
             return "timestamp(" + arguments.get(0) + ") with time zone";
         }
 
+        if (rawType.equals(INTERVAL_DAY_TO_SECOND) || rawType.equals(INTERVAL_YEAR_TO_MONTH)) {
+            return intervalToString();
+        }
+
         return rawType + arguments.stream()
                 .map(ClientTypeSignatureParameter::toString)
                 .collect(joining(",", "(", ")"));
+    }
+
+    // The interval field codes (start, end), the leading precision, and — for a day-time interval — the
+    // fractional-seconds precision arrive as numeric arguments; render the SQL qualifier
+    // "interval <start>(<leading>) [to <end>]", with the fractional precision when the trailing field is
+    // SECOND, rather than the generic form.
+    private String intervalToString()
+    {
+        String start = INTERVAL_FIELD_KEYWORDS[arguments.get(0).getLongLiteral().intValue()];
+        String end = INTERVAL_FIELD_KEYWORDS[arguments.get(1).getLongLiteral().intValue()];
+        long leadingPrecision = arguments.get(2).getLongLiteral();
+        boolean secondEnd = end.equals("second") && arguments.size() > 3;
+        if (start.equals(end)) {
+            if (secondEnd) {
+                return "interval second(" + leadingPrecision + ", " + arguments.get(3).getLongLiteral() + ")";
+            }
+            return "interval " + start + "(" + leadingPrecision + ")";
+        }
+        String leading = "interval " + start + "(" + leadingPrecision + ")";
+        return secondEnd ? leading + " to second(" + arguments.get(3).getLongLiteral() + ")" : leading + " to " + end;
     }
 
     @Deprecated

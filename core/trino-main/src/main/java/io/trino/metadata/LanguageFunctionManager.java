@@ -44,8 +44,8 @@ import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
@@ -258,8 +258,7 @@ public class LanguageFunctionManager
                 .map(ParameterDeclaration::getType)
                 .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(typeManager::getType)
-                .map(Type::getTypeId)
-                .map(TypeId::getId)
+                .map(type -> TypeSyntax.toSql(type.getTypeDescriptor()))
                 .collect(joining(",", "(", ")"));
     }
 

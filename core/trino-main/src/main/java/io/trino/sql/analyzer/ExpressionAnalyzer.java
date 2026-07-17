@@ -114,6 +114,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalQualifier;
@@ -160,7 +161,6 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
@@ -177,6 +177,8 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -292,6 +294,10 @@ import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.inferIntervalFractionalPrecision;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.inferIntervalLeadingPrecision;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.intervalQualifierHasInferableFractionalPrecision;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.intervalQualifierHasPrecision;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
@@ -317,8 +323,6 @@ import static io.trino.type.DateTimes.parseTimestamp;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.DateTimes.timeHasTimeZone;
 import static io.trino.type.DateTimes.timestampHasTimeZone;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -1699,15 +1703,16 @@ public class ExpressionAnalyzer
         {
             validateIntervalQualifier(node.qualifier());
 
-            IntervalField field = switch (node.qualifier()) {
-                case SimpleIntervalQualifier simple -> simple.getField();
-                case CompositeIntervalQualifier composite -> composite.getTo(); // we only need to check one. The other one is validated in validateIntervalQualifier
-            };
-
-            Type type = switch (field) {
-                case IntervalField.Year(), IntervalField.Month() -> INTERVAL_YEAR_MONTH;
-                case IntervalField.Day(), IntervalField.Hour(), IntervalField.Minute(), IntervalField.Second(OptionalInt _) -> INTERVAL_DAY_TIME;
-            };
+            IntervalDataType dataType = new IntervalDataType(node.getLocation(), node.qualifier());
+            TypeDescriptor descriptor = toTypeDescriptor(dataType);
+            // A literal with no explicit precision takes the width of its value, not the implicit default.
+            if (!intervalQualifierHasPrecision(dataType)) {
+                descriptor = inferIntervalLeadingPrecision(descriptor, node.getValue());
+            }
+            if (intervalQualifierHasInferableFractionalPrecision(dataType)) {
+                descriptor = inferIntervalFractionalPrecision(descriptor, node.getValue());
+            }
+            Type type = plannerContext.getTypeManager().getType(descriptor);
 
             try {
                 literalInterpreter.evaluate(node, type);
@@ -2566,7 +2571,7 @@ public class ExpressionAnalyzer
                 }
             }
             else { // isDateTimeType(sortKeyType)
-                if (offsetValueType != INTERVAL_DAY_TIME && offsetValueType != INTERVAL_YEAR_MONTH) {
+                if (!(offsetValueType instanceof IntervalDayTimeType) && !(offsetValueType instanceof IntervalYearMonthType)) {
                     throw semanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
                 }
             }
@@ -3148,7 +3153,7 @@ public class ExpressionAnalyzer
 
         private static boolean isInterval(Type type)
         {
-            return type == INTERVAL_DAY_TIME || type == INTERVAL_YEAR_MONTH;
+            return type instanceof IntervalDayTimeType || type instanceof IntervalYearMonthType;
         }
 
         @Override
@@ -3285,20 +3290,26 @@ public class ExpressionAnalyzer
             Type type = process(node.getExpression(), context);
             Extract.Field field = node.getField();
 
+            // An interval may only be extracted on a field its qualifier contains.
+            if (type instanceof IntervalYearMonthType || type instanceof IntervalDayTimeType) {
+                if (!intervalContainsField(type, field)) {
+                    throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                }
+                return setExpressionType(node, BIGINT);
+            }
+
             switch (field) {
                 case YEAR, MONTH -> {
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
-                            !(type instanceof TimestampWithTimeZoneType) &&
-                            !type.equals(INTERVAL_YEAR_MONTH)) {
+                            !(type instanceof TimestampWithTimeZoneType)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                 }
                 case DAY -> {
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
-                            !(type instanceof TimestampWithTimeZoneType) &&
-                            !type.equals(INTERVAL_DAY_TIME)) {
+                            !(type instanceof TimestampWithTimeZoneType)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                 }
@@ -3313,8 +3324,7 @@ public class ExpressionAnalyzer
                     if (!(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
                             !(type instanceof TimeType) &&
-                            !(type instanceof TimeWithTimeZoneType) &&
-                            !type.equals(INTERVAL_DAY_TIME)) {
+                            !(type instanceof TimeWithTimeZoneType)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                 }
@@ -3327,6 +3337,35 @@ public class ExpressionAnalyzer
             }
 
             return setExpressionType(node, BIGINT);
+        }
+
+        private static boolean intervalContainsField(Type type, Extract.Field field)
+        {
+            io.trino.spi.type.IntervalField extractField = switch (field) {
+                case YEAR -> io.trino.spi.type.IntervalField.YEAR;
+                case MONTH -> io.trino.spi.type.IntervalField.MONTH;
+                case DAY -> io.trino.spi.type.IntervalField.DAY;
+                case HOUR -> io.trino.spi.type.IntervalField.HOUR;
+                case MINUTE -> io.trino.spi.type.IntervalField.MINUTE;
+                case SECOND -> io.trino.spi.type.IntervalField.SECOND;
+                default -> null;
+            };
+            if (extractField == null) {
+                return false;
+            }
+
+            io.trino.spi.type.IntervalField start;
+            io.trino.spi.type.IntervalField end;
+            if (type instanceof IntervalYearMonthType yearMonth) {
+                start = yearMonth.getStartField();
+                end = yearMonth.getEndField();
+            }
+            else {
+                IntervalDayTimeType dayTime = (IntervalDayTimeType) type;
+                start = dayTime.getStartField();
+                end = dayTime.getEndField();
+            }
+            return start.code() <= extractField.code() && extractField.code() <= end.code();
         }
 
         private static boolean isDateTimeType(Type type)
@@ -3367,11 +3406,28 @@ public class ExpressionAnalyzer
                     plannerContext.getMetadata().getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
+                    if (type instanceof IntervalYearMonthType && isDatetimeDifference(node.getExpression())) {
+                        // (e1 - e2) <year-month qualifier>, the SQL <interval value expression>, desugars to a
+                        // cast of the (day-time) datetime difference to a year-month interval. The spec defines
+                        // it as a calendar month/year difference, which Trino does not yet implement. (A cast
+                        // between the interval families is otherwise simply invalid — handled below.)
+                        throw semanticException(NOT_SUPPORTED, node, "Computing a year-month interval difference of datetimes is not yet supported");
+                    }
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
                 }
             }
 
             return setExpressionType(node, type);
+        }
+
+        /// Whether the expression is the difference of two datetimes (`e1 - e2` with datetime operands),
+        /// the source of the SQL `(e1 - e2) <interval qualifier>` value expression.
+        private boolean isDatetimeDifference(Expression expression)
+        {
+            return expression instanceof ArithmeticBinaryExpression binary
+                    && binary.getOperator() == ArithmeticBinaryExpression.Operator.SUBTRACT
+                    && isDatetime(getExpressionType(binary.getLeft()))
+                    && isDatetime(getExpressionType(binary.getRight()));
         }
 
         private Type analyzeIn(Expression value, InPredicate predicate, Expression anchor, Context context)
@@ -3774,8 +3830,8 @@ public class ExpressionAnalyzer
                     !isNumericType(returnedType) &&
                     !returnedType.equals(BOOLEAN) &&
                     !isDateTimeType(returnedType) ||
-                    returnedType.equals(INTERVAL_DAY_TIME) ||
-                    returnedType.equals(INTERVAL_YEAR_MONTH)) {
+                    returnedType instanceof IntervalDayTimeType ||
+                    returnedType instanceof IntervalYearMonthType) {
                 throw semanticException(TYPE_MISMATCH, node, "Invalid return type of function JSON_VALUE: %s", declaredReturnedType.get());
             }
 
@@ -4507,27 +4563,15 @@ public class ExpressionAnalyzer
                     (composite.getFrom() instanceof IntervalField.Day() && (
                             composite.getTo() instanceof IntervalField.Hour() ||
                                     composite.getTo() instanceof IntervalField.Minute() ||
-                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                                    composite.getTo() instanceof IntervalField.Second)) ||
                     (composite.getFrom() instanceof IntervalField.Hour() && (
                             composite.getTo() instanceof IntervalField.Minute() ||
-                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
-                    (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second(OptionalInt _));
+                                    composite.getTo() instanceof IntervalField.Second)) ||
+                    (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second);
 
             if (!valid) {
                 throw semanticException(SYNTAX_ERROR, qualifier, "Invalid INTERVAL qualifier");
             }
-        }
-
-        if (qualifier instanceof SimpleIntervalQualifier simple && (
-                simple.getPrecision().isPresent() ||
-                        (simple.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
-            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
-        }
-
-        if (qualifier instanceof CompositeIntervalQualifier composite && (
-                composite.getPrecision().isPresent() ||
-                        (composite.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
-            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
         }
     }
 

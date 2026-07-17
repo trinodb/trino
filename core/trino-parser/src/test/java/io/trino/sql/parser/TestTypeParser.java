@@ -15,10 +15,12 @@ package io.trino.sql.parser;
 
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import org.junit.jupiter.api.Test;
 
-import java.util.OptionalInt;
+import java.util.Optional;
 
 import static io.trino.sql.parser.ParserAssert.type;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
@@ -163,10 +165,10 @@ public class TestTypeParser
     public void testIntervalTypes()
     {
         assertThat(type("INTERVAL YEAR TO MONTH"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.empty(), new IntervalField.Year(), new IntervalField.Month())));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.empty(), new IntervalField.Year(), new IntervalField.Month())));
 
         assertThat(type("INTERVAL SECOND"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.empty(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.empty(), new IntervalField.Second(Optional.empty()))));
     }
 
     @Test
@@ -347,54 +349,54 @@ public class TestTypeParser
     void testInverval()
     {
         assertThat(type("INTERVAL YEAR(1)"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Year())));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 15), "1")), new IntervalField.Year())));
 
         assertThat(type("INTERVAL YEAR(1) TO MONTH"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Year(), new IntervalField.Month())));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 15), "1")), new IntervalField.Year(), new IntervalField.Month())));
 
         assertThat(type("INTERVAL MONTH(1)"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Month())));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 16), "1")), new IntervalField.Month())));
 
         assertThat(type("INTERVAL DAY(1)"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day())));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 14), "1")), new IntervalField.Day())));
 
         assertThat(type("INTERVAL DAY(1) TO HOUR"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Hour())));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 14), "1")), new IntervalField.Day(), new IntervalField.Hour())));
 
         assertThat(type("INTERVAL DAY(1) TO MINUTE"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Minute())));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 14), "1")), new IntervalField.Day(), new IntervalField.Minute())));
 
         assertThat(type("INTERVAL DAY(1) TO SECOND"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 14), "1")), new IntervalField.Day(), new IntervalField.Second(Optional.empty()))));
 
         assertThat(type("INTERVAL DAY(1) TO SECOND(2)"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 14), "1")), new IntervalField.Day(), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 27), "2"))))));
 
         assertThat(type("INTERVAL HOUR(1)"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour())));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 15), "1")), new IntervalField.Hour())));
 
         assertThat(type("INTERVAL HOUR(1) TO MINUTE"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Minute())));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 15), "1")), new IntervalField.Hour(), new IntervalField.Minute())));
 
         assertThat(type("INTERVAL HOUR(1) TO SECOND"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 15), "1")), new IntervalField.Hour(), new IntervalField.Second(Optional.empty()))));
 
         assertThat(type("INTERVAL HOUR(1) TO SECOND(2)"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 15), "1")), new IntervalField.Hour(), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 28), "2"))))));
 
         assertThat(type("INTERVAL MINUTE(1)"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Minute())));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 17), "1")), new IntervalField.Minute())));
 
         assertThat(type("INTERVAL MINUTE(1) TO SECOND"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 17), "1")), new IntervalField.Minute(), new IntervalField.Second(Optional.empty()))));
 
         assertThat(type("INTERVAL MINUTE(1) TO SECOND(2)"))
-                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 17), "1")), new IntervalField.Minute(), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 30), "2"))))));
 
         assertThat(type("INTERVAL SECOND(1)"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Second(OptionalInt.empty()))));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 17), "1")), new IntervalField.Second(Optional.empty()))));
 
         assertThat(type("INTERVAL SECOND(1, 2)"))
-                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Second(OptionalInt.of(2)))));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), Optional.of(new NumericParameter(new NodeLocation(1, 17), "1")), new IntervalField.Second(Optional.of(new NumericParameter(new NodeLocation(1, 20), "2"))))));
     }
 }

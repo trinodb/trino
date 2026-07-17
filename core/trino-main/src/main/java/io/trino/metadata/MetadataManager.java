@@ -786,7 +786,7 @@ public final class MetadataManager
             try {
                 columnMetadata.add(ColumnMetadata.builder()
                         .setName(column.getName())
-                        .setType(typeManager.getType(column.getType()))
+                        .setType(typeManager.fromSqlType(column.getType().getId()))
                         .setComment(column.getComment())
                         .build());
             }
@@ -805,7 +805,7 @@ public final class MetadataManager
             try {
                 columnMetadata.add(ColumnMetadata.builder()
                         .setName(column.getName())
-                        .setType(typeManager.getType(column.getType()))
+                        .setType(typeManager.fromSqlType(column.getType().getId()))
                         .setComment(column.getComment())
                         .build());
             }

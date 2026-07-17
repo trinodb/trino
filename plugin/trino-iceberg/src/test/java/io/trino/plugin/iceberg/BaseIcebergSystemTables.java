@@ -222,6 +222,25 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionsTableWithTimestampWithTimeZone()
+    {
+        // A timestamp-with-time-zone column renders internally as $timestamp_tz(6); the $partitions view
+        // column ids must persist the SQL spelling, or resolving the view fails with INVALID_VIEW. This
+        // covers both the partition row (identity-partitioned tz column) and the data row (non-partition
+        // tz column, whose min/max fields embed the type).
+        try (TestTable table = newTrinoTable(
+                "test_partitions_tz",
+                "(part_ts timestamp(6) with time zone, data_ts timestamp(6) with time zone) WITH (partitioning = ARRAY['part_ts'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2024-01-01 00:00:00.000000 UTC', TIMESTAMP '2024-06-01 12:00:00.000000 UTC')", 1);
+
+            // SELECT * resolves the whole view row type; without the fix it fails with INVALID_VIEW.
+            assertThat(computeActual("SELECT * FROM \"" + table.getName() + "$partitions\"").getRowCount()).isEqualTo(1);
+            assertThat(computeScalar("SELECT partition.part_ts FROM \"" + table.getName() + "$partitions\"")).isNotNull();
+            assertThat(computeScalar("SELECT data.data_ts.min FROM \"" + table.getName() + "$partitions\"")).isNotNull();
+        }
+    }
+
+    @Test
     public void testPartitionsTableOnDropColumn()
     {
         MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_drop_column$partitions\"");

@@ -19,6 +19,27 @@ These functions and operators operate on {ref}`date and time data types <date-ti
 | `-`      | `interval '2' day - interval '3' hour`              | `1 21:00:00.000`          |
 | `-`      | `interval '3' year - interval '5' month`            | `2-7`                     |
 
+Subtracting two datetimes produces an interval with the {ref}`field-maximum
+leading precision <interval-leading-precision>` and the {ref}`fractional-seconds
+precision <interval-fractional-seconds-precision>` of the datetimes, so
+`timestamp1 - timestamp2` of two `timestamp(9)` values has the type
+`INTERVAL DAY(9) TO SECOND(9)` and keeps all nine fractional digits.
+
+To express the difference with a specific day-time qualifier, enclose the
+subtraction in parentheses and follow it with an interval qualifier:
+
+```
+(timestamp '2012-10-31 01:00' - timestamp '2012-10-30 01:00') DAY TO SECOND
+-- 1 00:00:00.000, of type interval day(2) to second
+
+(timestamp '2012-10-31 01:00' - timestamp '2012-01-01 00:00') DAY(9) TO SECOND
+```
+
+The qualifier follows the same rules as any interval type, so a bare qualifier
+uses the implicit precision `2` and overflows for differences of 100 days or more,
+while `DAY(9)` accommodates the full range. Only day-time qualifiers are supported;
+a year-month (calendar) difference is not currently supported.
+
 (at-time-zone-operator)=
 ## Time zone conversion
 

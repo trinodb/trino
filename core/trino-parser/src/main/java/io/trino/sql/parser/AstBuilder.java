@@ -349,7 +349,6 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -2614,6 +2613,26 @@ class AstBuilder
     }
 
     @Override
+    public Node visitIntervalValueExpression(SqlBaseParser.IntervalValueExpressionContext context)
+    {
+        // The SQL <interval value expression> form (e1 - e2) <interval qualifier> is the difference of two
+        // datetimes with an explicit qualifier. A datetime difference is a day-time interval, so it desugars
+        // to a cast of that difference, applying the qualifier's leading precision and the field overflow
+        // check. A year-month (calendar) difference is a distinct operation the day-time result cannot
+        // express; casting to a year-month interval has no implementation, so the analyzer reports it as
+        // unsupported. The qualifier is accepted here so the form is ready for a future implementation.
+        ArithmeticBinaryExpression difference = new ArithmeticBinaryExpression(
+                getLocation(context.MINUS().getSymbol()),
+                ArithmeticBinaryExpression.Operator.SUBTRACT,
+                (Expression) visit(context.left),
+                (Expression) visit(context.right));
+        return new Cast(
+                getLocation(context),
+                difference,
+                new IntervalDataType(getLocation(context), (IntervalQualifier) visit(context.intervalQualifier())));
+    }
+
+    @Override
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
         if (context.fieldConstructor().isEmpty()) {
@@ -3789,7 +3808,7 @@ class AstBuilder
     {
         return new CompositeIntervalQualifier(
                 getLocation(context),
-                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.precision, DataTypeParameter.class),
                 new IntervalField.Year(),
                 new IntervalField.Month());
     }
@@ -3799,7 +3818,7 @@ class AstBuilder
     {
         return new SimpleIntervalQualifier(
                 getLocation(context),
-                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.precision, DataTypeParameter.class),
                 switch (context.field.getType()) {
                     case YEAR -> new IntervalField.Year();
                     case MONTH -> new IntervalField.Month();
@@ -3812,7 +3831,7 @@ class AstBuilder
     {
         return new SimpleIntervalQualifier(
                 getLocation(context),
-                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.precision, DataTypeParameter.class),
                 switch (context.field.getType()) {
                     case DAY -> new IntervalField.Day();
                     case HOUR -> new IntervalField.Hour();
@@ -3826,9 +3845,8 @@ class AstBuilder
     {
         return new SimpleIntervalQualifier(
                 getLocation(context),
-                context.leadingPrecision != null ? OptionalInt.of(Integer.parseInt(context.leadingPrecision.getText())) : OptionalInt.empty(),
-                new IntervalField.Second(
-                        context.fractionalPrecision != null ? OptionalInt.of(Integer.parseInt(context.fractionalPrecision.getText())) : OptionalInt.empty()));
+                visitIfPresent(context.leadingPrecision, DataTypeParameter.class),
+                new IntervalField.Second(visitIfPresent(context.fractionalPrecision, DataTypeParameter.class)));
     }
 
     @Override
@@ -3844,8 +3862,7 @@ class AstBuilder
         IntervalField to = switch (context.end.getType()) {
             case HOUR -> new IntervalField.Hour();
             case MINUTE -> new IntervalField.Minute();
-            case SECOND -> new IntervalField.Second(
-                    context.fractionalPrecision != null ? OptionalInt.of(Integer.parseInt(context.fractionalPrecision.getText())) : OptionalInt.empty());
+            case SECOND -> new IntervalField.Second(visitIfPresent(context.fractionalPrecision, DataTypeParameter.class));
             default -> throw parseError("Unexpected day-time interval end field: " + context.end.getText(), context);
         };
 
@@ -3859,7 +3876,7 @@ class AstBuilder
 
         return new CompositeIntervalQualifier(
                 getLocation(context),
-                context.leadingPrecision != null ? OptionalInt.of(Integer.parseInt(context.leadingPrecision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.leadingPrecision, DataTypeParameter.class),
                 from,
                 to);
     }

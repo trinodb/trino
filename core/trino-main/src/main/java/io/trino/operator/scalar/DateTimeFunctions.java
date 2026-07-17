@@ -448,38 +448,6 @@ public final class DateTimeFunctions
         }
     }
 
-    @Description("Millisecond of the second of the given interval")
-    @ScalarFunction(value = "millisecond", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return milliseconds % MILLISECONDS_IN_SECOND;
-    }
-
-    @Description("Second of the minute of the given interval")
-    @ScalarFunction(value = "second", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long secondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return (milliseconds % MILLISECONDS_IN_MINUTE) / MILLISECONDS_IN_SECOND;
-    }
-
-    @Description("Minute of the hour of the given interval")
-    @ScalarFunction(value = "minute", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long minuteFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return (milliseconds % MILLISECONDS_IN_HOUR) / MILLISECONDS_IN_MINUTE;
-    }
-
-    @Description("Hour of the day of the given interval")
-    @ScalarFunction(value = "hour", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long hourFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return (milliseconds % MILLISECONDS_IN_DAY) / MILLISECONDS_IN_HOUR;
-    }
-
     @Description("Day of the week of the given date")
     @ScalarFunction(value = "day_of_week", alias = "dow", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
@@ -494,14 +462,6 @@ public final class DateTimeFunctions
     public static long dayFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return DAY_OF_MONTH.get(DAYS.toMillis(date));
-    }
-
-    @Description("Day of the month of the given interval")
-    @ScalarFunction(value = "day", alias = "day_of_month", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long dayFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return milliseconds / MILLISECONDS_IN_DAY;
     }
 
     @Description("Last day of the month of the given date")
@@ -545,14 +505,6 @@ public final class DateTimeFunctions
         return MONTH_OF_YEAR.get(DAYS.toMillis(date));
     }
 
-    @Description("Month of the year of the given interval")
-    @ScalarFunction(value = "month", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long monthFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
-    {
-        return months % 12;
-    }
-
     @Description("Quarter of the year of the given date")
     @ScalarFunction(value = "quarter", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
@@ -567,14 +519,6 @@ public final class DateTimeFunctions
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return YEAR.get(DAYS.toMillis(date));
-    }
-
-    @Description("Year of the given interval")
-    @ScalarFunction(value = "year", neverFails = true)
-    @SqlType(StandardTypes.BIGINT)
-    public static long yearFromInterval(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long months)
-    {
-        return months / 12;
     }
 
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
@@ -731,11 +675,11 @@ public final class DateTimeFunctions
     @Description("Convert duration string to an interval")
     @ScalarFunction("parse_duration")
     @LiteralParameters("x")
-    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    @SqlType("interval day(9) to second")
     public static long parseDuration(@SqlType("varchar(x)") Slice duration)
     {
         try {
-            return Duration.valueOf(duration.toStringUtf8()).toMillis();
+            return Duration.valueOf(duration.toStringUtf8()).toMillis() * 1000;
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -743,9 +687,10 @@ public final class DateTimeFunctions
     }
 
     @ScalarFunction("to_milliseconds")
+    @LiteralParameters("q")
     @SqlType(StandardTypes.BIGINT)
-    public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    public static long toMilliseconds(@SqlType("interval day(q) to second") long value)
     {
-        return value;
+        return value / 1000;
     }
 }

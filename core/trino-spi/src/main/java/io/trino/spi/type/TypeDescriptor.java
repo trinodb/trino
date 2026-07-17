@@ -23,18 +23,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TypeParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 @Immutable
 public final class TypeDescriptor
 {
-    private static final String TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone";
-    private static final String TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone";
-
     private final String base;
     private final List<TypeParameter> parameters;
     private final boolean calculated;
@@ -85,40 +82,115 @@ public final class TypeDescriptor
         return formatValue(true);
     }
 
+    /// The internal-form [TypeId] for this type — the IR identity used at runtime (function ids,
+    /// intra-cluster serialization). Durable surfaces (view columns, function signatures) instead persist
+    /// the SQL spelling from [TypeSyntax] so they need no migration.
+    public TypeId toTypeId()
+    {
+        return TypeId.of(jsonValue());
+    }
+
+    // The internal representation of a type: the standardized `base(arg, …)` form. Used for type
+    // identity, function ids, serialization, and debugging — never shown to users. The user-visible SQL
+    // spelling is produced separately by TypeSyntax (see Type#getTypeId and getDisplayName).
     private String formatValue(boolean json)
     {
         if (parameters.isEmpty()) {
             return base;
         }
+        return base + parameters.stream()
+                .map(parameter -> json ? parameter.jsonValue() : parameter.toString())
+                .collect(joining(",", "(", ")"));
+    }
 
-        if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
-                (parameters.size() == 1) &&
-                parameters.get(0) instanceof TypeParameter.Numeric(long length) &&
-                length == VarcharType.UNBOUNDED_LENGTH) {
-            return base;
+    /// Parses the internal `base(arg, …)` IR produced by {@link #toString()}.
+    public static TypeDescriptor fromString(String value)
+    {
+        int open = value.indexOf('(');
+        if (open < 0) {
+            return new TypeDescriptor(value);
         }
+        checkArgument(value.charAt(value.length() - 1) == ')', "Malformed type descriptor: %s", value);
+        String base = value.substring(0, open);
+        String inner = value.substring(open + 1, value.length() - 1);
+        List<TypeParameter> parameters = new ArrayList<>();
+        for (String token : splitTopLevel(inner)) {
+            parameters.add(parseParameter(token.strip()));
+        }
+        return new TypeDescriptor(base, parameters);
+    }
 
-        // TODO: this is somewhat of a hack. We need to evolve TypeDescriptor to be more "structural" for the special types, similar to DataType from the AST.
-        //   In fact. TypeDescriptor should become the IR counterpart to DataType from the AST.
-        if (base.equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
-            return format("timestamp(%s) with time zone", parameters.get(0));
+    private static TypeParameter parseParameter(String token)
+    {
+        checkArgument(!token.isEmpty(), "Malformed type descriptor: empty parameter");
+        if (isNumericLiteral(token)) {
+            return TypeParameter.numericParameter(Long.parseLong(token));
         }
+        if (token.startsWith("\"")) {
+            int closing = closingQuote(token);
+            String name = token.substring(1, closing).replace("\"\"", "\"");
+            return TypeParameter.namedField(name, fromString(token.substring(closing + 1).strip()));
+        }
+        return TypeParameter.anonymousField(fromString(token));
+    }
 
-        if (base.equalsIgnoreCase(TIMESTAMP_WITHOUT_TIME_ZONE)) {
-            return format("timestamp(%s) without time zone", parameters.get(0));
+    private static boolean isNumericLiteral(String token)
+    {
+        int start = token.startsWith("-") ? 1 : 0;
+        if (start == token.length()) {
+            return false;
         }
+        for (int i = start; i < token.length(); i++) {
+            if (!Character.isDigit(token.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-        if (base.equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
-            return format("time(%s) with time zone", parameters.get(0));
+    private static int closingQuote(String token)
+    {
+        for (int i = 1; i < token.length(); i++) {
+            if (token.charAt(i) == '"') {
+                if (i + 1 < token.length() && token.charAt(i + 1) == '"') {
+                    i++;
+                    continue;
+                }
+                return i;
+            }
         }
+        throw new IllegalArgumentException("Unterminated quoted name in type: " + token);
+    }
 
-        StringBuilder typeName = new StringBuilder(base);
-        typeName.append("(").append(json ? parameters.get(0).jsonValue() : parameters.get(0).toString());
-        for (int i = 1; i < parameters.size(); i++) {
-            typeName.append(",").append(json ? parameters.get(i).jsonValue() : parameters.get(i).toString());
+    private static List<String> splitTopLevel(String inner)
+    {
+        List<String> tokens = new ArrayList<>();
+        int depth = 0;
+        boolean inQuote = false;
+        int start = 0;
+        for (int i = 0; i < inner.length(); i++) {
+            char c = inner.charAt(i);
+            if (c == '"') {
+                if (inQuote && i + 1 < inner.length() && inner.charAt(i + 1) == '"') {
+                    i++;
+                    continue;
+                }
+                inQuote = !inQuote;
+            }
+            else if (!inQuote && c == '(') {
+                depth++;
+            }
+            else if (!inQuote && c == ')') {
+                depth--;
+            }
+            else if (!inQuote && c == ',' && depth == 0) {
+                tokens.add(inner.substring(start, i));
+                start = i + 1;
+            }
         }
-        typeName.append(")");
-        return typeName.toString();
+        tokens.add(inner.substring(start));
+        checkArgument(depth == 0 && !inQuote, "Malformed type descriptor: %s", inner);
+        return tokens;
     }
 
     @FormatMethod

@@ -35,6 +35,12 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.IntervalField.DAY;
+import static io.trino.spi.type.IntervalField.HOUR;
+import static io.trino.spi.type.IntervalField.MINUTE;
+import static io.trino.spi.type.IntervalField.MONTH;
+import static io.trino.spi.type.IntervalField.SECOND;
+import static io.trino.spi.type.IntervalField.YEAR;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.RowType.field;
@@ -53,6 +59,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
+import static io.trino.type.IntervalYearMonthType.createIntervalYearMonthType;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
@@ -72,6 +80,45 @@ public class TestTypeCoercion
     private Type mapType(Type keyType, Type valueType)
     {
         return new MapType(keyType, valueType, typeManager.getTypeOperators());
+    }
+
+    @Test
+    public void testIntervalCompatibility()
+    {
+        // a narrower leading precision coerces to a wider one, like decimal(1) to decimal(2)
+        assertThat(createIntervalDayTimeType(DAY, DAY, 1, 0), createIntervalDayTimeType(DAY, DAY, 2, 0))
+                .hasCommonSuperType(createIntervalDayTimeType(DAY, DAY, 2, 0)).canCoerceFirstToSecondOnly();
+        assertThat(createIntervalYearMonthType(YEAR, YEAR, 1), createIntervalYearMonthType(YEAR, YEAR, 2))
+                .hasCommonSuperType(createIntervalYearMonthType(YEAR, YEAR, 2)).canCoerceFirstToSecondOnly();
+
+        // a finer leading field widens only as far as its range fits in the coarser field: a full
+        // interval hour(10) spans the whole day field (day(9)), while a short interval hour(2) needs only
+        // day(1) — not the day field maximum
+        assertThat(createIntervalDayTimeType(HOUR, HOUR, 10, 0), createIntervalDayTimeType(DAY, DAY, 5, 0))
+                .hasCommonSuperType(createIntervalDayTimeType(DAY, HOUR, 9, 0));
+        assertThat(createIntervalDayTimeType(HOUR, HOUR, 2, 0), createIntervalDayTimeType(DAY, DAY, 1, 0))
+                .hasCommonSuperType(createIntervalDayTimeType(DAY, HOUR, 1, 0));
+
+        // a leading precision beyond the field maximum saturates at that maximum, like decimal capping
+        // at 38: an out-of-range day(10) coerces to day(9) rather than overflowing
+        assertThat(createIntervalDayTimeType(DAY, DAY, 10, 0), createIntervalDayTimeType(DAY, DAY, 2, 0))
+                .hasCommonSuperType(createIntervalDayTimeType(DAY, DAY, 9, 0));
+
+        // widening to a coarser qualifier in the same class
+        assertThat(createIntervalDayTimeType(SECOND, SECOND), createIntervalDayTimeType(DAY, SECOND))
+                .hasCommonSuperType(createIntervalDayTimeType(DAY, SECOND)).canCoerceFirstToSecondOnly();
+        assertThat(createIntervalDayTimeType(MINUTE, MINUTE), createIntervalDayTimeType(HOUR, MINUTE))
+                .hasCommonSuperType(createIntervalDayTimeType(HOUR, MINUTE)).canCoerceFirstToSecondOnly();
+        assertThat(createIntervalYearMonthType(MONTH, MONTH), createIntervalYearMonthType(YEAR, MONTH))
+                .hasCommonSuperType(createIntervalYearMonthType(YEAR, MONTH)).canCoerceFirstToSecondOnly();
+
+        // the common super qualifier may be a third type that neither operand can reach by widening alone
+        assertThat(createIntervalDayTimeType(HOUR, MINUTE), createIntervalDayTimeType(MINUTE, SECOND))
+                .hasCommonSuperType(createIntervalDayTimeType(HOUR, SECOND)).cannotCoerceToEachOther();
+
+        // year-month and day-time intervals are never compatible
+        assertThat(createIntervalYearMonthType(YEAR, MONTH), createIntervalDayTimeType(DAY, SECOND)).isIncompatible();
+        assertThat(createIntervalYearMonthType(MONTH, MONTH), createIntervalDayTimeType(SECOND, SECOND)).isIncompatible();
     }
 
     @Test
