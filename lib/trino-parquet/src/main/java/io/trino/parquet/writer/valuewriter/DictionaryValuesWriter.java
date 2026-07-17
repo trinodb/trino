@@ -14,6 +14,7 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -28,8 +29,6 @@ import org.apache.parquet.bytes.CapacityByteArrayOutputStream;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.column.values.RequiresFallback;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.dictionary.IntList;
 import org.apache.parquet.column.values.dictionary.IntList.IntIterator;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
@@ -53,7 +52,6 @@ import static org.apache.parquet.bytes.BytesInput.concat;
  */
 public abstract class DictionaryValuesWriter
         extends ValuesWriter
-        implements RequiresFallback
 {
     private static final Logger LOG = Logger.get(DictionaryValuesWriter.class);
 
@@ -95,25 +93,22 @@ public abstract class DictionaryValuesWriter
         this.encodingForDictionaryPage = encodingForDictionaryPage;
     }
 
-    protected DictionaryPage dictPage(ValuesWriter dictPageWriter)
+    protected DictionaryPage dictPage(org.apache.parquet.column.values.ValuesWriter dictPageWriter)
     {
         return new DictionaryPage(dictPageWriter.getBytes(), lastUsedDictionarySize, encodingForDictionaryPage);
     }
 
-    @Override
     public boolean shouldFallBack()
     {
         // if the dictionary reaches the max byte size or the values can not be encoded on 4 bytes anymore.
         return dictionaryByteSize > maxDictionaryByteSize || getDictionarySize() > MAX_DICTIONARY_ENTRIES;
     }
 
-    @Override
     public boolean isCompressionSatisfying(long rawSize, long encodedSize)
     {
         return (encodedSize + dictionaryByteSize) < rawSize;
     }
 
-    @Override
     public void fallBackAllValuesTo(ValuesWriter writer)
     {
         fallBackDictionaryEncodedData(writer);
@@ -240,6 +235,12 @@ public abstract class DictionaryValuesWriter
         {
             super(maxDictionaryByteSize, encodingForDataPage, encodingForDictionaryPage);
             binaryDictionaryContent.defaultReturnValue(-1);
+        }
+
+        @Override
+        public void writeBytes(Slice value)
+        {
+            writeBytes(Binary.fromReusedByteArray(value.byteArray(), value.byteArrayOffset(), value.length()));
         }
 
         @Override

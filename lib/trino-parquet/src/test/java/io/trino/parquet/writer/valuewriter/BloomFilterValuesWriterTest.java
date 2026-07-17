@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import org.apache.parquet.column.values.ValuesWriter;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;

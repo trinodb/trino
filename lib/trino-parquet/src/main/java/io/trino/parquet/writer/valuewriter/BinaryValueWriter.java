@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -43,11 +42,10 @@ public class BinaryValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 Slice slice = type.getSlice(block, i);
+                valuesWriter.writeBytes(slice);
                 // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-                Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
-                valuesWriter.writeBytes(binary);
-                statistics.updateStats(binary);
+                statistics.updateStats(Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()));
             }
         }
     }

@@ -15,7 +15,6 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.Block;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.DateType.DATE;

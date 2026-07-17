@@ -22,9 +22,10 @@ import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFixedLenA
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFloatDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
+import io.trino.parquet.writer.valuewriter.ParquetValuesWriterAdapter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
+import io.trino.parquet.writer.valuewriter.ValuesWriter;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
@@ -153,7 +154,7 @@ public class TestTrinoValuesWriterFactory
                 PlainValuesWriter.class);
     }
 
-    private void testValueWriter(PrimitiveTypeName typeName, Class<? extends ValuesWriter> expectedValueWriterClass)
+    private void testValueWriter(PrimitiveTypeName typeName, Class<?> expectedValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
         TrinoValuesWriterFactory factory = createFactory(false);
@@ -165,8 +166,8 @@ public class TestTrinoValuesWriterFactory
     private void testValueWriter(
             PrimitiveTypeName typeName,
             boolean useDeltaLengthByteArrayEncoding,
-            Class<? extends ValuesWriter> initialValueWriterClass,
-            Class<? extends ValuesWriter> fallbackValueWriterClass)
+            Class<?> initialValueWriterClass,
+            Class<?> fallbackValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
         TrinoValuesWriterFactory factory = createFactory(useDeltaLengthByteArrayEncoding);
@@ -178,8 +179,8 @@ public class TestTrinoValuesWriterFactory
     private void testValueWriterBloomFilter(
             PrimitiveTypeName typeName,
             boolean useDeltaLengthByteArrayEncoding,
-            Class<? extends ValuesWriter> initialValueWriterClass,
-            Class<? extends ValuesWriter> fallbackValueWriterClass)
+            Class<?> initialValueWriterClass,
+            Class<?> fallbackValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
         TrinoValuesWriterFactory factory = createFactory(useDeltaLengthByteArrayEncoding);
@@ -208,12 +209,13 @@ public class TestTrinoValuesWriterFactory
         return new ColumnDescriptor(new String[] {name}, required(typeName).length(1).named(name), 0, 0);
     }
 
-    private void validateWriterType(ValuesWriter writer, Class<? extends ValuesWriter> valuesWriterClass)
+    private void validateWriterType(Object writer, Class<?> valuesWriterClass)
     {
-        assertThat(writer).isInstanceOf(valuesWriterClass);
+        Object actual = writer instanceof ParquetValuesWriterAdapter adapter ? adapter.getDelegate() : writer;
+        assertThat(actual).isInstanceOf(valuesWriterClass);
     }
 
-    private void validateFallbackWriter(ValuesWriter writer, Class<? extends ValuesWriter> initialWriterClass, Class<? extends ValuesWriter> fallbackWriterClass)
+    private void validateFallbackWriter(ValuesWriter writer, Class<?> initialWriterClass, Class<?> fallbackWriterClass)
     {
         validateWriterType(writer, DictionaryFallbackValuesWriter.class);
 
@@ -222,7 +224,7 @@ public class TestTrinoValuesWriterFactory
         validateWriterType(fallbackValuesWriter.getFallBackWriter(), fallbackWriterClass);
     }
 
-    private void validateFallbackWriterBloomFilter(ValuesWriter writer, Class<? extends ValuesWriter> initialWriterClass, Class<? extends ValuesWriter> fallbackWriterClass)
+    private void validateFallbackWriterBloomFilter(ValuesWriter writer, Class<?> initialWriterClass, Class<?> fallbackWriterClass)
     {
         validateWriterType(writer, BloomFilterValuesWriter.class);
 

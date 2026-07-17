@@ -18,7 +18,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
