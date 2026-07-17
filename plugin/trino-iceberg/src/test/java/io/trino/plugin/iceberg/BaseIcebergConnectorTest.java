@@ -5756,7 +5756,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimize()
             throws Exception
     {
-        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion < IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
+        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion <= IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
             String tableName = "test_optimize_" + randomNameSuffix();
             assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (format_version = " + formatVersion + ")");
 
@@ -5817,7 +5817,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeMaterializedViewStorageTable()
             throws Exception
     {
-        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion < IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
+        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion <= IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
             String tableName = "test_optimize_" + randomNameSuffix();
             assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (format_version = " + formatVersion + ")");
             String mvName = "test_optimize_mv_" + randomNameSuffix();
@@ -5886,7 +5886,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeForPartitionedTable()
             throws IOException
     {
-        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion < IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
+        for (int formatVersion = IcebergConfig.FORMAT_VERSION_SUPPORT_MIN; formatVersion <= IcebergConfig.FORMAT_VERSION_SUPPORT_MAX; formatVersion++) {
             // This test will have its own session to make sure partitioning is indeed forced and is not a result
             // of session configuration
             Session session = testSessionBuilder()
