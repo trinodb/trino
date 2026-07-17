@@ -28,13 +28,12 @@ import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.column.values.dictionary.IntList;
-import org.apache.parquet.column.values.dictionary.IntList.IntIterator;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.io.ParquetEncodingException;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.function.IntConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
@@ -81,7 +80,7 @@ public abstract class DictionaryValuesWriter
     protected int lastUsedDictionarySize;
 
     /* dictionary encoded values */
-    protected IntList encodedValues = new IntList();
+    private IntList encodedValues = new IntList();
 
     protected DictionaryValuesWriter(
             int maxDictionaryByteSize,
@@ -122,16 +121,33 @@ public abstract class DictionaryValuesWriter
     public void fallBackAllValuesTo(ValuesWriter writer)
     {
         fallBackDictionaryEncodedData(writer);
+        // ids of the current page are now copied to the fallback writer; free them regardless of dictionary reuse
+        encodedValues = new IntList();
         if (lastUsedDictionarySize == 0) {
             // if we never used the dictionary
             // we free dictionary encoded data
             clearDictionaryContent();
             dictionaryByteSize = 0;
-            encodedValues = new IntList();
         }
     }
 
     protected abstract void fallBackDictionaryEncodedData(ValuesWriter writer);
+
+    protected void addEncodedValue(int id)
+    {
+        encodedValues.add(id);
+    }
+
+    // applies idConsumer to each buffered id in append order; used by the plain-encoding fall back paths
+    protected void forEachEncodedValue(IntConsumer idConsumer)
+    {
+        encodedValues.forEachSegment((segment, offset, length) -> {
+            int end = offset + length;
+            for (int position = offset; position < end; position++) {
+                idConsumer.accept(segment[position]);
+            }
+        });
+    }
 
     @Override
     public long getBufferedSize()
@@ -142,8 +158,8 @@ public abstract class DictionaryValuesWriter
     @Override
     public long getAllocatedSize()
     {
-        // encoded value ids plus the retained dictionary structures
-        return encodedValues.size() * 4L + getDictionaryAllocatedSize();
+        // allocated encoded value ids plus the retained dictionary structures
+        return encodedValues.sizeOf() + getDictionaryAllocatedSize();
     }
 
     // retained bytes of the dictionary lookup structures held in memory
@@ -160,25 +176,11 @@ public abstract class DictionaryValuesWriter
         int bitWidth = BytesUtils.getWidthFromMaxInt(maxDicId);
 
         RunLengthBitPackingHybridEncoder encoder = new RunLengthBitPackingHybridEncoder(bitWidth, maxDictionaryByteSize);
-        IntIterator iterator = encodedValues.iterator();
         try {
             // collapse runs of the same id so the encoder skips per-value buffering
-            if (iterator.hasNext()) {
-                int runValue = iterator.next();
-                int runLength = 1;
-                while (iterator.hasNext()) {
-                    int value = iterator.next();
-                    if (value == runValue) {
-                        runLength++;
-                    }
-                    else {
-                        encoder.writeRepeatedInteger(runValue, runLength);
-                        runValue = value;
-                        runLength = 1;
-                    }
-                }
-                encoder.writeRepeatedInteger(runValue, runLength);
-            }
+            RunLengthEncodingConsumer runs = new RunLengthEncodingConsumer(encoder);
+            encodedValues.forEachSegment(runs);
+            runs.flush();
             // encodes the bit width
             byte[] bytesHeader = new byte[] {(byte) bitWidth};
             BytesInput rleEncodedBytes = encoder.toBytes();
@@ -249,6 +251,50 @@ public abstract class DictionaryValuesWriter
                 prefix);
     }
 
+    private static final class RunLengthEncodingConsumer
+            implements IntList.SegmentConsumer
+    {
+        private final RunLengthBitPackingHybridEncoder encoder;
+        private int runValue;
+        private int runLength;
+
+        private RunLengthEncodingConsumer(RunLengthBitPackingHybridEncoder encoder)
+        {
+            this.encoder = encoder;
+        }
+
+        @Override
+        public void accept(int[] segment, int offset, int length)
+        {
+            int end = offset + length;
+            for (int position = offset; position < end; position++) {
+                int value = segment[position];
+                if (runLength > 0 && value == runValue) {
+                    runLength++;
+                }
+                else {
+                    flush();
+                    runValue = value;
+                    runLength = 1;
+                }
+            }
+        }
+
+        private void flush()
+        {
+            if (runLength == 0) {
+                return;
+            }
+            try {
+                encoder.writeRepeatedInteger(runValue, runLength);
+            }
+            catch (IOException e) {
+                throw new ParquetEncodingException("could not encode the values", e);
+            }
+            runLength = 0;
+        }
+    }
+
     public static class PlainBinaryDictionaryValuesWriter
             extends DictionaryValuesWriter
     {
@@ -281,7 +327,7 @@ public abstract class DictionaryValuesWriter
         @Override
         public void writeBytes(Slice value)
         {
-            encodedValues.add(putIfAbsent(value));
+            addEncodedValue(putIfAbsent(value));
         }
 
         // serialized size contribution of one distinct value
@@ -442,10 +488,7 @@ public abstract class DictionaryValuesWriter
         public void fallBackDictionaryEncodedData(ValuesWriter writer)
         {
             // fall back to plain encoding using the id-ordered dictionary values
-            IntIterator iterator = encodedValues.iterator();
-            while (iterator.hasNext()) {
-                writer.writeBytes(entry(iterator.next()));
-            }
+            forEachEncodedValue(id -> writer.writeBytes(entry(id)));
         }
 
         private static int calculateMaxFill(int hashSize)
@@ -518,7 +561,7 @@ public abstract class DictionaryValuesWriter
                 dictionaryValues.add(v);
                 dictionaryByteSize += 8;
             }
-            encodedValues.add(id);
+            addEncodedValue(id);
         }
 
         @Override
@@ -563,11 +606,7 @@ public abstract class DictionaryValuesWriter
         public void fallBackDictionaryEncodedData(ValuesWriter writer)
         {
             // fall back to plain encoding using the id-ordered dictionary values
-            IntIterator iterator = encodedValues.iterator();
-            while (iterator.hasNext()) {
-                int id = iterator.next();
-                writer.writeLong(dictionaryValues.getLong(id));
-            }
+            forEachEncodedValue(id -> writer.writeLong(dictionaryValues.getLong(id)));
         }
     }
 
@@ -599,7 +638,7 @@ public abstract class DictionaryValuesWriter
                 dictionaryValues.add(bits);
                 dictionaryByteSize += 8;
             }
-            encodedValues.add(id);
+            addEncodedValue(id);
         }
 
         @Override
@@ -644,11 +683,7 @@ public abstract class DictionaryValuesWriter
         public void fallBackDictionaryEncodedData(ValuesWriter writer)
         {
             // fall back to plain encoding using the id-ordered dictionary values
-            IntIterator iterator = encodedValues.iterator();
-            while (iterator.hasNext()) {
-                int id = iterator.next();
-                writer.writeDouble(Double.longBitsToDouble(dictionaryValues.getLong(id)));
-            }
+            forEachEncodedValue(id -> writer.writeDouble(Double.longBitsToDouble(dictionaryValues.getLong(id))));
         }
     }
 
@@ -679,7 +714,7 @@ public abstract class DictionaryValuesWriter
                 dictionaryValues.add(v);
                 dictionaryByteSize += 4;
             }
-            encodedValues.add(id);
+            addEncodedValue(id);
         }
 
         @Override
@@ -724,11 +759,7 @@ public abstract class DictionaryValuesWriter
         public void fallBackDictionaryEncodedData(ValuesWriter writer)
         {
             // fall back to plain encoding using the id-ordered dictionary values
-            IntIterator iterator = encodedValues.iterator();
-            while (iterator.hasNext()) {
-                int id = iterator.next();
-                writer.writeInteger(dictionaryValues.getInt(id));
-            }
+            forEachEncodedValue(id -> writer.writeInteger(dictionaryValues.getInt(id)));
         }
     }
 
@@ -760,7 +791,7 @@ public abstract class DictionaryValuesWriter
                 dictionaryValues.add(bits);
                 dictionaryByteSize += 4;
             }
-            encodedValues.add(id);
+            addEncodedValue(id);
         }
 
         @Override
@@ -805,11 +836,7 @@ public abstract class DictionaryValuesWriter
         public void fallBackDictionaryEncodedData(ValuesWriter writer)
         {
             // fall back to plain encoding using the id-ordered dictionary values
-            IntIterator iterator = encodedValues.iterator();
-            while (iterator.hasNext()) {
-                int id = iterator.next();
-                writer.writeFloat(Float.intBitsToFloat(dictionaryValues.getInt(id)));
-            }
+            forEachEncodedValue(id -> writer.writeFloat(Float.intBitsToFloat(dictionaryValues.getInt(id))));
         }
     }
 }
