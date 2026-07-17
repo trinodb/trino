@@ -37,6 +37,9 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.slice.SizeOf.sizeOfLongArray;
+import static it.unimi.dsi.fastutil.Hash.DEFAULT_LOAD_FACTOR;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.mix;
 import static java.lang.Math.toIntExact;
@@ -492,9 +495,9 @@ public abstract class DictionaryValuesWriter
             extends DictionaryValuesWriter
     {
         /* type specific dictionary content */
-        private final Long2IntMap longDictionaryContent = new Long2IntOpenHashMap();
+        private Long2IntMap longDictionaryContent = new Long2IntOpenHashMap();
         // dictionary values in id order, id equals list index
-        private final LongArrayList dictionaryValues = new LongArrayList();
+        private LongArrayList dictionaryValues = new LongArrayList();
 
         public PlainLongDictionaryValuesWriter(
                 int maxDictionaryByteSize,
@@ -540,10 +543,20 @@ public abstract class DictionaryValuesWriter
         }
 
         @Override
+        protected long getDictionaryAllocatedSize()
+        {
+            // estimated open-hash map key/value arrays plus the id-ordered value list backing
+            int slots = arraySize(longDictionaryContent.size(), DEFAULT_LOAD_FACTOR) + 1;
+            return sizeOfLongArray(slots) + sizeOfIntArray(slots) + sizeOf(dictionaryValues.elements());
+        }
+
+        @Override
         protected void clearDictionaryContent()
         {
-            longDictionaryContent.clear();
-            dictionaryValues.clear();
+            // recreate rather than clear so the grown key/value arrays are released, not retained
+            longDictionaryContent = new Long2IntOpenHashMap();
+            longDictionaryContent.defaultReturnValue(-1);
+            dictionaryValues = new LongArrayList();
         }
 
         @Override
@@ -562,9 +575,9 @@ public abstract class DictionaryValuesWriter
             extends DictionaryValuesWriter
     {
         /* type specific dictionary content */
-        private final Long2IntMap doubleDictionaryContent = new Long2IntOpenHashMap();
+        private Long2IntMap doubleDictionaryContent = new Long2IntOpenHashMap();
         // dictionary values (raw long bits) in id order, id equals list index
-        private final LongArrayList dictionaryValues = new LongArrayList();
+        private LongArrayList dictionaryValues = new LongArrayList();
 
         public PlainDoubleDictionaryValuesWriter(
                 int maxDictionaryByteSize,
@@ -611,10 +624,20 @@ public abstract class DictionaryValuesWriter
         }
 
         @Override
+        protected long getDictionaryAllocatedSize()
+        {
+            // estimated open-hash map key/value arrays plus the id-ordered value list backing
+            int slots = arraySize(doubleDictionaryContent.size(), DEFAULT_LOAD_FACTOR) + 1;
+            return sizeOfLongArray(slots) + sizeOfIntArray(slots) + sizeOf(dictionaryValues.elements());
+        }
+
+        @Override
         protected void clearDictionaryContent()
         {
-            doubleDictionaryContent.clear();
-            dictionaryValues.clear();
+            // recreate rather than clear so the grown key/value arrays are released, not retained
+            doubleDictionaryContent = new Long2IntOpenHashMap();
+            doubleDictionaryContent.defaultReturnValue(-1);
+            dictionaryValues = new LongArrayList();
         }
 
         @Override
@@ -633,9 +656,9 @@ public abstract class DictionaryValuesWriter
             extends DictionaryValuesWriter
     {
         /* type specific dictionary content */
-        private final Int2IntMap intDictionaryContent = new Int2IntOpenHashMap();
+        private Int2IntMap intDictionaryContent = new Int2IntOpenHashMap();
         // dictionary values in id order, id equals list index
-        private final IntArrayList dictionaryValues = new IntArrayList();
+        private IntArrayList dictionaryValues = new IntArrayList();
 
         public PlainIntegerDictionaryValuesWriter(
                 int maxDictionaryByteSize,
@@ -681,10 +704,20 @@ public abstract class DictionaryValuesWriter
         }
 
         @Override
+        protected long getDictionaryAllocatedSize()
+        {
+            // estimated open-hash map key/value arrays plus the id-ordered value list backing
+            int slots = arraySize(intDictionaryContent.size(), DEFAULT_LOAD_FACTOR) + 1;
+            return sizeOfIntArray(slots) * 2L + sizeOf(dictionaryValues.elements());
+        }
+
+        @Override
         protected void clearDictionaryContent()
         {
-            intDictionaryContent.clear();
-            dictionaryValues.clear();
+            // recreate rather than clear so the grown key/value arrays are released, not retained
+            intDictionaryContent = new Int2IntOpenHashMap();
+            intDictionaryContent.defaultReturnValue(-1);
+            dictionaryValues = new IntArrayList();
         }
 
         @Override
@@ -703,9 +736,9 @@ public abstract class DictionaryValuesWriter
             extends DictionaryValuesWriter
     {
         /* type specific dictionary content */
-        private final Int2IntMap floatDictionaryContent = new Int2IntOpenHashMap();
+        private Int2IntMap floatDictionaryContent = new Int2IntOpenHashMap();
         // dictionary values (raw int bits) in id order, id equals list index
-        private final IntArrayList dictionaryValues = new IntArrayList();
+        private IntArrayList dictionaryValues = new IntArrayList();
 
         public PlainFloatDictionaryValuesWriter(
                 int maxDictionaryByteSize,
@@ -752,10 +785,20 @@ public abstract class DictionaryValuesWriter
         }
 
         @Override
+        protected long getDictionaryAllocatedSize()
+        {
+            // estimated open-hash map key/value arrays plus the id-ordered value list backing
+            int slots = arraySize(floatDictionaryContent.size(), DEFAULT_LOAD_FACTOR) + 1;
+            return sizeOfIntArray(slots) * 2L + sizeOf(dictionaryValues.elements());
+        }
+
+        @Override
         protected void clearDictionaryContent()
         {
-            floatDictionaryContent.clear();
-            dictionaryValues.clear();
+            // recreate rather than clear so the grown key/value arrays are released, not retained
+            floatDictionaryContent = new Int2IntOpenHashMap();
+            floatDictionaryContent.defaultReturnValue(-1);
+            dictionaryValues = new IntArrayList();
         }
 
         @Override
