@@ -65,7 +65,7 @@ public class QueryDataJacksonModule
         {
             // If this is not JSON_ARRAY we are dealing with direct data encoding
             if (parser.currentToken().equals(JsonToken.START_ARRAY)) {
-                return new JsonQueryData(context.readTree(parser));
+                return JsonQueryData.copyFrom(parser);
             }
             return context.readValue(parser, EncodedQueryData.class);
         }
@@ -87,7 +87,7 @@ public class QueryDataJacksonModule
                 provider.defaultSerializeNull(generator);
             }
             else if (value instanceof JsonQueryData) {
-                generator.writeTree(((JsonQueryData) value).getNode());
+                ((JsonQueryData) value).writeTo(generator);
             }
             else if (value instanceof TypedQueryData) {
                 provider.defaultSerializeValue(((TypedQueryData) value).getIterable(), generator); // serialize as list of lists of objects
