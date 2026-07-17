@@ -1254,6 +1254,31 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testMatchOnlyTextDataType()
+            throws IOException
+    {
+        // match_only_text was introduced in OpenSearch 2.12
+        String indexName = "match_only_text_type";
+
+        @Language("JSON")
+        String mappings =
+                """
+                {
+                    "properties": {
+                        "match_only_text_column": { "type": "match_only_text" }
+                    }
+                }
+                """;
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.of("match_only_text_column", "some text"));
+
+        assertThat(query("SELECT match_only_text_column FROM " + indexName))
+                .matches("VALUES VARCHAR 'some text'");
+    }
+
+    @Test
     public void testTableWithUnsupportedTypes()
             throws IOException
     {
