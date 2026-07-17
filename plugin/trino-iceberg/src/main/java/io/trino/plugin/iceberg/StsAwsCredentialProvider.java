@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.rest;
+package io.trino.plugin.iceberg;
 
 import io.trino.spi.TrinoException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -34,34 +34,34 @@ import java.util.function.Consumer;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static java.util.Objects.requireNonNull;
 
-public class SigV4AwsCredentialProvider
+public class StsAwsCredentialProvider
         implements AwsCredentialsProvider
 {
-    static final String AWS_STS_ACCESS_KEY_ID = "aws_sts_access_key_id";
-    static final String AWS_STS_SECRET_ACCESS_KEY = "aws_sts_secret_access_key";
-    static final String AWS_STS_SIGNER_REGION = "aws_sts_signer_region";
-    static final String AWS_STS_REGION = "aws_sts_region";
-    static final String AWS_STS_ENDPOINT = "aws_sts_endpoint";
+    public static final String AWS_STS_ACCESS_KEY_ID = "aws_sts_access_key_id";
+    public static final String AWS_STS_SECRET_ACCESS_KEY = "aws_sts_secret_access_key";
+    public static final String AWS_STS_SIGNER_REGION = "aws_sts_signer_region";
+    public static final String AWS_STS_REGION = "aws_sts_region";
+    public static final String AWS_STS_ENDPOINT = "aws_sts_endpoint";
 
-    static final String AWS_IAM_ROLE = "aws_iam_role";
-    static final String AWS_ROLE_EXTERNAL_ID = "aws_external_id";
-    static final String AWS_IAM_ROLE_SESSION_NAME = "aws_iam_role_session_name";
+    public static final String AWS_IAM_ROLE = "aws_iam_role";
+    public static final String AWS_ROLE_EXTERNAL_ID = "aws_external_id";
+    public static final String AWS_IAM_ROLE_SESSION_NAME = "aws_iam_role_session_name";
 
     private final AwsCredentialsProvider delegate;
 
-    public SigV4AwsCredentialProvider(AwsCredentialsProvider delegate)
+    public StsAwsCredentialProvider(AwsCredentialsProvider delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
-    public static SigV4AwsCredentialProvider create(Map<String, String> properties)
+    public static StsAwsCredentialProvider create(Map<String, String> properties)
     {
         if (properties.containsKey(AWS_IAM_ROLE)) {
             String accessKey = properties.get(AWS_STS_ACCESS_KEY_ID);
             String secretAccessKey = properties.get(AWS_STS_SECRET_ACCESS_KEY);
 
             Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(accessKey, secretAccessKey);
-            return new SigV4AwsCredentialProvider(StsAssumeRoleCredentialsProvider.builder()
+            return new StsAwsCredentialProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(properties.get(AWS_IAM_ROLE))
                             .roleSessionName(AWS_IAM_ROLE_SESSION_NAME)

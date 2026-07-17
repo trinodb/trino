@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.rest;
+package io.trino.plugin.iceberg;
 
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -19,17 +19,17 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
-class TestSigV4AwsCredentialProvider
+class TestStsAwsCredentialProvider
 {
     @Test
     void testEverythingImplemented()
     {
-        assertAllMethodsOverridden(AwsCredentialsProvider.class, SigV4AwsCredentialProvider.class);
+        assertAllMethodsOverridden(AwsCredentialsProvider.class, StsAwsCredentialProvider.class);
     }
 
     @Test
     void testProperForwardingMethodsAreCalled()
     {
-        assertProperForwardingMethodsAreCalled(AwsCredentialsProvider.class, SigV4AwsCredentialProvider::new);
+        assertProperForwardingMethodsAreCalled(AwsCredentialsProvider.class, StsAwsCredentialProvider::new);
     }
 }
