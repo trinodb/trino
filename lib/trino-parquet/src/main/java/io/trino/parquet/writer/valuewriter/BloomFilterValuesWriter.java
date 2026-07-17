@@ -14,10 +14,10 @@
 package io.trino.parquet.writer.valuewriter;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.io.api.Binary;
 
@@ -115,6 +115,13 @@ public class BloomFilterValuesWriter
     public void writeBoolean(boolean v)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeBytes(Slice value)
+    {
+        writer.writeBytes(value);
+        bloomFilter.insertHash(bloomFilter.hash(Binary.fromReusedByteArray(value.byteArray(), value.byteArrayOffset(), value.length())));
     }
 
     @Override

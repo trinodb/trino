@@ -13,12 +13,13 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
@@ -77,6 +78,7 @@ public class Int96TimestampValueWriter
         Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
         boolean mayHaveNull = block.mayHaveNull();
         byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
         Binary reusedBinary = Binary.fromReusedByteArray(buffer);
 
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -86,7 +88,7 @@ public class Int96TimestampValueWriter
                 int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND;
 
                 convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
-                valuesWriter.writeBytes(reusedBinary);
+                valuesWriter.writeBytes(reusedSlice);
                 statistics.updateStats(reusedBinary);
             }
         }
@@ -98,6 +100,7 @@ public class Int96TimestampValueWriter
         Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
         boolean mayHaveNull = block.mayHaveNull();
         byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
         Binary reusedBinary = Binary.fromReusedByteArray(buffer);
 
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -110,7 +113,7 @@ public class Int96TimestampValueWriter
                 int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
 
                 convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
-                valuesWriter.writeBytes(reusedBinary);
+                valuesWriter.writeBytes(reusedSlice);
                 statistics.updateStats(reusedBinary);
             }
         }

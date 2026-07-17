@@ -14,11 +14,11 @@
 package io.trino.parquet.writer.valuewriter;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
@@ -175,6 +175,15 @@ public class DictionaryFallbackValuesWriter
     }
 
     @Override
+    public void writeBytes(Slice value)
+    {
+        // For raw data, length(4 bytes int) is stored, followed by the binary content itself
+        rawDataByteSize += value.length() + Integer.BYTES;
+        currentWriter.writeBytes(value);
+        checkFallback();
+    }
+
+    @Override
     public void writeBytes(Binary value)
     {
         // For raw data, length(4 bytes int) is stored, followed by the binary content itself
@@ -222,9 +231,9 @@ public class DictionaryFallbackValuesWriter
     }
 
     @VisibleForTesting
-    public ValuesWriter getFallBackWriter()
+    public org.apache.parquet.column.values.ValuesWriter getFallBackWriter()
     {
-        return fallBackWriter;
+        return ((ParquetValuesWriterAdapter) fallBackWriter).getDelegate();
     }
 
     private void checkFallback()

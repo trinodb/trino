@@ -16,7 +16,6 @@ package io.trino.parquet.writer.valuewriter;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static java.util.Objects.requireNonNull;

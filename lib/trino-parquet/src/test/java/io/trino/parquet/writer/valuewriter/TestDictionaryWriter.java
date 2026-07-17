@@ -31,9 +31,7 @@ import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDicti
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
-import org.apache.parquet.io.api.Binary;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -130,7 +128,7 @@ public class TestDictionaryWriter
         DictionaryFallbackValuesWriter fallbackValuesWriter = newPlainBinaryDictionaryValuesWriter(maxDictionaryByteSize, slabSize);
         int dataSize = 0;
         for (long i = 0; i < 100; i++) {
-            Binary binary = Binary.fromString("str" + i);
+            Slice binary = Slices.utf8Slice("str" + i);
             fallbackValuesWriter.writeBytes(binary);
             dataSize += (binary.length() + 4);
             assertThat(fallbackValuesWriter.getEncoding()).isEqualTo(dataSize < maxDictionaryByteSize ? getDictionaryEncoding() : PLAIN);
@@ -636,24 +634,24 @@ public class TestDictionaryWriter
     private static void writeDistinct(int count, ValuesWriter valuesWriter, String prefix)
     {
         for (int i = 0; i < count; i++) {
-            valuesWriter.writeBytes(Binary.fromString(prefix + i));
+            valuesWriter.writeBytes(Slices.utf8Slice(prefix + i));
         }
     }
 
     private static void writeRepeated(int count, ValuesWriter valuesWriter, String prefix)
     {
         for (int i = 0; i < count; i++) {
-            valuesWriter.writeBytes(Binary.fromString(prefix + i % 10));
+            valuesWriter.writeBytes(Slices.utf8Slice(prefix + i % 10));
         }
     }
 
     private static void writeRepeatedWithReuse(int count, ValuesWriter valuesWriter, String prefix)
     {
-        Binary reused = Binary.fromReusedByteArray((prefix + "0").getBytes(StandardCharsets.UTF_8));
+        byte[] reused = (prefix + "0").getBytes(StandardCharsets.UTF_8);
         for (int i = 0; i < count; i++) {
-            Binary content = Binary.fromString(prefix + i % 10);
-            System.arraycopy(content.getBytesUnsafe(), 0, reused.getBytesUnsafe(), 0, reused.length());
-            valuesWriter.writeBytes(reused);
+            byte[] content = (prefix + i % 10).getBytes(StandardCharsets.UTF_8);
+            System.arraycopy(content, 0, reused, 0, reused.length);
+            valuesWriter.writeBytes(Slices.wrappedBuffer(reused));
         }
     }
 
@@ -668,7 +666,7 @@ public class TestDictionaryWriter
 
     private static DictionaryFallbackValuesWriter plainFallBack(DictionaryValuesWriter dictionaryValuesWriter, int initialSize)
     {
-        return new DictionaryFallbackValuesWriter(dictionaryValuesWriter, new PlainValuesWriter(initialSize, initialSize * 5, new DirectByteBufferAllocator()));
+        return new DictionaryFallbackValuesWriter(dictionaryValuesWriter, new ParquetValuesWriterAdapter(new PlainValuesWriter(initialSize, initialSize * 5, new DirectByteBufferAllocator())));
     }
 
     private static DictionaryFallbackValuesWriter newPlainBinaryDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)

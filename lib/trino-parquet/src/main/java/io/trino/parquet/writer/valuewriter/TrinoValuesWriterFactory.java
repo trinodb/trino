@@ -17,7 +17,6 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
@@ -50,7 +49,7 @@ public class TrinoValuesWriterFactory
     public ValuesWriter newValuesWriter(ColumnDescriptor descriptor, Optional<BloomFilter> bloomFilter)
     {
         return switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
-            case BOOLEAN -> new BooleanPlainValuesWriter(); // no dictionary encoding for boolean
+            case BOOLEAN -> new ParquetValuesWriterAdapter(new BooleanPlainValuesWriter()); // no dictionary encoding for boolean
             case FIXED_LEN_BYTE_ARRAY -> getFixedLenByteArrayValuesWriter(descriptor, bloomFilter);
             case BINARY -> getBinaryValuesWriter(descriptor, bloomFilter);
             case INT32 -> getInt32ValuesWriter(descriptor, bloomFilter);
@@ -64,48 +63,48 @@ public class TrinoValuesWriterFactory
     private ValuesWriter getFixedLenByteArrayValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
         // dictionary encoding was not enabled in PARQUET 1.0
-        return createBloomFilterValuesWriter(new FixedLenByteArrayPlainValuesWriter(path.getPrimitiveType().getTypeLength(), INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()), bloomFilter);
+        return createBloomFilterValuesWriter(new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(path.getPrimitiveType().getTypeLength(), INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator())), bloomFilter);
     }
 
     private ValuesWriter getBinaryValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
         ValuesWriter fallbackWriter;
         if (useDeltaLengthByteArrayEncoding) {
-            fallbackWriter = new DeltaLengthByteArrayValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+            fallbackWriter = new ParquetValuesWriterAdapter(new DeltaLengthByteArrayValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         }
         else {
-            fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+            fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         }
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt32ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt64ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt96ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new FixedLenByteArrayPlainValuesWriter(12, INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(12, INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getDoubleValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getFloatValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
