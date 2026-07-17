@@ -27,10 +27,14 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.admission.MinWorkersAdmissionPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.admission.AdmissionPolicy;
+import io.trino.spi.admission.QueryAdmissionContext;
+import io.trino.spi.admission.WaitDecision;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -45,6 +49,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.getRequiredWorkers;
 import static io.trino.SystemSessionProperties.getRequiredWorkersMaxWait;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -59,6 +64,7 @@ public class LocalDispatchQuery
 
     private final QueryMonitor queryMonitor;
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final AdmissionPolicy admissionPolicy;
 
     private final Executor queryExecutor;
 
@@ -72,6 +78,7 @@ public class LocalDispatchQuery
             ListenableFuture<QueryExecution> queryExecutionFuture,
             QueryMonitor queryMonitor,
             ClusterSizeMonitor clusterSizeMonitor,
+            AdmissionPolicy admissionPolicy,
             Executor queryExecutor,
             Consumer<QueryExecution> querySubmitter)
     {
@@ -79,6 +86,7 @@ public class LocalDispatchQuery
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.admissionPolicy = requireNonNull(admissionPolicy, "admissionPolicy is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
@@ -130,18 +138,63 @@ public class LocalDispatchQuery
             if (queryExecution.shouldWaitForMinWorkers()) {
                 executionMinCount = getRequiredWorkers(session);
             }
-            ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
-            // when worker requirement is met, start the execution
-            addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
-            addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed, queryExecutor);
 
-            // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user
-            stateMachine.addStateChangeListener(state -> {
-                if (state.isDone()) {
-                    minimumWorkerFuture.cancel(true);
+            QueryAdmissionContext context;
+            WaitDecision decision;
+            try {
+                context = buildAdmissionContext(session);
+                decision = admissionPolicy.shouldQueryWait(context);
+            }
+            catch (Throwable t) {
+                // Req 4.5: any unchecked exception fails the query with cause preserved.
+                stateMachine.transitionToFailed(insufficientResources("Admission policy threw", t));
+                return;
+            }
+            if (decision == null) {
+                // Req 1.9, Req 4.5: null decision is a policy failure.
+                stateMachine.transitionToFailed(insufficientResources("Admission policy returned null decision", null));
+                return;
+            }
+
+            int minCount = executionMinCount;
+            switch (decision) {
+                case WaitDecision.ProceedNow _ -> startExecution(queryExecution);
+                case WaitDecision.Wait wait -> {
+                    // For the OSS default policy, the wait timeout comes from
+                    // getRequiredWorkersMaxWait(session), preserving today's behavior
+                    // byte-for-byte (Req 2.3, Req 8.1). For non-default policies, the
+                    // engine honors wait.maxWait() as returned by the policy.
+                    Duration timeout = (admissionPolicy instanceof MinWorkersAdmissionPolicy)
+                            ? getRequiredWorkersMaxWait(session)
+                            : wait.maxWait();
+                    ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(minCount, timeout);
+                    // when worker requirement is met, start the execution
+                    addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
+                    addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed, queryExecutor);
+
+                    // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user
+                    stateMachine.addStateChangeListener(state -> {
+                        if (state.isDone()) {
+                            minimumWorkerFuture.cancel(true);
+                        }
+                    });
                 }
-            });
+            }
         });
+    }
+
+    private QueryAdmissionContext buildAdmissionContext(Session session)
+    {
+        return new QueryAdmissionContext(
+                session.getQueryId(),
+                session.getUser(),
+                stateMachine.getBasicQueryInfo(Optional.empty()).getResourceGroupId().map(Object::toString),
+                session.getSystemProperties());
+    }
+
+    private static TrinoException insufficientResources(String message, Throwable cause)
+    {
+        return new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, message, cause);
     }
 
     private void startExecution(QueryExecution queryExecution)

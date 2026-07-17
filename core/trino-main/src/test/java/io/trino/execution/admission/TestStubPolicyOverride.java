@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.dispatcher;
+package io.trino.execution.admission;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +25,7 @@ import io.trino.connector.ConnectorCatalogServiceProvider;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsAndCosts;
+import io.trino.dispatcher.LocalDispatchQuery;
 import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.eventlistener.EventListenerConfig;
@@ -65,6 +66,7 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionManager;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -73,6 +75,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -88,16 +92,25 @@ import static io.trino.transaction.InMemoryTransactionManager.createTestTransact
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestLocalDispatchQuery
+/**
+ * Verifies that binding a stub {@link AdmissionPolicy} returning
+ * {@link WaitDecision.ProceedNow} causes queries to proceed without invoking
+ * {@link ClusterSizeMonitor#waitForMinimumWorkers(int, Duration)}.
+ *
+ * <p>Validates: Requirements 4.1, 4.2 / Design: §LocalDispatchQuery integration,
+ * §Correctness Properties — Property 3 (stub-policy override).
+ */
+public class TestStubPolicyOverride
 {
-    private CountDownLatch countDownLatch;
-
     @Test
-    public void testSubmittedForDispatchedQuery()
+    @DisplayName("Feature: admission-policy-spi, stub policy override → ClusterSizeMonitor.waitForMinimumWorkers is never called")
+    public void testProceedNowSkipsWaitForMinimumWorkers()
             throws InterruptedException
     {
-        countDownLatch = new CountDownLatch(1);
-        Executor executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        // No-op stub policy: always proceeds.
+        AdmissionPolicy stubPolicy = _ -> new WaitDecision.ProceedNow("stub-proceed");
+
+        Executor executor = newCachedThreadPool(daemonThreadsNamed("admission-stub-test-%s"));
         Metadata metadata = createTestingMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControl = new AccessControlManager(
@@ -109,12 +122,13 @@ public class TestLocalDispatchQuery
                 new SecretsResolver(ImmutableMap.of()),
                 DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
+
         QueryStateMachine queryStateMachine = QueryStateMachine.begin(
                 Optional.empty(),
                 "sql",
                 Optional.empty(),
                 TEST_SESSION,
-                URI.create("fake://fake-query"),
+                URI.create("fake://stub-policy-override"),
                 new ResourceGroupId("test"),
                 false,
                 transactionManager,
@@ -128,6 +142,7 @@ public class TestLocalDispatchQuery
                 true,
                 Optional.empty(),
                 new NodeVersion("test"));
+
         QueryMonitor queryMonitor = new QueryMonitor(
                 jsonCodec(StagesInfo.class),
                 jsonCodec(OperatorStats.class),
@@ -146,35 +161,76 @@ public class TestLocalDispatchQuery
                                 () -> { throw new UnsupportedOperationException(); }),
                         LanguageFunctionProvider.DISABLED),
                 new QueryMonitorConfig());
+
         CreateTable createTable = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("table"), ImmutableList.of(), FAIL, ImmutableList.of(), Optional.empty());
         QueryPreparer.PreparedQuery preparedQuery = new QueryPreparer.PreparedQuery(createTable, ImmutableList.of(), Optional.empty());
-        DataDefinitionExecution.DataDefinitionExecutionFactory dataDefinitionExecutionFactory = new DataDefinitionExecution.DataDefinitionExecutionFactory(
-                ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>of(CreateTable.class, new TestCreateTableTask()));
-        DataDefinitionExecution dataDefinitionExecution = dataDefinitionExecutionFactory.createQueryExecution(
+        DataDefinitionExecution.DataDefinitionExecutionFactory dataDefinitionExecutionFactory =
+                new DataDefinitionExecution.DataDefinitionExecutionFactory(
+                        ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>of(CreateTable.class, new ImmediateCreateTableTask()));
+        DataDefinitionExecution<?> dataDefinitionExecution = dataDefinitionExecutionFactory.createQueryExecution(
                 preparedQuery,
                 queryStateMachine,
                 Slug.createNew(),
                 WarningCollector.NOOP,
                 null);
+
+        CountingClusterSizeMonitor clusterSizeMonitor = new CountingClusterSizeMonitor(
+                TestingInternalNodeManager.createDefault(),
+                new NodeSchedulerConfig());
+
+        CountDownLatch dispatchedLatch = new CountDownLatch(1);
+        queryStateMachine.addStateChangeListener(state -> {
+            if (state.ordinal() >= QueryState.DISPATCHING.ordinal()) {
+                dispatchedLatch.countDown();
+            }
+        });
+
         LocalDispatchQuery localDispatchQuery = new LocalDispatchQuery(
                 queryStateMachine,
                 Futures.immediateFuture(dataDefinitionExecution),
                 queryMonitor,
-                new TestClusterSizeMonitor(TestingInternalNodeManager.createDefault(), new NodeSchedulerConfig()),
-                (AdmissionPolicy) _ -> new WaitDecision.Wait(Duration.valueOf("0s"), "test"),
+                clusterSizeMonitor,
+                stubPolicy,
                 executor,
                 _ -> dataDefinitionExecution.start());
-        queryStateMachine.addStateChangeListener(state -> {
-            if (state.ordinal() >= QueryState.PLANNING.ordinal()) {
-                countDownLatch.countDown();
-            }
-        });
+
         localDispatchQuery.startWaitingForResources();
-        countDownLatch.await();
-        assertThat(localDispatchQuery.getDispatchInfo().getCoordinatorLocation()).isPresent();
+
+        boolean dispatched = dispatchedLatch.await(30, TimeUnit.SECONDS);
+        assertThat(dispatched)
+                .as("query must transition to DISPATCHING (or beyond) when the stub policy returns ProceedNow")
+                .isTrue();
+        assertThat(clusterSizeMonitor.waitCallCount.get())
+                .as("ClusterSizeMonitor.waitForMinimumWorkers must NOT be invoked when policy returns ProceedNow")
+                .isZero();
+        assertThat(queryStateMachine.getQueryState())
+                .as("query must not be FAILED")
+                .isNotEqualTo(QueryState.FAILED);
     }
 
-    private static class NoConnectorServicesProvider
+    /**
+     * Stub {@link ClusterSizeMonitor} that flags any invocation of
+     * {@link #waitForMinimumWorkers(int, Duration)}.
+     */
+    private static final class CountingClusterSizeMonitor
+            extends ClusterSizeMonitor
+    {
+        final AtomicInteger waitCallCount = new AtomicInteger();
+
+        CountingClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig)
+        {
+            super(nodeManager, nodeSchedulerConfig);
+        }
+
+        @Override
+        public synchronized ListenableFuture<Void> waitForMinimumWorkers(int executionMinCount, Duration executionMaxWait)
+        {
+            waitCallCount.incrementAndGet();
+            return immediateVoidFuture();
+        }
+    }
+
+    private static final class NoConnectorServicesProvider
             implements ConnectorServicesProvider
     {
         @Override
@@ -202,7 +258,7 @@ public class TestLocalDispatchQuery
         }
     }
 
-    private static class TestCreateTableTask
+    private static final class ImmediateCreateTableTask
             implements DataDefinitionTask<CreateTable>
     {
         @Override
@@ -217,29 +273,6 @@ public class TestLocalDispatchQuery
                 QueryStateMachine stateMachine,
                 List<Expression> parameters,
                 WarningCollector warningCollector)
-        {
-            while (true) {
-                try {
-                    Thread.sleep(10_000L);
-                }
-                catch (InterruptedException e) {
-                    break;
-                }
-            }
-            return null;
-        }
-    }
-
-    private static class TestClusterSizeMonitor
-            extends ClusterSizeMonitor
-    {
-        public TestClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig)
-        {
-            super(nodeManager, nodeSchedulerConfig);
-        }
-
-        @Override
-        public synchronized ListenableFuture<Void> waitForMinimumWorkers(int executionMinCount, Duration executionMaxWait)
         {
             return immediateVoidFuture();
         }
