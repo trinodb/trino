@@ -57,7 +57,7 @@ public class TestSnowflakeClient
 
     private static final JdbcClient JDBC_CLIENT = new SnowflakeClient(
             new BaseJdbcConfig(),
-            session -> { throw new UnsupportedOperationException(); },
+            _ -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);

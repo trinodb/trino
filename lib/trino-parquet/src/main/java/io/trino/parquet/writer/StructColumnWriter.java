@@ -84,14 +84,24 @@ public class StructColumnWriter
     }
 
     @Override
-    public long getBufferedBytes()
+    public long getEstimatedBufferedBytes(CompressionStats compressionStats)
     {
         // Avoid using streams here for performance reasons
         long bufferedBytes = 0;
         for (ColumnWriter columnWriter : columnWriters) {
-            bufferedBytes += columnWriter.getBufferedBytes();
+            bufferedBytes += columnWriter.getEstimatedBufferedBytes(compressionStats);
         }
         return bufferedBytes;
+    }
+
+    @Override
+    public CompressionStats getCompressionStats()
+    {
+        CompressionStats compressionStats = CompressionStats.EMPTY;
+        for (ColumnWriter columnWriter : columnWriters) {
+            compressionStats = compressionStats.add(columnWriter.getCompressionStats());
+        }
+        return compressionStats;
     }
 
     @Override

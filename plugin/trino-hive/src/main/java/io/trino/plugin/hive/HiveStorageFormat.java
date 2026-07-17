@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Functions.identity;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
@@ -59,28 +60,23 @@ import static io.trino.hive.formats.HiveClassNames.TWITTER_ELEPHANTBIRD_PROTOBUF
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public enum HiveStorageFormat
 {
-    ORC(
-            ORC_SERDE_CLASS,
+    ORC(ORC_SERDE_CLASS,
             ORC_INPUT_FORMAT_CLASS,
             ORC_OUTPUT_FORMAT_CLASS),
-    PARQUET(
-            PARQUET_HIVE_SERDE_CLASS,
+    PARQUET(PARQUET_HIVE_SERDE_CLASS,
             MAPRED_PARQUET_INPUT_FORMAT_CLASS,
             MAPRED_PARQUET_OUTPUT_FORMAT_CLASS),
-    AVRO(
-            AVRO_SERDE_CLASS,
+    AVRO(AVRO_SERDE_CLASS,
             AVRO_CONTAINER_INPUT_FORMAT_CLASS,
             AVRO_CONTAINER_OUTPUT_FORMAT_CLASS),
     RCBINARY(
             LAZY_BINARY_COLUMNAR_SERDE_CLASS,
             RCFILE_INPUT_FORMAT_CLASS,
             RCFILE_OUTPUT_FORMAT_CLASS),
-    RCTEXT(
-            COLUMNAR_SERDE_CLASS,
+    RCTEXT(COLUMNAR_SERDE_CLASS,
             RCFILE_INPUT_FORMAT_CLASS,
             RCFILE_OUTPUT_FORMAT_CLASS),
     SEQUENCEFILE(
@@ -91,8 +87,7 @@ public enum HiveStorageFormat
             TWITTER_ELEPHANTBIRD_PROTOBUF_SERDE_CLASS,
             SEQUENCEFILE_INPUT_FORMAT_CLASS,
             HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS),
-    JSON(
-            JSON_SERDE_CLASS,
+    JSON(JSON_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
             HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
     OPENX_JSON(
@@ -103,19 +98,15 @@ public enum HiveStorageFormat
             LAZY_SIMPLE_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
             HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
-    CSV(
-            OPENCSV_SERDE_CLASS,
+    CSV(OPENCSV_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
             HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
-    REGEX(
-            REGEX_SERDE_CLASS,
+    REGEX(REGEX_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
             HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
-    ESRI(
-            ESRI_SERDE_CLASS,
+    ESRI(ESRI_SERDE_CLASS,
             ESRI_INPUT_FORMAT_CLASS,
             HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
-
     ESRI_GEO_JSON(
             ESRI_GEO_JSON_SERDE_CLASS,
             ESRI_GEO_JSON_INPUT_FORMAT_CLASS,
@@ -207,7 +198,7 @@ public enum HiveStorageFormat
 
     private static final Map<SerdeAndInputFormat, HiveStorageFormat> HIVE_STORAGE_FORMATS = ImmutableMap.<SerdeAndInputFormat, HiveStorageFormat>builder()
             .putAll(Arrays.stream(values()).collect(
-                    toMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity())))
+                    toImmutableMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity())))
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.DeprecatedParquetInputFormat"), PARQUET)
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "org.apache.hadoop.mapred.TextInputFormat"), PARQUET)
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.MapredParquetInputFormat"), PARQUET)

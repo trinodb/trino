@@ -4,8 +4,8 @@
     "dv_version" : {
       "distinctValuesCount" : 1,
       "nullsCount" : 0,
-      "min" : "2.0.0",
-      "max" : "2.0.0",
+      "min" : "4.0.0",
+      "max" : "4.0.0",
       "dataSize" : 5
     },
     "dv_create_date" : {

@@ -40,15 +40,21 @@ public class LongColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, long[] values)
+    public Block createNullableBlock(long[] valueIsValid, long[] values)
     {
-        return new LongArrayBlock(values.length, Optional.of(nulls), values);
+        return new LongArrayBlock(values.length, Optional.of(valueIsValid), values);
     }
 
     @Override
     public void copyValue(long[] source, int sourceIndex, long[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
+    }
+
+    @Override
+    public void copyValues(long[] source, int sourceIndex, long[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
     }
 
     @Override

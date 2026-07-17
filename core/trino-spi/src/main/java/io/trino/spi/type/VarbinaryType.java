@@ -34,7 +34,7 @@ public final class VarbinaryType
 
     private VarbinaryType()
     {
-        super(new TypeSignature(NAME), Slice.class);
+        super(new TypeDescriptor(NAME), Slice.class);
     }
 
     @Override

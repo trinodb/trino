@@ -88,7 +88,8 @@ public class TestAvroSchemaUrl
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
-        onHive().executeQuery(format("" +
+        onHive().executeQuery(format(
+                "" +
                         "CREATE TABLE test_avro_schema_url_hive " +
                         "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                         "STORED AS " +
@@ -113,7 +114,8 @@ public class TestAvroSchemaUrl
 
         String schemaLocationOnHdfs = "/user/hive/warehouse/TestAvroSchemaUrl/schemas/test_avro_schema_url_in_serde_properties.avsc";
         saveResourceOnHdfs("avro/original_schema.avsc", schemaLocationOnHdfs);
-        onHive().executeQuery(format("" +
+        onHive().executeQuery(format(
+                "" +
                         "CREATE TABLE test_avro_schema_url_in_serde_properties " +
                         "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                         "WITH SERDEPROPERTIES ('avro.schema.url'='%s')" +

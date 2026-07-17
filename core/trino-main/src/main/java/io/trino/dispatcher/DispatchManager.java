@@ -62,6 +62,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static io.trino.util.Failures.toFailure;
@@ -357,6 +358,26 @@ public class DispatchManager
         return queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING && query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
                 .count();
+    }
+
+    @Managed
+    public long getWaitingForResourcesQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == WAITING_FOR_RESOURCES)
+                .count();
+    }
+
+    @Managed
+    public double getWaitingForResourcesMaxAgeInSeconds()
+    {
+        // Only materialize BasicQueryInfo for queries currently waiting for resources,
+        // then report the longest resource-waiting time among them (0 when none wait).
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == WAITING_FOR_RESOURCES)
+                .mapToDouble(query -> query.getBasicQueryInfo().getQueryStats().getResourceWaitingTime().getValue(SECONDS))
+                .max()
+                .orElse(0.0);
     }
 
     public boolean isQueryRegistered(QueryId queryId)

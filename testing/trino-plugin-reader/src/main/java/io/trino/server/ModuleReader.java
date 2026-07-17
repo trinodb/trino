@@ -87,7 +87,7 @@ public class ModuleReader
     private static String readPluginClassName(File rootPom, String module)
     {
         Path target = Path.of(requireNonNullElse(rootPom.getParent(), "."), module, "target");
-        BiPredicate<Path, BasicFileAttributes> matcher = (path, attributes) -> path.toFile().getName().matches(".*-services\\.jar");
+        BiPredicate<Path, BasicFileAttributes> matcher = (path, _) -> path.toFile().getName().matches(".*-services\\.jar");
         try (Stream<Path> files = Files.find(target, 1, matcher)) {
             return files.findFirst()
                     .map(jarFile -> readPluginClassName(jarFile.toFile()))

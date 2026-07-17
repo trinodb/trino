@@ -47,10 +47,10 @@ public class TestingExasolServer
 
     public TestingExasolServer()
     {
-        container = new ExasolContainer<>("exadockerci4/docker-db:2025.1.8_dev_java_slc_only") //Test container tailored to reduce used disk space and solve CI disk space pressure issue.
+        container = new ExasolContainer<>("exadockerci4/docker-db:2025.1.8_dev_java_slc_only") // Test container tailored to reduce used disk space and solve CI disk space pressure issue.
                 .withExposedPorts(8563)
                 .withRequiredServices(ExasolService.JDBC)
-                .withEnv("COSLWD_ENABLED", "1"); //Disables rsyslogd, cleans up log clutter and speeds up database startup
+                .withEnv("COSLWD_ENABLED", "1"); // Disables rsyslogd, cleans up log clutter and speeds up database startup
         cleanup = startOrReuse(container);
         executeAsSys(format("CREATE USER %s IDENTIFIED BY \"%s\"", TEST_USER, TEST_PASSWORD));
         executeAsSys("GRANT CREATE SESSION TO " + TEST_USER);

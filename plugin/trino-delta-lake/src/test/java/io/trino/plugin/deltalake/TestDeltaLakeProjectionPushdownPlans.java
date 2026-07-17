@@ -32,7 +32,6 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Logical;
@@ -57,10 +56,12 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -108,7 +109,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
 
-        HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(planTester, HiveMetastoreFactory.class)
+        HiveMetastore metastore = getConnectorService(planTester, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA)
@@ -199,8 +200,8 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         filter(
                                 new Logical(AND, ImmutableList.of(
-                                        new Comparison(EQUAL, new Reference(BIGINT, "y"), new Constant(BIGINT, 2L)),
-                                        new Comparison(EQUAL, new Reference(BIGINT, "x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
+                                        comparison(EQUAL, new Reference(BIGINT, "y"), new Constant(BIGINT, 2L)),
+                                        comparison(EQUAL, new Reference(BIGINT, "x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
                                 source2)));
 
         // Projection and predicate pushdown with overlapping columns
@@ -217,7 +218,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 5L)),
+                                comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 5L)),
                                 source1)));
 
         // Projection and predicate pushdown with joins
@@ -247,7 +248,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                                             .left(
                                                     anyTree(
                                                             filter(
-                                                                    new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 2L)),
+                                                                    comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 2L)),
                                                                     source)))
                                             .right(
                                                     anyTree(
@@ -256,6 +257,38 @@ public class TestDeltaLakeProjectionPushdownPlans
                                                                     TupleDomain.all(),
                                                                     ImmutableMap.of("s_expr_1", equalTo(column1Handle)))));
                                 }))));
+    }
+
+    @Test
+    public void testProjectionPushdownInsideLambda()
+    {
+        String testTable = "test_lambda_projection_pushdown" + randomNameSuffix();
+        QualifiedObjectName completeTableName = new QualifiedObjectName(DELTA_CATALOG, SCHEMA, testTable);
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s AS " +
+                        "SELECT ARRAY[1, 2, 3] items, " +
+                        "CAST(row(10, 20) AS row(captured bigint, skipped bigint)) payload",
+                testTable));
+
+        Session session = getPlanTester().getDefaultSession();
+
+        Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
+        assertThat(tableHandle).as("expected the table handle to be present").isPresent();
+
+        Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
+
+        DeltaLakeColumnHandle items = (DeltaLakeColumnHandle) columns.get("items");
+        DeltaLakeColumnHandle payload = (DeltaLakeColumnHandle) columns.get("payload");
+        DeltaLakeColumnHandle captured = createProjectedColumnHandle(payload, ImmutableList.of(0), ImmutableList.of("captured"));
+
+        assertPlan(
+                "SELECT transform(items, x -> x + payload.captured) result FROM " + testTable,
+                anyTree(
+                        tableScan(
+                                table -> ((DeltaLakeTableHandle) table).getProjectedColumns().orElseThrow().equals(ImmutableSet.of(items, captured)),
+                                TupleDomain.all(),
+                                ImmutableMap.of("items", equalTo(items), "payload_captured", equalTo(captured)))));
     }
 
     private DeltaLakeColumnHandle createProjectedColumnHandle(

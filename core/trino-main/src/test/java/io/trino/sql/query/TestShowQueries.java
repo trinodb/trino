@@ -107,16 +107,16 @@ public class TestShowQueries
                                     .setType(BIGINT)
                                     .build());
                 })
-                .withListSchemaNames(session -> ImmutableList.of("mockschema"))
-                .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .withListSchemaNames(_ -> ImmutableList.of("mockschema"))
+                .withListTables((_, _) -> ImmutableList.of("mockTable"))
                 .withTableFunctions(ImmutableList.of(new SimpleTableFunction()))
-                .withGetTableHandle((session, schemaTableName) -> {
+                .withGetTableHandle((_, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("mockview")) {
                         return null;
                     }
                     return new MockConnectorTableHandle(schemaTableName);
                 })
-                .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of(
+                .withGetViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("mockschema", "mockview"), new ConnectorViewDefinition(
                                 "SELECT cola_ AS test_column FROM mock_table",
                                 Optional.empty(),
@@ -180,18 +180,18 @@ public class TestShowQueries
         assertThat(assertions.query("SHOW FUNCTIONS FROM mock.system LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
 
         assertThat(assertions.query("SHOW FUNCTIONS FROM testing_catalog.system LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
 
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'simple$_table$_function' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')," +
-                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')," +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, 'simple description')");
     }
 
     @Test
@@ -220,7 +220,7 @@ public class TestShowQueries
     public void testListingEmptyCatalogs()
     {
         assertions.executeExclusively(() -> {
-            assertions.getQueryRunner().getAccessControl().denyCatalogs(catalog -> false);
+            assertions.getQueryRunner().getAccessControl().denyCatalogs(_ -> false);
             assertions.assertQueryReturnsEmptyResult("SHOW CATALOGS");
             assertions.getQueryRunner().getAccessControl().reset();
         });

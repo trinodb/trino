@@ -24,7 +24,7 @@ import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.operator.scalar.DateTimeFunctions.dateFormat;
-import static io.trino.type.DateTimes.epochMicrosToMillisWithRounding;
+import static io.trino.spi.type.Timestamps.epochMicrosToMillisWithRounding;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")

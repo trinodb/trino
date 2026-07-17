@@ -18,6 +18,7 @@ import io.airlift.units.Duration;
 import org.apache.iceberg.CatalogProperties;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -45,7 +46,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(false)
                 .setViewEndpointsEnabled(true)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setHttpHeaders(List.of()));
     }
 
     @Test
@@ -65,6 +67,7 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
+                .put("iceberg.rest-catalog.http-headers", "Polaris-Realm: default-realm")
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
@@ -80,7 +83,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(true)
                 .setViewEndpointsEnabled(false)
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES))
+                .setHttpHeaders(List.of("Polaris-Realm: default-realm"));
 
         assertFullMapping(properties, expected);
     }

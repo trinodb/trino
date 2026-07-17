@@ -81,7 +81,7 @@ public class TestTopNRankingOperator
     {
         DriverContext driverContext = newDriverContext();
 
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), VARCHAR, DOUBLE);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(VARCHAR, DOUBLE);
         List<Page> input = rowPagesBuilder
                 .row("a", 0.3)
                 .row("b", 0.2)
@@ -195,6 +195,7 @@ public class TestTopNRankingOperator
 
     @Test
     public void testPartialFlush()
+            throws Exception
     {
         for (boolean partial : Arrays.asList(true, false)) {
             DriverContext driverContext = newDriverContext();
@@ -232,20 +233,21 @@ public class TestTopNRankingOperator
                     orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                     blockTypeOperators);
 
-            TopNRankingOperator operator = (TopNRankingOperator) operatorFactory.createOperator(driverContext);
-            for (Page inputPage : input) {
-                operator.addInput(inputPage);
-                if (partial) {
-                    assertThat(operator.needsInput()).isFalse(); // full
-                    assertThat(operator.getOutput()).isNotNull(); // partial flush
-                    assertThat(operator.isFinished()).isFalse(); // not finished. just partial flushing.
-                    assertThatThrownBy(() -> operator.addInput(inputPage)).isInstanceOf(IllegalStateException.class); // while flushing
-                    assertThat(operator.getOutput()).isNull(); // clear flushing
-                    assertThat(operator.needsInput()).isTrue(); // flushing done
-                }
-                else {
-                    assertThat(operator.needsInput()).isTrue();
-                    assertThat(operator.getOutput()).isNull();
+            try (TopNRankingOperator operator = (TopNRankingOperator) operatorFactory.createOperator(driverContext)) {
+                for (Page inputPage : input) {
+                    operator.addInput(inputPage);
+                    if (partial) {
+                        assertThat(operator.needsInput()).isFalse(); // full
+                        assertThat(operator.getOutput()).isNotNull(); // partial flush
+                        assertThat(operator.isFinished()).isFalse(); // not finished. just partial flushing.
+                        assertThatThrownBy(() -> operator.addInput(inputPage)).isInstanceOf(IllegalStateException.class); // while flushing
+                        assertThat(operator.getOutput()).isNull(); // clear flushing
+                        assertThat(operator.needsInput()).isTrue(); // flushing done
+                    }
+                    else {
+                        assertThat(operator.needsInput()).isTrue();
+                        assertThat(operator.getOutput()).isNull();
+                    }
                 }
             }
         }
@@ -253,6 +255,7 @@ public class TestTopNRankingOperator
 
     @Test
     public void testMemoryReservationYield()
+            throws Exception
     {
         Type type = BIGINT;
         List<Page> input = createPages(type, 1_000, 500);

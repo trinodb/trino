@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TemporaryRelation;
 import org.intellij.lang.annotations.Language;
@@ -96,11 +97,8 @@ public final class SqlDataTypeTest
 
     private void verifySelect(QueryRunner queryRunner, Session session, TemporaryRelation temporaryRelation)
     {
-        @SuppressWarnings("resource") // Closing QueryAssertions would close the QueryRunner
-        QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
-
-        QueryAssertions.ResultAssert assertion = assertThat(queryAssertions.query(session, "SELECT * FROM " + temporaryRelation.getName()))
-                .result();
+        String selectQuery = "SELECT * FROM " + temporaryRelation.getName();
+        MaterializedResult actual = queryRunner.execute(session, selectQuery);
         MaterializedResult expected = queryRunner.execute(session, testCases.stream()
                 .map(TestCase::getExpectedLiteral)
                 .collect(joining(",", "VALUES ROW(", ")")));
@@ -110,14 +108,37 @@ public final class SqlDataTypeTest
             TestCase testCase = testCases.get(column);
             if (testCase.getExpectedType().isPresent()) {
                 Type expectedType = testCase.getExpectedType().get();
-                assertion.hasType(column, expectedType);
+                assertThat(actual.getTypes())
+                        .as(format("Output types for query [%s]", selectQuery))
+                        .element(column).isEqualTo(expectedType);
                 assertThat(expected.getTypes())
                         .as(format("Expected literal type at column %d (check consistency of expected type and expected literal)", column + 1))
                         .element(column).isEqualTo(expectedType);
             }
         }
 
-        assertion.matches(expected);
+        verifyColumnValues(actual, expected, temporaryRelation);
+    }
+
+    private void verifyColumnValues(MaterializedResult actual, MaterializedResult expected, TemporaryRelation temporaryRelation)
+    {
+        assertThat(actual.getRowCount())
+                .as("Row count for round-trip relation %s", temporaryRelation.getName())
+                .isEqualTo(expected.getRowCount());
+
+        for (int row = 0; row < actual.getRowCount(); row++) {
+            MaterializedRow actualRow = actual.getMaterializedRows().get(row);
+            MaterializedRow expectedRow = expected.getMaterializedRows().get(row);
+            assertThat(actualRow.getFieldCount())
+                    .as("Column count for round-trip relation %s row %s", temporaryRelation.getName(), row + 1)
+                    .isEqualTo(expectedRow.getFieldCount());
+
+            for (int column = 0; column < testCases.size(); column++) {
+                assertThat(new MaterializedRow(actualRow.getPrecision(), actualRow.getField(column)))
+                        .as("Round-trip mismatch for row %s, column %s (%s) in %s: %s", row + 1, column + 1, getColumnName(column), temporaryRelation.getName(), testCases.get(column))
+                        .isEqualTo(new MaterializedRow(expectedRow.getPrecision(), expectedRow.getField(column)));
+            }
+        }
     }
 
     private void verifyPredicate(QueryRunner queryRunner, Session session, TemporaryRelation temporaryRelation)
@@ -143,8 +164,12 @@ public final class SqlDataTypeTest
 
     private String getPredicate(int column)
     {
-        String columnName = testCases.get(column).getColumnName().orElseGet(() -> "col_" + column);
-        return format("%s IS NOT DISTINCT FROM %s", columnName, testCases.get(column).getExpectedLiteral());
+        return format("%s IS NOT DISTINCT FROM %s", getColumnName(column), testCases.get(column).getExpectedLiteral());
+    }
+
+    private String getColumnName(int column)
+    {
+        return testCases.get(column).getColumnName().orElseGet(() -> "col_" + column);
     }
 
     private static class TestCase
@@ -190,6 +215,17 @@ public final class SqlDataTypeTest
         public Optional<String> getColumnName()
         {
             return columnName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return format(
+                    "columnName=%s, declaredType=%s, inputLiteral=%s, expectedLiteral=%s",
+                    columnName.orElse("<default>"),
+                    declaredType.orElse("<inferred>"),
+                    inputLiteral,
+                    expectedLiteral);
         }
     }
 }

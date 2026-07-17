@@ -16,12 +16,12 @@ package io.trino.spi.variant;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
+import io.trino.spi.variant.Header.PrimitiveType;
 
 import java.lang.runtime.ExactConversionsSupport;
 
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.variant.Header.BasicType.SHORT_STRING;
-import static io.trino.spi.variant.Header.PrimitiveType;
 import static io.trino.spi.variant.Header.PrimitiveType.DOUBLE;
 import static io.trino.spi.variant.Header.PrimitiveType.FLOAT;
 import static io.trino.spi.variant.Header.PrimitiveType.INT16;

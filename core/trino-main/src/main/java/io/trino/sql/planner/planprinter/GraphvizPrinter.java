@@ -16,7 +16,6 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
@@ -104,7 +103,7 @@ public final class GraphvizPrinter
         INDEX_SOURCE,
         UNNEST,
         ANALYZE_FINISH,
-        DYNAMIC_FILTER_SOURCE
+        DYNAMIC_FILTER_SOURCE,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -272,11 +271,15 @@ public final class GraphvizPrinter
         @Override
         public Void visitWindow(WindowNode node, Void context)
         {
-            printNode(node, "Window", format("partition by = %s|order by = %s",
-                    Joiner.on(", ").join(node.getPartitionBy()),
-                    node.getOrderingScheme()
-                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
-                            .orElse("")),
+            printNode(
+                    node,
+                    "Window",
+                    format(
+                            "partition by = %s|order by = %s",
+                            Joiner.on(", ").join(node.getPartitionBy()),
+                            node.getOrderingScheme()
+                                    .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
+                                    .orElse("")),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }
@@ -284,11 +287,15 @@ public final class GraphvizPrinter
         @Override
         public Void visitPatternRecognition(PatternRecognitionNode node, Void context)
         {
-            printNode(node, "PatternRecognition", format("partition by = %s|order by = %s",
-                    Joiner.on(", ").join(node.getPartitionBy()),
-                    node.getOrderingScheme()
-                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
-                            .orElse("")),
+            printNode(
+                    node,
+                    "PatternRecognition",
+                    format(
+                            "partition by = %s|order by = %s",
+                            Joiner.on(", ").join(node.getPartitionBy()),
+                            node.getOrderingScheme()
+                                    .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.orderBy()))
+                                    .orElse("")),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }
@@ -296,7 +303,8 @@ public final class GraphvizPrinter
         @Override
         public Void visitRowNumber(RowNumberNode node, Void context)
         {
-            printNode(node,
+            printNode(
+                    node,
                     "RowNumber",
                     format("partition by = %s", Joiner.on(", ").join(node.getPartitionBy())),
                     NODE_COLORS.get(NodeType.WINDOW));
@@ -306,7 +314,8 @@ public final class GraphvizPrinter
         @Override
         public Void visitTopNRanking(TopNRankingNode node, Void context)
         {
-            printNode(node,
+            printNode(
+                    node,
                     "TopNRanking",
                     format("type=%s|partition by = %s|order by = %s|n = %s",
                             node.getRankingType(),
@@ -490,9 +499,9 @@ public final class GraphvizPrinter
         @Override
         public Void visitJoin(JoinNode node, Void context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
+            List<String> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(clause.toExpression());
+                joinExpressions.add(clause.getLeft() + " = " + clause.getRight());
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);
@@ -574,11 +583,9 @@ public final class GraphvizPrinter
         @Override
         public Void visitIndexJoin(IndexJoinNode node, Void context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
+            List<String> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new Comparison(Comparison.Operator.EQUAL,
-                        clause.getProbe().toSymbolReference(),
-                        clause.getIndex().toSymbolReference()));
+                joinExpressions.add(clause.getProbe() + " = " + clause.getIndex());
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);

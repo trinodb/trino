@@ -62,7 +62,6 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
@@ -96,6 +95,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.session.PropertyMetadata;
@@ -158,8 +158,12 @@ public class TestingTrinoServer
 {
     static {
         Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.connector.CatalogStoreManager", Level.WARN);
+        logging.setLevel("io.trino.server.PluginManager", Level.WARN);
+        logging.setLevel("io.trino.memory.RemoteNodeMemory", Level.ERROR);
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
         logging.setLevel("org.eclipse.jetty", Level.ERROR);
+        logging.setLevel("io.airlift.http.server", Level.WARN);
         logging.setLevel("io.airlift.concurrent.BoundedExecutor", Level.OFF);
 
         // Trino server behavior does not depend on locale settings.

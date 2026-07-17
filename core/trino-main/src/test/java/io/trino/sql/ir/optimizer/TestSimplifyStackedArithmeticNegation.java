@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,6 +50,6 @@ public class TestSimplifyStackedArithmeticNegation
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyStackedArithmeticNegation().apply(expression, testSession(), ImmutableMap.of());
+        return new SimplifyStackedArithmeticNegation().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

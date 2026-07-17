@@ -41,6 +41,7 @@ public final class VersionFunction
                         .returnType(VARCHAR)
                         .build())
                 .hidden()
+                .neverFails()
                 .description("Return server version")
                 .build());
         this.nodeVersion = nodeVersion;

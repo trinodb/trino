@@ -102,7 +102,7 @@ public class TestReadJsonTransactionLog
     private Stream<String> readJsonTransactionLogs(String location)
     {
         File directory = directoryForResource(location);
-        File[] files = directory.listFiles((dir, name) -> name.matches("[0-9]{20}\\.json"));
+        File[] files = directory.listFiles((_, name) -> name.matches("[0-9]{20}\\.json"));
         verify(files != null);
         return Arrays.stream(files)
                 .sorted()

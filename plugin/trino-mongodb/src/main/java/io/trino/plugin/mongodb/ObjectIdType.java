@@ -21,9 +21,9 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 public class ObjectIdType
         extends AbstractVariableWidthType
@@ -39,7 +39,7 @@ public class ObjectIdType
     @JsonCreator
     public ObjectIdType()
     {
-        super(new TypeSignature("ObjectId"), Slice.class);
+        super(new TypeDescriptor("ObjectId"), Slice.class);
     }
 
     @Override

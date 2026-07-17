@@ -62,8 +62,7 @@ public class FaultTolerantPartitioningSchemeFactory
             // Avoid using computeIfAbsent as the "get" method is called recursively from the "create" method
             result = create(handle, partitionCount);
             if (partitionCount.isPresent()) {
-                verify(
-                        result.getPartitionCount() == partitionCount.getAsInt(),
+                verify(result.getPartitionCount() == partitionCount.getAsInt(),
                         "expected partitionCount to be %s but got %s; handle=%s",
                         Integer.toString(partitionCount.getAsInt()),
                         Integer.toString(result.getPartitionCount()),

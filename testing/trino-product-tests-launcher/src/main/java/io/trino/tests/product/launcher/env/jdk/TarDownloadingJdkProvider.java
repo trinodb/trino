@@ -16,10 +16,13 @@ package io.trino.tests.product.launcher.env.jdk;
 import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.testing.containers.TestContainers.DockerArchitecture;
 import io.trino.testing.containers.TestContainers.DockerArchitectureInfo;
 import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.util.UriDownloader;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
@@ -32,18 +35,19 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.containers.TestContainers.getDockerArchitectureInfo;
 import static io.trino.tests.product.launcher.util.DirectoryUtils.getOnlyDescendant;
-import static io.trino.tests.product.launcher.util.UriDownloader.download;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isDirectory;
 import static java.nio.file.Files.newInputStream;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -96,7 +100,11 @@ public abstract class TarDownloadingJdkProvider
                         }
                         else if (!exists(extractPath)) { // Distribution not extracted and not downloaded yet
                             log.info("Downloading %s from %s to %s", fullName, downloadUri, targetDownloadPath);
-                            download(downloadUri, targetDownloadPath, new EveryNthPercentProgress(progress -> log.info("Downloading %s %d%%...", fullName, progress), 5));
+                            downloadWithRetries(
+                                    fullName,
+                                    downloadUri,
+                                    targetDownloadPath,
+                                    new PeriodicProgress(progress -> log.info("Downloading %s %d%%...", fullName, progress), Duration.ofSeconds(5)));
                             log.info("Downloaded %s to %s", fullName, targetDownloadPath);
                         }
 
@@ -177,30 +185,75 @@ public abstract class TarDownloadingJdkProvider
         verify(isDirectory(downloadPath), "--jdk-tmp-download-path '%s' is not a directory", downloadPath);
     }
 
-    private static class EveryNthPercentProgress
+    private RetryPolicy<Object> downloadRetryPolicy(String fullName, String downloadUri)
+    {
+        return RetryPolicy.builder()
+                .handle(UncheckedIOException.class)
+                .withMaxAttempts(5)
+                .withBackoff(1, 10, SECONDS)
+                .onFailedAttempt(event -> log.warn(event.getLastException(), "Could not download %s from %s", fullName, downloadUri))
+                .onRetry(event -> log.info("Retrying download of %s from %s, %d failed attempt(s)", fullName, downloadUri, event.getAttemptCount()))
+                .build();
+    }
+
+    private void downloadWithRetries(
+            String fullName,
+            String downloadUri,
+            Path targetDownloadPath,
+            Consumer<Integer> progressListener)
+    {
+        try {
+            Failsafe.with(downloadRetryPolicy(fullName, downloadUri))
+                    .run(() -> {
+                        deleteDownload(targetDownloadPath);
+                        UriDownloader.download(downloadUri, targetDownloadPath, progressListener);
+                    });
+        }
+        catch (RuntimeException e) {
+            try {
+                deleteDownload(targetDownloadPath);
+            }
+            catch (RuntimeException deleteException) {
+                e.addSuppressed(deleteException);
+            }
+            throw e;
+        }
+    }
+
+    private static void deleteDownload(Path targetDownloadPath)
+    {
+        try {
+            Files.deleteIfExists(targetDownloadPath);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static class PeriodicProgress
             implements Consumer<Integer>
     {
-        private final AtomicInteger currentProgress = new AtomicInteger(0);
+        private final AtomicLong nextLogNanos;
         private final Consumer<Integer> delegate;
-        private final int n;
+        private final long intervalNanos;
 
-        public EveryNthPercentProgress(Consumer<Integer> delegate, int n)
+        public PeriodicProgress(Consumer<Integer> delegate, Duration interval)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
-            this.n = n;
+            this.intervalNanos = interval.toNanos();
+            this.nextLogNanos = new AtomicLong(System.nanoTime() + intervalNanos);
         }
 
         @Override
         public void accept(Integer percent)
         {
-            int currentBand = currentProgress.get() / n;
-            int band = percent / n;
-
-            if (band == currentBand) {
+            long now = System.nanoTime();
+            long nextLog = nextLogNanos.get();
+            if (now < nextLog) {
                 return;
             }
 
-            if (currentProgress.compareAndSet(currentBand * n, band * n)) {
+            if (nextLogNanos.compareAndSet(nextLog, now + intervalNanos)) {
                 delegate.accept(percent);
             }
         }

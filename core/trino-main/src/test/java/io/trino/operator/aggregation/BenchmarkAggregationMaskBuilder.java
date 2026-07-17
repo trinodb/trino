@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 @State(Scope.Thread)
@@ -76,17 +78,17 @@ public class BenchmarkAggregationMaskBuilder
 
         Block shortRleNoNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.empty(), new short[] {42}), positions);
         Block shortNoNulls = new ShortArrayBlock(new long[positions].length, Optional.empty(), new short[positions]);
-        Block shortSomeNulls = new ShortArrayBlock(new long[positions].length, someNulls(positions, 0.3), new short[positions]);
+        Block shortSomeNulls = new ShortArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new short[positions]);
 
         Block intRleNoNulls = RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {42}), positions);
         Block intNoNulls = new IntArrayBlock(new long[positions].length, Optional.empty(), new int[positions]);
-        Block intSomeNulls = new IntArrayBlock(new long[positions].length, someNulls(positions, 0.3), new int[positions]);
+        Block intSomeNulls = new IntArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new int[positions]);
 
         Block longRleNoNulls = RunLengthEncodedBlock.create(new LongArrayBlock(1, Optional.empty(), new long[] {42}), positions);
         Block longNoNulls = new LongArrayBlock(new long[positions].length, Optional.empty(), new long[positions]);
-        Block longSomeNulls = new LongArrayBlock(new long[positions].length, someNulls(positions, 0.3), new long[positions]);
+        Block longSomeNulls = new LongArrayBlock(new long[positions].length, someNullValidity(positions, 0.3), new long[positions]);
 
-        Block rleAllNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.of(new boolean[] {true}), new short[] {42}), positions);
+        Block rleAllNulls = RunLengthEncodedBlock.create(new ShortArrayBlock(1, Optional.of(new long[] {0}), new short[] {42}), positions);
 
         arguments = new Page(
                 shortRleNoNulls,
@@ -101,14 +103,15 @@ public class BenchmarkAggregationMaskBuilder
                 rleAllNulls);
     }
 
-    private static Optional<boolean[]> someNulls(int positions, double nullRatio)
+    private static Optional<long[]> someNullValidity(int positions, double nullRatio)
     {
-        boolean[] nulls = new boolean[positions];
-        for (int i = 0; i < nulls.length; i++) {
-            // 0.7 ^ 3 = 0.343
-            nulls[i] = ThreadLocalRandom.current().nextDouble() < nullRatio;
+        long[] validity = new long[wordsForBits(positions)];
+        for (int position = 0; position < positions; position++) {
+            if (ThreadLocalRandom.current().nextDouble() >= nullRatio) {
+                set(validity, 0, position);
+            }
         }
-        return Optional.of(nulls);
+        return Optional.of(validity);
     }
 
     @Benchmark

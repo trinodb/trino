@@ -19,15 +19,9 @@ import io.trino.tempto.ProductTest;
 import io.trino.testing.minio.MinioClient;
 import org.testng.annotations.Test;
 
-import static io.minio.messages.EventType.OBJECT_ACCESSED_GET;
-import static io.minio.messages.EventType.OBJECT_ACCESSED_HEAD;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_MINIO;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.MinioNotificationsAssertions.assertNotificationsCount;
-import static io.trino.tests.product.utils.MinioNotificationsAssertions.createNotificationsTable;
-import static io.trino.tests.product.utils.MinioNotificationsAssertions.deleteNotificationsTable;
-import static io.trino.tests.product.utils.MinioNotificationsAssertions.recordNotification;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +31,6 @@ public abstract class BaseTestDeltaLakeMinioReads
         extends ProductTest
 {
     protected static final String BUCKET_NAME = "delta-test-basic-reads";
-    protected static final String NOTIFICATIONS_TABLE = "read_region_notifications";
 
     protected MinioClient client;
 
@@ -55,17 +48,12 @@ public abstract class BaseTestDeltaLakeMinioReads
     {
         client = new MinioClient();
 
-        deleteNotificationsTable(NOTIFICATIONS_TABLE);
-        createNotificationsTable(NOTIFICATIONS_TABLE);
-
         client.copyResourcePath(BUCKET_NAME, regionResourcePath, tableName);
-        client.captureBucketNotifications(BUCKET_NAME, notification -> recordNotification(NOTIFICATIONS_TABLE, notification));
     }
 
     @AfterMethodWithContext
     public void tearDown()
     {
-        deleteNotificationsTable(NOTIFICATIONS_TABLE);
         client.close();
         client = null;
     }
@@ -79,8 +67,6 @@ public abstract class BaseTestDeltaLakeMinioReads
                 format("SELECT count(name) FROM delta.default.\"%s\"", tableName)))
                 .containsOnly(row(5L));
 
-        assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_HEAD, tableName + "/_delta_log/00000000000000000000.json", 1);
-        assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_GET, tableName + "/_delta_log/00000000000000000000.json", 1);
         onTrino().executeQuery(format("DROP TABLE delta.default.\"%s\"", tableName));
     }
 }

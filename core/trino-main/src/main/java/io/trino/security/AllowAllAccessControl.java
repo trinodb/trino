@@ -149,16 +149,16 @@ public class AllowAllAccessControl
     public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName) {}
+    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch) {}
 
     @Override
-    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName) {}
+    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch) {}
 
     @Override
     public void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames) {}
+    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> updatedColumnNames) {}
 
     @Override
     public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName) {}
@@ -173,7 +173,7 @@ public class AllowAllAccessControl
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName) {}
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames) {}
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames) {}
 
     @Override
     public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties) {}
@@ -245,7 +245,7 @@ public class AllowAllAccessControl
     public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName) {}
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames) {}
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames) {}
 
     @Override
     public void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName) {}

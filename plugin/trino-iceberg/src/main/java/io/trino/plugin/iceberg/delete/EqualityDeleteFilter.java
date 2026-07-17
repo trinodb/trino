@@ -60,7 +60,7 @@ public final class EqualityDeleteFilter
     }
 
     @Override
-    public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
+    public PageFilter createPageFilter(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
         StructType fileStructType = structTypeFromHandles(columns.stream()
                 .filter(column -> !isMetadataColumnId(column.getId())) // equality deletes don't apply to metadata columns
@@ -76,22 +76,23 @@ public final class EqualityDeleteFilter
                 .map(IcebergColumnHandle::getType)
                 .toArray(Type[]::new);
 
-        return (page, position) -> {
+        return PageFilter.of((page, position) -> {
             StructProjection row = projection.wrap(new LazyTrinoRow(types, page, position));
             DataSequenceNumber maxDeleteVersion = deletedRows.get(structLikeWrapper.set(row));
             // clear reference to avoid memory leak
             structLikeWrapper.set(null);
             return maxDeleteVersion == null || maxDeleteVersion.dataSequenceNumber() <= splitDataSequenceNumber;
-        };
+        });
     }
 
     public static EqualityDeleteFilterBuilder builder(Schema deleteSchema)
     {
-        return new EqualityDeleteFilterBuilder(deleteSchema);
+        return new Builder(deleteSchema);
     }
 
     @ThreadSafe
-    public static class EqualityDeleteFilterBuilder
+    private static final class Builder
+            implements EqualityDeleteFilterBuilder
     {
         private static final int SIMPLE_ENTRY_INSTANCE_SIZE = instanceSize(AbstractMap.SimpleEntry.class);
         private static final int STRUCT_LIKE_WRAPPER_INSTANCE_SIZE = instanceSize(StructLikeWrapper.class);
@@ -104,12 +105,13 @@ public final class EqualityDeleteFilter
         private final Map<String, ListenableFutureTask<?>> loadingFiles = new ConcurrentHashMap<>();
         private final LongAdder estimatedSizeInBytes = new LongAdder();
 
-        private EqualityDeleteFilterBuilder(Schema deleteSchema)
+        private Builder(Schema deleteSchema)
         {
             this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
             this.deletedRows = new ConcurrentHashMap<>();
         }
 
+        @Override
         public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
         {
             verify(deleteColumns.size() == deleteSchema.columns().size(), "delete columns size doesn't match delete schema size");
@@ -117,7 +119,7 @@ public final class EqualityDeleteFilter
             // ensure only one thread loads the file
             ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
                     deleteFile.path(),
-                    key -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
+                    _ -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
             futureTask.run();
             return Futures.nonCancellationPropagating(futureTask);
         }
@@ -173,15 +175,13 @@ public final class EqualityDeleteFilter
             }
         }
 
-        /**
-         * Builds the EqualityDeleteFilter.
-         * After building the EqualityDeleteFilter, additional rows can be added to this builder, and the filter can be rebuilt.
-         */
+        @Override
         public EqualityDeleteFilter build()
         {
             return new EqualityDeleteFilter(deleteSchema, deletedRows);
         }
 
+        @Override
         public long getEstimatedSizeInBytes()
         {
             return estimatedSizeInBytes.longValue() + sizeOfObjectArray(tableSizeFor(deletedRows.size()));

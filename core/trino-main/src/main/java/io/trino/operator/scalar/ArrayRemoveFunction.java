@@ -47,7 +47,7 @@ public final class ArrayRemoveFunction
                     operator = EQUAL,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalFunction,
+            MethodHandle equalFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") Object value)

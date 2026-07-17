@@ -29,7 +29,7 @@ public interface PartitionFunction
     /**
      * @param page the arguments to bucketing function in order (no extra columns)
      * @param partitions the array of length at least {@code length} to hold the partitioning result.
-     * Value at index {@code i} should hold the partition for position {@code positionOffset + i}.
+     *         Value at index {@code i} should hold the partition for position {@code positionOffset + i}.
      */
     default void getPartitions(Page page, int positionOffset, int length, int[] partitions)
     {

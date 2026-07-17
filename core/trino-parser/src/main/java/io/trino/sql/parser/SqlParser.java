@@ -16,6 +16,7 @@ package io.trino.sql.parser;
 import io.trino.grammar.sql.SqlBaseBaseListener;
 import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
+import io.trino.grammar.sql.SqlKeywords;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
@@ -62,7 +63,7 @@ public class SqlParser
             throw new ParsingException(message, e, line, charPositionInLine + 1);
         }
     };
-    private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (SqlBaseLexer lexer, SqlBaseParser parser) -> {};
+    private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (_, _) -> {};
 
     private static final ErrorHandler PARSER_ERROR_HANDLER = ErrorHandler.builder()
             .specialRule(SqlBaseParser.RULE_expression, "<expression>")
@@ -71,6 +72,8 @@ public class SqlParser
             .specialRule(SqlBaseParser.RULE_primaryExpression, "<expression>")
             .specialRule(SqlBaseParser.RULE_predicate, "<predicate>")
             .specialRule(SqlBaseParser.RULE_identifier, "<identifier>")
+            .specialRule(SqlBaseParser.RULE_methodName, "<identifier>")
+            .tokenPredicate(SqlBaseParser.RULE_methodName, SqlKeywords::isKeyword)
             .specialRule(SqlBaseParser.RULE_string, "<string>")
             .specialRule(SqlBaseParser.RULE_query, "<query>")
             .specialRule(SqlBaseParser.RULE_type, "<type>")

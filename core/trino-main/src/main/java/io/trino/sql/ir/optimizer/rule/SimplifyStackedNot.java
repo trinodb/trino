@@ -18,11 +18,13 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 
 /**
  * Simplify stacked Not expressions. E.g,
@@ -34,12 +36,12 @@ public class SimplifyStackedNot
         implements IrOptimizerRule
 {
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (expression instanceof Call outer &&
-                outer.function().name().equals(builtinFunctionName("$not")) &&
+                outer.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME)) &&
                 outer.arguments().getFirst() instanceof Call inner &&
-                inner.function().name().equals(builtinFunctionName("$not"))) {
+                inner.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
             return Optional.of(inner.arguments().getFirst());
         }
 

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -83,27 +82,29 @@ public class DeltaLakePartitionsTable
     private final List<DeltaLakeColumnHandle> regularColumns;
     private final Optional<RowType> dataColumnType;
     private final List<RowType> columnMetricTypes;
-    private final VendedCredentialsHandle credentialsHandle;
+    private final Optional<DeltaLakeTableCredentials> tableCredentials;
 
     public DeltaLakePartitionsTable(
             ConnectorSession session,
             DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaMetastoreTable table,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         requireNonNull(table, "table is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
 
         try {
-            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
+            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, table, tableCredentials, Optional.empty());
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot from location: " + table.location(), e);
         }
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         this.metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
         this.protocolEntry = transactionLogAccess.getProtocolEntry(session, fileSystem, tableSnapshot);
         this.schema = extractSchema(metadataEntry, protocolEntry, typeManager);
@@ -139,7 +140,6 @@ public class DeltaLakePartitionsTable
         }
 
         this.tableMetadata = new ConnectorTableMetadata(table.schemaTableName(), columnMetadataBuilder.build());
-        this.credentialsHandle = VendedCredentialsHandle.of(table);
     }
 
     @Override
@@ -169,7 +169,7 @@ public class DeltaLakePartitionsTable
         PageListBuilder pageListBuilder = PageListBuilder.forTable(tableMetadata);
 
         Map<Map<String, Optional<String>>, DeltaLakePartitionStatistics> statisticsByPartition;
-        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), credentialsHandle)) {
+        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), tableCredentials)) {
             statisticsByPartition = getStatisticsByPartition(activeFiles);
         }
 
@@ -220,7 +220,7 @@ public class DeltaLakePartitionsTable
 
         addFileEntryStream.forEach(addFileEntry -> {
             Map<String, Optional<String>> partitionValues = addFileEntry.getCanonicalPartitionValues();
-            partitionValueStatistics.computeIfAbsent(partitionValues, key -> new DeltaLakePartitionStatistics.Builder(regularColumns, typeManager))
+            partitionValueStatistics.computeIfAbsent(partitionValues, _ -> new DeltaLakePartitionStatistics.Builder(regularColumns, typeManager))
                     .acceptAddFileEntry(addFileEntry);
         });
 
@@ -238,9 +238,12 @@ public class DeltaLakePartitionsTable
                     DeltaLakeColumnMetadata columnMetadata = columnsMetadataByName.get(partitionColumnName);
                     return new DeltaLakeColumnHandle(
                             columnMetadata.name(),
-                            columnMetadata.type(), OptionalInt.empty(),
+                            columnMetadata.type(),
+                            OptionalInt.empty(),
                             columnMetadata.physicalName(),
-                            columnMetadata.physicalColumnType(), PARTITION_KEY, Optional.empty());
+                            columnMetadata.physicalColumnType(),
+                            PARTITION_KEY,
+                            Optional.empty());
                 })
                 .collect(toImmutableList());
     }
@@ -374,7 +377,7 @@ public class DeltaLakePartitionsTable
                 if (type.isOrderable() && recordCount != 0L) {
                     // Capture the initial bounds during construction so there are always valid min/max values to compare to. This does make the first call to
                     // `ColumnStatistics#updateMinMax` a no-op.
-                    columnStatistics.computeIfAbsent(key, ignored -> {
+                    columnStatistics.computeIfAbsent(key, _ -> {
                         MethodHandle comparisonHandle = typeManager.getTypeOperators()
                                 .getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
                         return new ColumnStatistics(comparisonHandle, lowerBound, upperBound);

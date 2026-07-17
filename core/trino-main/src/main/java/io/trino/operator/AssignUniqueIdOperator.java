@@ -48,19 +48,25 @@ public class AssignUniqueIdOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private boolean closed;
-        private final AtomicLong valuePool = new AtomicLong();
+        private final AtomicLong valuePool;
 
         private Factory(int operatorId, PlanNodeId planNodeId)
         {
+            this(operatorId, planNodeId, new AtomicLong());
+        }
+
+        private Factory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.valuePool = requireNonNull(valuePool, "valuePool is null");
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new AssignUniqueIdOperator(processorContext, sourcePages, valuePool);
+            return new AssignUniqueIdOperator(operatorContext, sourcePages, valuePool);
         }
 
         @Override
@@ -90,17 +96,17 @@ public class AssignUniqueIdOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId);
+            return new Factory(operatorId, planNodeId, valuePool);
         }
     }
 
     private final WorkProcessor<Page> pages;
 
-    private AssignUniqueIdOperator(ProcessorContext context, WorkProcessor<Page> sourcePages, AtomicLong rowIdPool)
+    private AssignUniqueIdOperator(OperatorContext operatorContext, WorkProcessor<Page> sourcePages, AtomicLong rowIdPool)
     {
         pages = sourcePages
                 .transform(new AssignUniqueId(
-                        context.getTaskId(),
+                        operatorContext.getDriverContext().getTaskId(),
                         rowIdPool));
     }
 

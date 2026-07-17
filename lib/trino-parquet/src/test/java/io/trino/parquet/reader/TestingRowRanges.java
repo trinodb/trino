@@ -13,12 +13,12 @@
  */
 package io.trino.parquet.reader;
 
+import io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
 import java.util.stream.IntStream;
 
-import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import static java.util.Objects.requireNonNull;
 
 public class TestingRowRanges

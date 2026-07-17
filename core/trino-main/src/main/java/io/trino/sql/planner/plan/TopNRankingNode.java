@@ -35,7 +35,7 @@ public final class TopNRankingNode
     {
         ROW_NUMBER,
         RANK,
-        DENSE_RANK
+        DENSE_RANK,
     }
 
     private final PlanNode source;

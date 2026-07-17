@@ -42,8 +42,8 @@ public class GcsUtils
     public static IOException handleGcsException(RuntimeException exception, String action, GcsLocation location)
             throws IOException
     {
-        if (exception instanceof BaseServiceException) {
-            throw new TrinoFileSystemException("GCS service error %s: %s".formatted(action, location), exception);
+        if (exception instanceof BaseServiceException serviceException) {
+            throw toGcsServiceException(serviceException, "GCS service error %s: %s".formatted(action, location));
         }
         throw new IOException("Error %s: %s".formatted(action, location), exception);
     }
@@ -51,10 +51,18 @@ public class GcsUtils
     public static IOException handleGcsException(RuntimeException exception, String action, Collection<Location> locations)
             throws IOException
     {
-        if (exception instanceof BaseServiceException) {
-            throw new TrinoFileSystemException("GCS service error %s: %s".formatted(action, locations), exception);
+        if (exception instanceof BaseServiceException serviceException) {
+            throw toGcsServiceException(serviceException, "GCS service error %s: %s".formatted(action, locations));
         }
         throw new IOException("Error %s: %s".formatted(action, locations), exception);
+    }
+
+    private static IOException toGcsServiceException(BaseServiceException exception, String message)
+    {
+        if (exception.isRetryable()) {
+            return new IOException(message, exception);
+        }
+        return new TrinoFileSystemException(message, exception);
     }
 
     public static ReadChannel getReadChannel(Blob blob, GcsLocation location, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key)

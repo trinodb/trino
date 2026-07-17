@@ -610,33 +610,18 @@ public class OrcMetadataReader
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)
     {
-        switch (streamKind) {
-            case PRESENT:
-                return StreamKind.PRESENT;
-            case DATA:
-                return StreamKind.DATA;
-            case LENGTH:
-                return StreamKind.LENGTH;
-            case DICTIONARY_DATA:
-                return StreamKind.DICTIONARY_DATA;
-            case DICTIONARY_COUNT:
-                return StreamKind.DICTIONARY_COUNT;
-            case SECONDARY:
-                return StreamKind.SECONDARY;
-            case ROW_INDEX:
-                return StreamKind.ROW_INDEX;
-            case BLOOM_FILTER:
-                return StreamKind.BLOOM_FILTER;
-            case BLOOM_FILTER_UTF8:
-                return StreamKind.BLOOM_FILTER_UTF8;
-            case ENCRYPTED_INDEX:
-            case ENCRYPTED_DATA:
-            case STRIPE_STATISTICS:
-            case FILE_STATISTICS:
-                // unsupported
-                break;
-        }
-        throw new IllegalStateException(streamKind + " stream type not implemented yet");
+        return switch (streamKind) {
+            case PRESENT -> StreamKind.PRESENT;
+            case DATA -> StreamKind.DATA;
+            case LENGTH -> StreamKind.LENGTH;
+            case DICTIONARY_DATA -> StreamKind.DICTIONARY_DATA;
+            case DICTIONARY_COUNT -> StreamKind.DICTIONARY_COUNT;
+            case SECONDARY -> StreamKind.SECONDARY;
+            case ROW_INDEX -> StreamKind.ROW_INDEX;
+            case BLOOM_FILTER -> StreamKind.BLOOM_FILTER;
+            case BLOOM_FILTER_UTF8 -> StreamKind.BLOOM_FILTER_UTF8;
+            case ENCRYPTED_INDEX, ENCRYPTED_DATA, STRIPE_STATISTICS, FILE_STATISTICS -> throw new IllegalStateException(streamKind + " stream type not implemented yet");
+        };
     }
 
     private static ColumnEncodingKind toColumnEncodingKind(OrcProto.ColumnEncoding.Kind columnEncodingKind)
@@ -651,22 +636,16 @@ public class OrcMetadataReader
 
     private static CompressionKind toCompression(OrcProto.CompressionKind compression)
     {
-        switch (compression) {
-            case NONE:
-                return NONE;
-            case ZLIB:
-                return ZLIB;
-            case SNAPPY:
-                return SNAPPY;
-            case BROTLI:
-            case LZO:
+        return switch (compression) {
+            case NONE -> NONE;
+            case ZLIB -> ZLIB;
+            case SNAPPY -> SNAPPY;
+            case LZ4 -> LZ4;
+            case ZSTD -> ZSTD;
+            case BROTLI, LZO -> {
                 // TODO unsupported
-                break;
-            case LZ4:
-                return LZ4;
-            case ZSTD:
-                return ZSTD;
-        }
-        throw new IllegalStateException(compression + " compression not implemented yet");
+                throw new IllegalStateException(compression + " compression not implemented yet");
+            }
+        };
     }
 }

@@ -38,7 +38,8 @@ public class SemiJoinNode
     private final Optional<DynamicFilterId> dynamicFilterId;
 
     @JsonCreator
-    public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
+    public SemiJoinNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("filteringSource") PlanNode filteringSource,
             @JsonProperty("sourceJoinSymbol") Symbol sourceJoinSymbol,
@@ -64,7 +65,7 @@ public class SemiJoinNode
     public enum DistributionType
     {
         PARTITIONED,
-        REPLICATED
+        REPLICATED,
     }
 
     @JsonProperty("source")

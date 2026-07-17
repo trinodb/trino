@@ -21,7 +21,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collection;
@@ -47,7 +47,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,7 +85,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinUnknown()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(UNKNOWN, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(UNKNOWN, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -105,7 +105,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxUnknown()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(UNKNOWN, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(UNKNOWN, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -125,7 +125,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinNull()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -145,7 +145,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxNull()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -165,7 +165,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -186,7 +186,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxDoubleDouble()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(DOUBLE, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -207,7 +207,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(DOUBLE, VARCHAR);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(DOUBLE, VARCHAR);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -228,7 +228,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -249,7 +249,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -294,7 +294,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinRealVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, REAL);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, REAL);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -339,7 +339,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxRealVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, REAL);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, REAL);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -384,7 +384,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BIGINT);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BIGINT);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -405,7 +405,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongArrayLong()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(BIGINT, new ArrayType(BIGINT));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(BIGINT, new ArrayType(BIGINT));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -426,7 +426,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongArrayLong()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(BIGINT, new ArrayType(BIGINT));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(BIGINT, new ArrayType(BIGINT));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -447,7 +447,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BIGINT);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BIGINT);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -468,7 +468,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongDecimalDecimal()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(createDecimalType(19, 1), createDecimalType(19, 1));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(createDecimalType(19, 1), createDecimalType(19, 1));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -481,7 +481,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongDecimalDecimal()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(createDecimalType(19, 1), createDecimalType(19, 1));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(createDecimalType(19, 1), createDecimalType(19, 1));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -494,7 +494,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinShortDecimalDecimal()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(createDecimalType(10, 1), createDecimalType(10, 1));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(createDecimalType(10, 1), createDecimalType(10, 1));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -507,7 +507,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxShortDecimalDecimal()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(createDecimalType(10, 1), createDecimalType(10, 1));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(createDecimalType(10, 1), createDecimalType(10, 1));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -520,7 +520,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinBooleanVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, BOOLEAN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, BOOLEAN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -533,7 +533,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxBooleanVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, BOOLEAN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, BOOLEAN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -546,7 +546,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinIntegerVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, INTEGER);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, INTEGER);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -559,7 +559,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxIntegerVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, INTEGER);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, INTEGER);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -572,7 +572,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinBooleanLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BOOLEAN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BOOLEAN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -585,7 +585,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxBooleanLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BOOLEAN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), BOOLEAN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -598,7 +598,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, BIGINT);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, BIGINT);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -611,7 +611,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongVarchar()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, BIGINT);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, BIGINT);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -624,7 +624,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinDoubleLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -645,7 +645,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxDoubleLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), DOUBLE);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), DOUBLE);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -666,7 +666,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinSliceLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), VARCHAR);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), VARCHAR);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -687,7 +687,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxSliceLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), VARCHAR);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), VARCHAR);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -708,7 +708,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongArrayLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), new ArrayType(BIGINT));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), new ArrayType(BIGINT));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -721,7 +721,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongArrayLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), new ArrayType(BIGINT));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), new ArrayType(BIGINT));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -734,7 +734,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinLongArraySlice()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, new ArrayType(BIGINT));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, new ArrayType(BIGINT));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -747,7 +747,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxLongArraySlice()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, new ArrayType(BIGINT));
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, new ArrayType(BIGINT));
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -760,7 +760,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinUnknownSlice()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, UNKNOWN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, UNKNOWN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -773,7 +773,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxUnknownSlice()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, UNKNOWN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(VARCHAR, UNKNOWN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",
@@ -786,7 +786,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMinUnknownLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), UNKNOWN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), UNKNOWN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "min_by",
@@ -799,7 +799,7 @@ public class TestMinMaxByAggregation
     @Test
     public void testMaxUnknownLongArray()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), UNKNOWN);
+        List<TypeDescriptorProvider> parameterTypes = fromTypes(new ArrayType(BIGINT), UNKNOWN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 "max_by",

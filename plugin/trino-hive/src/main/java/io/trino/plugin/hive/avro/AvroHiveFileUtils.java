@@ -124,8 +124,13 @@ public final class AvroHiveFileUtils
                 Optional.ofNullable(schema.getOrDefault(SCHEMA_DOC, tableComment)));
     }
 
-    private static Schema constructSchemaFromParts(List<String> columnNames, List<HiveType> columnTypes,
-            List<String> columnComments, Optional<String> namespace, Optional<String> name, Optional<String> doc)
+    private static Schema constructSchemaFromParts(
+            List<String> columnNames,
+            List<HiveType> columnTypes,
+            List<String> columnComments,
+            Optional<String> namespace,
+            Optional<String> name,
+            Optional<String> doc)
     {
         // create instance of this class to keep nested record naming consistent for any given inputs
         AvroHiveFileUtils recordIncrementingUtil = new AvroHiveFileUtils();

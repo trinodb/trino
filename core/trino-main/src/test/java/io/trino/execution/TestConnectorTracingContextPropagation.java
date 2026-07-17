@@ -44,7 +44,7 @@ public class TestConnectorTracingContextPropagation
         try (QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build())) {
             queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                     .withName(CONNECTOR_NAME)
-                    .withData(table -> { // invoked in ConnectorPageSourceProvider
+                    .withData(_ -> { // invoked in ConnectorPageSourceProvider
                         capturedContext.set(Context.current());
                         return List.of(List.of());
                     })

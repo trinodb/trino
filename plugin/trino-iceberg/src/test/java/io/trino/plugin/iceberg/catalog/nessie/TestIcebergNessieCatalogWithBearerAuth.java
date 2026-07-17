@@ -68,6 +68,7 @@ public class TestIcebergNessieCatalogWithBearerAuth
         return IcebergQueryRunner.builder()
                 .setBaseDataDir(Optional.of(tempDir))
                 .setIcebergProperties(properties)
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .build();
     }
 

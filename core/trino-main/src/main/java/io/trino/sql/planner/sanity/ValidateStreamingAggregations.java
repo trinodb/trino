@@ -21,6 +21,8 @@ import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.optimizations.LocalProperties;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -42,12 +44,13 @@ public class ValidateStreamingAggregations
         implements Checker
 {
     @Override
-    public void validate(PlanNode planNode,
+    public void validate(
+            PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
             WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, plannerContext), null);
+        planNode.accept(new Visitor(session, plannerContext, new SymbolAllocator(SymbolsExtractor.extractUnique(planNode))), null);
     }
 
     private static final class Visitor
@@ -55,11 +58,13 @@ public class ValidateStreamingAggregations
     {
         private final Session session;
         private final PlannerContext plannerContext;
+        private final SymbolAllocator symbolAllocator;
 
-        private Visitor(Session session, PlannerContext plannerContext)
+        private Visitor(Session session, PlannerContext plannerContext, SymbolAllocator symbolAllocator)
         {
             this.session = session;
             this.plannerContext = plannerContext;
+            this.symbolAllocator = symbolAllocator;
         }
 
         @Override
@@ -76,7 +81,7 @@ public class ValidateStreamingAggregations
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), plannerContext, session);
+            StreamProperties properties = derivePropertiesRecursively(node.getSource(), plannerContext, session, symbolAllocator);
 
             List<LocalProperty<Symbol>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedSymbols()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();

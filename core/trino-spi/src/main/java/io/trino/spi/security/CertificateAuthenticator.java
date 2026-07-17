@@ -24,8 +24,8 @@ public interface CertificateAuthenticator
      * Authenticate and extract principal from client certificate.
      *
      * @param certificates This client certificate chain, in ascending order of trust.
-     * The first certificate in the chain is the one set by the client, the next is the
-     * one used to authenticate the first, and so on.
+     *         The first certificate in the chain is the one set by the client, the next is the
+     *         one used to authenticate the first, and so on.
      * @return the authenticated entity
      * @throws AccessDeniedException if not allowed
      */
@@ -37,8 +37,8 @@ public interface CertificateAuthenticator
      * provide an {@link Identity}.
      *
      * @param certificates This client certificate chain, in ascending order of trust.
-     * The first certificate in the chain is the one set by the client, the next is the
-     * one used to authenticate the first, and so on.
+     *         The first certificate in the chain is the one set by the client, the next is the
+     *         one used to authenticate the first, and so on.
      * @return the authenticated {@link Identity}
      */
     default Optional<Identity> createAuthenticatedIdentity(List<X509Certificate> certificates)

@@ -42,6 +42,7 @@ import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.unpackByteNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
@@ -120,13 +121,14 @@ public class BooleanColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
             if (nullCount == 0) {
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(BOOLEAN, null, nextBatchSize);
@@ -147,7 +149,7 @@ public class BooleanColumnReader
         return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -159,9 +161,9 @@ public class BooleanColumnReader
 
         dataStream.getSetBits(nonNullValueTemp, nonNullCount);
 
-        byte[] result = unpackByteNulls(nonNullValueTemp, isNull);
+        byte[] result = unpackByteNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        return new ByteArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
     private void openRowGroup()

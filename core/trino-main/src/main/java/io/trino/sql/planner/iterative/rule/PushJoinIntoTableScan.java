@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Capture;
@@ -106,10 +107,17 @@ public class PushJoinIntoTableScan
             return Result.empty();
         }
 
+        Map<String, ColumnHandle> leftAssignments = left.getAssignments().entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
+
+        Map<String, ColumnHandle> rightAssignments = right.getAssignments().entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
+
         Expression effectiveFilter = getEffectiveFilter(joinNode);
         ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
                 context.getSession(),
-                effectiveFilter);
+                effectiveFilter,
+                Sets.union(leftAssignments.keySet(), rightAssignments.keySet()));
 
         if (!translation.remainingExpression().equals(Booleans.TRUE)) {
             // TODO add extra filter node above join
@@ -121,12 +129,6 @@ public class PushJoinIntoTableScan
             // enforced constraint harder below.
             return Result.empty();
         }
-
-        Map<String, ColumnHandle> leftAssignments = left.getAssignments().entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
-
-        Map<String, ColumnHandle> rightAssignments = right.getAssignments().entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
 
         /*
          * We are (lazily) computing estimated statistics for join node and left and right table
@@ -234,14 +236,14 @@ public class PushJoinIntoTableScan
     private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> constraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
     {
         if (nullable) {
-            constraint = constraint.transformDomains((columnHandle, domain) -> domain.union(onlyNull(domain.getType())));
+            constraint = constraint.transformDomains((_, domain) -> domain.union(onlyNull(domain.getType())));
         }
         return constraint.transformKeys(columnMapping::get);
     }
 
     public Expression getEffectiveFilter(JoinNode node)
     {
-        Expression effectiveFilter = and(node.getCriteria().stream().map(JoinNode.EquiJoinClause::toExpression).collect(toImmutableList()));
+        Expression effectiveFilter = and(node.getCriteria().stream().map(clause -> clause.toExpression(plannerContext.getMetadata())).collect(toImmutableList()));
         if (node.getFilter().isPresent()) {
             effectiveFilter = and(effectiveFilter, node.getFilter().get());
         }

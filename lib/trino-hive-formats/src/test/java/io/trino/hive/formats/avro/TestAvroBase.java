@@ -177,7 +177,8 @@ public abstract class TestAvroBase
         ALL_TYPES_GENERIC_RECORD.put("anArray", ImmutableList.of(1, 2, 3, 4));
         allTypeBlocks.add(ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, 4}, createIntsBlock(1, 2, 3, 4)));
         ALL_TYPES_GENERIC_RECORD.put("aMap", ImmutableMap.of(new Utf8("key1"), 1, new Utf8("key2"), 2));
-        allTypeBlocks.add(MAP_VARCHAR_INTEGER.createBlockFromKeyValue(Optional.empty(),
+        allTypeBlocks.add(MAP_VARCHAR_INTEGER.createBlockFromKeyValue(
+                Optional.empty(),
                 new int[] {0, 2},
                 createStringsBlock("key1", "key2"),
                 createIntsBlock(1, 2)));
@@ -186,7 +187,7 @@ public abstract class TestAvroBase
         ALL_TYPES_GENERIC_RECORD.put("aRecord", SIMPLE_GENERIC_RECORD);
         allTypeBlocks.add(createRowBlock(ImmutableList.of(INTEGER, DoubleType.DOUBLE, VARCHAR), new Object[] {5, 3.14159265358979, "Simple Record String Field"}));
         ALL_TYPES_GENERIC_RECORD.put("aUnion", null);
-        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(), new int[] {0, 0}, Optional.of(new boolean[] {true})));
+        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(), new int[] {0, 0}, Optional.of(new long[] {0})));
         ALL_TYPES_PAGE = new Page(allTypeBlocks.build().toArray(Block[]::new));
     }
 
@@ -371,7 +372,7 @@ public abstract class TestAvroBase
         // test fixed
         assertThat(p.getBlock(7)).isInstanceOf(VariableWidthBlock.class);
         assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(7), 0)).isEqualTo(Slices.wrappedBuffer(A_FIXED_VALUE.bytes()));
-        //test array
+        // test array
         assertThat(p.getBlock(8)).isInstanceOf(ArrayBlock.class);
         assertThat(ARRAY_INTEGER.getObject(p.getBlock(8), 0)).isInstanceOf(IntArrayBlock.class);
         assertBlockEquals(INTEGER, ARRAY_INTEGER.getObject(p.getBlock(8), 0), createIntsBlock(1, 2, 3, 4));

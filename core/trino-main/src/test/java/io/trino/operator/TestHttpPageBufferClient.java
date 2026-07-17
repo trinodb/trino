@@ -57,6 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -138,8 +139,7 @@ public class TestHttpPageBufferClient
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
 
-        assertThat(callback.getPages()).hasSize(1);
-        assertPageEquals(expectedPage, callback.getPages().get(0));
+        assertPageEquals(expectedPage, getOnlyElement(callback.getPages()));
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertStatus(client, location, "queued", 1, 1, 1, 0, "not scheduled");
@@ -371,7 +371,7 @@ public class TestHttpPageBufferClient
         TestingTicker ticker = new TestingTicker();
         AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
-        TestingHttpClient.Processor processor = input -> {
+        TestingHttpClient.Processor processor = _ -> {
             Duration delta = tickerIncrement.get();
             ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
             throw new RuntimeException("Foo");
@@ -522,7 +522,8 @@ public class TestHttpPageBufferClient
 
     private static void assertStatus(
             HttpPageBufferClient client,
-            URI location, String status,
+            URI location,
+            String status,
             int pagesReceived,
             int requestsScheduled,
             int requestsCompleted,

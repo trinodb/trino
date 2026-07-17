@@ -46,7 +46,7 @@ public class Int128
      * Decode an Int128 from the two's complement big-endian representation.
      *
      * @param bytes the two's complement big-endian encoding of the number. It must contain at least 1 byte.
-     *              It may contain more than 16 bytes if the leading bytes are not significant (either zeros or -1)
+     *         It may contain more than 16 bytes if the leading bytes are not significant (either zeros or -1)
      * @throws ArithmeticException if the bytes represent a number outside of the range [-2^127, 2^127 - 1]
      */
     public static Int128 fromBigEndian(byte[] bytes)

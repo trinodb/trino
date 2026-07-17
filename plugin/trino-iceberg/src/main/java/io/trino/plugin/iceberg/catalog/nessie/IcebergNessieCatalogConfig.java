@@ -38,7 +38,7 @@ public class IcebergNessieCatalogConfig
 {
     public enum Security
     {
-        BEARER,
+        BEARER
     }
 
     public enum ClientApiVersion

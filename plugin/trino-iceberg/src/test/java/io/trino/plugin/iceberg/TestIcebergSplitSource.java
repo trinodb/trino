@@ -16,9 +16,8 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
+import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
@@ -26,14 +25,18 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -43,6 +46,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
@@ -53,15 +57,26 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.encryption.EncryptedInputFile;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.encryption.EncryptionKeyMetadata;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.EncryptionTestHelpers;
+import org.apache.iceberg.encryption.NativeEncryptionInputFile;
+import org.apache.iceberg.encryption.NativeEncryptionKeyMetadata;
+import org.apache.iceberg.encryption.NativeEncryptionOutputFile;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.io.SeekableInputStream;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.ByteBuffers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.Timeout;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
@@ -72,23 +87,25 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDomain;
+import static io.trino.plugin.iceberg.IcebergSplitSource.parquetFileDecryptionData;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -98,6 +115,7 @@ public class TestIcebergSplitSource
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new IcebergSessionProperties(
                     new IcebergConfig(),
+                    new IcebergEncryptionConfig(),
                     new OrcReaderConfig(),
                     new OrcWriterConfig(),
                     new ParquetReaderConfig(),
@@ -107,6 +125,7 @@ public class TestIcebergSplitSource
 
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
+    private HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -116,7 +135,7 @@ public class TestIcebergSplitSource
                 .setInitialTables(NATION)
                 .build();
 
-        HiveMetastore metastore = getHiveMetastore(queryRunner);
+        metastore = getHiveMetastore(queryRunner);
 
         this.fileSystemFactory = getFileSystemFactory(queryRunner);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
@@ -127,91 +146,15 @@ public class TestIcebergSplitSource
                 fileSystemFactory,
                 FILE_IO_FACTORY,
                 TESTING_TYPE_MANAGER,
-                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient()))),
                 false,
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
 
         return queryRunner;
-    }
-
-    @Test
-    @Timeout(30)
-    public void testIncompleteDynamicFilterTimeout()
-            throws Exception
-    {
-        long startMillis = System.currentTimeMillis();
-        SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
-        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
-        IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
-
-        CompletableFuture<?> isBlocked = new CompletableFuture<>();
-        try (IcebergSplitSource splitSource = new IcebergSplitSource(
-                new DefaultIcebergFileSystemFactory(fileSystemFactory),
-                SESSION,
-                tableHandle,
-                nationTable,
-                nationTable.newScan(),
-                Optional.empty(),
-                new DynamicFilter()
-                {
-                    @Override
-                    public Set<ColumnHandle> getColumnsCovered()
-                    {
-                        return ImmutableSet.of();
-                    }
-
-                    @Override
-                    public CompletableFuture<?> isBlocked()
-                    {
-                        return isBlocked;
-                    }
-
-                    @Override
-                    public boolean isComplete()
-                    {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean isAwaitable()
-                    {
-                        return true;
-                    }
-
-                    @Override
-                    public TupleDomain<ColumnHandle> getCurrentPredicate()
-                    {
-                        return TupleDomain.all();
-                    }
-                },
-                new Duration(2, SECONDS),
-                alwaysTrue(),
-                TESTING_TYPE_MANAGER,
-                false,
-                new IcebergConfig().getMinimumAssignedSplitWeight(),
-                new DefaultCachingHostAddressProvider(),
-                new InMemoryMetricsReporter(),
-                newDirectExecutorService())) {
-            ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
-            while (!splitSource.isFinished()) {
-                splitSource.getNextBatch(100).get()
-                        .getSplits()
-                        .stream()
-                        .map(IcebergSplit.class::cast)
-                        .forEach(splits::add);
-            }
-            assertThat(splits.build().size()).isGreaterThan(0);
-            assertThat(splitSource.isFinished()).isTrue();
-            assertThat(System.currentTimeMillis() - startMillis)
-                    .as("IcebergSplitSource failed to wait for dynamicFilteringWaitTimeout")
-                    .isGreaterThanOrEqualTo(2000);
-        }
-        finally {
-            isBlocked.complete(null);
-        }
     }
 
     @Test
@@ -222,53 +165,24 @@ public class TestIcebergSplitSource
         Table nationTable = catalog.loadTable(SESSION, schemaTableName);
         IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
 
-        IcebergSplit split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
-        assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.all());
+        IcebergSplit split = generateSplit(nationTable, tableHandle);
+        assertThat(split.fileStatisticsDomain()).isEqualTo(TupleDomain.all());
+        assertThat(split.parquetFileDecryptionData()).isEmpty();
 
         IcebergColumnHandle nationKey = IcebergColumnHandle.optional(new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
                 .columnType(BIGINT)
                 .build();
         tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.fromFixedValues(ImmutableMap.of(nationKey, NullableValue.of(BIGINT, 1L))));
-        split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
-        assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
+        split = generateSplit(nationTable, tableHandle);
+        assertThat(split.fileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
                 ImmutableMap.of(nationKey, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 24L, true)), false))));
 
         IcebergColumnHandle regionKey = IcebergColumnHandle.optional(new ColumnIdentity(3, "regionkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
                 .columnType(BIGINT)
                 .build();
-        split = generateSplit(nationTable, tableHandle, new DynamicFilter()
-        {
-            @Override
-            public Set<ColumnHandle> getColumnsCovered()
-            {
-                return ImmutableSet.of(regionKey);
-            }
-
-            @Override
-            public CompletableFuture<?> isBlocked()
-            {
-                return NOT_BLOCKED;
-            }
-
-            @Override
-            public boolean isComplete()
-            {
-                return false;
-            }
-
-            @Override
-            public boolean isAwaitable()
-            {
-                return true;
-            }
-
-            @Override
-            public TupleDomain<ColumnHandle> getCurrentPredicate()
-            {
-                return TupleDomain.all();
-            }
-        });
-        assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
+        // Stats for regionKey are included when it's in dynamicFilterColumns, even when the per-batch predicate has not yet resolved
+        split = generateSplit(SESSION, nationTable, tableHandle, ImmutableSet.of(regionKey), DynamicFilterSnapshot.EMPTY);
+        assertThat(split.fileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         nationKey, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 24L, true)), false),
                         regionKey, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 4L, true)), false))));
@@ -353,6 +267,53 @@ public class TestIcebergSplitSource
     }
 
     @Test
+    public void testRowGroupMerging()
+            throws Exception
+    {
+        assertUpdate(
+                withSmallRowGroups(getSession()),
+                "CREATE TABLE test_row_group_merging WITH (format = 'PARQUET', parquet_writer_row_group_size = '1kB') AS SELECT * FROM tpch.tiny.nation",
+                25);
+        try {
+            SchemaTableName schemaTableName = new SchemaTableName("tpch", "test_row_group_merging");
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            IcebergColumnHandle nationKey = IcebergColumnHandle.optional(
+                            new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                    .columnType(BIGINT)
+                    .build();
+            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.all(), ImmutableSet.of(nationKey));
+
+            ConnectorSession sessionWithSmallSplitSize = getSessionWithSplitSize("1B");
+            List<IcebergSplit> splitsWithoutMerging = generateSplits(sessionWithSmallSplitSize, table, tableHandle, ImmutableSet.of(), DynamicFilterSnapshot.EMPTY);
+            assertThat(splitsWithoutMerging.size()).isGreaterThan(1);
+
+            ConnectorSession sessionWithLargeSplitSize = getSessionWithSplitSize("100MB");
+            List<IcebergSplit> splitsWithMerging = generateSplits(sessionWithLargeSplitSize, table, tableHandle, ImmutableSet.of(), DynamicFilterSnapshot.EMPTY);
+            assertThat(splitsWithMerging).hasSize(1);
+            assertThat(splitsWithMerging.getFirst().length())
+                    .isEqualTo(splitsWithoutMerging.stream().mapToLong(IcebergSplit::length).sum());
+        }
+        finally {
+            assertUpdate("DROP TABLE test_row_group_merging");
+        }
+    }
+
+    private static TestingConnectorSession getSessionWithSplitSize(String splitSize)
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(new IcebergSessionProperties(
+                        new IcebergConfig(),
+                        new IcebergEncryptionConfig(),
+                        new OrcReaderConfig(),
+                        new OrcWriterConfig(),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig())
+                        .getSessionProperties())
+                .setPropertyValues(ImmutableMap.of(IcebergSessionProperties.SPLIT_SIZE, splitSize))
+                .build();
+    }
+
+    @Test
     public void testSplitWeight()
             throws Exception
     {
@@ -364,7 +325,7 @@ public class TestIcebergSplitSource
                 .commit();
         IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
 
-        IcebergSplit split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
+        IcebergSplit split = generateSplit(nationTable, tableHandle);
         SplitWeight weightWithoutDelete = split.getSplitWeight();
 
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + schemaTableName.getTableName() + "$files\" LIMIT 1").getOnlyValue();
@@ -385,7 +346,7 @@ public class TestIcebergSplitSource
         }
         nationTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
 
-        split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
+        split = generateSplit(nationTable, tableHandle);
         SplitWeight splitWeightWithPositionDelete = split.getSplitWeight();
         assertThat(splitWeightWithPositionDelete.getRawValue()).isGreaterThan(weightWithoutDelete.getRawValue());
 
@@ -398,46 +359,302 @@ public class TestIcebergSplitSource
                 ImmutableMap.of("regionkey", 1L),
                 Optional.empty());
 
-        split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
+        split = generateSplit(nationTable, tableHandle);
         assertThat(split.getSplitWeight().getRawValue()).isGreaterThan(splitWeightWithPositionDelete.getRawValue());
     }
 
-    private IcebergSplit generateSplit(Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)
+    @Test
+    public void testSplitWeightUsesSessionSplitSize()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
+        IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
+
+        ConnectorSession sessionWithSplitSize = TestingConnectorSession.builder()
+                .setPropertyMetadata(new IcebergSessionProperties(
+                        new IcebergConfig(),
+                        new IcebergEncryptionConfig(),
+                        new OrcReaderConfig(),
+                        new OrcWriterConfig(),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig())
+                        .getSessionProperties())
+                .setPropertyValues(ImmutableMap.of(IcebergSessionProperties.SPLIT_SIZE, "512B"))
+                .build();
+
+        IcebergSplit splitWithDefaultSize = generateSplit(nationTable, tableHandle);
+        IcebergSplit splitWithOverriddenSize = generateSplit(sessionWithSplitSize, nationTable, tableHandle, ImmutableSet.of(), DynamicFilterSnapshot.EMPTY);
+
+        assertThat(splitWithOverriddenSize.getSplitWeight().getRawValue())
+                .isGreaterThan(splitWithDefaultSize.getSplitWeight().getRawValue());
+    }
+
+    @Test
+    public void testParquetFileDecryptionData()
+    {
+        byte[] expectedKey = new byte[] {1, 2, 3};
+        byte[] expectedAadPrefix = new byte[] {4, 5, 6};
+        ByteBuffer keyMetadata = ByteBuffer.wrap(new byte[] {7, 8, 9});
+
+        FileIO fileIo = new FileIO()
+        {
+            @Override
+            public InputFile newInputFile(String path)
+            {
+                return new TestingInputFile(path);
+            }
+
+            @Override
+            public InputFile newInputFile(String path, long length)
+            {
+                return new TestingInputFile(path);
+            }
+
+            @Override
+            public OutputFile newOutputFile(String path)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void deleteFile(String path)
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
+
+        EncryptionManager encryptionManager = new EncryptionManager()
+        {
+            @Override
+            public InputFile decrypt(EncryptedInputFile encrypted)
+            {
+                return new NativeEncryptionInputFile()
+                {
+                    @Override
+                    public InputFile encryptedInputFile()
+                    {
+                        return encrypted.encryptedInputFile();
+                    }
+
+                    @Override
+                    public NativeEncryptionKeyMetadata keyMetadata()
+                    {
+                        return new NativeEncryptionKeyMetadata()
+                        {
+                            @Override
+                            public ByteBuffer encryptionKey()
+                            {
+                                return ByteBuffer.wrap(expectedKey);
+                            }
+
+                            @Override
+                            public ByteBuffer aadPrefix()
+                            {
+                                return ByteBuffer.wrap(expectedAadPrefix);
+                            }
+
+                            @Override
+                            public ByteBuffer buffer()
+                            {
+                                return keyMetadata;
+                            }
+
+                            @Override
+                            public EncryptionKeyMetadata copy()
+                            {
+                                return this;
+                            }
+                        };
+                    }
+
+                    @Override
+                    public long getLength()
+                    {
+                        return encrypted.encryptedInputFile().getLength();
+                    }
+
+                    @Override
+                    public SeekableInputStream newStream()
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public String location()
+                    {
+                        return encrypted.encryptedInputFile().location();
+                    }
+
+                    @Override
+                    public boolean exists()
+                    {
+                        return encrypted.encryptedInputFile().exists();
+                    }
+                };
+            }
+
+            @Override
+            public EncryptedOutputFile encrypt(OutputFile rawOutput)
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
+
+        assertThatThrownBy(() -> parquetFileDecryptionData(
+                FileFormat.ORC,
+                "memory:///test.orc",
+                10,
+                keyMetadata,
+                fileIo,
+                encryptionManager))
+                .hasMessageContaining("Reading encrypted non-Parquet file is not supported");
+
+        assertThat(parquetFileDecryptionData(
+                FileFormat.PARQUET,
+                "memory:///test.parquet",
+                10,
+                null,
+                fileIo,
+                encryptionManager)).isEmpty();
+
+        Optional<ParquetFileDecryptionData> decryptionData = parquetFileDecryptionData(
+                FileFormat.PARQUET,
+                "memory:///test.parquet",
+                10,
+                keyMetadata,
+                fileIo,
+                encryptionManager);
+
+        assertThat(decryptionData).isPresent();
+        assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
+        assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
+    }
+
+    @Test
+    public void testParquetFileDecryptionDataWithStandardKeyMetadataManager()
+    {
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
+        String location = "local:///standard-key-metadata-manager-" + UUID.randomUUID() + ".parquet";
+        SchemaTableName nationTable = new SchemaTableName("tpch", "nation");
+        Table icebergTable = catalog.loadTable(SESSION, nationTable);
+        icebergTable.updateProperties().set(ENCRYPTION_TABLE_KEY, "test-key-id").commit();
+        ((TrinoHiveCatalog) catalog).invalidateTableCache(nationTable);
+        try {
+            EncryptionManager standardEncryptionManager = EncryptionTestHelpers.createEncryptionManager();
+            NativeEncryptionOutputFile encryptedOutputFile = (NativeEncryptionOutputFile) standardEncryptionManager.encrypt(fileIo.newOutputFile(location));
+            byte[] expectedKey = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().encryptionKey());
+            byte[] expectedAadPrefix = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().aadPrefix());
+            EncryptionManager tableEncryptionManager = catalog.loadTable(SESSION, nationTable).encryption();
+
+            Optional<ParquetFileDecryptionData> decryptionData = parquetFileDecryptionData(
+                    FileFormat.PARQUET,
+                    location,
+                    10,
+                    encryptedOutputFile.keyMetadata().buffer(),
+                    fileIo,
+                    tableEncryptionManager);
+
+            assertThat(decryptionData).isPresent();
+            assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
+            assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
+        }
+        finally {
+            icebergTable.updateProperties().remove(ENCRYPTION_TABLE_KEY).commit();
+            ((TrinoHiveCatalog) catalog).invalidateTableCache(nationTable);
+        }
+    }
+
+    private static class TestingInputFile
+            implements InputFile
+    {
+        private final String path;
+
+        private TestingInputFile(String path)
+        {
+            this.path = path;
+        }
+
+        @Override
+        public long getLength()
+        {
+            return 0;
+        }
+
+        @Override
+        public SeekableInputStream newStream()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String location()
+        {
+            return path;
+        }
+
+        @Override
+        public boolean exists()
+        {
+            return true;
+        }
+    }
+
+    private IcebergSplit generateSplit(Table nationTable, IcebergTableHandle tableHandle)
+            throws Exception
+    {
+        return generateSplit(SESSION, nationTable, tableHandle, ImmutableSet.of(), DynamicFilterSnapshot.EMPTY);
+    }
+
+    private IcebergSplit generateSplit(ConnectorSession session, Table nationTable, IcebergTableHandle tableHandle, Set<ColumnHandle> dynamicFilterColumns, DynamicFilterSnapshot dynamicFilterSnapshot)
+            throws Exception
+    {
+        List<IcebergSplit> splits = generateSplits(session, nationTable, tableHandle, dynamicFilterColumns, dynamicFilterSnapshot);
+        assertThat(splits).hasSize(1);
+        return splits.getFirst();
+    }
+
+    private List<IcebergSplit> generateSplits(ConnectorSession session, Table nationTable, IcebergTableHandle tableHandle, Set<ColumnHandle> dynamicFilterColumns, DynamicFilterSnapshot dynamicFilterSnapshot)
             throws Exception
     {
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
-                SESSION,
+                session,
                 tableHandle,
                 nationTable,
                 nationTable.newScan(),
                 Optional.empty(),
-                dynamicFilter,
-                new Duration(0, SECONDS),
                 alwaysTrue(),
                 TESTING_TYPE_MANAGER,
                 false,
                 0,
-                new DefaultCachingHostAddressProvider(),
+                new NoopSplitAffinityProvider(),
                 new InMemoryMetricsReporter(),
-                newDirectExecutorService())) {
+                newDirectExecutorService(),
+                dynamicFilterColumns,
+                ConnectorExpressionEvaluator.NO_OP)) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
             while (!splitSource.isFinished()) {
-                splitSource.getNextBatch(100).get()
-                        .getSplits()
+                splitSource.getNextBatch(100, dynamicFilterSnapshot).get()
                         .stream()
                         .map(IcebergSplit.class::cast)
                         .forEach(builder::add);
             }
-            List<IcebergSplit> splits = builder.build();
-            assertThat(splits).hasSize(1);
             assertThat(splitSource.isFinished()).isTrue();
-
-            return splits.getFirst();
+            return builder.build();
         }
     }
 
-    private static IcebergTableHandle createTableHandle(SchemaTableName schemaTableName, Table nationTable, TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+    private static IcebergTableHandle createTableHandle(SchemaTableName schemaTableName, Table table, TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+    {
+        return createTableHandle(schemaTableName, table, unenforcedPredicate, ImmutableSet.of());
+    }
+
+    private static IcebergTableHandle createTableHandle(
+            SchemaTableName schemaTableName,
+            Table nationTable,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            Set<IcebergColumnHandle> projectedColumns)
     {
         return new IcebergTableHandle(
                 schemaTableName.getSchemaName(),
@@ -451,7 +668,7 @@ public class TestIcebergSplitSource
                 unenforcedPredicate,
                 TupleDomain.all(),
                 OptionalLong.empty(),
-                ImmutableSet.of(),
+                projectedColumns,
                 Optional.empty(),
                 nationTable.location(),
                 nationTable.properties(),

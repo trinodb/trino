@@ -82,14 +82,20 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -126,10 +132,10 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -154,6 +160,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -170,6 +177,7 @@ public class MariaDbClient
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final Calendar UTC_CALENDAR = createProlepticUtcCalendar();
 
     // An empty character means that the table doesn't have a comment in MariaDB
     private static final String NO_COMMENT = "";
@@ -363,68 +371,56 @@ public class MariaDbClient
             return unsignedMapping;
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-            case Types.REAL:
-                // Disable pushdown because floating-point values are approximate and not stored as exact values,
-                // attempts to treat them as exact in comparisons may lead to problems
-                return Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-            case Types.NUMERIC:
-            case Types.DECIMAL:
+        Optional<ColumnMapping> jdbcTypeMapping = switch (typeHandle.jdbcType()) {
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            // Disable pushdown because floating-point values are approximate and not stored as exact values,
+            // attempts to treat them as exact in comparisons may lead to problems
+            case Types.REAL -> Optional.of(ColumnMapping.longMapping(
+                    REAL,
+                    (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                    realWriteFunction(),
+                    DISABLE_PUSHDOWN));
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.NUMERIC, Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();
                 precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision <= Decimals.MAX_PRECISION) {
-                    return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                    yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
                 }
                 // precision > MAX_PRECISION
-                switch (getDecimalRounding(session)) {
-                    case MAP_TO_NUMBER -> {
-                        return Optional.of(numberColumnMapping());
-                    }
-                    case STRICT -> {
-                        // skipped (unhandled type)
-                    }
+                yield switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> Optional.of(numberColumnMapping());
+                    case STRICT -> Optional.empty();
                     case ALLOW_OVERFLOW -> {
                         int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                        yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
-                }
-                break;
-            case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
-            case Types.VARCHAR:
-            case Types.LONGVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        dateWriteFunction()));
-            case Types.TIME:
+                };
+            }
+            case Types.CHAR -> Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.VARCHAR, Types.LONGVARCHAR -> Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    dateWriteFunction()));
+            case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(timeColumnMapping(timeType));
-            case Types.TIMESTAMP:
+                yield Optional.of(timeColumnMapping(timeType));
+            }
+            case Types.TIMESTAMP -> {
                 // This jdbcType maps both MariaDB TIMESTAMP and DATETIME types to Trino TIMESTAMP type
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(timestampColumnMapping(timestampType));
+                yield Optional.of(mariaDbTimestampColumnMapping(timestampType));
+            }
+            default -> Optional.empty();
+        };
+        if (jdbcTypeMapping.isPresent()) {
+            return jdbcTypeMapping;
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -451,6 +447,31 @@ public class MariaDbClient
         int timePrecision = timeColumnSize - ZERO_PRECISION_TIME_COLUMN_SIZE - 1;
         verify(1 <= timePrecision && timePrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
         return timePrecision;
+    }
+
+    // MariaDB JDBC driver 3.4+ changed LocalDateTime decoding to go through ZonedDateTime,
+    // which applies atZone(JVM default timezone) and corrupts values falling in DST gaps.
+    // Use getTimestamp() with a UTC Calendar to bypass the driver's timezone conversion.
+    private static ColumnMapping mariaDbTimestampColumnMapping(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.longMapping(
+                timestampType,
+                (resultSet, columnIndex) -> {
+                    Timestamp timestamp = resultSet.getTimestamp(columnIndex, UTC_CALENDAR);
+                    LocalDateTime localDateTime = LocalDateTime.ofInstant(timestamp.toInstant(), UTC);
+                    return toTrinoTimestamp(timestampType, localDateTime);
+                },
+                timestampWriteFunction(timestampType));
+    }
+
+    private static Calendar createProlepticUtcCalendar()
+    {
+        GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone(UTC));
+        // Use proleptic Gregorian calendar to match LocalDateTime's calendar system,
+        // avoiding Julian calendar discrepancies for dates before 1582-10-15
+        calendar.setGregorianChange(new Date(Long.MIN_VALUE));
+        return calendar;
     }
 
     @Override
@@ -922,7 +943,7 @@ public class MariaDbClient
                             """)
                     .bind("database", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("column_name");
                         double nullsRatio = rs.getDouble("nulls_ratio");
                         return entry(columnName, new AnalyzeColumnStatistics(nullsRatio));
@@ -949,7 +970,7 @@ public class MariaDbClient
                             """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
                         boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");

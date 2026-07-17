@@ -53,13 +53,13 @@ public class TestJdbcPlugin
             throws Exception
     {
         getConnectorFactory().create(
-                "test",
-                ImmutableMap.<String, String>builder()
-                        .putAll(TestingH2JdbcModule.createProperties())
-                        .put(CASE_INSENSITIVE_NAME_MATCHING, "true")
-                        .put(CASE_INSENSITIVE_NAME_MATCHING + ".config-file", createRuleBasedIdentifierMappingFile().toFile().getAbsolutePath())
-                        .buildOrThrow(),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .putAll(TestingH2JdbcModule.createProperties())
+                                .put(CASE_INSENSITIVE_NAME_MATCHING, "true")
+                                .put(CASE_INSENSITIVE_NAME_MATCHING + ".config-file", createRuleBasedIdentifierMappingFile().toFile().getAbsolutePath())
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 

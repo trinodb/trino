@@ -70,7 +70,7 @@ public final class CharType
     private CharType(int length)
     {
         super(
-                new TypeSignature(
+                new TypeDescriptor(
                         NAME,
                         singletonList(TypeParameter.numericParameter(length))),
                 Slice.class);

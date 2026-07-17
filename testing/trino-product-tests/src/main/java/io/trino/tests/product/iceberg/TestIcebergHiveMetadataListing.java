@@ -46,7 +46,7 @@ public class TestIcebergHiveMetadataListing
                 .collect(toList());
 
         preexistingColumns = onTrino().executeQuery("SELECT table_name, column_name FROM iceberg.information_schema.columns " +
-                "WHERE table_catalog = 'iceberg' AND table_schema = 'default'").rows().stream()
+                        "WHERE table_catalog = 'iceberg' AND table_schema = 'default'").rows().stream()
                 .map(list -> row(list.toArray()))
                 .collect(toList());
 
@@ -73,15 +73,15 @@ public class TestIcebergHiveMetadataListing
     public void testTableListing()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES FROM iceberg.default"))
-                    .containsOnly(ImmutableList.<QueryAssert.Row>builder()
-                            .addAll(preexistingTables)
-                            .add(row("iceberg_table1"))
-                            .add(row("iceberg_materialized_view"))
-                            .add(row("iceberg_view"))
-                            .add(row("hive_table"))
-                            // Iceberg connector supports Trino views created via Hive connector
-                            .add(row("hive_view"))
-                            .build());
+                .containsOnly(ImmutableList.<QueryAssert.Row>builder()
+                        .addAll(preexistingTables)
+                        .add(row("iceberg_table1"))
+                        .add(row("iceberg_materialized_view"))
+                        .add(row("iceberg_view"))
+                        .add(row("hive_table"))
+                        // Iceberg connector supports Trino views created via Hive connector
+                        .add(row("hive_view"))
+                        .build());
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})

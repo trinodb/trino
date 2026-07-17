@@ -29,7 +29,7 @@ public final class PropertyMetadataUtil
 
     public static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
     {
-        return dataSizeProperty(name, description, defaultValue, value -> {}, hidden);
+        return dataSizeProperty(name, description, defaultValue, _ -> {}, hidden);
     }
 
     public static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, Consumer<DataSize> validation, boolean hidden)
@@ -65,7 +65,7 @@ public final class PropertyMetadataUtil
 
     public static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, boolean hidden)
     {
-        return durationProperty(name, description, defaultValue, value -> {}, hidden);
+        return durationProperty(name, description, defaultValue, _ -> {}, hidden);
     }
 
     public static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, Consumer<Duration> validation, boolean hidden)

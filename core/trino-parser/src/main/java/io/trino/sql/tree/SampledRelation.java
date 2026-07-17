@@ -28,7 +28,7 @@ public class SampledRelation
     public enum Type
     {
         BERNOULLI,
-        SYSTEM
+        SYSTEM,
     }
 
     private final Relation relation;

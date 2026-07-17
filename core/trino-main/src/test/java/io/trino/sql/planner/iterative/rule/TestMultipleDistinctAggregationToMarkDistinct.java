@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -33,7 +32,8 @@ import static io.trino.metadata.TestingMetadataManager.createTestingMetadataMana
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
@@ -89,8 +89,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                         .globalGrouping()
                         .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
                         .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
-                        .source(
-                                p.values(p.symbol("input", BIGINT)))))
+                        .source(p.values(p.symbol("input", BIGINT)))))
                 .doesNotFire();
     }
 
@@ -103,17 +102,19 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("output1"),
-                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1")), new Symbol(UNKNOWN, "filter1")), ImmutableList.of(BIGINT))
+                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1")), new Symbol(UNKNOWN, "filter1")),
+                                ImmutableList.of(BIGINT))
                         .addAggregation(
                                 p.symbol("output2"),
-                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2")), new Symbol(UNKNOWN, "filter2")), ImmutableList.of(BIGINT))
+                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2")), new Symbol(UNKNOWN, "filter2")),
+                                ImmutableList.of(BIGINT))
                         .source(
                                 p.project(
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1", BIGINT))
                                                 .putIdentity(p.symbol("input2", BIGINT))
-                                                .put(p.symbol("filter1", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
-                                                .put(p.symbol("filter2", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input1"), new Constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter1", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter2", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "input1"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1", BIGINT),
@@ -131,8 +132,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1", BIGINT))
                                                 .putIdentity(p.symbol("input2", BIGINT))
-                                                .put(p.symbol("filter1", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
-                                                .put(p.symbol("filter2", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input1"), new Constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter1", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter2", BOOLEAN), comparison(GREATER_THAN, new Reference(INTEGER, "input1"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1", BIGINT),
@@ -149,8 +150,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                         .globalGrouping()
                         .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
                         .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
-                        .source(
-                                p.values(p.symbol("input1", BIGINT), p.symbol("input2", BIGINT)))))
+                        .source(p.values(p.symbol("input1", BIGINT), p.symbol("input2", BIGINT)))))
                 .matches(aggregation(
                         globalAggregation(),
                         ImmutableMap.of(

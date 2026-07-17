@@ -69,11 +69,13 @@ public final class MultimapFromEntriesFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical keysIdenticalOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            BlockPositionIsIdentical keysIdenticalOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode keyHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode keyHashCode,
             @SqlType("array(row(K,V))") Block mapEntries)
     {
         Type keyType = mapType.getKeyType();

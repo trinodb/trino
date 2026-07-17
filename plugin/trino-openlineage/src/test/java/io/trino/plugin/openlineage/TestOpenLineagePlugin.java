@@ -33,7 +33,8 @@ final class TestOpenLineagePlugin
                                 .put("openlineage-event-listener.trino.uri", "http://localhost:8080")
                                 .put("openlineage-event-listener.transport.type", "console")
                                 .put("bootstrap.quiet", "true")
-                                .buildOrThrow(), new TestingEventListenerContext())
+                                .buildOrThrow(),
+                        new TestingEventListenerContext())
                 .shutdown();
     }
 
@@ -49,7 +50,8 @@ final class TestOpenLineagePlugin
                                 .put("openlineage-event-listener.transport.type", "http")
                                 .put("openlineage-event-listener.transport.url", "http://testurl")
                                 .put("bootstrap.quiet", "true")
-                                .buildOrThrow(), new TestingEventListenerContext())
+                                .buildOrThrow(),
+                        new TestingEventListenerContext())
                 .shutdown();
     }
 }

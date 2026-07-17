@@ -105,9 +105,7 @@ public final class JsonUtils
         requireNonNull(input, "input is null");
         requireNonNull(javaType, "javaType is null");
         try (JsonParser parser = parserConstructor.createParser(mapper, input)) {
-            T value = mapper.readValue(parser, javaType);
-            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
-            return value;
+            return mapper.readValue(parser, javaType);
         }
         catch (IOException e) {
             throw new UncheckedIOException("Could not parse JSON", e);

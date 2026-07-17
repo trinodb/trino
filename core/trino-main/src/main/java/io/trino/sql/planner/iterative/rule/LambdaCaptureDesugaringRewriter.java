@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static java.util.Objects.requireNonNull;
 
@@ -66,6 +67,9 @@ public final class LambdaCaptureDesugaringRewriter
             List<Symbol> lambdaArguments = node.arguments();
 
             Set<Symbol> captureSymbols = Sets.difference(referencedSymbols, ImmutableSet.copyOf(lambdaArguments));
+            Set<String> lambdaArgumentNames = lambdaArguments.stream()
+                    .map(Symbol::name)
+                    .collect(toImmutableSet());
 
             // x -> f(x, captureSymbol)    will be rewritten into
             // "Bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
@@ -74,6 +78,9 @@ public final class LambdaCaptureDesugaringRewriter
             ImmutableList.Builder<Symbol> newLambdaArguments = ImmutableList.builder();
             for (Symbol captureSymbol : captureSymbols) {
                 Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.name(), captureSymbol.type());
+                while (lambdaArgumentNames.contains(extraSymbol.name())) {
+                    extraSymbol = symbolAllocator.newSymbol(captureSymbol.name(), captureSymbol.type());
+                }
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
                 newLambdaArguments.add(extraSymbol);
             }

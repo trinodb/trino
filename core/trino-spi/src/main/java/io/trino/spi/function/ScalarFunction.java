@@ -36,7 +36,7 @@ public @interface ScalarFunction
     boolean deterministic() default true;
 
     /**
-     * Describes whether function never throws any exception
+     * Describes whether the function never throws any exception
      * for any possible combination of input arguments.
      */
     boolean neverFails() default false;

@@ -24,13 +24,15 @@ import java.util.function.ObjLongConsumer;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.trino.spi.block.Bitmap.checkBitRange;
+import static io.trino.spi.block.Bitmap.compactBitmap;
+import static io.trino.spi.block.Bitmap.copyBitmapAndAppendUnset;
+import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
-import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 
 public final class VariableWidthBlock
@@ -43,17 +45,17 @@ public final class VariableWidthBlock
     private final Slice slice;
     private final int[] offsets;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final long[] valueIsValid;
 
     private final long retainedSizeInBytes;
     private final long sizeInBytes;
 
-    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Optional<boolean[]> valueIsNull)
+    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Optional<long[]> valueIsValid)
     {
-        this(0, positionCount, slice, offsets, valueIsNull.orElse(null));
+        this(0, positionCount, slice, offsets, valueIsValid.orElse(null));
     }
 
-    VariableWidthBlock(int arrayOffset, int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    VariableWidthBlock(int arrayOffset, int positionCount, Slice slice, int[] offsets, long[] valueIsValid)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -74,13 +76,11 @@ public final class VariableWidthBlock
         }
         this.offsets = offsets;
 
-        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
-            throw new IllegalArgumentException("valueIsNull length is less than positionCount");
-        }
-        this.valueIsNull = valueIsNull;
+        checkBitRange(valueIsValid, arrayOffset, positionCount);
+        this.valueIsValid = valueIsValid;
 
         sizeInBytes = offsets[arrayOffset + positionCount] - offsets[arrayOffset] + ((Integer.BYTES + Byte.BYTES) * (long) positionCount);
-        retainedSizeInBytes = INSTANCE_SIZE + slice.getRetainedSize() + sizeOf(valueIsNull) + sizeOf(offsets);
+        retainedSizeInBytes = INSTANCE_SIZE + slice.getRetainedSize() + sizeOf(valueIsValid) + sizeOf(offsets);
     }
 
     /**
@@ -96,7 +96,7 @@ public final class VariableWidthBlock
      */
     public int getRawSliceOffset(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return getPositionOffset(position);
     }
 
@@ -107,7 +107,7 @@ public final class VariableWidthBlock
 
     public int getSliceLength(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         return getPositionOffset(position + 1) - getPositionOffset(position);
     }
 
@@ -146,15 +146,15 @@ public final class VariableWidthBlock
     {
         consumer.accept(slice, slice.getRetainedSize());
         consumer.accept(offsets, sizeOf(offsets));
-        if (valueIsNull != null) {
-            consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        if (valueIsValid != null) {
+            consumer.accept(valueIsValid, sizeOf(valueIsValid));
         }
         consumer.accept(this, INSTANCE_SIZE);
     }
 
     public Slice getSlice(int position)
     {
-        checkReadablePosition(this, position);
+        checkValidPosition(position, positionCount);
         int offset = offsets[position + arrayOffset];
         int length = offsets[position + 1 + arrayOffset] - offset;
         return slice.slice(offset, length);
@@ -163,21 +163,13 @@ public final class VariableWidthBlock
     @Override
     public boolean mayHaveNull()
     {
-        return valueIsNull != null;
+        return valueIsValid != null;
     }
 
     @Override
     public boolean hasNull()
     {
-        if (valueIsNull == null) {
-            return false;
-        }
-        for (int i = 0; i < positionCount; i++) {
-            if (valueIsNull[i + arrayOffset]) {
-                return true;
-            }
-        }
-        return false;
+        return Bitmap.hasUnsetBit(valueIsValid, arrayOffset, positionCount);
     }
 
     @Override
@@ -186,15 +178,15 @@ public final class VariableWidthBlock
         if (!mayHaveNull()) {
             return false;
         }
-        checkReadablePosition(this, position);
-        return valueIsNull[position + arrayOffset];
+        checkValidPosition(position, positionCount);
+        return !Bitmap.isSet(valueIsValid, arrayOffset, position);
     }
 
     @Override
     public VariableWidthBlock getSingleValueBlock(int position)
     {
         if (isNull(position)) {
-            return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+            return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new long[] {0});
         }
 
         int offset = getPositionOffset(position);
@@ -222,22 +214,20 @@ public final class VariableWidthBlock
         }
 
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
-        boolean hasNull = false;
-        boolean[] newValueIsNull = null;
+        long[] newValueIsValid = null;
         int firstPosition = positions[offset];
-        if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
-            newValueIsNull[0] = valueIsNull[firstPosition + arrayOffset];
-            hasNull |= newValueIsNull[0];
+        if (valueIsValid != null) {
+            newValueIsValid = new long[Bitmap.wordsForBits(length)];
+            if (Bitmap.isSet(valueIsValid, arrayOffset, firstPosition)) {
+                set(newValueIsValid, 0, 0);
+            }
         }
         int currentStart = getPositionOffset(firstPosition);
         int currentEnd = getPositionOffset(firstPosition + 1);
         for (int i = 1; i < length; i++) {
             int position = positions[offset + i];
-            if (valueIsNull != null) {
-                boolean isNull = valueIsNull[position + arrayOffset];
-                newValueIsNull[i] = isNull;
-                hasNull |= isNull;
+            if (valueIsValid != null && Bitmap.isSet(valueIsValid, arrayOffset, position)) {
+                set(newValueIsValid, 0, i);
             }
             // Null positions must have valid offsets for getSliceLength to work correctly on the next non-null position
             int currentOffset = getPositionOffset(position);
@@ -250,7 +240,7 @@ public final class VariableWidthBlock
         }
         // Copy last range of bytes
         newSlice.writeBytes(slice, currentStart, currentEnd - currentStart);
-        return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, hasNull ? newValueIsNull : null);
+        return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, Bitmap.hasUnsetBit(newValueIsValid, 0, length) ? newValueIsValid : null);
     }
 
     @Override
@@ -258,7 +248,7 @@ public final class VariableWidthBlock
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        return new VariableWidthBlock(positionOffset + arrayOffset, length, slice, offsets, valueIsNull);
+        return new VariableWidthBlock(positionOffset + arrayOffset, length, slice, offsets, valueIsValid);
     }
 
     @Override
@@ -269,36 +259,41 @@ public final class VariableWidthBlock
 
         int[] newOffsets = compactOffsets(offsets, positionOffset, length);
         Slice newSlice = compactSlice(slice, offsets[positionOffset], newOffsets[length]);
-        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
+        long[] newValueIsValid = compactBitmap(valueIsValid, positionOffset, length);
 
-        if (newOffsets == offsets && newSlice == slice && newValueIsNull == valueIsNull) {
+        if (newOffsets == offsets && newSlice == slice && newValueIsValid == valueIsValid) {
             return this;
         }
-        return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
+        return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsValid);
     }
 
     @Override
     public VariableWidthBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        long[] newValueIsValid = copyBitmapAndAppendUnset(valueIsValid, arrayOffset, positionCount);
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, arrayOffset, positionCount);
 
-        return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
+        return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsValid);
     }
 
-    int getRawArrayBase()
+    public int getRawArrayBase()
     {
         return arrayOffset;
     }
 
-    int[] getRawOffsets()
+    public int[] getRawOffsets()
     {
         return offsets;
     }
 
-    boolean[] getRawValueIsNull()
+    /// Returns raw validity bitmap words using the [Bitmap] encoding, or null if all positions are valid.
+    ///
+    /// The returned array is raw block storage. Use [getValidityBitmap()] unless the caller already has the matching
+    /// raw bit offset.
+    @Nullable
+    public long[] getRawValueIsValid()
     {
-        return valueIsNull;
+        return valueIsValid;
     }
 
     @Override
@@ -314,8 +309,11 @@ public final class VariableWidthBlock
     }
 
     @Override
-    public Optional<ByteArrayBlock> getNulls()
+    public Optional<Bitmap> getValidityBitmap()
     {
-        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+        if (valueIsValid == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new Bitmap(valueIsValid, arrayOffset, positionCount));
     }
 }

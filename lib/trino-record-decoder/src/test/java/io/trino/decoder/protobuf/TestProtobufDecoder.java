@@ -299,13 +299,15 @@ public class TestProtobufDecoder
             DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
                     .setField(descriptor.findFieldByName("nestedRowColumn"), nestedMessage);
             assertOneof(message,
-                    Map.of("nestedRowColumn", ImmutableMap.of("nestedList", List.of(expectedRowMessageValue),
+                    Map.of("nestedRowColumn", ImmutableMap.of(
+                            "nestedList", List.of(expectedRowMessageValue),
                             "nestedMap", ImmutableMap.of("Key", expectedRowMessageValue),
                             "row", expectedRowMessageValue)));
         }
     }
 
-    private void assertOneof(DynamicMessage.Builder messageBuilder,
+    private void assertOneof(
+            DynamicMessage.Builder messageBuilder,
             Map<String, Object> setValue)
             throws Exception
     {

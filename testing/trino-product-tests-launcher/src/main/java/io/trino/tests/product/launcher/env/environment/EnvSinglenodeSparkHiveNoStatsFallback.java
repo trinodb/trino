@@ -72,16 +72,20 @@ public class EnvSinglenodeSparkHiveNoStatsFallback
     @SuppressWarnings("resource")
     private DockerContainer createSpark()
     {
+        String[] command = ImmutableList.<String>builder()
+                .add("spark-submit")
+                .add("--master", "local[*]")
+                .add("--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2")
+                .add("--name", "Thrift JDBC/ODBC Server")
+                .add("--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT)
+                .add("spark-internal")
+                .build()
+                .toArray(String[]::new);
+
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("spark-defaults.conf")), "/spark/conf/spark-defaults.conf")
-                .withCommand(
-                        "spark-submit",
-                        "--master", "local[*]",
-                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                        "--name", "Thrift JDBC/ODBC Server",
-                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
-                        "spark-internal")
+                .withCommand(command)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 

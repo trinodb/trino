@@ -42,7 +42,11 @@ import static io.specto.hoverfly.junit5.HoverflyExtensionUtils.getHoverflyConfig
  * separate simulation files for each test method.
  */
 public class TrinoHoverflyExtension
-        implements AfterEachCallback, BeforeEachCallback, AfterAllCallback, BeforeAllCallback, ParameterResolver
+        implements AfterAllCallback,
+                   AfterEachCallback,
+                   BeforeAllCallback,
+                   BeforeEachCallback,
+                   ParameterResolver
 {
     private Hoverfly hoverfly;
     private HoverflyMode mode;

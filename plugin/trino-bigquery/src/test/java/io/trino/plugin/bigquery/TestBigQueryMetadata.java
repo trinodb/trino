@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,7 +24,6 @@ import java.util.List;
 import static com.google.cloud.bigquery.Field.Mode.NULLABLE;
 import static com.google.cloud.bigquery.StandardSQLTypeName.BIGNUMERIC;
 import static io.trino.plugin.bigquery.BigQueryMetadata.projectParentColumns;
-import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;

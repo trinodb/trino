@@ -43,7 +43,7 @@ public record IrArithmeticBinary(Operator operator, IrPathNode left, IrPathNode 
         SUBTRACT(OperatorType.SUBTRACT),
         MULTIPLY(OperatorType.MULTIPLY),
         DIVIDE(OperatorType.DIVIDE),
-        MODULUS(OperatorType.MODULUS);
+        MODULO(OperatorType.MODULO);
 
         private final OperatorType type;
 

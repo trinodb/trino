@@ -22,6 +22,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static org.jline.utils.AttributedString.stripAnsi;
 
 public class AutoTablePrinter
         implements OutputPrinter
@@ -33,13 +34,13 @@ public class AutoTablePrinter
     private final StringWriter bufferWriter = new StringWriter();
     private final Writer writer;
 
-    public AutoTablePrinter(List<Column> columns, Writer writer, int maxWidth)
+    public AutoTablePrinter(List<Column> columns, Writer writer, int maxWidth, Theme theme)
     {
         requireNonNull(columns, "columns is null");
         this.writer = requireNonNull(writer, "writer is null");
         this.maxWidth = maxWidth;
 
-        this.delegate = new AlignedTablePrinter(columns, bufferWriter);
+        this.delegate = new AlignedTablePrinter(columns, bufferWriter, theme);
         List<String> fieldNames = columns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
@@ -60,7 +61,7 @@ public class AutoTablePrinter
     {
         delegate.printRows(rows, complete);
         if (!delegate.equals(fallback)) {
-            if (bufferWriter.toString().indexOf("\n") > maxWidth) {
+            if (stripAnsi(bufferWriter.toString()).indexOf("\n") > maxWidth) {
                 delegate = fallback;
                 bufferWriter.getBuffer().setLength(0);
                 delegate.printRows(rows, complete);

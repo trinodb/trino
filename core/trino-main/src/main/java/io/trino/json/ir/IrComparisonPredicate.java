@@ -38,6 +38,6 @@ public record IrComparisonPredicate(Operator operator, IrPathNode left, IrPathNo
         LESS_THAN,
         GREATER_THAN,
         LESS_THAN_OR_EQUAL,
-        GREATER_THAN_OR_EQUAL;
+        GREATER_THAN_OR_EQUAL,
     }
 }

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -83,6 +84,20 @@ public class TestIntervalYearMonth
 
         assertThat(assertions.operator(ADD, "INTERVAL '3' MONTH", "INTERVAL '6' YEAR"))
                 .matches("INTERVAL '6-3' YEAR TO MONTH");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                ADD,
+                "INTERVAL '1' MONTH * 2000000000",
+                "INTERVAL '1' MONTH * 2000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month addition overflow: 2000000000 + 2000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                ADD,
+                "INTERVAL '1' MONTH * (-2000000000)",
+                "INTERVAL '1' MONTH * (-2000000000)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month addition overflow: -2000000000 + -2000000000");
     }
 
     @Test
@@ -96,6 +111,20 @@ public class TestIntervalYearMonth
 
         assertThat(assertions.operator(SUBTRACT, "INTERVAL '3' MONTH", "INTERVAL '6' YEAR"))
                 .matches("INTERVAL '-5-9' YEAR TO MONTH");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                SUBTRACT,
+                "INTERVAL '1' MONTH * (-2000000000)",
+                "INTERVAL '1' MONTH * 2000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month subtraction overflow: -2000000000 - 2000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                SUBTRACT,
+                "INTERVAL '1' MONTH * 2000000000",
+                "INTERVAL '1' MONTH * (-2000000000)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month subtraction overflow: 2000000000 - -2000000000");
     }
 
     @Test
@@ -130,6 +159,14 @@ public class TestIntervalYearMonth
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' YEAR")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "INTERVAL '2' MONTH", "2000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month multiplication overflow: 2 * 2000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "2000000000", "INTERVAL '2' MONTH")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month multiplication overflow: 2000000000 * 2");
     }
 
     @Test
@@ -168,6 +205,12 @@ public class TestIntervalYearMonth
 
         assertThat(assertions.operator(NEGATION, "INTERVAL '6' YEAR"))
                 .matches("INTERVAL '-72' MONTH");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                NEGATION,
+                "INTERVAL '1' MONTH * (-2147483647) - INTERVAL '1' MONTH")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month negation overflow: -2147483648");
     }
 
     @Test

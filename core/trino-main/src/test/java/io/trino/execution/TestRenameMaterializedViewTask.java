@@ -48,6 +48,19 @@ public class TestRenameMaterializedViewTask
     }
 
     @Test
+    public void testRenameToUnqualifiedTargetKeepsSourceSchema()
+    {
+        String sourceSchema = "other_schema";
+        QualifiedObjectName materializedViewName = new QualifiedObjectName(TEST_CATALOG_NAME, sourceSchema, "existing_materialized_view");
+        QualifiedObjectName newMaterializedViewName = new QualifiedObjectName(TEST_CATALOG_NAME, sourceSchema, "existing_materialized_view_new");
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+
+        getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), QualifiedName.of("existing_materialized_view_new")));
+        assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isFalse();
+        assertThat(metadata.isMaterializedView(testSession, newMaterializedViewName)).isTrue();
+    }
+
+    @Test
     public void testRenameNotExistingMaterializedView()
     {
         QualifiedName materializedViewName = qualifiedName("not_existing_materialized_view");

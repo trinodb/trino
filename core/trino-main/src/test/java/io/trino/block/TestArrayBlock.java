@@ -26,12 +26,14 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
 
+import static io.trino.block.BlockAssertions.toValidityArray;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestArrayBlock
         extends AbstractTestBlock
@@ -175,10 +177,48 @@ public class TestArrayBlock
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
         testCompactBlock(fromElementBlock(0, Optional.empty(), new int[1], emptyValueBlock));
-        testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, compactValueBlock));
-        testNotCompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsNull), offsets, compactValueBlock));
+        long[] valueIsValid = toValidityArray(valueIsNull);
+
+        testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsValid), offsets, compactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsValid), offsets, compactValueBlock));
         // underlying value block is not compact
-        testNotCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, inCompactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsValid), offsets, inCompactValueBlock));
+    }
+
+    @Test
+    public void testCreateProjectionFromVisibleElements()
+    {
+        long[] valueIsValid = {0b1101};
+        int[] offsets = {0, 2, 2, 5, 6};
+        ArrayBlock block = fromElementBlock(
+                4,
+                Optional.of(valueIsValid),
+                offsets,
+                new ByteArrayBlock(6, Optional.empty(), new byte[] {1, 2, 3, 4, 5, 6}));
+
+        Block zeroAlignedProjectedElements = new ByteArrayBlock(6, Optional.empty(), new byte[] {11, 12, 13, 14, 15, 16});
+        ArrayBlock zeroAlignedProjection = block.createProjection(zeroAlignedProjectedElements);
+        assertThat(zeroAlignedProjection.getOffsetBase()).isEqualTo(0);
+        assertThat(zeroAlignedProjection.getRawOffsets()).isSameAs(offsets);
+        assertThat(zeroAlignedProjection.getRawValueIsValid()).isSameAs(valueIsValid);
+        assertThat(zeroAlignedProjection.getRawElementBlock()).isSameAs(zeroAlignedProjectedElements);
+        assertPositionValue(zeroAlignedProjection, 2, new Byte[] {13, 14, 15});
+
+        ArrayBlock region = block.getRegion(1, 2);
+        Block projectedElements = new ByteArrayBlock(3, Optional.empty(), new byte[] {21, 22, 23});
+        ArrayBlock projection = region.createProjection(projectedElements);
+
+        assertThat(projection.getPositionCount()).isEqualTo(2);
+        assertThat(projection.getOffsetBase()).isEqualTo(0);
+        assertThat(projection.getRawOffsets()).containsExactly(0, 0, 3);
+        assertThat(projection.getRawValueIsValid()).containsExactly(0b10);
+        assertThat(projection.getRawElementBlock()).isSameAs(projectedElements);
+        assertThat(projection.isNull(0)).isTrue();
+        assertPositionValue(projection, 1, new Byte[] {21, 22, 23});
+
+        assertThatThrownBy(() -> region.createProjection(new ByteArrayBlock(4, Optional.empty(), new byte[4])))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("newVisibleElements must have the same position count as getElementsBlock(); expected 3 but got 4");
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)

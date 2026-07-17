@@ -31,9 +31,14 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class SessionFunctions
 {
+    public static final String CURRENT_USER_FUNCTION_NAME = "$current_user";
+    public static final String CURRENT_PATH_FUNCTION_NAME = "$current_path";
+    public static final String CURRENT_CATALOG_FUNCTION_NAME = "$current_catalog";
+    public static final String CURRENT_SCHEMA_FUNCTION_NAME = "$current_schema";
+
     private SessionFunctions() {}
 
-    @ScalarFunction(value = "$current_user", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_USER_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Current user")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentUser(ConnectorSession session)
@@ -41,7 +46,7 @@ public final class SessionFunctions
         return utf8Slice(session.getUser());
     }
 
-    @ScalarFunction(value = "$current_path", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_PATH_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Retrieve current path")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentPath(ConnectorSession session)
@@ -50,7 +55,7 @@ public final class SessionFunctions
         return utf8Slice(((FullConnectorSession) session).getSession().getPath().toString());
     }
 
-    @ScalarFunction(value = "$current_catalog", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_CATALOG_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Current catalog")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentCatalog(ConnectorSession session)
@@ -60,7 +65,7 @@ public final class SessionFunctions
                 .orElse(null);
     }
 
-    @ScalarFunction(value = "$current_schema", hidden = true, neverFails = true)
+    @ScalarFunction(value = CURRENT_SCHEMA_FUNCTION_NAME, hidden = true, neverFails = true)
     @Description("Current schema")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentSchema(ConnectorSession session)

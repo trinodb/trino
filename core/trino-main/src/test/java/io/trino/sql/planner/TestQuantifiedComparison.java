@@ -53,7 +53,9 @@ public class TestQuantifiedComparison
         assertPlan(query, anyTree(
                 filter(
                         not(getPlanTester().getPlannerContext().getMetadata(), new Reference(BOOLEAN, "S")),
-                        semiJoin("X", "Y", "S",
+                        semiJoin("X",
+                                "Y",
+                                "S",
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                 values(ImmutableMap.of("Y", 0))))));
     }

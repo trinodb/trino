@@ -185,7 +185,7 @@ public class QueryMonitor
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
     {
         BasicQueryStats queryStats = queryInfo.getQueryStats();
-        eventListenerManager.queryCompleted(requiresAnonymizedPlan -> new QueryCompletedEvent(
+        eventListenerManager.queryCompleted(_ -> new QueryCompletedEvent(
                 new QueryMetadata(
                         queryInfo.getQueryId().toString(),
                         queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -538,8 +538,21 @@ public class QueryMonitor
             return;
         }
 
+        List<OperatorStats> operatorSummaries = stageInfo.stageStats().getOperatorSummaries();
+        Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.stageStats().getSplitSourceMetrics();
+        ImmutableList.Builder<OperatorStats> operatorStats = ImmutableList.builderWithExpectedSize(operatorSummaries.size());
+        for (OperatorStats stats : operatorSummaries) {
+            if (stats.getSourceId().isPresent()) {
+                Metrics metrics = splitSourceMetrics.get(stats.getSourceId().get());
+                if (metrics != null && metrics != Metrics.EMPTY) {
+                    stats = stats.withConnectorSplitSourceMetrics(metrics);
+                }
+            }
+            operatorStats.add(stats);
+        }
+
         // Note: a plan node may be mapped to multiple operators
-        Map<PlanNodeId, Collection<OperatorStats>> allOperatorStats = Multimaps.index(stageInfo.stageStats().getOperatorSummaries(), OperatorStats::getPlanNodeId).asMap();
+        Map<PlanNodeId, Collection<OperatorStats>> allOperatorStats = Multimaps.index(operatorStats.build(), OperatorStats::getPlanNodeId).asMap();
 
         // Sometimes a plan node is merged with other nodes into a single operator, and in that case,
         // use the stats of the nearest parent node with stats.
@@ -771,20 +784,20 @@ public class QueryMonitor
     {
         return stageInfo.stageStats().getOutputBufferUtilization()
                 .map(utilization -> new StageOutputBufferUtilization(
-                            stageInfo.stageId().id(),
-                            stageInfo.tasks().size(),
-                            // scale ratio to percentages
-                            utilization.p01() * 100,
-                            utilization.p05() * 100,
-                            utilization.p10() * 100,
-                            utilization.p25() * 100,
-                            utilization.p50() * 100,
-                            utilization.p75() * 100,
-                            utilization.p90() * 100,
-                            utilization.p95() * 100,
-                            utilization.p99() * 100,
-                            utilization.min() * 100,
-                            utilization.max() * 100,
+                        stageInfo.stageId().id(),
+                        stageInfo.tasks().size(),
+                        // scale ratio to percentages
+                        utilization.p01() * 100,
+                        utilization.p05() * 100,
+                        utilization.p10() * 100,
+                        utilization.p25() * 100,
+                        utilization.p50() * 100,
+                        utilization.p75() * 100,
+                        utilization.p90() * 100,
+                        utilization.p95() * 100,
+                        utilization.p99() * 100,
+                        utilization.min() * 100,
+                        utilization.max() * 100,
                         Duration.ofNanos(utilization.total())));
     }
 

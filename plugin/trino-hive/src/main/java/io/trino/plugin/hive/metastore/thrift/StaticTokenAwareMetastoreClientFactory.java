@@ -103,6 +103,7 @@ public class StaticTokenAwareMetastoreClientFactory
             }
             catch (TException e) {
                 lastException = e;
+                backoff.fail();
             }
         }
 

@@ -136,7 +136,7 @@ public class TestZipFunction
                     .mapToObj(index -> "ARRAY[" + index + "]")
                     .collect(toList());
             Type[] types = IntStream.rangeClosed(1, arity)
-                    .mapToObj(index -> INTEGER)
+                    .mapToObj(_ -> INTEGER)
                     .toArray(Type[]::new);
             assertThat(assertions.function("zip", arguments))
                     .hasType(zipReturnType(types))

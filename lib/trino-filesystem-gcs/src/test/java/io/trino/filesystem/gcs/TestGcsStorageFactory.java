@@ -19,10 +19,10 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
@@ -37,12 +37,14 @@ final class TestGcsStorageFactory
         GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
-        Credentials actualCredentials;
-        try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
-            actualCredentials = storage.getOptions().getCredentials();
+        try {
+            Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
+            Credentials actualCredentials = storage.getOptions().getCredentials();
+            assertThat(actualCredentials).isNotNull();
         }
-
-        assertThat(actualCredentials).isEqualTo(NoCredentials.getInstance());
+        finally {
+            storageFactory.stop();
+        }
     }
 
     @Test
@@ -64,6 +66,59 @@ final class TestGcsStorageFactory
             AccessToken accessToken = googleCredentials.getAccessToken();
             assertThat(accessToken).isNotNull();
             assertThat(accessToken.getTokenValue()).isEqualTo("ya29.test-token");
+        }
+    }
+
+    @Test
+    void testStaticCredentialsAreCached()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        try {
+            Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"));
+            Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"));
+
+            assertThat(second).isSameAs(first);
+        }
+        finally {
+            storageFactory.stop();
+        }
+    }
+
+    @Test
+    void testVendedOAuthTokenCredentialsAreNotCached()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        ConnectorIdentity firstIdentity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.first-token"))
+                .build();
+        ConnectorIdentity secondIdentity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.second-token"))
+                .build();
+
+        try (Storage first = storageFactory.create(firstIdentity);
+                Storage second = storageFactory.create(secondIdentity)) {
+            assertThat(second).isNotSameAs(first);
+        }
+    }
+
+    @Test
+    void testAccessTokenCredentialsAreNotCached()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.ACCESS_TOKEN);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, (builder, _) -> builder.setCredentials(NoCredentials.getInstance()));
+
+        try (Storage first = storageFactory.create(ConnectorIdentity.ofUser("test"));
+                Storage second = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
+            assertThat(second).isNotSameAs(first);
         }
     }
 
@@ -121,9 +176,13 @@ final class TestGcsStorageFactory
                 .setProjectId("static-project");
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
-        try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
+        try {
+            Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
             assertThat(storage.getOptions().getProjectId()).isEqualTo("static-project");
-            assertThat(storage.getOptions().getCredentials()).isEqualTo(NoCredentials.getInstance());
+            assertThat(storage.getOptions().getCredentials()).isNotNull();
+        }
+        finally {
+            storageFactory.stop();
         }
     }
 }

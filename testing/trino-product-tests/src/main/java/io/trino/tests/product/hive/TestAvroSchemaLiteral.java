@@ -43,7 +43,8 @@ public class TestAvroSchemaLiteral
     public void testHiveCreatedTable()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_literal_hive");
-        onHive().executeQuery(format("" +
+        onHive().executeQuery(format(
+                "" +
                         "CREATE TABLE test_avro_schema_literal_hive " +
                         "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                         "STORED AS " +

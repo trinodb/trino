@@ -127,7 +127,8 @@ public final class AllSimpleTypesTableDefinitions
 
     public static void populateDataToHiveTable(String tableName)
     {
-        onHive().executeQuery(format("INSERT INTO TABLE %s SELECT * FROM %s",
+        onHive().executeQuery(format(
+                "INSERT INTO TABLE %s SELECT * FROM %s",
                 tableName,
                 format(tableNameFormat, "textfile")));
     }

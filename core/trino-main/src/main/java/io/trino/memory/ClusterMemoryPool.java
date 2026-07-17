@@ -65,6 +65,7 @@ public class ClusterMemoryPool
                 reservedDistributedBytes,
                 reservedRevocableDistributedBytes,
                 ImmutableMap.copyOf(queryMemoryReservations),
+                // Lists being values in queryMemoryAllocations map are never changed once they are published through that map.
                 ImmutableMap.copyOf(queryMemoryAllocations),
                 // not providing per-task memory info for cluster-wide pool
                 ImmutableMap.of(),

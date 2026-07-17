@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.function.Signature.Argument;
+import io.trino.spi.type.TypeTemplates;
 
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * This class represents set of three collections representing implementations of operators
@@ -67,9 +69,10 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
 
         checkArgument(
                 allImplementations.stream()
-                        .map(T::getFunctionNullability)
+                        .map(ParametricImplementation::getFunctionNullability)
                         .allMatch(functionNullability::equals),
-                "all implementations must have the nullability: %s", signature);
+                "all implementations must have the nullability: %s",
+                signature);
     }
 
     public FunctionNullability getFunctionNullability()
@@ -135,9 +138,11 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
         public void addImplementation(T implementation)
         {
             if (!implementation.getSignature().isGeneric()
-                    && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
-                    && !implementation.getSignature().getReturnType().isCalculated()) {
-                exactImplementations.put(implementation.getSignature(), implementation);
+                    && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeTemplates::isCalculated)
+                    && !TypeTemplates.isCalculated(implementation.getSignature().getReturnType())) {
+                // Lookup is by `BoundSignature.toSignature()`, which has no argument
+                // names; strip names from the key so the match is structural only.
+                exactImplementations.put(withoutArgumentNames(implementation.getSignature()), implementation);
             }
             else if (implementation.hasSpecializedTypeParameters()) {
                 specializedImplementations.add(implementation);
@@ -147,13 +152,25 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
             }
         }
 
+        private static Signature withoutArgumentNames(Signature signature)
+        {
+            if (signature.getArguments().stream().allMatch(argument -> argument.name().isEmpty())) {
+                return signature;
+            }
+            List<Argument> stripped = signature.getArguments().stream()
+                    .map(Argument::type)
+                    .map(Argument::of)
+                    .collect(toUnmodifiableList());
+            return Signature.builder(signature).arguments(stripped).build();
+        }
+
         private static <T extends ParametricImplementation> Signature determineGenericSignature(
                 Map<Signature, T> exactImplementations,
                 List<T> specializedImplementations,
                 List<T> genericImplementations)
         {
             if (specializedImplementations.isEmpty() && genericImplementations.isEmpty()) {
-                return getOnlyElement(exactImplementations.keySet());
+                return getOnlyElement(exactImplementations.values()).getSignature();
             }
 
             Optional<Signature> signature = Optional.empty();

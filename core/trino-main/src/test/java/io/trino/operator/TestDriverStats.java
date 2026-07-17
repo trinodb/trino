@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -120,7 +121,6 @@ public class TestDriverStats
 
         assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(20));
 
-        assertThat(actual.getOperatorStats()).hasSize(1);
-        assertExpectedOperatorStats(actual.getOperatorStats().get(0));
+        assertExpectedOperatorStats(getOnlyElement(actual.getOperatorStats()));
     }
 }

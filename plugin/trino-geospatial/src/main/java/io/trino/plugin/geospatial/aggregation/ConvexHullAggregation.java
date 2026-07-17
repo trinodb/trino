@@ -20,6 +20,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
@@ -39,7 +40,8 @@ public final class ConvexHullAggregation
     private ConvexHullAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState GeometryState state,
+    public static void input(
+            @AggregationState GeometryState state,
             @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
         if (state.getGeometry() == null) {
@@ -61,7 +63,8 @@ public final class ConvexHullAggregation
     }
 
     @CombineFunction
-    public static void combine(@AggregationState GeometryState state,
+    public static void combine(
+            @AggregationState GeometryState state,
             @AggregationState GeometryState otherState)
     {
         if (state.getGeometry() == null) {
@@ -92,6 +95,7 @@ public final class ConvexHullAggregation
         state.setGeometry(result);
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.GEOMETRY)
     public static void output(@AggregationState GeometryState state, BlockBuilder out)
     {

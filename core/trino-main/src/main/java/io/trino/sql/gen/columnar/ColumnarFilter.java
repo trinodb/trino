@@ -29,7 +29,6 @@ import io.trino.spi.connector.SourcePage;
  * don't explicitly handle NULLs or indeterminate values, and just return FALSE for those cases.
  * This will need to change to allow ColumnarFilter implementations to be composed in all cases (e.g. NOT filters).
  * ColumnarFilter implementations are never composed, {@link FilterEvaluator} implementations may be composed.
- * <p>
  */
 public interface ColumnarFilter
 {

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -22,6 +23,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -54,11 +56,14 @@ import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.math.LongMath.divide;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.extractCommitVersion;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogChecksumEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -319,6 +324,50 @@ public final class TransactionLogParser
                 return version;
             }
             version++;
+        }
+    }
+
+    public static OptionalLong findLatestCommitVersion(TrinoFileSystem fileSystem, String tableLocation)
+            throws IOException
+    {
+        return findLatestCommitVersion(fileSystem, tableLocation, readLastCheckpoint(fileSystem, tableLocation));
+    }
+
+    public static OptionalLong findLatestCommitVersion(TrinoFileSystem fileSystem, String tableLocation, Optional<LastCheckpoint> lastCheckpoint)
+            throws IOException
+    {
+        // When a checkpoint exists, skip over commits older than the checkpoint: the latest commit
+        // is either the checkpoint itself or a later commit, never an earlier one.
+        String startingFrom = lastCheckpoint.map(checkpoint -> "%020d".formatted(checkpoint.version())).orElse("");
+        long latestCommitVersion = lastCheckpoint.map(LastCheckpoint::version).orElse(-1L);
+
+        FileIterator files = fileSystem.listFilesStartingFrom(Location.of(getTransactionLogDir(tableLocation)), startingFrom);
+        while (files.hasNext()) {
+            OptionalLong commitVersion = extractCommitVersion(files.next().location().fileName());
+            if (commitVersion.isPresent() && commitVersion.getAsLong() > latestCommitVersion) {
+                latestCommitVersion = commitVersion.getAsLong();
+            }
+        }
+        return latestCommitVersion == -1 ? OptionalLong.empty() : OptionalLong.of(latestCommitVersion);
+    }
+
+    public static Optional<DeltaLakeVersionChecksum> readVersionChecksumFile(TrinoFileSystem fileSystem, String tableLocation, long version)
+            throws IOException
+    {
+        TrinoInputFile inputFile = fileSystem.newInputFile(getTransactionLogChecksumEntryPath(getTransactionLogDir(tableLocation), version));
+        try (InputStream checksumInput = inputFile.newStream()) {
+            return Optional.of(JsonUtils.parseJson(JSON_MAPPER, checksumInput, DeltaLakeVersionChecksum.class));
+        }
+        catch (IllegalArgumentException e) {
+            // JsonUtils throws IllegalArgumentException for trailing content after the JSON object
+            return Optional.empty();
+        }
+        catch (IOException | UncheckedIOException e) {
+            // Checksum files are optional; missing or malformed checksum files fall back to scanning the Delta log
+            if (isFileNotFoundException(e) || Throwables.getCausalChain(e).stream().anyMatch(JsonProcessingException.class::isInstance)) {
+                return Optional.empty();
+            }
+            throw e;
         }
     }
 }

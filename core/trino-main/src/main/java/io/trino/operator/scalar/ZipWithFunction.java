@@ -22,7 +22,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -31,8 +30,9 @@ import java.util.Optional;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.util.Reflection.methodHandle;
@@ -53,10 +53,10 @@ public final class ZipWithFunction
                         .typeVariable("T")
                         .typeVariable("U")
                         .typeVariable("R")
-                        .returnType(arrayType(new TypeSignature("R")))
-                        .argumentType(arrayType(new TypeSignature("T")))
-                        .argumentType(arrayType(new TypeSignature("U")))
-                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R")))
+                        .returnType(arrayType(typeVariable("R")))
+                        .argumentType(arrayType(typeVariable("T")))
+                        .argumentType(arrayType(typeVariable("U")))
+                        .argumentType(functionType(typeVariable("T"), typeVariable("U"), typeVariable("R")))
                         .build())
                 .description("Merge two arrays, element-wise, into a single array using the lambda function")
                 .build());

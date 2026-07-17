@@ -75,7 +75,7 @@ public class AggregationOperator
     {
         NEEDS_INPUT,
         HAS_OUTPUT,
-        FINISHED
+        FINISHED,
     }
 
     private final OperatorContext operatorContext;

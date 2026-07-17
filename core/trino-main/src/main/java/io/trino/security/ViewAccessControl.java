@@ -21,6 +21,7 @@ import io.trino.spi.security.ViewExpression;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
@@ -43,13 +44,13 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
     {
         // This is intentional and matches the SQL standard for view security.
         // In SQL, views are special in that they execute with permissions of the owner.
         // This means that the owner of the view is effectively granting permissions to the user running the query,
         // and thus must have the equivalent of the SQL standard "GRANT ... WITH GRANT OPTION".
-        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames));
+        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, branch, columnNames));
     }
 
     @Override
@@ -59,9 +60,9 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
     {
-        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames));
+        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, branch, columnNames));
     }
 
     @Override

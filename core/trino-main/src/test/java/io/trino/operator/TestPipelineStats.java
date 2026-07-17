@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.operator.TestDriverStats.assertExpectedDriverStats;
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
@@ -148,11 +149,9 @@ public class TestPipelineStats
 
         assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(20));
 
-        assertThat(actual.getOperatorSummaries()).hasSize(1);
-        assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));
+        assertExpectedOperatorStats(getOnlyElement(actual.getOperatorSummaries()));
 
-        assertThat(actual.getDrivers()).hasSize(1);
-        assertExpectedDriverStats(actual.getDrivers().get(0));
+        assertExpectedDriverStats(getOnlyElement(actual.getDrivers()));
     }
 
     private static DistributionSnapshot getTestDistribution(int count)

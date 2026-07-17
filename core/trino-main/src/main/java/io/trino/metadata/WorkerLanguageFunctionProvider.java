@@ -20,6 +20,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.LanguageFunctionEngine;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.routine.SqlRoutineCompiler;
 import io.trino.sql.routine.ir.IrRoutine;
 
@@ -33,12 +34,16 @@ public class WorkerLanguageFunctionProvider
         implements LanguageFunctionProvider
 {
     private final LanguageFunctionEngineManager languageFunctionEngineManager;
+    private final Metadata metadata;
+    private final TypeManager typeManager;
     private final Map<TaskId, Map<FunctionId, LanguageFunctionData>> queryFunctions = new ConcurrentHashMap<>();
 
     @Inject
-    public WorkerLanguageFunctionProvider(LanguageFunctionEngineManager languageFunctionEngineManager)
+    public WorkerLanguageFunctionProvider(LanguageFunctionEngineManager languageFunctionEngineManager, Metadata metadata, TypeManager typeManager)
     {
         this.languageFunctionEngineManager = requireNonNull(languageFunctionEngineManager, "languageFunctionEngineManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -79,7 +84,7 @@ public class WorkerLanguageFunctionProvider
         // Recompile every time this function is called as the function dependencies may have changed.
         // The caller caches, so this should not be a problem.
         IrRoutine routine = data.irRoutine().orElseThrow();
-        SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(routine);
+        SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager, metadata, typeManager).compile(routine);
         return function.getScalarFunctionImplementation(invocationConvention);
     }
 }

@@ -22,7 +22,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.countTransitions;
+import static io.trino.spi.block.Bitmap.getBits;
+import static java.lang.Math.min;
+import static java.util.Arrays.fill;
 
 public class BinaryColumnAdapter
         implements ColumnAdapter<BinaryBuffer>
@@ -49,9 +54,16 @@ public class BinaryColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, BinaryBuffer values)
+    public Block createNullableBlock(long[] valueIsValid, BinaryBuffer values)
     {
-        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(nulls));
+        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(valueIsValid));
+    }
+
+    @Override
+    public void copyValues(BinaryBuffer source, int sourceIndex, BinaryBuffer destination, int destinationIndex, int length)
+    {
+        // ignore as unpackNullValues is overridden
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -62,12 +74,12 @@ public class BinaryColumnAdapter
                 "Dictionary buffer size %s did not match the expected value of %s",
                 dictionary.getValueCount(),
                 nonNullsCount + 1);
-        boolean[] nulls = new boolean[nonNullsCount + 1];
-        nulls[nonNullsCount] = true;
+        long[] valueIsValid = allocateWords(nonNullsCount + 1, true);
+        clear(valueIsValid, 0, nonNullsCount);
         // Overwrite the next after last position with an empty value. This will be used as null.
         int[] offsets = dictionary.getOffsets();
         offsets[nonNullsCount + 1] = offsets[nonNullsCount];
-        return new VariableWidthBlock(dictionary.getValueCount(), dictionary.asSlice(), offsets, Optional.of(nulls));
+        return new VariableWidthBlock(dictionary.getValueCount(), dictionary.asSlice(), offsets, Optional.of(valueIsValid));
     }
 
     @Override
@@ -77,17 +89,64 @@ public class BinaryColumnAdapter
     }
 
     @Override
-    public void unpackNullValues(BinaryBuffer sourceBuffer, BinaryBuffer destinationBuffer, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
+    public void unpackNullValues(BinaryBuffer sourceBuffer, BinaryBuffer destinationBuffer, long[] valueIsValid, int destOffset, int nonNullCount, int totalValuesCount)
     {
+        // Benchmarking shows scalar copying is faster once a validity word contains this many short runs.
+        int scalarCopyTransitionThreshold = 12;
         int endOffset = destOffset + totalValuesCount;
         int srcOffset = 0;
         int[] destination = destinationBuffer.getOffsets();
         int[] source = sourceBuffer.getOffsets();
 
-        while (srcOffset < nonNullCount) {
-            destination[destOffset] = source[srcOffset];
-            srcOffset += castToByteNegate(isNull[destOffset]);
-            destOffset++;
+        while (srcOffset < nonNullCount && destOffset < endOffset) {
+            int bitsInWord = min(Long.SIZE, endOffset - destOffset);
+            long validBits = getBits(valueIsValid, 0, destOffset, bitsInWord);
+            if (validBits == 0) {
+                fill(destination, destOffset, destOffset + bitsInWord, source[srcOffset]);
+                destOffset += bitsInWord;
+                continue;
+            }
+            if (Long.bitCount(validBits) == bitsInWord) {
+                System.arraycopy(source, srcOffset, destination, destOffset, bitsInWord);
+                srcOffset += bitsInWord;
+                destOffset += bitsInWord;
+                continue;
+            }
+            if (countTransitions(validBits, bitsInWord) >= scalarCopyTransitionThreshold) {
+                int endOffsetInWord = destOffset + bitsInWord;
+                while (destOffset < endOffsetInWord) {
+                    destination[destOffset] = source[srcOffset];
+                    srcOffset += (int) (validBits & 1);
+                    destOffset++;
+                    validBits >>>= 1;
+                }
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                fill(destination, destOffset, destOffset + nullCount, source[srcOffset]);
+                destOffset += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                if (validCount == 1) {
+                    // Avoid System.arraycopy overhead for singleton valid runs.
+                    destination[destOffset] = source[srcOffset];
+                }
+                else {
+                    System.arraycopy(source, srcOffset, destination, destOffset, validCount);
+                }
+                srcOffset += validCount;
+                destOffset += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
+            }
         }
         // The last+1 offset is always a sentinel value equal to last offset + last position length.
         // In case of null values at the end, the last offset value needs to be repeated for every null position

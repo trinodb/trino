@@ -21,6 +21,7 @@ import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
 import io.trino.cli.lexer.StatementSplitter;
+import io.trino.cli.lexer.StatementSplitter.Statement;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.uri.PropertyName;
@@ -64,7 +65,6 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
 import static io.trino.cli.Trino.formatCliErrorMessage;
-import static io.trino.cli.lexer.StatementSplitter.Statement;
 import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static java.lang.String.format;
@@ -72,7 +72,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
 @Command(
@@ -166,13 +165,16 @@ public class Console
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             exiting.set(true);
             interruptor.interrupt();
-            @SuppressWarnings("CheckReturnValue")
-            boolean ignored = awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
+            @SuppressWarnings("UnusedLocalVariable")
+            var ignored = awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
             // Terminal closing restores terminal settings and releases underlying system resources
             closeTerminal();
         }));
 
+        Theme theme = clientOptions.theme.resolve(isRealTerminal(), noColorRequested());
+
         try (QueryRunner queryRunner = new QueryRunner(
+                theme,
                 uri,
                 session,
                 clientOptions.debug,
@@ -199,13 +201,21 @@ public class Console
                     pager,
                     clientOptions.progress.orElse(true),
                     clientOptions.disableAutoSuggestion,
-                    clientOptions.decimalDataSize);
+                    clientOptions.decimalDataSize,
+                    theme);
             return true;
         }
         finally {
             exited.countDown();
             interruptor.close();
         }
+    }
+
+    // Honor the https://no-color.org/ convention: any non-empty NO_COLOR disables color.
+    private static boolean noColorRequested()
+    {
+        String value = System.getenv("NO_COLOR");
+        return value != null && !value.isEmpty();
     }
 
     private static Optional<PropertyName> getMapping(Object userObject)
@@ -227,10 +237,11 @@ public class Console
             Optional<String> pager,
             boolean progress,
             boolean disableAutoSuggestion,
-            boolean decimalDataSize)
+            boolean decimalDataSize,
+            Theme theme)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
+                InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, theme, commandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             String remaining = "";
             while (!exiting.get()) {
@@ -272,7 +283,7 @@ public class Console
                     case "history":
                         for (History.Entry entry : reader.getHistory()) {
                             System.out.println(new AttributedStringBuilder()
-                                    .style(DEFAULT.foreground(CYAN))
+                                    .style(theme.historyIndex())
                                     .append(format("%5d", entry.index() + 1))
                                     .style(DEFAULT)
                                     .append("  ")
@@ -445,7 +456,7 @@ public class Console
             return success;
         }
         catch (RuntimeException e) {
-            System.err.println(formatCliErrorMessage(e, queryRunner.isDebug()));
+            System.err.println(formatCliErrorMessage(e, queryRunner.theme(), queryRunner.isDebug()));
             return false;
         }
     }

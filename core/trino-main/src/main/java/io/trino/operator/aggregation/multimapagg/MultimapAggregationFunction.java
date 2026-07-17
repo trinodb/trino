@@ -55,6 +55,7 @@ public final class MultimapAggregationFunction
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction("map(K, array(V))")
     public static void output(@AggregationState({"K", "V"}) MultimapAggregationState state, BlockBuilder out)
     {

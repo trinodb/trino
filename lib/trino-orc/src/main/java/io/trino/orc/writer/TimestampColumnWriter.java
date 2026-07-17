@@ -71,7 +71,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 // The ORC encoding erroneously uses normal integer division to compute seconds,
-// rather than floor modulus, which produces the wrong result for negative values
+// rather than floor modulo, which produces the wrong result for negative values
 // (those that are before the epoch). Readers must correct for this. It also makes
 // it impossible to represent values less than one second before the epoch, which
 // must also be handled in OrcWriteValidation.
@@ -189,20 +189,10 @@ public class TimestampColumnWriter
 
         // record values
         switch (timestampKind) {
-            case TIMESTAMP_MILLIS:
-            case TIMESTAMP_MICROS:
-                writeTimestampMicros(block);
-                break;
-            case TIMESTAMP_NANOS:
-                writeTimestampNanos(block);
-                break;
-            case INSTANT_MILLIS:
-                writeInstantShort(block);
-                break;
-            case INSTANT_MICROS:
-            case INSTANT_NANOS:
-                writeInstantLong(block);
-                break;
+            case TIMESTAMP_MILLIS, TIMESTAMP_MICROS -> writeTimestampMicros(block);
+            case TIMESTAMP_NANOS -> writeTimestampNanos(block);
+            case INSTANT_MILLIS -> writeInstantShort(block);
+            case INSTANT_MICROS, INSTANT_NANOS -> writeInstantLong(block);
         }
     }
 

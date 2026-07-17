@@ -156,7 +156,7 @@ public final class ProtobufUtils
                 requireNonNull(protoType.getKeyType(), "keyType is null");
                 requireNonNull(protoType.getValueType(), "valueType is null");
                 builder.addNestedType(DescriptorProto.newBuilder()
-                        //First Name to Upper case
+                        // First Name to Upper case
                         .setName(getNameForMapField(field.getName()))
                         .setOptions(MessageOptions.newBuilder().setMapEntry(true).build())
                         .addField(
@@ -175,7 +175,7 @@ public final class ProtobufUtils
                                                 .setLabel(Label.LABEL_OPTIONAL),
                                         protoType.getValueType(),
                                         definedMessages))
-                                .build());
+                        .build());
                 // Handle for underscores and name
                 fieldDescriptor.setType(TYPE_MESSAGE)
                         .setLabel(Label.LABEL_REPEATED)
@@ -210,40 +210,24 @@ public final class ProtobufUtils
 
     public static FieldDescriptorProto.Builder processType(FieldDescriptorProto.Builder builder, ProtoType type, Set<String> messageNames)
     {
-        switch (type.getSimpleName()) {
-            case "double" :
-                return builder.setType(TYPE_DOUBLE);
-            case "float" :
-                return builder.setType(TYPE_FLOAT);
-            case "int64" :
-                return builder.setType(TYPE_INT64);
-            case "uint64" :
-                return builder.setType(TYPE_UINT64);
-            case "int32" :
-                return builder.setType(TYPE_INT32);
-            case "fixed64" :
-                return builder.setType(TYPE_FIXED64);
-            case "fixed32" :
-                return builder.setType(TYPE_FIXED32);
-            case "bool" :
-                return builder.setType(TYPE_BOOL);
-            case "string" :
-                return builder.setType(TYPE_STRING);
-            case "group" :
-                return builder.setType(TYPE_GROUP);
-            case "bytes" :
-                return builder.setType(TYPE_BYTES);
-            case "uint32" :
-                return builder.setType(TYPE_UINT32);
-            case "sfixed32" :
-                return builder.setType(TYPE_SFIXED32);
-            case "sfixed64" :
-                return builder.setType(TYPE_SFIXED64);
-            case "sint32" :
-                return builder.setType(TYPE_SINT32);
-            case "sint64" :
-                return builder.setType(TYPE_SINT64);
-            default: {
+        return switch (type.getSimpleName()) {
+            case "double" -> builder.setType(TYPE_DOUBLE);
+            case "float" -> builder.setType(TYPE_FLOAT);
+            case "int64" -> builder.setType(TYPE_INT64);
+            case "uint64" -> builder.setType(TYPE_UINT64);
+            case "int32" -> builder.setType(TYPE_INT32);
+            case "fixed64" -> builder.setType(TYPE_FIXED64);
+            case "fixed32" -> builder.setType(TYPE_FIXED32);
+            case "bool" -> builder.setType(TYPE_BOOL);
+            case "string" -> builder.setType(TYPE_STRING);
+            case "group" -> builder.setType(TYPE_GROUP);
+            case "bytes" -> builder.setType(TYPE_BYTES);
+            case "uint32" -> builder.setType(TYPE_UINT32);
+            case "sfixed32" -> builder.setType(TYPE_SFIXED32);
+            case "sfixed64" -> builder.setType(TYPE_SFIXED64);
+            case "sint32" -> builder.setType(TYPE_SINT32);
+            case "sint64" -> builder.setType(TYPE_SINT64);
+            default -> {
                 builder.setTypeName(type.toString());
                 if (messageNames.contains(type.toString())) {
                     builder.setType(TYPE_MESSAGE);
@@ -251,9 +235,9 @@ public final class ProtobufUtils
                 else {
                     builder.setType(TYPE_ENUM);
                 }
-                return builder;
+                yield builder;
             }
-        }
+        };
     }
 
     public static Label getLabel(Field.Label label)

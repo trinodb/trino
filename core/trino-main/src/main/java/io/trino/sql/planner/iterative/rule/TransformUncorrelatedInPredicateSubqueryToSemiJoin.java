@@ -76,7 +76,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
 
         Symbol semiJoinSymbol = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
 
-        SemiJoinNode replacement = new SemiJoinNode(context.getIdAllocator().getNextId(),
+        SemiJoinNode replacement = new SemiJoinNode(
+                context.getIdAllocator().getNextId(),
                 applyNode.getInput(),
                 applyNode.getSubquery(),
                 inPredicate.value(),

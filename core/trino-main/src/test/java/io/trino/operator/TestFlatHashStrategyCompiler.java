@@ -45,7 +45,8 @@ class TestFlatHashStrategyCompiler
         int[] testColumns = {
                 FlatHashStrategyCompiler.COLUMNS_PER_CHUNK - 1,
                 FlatHashStrategyCompiler.COLUMNS_PER_CHUNK,
-                FlatHashStrategyCompiler.COLUMNS_PER_CHUNK + 1};
+                FlatHashStrategyCompiler.COLUMNS_PER_CHUNK + 1,
+        };
         for (int columns : testColumns) {
             // All variable width, mix of nulls and non nulls
             testVariableWidthColumns(columns);

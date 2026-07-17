@@ -52,6 +52,7 @@ sql/grant-roles
 sql/insert
 sql/match-recognize
 sql/merge
+sql/pivot
 sql/prepare
 sql/refresh-materialized-view
 sql/reset-session

@@ -63,6 +63,7 @@ public class PagesSpatialIndexSupplier
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory;
     private final STRtree rtree;
+    private final SpatialIndexSridState sridState;
     private final Map<Integer, Rectangle> partitions;
     private final long memorySizeInBytes;
 
@@ -87,16 +88,21 @@ public class PagesSpatialIndexSupplier
         this.filterFunctionFactory = filterFunctionFactory;
         this.partitions = partitions;
 
-        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel);
+        RTreeBuildResult rtreeBuildResult = buildRTree(addresses, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel);
+        this.rtree = rtreeBuildResult.rtree();
+        this.sridState = rtreeBuildResult.sridState();
         this.radiusChannel = radiusChannel;
         this.constantRadius = constantRadius;
         this.memorySizeInBytes = INSTANCE_SIZE +
                 (rtree.isEmpty() ? 0 : STRTREE_INSTANCE_SIZE + computeMemorySizeInBytes(rtree.getRoot()));
     }
 
-    private static STRtree buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, OptionalInt radiusChannel, OptionalDouble constantRadius, OptionalInt partitionChannel)
+    private record RTreeBuildResult(STRtree rtree, SpatialIndexSridState sridState) {}
+
+    private static RTreeBuildResult buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, OptionalInt radiusChannel, OptionalDouble constantRadius, OptionalInt partitionChannel)
     {
         STRtree rtree = new STRtree();
+        SpatialIndexSridState sridState = SpatialIndexSridState.EMPTY;
 
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
@@ -130,6 +136,8 @@ public class PagesSpatialIndexSupplier
                 continue;
             }
 
+            sridState = sridState.add(geometry.getSRID());
+
             int partition = -1;
             if (partitionChannel.isPresent()) {
                 Block partitionBlock = channels.get(partitionChannel.getAsInt()).get(blockIndex);
@@ -140,7 +148,7 @@ public class PagesSpatialIndexSupplier
         }
 
         rtree.build();
-        return rtree;
+        return new RTreeBuildResult(rtree, sridState);
     }
 
     private static Envelope getEnvelope(Geometry geometry, double radius)
@@ -181,6 +189,6 @@ public class PagesSpatialIndexSupplier
         if (rtree.isEmpty()) {
             return EMPTY_INDEX;
         }
-        return new PagesRTreeIndex(session, addresses, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesRTreeIndex(session, addresses, outputChannels, channels, rtree, sridState, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 }

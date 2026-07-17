@@ -19,7 +19,7 @@ import org.apache.iceberg.metrics.MetricsReporter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-final class CommitMetricsReporter
+public final class CommitMetricsReporter
         implements MetricsReporter
 {
     private MetricsReport metricsReport;

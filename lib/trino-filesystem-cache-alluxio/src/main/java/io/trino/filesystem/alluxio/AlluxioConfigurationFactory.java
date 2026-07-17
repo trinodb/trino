@@ -47,14 +47,18 @@ public class AlluxioConfigurationFactory
     public static AlluxioConfiguration create(AlluxioFileSystemCacheConfig config)
     {
         checkArgument(config.getMaxCacheSizes().isEmpty() ^ config.getMaxCacheDiskUsagePercentages().isEmpty(),
-                "Either %s or %s must be specified", CACHE_MAX_SIZES, CACHE_MAX_PERCENTAGES);
+                "Either %s or %s must be specified",
+                CACHE_MAX_SIZES,
+                CACHE_MAX_PERCENTAGES);
         int size = config.getMaxCacheSizes().isEmpty() ? config.getMaxCacheDiskUsagePercentages().size() : config.getMaxCacheSizes().size();
         checkArgument(config.getCacheDirectories().size() == size,
-                "%s and %s must have the same size", CACHE_DIRECTORIES, config.getMaxCacheSizes().isEmpty() ? CACHE_MAX_PERCENTAGES : CACHE_MAX_SIZES);
+                "%s and %s must have the same size",
+                CACHE_DIRECTORIES,
+                config.getMaxCacheSizes().isEmpty() ? CACHE_MAX_PERCENTAGES : CACHE_MAX_SIZES);
         config.getCacheDirectories().forEach(directory -> canWrite(Path.of(directory)));
         List<DataSize> maxCacheSizes = config.getMaxCacheSizes().isEmpty() ?
                 calculateMaxCacheSizes(config.getMaxCacheDiskUsagePercentages(), config.getCacheDirectories().stream()
-                        .map(directory -> totalSpace(Path.of(directory))).collect(toImmutableList()))
+                                                                                 .map(directory -> totalSpace(Path.of(directory))).collect(toImmutableList()))
                 : config.getMaxCacheSizes();
 
         AlluxioProperties alluxioProperties = new AlluxioProperties();

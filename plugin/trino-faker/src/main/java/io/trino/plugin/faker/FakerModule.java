@@ -17,12 +17,22 @@ package io.trino.plugin.faker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.spi.function.FunctionBundle;
+import io.trino.spi.function.FunctionBundleFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class FakerModule
         implements Module
 {
+    private final FunctionBundleFactory functionBundleFactory;
+
+    public FakerModule(FunctionBundleFactory functionBundleFactory)
+    {
+        this.functionBundleFactory = requireNonNull(functionBundleFactory, "functionBundleFactory is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -31,7 +41,7 @@ public class FakerModule
         binder.bind(FakerSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(FakerPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(FakerPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(FakerFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionBundle.class).toInstance(functionBundleFactory.builder().functions(FakerFunctions.class).build());
         configBinder(binder).bindConfig(FakerConfig.class);
     }
 }

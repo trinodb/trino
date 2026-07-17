@@ -50,7 +50,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.locationtech.jts.geom.Geometry;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -69,6 +68,7 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static io.trino.plugin.geospatial.GeoFunctions.stPoint;
+import static io.trino.plugin.geospatial.GeoFunctions.stSetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -80,6 +80,7 @@ import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
@@ -101,6 +102,8 @@ public class TestSpatialJoinOperator
     private static final Geometry POINT_Y = stPoint(4.5, 4.5);
     private static final Geometry POINT_Z = stPoint(6, 6);
     private static final Geometry POINT_W = stPoint(20, 20);
+    private static final long TEST_SRID = 4326;
+    private static final long OTHER_TEST_SRID = 3857;
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -162,6 +165,105 @@ public class TestSpatialJoinOperator
     }
 
     @Test
+    public void testSpatialJoinUsesPlanarIndexForZValues()
+    {
+        TaskContext taskContext = createTaskContext();
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POLYGON Z ((0 0 1, 0 5 2, 5 5 3, 5 0 4, 0 0 1))"), "A")
+                .row(srid("POLYGON Z ((4 4 10, 4 10 20, 10 10 30, 10 4 40, 4 4 10))"), "B");
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POINT Z (1 1 99)"), "x")
+                .row(srid("POINT Z (4.5 4.5 -7)"), "y")
+                .row(srid("POINT Z (6 6 123)"), "z")
+                .row(srid("POINT Z (20 20 0)"), "w");
+
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+                .row("x", "A")
+                .row("y", "A")
+                .row("y", "B")
+                .row("z", "B")
+                .build();
+
+        assertSpatialJoin(taskContext, INNER, buildPages, probePages, expected);
+    }
+
+    @Test
+    public void testSpatialJoinValidatesSridsBeforePruning()
+    {
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))"), "A");
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
+
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR)).build();
+        RowPagesBuilder mismatchedProbePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POINT (20 20)", OTHER_TEST_SRID), "w");
+        OperatorFactory mismatchedProbeJoinOperatorFactory = new SpatialJoinOperatorFactory(3, new PlanNodeId("test"), INNER, mismatchedProbePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
+        assertThatThrownBy(() -> assertOperatorEquals(mismatchedProbeJoinOperatorFactory, driverContext, mismatchedProbePages.build(), expected))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("SRID mismatch: (4326 vs 3857|3857 vs 4326)");
+    }
+
+    @Test
+    public void testSpatialJoinAllowsZeroSridProbeForMixedBuildSrids()
+    {
+        TaskContext taskContext = createTaskContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))", TEST_SRID), "A")
+                .row(srid("POLYGON ((10 10, 10 15, 15 15, 15 10, 10 10))", OTHER_TEST_SRID), "B");
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(stPoint(1, 1), "x")
+                .row(stPoint(11, 11), "y");
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+                .row("x", "A")
+                .row("y", "B")
+                .build();
+
+        assertSpatialJoin(taskContext, INNER, buildPages, probePages, expected);
+    }
+
+    @Test
+    public void testSpatialJoinRejectsNonZeroProbeForMixedBuildSrids()
+    {
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))", TEST_SRID), "A")
+                .row(srid("POLYGON ((10 10, 10 15, 15 15, 15 10, 10 10))", OTHER_TEST_SRID), "B");
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
+
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR)).build();
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POINT (20 20)", TEST_SRID), "w");
+        OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(4, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
+
+        assertThatThrownBy(() -> assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("SRID mismatch: (4326 vs 3857|3857 vs 4326)");
+    }
+
+    @Test
+    public void testSpatialJoinAllowsNonZeroProbeForZeroSridBuild()
+    {
+        TaskContext taskContext = createTaskContext();
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(stGeometryFromText(Slices.utf8Slice("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))")), "A");
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POINT (1 1)", TEST_SRID), "x");
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+                .row("x", "A")
+                .build();
+
+        assertSpatialJoin(taskContext, INNER, buildPages, probePages, expected);
+    }
+
+    @Test
     public void testSpatialLeftJoin()
     {
         TaskContext taskContext = createTaskContext();
@@ -194,7 +296,7 @@ public class TestSpatialJoinOperator
     private void assertSpatialJoin(TaskContext taskContext, Type joinType, RowPagesBuilder buildPages, RowPagesBuilder probePages, MaterializedResult expected)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.empty(), buildPages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), joinType, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
         assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
     }
@@ -274,7 +376,7 @@ public class TestSpatialJoinOperator
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> {
+                (_, _, _, _) -> {
                     filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
@@ -284,7 +386,7 @@ public class TestSpatialJoinOperator
                 .row(POLYGON_A, "A")
                 .pageBreak()
                 .row(POLYGON_B, "B");
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), OptionalInt.empty(), Optional.of(filterFunction), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), Optional.of(filterFunction), buildPages);
 
         // 10 points in polygon A (x0...x9)
         // 10 points in polygons A and B (y0...y9)
@@ -300,13 +402,13 @@ public class TestSpatialJoinOperator
         for (int i = 0; i < 10; i++) {
             probePages.row(stPoint(6 + 0.1 * i, 6 + 0.1 * i), "z" + i);
         }
-        List<Page> probeInput = probePages.build();
+        Page probeInput = probePages.buildPage();
 
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
 
         Operator operator = joinOperatorFactory.createOperator(driverContext);
         assertThat(operator.needsInput()).isTrue();
-        operator.addInput(probeInput.get(0));
+        operator.addInput(probeInput);
         operator.finish();
 
         // we will yield 40 times due to filterFunction
@@ -407,6 +509,38 @@ public class TestSpatialJoinOperator
     }
 
     @Test
+    public void testDistanceQueryUsesPlanarIndexForZValues()
+    {
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, DOUBLE))
+                .row(srid("POINT Z (0 0 100)"), "0_0", 1.5)
+                .row(srid("POINT Z (1 0 200)"), "1_0", 1.5)
+                .row(srid("POINT Z (3 0 300)"), "3_0", 1.5)
+                .row(srid("POINT Z (10 0 400)"), "10_0", 1.5);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.distance(probe) <= r.getAsDouble(), OptionalInt.of(2), Optional.empty(), buildPages);
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(srid("POINT Z (0 1 -100)"), "0_1")
+                .row(srid("POINT Z (1 1 -200)"), "1_1")
+                .row(srid("POINT Z (3 1 -300)"), "3_1")
+                .row(srid("POINT Z (10 1 -400)"), "10_1");
+        OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.empty(), pagesSpatialIndexFactory);
+
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+                .row("0_1", "0_0")
+                .row("0_1", "1_0")
+                .row("1_1", "0_0")
+                .row("1_1", "1_0")
+                .row("3_1", "3_0")
+                .row("10_1", "10_0")
+                .build();
+
+        assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
+    }
+
+    @Test
     public void testDistributedSpatialJoin()
     {
         TaskContext taskContext = createTaskContext();
@@ -434,7 +568,36 @@ public class TestSpatialJoinOperator
                 .row("z", "B")
                 .build();
 
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), buildPages);
+        OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.of(2), pagesSpatialIndexFactory);
+        assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
+    }
+
+    @Test
+    public void testDistributedSpatialJoinUsesPlanarIndexForZValues()
+    {
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, true).addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER))
+                .row(srid("POLYGON Z ((0 0 1, 0 5 2, 5 5 3, 5 0 4, 0 0 1))"), "A", 1)
+                .row(srid("POLYGON Z ((0 0 1, 0 5 2, 5 5 3, 5 0 4, 0 0 1))"), "A", 2)
+                .row(srid("POLYGON Z ((4 4 10, 4 10 20, 10 10 30, 10 4 40, 4 4 10))"), "B", 0)
+                .row(srid("POLYGON Z ((4 4 10, 4 10 20, 10 10 30, 10 4 40, 4 4 10))"), "B", 2);
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER))
+                .row(srid("POINT Z (1 1 99)"), "x", 2)
+                .row(srid("POINT Z (4.5 4.5 -7)"), "y", 2)
+                .row(srid("POINT Z (6 6 123)"), "z", 0);
+
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+                .row("x", "A")
+                .row("y", "A")
+                .row("y", "B")
+                .row("z", "B")
+                .build();
+
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.contains(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), buildPages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, OptionalInt.of(2), pagesSpatialIndexFactory);
         assertOperatorEquals(joinOperatorFactory, driverContext, probePages.build(), expected);
     }
@@ -460,7 +623,7 @@ public class TestSpatialJoinOperator
                 .row("B", "B")
                 .build();
 
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.intersects(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), pages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, _) -> build.intersects(probe), OptionalInt.empty(), OptionalInt.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), pages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, pages.getTypes(), Ints.asList(1), 0, OptionalInt.of(2), pagesSpatialIndexFactory);
         assertOperatorEquals(joinOperatorFactory, driverContext, pages.build(), expected);
     }
@@ -473,7 +636,7 @@ public class TestSpatialJoinOperator
     private PagesSpatialIndexFactory buildIndex(DriverContext driverContext, SpatialPredicate spatialRelationshipTest, OptionalInt radiusChannel, OptionalInt partitionChannel, Optional<Slice> kdbTreeJson, Optional<InternalJoinFilterFunction> filterFunction, RowPagesBuilder buildPages)
     {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
-                .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
+                .map(function -> (_, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         ValuesOperator.ValuesOperatorFactory valuesOperatorFactory = new ValuesOperator.ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.build());
         SpatialIndexBuilderOperatorFactory buildOperatorFactory = new SpatialIndexBuilderOperatorFactory(
@@ -491,7 +654,8 @@ public class TestSpatialJoinOperator
                 10_000,
                 new TestingFactory(false));
 
-        Driver driver = Driver.createDriver(driverContext,
+        Driver driver = Driver.createDriver(
+                driverContext,
                 valuesOperatorFactory.createOperator(driverContext),
                 buildOperatorFactory.createOperator(driverContext));
 
@@ -528,6 +692,16 @@ public class TestSpatialJoinOperator
     private TaskContext createTaskContext()
     {
         return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
+    }
+
+    private static Geometry srid(String wkt)
+    {
+        return srid(wkt, TEST_SRID);
+    }
+
+    private static Geometry srid(String wkt, long srid)
+    {
+        return stSetSrid(stGeometryFromText(Slices.utf8Slice(wkt)), srid);
     }
 
     private static class TestInternalJoinFilterFunction

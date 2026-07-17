@@ -24,12 +24,12 @@ public abstract class JsonTablePlan
     public enum ParentChildPlanType
     {
         OUTER,
-        INNER
+        INNER,
     }
 
     public enum SiblingsPlanType
     {
         UNION,
-        CROSS
+        CROSS,
     }
 }

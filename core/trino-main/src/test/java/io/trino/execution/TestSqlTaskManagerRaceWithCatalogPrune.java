@@ -86,6 +86,7 @@ import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -147,11 +148,13 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             throw new UnsupportedOperationException("Only implement what is needed by worker catalog manager");
         }
     };
-    private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor() {
+    private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor()
+    {
         @Override
         public TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, OptionalInt maxDriversPerTask)
         {
-            return new TaskHandle() {
+            return new TaskHandle()
+            {
                 @Override
                 public boolean isDestroyed()
                 {
@@ -204,8 +207,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new CatalogPruneTaskConfig(),
                 workerTaskManager);
 
-        Future<Void> catalogTaskFuture = Futures.submit(() ->
-        {
+        Future<Void> catalogTaskFuture = Futures.submit(() -> {
             for (int i = 0; i < NUM_TASKS; i++) {
                 CatalogName catalogName = new CatalogName("catalog_" + i);
                 CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, new CatalogVersion(UUID.randomUUID().toString()));
@@ -235,8 +237,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             }
         }, threadPoolExecutor);
 
-        Future<Void> pruneCatalogsFuture = Futures.submit(() ->
-        {
+        Future<Void> pruneCatalogsFuture = Futures.submit(() -> {
             for (int i = 0; i < NUM_TASKS; i++) {
                 catalogPruneTask.pruneCatalogs();
                 try {
@@ -265,7 +266,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new EmbedVersion("testversion"),
                 workerConnectorServiceProvider,
                 createTestingPlanner(),
-                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager()),
+                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager()),
                 new BaseTestSqlTaskManager.MockLocationFactory(),
                 NOOP_TASK_EXECUTOR,
                 new NodeInfo("testversion"),
@@ -278,7 +279,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new TestingGcMonitor(),
                 noopTracer(),
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
-                ignore -> true);
+                _ -> true);
     }
 
     private static PlanFragment fragmentWithCatalog(CatalogHandle catalogHandle)

@@ -14,28 +14,38 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 
+import java.util.Set;
+
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.Decimals.longTenToNth;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 
 public final class DecimalToDecimalCasts
 {
     public static final Signature SIGNATURE = Signature.builder()
-            .argumentType(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
-            .returnType(parseTypeSignature("decimal(to_precision,to_scale)", ImmutableSet.of("to_precision", "to_scale")))
+            .argumentType(parseTypeTemplate("decimal(from_precision,from_scale)", Set.of(), Set.of("from_precision", "from_scale")))
+            .returnType(parseTypeTemplate("decimal(to_precision,to_scale)", Set.of(), Set.of("to_precision", "to_scale")))
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalConversions.class)
             .signature(SIGNATURE)
             .deterministic(true)
+            .neverFails(boundSignature -> {
+                DecimalType source = (DecimalType) getOnlyElement(boundSignature.getArgumentTypes());
+                DecimalType target = (DecimalType) boundSignature.getReturnType();
+                // When target scale shrinks, rounding can push the result up by one integer digit (e.g. 99.9 → 100).
+                int requiredIntegerDigits = source.getPrecision() - source.getScale()
+                        + (target.getScale() < source.getScale() ? 1 : 0);
+                return target.getPrecision() - target.getScale() >= requiredIntegerDigits;
+            })
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToShortCast")
@@ -44,9 +54,12 @@ public final class DecimalToDecimalCasts
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 long rescale = longTenToNth(Math.abs(resultType.getScale() - argumentType.getScale()));
                                 return ImmutableList.of(
-                                        argumentType.getPrecision(), argumentType.getScale(),
-                                        resultType.getPrecision(), resultType.getScale(),
-                                        rescale, rescale / 2);
+                                        argumentType.getPrecision(),
+                                        argumentType.getScale(),
+                                        resultType.getPrecision(),
+                                        resultType.getScale(),
+                                        rescale,
+                                        rescale / 2);
                             }))
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToLongCast", "longToShortCast", "longToLongCast")
@@ -54,8 +67,10 @@ public final class DecimalToDecimalCasts
                                 DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 return ImmutableList.of(
-                                        argumentType.getPrecision(), argumentType.getScale(),
-                                        resultType.getPrecision(), resultType.getScale());
+                                        argumentType.getPrecision(),
+                                        argumentType.getScale(),
+                                        resultType.getPrecision(),
+                                        resultType.getScale());
                             })))
             .build();
 

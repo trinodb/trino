@@ -58,7 +58,7 @@ public class TestFuzzAlluxioCacheFileSystem
     public void testFuzzTrinoInputReadTail()
             throws IOException
     {
-        fuzzTrinoInputOperation((fs, l) -> fs.newInputFile(l).newInput(), (input, position, buffer, bufferOffset, bufferLength) -> input.readTail(buffer, bufferOffset, bufferLength));
+        fuzzTrinoInputOperation((fs, l) -> fs.newInputFile(l).newInput(), (input, _, buffer, bufferOffset, bufferLength) -> input.readTail(buffer, bufferOffset, bufferLength));
     }
 
     @Test

@@ -16,6 +16,7 @@ package io.trino.plugin.base.metrics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;

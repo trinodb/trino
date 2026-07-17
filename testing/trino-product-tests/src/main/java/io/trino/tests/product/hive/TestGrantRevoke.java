@@ -20,6 +20,7 @@ import com.google.inject.name.Named;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.context.ContextDsl.executeWith;
@@ -270,7 +270,7 @@ public class TestGrantRevoke
     public void testViewOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
-        executeWith(createViewAs(viewName, format("SELECT * FROM %s", tableName), aliceExecutor), view -> {
+        executeWith(createViewAs(viewName, format("SELECT * FROM %s", tableName), aliceExecutor), _ -> {
             assertThat(onHive().executeQuery(format("SHOW GRANT USER alice ON %s", viewName))
                     .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
                     .containsOnly(ownerGrants());

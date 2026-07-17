@@ -25,6 +25,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import it.unimi.dsi.fastutil.Arrays;
@@ -90,6 +91,7 @@ public final class ApproximateDoublePercentileArrayAggregations
         state.setPercentiles(otherState.getPercentiles());
     }
 
+    @SqlNullable
     @OutputFunction("array(double)")
     public static void output(@AggregationState TDigestAndPercentileArrayState state, BlockBuilder out)
     {

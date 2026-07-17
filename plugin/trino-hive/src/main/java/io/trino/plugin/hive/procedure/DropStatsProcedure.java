@@ -113,7 +113,7 @@ public class DropStatsProcedure
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", schemaTableName));
             }
 
-            accessControl.checkCanInsertIntoTable(null, schemaTableName);
+            accessControl.checkCanInsertIntoTable(null, schemaTableName, Optional.empty());
 
             Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
             List<String> partitionColumns = columns.values().stream()
@@ -135,8 +135,7 @@ public class DropStatsProcedure
                                 .orElseThrow(() -> new TableNotFoundException(schemaTableName)),
                         CLEAR_ALL,
                         ImmutableMap.of(
-                                makePartName(partitionColumns, values),
-                                PartitionStatistics.empty())));
+                                makePartName(partitionColumns, values), PartitionStatistics.empty())));
             }
             else {
                 // no partition specified, so drop stats for the entire table
@@ -157,8 +156,7 @@ public class DropStatsProcedure
                                             .orElseThrow(() -> new TableNotFoundException(schemaTableName)),
                                     CLEAR_ALL,
                                     ImmutableMap.of(
-                                            partitionName,
-                                            PartitionStatistics.empty()))));
+                                            partitionName, PartitionStatistics.empty()))));
                 }
             }
 

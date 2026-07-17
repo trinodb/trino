@@ -43,6 +43,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
@@ -108,6 +109,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -395,7 +397,7 @@ public class TestMultiSourcePartitionedScheduler
                 () -> true,
                 15);
 
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 QUERY_ID,
@@ -501,7 +503,7 @@ public class TestMultiSourcePartitionedScheduler
     {
         Map<PlanNodeId, SplitSource> sources = splitSources.entrySet()
                 .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, e.getValue())));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, e.getValue(), DynamicFilter.EMPTY)));
         return new MultiSourcePartitionedScheduler(
                 stage,
                 sources,
@@ -592,7 +594,7 @@ public class TestMultiSourcePartitionedScheduler
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount)
     {
-        return new FixedSplitSource(IntStream.range(0, splitCount).mapToObj(ix -> new TestingSplit(true, ImmutableList.of())).toList());
+        return new FixedSplitSource(IntStream.range(0, splitCount).mapToObj(_ -> new TestingSplit(true, ImmutableList.of())).toList());
     }
 
     private SplitPlacementPolicy createSplitPlacementPolicies(Session session, StageExecution stage, NodeTaskMap nodeTaskMap, InternalNodeManager nodeManager)
@@ -602,7 +604,7 @@ public class TestMultiSourcePartitionedScheduler
                 .setMaxSplitsPerNode(100)
                 .setMinPendingSplitsPerTask(0)
                 .setSplitsBalancingPolicy(STAGE);
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()), new Duration(0, SECONDS)));
         return new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks);
     }
 
@@ -674,11 +676,9 @@ public class TestMultiSourcePartitionedScheduler
         }
 
         @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+        public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
         {
-            return notEmptyFuture
-                    .thenApply(x -> getBatch(maxSize))
-                    .thenApply(splits -> new ConnectorSplitBatch(splits, isFinished()));
+            return notEmptyFuture.thenApply(_ -> getBatch(maxSize));
         }
 
         private synchronized List<ConnectorSplit> getBatch(int maxSize)

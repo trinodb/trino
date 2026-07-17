@@ -57,14 +57,14 @@ public class BenchmarkRoundFunction
         operand0 = 0.5;
         operand1 = 754.1985;
         operand2 = -754.2008;
-        operand3 = 0x1.fffffffffffffp-2;
-        operand4 = -0x1.fffffffffffffp-2;
+        operand3 = 0x1.FFFFFFFFFFFFFp-2;
+        operand4 = -0x1.FFFFFFFFFFFFFp-2;
 
         floatOperand0 = 0.5f;
         floatOperand1 = 754.1985f;
         floatOperand2 = -754.2008f;
-        floatOperand3 = 0x1.fffffep-2f;
-        floatOperand4 = -0x1.fffffep-2f;
+        floatOperand3 = 0x1.FFFFFEp-2f;
+        floatOperand4 = -0x1.FFFFFEp-2f;
     }
 
     @Benchmark

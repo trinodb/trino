@@ -36,7 +36,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
@@ -60,8 +59,9 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -92,9 +92,9 @@ public final class ArrayTransformFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .typeVariable("U")
-                        .returnType(arrayType(new TypeSignature("U")))
-                        .argumentType(arrayType(new TypeSignature("T")))
-                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
+                        .returnType(arrayType(typeVariable("U")))
+                        .argumentType(arrayType(typeVariable("T")))
+                        .argumentType(functionType(typeVariable("T"), typeVariable("U")))
                         .build())
                 .description("Apply lambda to each element of the array")
                 .build());
@@ -151,8 +151,8 @@ public final class ArrayTransformFunction
 
     private static MethodDefinition generateTransformValueInner(ClassDefinition definition, CallSiteBinder binder, Type inputType, Type outputType)
     {
-        Class<?> inputJavaType = Primitives.wrap(inputType.getJavaType());
-        Class<?> outputJavaType = Primitives.wrap(outputType.getJavaType());
+        Class<?> inputJavaType = binder.getAccessibleType(Primitives.wrap(inputType.getJavaType()));
+        Class<?> outputJavaType = binder.getAccessibleType(Primitives.wrap(outputType.getJavaType()));
 
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", UnaryFunctionInterface.class);
@@ -190,7 +190,7 @@ public final class ArrayTransformFunction
             writeOutputElement = new IfStatement()
                     .condition(equal(outputElement, constantNull(outputJavaType)))
                     .ifTrue(elementBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, outputType).writeValue(elementBuilder, outputElement.cast(outputType.getJavaType())));
+                    .ifFalse(constantType(binder, outputType).writeValue(elementBuilder, outputElement.cast(outputJavaType)));
         }
         else {
             writeOutputElement = new BytecodeBlock().append(elementBuilder.invoke("appendNull", BlockBuilder.class).pop());

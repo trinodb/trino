@@ -1305,7 +1305,7 @@ The schema evolution behavior is as follows:
   Data created with an older schema no longer outputs the data from the column that was removed.
 - Column is renamed in the new schema:
   This is equivalent to removing the column and adding a new one, and data created with an older schema
-  produces a *default* value when table is using the new schema.
+  produces a *default* value when the table is using the new schema.
 - Changing type of column in the new schema:
   If the type coercion is supported by Avro, then the conversion happens. An
   error is thrown for incompatible types.
@@ -1415,7 +1415,7 @@ The schema evolution behavior is as follows:
   Data created with an older schema no longer outputs the data from the column that was removed.
 - Column is renamed in the new schema:
   This is equivalent to removing the column and adding a new one, and data created with an older schema
-  produces a *default* value when table is using the new schema.
+  produces a *default* value when the table is using the new schema.
 - Changing type of column in the new schema:
   If the type coercion is supported by Protobuf, then the conversion happens. An error is thrown for incompatible types.
 

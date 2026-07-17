@@ -100,6 +100,7 @@ public class TaskManagerConfig
     // more available processors, the default value could be above 1. Therefore, it can cause error due to config
     // mismatch during execution. Additionally, cap it to 32 in order to avoid small pages produced by local
     // partitioning exchanges.
+
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */

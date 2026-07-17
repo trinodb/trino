@@ -169,8 +169,7 @@ public class TimeSharingTaskExecutor
     @Inject
     public TimeSharingTaskExecutor(TaskManagerConfig config, VersionEmbedder versionEmbedder, Tracer tracer, MultilevelSplitQueue splitQueue)
     {
-        this(
-                config.getMaxWorkerThreads(),
+        this(config.getMaxWorkerThreads(),
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),

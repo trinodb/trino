@@ -61,7 +61,7 @@ public interface ConnectorMergeSink
      *         <li>{@link #UPDATE_DELETE_OPERATION_NUMBER}</li>
      *     </ul>
      *     <li>Block {@code n-2} is the integer <i>merge case number</i>:
-     *     <p>the number starting with 0, for the `WHEN` clause that matched for the row</p>
+     * <p>the number starting with 0, for the `WHEN` clause that matched for the row</p>
      *     <li>Block {@code n-1} is a connector-specific rowId column, whose handle was previously returned by
      *         {@link ConnectorMetadata#getMergeRowIdColumnHandle(ConnectorSession, ConnectorTableHandle) getMergeRowIdColumnHandle()}
      *     </li>

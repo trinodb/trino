@@ -66,7 +66,7 @@ public class TestingDruidServer
     private static final int DRUID_HISTORICAL_PORT = 8083;
     private static final int DRUID_MIDDLE_MANAGER_PORT = 8091;
 
-    private static final String DRUID_DOCKER_IMAGE = "apache/druid:0.18.0";
+    private static final String DRUID_DOCKER_IMAGE = "apache/druid:0.22.0";
 
     public TestingDruidServer()
     {
@@ -79,7 +79,7 @@ public class TestingDruidServer
             // Cannot use Files.createTempDirectory() because on Mac by default it uses
             // /var/folders/ which is not visible to Docker for Mac
             hostWorkingDirectory = Files.createDirectory(
-                    Path.of("/tmp/docker-tests-files-" + randomUUID().toString()))
+                            Path.of("/tmp/docker-tests-files-" + randomUUID().toString()))
                     .toAbsolutePath().toString();
             File f = new File(hostWorkingDirectory);
             // Enable read/write/exec access for the services running in containers
@@ -115,7 +115,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             coordinator.start();
 
-            this.broker = new GenericContainer<>(DRUID_DOCKER_IMAGE)
+            this.broker = new GenericContainer<>(dockerImageName)
                     .withExposedPorts(DRUID_BROKER_PORT)
                     .withNetwork(network)
                     .withCommand("broker")
@@ -135,7 +135,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             broker.start();
 
-            this.historical = new GenericContainer<>(DRUID_DOCKER_IMAGE)
+            this.historical = new GenericContainer<>(dockerImageName)
                     .withExposedPorts(DRUID_HISTORICAL_PORT)
                     .withNetwork(network)
                     .withCommand("historical")
@@ -155,7 +155,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             historical.start();
 
-            this.middleManager = new GenericContainer<>(DRUID_DOCKER_IMAGE)
+            this.middleManager = new GenericContainer<>(dockerImageName)
                     .withExposedPorts(DRUID_MIDDLE_MANAGER_PORT)
                     .withNetwork(network)
                     .withCommand("middleManager")
@@ -244,7 +244,8 @@ public class TestingDruidServer
     void ingestData(String datasource, Optional<String> fileName, String indexTask, String dataFilePath)
             throws IOException, InterruptedException
     {
-        middleManager.withCopyFileToContainer(forHostPath(dataFilePath),
+        middleManager.withCopyFileToContainer(
+                forHostPath(dataFilePath),
                 getMiddleManagerContainerPathForDataFile(dataFilePath));
 
         indexTask = getReplacedIndexTask(datasource, fileName, indexTask);
@@ -271,7 +272,7 @@ public class TestingDruidServer
             ((ObjectNode) jsonNode
                     .get("spec")
                     .get("ioConfig")
-                    .get("firehose"))
+                    .get("inputSource"))
                     .put("filter", fileName.orElse(targetDataSource) + ".tsv");
             return mapper.writeValueAsString(jsonNode);
         }

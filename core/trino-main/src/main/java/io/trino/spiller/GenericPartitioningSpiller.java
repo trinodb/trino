@@ -166,7 +166,7 @@ public class GenericPartitioningSpiller
     @VisibleForTesting
     ListenableFuture<DataSize> flush()
     {
-        return flush(pageBuilder -> true);
+        return flush(_ -> true);
     }
 
     private synchronized ListenableFuture<DataSize> flush(Predicate<PageBuilder> flushCondition)
@@ -181,14 +181,16 @@ public class GenericPartitioningSpiller
             }
         }
 
-        return Futures.transform(Futures.allAsList(futures.build()),
+        return Futures.transform(
+                Futures.allAsList(futures.build()),
                 result -> {
                     long totalBytes = 0;
                     for (DataSize size : result) {
                         totalBytes += size.toBytes();
                     }
                     return DataSize.ofBytes(totalBytes);
-                }, directExecutor());
+                },
+                directExecutor());
     }
 
     private synchronized ListenableFuture<DataSize> flush(int partition)

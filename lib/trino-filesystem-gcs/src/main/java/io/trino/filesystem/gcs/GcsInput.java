@@ -30,6 +30,9 @@ import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
 import static io.trino.filesystem.gcs.GcsUtils.getReadChannel;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
+import static java.lang.Math.addExact;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +66,9 @@ final class GcsInput
             return;
         }
 
-        try (ReadChannel readChannel = getReadChannel(getBlobOrThrow(storage, location, blobGetOptions()), location, position, bufferLength, length, key)) {
+        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        OptionalLong limit = readLimit(position, bufferLength, length);
+        try (ReadChannel readChannel = getReadChannel(blob, location, position, bufferLength, limit, key)) {
             int readSize = readNBytes(readChannel, buffer, bufferOffset, bufferLength);
             if (readSize != bufferLength) {
                 throw new EOFException("End of file reached before reading fully: " + location);
@@ -80,9 +85,14 @@ final class GcsInput
     {
         ensureOpen();
         checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
+        if (bufferLength == 0) {
+            return 0;
+        }
+
         Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
-        long offset = Math.max(0, length.orElse(blob.getSize()) - bufferLength);
-        try (ReadChannel readChannel = getReadChannel(blob, location, offset, bufferLength, length, key)) {
+        long offset = max(0, length.orElse(blob.getSize()) - bufferLength);
+        OptionalLong limit = readLimit(offset, bufferLength, OptionalLong.of(blob.getSize()));
+        try (ReadChannel readChannel = getReadChannel(blob, location, offset, bufferLength, limit, key)) {
             return readNBytes(readChannel, buffer, bufferOffset, bufferLength);
         }
         catch (RuntimeException e) {
@@ -130,5 +140,14 @@ final class GcsInput
         return key
                 .map(encryption -> new BlobGetOption[] {BlobGetOption.decryptionKey(encodedKey(encryption))})
                 .orElseGet(() -> new BlobGetOption[0]);
+    }
+
+    private static OptionalLong readLimit(long position, int length, OptionalLong fileSize)
+    {
+        long limit = addExact(position, length);
+        if (fileSize.isPresent()) {
+            limit = min(limit, fileSize.getAsLong());
+        }
+        return OptionalLong.of(limit);
     }
 }

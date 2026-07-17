@@ -17,20 +17,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Span;
+import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -48,18 +59,25 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
+import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
+import static io.trino.execution.TaskTestUtils.SPLIT;
+import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -108,6 +126,132 @@ public class TestSqlStage
         for (int iteration = 0; iteration < 10; iteration++) {
             testFinalStageInfoInternal();
         }
+    }
+
+    @Test
+    public void testTableCredentialsAreLazilyResolved()
+    {
+        AtomicInteger callCount = new AtomicInteger();
+        Metadata metadata = new AbstractMockMetadata()
+        {
+            @Override
+            public Optional<ConnectorTableCredentials> getTableCredentials(Session s, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+            {
+                callCount.incrementAndGet();
+                return Optional.empty();
+            }
+        };
+
+        SqlStage stage = createSqlStage(
+                metadata,
+                new StageId(new QueryId("query"), 0),
+                createScanPlanFragment(),
+                ImmutableMap.of(),
+                new MockRemoteTaskFactory(executor, scheduledExecutor),
+                TEST_SESSION,
+                true,
+                new NodeTaskMap(new FinalizerService()),
+                executor,
+                noopTracer(),
+                Span.getInvalid(),
+                new SplitSchedulerStats(),
+                (_, _) -> OptionalInt.empty());
+
+        // Extraction does not run at stage construction
+        assertThat(callCount).hasValue(0);
+
+        // First createTask triggers extraction
+        createTestTask(stage, 0);
+        assertThat(callCount).hasValue(1);
+
+        // Subsequent createTasks reuse the memoized result
+        createTestTask(stage, 1);
+        createTestTask(stage, 2);
+        assertThat(callCount).hasValue(1);
+
+        stage.finish();
+    }
+
+    @Test
+    public void testTableCredentialsSeeLateUpdate()
+    {
+        AtomicReference<Optional<ConnectorTableCredentials>> response = new AtomicReference<>(Optional.empty());
+        Metadata metadata = new AbstractMockMetadata()
+        {
+            @Override
+            public Optional<ConnectorTableCredentials> getTableCredentials(Session s, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+            {
+                return response.get();
+            }
+        };
+
+        AtomicReference<Map<PlanNodeId, ConnectorTableCredentials>> capturedCredentials = new AtomicReference<>();
+        RemoteTaskFactory capturingFactory = new RemoteTaskFactory()
+        {
+            private final RemoteTaskFactory delegate = new MockRemoteTaskFactory(executor, scheduledExecutor);
+
+            @Override
+            public RemoteTask createRemoteTask(
+                    Session session,
+                    Span stageSpan,
+                    TaskId taskId,
+                    InternalNode node,
+                    boolean speculative,
+                    PlanFragment fragment,
+                    Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+                    Multimap<PlanNodeId, Split> initialSplits,
+                    OutputBuffers outputBuffers,
+                    PartitionedSplitCountTracker partitionedSplitCountTracker,
+                    Set<DynamicFilterId> outboundDynamicFilterIds,
+                    Optional<DataSize> estimatedMemory,
+                    boolean summarizeTaskInfo)
+            {
+                capturedCredentials.set(tableCredentials);
+                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, initialSplits, outputBuffers, partitionedSplitCountTracker, outboundDynamicFilterIds, estimatedMemory, summarizeTaskInfo);
+            }
+        };
+
+        SqlStage stage = createSqlStage(
+                metadata,
+                new StageId(new QueryId("query"), 0),
+                createScanPlanFragment(),
+                ImmutableMap.of(),
+                capturingFactory,
+                TEST_SESSION,
+                true,
+                new NodeTaskMap(new FinalizerService()),
+                executor,
+                noopTracer(),
+                Span.getInvalid(),
+                new SplitSchedulerStats(),
+                (_, _) -> OptionalInt.empty());
+
+        // Simulate a split source populating credentials after stage construction but before first task creation.
+        ConnectorTableCredentials credentials = new ConnectorTableCredentials() {};
+        response.set(Optional.of(credentials));
+
+        createTestTask(stage, 0);
+
+        assertThat(capturedCredentials.get())
+                .containsExactly(Map.entry(TABLE_SCAN_NODE_ID, credentials));
+
+        stage.finish();
+    }
+
+    private void createTestTask(SqlStage stage, int partition)
+    {
+        InternalNode node = new InternalNode("node" + partition, URI.create("http://node/" + partition), NodeVersion.UNKNOWN, false);
+        stage.createTask(
+                node,
+                partition,
+                0,
+                Optional.empty(),
+                OptionalInt.empty(),
+                PipelinedOutputBuffers.createInitial(ARBITRARY),
+                ImmutableListMultimap.of(TABLE_SCAN_NODE_ID, SPLIT.split()),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false);
     }
 
     private void testFinalStageInfoInternal()
@@ -254,5 +398,10 @@ public class TestSqlStage
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty());
+    }
+
+    private static PlanFragment createScanPlanFragment()
+    {
+        return PLAN_FRAGMENT.withOutputPartitioning(Optional.empty(), OptionalInt.empty());
     }
 }

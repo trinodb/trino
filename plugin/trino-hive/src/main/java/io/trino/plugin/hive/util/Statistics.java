@@ -96,25 +96,30 @@ public final class Statistics
     private static void setColumnStatisticsForEmptyPartition(Type columnType, HiveColumnStatistics.Builder result, HiveColumnStatisticType columnStatisticType)
     {
         switch (columnStatisticType) {
-            case MAX_VALUE_SIZE_IN_BYTES:
+            case MAX_VALUE_SIZE_IN_BYTES -> {
                 result.setMaxValueSizeInBytes(0);
                 return;
-            case TOTAL_SIZE_IN_BYTES:
+            }
+            case TOTAL_SIZE_IN_BYTES -> {
                 result.setAverageColumnLength(0);
                 return;
-            case NUMBER_OF_DISTINCT_VALUES:
+            }
+            case NUMBER_OF_DISTINCT_VALUES -> {
                 result.setDistinctValuesWithNullCount(0);
                 return;
-            case NUMBER_OF_NON_NULL_VALUES:
+            }
+            case NUMBER_OF_NON_NULL_VALUES -> {
                 result.setNullsCount(0);
                 return;
-            case NUMBER_OF_TRUE_VALUES:
+            }
+            case NUMBER_OF_TRUE_VALUES -> {
                 result.setBooleanStatistics(new BooleanStatistics(OptionalLong.of(0L), OptionalLong.of(0L)));
                 return;
-            case MIN_VALUE:
-            case MAX_VALUE:
+            }
+            case MIN_VALUE, MAX_VALUE -> {
                 setMinMaxForEmptyPartition(columnType, result);
                 return;
+            }
         }
         throw new TrinoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
     }
@@ -157,7 +162,9 @@ public final class Statistics
     private static List<String> getPartitionValues(ComputedStatistics statistics, List<String> partitionColumns, List<Type> partitionColumnTypes)
     {
         checkArgument(statistics.getGroupingColumns().equals(partitionColumns),
-                "Unexpected grouping. Partition columns: %s. Grouping columns: %s", partitionColumns, statistics.getGroupingColumns());
+                "Unexpected grouping. Partition columns: %s. Grouping columns: %s",
+                partitionColumns,
+                statistics.getGroupingColumns());
         Page partitionColumnsPage = new Page(1, statistics.getGroupingValues().toArray(new Block[] {}));
         return createPartitionValues(partitionColumnTypes, partitionColumnsPage, 0);
     }
@@ -175,7 +182,7 @@ public final class Statistics
     {
         Map<String, Map<HiveColumnStatisticType, Block>> result = new HashMap<>();
         computedStatistics.forEach((metadata, block) -> {
-            Map<HiveColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), key -> new HashMap<>());
+            Map<HiveColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), _ -> new HashMap<>());
             columnStatistics.put(HiveColumnStatisticType.from(metadata), block);
         });
         return result.entrySet()

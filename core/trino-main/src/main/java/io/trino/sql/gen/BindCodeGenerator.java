@@ -16,9 +16,9 @@ package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Bind;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
 
 import java.util.List;
 import java.util.Map;
@@ -31,11 +31,11 @@ public class BindCodeGenerator
 {
     private final Class<?> lambdaInterface;
     private final CompiledLambda compiledLambda;
-    private final List<RowExpression> captureExpressions;
+    private final List<Expression> captureExpressions;
 
-    public BindCodeGenerator(SpecialForm specialForm, Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap, Class<?> lambdaInterface)
+    public BindCodeGenerator(Bind bind, Map<Lambda, CompiledLambda> compiledLambdaMap, Class<?> lambdaInterface)
     {
-        requireNonNull(specialForm, "specialForm is null");
+        requireNonNull(bind, "bind is null");
         requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
 
         this.lambdaInterface = requireNonNull(lambdaInterface, "lambdaInterface is null");
@@ -44,12 +44,10 @@ public class BindCodeGenerator
         // It takes the captured values and the uncaptured lambda, and produces captured lambda as the output.
         // The uncaptured lambda is just a method, and does not have a stack representation during execution.
         // As a result, the bind expression generates the captured lambda in one step.
-        List<RowExpression> arguments = specialForm.arguments();
-        int numCaptures = arguments.size() - 1;
-        LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) arguments.get(numCaptures);
+        Lambda lambda = bind.function();
         checkArgument(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");
         compiledLambda = compiledLambdaMap.get(lambda);
-        captureExpressions = arguments.subList(0, numCaptures);
+        captureExpressions = bind.values();
     }
 
     @Override

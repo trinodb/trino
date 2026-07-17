@@ -51,7 +51,7 @@ public interface QueryDataEncoder
      * Responsible for choosing a {@link Factory} based on the client-provider
      * supported encodings. Encoding that will be used is resolved one time
      * during session creation.
-     * <p></p>
+     * <p>
      * Returning Optional.empty() fallbacks to the previous, direct protocol.
      */
     @FunctionalInterface

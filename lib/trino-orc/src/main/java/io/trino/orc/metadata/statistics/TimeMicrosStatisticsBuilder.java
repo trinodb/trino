@@ -78,7 +78,7 @@ public class TimeMicrosStatisticsBuilder
         Optional<IntegerStatistics> integerStatistics = buildIntegerStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
-                integerStatistics.map(s -> INTEGER_VALUE_BYTES).orElse(0L),
+                integerStatistics.map(_ -> INTEGER_VALUE_BYTES).orElse(0L),
                 null,
                 integerStatistics.orElse(null),
                 null,

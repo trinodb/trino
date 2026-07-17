@@ -19,5 +19,5 @@ public enum FrameBoundType
     PRECEDING,
     CURRENT_ROW,
     FOLLOWING,
-    UNBOUNDED_FOLLOWING
+    UNBOUNDED_FOLLOWING,
 }

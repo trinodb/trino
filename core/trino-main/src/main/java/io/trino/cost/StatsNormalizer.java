@@ -57,7 +57,7 @@ public class StatsNormalizer
         Predicate<Symbol> symbolFilter = outputSymbols
                 .map(ImmutableSet::copyOf)
                 .map(set -> (Predicate<Symbol>) set::contains)
-                .orElse(symbol -> true);
+                .orElse(_ -> true);
 
         for (Symbol symbol : stats.getSymbolsWithKnownStatistics()) {
             if (!symbolFilter.test(symbol)) {

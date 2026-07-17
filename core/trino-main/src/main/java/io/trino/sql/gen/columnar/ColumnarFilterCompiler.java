@@ -15,10 +15,12 @@ package io.trino.sql.gen.columnar;
 
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
@@ -26,31 +28,41 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.airlift.log.Logger;
 import io.trino.cache.CacheStatsMBean;
-import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.operator.project.InputChannels;
 import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.planner.Symbol;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.lang.reflect.Constructor;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.ParameterizedType.type;
@@ -63,13 +75,9 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
-import static io.trino.sql.relational.SpecialForm.Form.BETWEEN;
-import static io.trino.sql.relational.SpecialForm.Form.IN;
-import static io.trino.sql.relational.SpecialForm.Form.IS_NULL;
 import static io.trino.util.CompilerUtils.defineClass;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -78,32 +86,38 @@ public class ColumnarFilterCompiler
 {
     private static final Logger log = Logger.get(ColumnarFilterCompiler.class);
 
+    private final PlannerContext plannerContext;
     private final FunctionManager functionManager;
+    private final Metadata metadata;
     // Optional is used to cache failure to generate filter for unsupported cases
-    private final NonEvictableLoadingCache<RowExpression, Optional<Supplier<ColumnarFilter>>> filterCache;
+    private final NonEvictableCache<Expression, Optional<Class<? extends ColumnarFilter>>> filterCache;
     private final CacheStatsMBean filterCacheStats;
+    // One generated IN class per (value type, set class), shared across dynamic filters.
+    private final NonEvictableCache<InSetDynamicFilterKey, Class<? extends ColumnarFilter>> inSetDynamicFilterCache;
 
     @Inject
-    public ColumnarFilterCompiler(FunctionManager functionManager, CompilerConfig config)
+    public ColumnarFilterCompiler(PlannerContext plannerContext, CompilerConfig config)
     {
-        this(functionManager, config.getExpressionCacheSize());
+        this(plannerContext, config.getExpressionCacheSize());
     }
 
-    public ColumnarFilterCompiler(FunctionManager functionManager, int expressionCacheSize)
+    public ColumnarFilterCompiler(PlannerContext plannerContext, int expressionCacheSize)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.functionManager = plannerContext.getFunctionManager();
+        this.metadata = plannerContext.getMetadata();
         if (expressionCacheSize > 0) {
             filterCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
                             .recordStats()
-                            .maximumSize(expressionCacheSize),
-                    CacheLoader.from(this::generateFilterInternal));
+                            .maximumSize(expressionCacheSize));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
             filterCache = null;
             filterCacheStats = null;
         }
+        inSetDynamicFilterCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(64));
     }
 
     @Nullable
@@ -114,40 +128,112 @@ public class ColumnarFilterCompiler
         return filterCacheStats;
     }
 
-    public Optional<Supplier<ColumnarFilter>> generateFilter(RowExpression filter)
+    Metadata getMetadata()
     {
-        if (filterCache == null) {
-            return generateFilterInternal(filter);
-        }
-        return filterCache.getUnchecked(filter);
+        return metadata;
     }
 
-    private Optional<Supplier<ColumnarFilter>> generateFilterInternal(RowExpression filter)
+    PlannerContext getPlannerContext()
+    {
+        return plannerContext;
+    }
+
+    public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout)
+    {
+        return generateFilter(filter, layout, false);
+    }
+
+    // dynamicFilter=true routes IN predicates to a separate per-type class, bypassing filterCache so
+    // their large value lists are not retained in the cache.
+    public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
+    {
+        // Compact the layout to consecutive indices (0, 1, 2, ...). The compiled filter uses these
+        // compact indices to access blocks from the InputChannelsSourcePage, which translates
+        // compact index back to the original page channel. This must be done before compilation
+        // because operators like GREATER_THAN reorder arguments (e.g., to LESS_THAN with swapped args),
+        // and the compiled filter must use indices consistent with the InputChannelsSourcePage.
+        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
+        Map<Symbol, Integer> compactLayout = result.compactLayout();
+        InputChannels inputChannels = result.inputChannels();
+
+        if (dynamicFilter && filter instanceof In in) {
+            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, functionManager);
+            if (generator.isPresent()) {
+                return Optional.of(compileInSetDynamicFilter(generator.get(), inputChannels));
+            }
+        }
+
+        Optional<Class<? extends ColumnarFilter>> filterClass;
+        if (filterCache == null) {
+            filterClass = generateFilterInternal(filter, compactLayout);
+        }
+        else {
+            try {
+                filterClass = filterCache.get(filter, () -> generateFilterInternal(filter, compactLayout));
+            }
+            catch (ExecutionException e) {
+                throw new UncheckedExecutionException(e);
+            }
+        }
+
+        if (filterClass.isEmpty()) {
+            return Optional.empty();
+        }
+        Class<? extends ColumnarFilter> clazz = filterClass.get();
+        return Optional.of(() -> {
+            try {
+                return clazz.getConstructor(InputChannels.class).newInstance(inputChannels);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new TrinoException(COMPILER_ERROR, e);
+            }
+        });
+    }
+
+    // Caches the value-independent IN filter class per (value type, set class) and binds the value set
+    // for the current filter. The generator decides eligibility; this only handles reuse and instantiation.
+    private Supplier<ColumnarFilter> compileInSetDynamicFilter(InSetDynamicFilterGenerator generator, InputChannels inputChannels)
+    {
+        Class<? extends LongSet> setClass = generator.setClass();
+        Class<? extends ColumnarFilter> clazz;
+        try {
+            clazz = inSetDynamicFilterCache.get(new InSetDynamicFilterKey(generator.valueType(), setClass), generator::generateColumnarFilter);
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
+        LongSet valueSet = generator.valueSet();
+        return () -> {
+            try {
+                return clazz.getConstructor(InputChannels.class, setClass).newInstance(inputChannels, valueSet);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new TrinoException(COMPILER_ERROR, e);
+            }
+        };
+    }
+
+    private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
+
+    private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(Expression filter, Map<Symbol, Integer> layout)
     {
         try {
-            if (filter instanceof CallExpression callExpression) {
-                if (isNotExpression(callExpression)) {
-                    // "not(is_null(input_reference))" is handled explicitly as it is easy.
-                    // more generic cases like "not(equal(input_reference, constant))" are not handled yet
-                    if (callExpression.arguments().getFirst() instanceof SpecialForm specialForm && specialForm.form() == IS_NULL) {
-                        return Optional.of(createIsNotNullColumnarFilter(specialForm));
+            return switch (filter) {
+                case Call call -> {
+                    if (isNotExpression(call)) {
+                        // "not(is_null(reference))" is handled explicitly as it is easy.
+                        // more generic cases like "not(equal(reference, constant))" are not handled yet
+                        if (call.arguments().getFirst() instanceof IsNull isNull) {
+                            yield Optional.of(createIsNotNullColumnarFilter(isNull));
+                        }
+                        yield Optional.empty();
                     }
-                    return Optional.empty();
+                    yield Optional.of(new CallColumnarFilterGenerator(call.function(), call.arguments(), layout, functionManager).generateColumnarFilter());
                 }
-                return Optional.of(new CallColumnarFilterGenerator(callExpression, functionManager).generateColumnarFilter());
-            }
-            else if (filter instanceof SpecialForm specialForm) {
-                if (specialForm.form() == IS_NULL) {
-                    return Optional.of(createIsNullColumnarFilter(specialForm));
-                }
-                if (specialForm.form() == IN) {
-                    return Optional.of(new InColumnarFilterGenerator(specialForm, functionManager).generateColumnarFilter());
-                }
-                if (specialForm.form() == BETWEEN) {
-                    return Optional.of(new BetweenInlineColumnarFilterGenerator(specialForm, functionManager).generateColumnarFilter());
-                }
-            }
-            return Optional.empty();
+                case IsNull isNull -> Optional.of(createIsNullColumnarFilter(isNull));
+                case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, functionManager).generateColumnarFilter());
+                default -> Optional.empty();
+            };
         }
         catch (Throwable t) {
             if (t instanceof UnsupportedOperationException || t.getCause() instanceof UnsupportedOperationException) {
@@ -160,110 +246,106 @@ public class ColumnarFilterCompiler
         }
     }
 
-    static void generateGetInputChannels(CallSiteBinder callSiteBinder, ClassDefinition classDefinition, RowExpression rowExpression)
+    static FieldDefinition generateGetInputChannels(ClassDefinition classDefinition)
     {
-        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(rowExpression);
+        FieldDefinition inputChannelsField = classDefinition.declareField(a(PRIVATE, FINAL), "inputChannels", InputChannels.class);
 
-        // getInputChannels
-        classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(InputChannels.class))
-                .getBody()
-                .append(invoke(callSiteBinder.bind(result.getInputChannels(), InputChannels.class), "getInputChannels"))
+        MethodDefinition getInputChannelsMethod = classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(InputChannels.class));
+        getInputChannelsMethod.getBody()
+                .append(getInputChannelsMethod.getThis().getField(inputChannelsField))
                 .retObject();
+
+        return inputChannelsField;
     }
 
-    static Supplier<ColumnarFilter> createClassInstance(CallSiteBinder binder, ClassDefinition classDefinition)
+    static Class<? extends ColumnarFilter> createClassInstance(CallSiteBinder binder, ClassDefinition classDefinition)
     {
-        Constructor<? extends ColumnarFilter> filterConstructor;
         try {
-            Class<? extends ColumnarFilter> functionClass = defineClass(classDefinition, ColumnarFilter.class, binder.getBindings(), ColumnarFilterCompiler.class.getClassLoader());
-            filterConstructor = functionClass.getConstructor();
+            return defineClass(classDefinition, ColumnarFilter.class, binder.getBindings(), ColumnarFilterCompiler.class.getClassLoader());
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
-                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
+                throw new TrinoException(
+                        QUERY_EXCEEDED_COMPILER_LIMIT,
+                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",
+                        e);
             }
             throw new TrinoException(COMPILER_ERROR, e.getCause());
         }
-
-        return () -> {
-            try {
-                return filterConstructor.newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw new TrinoException(COMPILER_ERROR, e);
-            }
-        };
     }
 
-    static void declareBlockVariables(List<RowExpression> rowExpressions, Parameter page, Scope scope, BytecodeBlock body)
+    static void declareBlockVariables(List<? extends Expression> expressions, Map<Symbol, Integer> layout, Parameter page, Scope scope, BytecodeBlock body)
     {
-        int channel = 0;
-        Set<Integer> inputFields = new HashSet<>(); // There may be multiple InputReferenceExpression on the same input block
-        for (RowExpression rowExpression : rowExpressions) {
-            if (!(rowExpression instanceof InputReferenceExpression inputReference)) {
+        Set<Integer> inputFields = new HashSet<>(); // There may be multiple References on the same input block
+        for (Expression expression : expressions) {
+            if (!(expression instanceof Reference reference)) {
                 continue;
             }
-            if (inputFields.contains(inputReference.field())) {
+            Integer field = layout.get(Symbol.from(reference));
+            checkState(field != null, "Reference not in layout: %s", reference.name());
+            if (inputFields.contains(field)) {
                 continue;
             }
             scope.declareVariable(
-                    "block_" + inputReference.field(),
+                    "block_" + field,
                     body,
                     page.invoke(
                             "getBlock",
                             Block.class,
-                            constantInt(channel)));
-            inputFields.add(inputReference.field());
-            channel++;
+                            constantInt(field)));
+            inputFields.add(field);
         }
     }
 
-    static BytecodeExpression generateBlockMayHaveNull(List<RowExpression> rowExpressions, Scope scope)
+    static BytecodeExpression generateBlockMayHaveNull(List<? extends Expression> expressions, Map<Symbol, Integer> layout, Scope scope)
     {
-        return generateBlockMayHaveNull(rowExpressions, nCopies(rowExpressions.size(), false), scope);
+        return generateBlockMayHaveNull(expressions, layout, nCopies(expressions.size(), false), scope);
     }
 
-    static BytecodeExpression generateBlockMayHaveNull(List<RowExpression> rowExpressions, List<Boolean> isNullableArgument, Scope scope)
+    static BytecodeExpression generateBlockMayHaveNull(List<? extends Expression> expressions, Map<Symbol, Integer> layout, List<Boolean> isNullableArgument, Scope scope)
     {
         checkArgument(
-                rowExpressions.size() == isNullableArgument.size(),
-                "rowExpressions size %s does not match isNullableArgument size %s",
-                rowExpressions.size(),
+                expressions.size() == isNullableArgument.size(),
+                "expressions size %s does not match isNullableArgument size %s",
+                expressions.size(),
                 isNullableArgument.size());
         BytecodeExpression mayHaveNull = constantFalse();
-        for (int i = 0; i < rowExpressions.size(); i++) {
-            RowExpression rowExpression = rowExpressions.get(i);
+        for (int i = 0; i < expressions.size(); i++) {
+            Expression expression = expressions.get(i);
             // Function with nullable argument should get adapted to a MethodHandle which returns false on NULL, so explicit isNull check isn't needed
-            if (rowExpression instanceof InputReferenceExpression inputReference && !isNullableArgument.get(i)) {
+            if (expression instanceof Reference reference && !isNullableArgument.get(i)) {
+                Integer field = layout.get(Symbol.from(reference));
+                checkState(field != null, "Reference not in layout: %s", reference.name());
                 mayHaveNull = BytecodeExpressions.or(
                         mayHaveNull,
-                        scope.getVariable("block_" + inputReference.field()).invoke("mayHaveNull", boolean.class));
+                        scope.getVariable("block_" + field).invoke("mayHaveNull", boolean.class));
             }
         }
         return mayHaveNull;
     }
 
-    static BytecodeExpression generateBlockPositionNotNull(List<RowExpression> rowExpressions, Scope scope, Variable position)
+    static BytecodeExpression generateBlockPositionNotNull(List<? extends Expression> expressions, Map<Symbol, Integer> layout, Scope scope, Variable position)
     {
-        return generateBlockPositionNotNull(rowExpressions, nCopies(rowExpressions.size(), false), scope, position);
+        return generateBlockPositionNotNull(expressions, layout, nCopies(expressions.size(), false), scope, position);
     }
 
-    static BytecodeExpression generateBlockPositionNotNull(List<RowExpression> rowExpressions, List<Boolean> isNullableArgument, Scope scope, Variable position)
+    static BytecodeExpression generateBlockPositionNotNull(List<? extends Expression> expressions, Map<Symbol, Integer> layout, List<Boolean> isNullableArgument, Scope scope, Variable position)
     {
         checkArgument(
-                rowExpressions.size() == isNullableArgument.size(),
-                "rowExpressions size %s does not match isNullableArgument size %s",
-                rowExpressions.size(),
+                expressions.size() == isNullableArgument.size(),
+                "expressions size %s does not match isNullableArgument size %s",
+                expressions.size(),
                 isNullableArgument.size());
         BytecodeExpression isNotNull = constantTrue();
-        for (int i = 0; i < rowExpressions.size(); i++) {
-            RowExpression rowExpression = rowExpressions.get(i);
+        for (int i = 0; i < expressions.size(); i++) {
+            Expression expression = expressions.get(i);
             // Function with nullable argument should get adapted to a MethodHandle which returns false on NULL, so explicit isNull check isn't needed
-            if (rowExpression instanceof InputReferenceExpression inputReference && !isNullableArgument.get(i)) {
+            if (expression instanceof Reference reference && !isNullableArgument.get(i)) {
+                Integer field = layout.get(Symbol.from(reference));
+                checkState(field != null, "Reference not in layout: %s", reference.name());
                 isNotNull = BytecodeExpressions.and(
                         isNotNull,
-                        BytecodeExpressions.not(scope.getVariable("block_" + inputReference.field()).invoke("isNull", boolean.class, position)));
+                        BytecodeExpressions.not(scope.getVariable("block_" + field).invoke("isNull", boolean.class, position)));
             }
         }
         return isNotNull;

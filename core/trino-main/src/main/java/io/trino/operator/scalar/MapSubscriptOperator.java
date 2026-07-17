@@ -29,7 +29,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -39,7 +39,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
@@ -58,9 +59,9 @@ public class MapSubscriptOperator
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(new TypeSignature("V"))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(new TypeSignature("K"))
+                        .returnType(typeVariable("V"))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(typeVariable("K"))
                         .build())
                 .nullable()
                 .build());
@@ -70,7 +71,7 @@ public class MapSubscriptOperator
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOptionalCastSignature(new TypeSignature("K"), VARCHAR.getTypeSignature())
+                .addOptionalCastSignature(typeVariable("K"), TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeDescriptor()))
                 .build();
     }
 

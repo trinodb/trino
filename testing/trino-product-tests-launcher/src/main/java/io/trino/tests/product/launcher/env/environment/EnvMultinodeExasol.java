@@ -59,10 +59,10 @@ public class EnvMultinodeExasol
 
     private DockerContainer createExasol()
     {
-        DockerContainer container = new DockerContainer("exadockerci4/docker-db:2025.1.8_dev_java_slc_only", "exasol") //Test container tailored to reduce used disk space and solve CI disk space pressure issue.
+        DockerContainer container = new DockerContainer("exadockerci4/docker-db:2025.1.8_dev_java_slc_only", "exasol") // Test container tailored to reduce used disk space and solve CI disk space pressure issue.
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy().withTimeout(Duration.ofSeconds(10)))
                 .waitingFor(exasolReadyViaCurl())
-                .withEnv("COSLWD_ENABLED", "1"); //Disables rsyslogd, cleans up log clutter and speeds up database startup
+                .withEnv("COSLWD_ENABLED", "1"); // Disables rsyslogd, cleans up log clutter and speeds up database startup
         container.setPrivilegedMode(true);
         portBinder.exposePort(container, EXASOL_PORT);
         return container;
@@ -70,23 +70,23 @@ public class EnvMultinodeExasol
 
     private static WaitStrategy exasolReadyViaCurl()
     {
-        String command = """
-            bash -c '
-            while true; do
-              resp=$(curl -sk --max-time 5 https://localhost:%d/ 2>/dev/null || true)
-              if [ -n "$resp" ] && (
-                   echo "$resp" | grep -q "status" ||
-                   echo "$resp" | grep -q "WebSocket" ||
-                   echo "$resp" | grep -q "error"
-                 ); then
-                exit 0
-              fi
-              sleep 0.5
-            done'
-            """.formatted(EXASOL_PORT);
+        String command =
+                """
+                bash -c '
+                while true; do
+                  resp=$(curl -sk --max-time 5 https://localhost:%d/ 2>/dev/null || true)
+                  if [ -n "$resp" ] && (
+                       echo "$resp" | grep -q "status" ||
+                       echo "$resp" | grep -q "WebSocket" ||
+                       echo "$resp" | grep -q "error"
+                     ); then
+                    exit 0
+                  fi
+                  sleep 0.5
+                done'
+                """.formatted(EXASOL_PORT);
 
         return Wait.forSuccessfulCommand(command)
                 .withStartupTimeout(Duration.ofMinutes(5));
     }
-
 }

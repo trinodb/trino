@@ -44,6 +44,11 @@ public interface TokenPairSerializer
 
     String serialize(TokenPair tokenPair);
 
+    default String serializeTokenPair(String accessToken, Date expiration, String refreshToken)
+    {
+        return serialize(TokenPair.withAccessAndRefreshTokens(accessToken, expiration, refreshToken));
+    }
+
     record TokenPair(String accessToken, Date expiration, Optional<String> refreshToken)
     {
         public TokenPair

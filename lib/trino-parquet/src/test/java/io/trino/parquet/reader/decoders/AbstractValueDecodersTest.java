@@ -21,28 +21,21 @@ import io.trino.parquet.ParquetTestUtils;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.TestingValuesWriters;
+import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.ByteBufferInputStream;
-import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForInteger;
-import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForLong;
-import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
-import org.apache.parquet.column.values.deltastrings.DeltaByteArrayWriter;
-import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
-import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
-import org.apache.parquet.column.values.plain.PlainValuesWriter;
-import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesWriter;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -64,40 +57,21 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
-import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
-import static io.trino.parquet.ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ValuesType.VALUES;
-import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
 import static io.trino.testing.DataProviders.toDataProvider;
-import static java.lang.Integer.MAX_VALUE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.column.Encoding.RLE;
-import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
-import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter;
-import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter;
-import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFloatDictionaryValuesWriter;
-import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
-import static org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
 public abstract class AbstractValueDecodersTest
 {
-    private static final int MAX_DATA_SIZE = 1_000_000;
-
     private static final Object[][] SMALL_SIZE_RUNNERS = Stream.of(
                     ImmutableList.of(fullDecoder()),
                     generateRunnerForBatchSize(AbstractValueDecodersTest::batchDecode, 1, 12),
@@ -134,7 +108,7 @@ public abstract class AbstractValueDecodersTest
     {
         PrimitiveField field = testType.field();
         PrimitiveType primitiveType = field.getDescriptor().getPrimitiveType();
-        ValuesWriter valuesWriter = getValuesWriter(encoding, primitiveType.getPrimitiveTypeName(), OptionalInt.of(primitiveType.getTypeLength()));
+        ValuesWriter valuesWriter = TestingValuesWriters.getValuesWriter(encoding, primitiveType.getPrimitiveTypeName(), OptionalInt.of(primitiveType.getTypeLength()));
         DataBuffer dataBuffer = inputDataProvider.write(valuesWriter, dataSize);
 
         Optional<io.trino.parquet.DictionaryPage> dictionaryPage = Optional.ofNullable(dataBuffer.dictionaryPage())
@@ -360,55 +334,5 @@ public abstract class AbstractValueDecodersTest
         return Arrays.stream(batchSizes)
                 .map(runnerProvider)
                 .collect(toImmutableList());
-    }
-
-    private static ValuesWriter getValuesWriter(ParquetEncoding encoding, PrimitiveTypeName typeName, OptionalInt typeLength)
-    {
-        if (encoding.equals(ParquetEncoding.RLE)) {
-            if (typeName.equals(BOOLEAN)) {
-                return new RunLengthBitPackingHybridValuesWriter(1, MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-            }
-            throw new IllegalArgumentException("RLE encoding writer is not supported for type " + typeName);
-        }
-        if (encoding.equals(PLAIN)) {
-            return switch (typeName) {
-                case BOOLEAN -> new BooleanPlainValuesWriter();
-                case FIXED_LEN_BYTE_ARRAY -> new FixedLenByteArrayPlainValuesWriter(typeLength.orElseThrow(), MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-                case BINARY, INT32, INT64, DOUBLE, FLOAT -> new PlainValuesWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-                case INT96 -> new FixedLenByteArrayPlainValuesWriter(12, MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-            };
-        }
-        if (encoding.equals(RLE_DICTIONARY) || encoding.equals(PLAIN_DICTIONARY)) {
-            return switch (typeName) {
-                case BINARY -> new PlainBinaryDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-                case FIXED_LEN_BYTE_ARRAY -> new PlainFixedLenArrayDictionaryValuesWriter(MAX_VALUE, typeLength.orElseThrow(), RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-                case INT32 -> new PlainIntegerDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-                case INT64 -> new PlainLongDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-                case FLOAT -> new PlainFloatDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-                case DOUBLE -> new PlainDoubleDictionaryValuesWriter(MAX_VALUE, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-                case INT96 -> new PlainFixedLenArrayDictionaryValuesWriter(MAX_VALUE, 12, RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-                default -> throw new IllegalArgumentException("Dictionary encoding writer is not supported for type " + typeName);
-            };
-        }
-        if (encoding.equals(DELTA_BINARY_PACKED)) {
-            return switch (typeName) {
-                case INT32 -> new DeltaBinaryPackingValuesWriterForInteger(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-                case INT64 -> new DeltaBinaryPackingValuesWriterForLong(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-                default -> throw new IllegalArgumentException("Delta binary packing encoding writer is not supported for type " + typeName);
-            };
-        }
-        if (encoding.equals(DELTA_LENGTH_BYTE_ARRAY)) {
-            if (typeName.equals(BINARY)) {
-                return new DeltaLengthByteArrayValuesWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-            }
-            throw new IllegalArgumentException("Delta length byte array encoding writer is not supported for type " + typeName);
-        }
-        if (encoding.equals(DELTA_BYTE_ARRAY)) {
-            if (typeName.equals(BINARY) || typeName.equals(FIXED_LEN_BYTE_ARRAY)) {
-                return new DeltaByteArrayWriter(MAX_DATA_SIZE, MAX_DATA_SIZE, HeapByteBufferAllocator.getInstance());
-            }
-            throw new IllegalArgumentException("Delta byte array encoding writer is not supported for type " + typeName);
-        }
-        throw new UnsupportedOperationException(format("Encoding %s is not supported", encoding));
     }
 }

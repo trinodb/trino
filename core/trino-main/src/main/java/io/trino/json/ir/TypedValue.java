@@ -15,6 +15,8 @@ package io.trino.json.ir;
 
 import io.trino.spi.type.Type;
 
+import java.util.Objects;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -132,5 +134,27 @@ public class TypedValue
     public Object getValueAsObject()
     {
         return valueAsObject;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof TypedValue other)) {
+            return false;
+        }
+        return type.equals(other.type)
+                && longValue == other.longValue
+                && Double.compare(doubleValue, other.doubleValue) == 0
+                && booleanValue == other.booleanValue
+                && Objects.equals(objectValue, other.objectValue);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(type, objectValue, longValue, doubleValue, booleanValue);
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -29,6 +30,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestRowNumberFunction
         extends AbstractTestWindowFunction
 {
+    @Override
+    protected Optional<WindowFunctionUnderTest> windowFunctionUnderTest()
+    {
+        return Optional.of(new WindowFunctionUnderTest("row_number", "row_number()"));
+    }
+
     @Test
     public void testRowNumber()
     {

@@ -29,13 +29,13 @@ import io.trino.plugin.deltalake.DeltaLakePageSourceProvider;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeSplitManager;
 import io.trino.plugin.deltalake.DeltaLakeSynchronizerModule;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentialsProvider;
 import io.trino.plugin.deltalake.DeltaLakeTableProperties;
 import io.trino.plugin.deltalake.DeltaLakeTransactionManager;
 import io.trino.plugin.deltalake.DeltaLakeWriterStats;
+import io.trino.plugin.deltalake.NoOpTableCredentialsProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
-import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsProvider;
 import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreModule;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
@@ -95,7 +95,7 @@ public class LakehouseDeltaModule
         binder.bind(ExtendedStatisticsAccess.class).annotatedWith(ForCachingExtendedStatisticsAccess.class).to(MetaDirStatisticsAccess.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, DeltaLakeFileSystemFactory.class).setDefault().to(DefaultDeltaLakeFileSystemFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, VendedCredentialsProvider.class).setDefault().to(NoOpVendedCredentialsProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, DeltaLakeTableCredentialsProvider.class).setDefault().to(NoOpTableCredentialsProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(TransactionLogAccess.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TransactionLogAccess.class).withGeneratedName();

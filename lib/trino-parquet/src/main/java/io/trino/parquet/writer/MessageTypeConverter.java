@@ -96,8 +96,10 @@ class MessageTypeConverter
                 visitChildren(result, groupType, element);
             }
 
-            private void visitChildren(List<SchemaElement> result,
-                    GroupType groupType, SchemaElement element)
+            private void visitChildren(
+                    List<SchemaElement> result,
+                    GroupType groupType,
+                    SchemaElement element)
             {
                 element.setNum_children(groupType.getFieldCount());
                 result.add(element);

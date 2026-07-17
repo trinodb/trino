@@ -22,7 +22,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.VarArgsToArrayAdapterGenerator;
 
 import java.lang.invoke.MethodHandle;
@@ -32,7 +31,8 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
@@ -65,8 +65,8 @@ public final class ArrayConcatFunction
         super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(arrayType(new TypeSignature("E")))
-                        .argumentType(arrayType(new TypeSignature("E")))
+                        .returnType(arrayType(typeVariable("E")))
+                        .argumentType(arrayType(typeVariable("E")))
                         .variableArity()
                         .build())
                 .description(DESCRIPTION)

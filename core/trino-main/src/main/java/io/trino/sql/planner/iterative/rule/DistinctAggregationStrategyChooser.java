@@ -115,9 +115,9 @@ public class DistinctAggregationStrategyChooser
         if (!aggregationNode.getGroupingKeys().isEmpty() && // global distinct aggregation is computed using a single thread. Strategies other than single_step will help parallelize the execution.
                 !isNaN(numberOfDistinctValues) && // if the estimate is unknown, use alternatives to avoid query failure
                 (numberOfDistinctValues > PRE_AGGREGATE_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation ||
-                (numberOfDistinctValues > MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation &&
-                // if the NDV and the number of grouping keys is small, pre-aggregate is faster than single_step at a cost of CPU
-                aggregationNode.getGroupingKeys().size() > 2))) {
+                        (numberOfDistinctValues > MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation &&
+                                // if the NDV and the number of grouping keys is small, pre-aggregate is faster than single_step at a cost of CPU
+                                aggregationNode.getGroupingKeys().size() > 2))) {
             return SINGLE_STEP;
         }
 
@@ -236,9 +236,9 @@ public class DistinctAggregationStrategyChooser
     {
         if (searchFrom(source, lookup)
                 .where(node -> !(node instanceof TableScanNode
-                                 || node instanceof FilterNode
-                                 || node instanceof ProjectNode
-                                 || node instanceof UnionNode))
+                        || node instanceof FilterNode
+                        || node instanceof ProjectNode
+                        || node instanceof UnionNode))
                 .findFirst()
                 .isPresent()) {
             return false;

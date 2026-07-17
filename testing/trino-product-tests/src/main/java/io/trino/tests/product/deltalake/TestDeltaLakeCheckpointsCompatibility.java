@@ -87,7 +87,9 @@ public class TestDeltaLakeCheckpointsCompatibility
                         "      USING delta" +
                         "      PARTITIONED BY (a_NuMbEr)" +
                         "      LOCATION 's3://%s/%s'",
-                tableName, bucketName, tableDirectory));
+                tableName,
+                bucketName,
+                tableDirectory));
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,'ala'), (2, 'kota')");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'osla')");
@@ -159,7 +161,9 @@ public class TestDeltaLakeCheckpointsCompatibility
                             "    location = 's3://%2$s/databricks-compatibility-test-%1$s'," +
                             "    partitioned_by = ARRAY['part_boolean', 'part_tinyint', 'part_smallint', 'part_int', 'part_bigint', 'part_decimal_5_2', 'part_decimal_21_3', 'part_double', 'part_float', 'part_varchar', 'part_date', 'part_timestamp']," +
                             "    checkpoint_interval = 2" +
-                            ")", tableName, bucketName));
+                            ")",
+                    tableName,
+                    bucketName));
 
             onTrino().executeQuery("" +
                     "INSERT INTO " + tableName +
@@ -243,7 +247,10 @@ public class TestDeltaLakeCheckpointsCompatibility
                         "      PARTITIONED BY (a_NuMbEr)" +
                         "      LOCATION 's3://%s/%s'" +
                         "      TBLPROPERTIES (%s)",
-                tableName, bucketName, tableDirectory, deltaTableProperties));
+                tableName,
+                bucketName,
+                tableDirectory,
+                deltaTableProperties));
 
         try {
             // validate that we can see the checkpoint interval
@@ -348,7 +355,8 @@ public class TestDeltaLakeCheckpointsCompatibility
                         "      USING DELTA " +
                         "      LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
                         "      TBLPROPERTIES (delta.checkpointInterval = 1)",
-                tableName, bucketName));
+                tableName,
+                bucketName));
 
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, STRUCT(1,'ala')), (2, STRUCT(2, 'kota'))");
@@ -415,7 +423,8 @@ public class TestDeltaLakeCheckpointsCompatibility
                         "      USING DELTA " +
                         "      LOCATION 's3://%s/databricks-compatibility-test-%1$s' " +
                         "      TBLPROPERTIES (delta.checkpointInterval = 1)",
-                tableName, bucketName));
+                tableName,
+                bucketName));
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, STRUCT(1,'ala')), (2, STRUCT(2, 'kota'))");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, STRUCT(null, null))");
@@ -475,7 +484,8 @@ public class TestDeltaLakeCheckpointsCompatibility
                         "TBLPROPERTIES (" +
                         " delta.checkpointInterval = 5, " +
                         " delta.checkpoint.writeStatsAsJson = false)",
-                tableName, bucketName));
+                tableName,
+                bucketName));
 
         try {
             sqlExecutor.accept("INSERT INTO " + qualifiedTableName + " VALUES (1,'ala')");
@@ -517,7 +527,8 @@ public class TestDeltaLakeCheckpointsCompatibility
                         " delta.checkpointInterval = 1, " +
                         " delta.checkpoint.writeStatsAsJson = false, " + // Disable json stats to avoid merging statistics with 'stats' field
                         " delta.checkpoint.writeStatsAsStruct = false)",
-                tableName, bucketName));
+                tableName,
+                bucketName));
 
         try {
             sqlExecutor.accept("INSERT INTO " + qualifiedTableName + " VALUES (1,'ala')");
@@ -559,7 +570,9 @@ public class TestDeltaLakeCheckpointsCompatibility
                         " delta.checkpointInterval = 2, " +
                         " delta.checkpoint.writeStatsAsJson = false, " +
                         " delta.checkpoint.writeStatsAsStruct = true)",
-                tableName, type, bucketName);
+                tableName,
+                type,
+                bucketName);
 
         onDelta().executeQuery(createTableSql);
 
@@ -658,7 +671,8 @@ public class TestDeltaLakeCheckpointsCompatibility
                         " delta.checkpointInterval = 1, " +
                         " delta.checkpoint.writeStatsAsJson = false, " +
                         " delta.checkpoint.writeStatsAsStruct = true)",
-                tableName, bucketName));
+                tableName,
+                bucketName));
 
         try {
             sqlExecutor.accept("INSERT INTO " + qualifiedTableName + " VALUES (1,'ala')");

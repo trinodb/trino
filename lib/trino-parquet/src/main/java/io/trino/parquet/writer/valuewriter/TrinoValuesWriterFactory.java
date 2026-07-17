@@ -13,11 +13,13 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
+import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
 import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
@@ -37,11 +39,13 @@ public class TrinoValuesWriterFactory
 
     private final int maxPageSize;
     private final int maxDictionaryPageSize;
+    private final boolean useDeltaLengthByteArrayEncoding;
 
-    public TrinoValuesWriterFactory(int maxPageSize, int maxDictionaryPageSize)
+    public TrinoValuesWriterFactory(ParquetWriterOptions writerOptions, int maxDictionaryPageSize)
     {
-        this.maxPageSize = maxPageSize;
+        this.maxPageSize = writerOptions.getMaxPageSize();
         this.maxDictionaryPageSize = maxDictionaryPageSize;
+        this.useDeltaLengthByteArrayEncoding = writerOptions.isUseDeltaLengthByteArrayEncoding();
     }
 
     public ValuesWriter newValuesWriter(ColumnDescriptor descriptor, Optional<BloomFilter> bloomFilter)
@@ -66,7 +70,13 @@ public class TrinoValuesWriterFactory
 
     private ValuesWriter getBinaryValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        ValuesWriter fallbackWriter;
+        if (useDeltaLengthByteArrayEncoding) {
+            fallbackWriter = new DeltaLengthByteArrayValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        }
+        else {
+            fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        }
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
@@ -116,20 +126,13 @@ public class TrinoValuesWriterFactory
     {
         return switch (path.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN -> throw new IllegalArgumentException("no dictionary encoding for BOOLEAN");
-            case BINARY ->
-                    new DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
-            case INT32 ->
-                    new DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
-            case INT64 ->
-                    new DictionaryValuesWriter.PlainLongDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
-            case INT96 ->
-                    new DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryPageSize, 12, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
-            case DOUBLE ->
-                    new DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
-            case FLOAT ->
-                    new DictionaryValuesWriter.PlainFloatDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
-            case FIXED_LEN_BYTE_ARRAY ->
-                    new DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryPageSize, path.getPrimitiveType().getTypeLength(), dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
+            case BINARY -> new DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
+            case INT32 -> new DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
+            case INT64 -> new DictionaryValuesWriter.PlainLongDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
+            case INT96 -> new DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryPageSize, 12, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
+            case DOUBLE -> new DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
+            case FLOAT -> new DictionaryValuesWriter.PlainFloatDictionaryValuesWriter(maxDictionaryPageSize, dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
+            case FIXED_LEN_BYTE_ARRAY -> new DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryPageSize, path.getPrimitiveType().getTypeLength(), dataPageEncoding, dictPageEncoding, new HeapByteBufferAllocator());
         };
     }
 

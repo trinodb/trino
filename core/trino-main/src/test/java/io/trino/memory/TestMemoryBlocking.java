@@ -29,7 +29,6 @@ import io.trino.operator.TableScanOperator;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -98,19 +97,23 @@ public class TestMemoryBlocking
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR);
-        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
+        TableScanOperator source = new TableScanOperator(
+                driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .build()),
+                (_, _, _, _, _, _, reporter) -> {
+                    FixedPageSource pageSource = new FixedPageSource(rowPagesBuilder(types)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .addSequencePage(10, 1)
+                            .build());
+                    reporter.setBytes(pageSource.getMemoryUsage());
+                    return pageSource;
+                },
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
-                ImmutableList.of(),
-                DynamicFilter.EMPTY);
+                ImmutableList.of());
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertThat(driver.getDriverContext()).isSameAs(driverContext);

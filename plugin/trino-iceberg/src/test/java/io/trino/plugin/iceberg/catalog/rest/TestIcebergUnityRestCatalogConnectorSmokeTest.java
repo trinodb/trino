@@ -70,6 +70,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
         unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
 
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.security", "read_only")

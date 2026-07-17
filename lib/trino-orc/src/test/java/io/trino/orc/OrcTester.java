@@ -268,7 +268,7 @@ public class OrcTester
             assertRoundTrip(
                     type,
                     readValues.stream()
-                            .map(value -> null)
+                            .map(_ -> null)
                             .collect(toList()));
         }
 
@@ -329,7 +329,7 @@ public class OrcTester
             testRoundTripType(
                     rowType,
                     values.stream()
-                            .map(value -> toHiveStruct(null))
+                            .map(_ -> toHiveStruct(null))
                             .collect(toList()));
         }
 
@@ -376,7 +376,7 @@ public class OrcTester
             testRoundTripType(
                     mapType,
                     readValues.stream()
-                            .map(value -> toHiveMap(null, readNullKeyValue))
+                            .map(_ -> toHiveMap(null, readNullKeyValue))
                             .collect(toList()));
         }
     }
@@ -404,7 +404,7 @@ public class OrcTester
             testRoundTripType(
                     arrayType,
                     readValues.stream()
-                            .map(value -> toHiveList(null))
+                            .map(_ -> toHiveList(null))
                             .collect(toList()));
         }
     }
@@ -998,7 +998,7 @@ public class OrcTester
                 ImmutableList.of(type),
                 StreamSupport.stream(
                                 Spliterators.spliteratorUnknownSize(values, Spliterator.ORDERED), false)
-                        .map(value -> (Function<Integer, Object>) (fieldIndex) -> value)
+                        .map(value -> (Function<Integer, Object>) _ -> value)
                         .iterator());
     }
 
@@ -1011,7 +1011,8 @@ public class OrcTester
             Iterator<Function<Integer, Object>> values)
             throws Exception
     {
-        StandardStructObjectInspector objectInspector = getStandardStructObjectInspector(names,
+        StandardStructObjectInspector objectInspector = getStandardStructObjectInspector(
+                names,
                 types.stream().map(OrcTester::getJavaObjectInspector).collect(toImmutableList()));
 
         writeOrcColumnsHive(
@@ -1351,12 +1352,12 @@ public class OrcTester
 
     private static Type arrayType(Type elementType)
     {
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeDescriptor())));
     }
 
     private static Type mapType(Type keyType, Type valueType)
     {
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType.getTypeSignature()), TypeParameter.typeParameter(valueType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType.getTypeDescriptor()), TypeParameter.typeParameter(valueType.getTypeDescriptor())));
     }
 
     private static Type rowType(Type... fieldTypes)
@@ -1365,7 +1366,7 @@ public class OrcTester
         for (int i = 0; i < fieldTypes.length; i++) {
             String fieldName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeSignature()));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeDescriptor()));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }

@@ -16,5 +16,5 @@ package io.trino.sql.analyzer;
 public enum RegexLibrary
 {
     JONI,
-    RE2J
+    RE2J,
 }

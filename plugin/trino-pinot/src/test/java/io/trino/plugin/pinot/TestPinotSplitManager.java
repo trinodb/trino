@@ -14,11 +14,12 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
@@ -127,10 +128,10 @@ public class TestPinotSplitManager
     private List<PinotSplit> getSplitsHelper(PinotTableHandle pinotTable, int numSegmentsPerSplit, boolean forbidSegmentQueries)
     {
         ConnectorSession session = createSessionWithNumSplits(numSegmentsPerSplit, forbidSegmentQueries, pinotConfig);
-        ConnectorSplitSource splitSource = pinotSplitManager.getSplits(null, session, pinotTable, DynamicFilter.EMPTY, Constraint.alwaysTrue());
+        ConnectorSplitSource splitSource = pinotSplitManager.getSplits(null, session, pinotTable, ImmutableSet.of(), Constraint.alwaysTrue());
         List<PinotSplit> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
-            splits.addAll(getFutureValue(splitSource.getNextBatch(1000)).getSplits().stream().map(s -> (PinotSplit) s).collect(toList()));
+            splits.addAll(getFutureValue(splitSource.getNextBatch(1000, new DynamicFilterSnapshot(TupleDomain.all(), true))).stream().map(s -> (PinotSplit) s).collect(toList()));
         }
 
         return splits;

@@ -26,4 +26,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = ScalarValuePointer.class, name = "scalar"),
 })
 public sealed interface ValuePointer
-        permits ScalarValuePointer, AggregationValuePointer, ClassifierValuePointer, MatchNumberValuePointer {}
+        permits AggregationValuePointer,
+                ClassifierValuePointer,
+                MatchNumberValuePointer,
+                ScalarValuePointer {}

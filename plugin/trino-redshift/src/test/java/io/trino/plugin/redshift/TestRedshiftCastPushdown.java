@@ -15,6 +15,7 @@ package io.trino.plugin.redshift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcCastPushdownTest;
 import io.trino.plugin.jdbc.CastDataTypeTestTable;
@@ -28,7 +29,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.Arrays.asList;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestRedshiftCastPushdown
@@ -53,7 +56,7 @@ final class TestRedshiftCastPushdown
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return TestingRedshiftServer::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 
     @Override
@@ -136,6 +139,7 @@ final class TestRedshiftCastPushdown
                 .addColumn("c_timetz", "timetz", asList("TIME '00:13:42.000000+05:30'", "TIME '10:01:17.100000+05:30'", null))
                 .addColumn("c_super", "super", asList(1, 2, null))
                 .execute(onRemoteDatabase(), TEST_SCHEMA + "." + "left_table_"));
+        assertTableLoaded(left.getName(), 3);
 
         // 2nd row value is different in right than left
         right = closeAfterClass(CastDataTypeTestTable.create(3)
@@ -209,6 +213,17 @@ final class TestRedshiftCastPushdown
                 .addColumn("c_timetz", "timetz", asList("TIME '00:13:42.000000+05:30'", "TIME '11:01:17.100000+05:30'", null))
                 .addColumn("c_super", "super", asList(1, 22, null))
                 .execute(onRemoteDatabase(), TEST_SCHEMA + "." + "right_table_"));
+        assertTableLoaded(right.getName(), 3);
+    }
+
+    private void assertTableLoaded(String tableName, long rowCount)
+    {
+        assertEventually(
+                new Duration(30, SECONDS),
+                new Duration(1, SECONDS),
+                () -> assertThat(computeScalar("SELECT count(*) FROM " + tableName))
+                        .describedAs("row count for " + tableName)
+                        .isEqualTo(rowCount));
     }
 
     @Override
@@ -365,28 +380,22 @@ final class TestRedshiftCastPushdown
                         .add(new InvalidCastTestCase("c_infinity_real_1", "tinyint", "Out of range for tinyint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_1", "smallint", "Out of range for smallint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_1", "integer", "Out of range for integer: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_1", "bigint", "Out of range for bigint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_2", "tinyint", "Out of range for tinyint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_2", "smallint", "Out of range for smallint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_real_2", "integer", "Out of range for integer: -Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_2", "bigint", "Out of range for bigint: -Infinity"))
 
                         // No pushdown for double precision datatype to integral types
                         .add(new InvalidCastTestCase("c_infinity_double_1", "tinyint", "Out of range for tinyint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_1", "smallint", "Out of range for smallint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_1", "integer", "Out of range for integer: Infinity"))
-                        .add(new InvalidCastTestCase("c_infinity_double_1", "bigint", "Unable to cast Infinity to bigint"))
+                        .add(new InvalidCastTestCase("c_infinity_double_1", "bigint", "Out of range for bigint: Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_2", "tinyint", "Out of range for tinyint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_2", "smallint", "Out of range for smallint: -Infinity"))
                         .add(new InvalidCastTestCase("c_infinity_double_2", "integer", "Out of range for integer: -Infinity"))
-                        .add(new InvalidCastTestCase("c_infinity_double_2", "bigint", "Unable to cast -Infinity to bigint"))
+                        .add(new InvalidCastTestCase("c_infinity_double_2", "bigint", "Out of range for bigint: -Infinity"))
                         .build());
-    }
-
-    @Test
-    void testCastRealInfinityValueToBigint()
-    {
-        assertThat(query("SELECT CAST(c_Infinity_real AS BIGINT) FROM %s".formatted(leftTable())))
-                .matches("VALUES (BIGINT '9223372036854775807'), (BIGINT '-9223372036854775808'), (null)")
-                .isNotFullyPushedDown(ProjectNode.class);
     }
 
     @Test
@@ -455,6 +464,7 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_char_10", "char(256)", "c_bpchar"))
                 .add(new CastTestCase("c_char", "char(4096)", "c_char_4096"))
 
+                .add(new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_varchar_10", "varchar(10)", "c_varchar_10"))
                 .add(new CastTestCase("c_varchar_15_unicode", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_nvarchar_15_unicode", "varchar(50)", "c_varchar_50"))
@@ -490,6 +500,8 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_double_precision", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_float", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_float8", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_char_numeric", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_bpchar_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_text_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_nvarchar_numeric", "tinyint", "c_smallint"))
@@ -500,6 +512,8 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_double_precision", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_float", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_float8", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_char_numeric", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_bpchar_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_text_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_nvarchar_numeric", "smallint", "c_smallint"))
@@ -510,6 +524,8 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_double_precision", "integer", "c_integer"))
                 .add(new CastTestCase("c_float", "integer", "c_integer"))
                 .add(new CastTestCase("c_float8", "integer", "c_integer"))
+                .add(new CastTestCase("c_char_numeric", "integer", "c_integer"))
+                .add(new CastTestCase("c_bpchar_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_varchar_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_text_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_nvarchar_numeric", "integer", "c_integer"))
@@ -520,6 +536,8 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_double_precision", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_float", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_float8", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_char_numeric", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_bpchar_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_varchar_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_text_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_nvarchar_numeric", "bigint", "c_bigint"))
@@ -534,7 +552,6 @@ final class TestRedshiftCastPushdown
                 .add(new CastTestCase("c_nvarchar_15_unicode", "char(50)", "c_char_50"))
                 .add(new CastTestCase("c_varchar_50", "char(50)", "c_char_50"))
 
-                .add(new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_boolean", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_smallint", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_int2", "varchar(50)", "c_varchar_50"))
@@ -572,9 +589,6 @@ final class TestRedshiftCastPushdown
                 .add(new InvalidCastTestCase("c_varchar_decimal", "integer"))
                 .add(new InvalidCastTestCase("c_varchar_decimal_sign", "integer"))
                 .add(new InvalidCastTestCase("c_varchar_alpha_numeric", "integer"))
-                .add(new InvalidCastTestCase("c_char_50", "integer"))
-                .add(new InvalidCastTestCase("c_char_numeric", "integer"))
-                .add(new InvalidCastTestCase("c_bpchar_numeric", "integer"))
                 .add(new InvalidCastTestCase("c_nan_real", "integer"))
                 .add(new InvalidCastTestCase("c_nan_double", "integer"))
 

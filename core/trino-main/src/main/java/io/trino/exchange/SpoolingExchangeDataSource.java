@@ -37,14 +37,14 @@ public class SpoolingExchangeDataSource
     // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
     // However since close can be called at any moment this variable has to be accessed in a safe way (avoiding "check-then-use").
     private ExchangeSource exchangeSource;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private volatile boolean closed;
 
-    public SpoolingExchangeDataSource(ExchangeSource exchangeSource, LocalMemoryContext systemMemoryContext)
+    public SpoolingExchangeDataSource(ExchangeSource exchangeSource, LocalMemoryContext memoryContext)
     {
         // this assignment is expected to be followed by an assignment of a final field to ensure safe publication
         this.exchangeSource = requireNonNull(exchangeSource, "exchangeSource is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -62,11 +62,11 @@ public class SpoolingExchangeDataSource
         }
 
         Slice data = exchangeSource.read();
-        systemMemoryContext.setBytes(exchangeSource.getMemoryUsage());
+        memoryContext.setBytes(exchangeSource.getMemoryUsage());
 
         // If the data source has been closed in a meantime reset memory usage back to 0
         if (closed) {
-            systemMemoryContext.setBytes(0);
+            memoryContext.setBytes(0);
         }
 
         return data;
@@ -145,7 +145,7 @@ public class SpoolingExchangeDataSource
         }
         finally {
             exchangeSource = null;
-            systemMemoryContext.setBytes(0);
+            memoryContext.setBytes(0);
         }
     }
 }

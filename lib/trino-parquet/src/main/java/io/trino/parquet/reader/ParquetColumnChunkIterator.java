@@ -119,24 +119,24 @@ public final class ParquetColumnChunkIterator
 
             Page result = null;
             switch (pageHeader.type) {
-                case DICTIONARY_PAGE:
+                case DICTIONARY_PAGE -> {
                     if (dataPageCount != 0) {
                         throw new ParquetCorruptionException(dataSourceId, "Column (%s) has a dictionary page after the first position in column chunk", descriptor);
                     }
                     result = readDictionaryPage(pageHeader, pageHeader.getUncompressed_page_size(), pageHeader.getCompressed_page_size());
                     dictionaryWasRead = true;
-                    break;
-                case DATA_PAGE:
+                }
+                case DATA_PAGE -> {
                     result = readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex), dataPageCount);
                     ++dataPageCount;
-                    break;
-                case DATA_PAGE_V2:
+                }
+                case DATA_PAGE_V2 -> {
                     result = readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex), dataPageCount);
                     ++dataPageCount;
-                    break;
-                default:
+                }
+                default -> {
                     input.skip(compressedPageSize);
-                    break;
+                }
             }
             return result;
         }

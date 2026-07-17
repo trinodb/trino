@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
+import io.trino.json.XQueryRegex;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
 import io.trino.json.ir.IrArithmeticBinary.Operator;
@@ -25,6 +26,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrComparisonPredicate;
 import io.trino.json.ir.IrConjunctionPredicate;
 import io.trino.json.ir.IrContextVariable;
+import io.trino.json.ir.IrDatetimeMethod;
 import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrDoubleMethod;
@@ -35,6 +37,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -91,7 +94,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.DIVIDE;
-import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULUS;
+import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULO;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.MULTIPLY;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.SUBTRACT;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.MINUS;
@@ -120,7 +123,7 @@ class JsonPathTranslator
     public IrJsonPath rewriteToIr(JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
     {
         PathNode root = pathAnalysis.getPath().getRoot();
-        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis.getTypes(), pathAnalysis.getJsonParameters(), parametersOrder).process(root);
+        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis, parametersOrder).process(root);
 
         return new IrJsonPath(pathAnalysis.getPath().isLax(), rewritten);
     }
@@ -129,22 +132,22 @@ class JsonPathTranslator
             extends JsonPathTreeVisitor<IrPathNode, Void>
     {
         private final LiteralInterpreter literalInterpreter;
+        private final JsonPathAnalysis pathAnalysis;
         private final Map<PathNodeRef<PathNode>, Type> types;
         private final Set<PathNodeRef<PathNode>> jsonParameters;
         private final List<String> parametersOrder;
 
-        public Rewriter(Session session, PlannerContext plannerContext, Map<PathNodeRef<PathNode>, Type> types, Set<PathNodeRef<PathNode>> jsonParameters, List<String> parametersOrder)
+        public Rewriter(Session session, PlannerContext plannerContext, JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
         {
             requireNonNull(session, "session is null");
             requireNonNull(plannerContext, "plannerContext is null");
-            requireNonNull(types, "types is null");
-            requireNonNull(jsonParameters, "jsonParameters is null");
-            requireNonNull(jsonParameters, "jsonParameters is null");
+            requireNonNull(pathAnalysis, "pathAnalysis is null");
             requireNonNull(parametersOrder, "parametersOrder is null");
 
             this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
-            this.types = types;
-            this.jsonParameters = jsonParameters;
+            this.pathAnalysis = pathAnalysis;
+            this.types = pathAnalysis.getTypes();
+            this.jsonParameters = pathAnalysis.getJsonParameters();
             this.parametersOrder = parametersOrder;
         }
 
@@ -176,7 +179,7 @@ class JsonPathTranslator
                 case SUBTRACT -> SUBTRACT;
                 case MULTIPLY -> MULTIPLY;
                 case DIVIDE -> DIVIDE;
-                case MODULUS -> MODULUS;
+                case MODULO -> MODULO;
             };
         }
 
@@ -221,11 +224,11 @@ class JsonPathTranslator
         @Override
         protected IrPathNode visitDatetimeMethod(DatetimeMethod node, Void context)
         {
-            // TODO
-            throw new IllegalStateException("datetime method is not yet supported. The query should have failed in JsonPathAnalyzer.");
-
-//            IrPathNode base = process(node.getBase());
-//            return new IrDatetimeMethod(base, /*parsed format*/, Optional.ofNullable(types.get(PathNodeRef.of(node))));
+            IrPathNode base = process(node.getBase());
+            return new IrDatetimeMethod(
+                    base,
+                    Optional.ofNullable(pathAnalysis.getDatetimeTemplate(node)),
+                    Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override
@@ -386,8 +389,12 @@ class JsonPathTranslator
         {
             checkArgument(BOOLEAN.equals(types.get(PathNodeRef.of(node))), "Wrong predicate type. Expected BOOLEAN");
 
-            // TODO
-            throw new IllegalStateException("like_regex predicate is not yet supported. The query should have failed in JsonPathAnalyzer.");
+            IrPathNode path = process(node.getPath());
+            // Translate XQuery→Java regex syntax once at planning time. The translated pattern
+            // rides in the IR; JsonPathAnalyzer has already validated both the flag set and the
+            // regex syntax, so reaching here means the pattern is well-formed.
+            String translated = XQueryRegex.patternWithFlags(node.getPattern(), XQueryRegex.parseFlags(node.getFlag().orElse("")));
+            return new IrLikeRegexPredicate(path, translated);
         }
 
         @Override

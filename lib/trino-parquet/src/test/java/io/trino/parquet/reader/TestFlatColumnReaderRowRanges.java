@@ -15,6 +15,7 @@ package io.trino.parquet.reader;
 
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
@@ -23,7 +24,6 @@ import java.util.function.Supplier;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
-import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder.getFlatDefinitionLevelDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;

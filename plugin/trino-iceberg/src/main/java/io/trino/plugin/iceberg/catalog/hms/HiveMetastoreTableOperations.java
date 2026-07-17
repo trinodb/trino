@@ -22,6 +22,7 @@ import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
@@ -63,9 +64,10 @@ public class HiveMetastoreTableOperations
             String database,
             String table,
             Optional<String> owner,
-            Optional<String> location)
+            Optional<String> location,
+            EncryptionManagerFactory encryptionManagerFactory)
     {
-        super(fileIo, metastore, session, database, table, owner, location);
+        super(fileIo, metastore, session, database, table, owner, location, encryptionManagerFactory);
         this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
         this.lockingEnabled = lockingEnabled;
     }
@@ -80,16 +82,24 @@ public class HiveMetastoreTableOperations
     }
 
     @Override
-    protected final void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    protected final void commitMaterializedView(TableMetadata base, TableMetadata metadata)
     {
         Table materializedView = getTable(database, tableNameFrom(tableName));
-        commitTableUpdate(materializedView, metadata, (table, newMetadataLocation) -> Table.builder(table)
-                .apply(builder -> builder
-                        .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
-                        .setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
-                        .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis())))
-                .build());
+        commitTableUpdate(materializedView, metadata, (table, newMetadataLocation) -> {
+            if (materializedViewCommitData.isPresent()) {
+                table = Table.builder(table)
+                        .setParameters(materializedViewCommitData.get().parameters())
+                        .setViewOriginalText(Optional.of(materializedViewCommitData.get().viewOriginalText()))
+                        .build();
+            }
+            return Table.builder(table)
+                    .apply(builder -> builder
+                            .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                            .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                            .setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
+                            .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis())))
+                    .build();
+        });
     }
 
     private void commitTableUpdate(Table table, TableMetadata metadata, BiFunction<Table, String, Table> tableUpdateFunction)
@@ -107,8 +117,11 @@ public class HiveMetastoreTableOperations
             checkState(currentMetadataLocation != null, "No current metadata location for existing table");
             String metadataLocation = fixBrokenMetadataLocation(currentTable.getParameters().get(METADATA_LOCATION_PROP));
             if (!currentMetadataLocation.equals(metadataLocation)) {
-                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                        currentMetadataLocation, metadataLocation, getSchemaTableName());
+                throw new CommitFailedException(
+                        "Metadata location [%s] is not same as table metadata location [%s] for %s",
+                        currentMetadataLocation,
+                        metadataLocation,
+                        getSchemaTableName());
             }
 
             Table updatedTable = tableUpdateFunction.apply(table, newMetadataLocation);

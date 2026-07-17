@@ -152,12 +152,6 @@ public class BigQueryQueryPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());

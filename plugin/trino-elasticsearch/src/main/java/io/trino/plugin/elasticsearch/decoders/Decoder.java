@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
+import io.trino.plugin.elasticsearch.client.SearchDocument;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
 public interface Decoder
 {
-    void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output);
+    void decode(SearchDocument document, Supplier<Object> getter, BlockBuilder output);
 }

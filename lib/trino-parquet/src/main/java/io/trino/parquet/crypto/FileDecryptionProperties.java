@@ -22,12 +22,18 @@ public class FileDecryptionProperties
     private final DecryptionKeyRetriever keyRetriever;
     private final Optional<byte[]> aadPrefix;
     private final boolean checkFooterIntegrity;
+    private final boolean plaintextFilesAllowed;
 
-    private FileDecryptionProperties(DecryptionKeyRetriever keyRetriever, Optional<byte[]> aadPrefix, boolean checkFooterIntegrity)
+    private FileDecryptionProperties(
+            DecryptionKeyRetriever keyRetriever,
+            Optional<byte[]> aadPrefix,
+            boolean checkFooterIntegrity,
+            boolean plaintextFilesAllowed)
     {
         this.keyRetriever = requireNonNull(keyRetriever, "keyRetriever is null");
         this.aadPrefix = requireNonNull(aadPrefix, "aadPrefix is null");
         this.checkFooterIntegrity = checkFooterIntegrity;
+        this.plaintextFilesAllowed = plaintextFilesAllowed;
     }
 
     public static Builder builder()
@@ -50,11 +56,17 @@ public class FileDecryptionProperties
         return checkFooterIntegrity;
     }
 
+    public boolean isPlaintextFilesAllowed()
+    {
+        return plaintextFilesAllowed;
+    }
+
     public static class Builder
     {
         private DecryptionKeyRetriever keyRetriever;
         private Optional<byte[]> aadPrefix = Optional.empty();
         private boolean checkFooterIntegrity = true;
+        private boolean plaintextFilesAllowed;
 
         public Builder withKeyRetriever(DecryptionKeyRetriever keyRetriever)
         {
@@ -74,9 +86,15 @@ public class FileDecryptionProperties
             return this;
         }
 
+        public Builder withPlaintextFilesAllowed()
+        {
+            this.plaintextFilesAllowed = true;
+            return this;
+        }
+
         public FileDecryptionProperties build()
         {
-            return new FileDecryptionProperties(keyRetriever, aadPrefix, checkFooterIntegrity);
+            return new FileDecryptionProperties(keyRetriever, aadPrefix, checkFooterIntegrity, plaintextFilesAllowed);
         }
     }
 }

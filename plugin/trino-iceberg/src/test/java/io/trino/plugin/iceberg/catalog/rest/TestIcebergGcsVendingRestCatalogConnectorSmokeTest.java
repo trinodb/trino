@@ -116,7 +116,7 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.uri", restCatalog.catalogUri())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                                .put("fs.native-gcs.enabled", "true")
+                                .put("fs.gcs.enabled", "true")
                                 .put("gcs.auth-type", "APPLICATION_DEFAULT")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)

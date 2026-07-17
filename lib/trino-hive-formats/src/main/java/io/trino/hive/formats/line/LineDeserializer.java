@@ -22,7 +22,8 @@ import java.util.List;
 
 public interface LineDeserializer
 {
-    LineDeserializer EMPTY_LINE_DESERIALIZER = new LineDeserializer() {
+    LineDeserializer EMPTY_LINE_DESERIALIZER = new LineDeserializer()
+    {
         @Override
         public List<? extends Type> getTypes()
         {
@@ -48,7 +49,6 @@ public interface LineDeserializer
      *
      * @param lineBuffer the line which may be empty
      * @param builder page builder for the declared types
-     *
      * @throws IOException if line can not be decoded and processing should stop
      * @throws RuntimeException if line can not be decoded and processing should stop
      */

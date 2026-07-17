@@ -29,6 +29,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.view.View;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -70,8 +71,8 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                SUPPORTS_RENAME_MATERIALIZED_VIEW,
-                SUPPORTS_RENAME_SCHEMA -> false;
+                 SUPPORTS_RENAME_MATERIALIZED_VIEW,
+                 SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -103,6 +104,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .buildOrThrow())
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
@@ -143,6 +145,57 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
 
         assertThat(backend.viewExists(sparkViewIdentifier)).isFalse();
         assertThat(backend.viewExists(trinoViewIdentifier)).isFalse();
+    }
+
+    @Test
+    void testViewProperty()
+    {
+        String viewName = "test_view_property_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM nation");
+        View view = backend.loadView(toIdentifier(viewName));
+
+        assertThat(computeScalar("SHOW CREATE VIEW " + viewName))
+                .isEqualTo(
+                        """
+                        CREATE VIEW iceberg.tpch.%s SECURITY DEFINER
+                        WITH (
+                           location = '%s'
+                        ) AS
+                        SELECT *
+                        FROM
+                          nation""".formatted(viewName, view.location()));
+
+        assertUpdate("DROP  VIEW " + viewName);
+    }
+
+    @Test
+    void testCreateViewWithLocation()
+    {
+        String viewName = "test_create_view_with_location_" + randomNameSuffix();
+        String namespaceLocation = backend.loadNamespaceMetadata(Namespace.of("tpch")).get("location");
+        String viewLocation = namespaceLocation + "/" + viewName;
+
+        assertUpdate("CREATE VIEW " + viewName + " WITH (location = '" + viewLocation + "') AS SELECT * FROM nation");
+        View view = backend.loadView(toIdentifier(viewName));
+        assertThat(view.location()).isEqualTo(viewLocation);
+
+        assertUpdate("DROP  VIEW " + viewName);
+    }
+
+    @Test
+    void testReplaceViewWithDifferentLocation()
+    {
+        String viewName = "test_replace_view_with_different_location_" + randomNameSuffix();
+        String namespaceLocation = backend.loadNamespaceMetadata(Namespace.of("tpch")).get("location");
+        String viewLocation = namespaceLocation + "/" + viewName;
+
+        assertUpdate("CREATE VIEW " + viewName + " WITH (location = '" + viewLocation + "') AS SELECT * FROM nation");
+
+        assertQueryFails(
+                "CREATE OR REPLACE VIEW " + viewName + " WITH (location = '" + viewLocation + "_changed') AS SELECT * FROM nation",
+                "Cannot change location of existing view '.*'");
+
+        assertUpdate("DROP  VIEW " + viewName);
     }
 
     @Test
@@ -230,7 +283,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
-                .hasMessageContaining("Failed to drop table")
+                .hasMessageMatching("Failed to open input stream for file: .*avro")
                 .hasNoCause();
     }
 

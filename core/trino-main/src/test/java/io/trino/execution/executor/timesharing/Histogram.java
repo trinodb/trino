@@ -116,7 +116,8 @@ class Histogram<K extends Comparable<K>>
 
         if (!discrete) {
             for (int i = 0; i < bucketData.length - 1; i++) {
-                System.out.printf("%8s - %8s : (%5s values)\n",
+                System.out.printf(
+                        "%8s - %8s : (%5s values)\n",
                         keyFormatter.apply(buckets.get(i)),
                         keyFormatter.apply(buckets.get(i + 1)),
                         bucketData[i]);
@@ -124,7 +125,8 @@ class Histogram<K extends Comparable<K>>
         }
         else {
             for (int i = 0; i < bucketData.length; i++) {
-                System.out.printf("%8s : (%5s values)\n",
+                System.out.printf(
+                        "%8s : (%5s values)\n",
                         keyFormatter.apply(buckets.get(i)),
                         bucketData[i]);
             }
@@ -167,7 +169,8 @@ class Histogram<K extends Comparable<K>>
 
         if (!discrete) {
             for (int i = 0; i < bucketData.size() - 1; i++) {
-                System.out.printf("%8s - %8s : (%5s values) %s\n",
+                System.out.printf(
+                        "%8s - %8s : (%5s values) %s\n",
                         keyFormatter.apply(buckets.get(i)),
                         keyFormatter.apply(buckets.get(i + 1)),
                         bucketData.get(i).size(),
@@ -176,7 +179,8 @@ class Histogram<K extends Comparable<K>>
         }
         else {
             for (int i = 0; i < bucketData.size(); i++) {
-                System.out.printf("%19s : (%5s values) %s\n",
+                System.out.printf(
+                        "%19s : (%5s values) %s\n",
                         keyFormatter.apply(buckets.get(i)),
                         bucketData.get(i).size(),
                         valueFormatter.apply(bucketData.get(i)));

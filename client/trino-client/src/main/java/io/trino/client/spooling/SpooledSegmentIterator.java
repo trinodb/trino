@@ -66,6 +66,12 @@ class SpooledSegmentIterator
             loaded = true;
         }
         catch (IOException e) {
+            try {
+                closer.close();
+            }
+            catch (IOException closeException) {
+                e.addSuppressed(closeException);
+            }
             closed = true;
             throw new UncheckedIOException(e);
         }

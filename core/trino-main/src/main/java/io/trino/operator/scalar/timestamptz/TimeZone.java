@@ -38,7 +38,7 @@ public final class TimeZone
      * timestamp with time zone and extracts the associated time zone.
      *
      * @param timestampWithTimeZone the packed long
-     * representing a `timestamp(p) with time zone`
+     *         representing a `timestamp(p) with time zone`
      * @return the time zone ID as a VARCHAR
      */
     @LiteralParameters("p")

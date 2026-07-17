@@ -70,6 +70,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> viewProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
     private final Optional<ConnectorAccessControl> accessControl;
@@ -91,6 +92,7 @@ public class IcebergConnector
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IcebergSchemaProperties schemaProperties,
             IcebergTableProperties tableProperties,
+            IcebergViewProperties viewProperties,
             IcebergMaterializedViewProperties materializedViewProperties,
             IcebergAnalyzeProperties analyzeProperties,
             Optional<ConnectorAccessControl> accessControl,
@@ -112,6 +114,7 @@ public class IcebergConnector
                 .collect(toImmutableList());
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null").getSchemaProperties());
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null").getTableProperties());
+        this.viewProperties = ImmutableList.copyOf(requireNonNull(viewProperties, "viewProperties is null").getViewProperties());
         this.materializedViewProperties = ImmutableList.copyOf(requireNonNull(materializedViewProperties, "materializedViewProperties is null").getMaterializedViewProperties());
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null").getAnalyzeProperties());
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -214,6 +217,12 @@ public class IcebergConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getViewProperties()
+    {
+        return viewProperties;
     }
 
     @Override

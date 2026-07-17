@@ -318,11 +318,11 @@ public final class PartitionedLookupSourceFactory
                 return immediateFuture(new PartitionedConsumption<>(
                         1,
                         emptyList(),
-                        i -> {
+                        _ -> {
                             throw new UnsupportedOperationException();
                         },
-                        i -> {},
-                        i -> {
+                        _ -> {},
+                        _ -> {
                             throw new UnsupportedOperationException();
                         }));
             }
@@ -460,7 +460,7 @@ public final class PartitionedLookupSourceFactory
         {
             lock.readLock().lock();
             try {
-                LookupSource lookupSource = suppliedLookupSources.computeIfAbsent(this, k -> lookupSourceSupplier.getLookupSource());
+                LookupSource lookupSource = suppliedLookupSources.computeIfAbsent(this, _ -> lookupSourceSupplier.getLookupSource());
                 LookupSourceLease lease = new SpillAwareLookupSourceLease(lookupSource, spillingInfo);
                 return action.apply(lease);
             }

@@ -33,6 +33,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
@@ -55,9 +56,20 @@ public final class TestingSqlServer
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
             .handleIf(throwable -> getCausalChain(throwable).stream()
-                    .anyMatch(SQLException.class::isInstance) || throwable.getMessage().contains("Container exited with code"))
+                    .anyMatch(TestingSqlServer::isRetryableContainerStartupFailure))
             .onRetry(event -> log.warn(
                     "Query failed on attempt %s, will retry. Exception: %s",
+                    event.getAttemptCount(),
+                    event.getLastException().getMessage()))
+            .build();
+
+    private static final RetryPolicy<Void> READINESS_RETRY_POLICY = RetryPolicy.<Void>builder()
+            .withBackoff(1, 5, ChronoUnit.SECONDS)
+            .withMaxRetries(20)
+            .handleIf(throwable -> getCausalChain(throwable).stream()
+                    .anyMatch(SQLException.class::isInstance))
+            .onRetry(event -> log.warn(
+                    "SQL Server readiness check failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
                     event.getLastException().getMessage()))
             .build();
@@ -143,6 +155,7 @@ public final class TestingSqlServer
         try {
             Closeable cleanup = startOrReuse(container);
             try {
+                waitUntilReady(container);
                 setUpDatabase(sqlExecutorForContainer(container), databaseName, databaseSetUp);
             }
             catch (Exception e) {
@@ -157,6 +170,27 @@ public final class TestingSqlServer
                 throw e;
             }
         }
+    }
+
+    private static boolean isRetryableContainerStartupFailure(Throwable throwable)
+    {
+        if (throwable instanceof SQLException) {
+            return true;
+        }
+
+        String message = nullToEmpty(throwable.getMessage());
+        return message.contains("Container exited with code") || message.contains("Can't get Docker image");
+    }
+
+    private static void waitUntilReady(MSSQLServerContainer container)
+    {
+        Failsafe.with(READINESS_RETRY_POLICY, Timeout.of(Duration.ofMinutes(2)))
+                .run(() -> {
+                    try (Connection connection = container.createConnection("");
+                            Statement statement = connection.createStatement()) {
+                        statement.execute("SELECT 1");
+                    }
+                });
     }
 
     private static void setUpDatabase(SqlExecutor executor, String databaseName, BiConsumer<SqlExecutor, String> databaseSetUp)

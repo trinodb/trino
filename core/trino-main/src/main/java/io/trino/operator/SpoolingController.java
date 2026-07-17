@@ -24,7 +24,7 @@ public interface SpoolingController
     {
         INLINE,
         BUFFER,
-        SPOOL
+        SPOOL,
     }
 
     default Mode nextMode(Page page)

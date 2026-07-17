@@ -71,7 +71,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -166,11 +165,11 @@ public class PinotClient
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.brokersForTableCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
+                        .expireAfterWrite(config.getMetadataCacheExpiry().toJavaTime()),
                 CacheLoader.from(this::getAllBrokersForTable));
         this.allTablesCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
+                        .refreshAfterWrite(config.getMetadataCacheExpiry().toJavaTime()),
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
@@ -547,7 +546,7 @@ public class PinotClient
     private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQueryInfo query)
     {
         String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.query()));
-        return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
+        return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), _ -> {
             HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.table()));
             URI queryPathUri = httpUriBuilder
                     .scheme(scheme)
@@ -558,10 +557,13 @@ public class PinotClient
 
             ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
             brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
-            BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
+            BrokerResponseNative response = doHttpActionWithHeadersJson(
+                    builder,
+                    Optional.of(queryRequest),
+                    brokerResponseCodec,
                     additionalHeadersBuilder.build());
 
-            if (response.getExceptionsSize() > 0 && response.getExceptions() != null && !response.getExceptions().isEmpty()) {
+            if (response.getExceptionsSize() > 0 && !response.getExceptions().isEmpty()) {
                 // Pinot is known to return exceptions with benign errorcodes like 200
                 // so we treat any exception as an error
                 String processingExceptionMessage = response.getExceptions().stream()

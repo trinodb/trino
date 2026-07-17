@@ -113,7 +113,7 @@ public final class OrcTypeTranslator
                 case SmallintType smallintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(TINYINT, smallintType));
                 case IntegerType integerType -> Optional.of(new IntegerNumberUpscaleCoercer<>(TINYINT, integerType));
                 case BigintType bigintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(TINYINT, bigintType));
-                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(TINYINT));
+                case DoubleType _ -> Optional.of(new IntegerNumberToDoubleCoercer<>(TINYINT));
                 case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(TINYINT, decimalType));
                 case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(TINYINT, varcharType));
                 default -> Optional.empty();
@@ -124,7 +124,7 @@ public final class OrcTypeTranslator
             return switch (toTrinoType) {
                 case IntegerType integerType -> Optional.of(new IntegerNumberUpscaleCoercer<>(SMALLINT, integerType));
                 case BigintType bigintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(SMALLINT, bigintType));
-                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(SMALLINT));
+                case DoubleType _ -> Optional.of(new IntegerNumberToDoubleCoercer<>(SMALLINT));
                 case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(SMALLINT, decimalType));
                 case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(SMALLINT, varcharType));
                 default -> Optional.empty();
@@ -134,7 +134,7 @@ public final class OrcTypeTranslator
         if (fromOrcTypeKind == INT) {
             return switch (toTrinoType) {
                 case BigintType bigintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(INTEGER, bigintType));
-                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(INTEGER));
+                case DoubleType _ -> Optional.of(new IntegerNumberToDoubleCoercer<>(INTEGER));
                 case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(INTEGER, decimalType));
                 case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(INTEGER, varcharType));
                 default -> Optional.empty();
@@ -143,7 +143,7 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == LONG) {
             return switch (toTrinoType) {
-                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(BIGINT));
+                case DoubleType _ -> Optional.of(new IntegerNumberToDoubleCoercer<>(BIGINT));
                 case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(BIGINT, decimalType));
                 case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(BIGINT, varcharType));
                 default -> Optional.empty();
@@ -152,7 +152,7 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == FLOAT) {
             return switch (toTrinoType) {
-                case DoubleType ignored -> Optional.of(new FloatToDoubleCoercer());
+                case DoubleType _ -> Optional.of(new FloatToDoubleCoercer());
                 case DecimalType decimalType -> Optional.of(createRealToDecimalCoercer(decimalType));
                 case VarcharType varcharType -> Optional.of(createFloatToVarcharCoercer(varcharType, true));
                 default -> Optional.empty();
@@ -161,7 +161,7 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == DOUBLE) {
             return switch (toTrinoType) {
-                case RealType ignored -> Optional.of(new DoubleToFloatCoercer());
+                case RealType _ -> Optional.of(new DoubleToFloatCoercer());
                 case DecimalType decimalType -> Optional.of(createDoubleToDecimalCoercer(decimalType));
                 case VarcharType varcharType -> Optional.of(createDoubleToVarcharCoercer(varcharType, true));
                 default -> Optional.empty();
@@ -175,8 +175,8 @@ public final class OrcTypeTranslator
                 case SmallintType smallintType -> Optional.of(createDecimalToInteger(sourceType, smallintType));
                 case IntegerType integerType -> Optional.of(createDecimalToInteger(sourceType, integerType));
                 case BigintType bigintType -> Optional.of(createDecimalToInteger(sourceType, bigintType));
-                case RealType ignored -> Optional.of(createDecimalToRealCoercer(sourceType));
-                case DoubleType ignored -> Optional.of(createDecimalToDoubleCoercer(sourceType));
+                case RealType _ -> Optional.of(createDecimalToRealCoercer(sourceType));
+                case DoubleType _ -> Optional.of(createDecimalToDoubleCoercer(sourceType));
                 case DecimalType decimalType -> Optional.of(createDecimalToDecimalCoercer(sourceType, decimalType));
                 case VarcharType varcharType -> Optional.of(createDecimalToVarcharCoercer(sourceType, varcharType));
                 default -> Optional.empty();
@@ -200,13 +200,13 @@ public final class OrcTypeTranslator
 
         if (isVarcharType(fromOrcTypeKind)) {
             return switch (toTrinoType) {
-                case BooleanType ignored -> Optional.of(new OrcVarcharToBooleanCoercer(VarcharType.VARCHAR));
+                case BooleanType _ -> Optional.of(new OrcVarcharToBooleanCoercer(VarcharType.VARCHAR));
                 case TinyintType tinyintType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, tinyintType));
                 case SmallintType smallintType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, smallintType));
                 case IntegerType integerType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, integerType));
                 case BigintType bigintType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, bigintType));
-                case RealType ignored -> Optional.of(new VarcharToFloatCoercer(VarcharType.VARCHAR, true));
-                case DoubleType ignored -> Optional.of(new VarcharToDoubleCoercer(VarcharType.VARCHAR, true));
+                case RealType _ -> Optional.of(new VarcharToFloatCoercer(VarcharType.VARCHAR, true));
+                case DoubleType _ -> Optional.of(new VarcharToDoubleCoercer(VarcharType.VARCHAR, true));
                 case DateType dateType -> Optional.of(new VarcharToDateCoercer(VarcharType.VARCHAR, dateType));
                 case TimestampType timestampType -> Optional.of(timestampType.isShort()
                         ? new VarcharToShortTimestampCoercer(VarcharType.VARCHAR, timestampType)

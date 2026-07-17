@@ -65,7 +65,7 @@ public class BenchmarkBinaryColumnWriter
 
     public enum FieldType
     {
-        UNBOUNDED(range -> VARBINARY, (size, range) -> randomBinaryData(size, range.from(), range.to())),
+        UNBOUNDED(_ -> VARBINARY, (size, range) -> randomBinaryData(size, range.from(), range.to())),
         VARCHAR_ASCII_BOUND_EXACT(range -> VarcharType.createVarcharType(max(1, range.to)), (size, range) -> randomAsciiData(size, range.from(), range.to())),
         /**/;
 

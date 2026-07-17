@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestHiveViews
         extends AbstractTestHiveViews
 {
-    // Currently, Trino columns type signature does not correspond one to one with the Hive view columns type in case of `varchar` and `string` columns
+    // Currently, Trino columns type descriptor does not correspond one to one with the Hive view columns type in case of `varchar` and `string` columns
     @Override
     protected List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes()
     {

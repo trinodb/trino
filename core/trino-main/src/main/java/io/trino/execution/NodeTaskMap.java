@@ -171,7 +171,8 @@ public class NodeTaskMap
                 }
 
                 if (reportAsLeaked) {
-                    log.error("BUG! %s for %s leaked with %s partitioned splits (weight: %s). Cleaning up so server can continue to function.",
+                    log.error(
+                            "BUG! %s for %s leaked with %s partitioned splits (weight: %s). Cleaning up so server can continue to function.",
                             getClass().getName(),
                             taskId,
                             leakedCount,

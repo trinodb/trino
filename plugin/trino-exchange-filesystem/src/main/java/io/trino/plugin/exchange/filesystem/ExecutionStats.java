@@ -49,7 +49,7 @@ public class ExecutionStats
     public <T> CompletableFuture<T> record(CompletableFuture<T> future)
     {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        future.whenComplete((value, failure) -> {
+        future.whenComplete((_, failure) -> {
             if (failure == null) {
                 finished.add(stopwatch.elapsed(MILLISECONDS), MILLISECONDS);
             }

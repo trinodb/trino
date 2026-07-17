@@ -28,6 +28,7 @@ class TestAzureLocation
     {
         assertValid("abfs://container@account.dfs.core.windows.net/some/path/file", "account", "container", "some/path/file", "abfs", "core.windows.net");
         assertValid("abfss://container@account.dfs.core.windows.net/some/path/file", "account", "container", "some/path/file", "abfss", "core.windows.net");
+        assertValid("abfss://container@account-onelake.dfs.fabric.microsoft.com/some/path/file", "account-onelake", "container", "some/path/file", "abfss", "fabric.microsoft.com");
         assertValid("wasb://container@account.blob.core.windows.net/some/path/file", "account", "container", "some/path/file", "wasb", "core.windows.net");
         assertValid("wasbs://container@account.blob.core.windows.net/some/path/file", "account", "container", "some/path/file", "wasbs", "core.windows.net");
 
@@ -73,8 +74,7 @@ class TestAzureLocation
         assertInvalid("abfs://con---tainer@account.dfs.core.windows.net/some/path/file");
         assertInvalid("abfs://con--tainer@account.dfs.core.windows.net/some/path/file");
 
-        // account is only a-z and 0-9
-        assertInvalid("abfs://container@ac-count.dfs.core.windows.net/some/path/file");
+        // account is only a-z, 0-9 and -
         assertInvalid("abfs://container@ac_count.dfs.core.windows.net/some/path/file");
         assertInvalid("abfs://container@ac$count.dfs.core.windows.net/some/path/file");
 

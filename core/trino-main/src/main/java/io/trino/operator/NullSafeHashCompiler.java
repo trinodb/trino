@@ -85,7 +85,7 @@ public final class NullSafeHashCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("NullSafeHash$" + type.getTypeSignature().toString()),
+                makeClassName("NullSafeHash$" + type.getTypeDescriptor().toString()),
                 type(Object.class),
                 type(NullSafeHash.class));
 

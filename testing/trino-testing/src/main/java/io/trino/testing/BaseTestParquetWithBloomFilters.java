@@ -68,7 +68,7 @@ public abstract class BaseTestParquetWithBloomFilters
         assertQueryStats(
                 getSession(),
                 "SELECT " + columnName + " FROM " + tableName,
-                queryStats -> {},
+                _ -> {},
                 results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.copyOf(TEST_VALUES)));
 
         // When reading bloom filter is enabled, row groups are pruned when searching for a missing value

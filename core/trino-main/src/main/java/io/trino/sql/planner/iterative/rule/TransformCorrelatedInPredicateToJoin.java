@@ -20,7 +20,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Case;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
@@ -55,6 +55,7 @@ import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
@@ -178,7 +179,7 @@ public class TransformCorrelatedInPredicateToJoin
         Expression joinExpression = and(
                 or(
                         new IsNull(probeSideSymbol.toSymbolReference()),
-                        new Comparison(Comparison.Operator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
+                        comparison(metadata, ComparisonOperator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
                         new IsNull(buildSideSymbol.toSymbolReference())),
                 correlationCondition);
 
@@ -218,8 +219,8 @@ public class TransformCorrelatedInPredicateToJoin
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
         Case inPredicateEquivalent = new Case(
                 ImmutableList.of(
-                        new WhenClause(isGreaterThan(countMatchesSymbol, 0), booleanConstant(true)),
-                        new WhenClause(isGreaterThan(countNullMatchesSymbol, 0), booleanConstant(null))),
+                        new WhenClause(isGreaterThan(metadata, countMatchesSymbol, 0), booleanConstant(true)),
+                        new WhenClause(isGreaterThan(metadata, countNullMatchesSymbol, 0), booleanConstant(null))),
                 FALSE);
         return new ProjectNode(
                 idAllocator.getNextId(),
@@ -259,10 +260,11 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty()); /* mask */
     }
 
-    private static Expression isGreaterThan(Symbol symbol, long value)
+    private static Expression isGreaterThan(Metadata metadata, Symbol symbol, long value)
     {
-        return new Comparison(
-                Comparison.Operator.GREATER_THAN,
+        return comparison(
+                metadata,
+                ComparisonOperator.GREATER_THAN,
                 symbol.toSymbolReference(),
                 bigint(value));
     }

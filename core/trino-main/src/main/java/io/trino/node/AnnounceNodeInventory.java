@@ -20,14 +20,14 @@ import io.trino.cache.SafeCaches;
 import java.net.URI;
 import java.util.Set;
 
+import static java.time.Duration.ofSeconds;
 import static java.util.Collections.newSetFromMap;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class AnnounceNodeInventory
         implements NodeInventory
 {
     private final Set<URI> nodes = newSetFromMap(SafeCaches.<URI, Boolean>buildNonEvictableCache(CacheBuilder.newBuilder()
-                    .expireAfterWrite(30, SECONDS))
+                    .expireAfterWrite(ofSeconds(30)))
             .asMap());
 
     public void announce(URI node)

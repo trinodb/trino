@@ -19,6 +19,13 @@ import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.clear;
+import static io.trino.spi.block.Bitmap.clearBits;
+import static io.trino.spi.block.Bitmap.copyBits;
+import static io.trino.spi.block.Bitmap.hasSetBit;
+import static io.trino.spi.block.Bitmap.hasUnsetBit;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
 import static java.util.Objects.checkIndex;
@@ -27,7 +34,7 @@ public class IntArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(IntArrayBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new IntArrayBlock(0, 1, new boolean[] {true}, new int[1]);
+    private static final Block NULL_VALUE_BLOCK = new IntArrayBlock(0, 1, new long[] {0}, new int[1]);
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -38,8 +45,8 @@ public class IntArrayBlockBuilder
     private boolean hasNullValue;
     private boolean hasNonNullValue;
 
-    // it is assumed that these arrays are the same length
-    private boolean[] valueIsNull = new boolean[0];
+    @Nullable
+    private long[] valueIsValid;
     private int[] values = new int[0];
 
     private long retainedSizeInBytes;
@@ -57,6 +64,9 @@ public class IntArrayBlockBuilder
         ensureCapacity(positionCount + 1);
 
         values[positionCount] = value;
+        if (valueIsValid != null) {
+            set(valueIsValid, 0, positionCount);
+        }
 
         hasNonNullValue = true;
         positionCount++;
@@ -73,11 +83,15 @@ public class IntArrayBlockBuilder
 
         IntArrayBlock intArrayBlock = (IntArrayBlock) block;
         if (intArrayBlock.isNull(position)) {
-            valueIsNull[positionCount] = true;
+            initializeValidityForFirstNull();
+            clear(valueIsValid, 0, positionCount);
             hasNullValue = true;
         }
         else {
             values[positionCount] = intArrayBlock.getInt(position);
+            if (valueIsValid != null) {
+                set(valueIsValid, 0, positionCount);
+            }
             hasNonNullValue = true;
         }
         positionCount++;
@@ -102,12 +116,16 @@ public class IntArrayBlockBuilder
 
         IntArrayBlock intArrayBlock = (IntArrayBlock) block;
         if (intArrayBlock.isNull(position)) {
-            Arrays.fill(valueIsNull, positionCount, positionCount + count, true);
+            initializeValidityForFirstNull();
+            clearBits(valueIsValid, 0, positionCount, count);
             hasNullValue = true;
         }
         else {
             int value = intArrayBlock.getInt(position);
             Arrays.fill(values, positionCount, positionCount + count, value);
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, count);
+            }
             hasNonNullValue = true;
         }
         positionCount += count;
@@ -136,23 +154,18 @@ public class IntArrayBlockBuilder
         int[] rawValues = intArrayBlock.getRawValues();
         System.arraycopy(rawValues, rawOffset + offset, values, positionCount, length);
 
-        boolean[] rawValueIsNull = intArrayBlock.getRawValueIsNull();
-        if (rawValueIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                boolean isNull = rawValueIsNull[rawOffset + offset + i];
-                hasNullValue |= isNull;
-                hasNonNullValue |= !isNull;
-                if (hasNullValue & hasNonNullValue) {
-                    System.arraycopy(rawValueIsNull, rawOffset + offset + i, valueIsNull, positionCount + i, length - i);
-                    break;
-                }
-                else {
-                    valueIsNull[positionCount + i] = isNull;
-                }
+        long[] rawValueIsValid = intArrayBlock.getRawValueIsValid();
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, rawOffset + offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
             }
+            hasNonNullValue = true;
         }
         else {
-            hasNonNullValue = true;
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, rawOffset + offset, valueIsValid, positionCount, length);
+            hasNullValue = true;
+            hasNonNullValue |= hasSetBit(rawValueIsValid, rawOffset + offset, length);
         }
         positionCount += length;
 
@@ -177,26 +190,22 @@ public class IntArrayBlockBuilder
         IntArrayBlock intArrayBlock = (IntArrayBlock) block;
         int rawOffset = intArrayBlock.getRawValuesOffset();
         int[] rawValues = intArrayBlock.getRawValues();
-        boolean[] rawValueIsNull = intArrayBlock.getRawValueIsNull();
-        if (rawValueIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                int rawPosition = positions[offset + i] + rawOffset;
-                if (rawValueIsNull[rawPosition]) {
-                    valueIsNull[positionCount + i] = true;
-                    hasNullValue = true;
-                }
-                else {
-                    values[positionCount + i] = rawValues[rawPosition];
-                    hasNonNullValue = true;
-                }
-            }
+        long[] rawValueIsValid = intArrayBlock.getRawValueIsValid();
+        for (int i = 0; i < length; i++) {
+            int rawPosition = positions[offset + i] + rawOffset;
+            values[positionCount + i] = rawValues[rawPosition];
         }
-        else {
-            for (int i = 0; i < length; i++) {
-                int rawPosition = positions[offset + i] + rawOffset;
-                values[positionCount + i] = rawValues[rawPosition];
+        if (rawValueIsValid == null || !hasUnsetBit(rawValueIsValid, rawOffset, positions, offset, length)) {
+            if (valueIsValid != null) {
+                setBits(valueIsValid, 0, positionCount, length);
             }
             hasNonNullValue = true;
+        }
+        else {
+            initializeValidityForFirstNull();
+            copyBits(rawValueIsValid, rawOffset, positions, offset, valueIsValid, positionCount, length);
+            hasNullValue = true;
+            hasNonNullValue |= hasSetBit(rawValueIsValid, rawOffset, positions, offset, length);
         }
         positionCount += length;
 
@@ -210,7 +219,9 @@ public class IntArrayBlockBuilder
     {
         ensureCapacity(positionCount + 1);
 
-        valueIsNull[positionCount] = true;
+        initializeValidityForFirstNull();
+
+        clear(valueIsValid, 0, positionCount);
 
         hasNullValue = true;
         positionCount++;
@@ -239,7 +250,7 @@ public class IntArrayBlockBuilder
     @Override
     public IntArrayBlock buildValueBlock()
     {
-        return new IntArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
+        return new IntArrayBlock(0, positionCount, hasNullValue ? valueIsValid : null, values);
     }
 
     @Override
@@ -264,14 +275,27 @@ public class IntArrayBlockBuilder
         }
         newSize = max(newSize, capacity);
 
-        valueIsNull = Arrays.copyOf(valueIsNull, newSize);
+        if (valueIsValid != null) {
+            valueIsValid = Bitmap.ensureCapacity(valueIsValid, newSize);
+        }
         values = Arrays.copyOf(values, newSize);
         updateRetainedSize();
     }
 
+    private boolean initializeValidityForFirstNull()
+    {
+        if (valueIsValid != null) {
+            return false;
+        }
+        valueIsValid = Bitmap.allocateWords(values.length, false);
+        setBits(valueIsValid, 0, 0, positionCount);
+        updateRetainedSize();
+        return true;
+    }
+
     private void updateRetainedSize()
     {
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsValid) + sizeOf(values);
         if (blockBuilderStatus != null) {
             retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }

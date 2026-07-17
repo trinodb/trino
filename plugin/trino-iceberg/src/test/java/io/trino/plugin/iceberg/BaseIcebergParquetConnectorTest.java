@@ -68,7 +68,7 @@ public abstract class BaseIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_row_group_reset_dictionary",
-                "(plain_col varchar, dict_col int)")) {
+                "(plain_col varchar, dict_col int) WITH (parquet_writer_row_group_size = '1kB')")) {
             String tableName = table.getName();
             String values = IntStream.range(0, 100)
                     .mapToObj(i -> "('ABCDEFGHIJ" + i + "' , " + (i < 20 ? "1" : "null") + ")")
@@ -84,9 +84,10 @@ public abstract class BaseIcebergParquetConnectorTest
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "row(x integer) -> row(\"y\" integer)":
+            case "row(x integer) -> row(\"y\" integer)" -> {
                 // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
                 return Optional.of(setup.withNewValueLiteral("NULL"));
+            }
         }
         return super.filterSetColumnTypesDataProvider(setup);
     }
@@ -95,10 +96,11 @@ public abstract class BaseIcebergParquetConnectorTest
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "row(x integer) -> row(\"y\" integer)":
+            case "row(x integer) -> row(\"y\" integer)" -> {
                 // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
                 // Skip this test entirely, as the newValueLiteral is always wrapped in a row
                 return Optional.empty();
+            }
         }
         return super.filterSetColumnTypesDataProvider(setup);
     }
@@ -108,7 +110,7 @@ public abstract class BaseIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_ignore_parquet_statistics",
-                "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['custkey'], parquet_writer_row_group_size = '1kB') AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
                     withSmallRowGroups(getSession()),
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
@@ -140,7 +142,7 @@ public abstract class BaseIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_pushdown_predicate_statistics",
-                "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['custkey'], parquet_writer_row_group_size = '1kB') AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
                     withSmallRowGroups(getSession()),
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
@@ -170,12 +172,9 @@ public abstract class BaseIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_table_changes_function_multi_row_groups_",
-                "AS SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem WITH NO DATA")) {
+                "WITH (parquet_writer_row_group_size = '" + getTableChangesParquetRowGroupSize() + "') AS SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem WITH NO DATA")) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());
-            assertUpdate(
-                    withSmallRowGroups(getSession()),
-                    "INSERT INTO %s SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem".formatted(table.getName()),
-                    60175L);
+            assertUpdate("INSERT INTO %s SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem".formatted(table.getName()), 60175L);
             long snapshotAfterInsert = getMostRecentSnapshotId(table.getName());
             DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
             String snapshotAfterInsertTime = getSnapshotTime(table.getName(), snapshotAfterInsert).format(instantMillisFormatter);
@@ -185,8 +184,8 @@ public abstract class BaseIcebergParquetConnectorTest
             String filePath = getOnlyTableFilePath(table.getName());
             ParquetMetadata parquetMetadata = getParquetFileMetadata(fileSystem.newInputFile(Location.of(filePath)));
             int blocksSize = parquetMetadata.getBlocks().size();
-            int splitBatchSize = new QueryManagerConfig().getScheduleSplitBatchSize();
-            assertThat(blocksSize > splitBatchSize && blocksSize % splitBatchSize != 0).isTrue();
+            int splitBatchSize = getTableChangesSplitBatchSize();
+            assertThat(blocksSize).isGreaterThan(splitBatchSize);
 
             assertQuery(
                     """
@@ -195,6 +194,16 @@ public abstract class BaseIcebergParquetConnectorTest
                     """.formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
                     "SELECT orderkey, partkey, suppkey, 'insert', %s, '%s', 0 FROM lineitem".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
         }
+    }
+
+    protected int getTableChangesSplitBatchSize()
+    {
+        return new QueryManagerConfig().getScheduleSplitBatchSize();
+    }
+
+    protected String getTableChangesParquetRowGroupSize()
+    {
+        return "256B";
     }
 
     private String getOnlyTableFilePath(String tableName)

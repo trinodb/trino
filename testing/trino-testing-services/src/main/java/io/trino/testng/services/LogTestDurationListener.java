@@ -49,7 +49,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class LogTestDurationListener
-        implements IExecutionListener, IClassListener, IInvokedMethodListener
+        implements IClassListener,
+                   IExecutionListener,
+                   IInvokedMethodListener
 {
     private static final Logger LOG = Logger.get(LogTestDurationListener.class);
 

@@ -77,6 +77,7 @@ public abstract class BaseImplementAvgBigint
     }
 
     // TODO String.format is not great for contract of an extensible API. Replace with formatting method.
+
     /**
      * Implement this method for each connector supporting avg(bigint) pushdown
      *

@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import io.trino.cache.EvictableCacheBuilder;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -58,10 +58,10 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         try {
-            return uncheckedCacheGet(cache, new CacheKey(schemaTableName, tableLocation), () -> delegate.readExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle));
+            return uncheckedCacheGet(cache, new CacheKey(schemaTableName, tableLocation), () -> delegate.readExtendedStatistics(session, schemaTableName, tableLocation, tableCredentials));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -70,16 +70,16 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public void updateExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle, ExtendedStatistics statistics)
+    public void updateExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials, ExtendedStatistics statistics)
     {
-        delegate.updateExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle, statistics);
+        delegate.updateExtendedStatistics(session, schemaTableName, tableLocation, tableCredentials, statistics);
         cache.invalidate(new CacheKey(schemaTableName, tableLocation));
     }
 
     @Override
-    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
-        delegate.deleteExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle);
+        delegate.deleteExtendedStatistics(session, schemaTableName, tableLocation, tableCredentials);
         cache.invalidate(new CacheKey(schemaTableName, tableLocation));
     }
 

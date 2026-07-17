@@ -73,7 +73,7 @@ public class BenchmarkGetFileSystem
             this.callableTasks = new ArrayList<>();
             for (int i = 0; i < threadCount; i++) {
                 this.callableTasks.add(new TestFileSystemCache.CreateFileSystemsAndConsume(
-                        new SplittableRandom(i), userCount, getCallsPerInvocation, fs -> {}));
+                        new SplittableRandom(i), userCount, getCallsPerInvocation, _ -> {}));
             }
 
             this.executor = Executors.newFixedThreadPool(threadCount);

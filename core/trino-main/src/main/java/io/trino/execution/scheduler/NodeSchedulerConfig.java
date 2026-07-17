@@ -30,7 +30,8 @@ import static java.util.Locale.ENGLISH;
         "node-scheduler.location-aware-scheduling-enabled",
         "node-scheduler.multiple-tasks-per-node-enabled",
         "node-scheduler.max-fraction-full-nodes-per-query",
-        "node-scheduler.max-absolute-full-nodes-per-query"})
+        "node-scheduler.max-absolute-full-nodes-per-query",
+})
 public class NodeSchedulerConfig
 {
     public enum NodeSchedulerPolicy

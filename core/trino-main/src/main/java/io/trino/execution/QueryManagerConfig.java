@@ -59,7 +59,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.queue-config-file",
         "query.remote-task.max-consecutive-error-count",
         "query.remote-task.min-error-duration",
-        "retry-attempts"
+        "retry-attempts",
 })
 public class QueryManagerConfig
 {

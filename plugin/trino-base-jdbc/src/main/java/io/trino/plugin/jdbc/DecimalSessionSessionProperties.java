@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.jdbc.DecimalConfig.DecimalMapping;
 import io.trino.plugin.jdbc.DecimalModule.SupportMapToNumber;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
@@ -23,7 +24,6 @@ import io.trino.spi.session.PropertyMetadata;
 import java.math.RoundingMode;
 import java.util.List;
 
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 

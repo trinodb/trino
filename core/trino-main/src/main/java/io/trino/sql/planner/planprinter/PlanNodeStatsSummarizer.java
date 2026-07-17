@@ -130,10 +130,10 @@ public final class PlanNodeStatsSummarizer
                     continue;
                 }
 
-                basicOperatorStats.merge(planNodeId,
+                basicOperatorStats.merge(
+                        planNodeId,
                         ImmutableMap.of(
-                                operatorStats.getOperatorType(),
-                                new BasicOperatorStats(
+                                operatorStats.getOperatorType(), new BasicOperatorStats(
                                         operatorStats.getTotalDrivers(),
                                         operatorStats.getInputPositions(),
                                         operatorStats.getSumSquaredInputPositions(),

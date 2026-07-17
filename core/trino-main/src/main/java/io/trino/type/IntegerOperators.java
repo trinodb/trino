@@ -26,14 +26,15 @@ import io.trino.spi.type.TrinoNumber;
 
 import java.math.BigDecimal;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.NumberFormatter.decimalLength;
+import static io.trino.plugin.base.util.NumberFormatter.formatLong;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -41,12 +42,14 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class IntegerOperators
 {
     private IntegerOperators() {}
 
+    // fallible
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.INTEGER)
     public static long add(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
@@ -59,6 +62,7 @@ public final class IntegerOperators
         }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.INTEGER)
     public static long subtract(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
@@ -71,6 +75,7 @@ public final class IntegerOperators
         }
     }
 
+    // fallible
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTEGER)
     public static long multiply(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
@@ -83,21 +88,27 @@ public final class IntegerOperators
         }
     }
 
+    // fallible
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.INTEGER)
     public static long divide(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         try {
-            return left / right;
+            long result = left / right;
+            if (!isLongToIntExact(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer division overflow: %s / %s", left, right));
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
-    @ScalarOperator(MODULUS)
+    // fallible
+    @ScalarOperator(MODULO)
     @SqlType(StandardTypes.INTEGER)
-    public static long modulus(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
+    public static long modulo(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         try {
             return left % right;
@@ -107,6 +118,7 @@ public final class IntegerOperators
         }
     }
 
+    // fallible
     @ScalarOperator(NEGATION)
     @SqlType(StandardTypes.INTEGER)
     public static long negate(@SqlType(StandardTypes.INTEGER) long value)
@@ -119,13 +131,14 @@ public final class IntegerOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType(StandardTypes.INTEGER) long value)
     {
         return value;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.INTEGER) long value)
@@ -136,6 +149,7 @@ public final class IntegerOperators
         return (short) value;
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.INTEGER) long value)
@@ -146,44 +160,43 @@ public final class IntegerOperators
         return (byte) value;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.INTEGER) long value)
     {
         return value != 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.INTEGER) long value)
     {
         return value;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.INTEGER) long value)
     {
         return floatToRawIntBits((float) value);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.INTEGER) long value)
     {
         return TrinoNumber.from(new BigDecimal(value));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.INTEGER) long value)
     {
-        // todo optimize me
-        String stringValue = String.valueOf(value);
-        // String is all-ASCII, so String.length() here returns actual code points count
-        if (stringValue.length() <= x) {
-            return utf8Slice(stringValue);
+        // the rendering is all ASCII, so its length in bytes is also its length in code points
+        if (decimalLength(value) <= x) {
+            return formatLong(value);
         }
 
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));

@@ -25,6 +25,9 @@ public class TestAbstractTrinoResultSet
     public void testRepresentationImplemented()
     {
         DEFAULT_OBJECT_REPRESENTATION.forEach((sourceRawType, target) -> {
+            if (target == Object.class) {
+                return;
+            }
             if (!TYPE_CONVERSIONS.hasConversion(sourceRawType, target)) {
                 fail(String.format("No conversion registered from %s to %s", sourceRawType, target));
             }

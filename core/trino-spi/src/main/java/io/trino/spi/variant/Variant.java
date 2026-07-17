@@ -772,8 +772,12 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
             return false;
         }
         return VariantUtils.equals(
-                metadata, data, 0,
-                rightValue.metadata, rightValue.data, 0);
+                metadata,
+                data,
+                0,
+                rightValue.metadata,
+                rightValue.data,
+                0);
     }
 
     @Override
@@ -1088,7 +1092,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
     {
         long[] order = new long[fieldIds.length];
         for (int i = 0; i < fieldIds.length; i++) {
-            order[i] = (((long) fieldIds[i]) << 32) | (i & 0xffff_ffffL);
+            order[i] = (((long) fieldIds[i]) << 32) | (i & 0xFFFF_FFFFL);
         }
         Arrays.sort(order);
         return order;

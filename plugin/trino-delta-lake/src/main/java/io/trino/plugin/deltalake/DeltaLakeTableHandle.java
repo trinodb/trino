@@ -73,8 +73,7 @@ public class DeltaLakeTableHandle
             @JsonProperty("readVersion") long readVersion,
             @JsonProperty("timeTravel") boolean timeTravel)
     {
-        this(
-                schemaName,
+        this(schemaName,
                 tableName,
                 managed,
                 location,
@@ -241,7 +240,7 @@ public class DeltaLakeTableHandle
     @Override
     public VendedCredentialsHandle toCredentialsHandle()
     {
-        return new VendedCredentialsHandle(false, managed, location, Optional.empty());
+        return new VendedCredentialsHandle(false, managed, location);
     }
 
     @JsonProperty

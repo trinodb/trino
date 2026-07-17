@@ -36,6 +36,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 
@@ -122,16 +123,16 @@ public class RedshiftUnloadSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         return resultSetFuture
                 .thenApply(_ -> {
                     unloadedFilePaths = readUnloadedFilePaths();
-                    ConnectorSplitBatch connectorSplitBatch = new ConnectorSplitBatch(unloadedFilePaths.stream()
+                    List<ConnectorSplit> splits = unloadedFilePaths.stream()
                             .map(fileInfo -> (ConnectorSplit) new RedshiftUnloadSplit(fileInfo.path, fileInfo.size))
-                            .collect(toImmutableList()), true);
+                            .collect(toImmutableList());
                     finished = true;
-                    return connectorSplitBatch;
+                    return splits;
                 });
     }
 

@@ -66,7 +66,8 @@ public class IcebergNessieCatalogModule
             case V2 -> builder.build(NessieApiV2.class);
         };
 
-        return new NessieIcebergClient(api,
+        return new NessieIcebergClient(
+                api,
                 icebergNessieCatalogConfig.getDefaultReferenceName(),
                 null,
                 ImmutableMap.of());

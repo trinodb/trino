@@ -29,10 +29,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Random;
+import java.util.random.RandomGenerator.JumpableGenerator;
 import java.util.random.RandomGeneratorFactory;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.random.RandomGenerator.JumpableGenerator;
 
 public class FakerPageSourceProvider
         implements ConnectorPageSourceProvider

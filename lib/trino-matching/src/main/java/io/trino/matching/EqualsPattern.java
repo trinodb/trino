@@ -38,6 +38,6 @@ public final class EqualsPattern<T>
     public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
         return Stream.of(Match.of(captures))
-                .filter(match -> expectedValue.equals(object));
+                .filter(_ -> expectedValue.equals(object));
     }
 }

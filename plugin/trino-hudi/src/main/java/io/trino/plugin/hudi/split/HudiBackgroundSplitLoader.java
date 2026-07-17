@@ -15,6 +15,7 @@ package io.trino.plugin.hudi.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HudiPartitionInfoLoader;
@@ -55,6 +56,7 @@ public class HudiBackgroundSplitLoader
             AsyncQueue<ConnectorSplit> asyncQueue,
             Executor splitGeneratorExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
+            SplitAffinityProvider splitAffinityProvider,
             List<String> partitions,
             Consumer<Throwable> errorListener)
     {
@@ -62,7 +64,7 @@ public class HudiBackgroundSplitLoader
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
         this.splitGeneratorExecutor = requireNonNull(splitGeneratorExecutor, "splitGeneratorExecutorService is null");
         this.splitGeneratorNumThreads = getSplitGeneratorParallelism(session);
-        this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider);
+        this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider, splitAffinityProvider);
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
     }

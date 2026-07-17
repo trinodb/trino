@@ -20,7 +20,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Cast;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -33,30 +33,11 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.ir.IrExpressions.cast;
 
 public final class ConstantEvaluator
 {
     private ConstantEvaluator() {}
-
-    /**
-     * @deprecated Use {@link #evaluateConstant(Expression, Type, Map, PlannerContext, Session, AccessControl)} instead to pass parameters explicitly.
-     */
-    @Deprecated // TODO https://github.com/trinodb/trino/issues/28708 Remove after all calls are updated to pass parameters explicitly
-    public static Object evaluateConstant(
-            Expression expression,
-            Type expectedType,
-            PlannerContext plannerContext,
-            Session session,
-            AccessControl accessControl)
-    {
-        return evaluateConstant(
-                expression,
-                expectedType,
-                ImmutableMap.of(),
-                plannerContext,
-                session,
-                accessControl);
-    }
 
     public static Object evaluateConstant(
             Expression expression,
@@ -80,16 +61,16 @@ public final class ConstantEvaluator
                 WarningCollector.NOOP,
                 CorrelationSupport.DISALLOWED);
 
-        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext);
+        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext, new SymbolAllocator(ImmutableList.of()));
         io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
         Type actualType = rewritten.type();
-        if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
+        if (!new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion()).canCoerce(actualType, expectedType)) {
             throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
         }
 
         if (!actualType.equals(expectedType)) {
-            rewritten = new Cast(rewritten, expectedType);
+            rewritten = cast(plannerContext.getTypeManager(), rewritten, expectedType);
         }
 
         return plannerContext.getExpressionEvaluator().evaluate(rewritten, session, ImmutableMap.of());

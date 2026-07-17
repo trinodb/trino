@@ -25,6 +25,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 
 @AggregationFunction(value = "listagg", isOrderSensitive = true)
@@ -53,6 +54,7 @@ public final class ListaggAggregationFunction
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction("VARCHAR")
     public static void output(ListaggAggregationState state, BlockBuilder blockBuilder)
     {

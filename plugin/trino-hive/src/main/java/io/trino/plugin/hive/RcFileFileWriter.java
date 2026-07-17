@@ -53,7 +53,7 @@ public final class RcFileFileWriter
     private final CountingOutputStream outputStream;
     private final AggregatedMemoryContext outputStreamMemoryContext;
     private final RcFileWriter rcFileWriter;
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<TrinoInputFile>> validationInputFactory;
@@ -63,7 +63,7 @@ public final class RcFileFileWriter
     public RcFileFileWriter(
             OutputStream outputStream,
             AggregatedMemoryContext outputStreamMemoryContext,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             ColumnEncodingFactory columnEncodingFactory,
             List<Type> fileColumnTypes,
             Optional<CompressionKind> compressionKind,
@@ -128,14 +128,14 @@ public final class RcFileFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             rcFileWriter.close();
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Exception _) {
                 // ignore
@@ -161,7 +161,7 @@ public final class RcFileFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             rcFileWriter.close();
         }
         catch (Exception e) {

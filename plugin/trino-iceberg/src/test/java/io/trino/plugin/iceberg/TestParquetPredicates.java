@@ -56,7 +56,9 @@ public class TestParquetPredicates
 
         // parquet type
         MessageType fileSchema = new MessageType("iceberg_schema",
-                new GroupType(OPTIONAL, "row_field",
+                new GroupType(
+                        OPTIONAL,
+                        "row_field",
                         new PrimitiveType(OPTIONAL, INT32, "a").withId(1),
                         new PrimitiveType(OPTIONAL, INT32, "b").withId(2),
                         new PrimitiveType(OPTIONAL, INT32, "c").withId(3)));
@@ -97,7 +99,9 @@ public class TestParquetPredicates
 
         // parquet type
         MessageType fileSchema = new MessageType("iceberg_schema",
-                new GroupType(OPTIONAL, "row_field",
+                new GroupType(
+                        OPTIONAL,
+                        "row_field",
                         new PrimitiveType(OPTIONAL, INT32, "a").withId(1),
                         new PrimitiveType(OPTIONAL, INT32, "b").withId(2),
                         new PrimitiveType(OPTIONAL, INT32, "c").withId(3)).withId(5));
@@ -141,10 +145,13 @@ public class TestParquetPredicates
 
         // parquet type
         MessageType fileSchema = new MessageType("iceberg_schema",
-                new GroupType(OPTIONAL, "row_field",
+                new GroupType(
+                        OPTIONAL,
+                        "row_field",
                         new PrimitiveType(OPTIONAL, INT32, "a").withId(3),
                         new PrimitiveType(OPTIONAL, INT32, "b").withId(4),
-                        new GroupType(OPTIONAL,
+                        new GroupType(
+                                OPTIONAL,
                                 "c",
                                 new PrimitiveType(OPTIONAL, INT32, "c1").withId(1),
                                 new PrimitiveType(OPTIONAL, INT32, "c2").withId(2)).withId(5)));
@@ -183,7 +190,9 @@ public class TestParquetPredicates
 
         // parquet type
         MessageType fileSchema = new MessageType("iceberg_schema",
-                new GroupType(OPTIONAL, "row_field",
+                new GroupType(
+                        OPTIONAL,
+                        "row_field",
                         new PrimitiveType(OPTIONAL, INT32, "a").withId(1),
                         new PrimitiveType(OPTIONAL, INT32, "b").withId(2)));
 

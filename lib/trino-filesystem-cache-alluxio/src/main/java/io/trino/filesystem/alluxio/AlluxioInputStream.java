@@ -62,7 +62,8 @@ public class AlluxioInputStream
         this.location = inputFile.location();
         this.statistics = requireNonNull(statistics, "statistics is null");
         this.key = requireNonNull(key, "key is null");
-        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics);
+        // Sequential reads arrive in small arbitrary chunks, so buffer small reads to amortize page aligned reads
+        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics, true);
     }
 
     @Override
@@ -99,7 +100,7 @@ public class AlluxioInputStream
         int n = read(bytes, 0, 1);
         if (n == 1) {
             // Converts the byte to an unsigned byte, an integer in the range 0 to 255
-            return bytes[0] & 0xff;
+            return bytes[0] & 0xFF;
         }
         if (n == -1) {
             return -1;

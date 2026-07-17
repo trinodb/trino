@@ -41,7 +41,8 @@ class TestCompressedQueryDataDecoder
             throws IOException
     {
         AtomicBoolean closed = new AtomicBoolean();
-        InputStream stream = new FilterInputStream(new ByteArrayInputStream("compressed".getBytes(UTF_8))) {
+        InputStream stream = new FilterInputStream(new ByteArrayInputStream("compressed".getBytes(UTF_8)))
+        {
             @Override
             public void close()
                     throws IOException
@@ -51,7 +52,8 @@ class TestCompressedQueryDataDecoder
             }
         };
 
-        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
+        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder()
+        {
             @Override
             public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
@@ -84,7 +86,8 @@ class TestCompressedQueryDataDecoder
             throws IOException
     {
         AtomicBoolean closed = new AtomicBoolean();
-        InputStream stream = new FilterInputStream(new ByteArrayInputStream("not compressed".getBytes(UTF_8))) {
+        InputStream stream = new FilterInputStream(new ByteArrayInputStream("not compressed".getBytes(UTF_8)))
+        {
             @Override
             public void close()
                     throws IOException
@@ -94,7 +97,8 @@ class TestCompressedQueryDataDecoder
             }
         };
 
-        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
+        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder()
+        {
             @Override
             public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException

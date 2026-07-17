@@ -257,7 +257,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.decimalType(2, 12)).named("test_binary_decimal");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
@@ -401,7 +401,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
@@ -651,7 +651,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BOOLEAN).named("test_boolean");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BooleanColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BooleanColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BooleanColumn col = booleanColumn("test_col");
 
@@ -748,7 +748,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(DOUBLE).named("test_double");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(DoubleColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(DoubleColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.DoubleColumn col = doubleColumn("test_col");
 
@@ -881,7 +881,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(FLOAT).named("test_float");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(FloatColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(FloatColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.FloatColumn col = floatColumn("test_col");
 
@@ -1014,7 +1014,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT32).named("test_int32");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
@@ -1072,7 +1072,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 2), 1, 2, 5);
         assertCorrectFiltering(columnIndex, ltEq(col, 2), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1103,7 +1113,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 2), 5, 8);
         assertCorrectFiltering(columnIndex, ltEq(col, 2), 5, 8);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1129,7 +1149,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT32).as(LogicalTypeAnnotation.intType(8, false)).named("test_uint8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
@@ -1187,7 +1207,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 42), 1, 2);
         assertCorrectFiltering(columnIndex, ltEq(col, 42), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1218,7 +1248,16 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 42), 8);
         assertCorrectFiltering(columnIndex, ltEq(col, 42), 5, 8);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1227,7 +1266,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT64).named("test_int64");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(LongColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(LongColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.LongColumn col = longColumn("test_col");
 
@@ -1285,7 +1324,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, -42L), 1, 2);
         assertCorrectFiltering(columnIndex, ltEq(col, -42L), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, LongIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, LongIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, LongIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1316,7 +1365,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, -42L));
         assertCorrectFiltering(columnIndex, ltEq(col, -42L), 8);
         assertCorrectFiltering(columnIndex, userDefined(col, LongIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, LongIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, LongIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1342,8 +1401,11 @@ public class TestColumnIndexBuilder
     {
         ColumnIndexBuilder builder = ColumnIndexBuilder.getNoOpBuilder();
         StatsBuilder sb = new StatsBuilder();
-        builder.add(sb.stats(Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"), stringBinary("Jeltz"),
-                stringBinary("Slartibartfast"), null, null));
+        builder.add(sb.stats(Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"),
+                stringBinary("Jeltz"),
+                stringBinary("Slartibartfast"),
+                null,
+                null));
         builder.add(sb.stats(Types.required(BOOLEAN).named("test_boolean"), true, true, null, null));
         builder.add(sb.stats(Types.required(DOUBLE).named("test_double"), null, null, null));
         builder.add(sb.stats(Types.required(INT32).named("test_int32"), null, null));
@@ -1613,28 +1675,13 @@ public class TestColumnIndexBuilder
                     continue;
                 }
                 switch (type.getPrimitiveTypeName()) {
-                    case BINARY:
-                    case FIXED_LEN_BYTE_ARRAY:
-                    case INT96:
-                        stats.updateStats((Binary) value);
-                        break;
-                    case BOOLEAN:
-                        stats.updateStats((boolean) value);
-                        break;
-                    case DOUBLE:
-                        stats.updateStats((double) value);
-                        break;
-                    case FLOAT:
-                        stats.updateStats((float) value);
-                        break;
-                    case INT32:
-                        stats.updateStats((int) value);
-                        break;
-                    case INT64:
-                        stats.updateStats((long) value);
-                        break;
-                    default:
-                        fail("Unsupported value type for stats: " + value.getClass());
+                    case BINARY, FIXED_LEN_BYTE_ARRAY, INT96 -> stats.updateStats((Binary) value);
+                    case BOOLEAN -> stats.updateStats((boolean) value);
+                    case DOUBLE -> stats.updateStats((double) value);
+                    case FLOAT -> stats.updateStats((float) value);
+                    case INT32 -> stats.updateStats((int) value);
+                    case INT64 -> stats.updateStats((long) value);
+                    default -> fail("Unsupported value type for stats: " + value.getClass());
                 }
             }
             if (stats.hasNonNullValue()) {

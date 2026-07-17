@@ -127,7 +127,8 @@ public abstract class BaseAutomaticJoinPushdownTest
             gatherStats(left.getName());
             gatherStats(right.getName());
 
-            assertThat(query(session, format("" +
+            assertThat(query(session, format(
+                    "" +
                             "SELECT * " +
                             "FROM %s l " +
                             "JOIN (SELECT DISTINCT key FROM %s) r ON l.key = r.key",
@@ -153,7 +154,8 @@ public abstract class BaseAutomaticJoinPushdownTest
             gatherStats(second.getName());
             gatherStats(third.getName());
 
-            assertThat(query(session, format("" +
+            assertThat(query(session, format(
+                    "" +
                             "SELECT * " +
                             "FROM %s first, %s second, %s third " +
                             "WHERE first.key = second.key AND second.key = third.key " +

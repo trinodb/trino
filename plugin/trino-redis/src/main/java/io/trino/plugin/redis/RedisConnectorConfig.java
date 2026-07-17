@@ -51,6 +51,7 @@ public class RedisConnectorConfig
     private Duration tableDescriptionCacheDuration = new Duration(5, MINUTES);
     private boolean hideInternalColumns = true;
     private boolean keyPrefixSchemaTable;
+    private boolean tlsEnabled;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -243,6 +244,19 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setKeyPrefixSchemaTable(boolean keyPrefixSchemaTable)
     {
         this.keyPrefixSchemaTable = keyPrefixSchemaTable;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("redis.tls.enabled")
+    @ConfigDescription("Whether TLS security is enabled")
+    public RedisConnectorConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
         return this;
     }
 

@@ -28,6 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.hive.formats.ByteSearch.indexOfByte;
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 
@@ -231,13 +232,13 @@ public final class TextLineReader
 
     private boolean seekToStartOfLineTerminator()
     {
-        while (bufferPosition < bufferEnd) {
-            if (isEndOfLineCharacter(buffer[bufferPosition])) {
-                return true;
-            }
-            bufferPosition++;
+        int terminator = indexOfByte(buffer, bufferPosition, bufferEnd, (byte) '\n', (byte) '\r');
+        if (terminator < 0) {
+            bufferPosition = bufferEnd;
+            return false;
         }
-        return false;
+        bufferPosition = terminator;
+        return true;
     }
 
     private static boolean isEndOfLineCharacter(byte currentByte)

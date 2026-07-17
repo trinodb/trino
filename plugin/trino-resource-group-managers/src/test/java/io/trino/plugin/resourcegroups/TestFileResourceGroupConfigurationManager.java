@@ -57,7 +57,8 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_soft_memory_limit.json", "softMemoryLimit percentage is over 100%");
         assertFails("resource_groups_config_bad_weighted_scheduling_policy.json", "Must specify scheduling weight for all sub-groups of 'requests' or none of them");
         assertFails("resource_groups_config_unused_field.json", "Unknown property at line 8:6: maxFoo");
-        assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json",
+        assertFails(
+                "resource_groups_config_bad_query_priority_scheduling_policy.json",
                 "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for 'requests'");
         assertFails("resource_groups_config_bad_extract_variable.json", "Invalid resource group name.*");
         assertFails("resource_groups_config_bad_query_type.json", "Selector specifies an invalid query type: invalid_query_type");
@@ -85,7 +86,7 @@ public class TestFileResourceGroupConfigurationManager
                 ImmutableList.of(selectorSpec(groupIdTemplate("group"))
                         .userGroups("first matching", "second matching")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(groupManager.match(userGroupsSelectionCriteria("not matching"))).isEmpty();
         assertThat(groupManager.match(userGroupsSelectionCriteria("first matching")))
@@ -101,7 +102,7 @@ public class TestFileResourceGroupConfigurationManager
                 ImmutableList.of(selectorSpec(groupIdTemplate("group"))
                         .users("First matching user", "Second matching user")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(groupManager.match(userSelectionCriteria("Not matching user"))).isEmpty();
         assertThat(groupManager.match(userSelectionCriteria("First matching user")))
@@ -118,7 +119,7 @@ public class TestFileResourceGroupConfigurationManager
                         .userGroups("Matching group")
                         .users("Matching user")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(groupManager.match(userAndUserGroupsSelectionCriteria("Matching user", "Not matching group"))).isEmpty();
         assertThat(groupManager.match(userAndUserGroupsSelectionCriteria("Not matching user", "Matching group"))).isEmpty();
@@ -134,7 +135,7 @@ public class TestFileResourceGroupConfigurationManager
                 resourceGroupSpec("group"),
                 ImmutableList.of(selectorSpec(groupIdTemplate("group")).originalUserPattern("foo.+")));
 
-        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "other-usr", Optional.empty()))).isEmpty();
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "other-usr", Optional.of("foo-usr")))).isEmpty();
@@ -150,7 +151,7 @@ public class TestFileResourceGroupConfigurationManager
                 resourceGroupSpec("group"),
                 ImmutableList.of(selectorSpec(groupIdTemplate("group")).authenticatedUserPattern("foo.+")));
 
-        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "foo-usr", Optional.empty()))).isEmpty();
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "foo-usr", Optional.of("other-usr")))).isEmpty();
@@ -197,7 +198,7 @@ public class TestFileResourceGroupConfigurationManager
                 resourceGroupSpec("group"),
                 ImmutableList.of(selectorSpec(groupIdTemplate("group")).queryTextPattern("(?i).+FROM tableX")));
 
-        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(manager.match(queryTextSelectionCriteria("select 1"))).isEmpty();
         assertThat(manager.match(queryTextSelectionCriteria("select * from tableY"))).isEmpty();
@@ -267,7 +268,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testDocsExample()
     {
         FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(
-                (listener) -> listener.accept(new MemoryPoolInfo(MEMORY_POOL_SIZE, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
+                listener -> listener.accept(new MemoryPoolInfo(MEMORY_POOL_SIZE, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
                 new FileResourceGroupConfig()
                         // TODO: figure out a better way to validate documentation
                         .setConfigFile("../../docs/src/main/sphinx/admin/resource-groups-example.json"));

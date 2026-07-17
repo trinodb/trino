@@ -35,8 +35,7 @@ public class SampleNode
 
     public enum Type
     {
-        BERNOULLI,
-        SYSTEM;
+        BERNOULLI, SYSTEM,
     }
 
     @JsonCreator

@@ -274,7 +274,8 @@ public final class PrioritizedSplitRunner
 
     public String getInfo()
     {
-        return format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
+        return format(
+                "Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
                 taskHandle.getTaskId(),
                 splitId,
                 split.getInfo(),

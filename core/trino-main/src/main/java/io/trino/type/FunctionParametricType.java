@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;

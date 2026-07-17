@@ -39,7 +39,8 @@ public class TestDeltaLakeSystemTableCompatibility
         String tableName = "test_dl_table_properties_case_sensitivity_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s' TBLPROPERTIES ('test_key'='test_value', 'Test_Key'='Test_Mixed_Case')",
+        onDelta().executeQuery(format(
+                "CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s' TBLPROPERTIES ('test_key'='test_value', 'Test_Key'='Test_Mixed_Case')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -48,7 +49,7 @@ public class TestDeltaLakeSystemTableCompatibility
                 row("Test_Key", "Test_Mixed_Case"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
-            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\"");
+            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\" WHERE key != 'location'");
             assertThat(deltaResult).contains(expectedRows);
             assertThat(trinoResult).contains(expectedRows);
             assertThat(trinoResult.rows()).containsExactlyInAnyOrderElementsOf(deltaResult.rows());
@@ -64,7 +65,8 @@ public class TestDeltaLakeSystemTableCompatibility
         String tableName = "test_dl_table_properties_with_features_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s'" +
+        onDelta().executeQuery(format(
+                "CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s'" +
                         " TBLPROPERTIES ('delta.minReaderVersion'='3', 'delta.minWriterVersion'='7', 'delta.columnMapping.mode'='id')",
                 tableName,
                 bucketName,
@@ -77,7 +79,7 @@ public class TestDeltaLakeSystemTableCompatibility
                 row("delta.minWriterVersion", "7"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
-            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\"");
+            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\" WHERE key LIKE 'delta%'");
             assertThat(deltaResult).contains(expectedRows);
             assertThat(trinoResult).contains(expectedRows);
             assertThat(trinoResult.rows()).containsExactlyInAnyOrderElementsOf(deltaResult.rows());

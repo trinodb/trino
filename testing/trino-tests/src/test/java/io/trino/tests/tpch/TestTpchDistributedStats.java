@@ -66,59 +66,73 @@ public class TestTpchDistributedStats
     public void testTableScanStats()
     {
         TpchTable.getTables()
-                .forEach(table -> statisticsAssertion.check("SELECT * FROM " + table.getTableName(),
+                .forEach(table -> statisticsAssertion.check(
+                        "SELECT * FROM " + table.getTableName(),
                         checks -> checks.estimate(OUTPUT_ROW_COUNT, noError())));
     }
 
     @Test
     public void testFilter()
     {
-        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_shipdate <= DATE '1998-12-01' - INTERVAL '90' DAY",
+        statisticsAssertion.check(
+                "SELECT * FROM lineitem WHERE l_shipdate <= DATE '1998-12-01' - INTERVAL '90' DAY",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
 
-        statisticsAssertion.check("SELECT l_orderkey FROM lineitem GROUP BY l_orderkey HAVING sum(l_quantity) > 30",
+        statisticsAssertion.check(
+                "SELECT l_orderkey FROM lineitem GROUP BY l_orderkey HAVING sum(l_quantity) > 30",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
 
-        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate > l_commitdate",
+        statisticsAssertion.check(
+                "SELECT * FROM lineitem WHERE l_receiptdate > l_commitdate",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(-0.2, -0.18)));
 
-        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate >= l_commitdate",
+        statisticsAssertion.check(
+                "SELECT * FROM lineitem WHERE l_receiptdate >= l_commitdate",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(-0.23, -0.2)));
 
-        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate < l_commitdate",
+        statisticsAssertion.check(
+                "SELECT * FROM lineitem WHERE l_receiptdate < l_commitdate",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.35, 0.38)));
 
-        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate <= l_commitdate",
+        statisticsAssertion.check(
+                "SELECT * FROM lineitem WHERE l_receiptdate <= l_commitdate",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.3, 0.35)));
     }
 
     @Test
     public void testJoin()
     {
-        statisticsAssertion.check("SELECT * FROM  part, partsupp WHERE p_partkey = ps_partkey",
+        statisticsAssertion.check(
+                "SELECT * FROM  part, partsupp WHERE p_partkey = ps_partkey",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 
     @Test
     public void testUnion()
     {
-        statisticsAssertion.check("SELECT * FROM nation UNION SELECT * FROM nation",
+        statisticsAssertion.check(
+                "SELECT * FROM nation UNION SELECT * FROM nation",
                 // real count is 25, estimation cannot know all rows are duplicate.
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(1, 1)));
 
-        statisticsAssertion.check("SELECT * FROM nation UNION ALL SELECT * FROM nation",
+        statisticsAssertion.check(
+                "SELECT * FROM nation UNION ALL SELECT * FROM nation",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
 
-        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 755 OR o_orderstatus = '0' UNION SELECT * FROM orders WHERE o_custkey > 755 OR o_orderstatus = 'F'",
+        statisticsAssertion.check(
+                "SELECT * FROM orders WHERE o_custkey < 755 OR o_orderstatus = '0' UNION SELECT * FROM orders WHERE o_custkey > 755 OR o_orderstatus = 'F'",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(.3, .35)));
 
-        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 755 OR o_orderstatus = '0' UNION ALL SELECT * FROM orders WHERE o_custkey > 755 OR o_orderstatus = 'F'",
+        statisticsAssertion.check(
+                "SELECT * FROM orders WHERE o_custkey < 755 OR o_orderstatus = '0' UNION ALL SELECT * FROM orders WHERE o_custkey > 755 OR o_orderstatus = 'F'",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
 
-        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 UNION SELECT * FROM orders WHERE o_custkey > 600",
+        statisticsAssertion.check(
+                "SELECT * FROM orders WHERE o_custkey < 900 UNION SELECT * FROM orders WHERE o_custkey > 600",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(.15, .25)));
 
-        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 UNION ALL SELECT * FROM orders WHERE o_custkey > 600",
+        statisticsAssertion.check(
+                "SELECT * FROM orders WHERE o_custkey < 900 UNION ALL SELECT * FROM orders WHERE o_custkey > 600",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 
@@ -126,10 +140,12 @@ public class TestTpchDistributedStats
     public void testIntersect()
     {
         // Estimates are significantly off as they are generated by NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED
-        statisticsAssertion.check("SELECT * FROM nation INTERSECT SELECT * FROM nation",
+        statisticsAssertion.check(
+                "SELECT * FROM nation INTERSECT SELECT * FROM nation",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(45)));
 
-        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 INTERSECT SELECT * FROM orders WHERE o_custkey > 600",
+        statisticsAssertion.check(
+                "SELECT * FROM orders WHERE o_custkey < 900 INTERSECT SELECT * FROM orders WHERE o_custkey > 600",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(4.3, 4.4)));
     }
 
@@ -137,10 +153,12 @@ public class TestTpchDistributedStats
     public void testExcept()
     {
         // Estimates are significantly off as they are generated by NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED
-        statisticsAssertion.check("SELECT * FROM nation EXCEPT SELECT * FROM nation",
+        statisticsAssertion.check(
+                "SELECT * FROM nation EXCEPT SELECT * FROM nation",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(45)));
 
-        statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 EXCEPT SELECT * FROM orders WHERE o_custkey > 600",
+        statisticsAssertion.check(
+                "SELECT * FROM orders WHERE o_custkey < 900 EXCEPT SELECT * FROM orders WHERE o_custkey > 600",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(1.7, 1.8)));
     }
 
@@ -160,50 +178,58 @@ public class TestTpchDistributedStats
     @Test
     public void testValues()
     {
-        statisticsAssertion.check("VALUES 1",
+        statisticsAssertion.check(
+                "VALUES 1",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
     @Test
     public void testSemiJoin()
     {
-        statisticsAssertion.check("SELECT * FROM nation WHERE n_regionkey IN (SELECT r_regionkey FROM region)",
+        statisticsAssertion.check(
+                "SELECT * FROM nation WHERE n_regionkey IN (SELECT r_regionkey FROM region)",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
 
-        statisticsAssertion.check("SELECT * FROM nation WHERE n_regionkey IN (SELECT r_regionkey FROM region WHERE r_regionkey % 3 = 0)",
+        statisticsAssertion.check(
+                "SELECT * FROM nation WHERE n_regionkey IN (SELECT r_regionkey FROM region WHERE r_regionkey % 3 = 0)",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(15.)));
     }
 
     @Test
     public void testLimit()
     {
-        statisticsAssertion.check("SELECT * FROM nation LIMIT 10",
+        statisticsAssertion.check(
+                "SELECT * FROM nation LIMIT 10",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
     @Test
     public void testGroupBy()
     {
-        statisticsAssertion.check("SELECT l_returnflag, l_linestatus FROM lineitem GROUP BY l_returnflag, l_linestatus",
+        statisticsAssertion.check(
+                "SELECT l_returnflag, l_linestatus FROM lineitem GROUP BY l_returnflag, l_linestatus",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(2))); // real row count is 4
     }
 
     @Test
     public void testSort()
     {
-        statisticsAssertion.check("SELECT * FROM nation ORDER BY n_nationkey",
+        statisticsAssertion.check(
+                "SELECT * FROM nation ORDER BY n_nationkey",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
     @Test
     public void testTablesample()
     {
-        statisticsAssertion.check("SELECT * FROM orders TABLESAMPLE BERNOULLI (42)",
+        statisticsAssertion.check(
+                "SELECT * FROM orders TABLESAMPLE BERNOULLI (42)",
                 checks -> checks.noEstimate(OUTPUT_ROW_COUNT)); // BERNOULLI sample gets converted to a `rand() < 0.42` filter and does not get estimated currently
 
         // Using eventual assertion because TABLESAMPLE SYSTEM has high variance of number of result rows being returned, when calculating the actual value.
         assertEventually(() -> {
-            statisticsAssertion.check("SELECT * FROM orders TABLESAMPLE SYSTEM (42)",
+            statisticsAssertion.check(
+                    "SELECT * FROM orders TABLESAMPLE SYSTEM (42)",
                     checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(.3)));
         });
     }

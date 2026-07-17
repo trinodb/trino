@@ -39,7 +39,8 @@ public record StageInfo(
         Map<PlanNodeId, TableInfo> tables,
         ExecutionFailureInfo failureCause)
 {
-    public StageInfo {
+    public StageInfo
+    {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(state, "state is null");
         requireNonNull(stageStats, "stageStats is null");

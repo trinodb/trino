@@ -69,8 +69,7 @@ public class MemoryRevokingScheduler
             TaskManagementExecutor taskManagementExecutor,
             FeaturesConfig config)
     {
-        this(
-                localMemoryManager.getMemoryPool(),
+        this(localMemoryManager.getMemoryPool(),
                 sqlTaskManager::getAllTasks,
                 taskManagementExecutor.getExecutor(),
                 config.getMemoryRevokingThreshold(),
@@ -93,7 +92,8 @@ public class MemoryRevokingScheduler
         checkArgument(
                 memoryRevokingTarget <= memoryRevokingThreshold,
                 "memoryRevokingTarget should be less than or equal memoryRevokingThreshold, but got %s and %s respectively",
-                memoryRevokingTarget, memoryRevokingThreshold);
+                memoryRevokingTarget,
+                memoryRevokingThreshold);
     }
 
     private static double checkFraction(double value, String valueName)
@@ -117,7 +117,7 @@ public class MemoryRevokingScheduler
                 requestMemoryRevokingIfNeeded();
             }
             catch (Throwable e) {
-                log.error(e, "Error requesting system memory revoking");
+                log.error(e, "Error requesting memory revoking");
             }
         }, 1, 1, SECONDS);
     }

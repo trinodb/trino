@@ -3,37 +3,25 @@
     "spec": {
         "dataSchema": {
             "dataSource": "region",
-            "parser": {
-                "type": "string",
-                "parseSpec": {
-                    "format": "tsv",
-                    "timestampSpec": {
-                        "column": "region_druid_dummy_ts",
-                        "format": "auto"
+            "timestampSpec": {
+                "column": "region_druid_dummy_ts",
+                "format": "auto"
+            },
+            "dimensionsSpec": {
+                "dimensions": [
+                    {
+                        "name": "regionkey",
+                        "type": "long"
                     },
-                    "columns": [
-                        "regionkey",
-                        "name",
-                        "comment",
-                        "region_druid_dummy_ts"
-                    ],
-                    "dimensionsSpec": {
-                        "dimensions": [
-                            {
-                                "name": "regionkey",
-                                "type": "long"
-                            },
-                            {
-                                "name": "name",
-                                "type": "string"
-                            },
-                            {
-                                "name": "comment",
-                                "type": "string"
-                            }
-                        ]
+                    {
+                        "name": "name",
+                        "type": "string"
+                    },
+                    {
+                        "name": "comment",
+                        "type": "string"
                     }
-                }
+                ]
             },
             "granularitySpec": {
                 "type": "uniform",
@@ -46,10 +34,20 @@
         },
         "ioConfig": {
             "type": "index",
-            "firehose": {
+            "inputSource": {
                 "type": "local",
                 "baseDir": "/opt/druid/var/",
                 "filter": "region.tsv"
+            },
+            "inputFormat": {
+                "type": "tsv",
+                "findColumnsFromHeader": false,
+                "columns": [
+                    "regionkey",
+                    "name",
+                    "comment",
+                    "region_druid_dummy_ts"
+                ]
             },
             "appendToExisting": false
         },

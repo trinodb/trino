@@ -625,7 +625,7 @@ public class StageStats
         }
         OptionalDouble runningPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {
-            progressPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
+            runningPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
         }
 
         return new BasicStageStats(

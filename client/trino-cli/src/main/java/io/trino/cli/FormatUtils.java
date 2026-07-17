@@ -248,7 +248,14 @@ public final class FormatUtils
 
         checkState((completeLength + runningLength + pendingLength) == width,
                 "Expected completeLength (%s) + runningLength (%s) + pendingLength (%s) == width (%s), was %s for progressPercentage = %s, runningPercentage = %s, totalPercentage = %s",
-                completeLength, runningLength, pendingLength, width, completeLength + runningLength + pendingLength, progressPercentage, runningPercentage, totalPercentage);
+                completeLength,
+                runningLength,
+                pendingLength,
+                width,
+                completeLength + runningLength + pendingLength,
+                progressPercentage,
+                runningPercentage,
+                totalPercentage);
 
         return "=".repeat(completeLength) + ">".repeat(runningLength) + " ".repeat(pendingLength);
     }

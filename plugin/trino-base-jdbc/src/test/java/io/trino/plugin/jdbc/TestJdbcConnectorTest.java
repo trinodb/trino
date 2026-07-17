@@ -115,20 +115,26 @@ public class TestJdbcConnectorTest
     }
 
     @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        if (setup.sourceColumnType().startsWith("char(") && setup.newColumnType().startsWith("varchar")) {
+            // H2 keeps the blank padding of the existing CHAR data when the column is converted to VARCHAR,
+            // whereas Trino's char-to-varchar cast (which computes the default expected value) trims trailing spaces.
+            int length = Integer.parseInt(setup.sourceColumnType().substring("char(".length(), setup.sourceColumnType().length() - 1));
+            return Optional.of(setup.withNewValueLiteral(format("rpad(%s, %s, ' ')", setup.sourceValueLiteral(), length)));
+        }
+        return Optional.of(setup);
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeBaseName = dataMappingTestSetup.getTrinoTypeName().replaceAll("\\([^()]*\\)", "");
-        switch (typeBaseName) {
-            case "boolean":
-            case "decimal":
-            case "varbinary":
-            case "time":
-            case "timestamp":
-            case "timestamp with time zone":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        return Optional.of(dataMappingTestSetup);
+        return Optional.of(switch (typeBaseName) {
+            case "boolean", "decimal", "varbinary", "time",
+                 "timestamp", "timestamp with time zone" -> dataMappingTestSetup.asUnsupported();
+            default -> dataMappingTestSetup;
+        });
     }
 
     @Test

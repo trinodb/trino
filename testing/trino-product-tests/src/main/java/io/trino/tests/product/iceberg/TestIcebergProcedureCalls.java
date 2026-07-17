@@ -230,7 +230,7 @@ public class TestIcebergProcedureCalls
                 .containsOnly(row(1, "test"));
 
         assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName).getOnlyValue())
-                        .contains("partitioning = ARRAY['part']");
+                .contains("partitioning = ARRAY['part']");
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
     }
@@ -369,7 +369,7 @@ public class TestIcebergProcedureCalls
     private long getSecondOldestTableSnapshot(String tableName)
     {
         return (Long) onTrino().executeQuery(
-                format("SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at FETCH FIRST 1 ROW WITH TIES", tableName))
+                        format("SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at FETCH FIRST 1 ROW WITH TIES", tableName))
                 .getOnlyValue();
     }
 

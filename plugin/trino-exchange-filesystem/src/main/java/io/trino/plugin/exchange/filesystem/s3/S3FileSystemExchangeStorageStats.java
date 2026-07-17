@@ -160,7 +160,7 @@ public class S3FileSystemExchangeStorageStats
 
     public void requestStarted(RequestType requestType)
     {
-        activeRequests.computeIfAbsent(requestType, key -> new AtomicLong()).incrementAndGet();
+        activeRequests.computeIfAbsent(requestType, _ -> new AtomicLong()).incrementAndGet();
     }
 
     public void requestCompleted(RequestType requestType)

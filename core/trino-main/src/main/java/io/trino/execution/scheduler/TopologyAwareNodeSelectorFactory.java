@@ -44,6 +44,7 @@ import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.node.NodeState.ACTIVE;
+import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorFactory
@@ -53,11 +54,12 @@ public class TopologyAwareNodeSelectorFactory
 
     private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
             CacheBuilder.newBuilder()
-                    .expireAfterWrite(30, TimeUnit.SECONDS));
+                    .expireAfterWrite(ofSeconds(30)));
 
     private final NetworkTopology networkTopology;
     private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
+    private final StableHostAddressProvider stableHostAddressProvider;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
@@ -74,7 +76,8 @@ public class TopologyAwareNodeSelectorFactory
             InternalNodeManager nodeManager,
             NodeSchedulerConfig schedulerConfig,
             NodeTaskMap nodeTaskMap,
-            TopologyAwareNodeSelectorConfig topologyConfig)
+            TopologyAwareNodeSelectorConfig topologyConfig,
+            StableHostAddressProvider stableHostAddressProvider)
     {
         requireNonNull(networkTopology, "networkTopology is null");
         requireNonNull(currentNode, "currentNode is null");
@@ -84,6 +87,7 @@ public class TopologyAwareNodeSelectorFactory
         this.networkTopology = networkTopology;
         this.currentNode = currentNode;
         this.nodeManager = nodeManager;
+        this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
         this.minCandidates = schedulerConfig.getMinCandidates();
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -123,7 +127,8 @@ public class TopologyAwareNodeSelectorFactory
         // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
                 this::createNodeMap,
-                5, TimeUnit.SECONDS);
+                5,
+                TimeUnit.SECONDS);
 
         return new TopologyAwareNodeSelector(
                 currentNode,
@@ -135,7 +140,8 @@ public class TopologyAwareNodeSelectorFactory
                 minPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 placementCounters,
-                networkTopology);
+                networkTopology,
+                stableHostAddressProvider);
     }
 
     private NodeMap createNodeMap()

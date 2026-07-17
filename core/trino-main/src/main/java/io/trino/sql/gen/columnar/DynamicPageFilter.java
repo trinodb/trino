@@ -16,20 +16,18 @@ package io.trino.sql.gen.columnar;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.planner.SymbolAllocator;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -41,19 +39,17 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
-import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicPageFilter
 {
-    private final Metadata metadata;
-    private final TypeManager typeManager;
     private final Session session;
     private final IrExpressionOptimizer irExpressionOptimizer;
     private final DomainTranslator domainTranslator;
     private final Map<ColumnHandle, Symbol> columnHandles;
     private final Map<Symbol, Integer> sourceLayout;
     private final double selectivityThreshold;
+    private final boolean filterReorderingEnabled;
 
     @Nullable
     @GuardedBy("this")
@@ -70,10 +66,9 @@ public final class DynamicPageFilter
             Session session,
             Map<Symbol, ColumnHandle> columnHandles,
             Map<Symbol, Integer> sourceLayout,
-            double selectivityThreshold)
+            double selectivityThreshold,
+            boolean filterReorderingEnabled)
     {
-        this.metadata = requireNonNull(plannerContext.getMetadata(), "metadata is null");
-        this.typeManager = requireNonNull(plannerContext.getTypeManager(), "typeManager is null");
         this.session = requireNonNull(session, "session is null");
         this.irExpressionOptimizer = plannerContext.getExpressionOptimizer();
         this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
@@ -82,11 +77,11 @@ public final class DynamicPageFilter
                 .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
         this.sourceLayout = ImmutableMap.copyOf(sourceLayout);
         this.selectivityThreshold = selectivityThreshold;
+        this.filterReorderingEnabled = filterReorderingEnabled;
     }
 
-    // Compiled dynamic filter is fixed per-split and generated duration page source creation.
-    // Page source implementations may subsequently implement blocking on completion of dynamic filters, but since
-    // that occurs after page source creation, we cannot be guaranteed a completed dynamic filter here for initial splits
+    // Compiled dynamic filter is generated once per split at PageProcessor#createWorkProcessor.
+    // The supplied FilterEvaluator should not be shared across splits.
     public synchronized Supplier<FilterEvaluator> createDynamicPageFilterEvaluator(ColumnarFilterCompiler compiler, DynamicFilter dynamicFilter)
     {
         requireNonNull(dynamicFilter, "dynamicFilter is null");
@@ -120,6 +115,10 @@ public final class DynamicPageFilter
         if (currentPredicate.isAll()) {
             return SelectAllEvaluator::new;
         }
+        // There is no planning context here; seed the allocator with the layout symbols so that a
+        // symbol introduced by a rule (e.g. a Let binding) cannot collide with a column reference
+        // in the expression handed to codegen below.
+        SymbolAllocator symbolAllocator = new SymbolAllocator(columnHandles.values());
         // We translate each conjunct into separate FilterEvaluator to make it easy to profile selectivity
         // of dynamic filter per column and drop them if they're ineffective
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = currentPredicate.getDomains().orElseThrow()
@@ -128,9 +127,8 @@ public final class DynamicPageFilter
                     Symbol symbol = columnHandles.get(entry.getKey());
                     Expression expression = domainTranslator.toPredicate(entry.getValue(), symbol.toSymbolReference());
                     // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
-                    expression = irExpressionOptimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
-                    RowExpression rowExpression = translate(expression, sourceLayout, metadata, typeManager);
-                    return createColumnarFilterEvaluator(rowExpression, compiler);
+                    expression = irExpressionOptimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
+                    return createColumnarFilterEvaluator(expression, sourceLayout, compiler, filterReorderingEnabled, true);
                 })
                 .filter(Optional::isPresent)
                 .map(Optional::get)

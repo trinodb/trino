@@ -191,6 +191,24 @@ public class ParquetReaderConfig
         return options.getMaxFooterReadSize();
     }
 
+    @Config("parquet.footer-read-size")
+    @ConfigDescription("Expected size of the Parquet footer to read before falling back to a second read")
+    public ParquetReaderConfig setFooterReadSize(DataSize footerReadSize)
+    {
+        options = ParquetReaderOptions.builder(options)
+                .withFooterReadSize(footerReadSize)
+                .build();
+        return this;
+    }
+
+    @NotNull
+    @MinDataSize("8B")
+    @MaxDataSize("128MB")
+    public DataSize getFooterReadSize()
+    {
+        return options.getFooterReadSize();
+    }
+
     @Config("parquet.max-page-read-size")
     @ConfigDescription("Maximum allowed size of a parquet page during reads. Files with parquet pages larger than this will generate an exception on read")
     public ParquetReaderConfig setMaxPageReadSize(DataSize maxPageSize)

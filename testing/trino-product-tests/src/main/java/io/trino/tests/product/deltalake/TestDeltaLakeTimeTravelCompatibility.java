@@ -41,7 +41,8 @@ public class TestDeltaLakeTimeTravelCompatibility
         String tableName = "test_dl_time_travel_restore_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (a_integer integer) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (a_integer integer) WITH (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));

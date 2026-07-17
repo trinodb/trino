@@ -70,7 +70,8 @@ public class TestIcebergReadVersionedTable
     @Test
     public void testSelectTableWithEndShortTimestampWithTimezone()
     {
-        assertQueryFails("SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'",
+        assertQueryFails(
+                "SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'",
                 "\\QNo version history table tpch.\"test_iceberg_read_versioned_table\" at or before 1970-01-01T00:00:00.001Z");
         assertQuery("SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF " + timestampLiteral(v1EpochMillis, 9), "VALUES ('a', 1)");
         assertQuery("SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF " + timestampLiteral(v2EpochMillis, 9), "VALUES ('a', 1), ('b', 2)");
@@ -79,7 +80,8 @@ public class TestIcebergReadVersionedTable
     @Test
     public void testSelectTableWithEndLongTimestampWithTimezone()
     {
-        assertQueryFails("SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'",
+        assertQueryFails(
+                "SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF TIMESTAMP '1970-01-01 00:00:00.001000000 Z'",
                 "\\QNo version history table tpch.\"test_iceberg_read_versioned_table\" at or before 1970-01-01T00:00:00.001Z");
         assertQuery("SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF " + timestampLiteral(v1EpochMillis, 9), "VALUES ('a', 1)");
         assertQuery("SELECT * FROM test_iceberg_read_versioned_table FOR TIMESTAMP AS OF " + timestampLiteral(v2EpochMillis, 9), "VALUES ('a', 1), ('b', 2)");
@@ -96,11 +98,20 @@ public class TestIcebergReadVersionedTable
     }
 
     @Test
-    public void testSystemTables()
+    public void testSystemTableVersioning()
     {
         // TODO https://github.com/trinodb/trino/issues/12920
-        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$partitions\" FOR VERSION AS OF " + v1SnapshotId,
+        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$files\" FOR VERSION AS OF " + v1SnapshotId,
                 "This connector does not support versioned tables");
+    }
+
+    @Test
+    public void testSystemViewVersioning()
+    {
+        // this test is similar to the testSystemTableVersioning but errors differently
+        // because it is a view and fails in the StatementAnalyzer
+        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$partitions\" FOR VERSION AS OF " + v1SnapshotId,
+                "line 1:15: Views do not support versioning");
     }
 
     private long getLatestSnapshotId(String tableName)

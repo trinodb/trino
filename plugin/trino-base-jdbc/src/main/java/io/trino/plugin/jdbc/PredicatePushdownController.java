@@ -39,7 +39,7 @@ public interface PredicatePushdownController
         return new DomainPushdownResult(domain, Domain.all(domain.getType()));
     };
 
-    PredicatePushdownController DISABLE_PUSHDOWN = (session, domain) -> new DomainPushdownResult(
+    PredicatePushdownController DISABLE_PUSHDOWN = (_, domain) -> new DomainPushdownResult(
             Domain.all(domain.getType()),
             domain);
 

@@ -117,7 +117,7 @@ public class CreateEmptyPartitionProcedure
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
             }
 
-            accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName));
+            accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName), Optional.empty());
 
             List<String> actualPartitionColumnNames = hiveMetadata.getColumnHandles(session, tableHandle).values().stream()
                     .map(HiveColumnHandle.class::cast)

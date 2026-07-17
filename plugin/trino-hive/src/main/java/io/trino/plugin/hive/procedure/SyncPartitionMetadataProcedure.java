@@ -137,10 +137,10 @@ public class SyncPartitionMetadataProcedure
             }
 
             if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
-                accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName));
+                accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName), Optional.empty());
             }
             if (syncMode == SyncMode.DROP || syncMode == SyncMode.FULL) {
-                accessControl.checkCanDeleteFromTable(null, new SchemaTableName(schemaName, tableName));
+                accessControl.checkCanDeleteFromTable(null, new SchemaTableName(schemaName, tableName), Optional.empty());
             }
 
             Set<String> partitionNamesInMetastore = metastore.getPartitionNames(schemaName, tableName)

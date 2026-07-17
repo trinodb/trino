@@ -34,7 +34,8 @@ public class TestDeltaLakeProceduresCompatibility
         String tableName = "test_dl_unregister_table" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s WITH (location = 's3://%s/%s') AS SELECT 123 AS col",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s WITH (location = 's3://%s/%s') AS SELECT 123 AS col",
                 tableName,
                 bucketName,
                 tableDirectory));

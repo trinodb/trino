@@ -153,12 +153,13 @@ public class TestMemoryTracking
     {
         long pipelineLocalAllocation = 1_000_000;
         long taskLocalAllocation = 10_000_000;
-        LocalMemoryContext pipelineLocalMemoryContext = pipelineContext.localMemoryContext();
+        LocalMemoryContext pipelineLocalMemoryContext = pipelineContext.aggregateUserMemoryContext().newLocalMemoryContext("testLocalAllocations");
         pipelineLocalMemoryContext.setBytes(pipelineLocalAllocation);
-        assertLocalMemoryAllocations(pipelineContext.getPipelineMemoryContext(),
+        assertLocalMemoryAllocations(
+                pipelineContext.getPipelineMemoryContext(),
                 pipelineLocalAllocation,
                 1_000_000);
-        LocalMemoryContext taskLocalMemoryContext = taskContext.localMemoryContext();
+        LocalMemoryContext taskLocalMemoryContext = taskContext.getTaskMemoryContext().aggregateUserMemoryContext().newLocalMemoryContext("testLocalAllocations");
         taskLocalMemoryContext.setBytes(taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),

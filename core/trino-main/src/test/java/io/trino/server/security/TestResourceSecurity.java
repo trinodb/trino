@@ -22,6 +22,7 @@ import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -504,7 +505,7 @@ public class TestResourceSecurity
             String token = tokenBuilder.compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -538,7 +539,7 @@ public class TestResourceSecurity
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -613,7 +614,7 @@ public class TestResourceSecurity
             String token = tokenBuilder.compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -708,7 +709,7 @@ public class TestResourceSecurity
             }
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + getOauthToken(client, bearer.tokenServer()))
                             .build())
                     .build();
@@ -810,7 +811,7 @@ public class TestResourceSecurity
 
             String accessToken = tokenServer.issueAccessToken();
             OkHttpClient clientWithOAuthToken = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + accessToken)
                             .build())
                     .build();
@@ -890,7 +891,7 @@ public class TestResourceSecurity
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + tokenServer.getAccessToken())
                             .build())
                     .build();
@@ -905,7 +906,7 @@ public class TestResourceSecurity
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -947,7 +948,7 @@ public class TestResourceSecurity
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -1171,7 +1172,7 @@ public class TestResourceSecurity
             this.sessionContextFactory = new HttpRequestSessionContextFactory(
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestingMetadataManager(),
-                    user -> ImmutableSet.of(),
+                    _ -> ImmutableSet.of(),
                     accessControl,
                     new ProtocolConfig(),
                     QueryDataEncoder.EncoderSelector.noEncoder());
@@ -1326,7 +1327,8 @@ public class TestResourceSecurity
         assertResponseCode(client, url, expectedCode, null, null);
     }
 
-    private static void assertResponseCode(OkHttpClient client,
+    private static void assertResponseCode(
+            OkHttpClient client,
             String url,
             int expectedCode,
             String userName,
@@ -1336,7 +1338,8 @@ public class TestResourceSecurity
         assertResponseCode(client, url, expectedCode, Headers.of("Authorization", Credentials.basic(requireNonNullElse(userName, ""), requireNonNullElse(password, ""))));
     }
 
-    private static void assertResponseCode(OkHttpClient client,
+    private static void assertResponseCode(
+            OkHttpClient client,
             String url,
             int expectedCode,
             Headers headers)
@@ -1443,8 +1446,8 @@ public class TestResourceSecurity
             throws IOException
     {
         NodeInfo nodeInfo = new NodeInfo("test");
-        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpServerConfig config = new HttpServerConfig();
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
 
         return new TestingHttpServer("testing-jwks-server", httpServerInfo, nodeInfo, config, new JwkServlet());
     }

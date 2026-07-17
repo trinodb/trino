@@ -191,7 +191,7 @@ public class TestRecursiveCte
                 "          SELECT * from t"))
                 .matches("VALUES (VARCHAR 'ABCDE'), (VARCHAR 'BCDE'), (VARCHAR 'CDE'), (VARCHAR 'DE'), (VARCHAR 'E')");
 
-        //multiple coercions
+        // multiple coercions
         assertThat(assertions.query("WITH RECURSIVE t(n, m) AS (" +
                 "          SELECT BIGINT '1', INTEGER '2'" +
                 "          UNION ALL" +

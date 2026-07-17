@@ -109,6 +109,7 @@ public class TestPlannerWarnings
                 if (rules.isPresent()) {
                     // Warnings from testing rules will be added
                     planOptimizers = ImmutableList.of(new IterativeOptimizer(
+                            "TestPlannerWarnings",
                             planTester.getPlannerContext(),
                             new RuleStatsRecorder(),
                             planTester.getStatsCalculator(),

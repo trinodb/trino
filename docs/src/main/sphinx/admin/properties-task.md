@@ -177,6 +177,6 @@ expression library.
 - **Minimum value:** `1m`
 - **Default value:** `2m`
 
-The interval of Trino checks for splits that have processing time exceeding
-`task.interrupt-stuck-split-tasks-timeout`. Only applies to threads that are blocked
-by the third-party Joni regular expression library.
+The interval at which Trino checks for splits whose processing time exceeds
+`task.interrupt-stuck-split-tasks-timeout`. Only applies to threads that are
+blocked by the third-party Joni regular expression library.

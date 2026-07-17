@@ -92,7 +92,8 @@ public abstract class BaseMongoConnectorSmokeTest
         try (TestTable testTable = newTrinoTable(
                 "test_projection_pushdown_highly_nested_data_",
                 "(id INT, row1_t ROW(f1 INT, f2 INT, row2_t ROW (f1 INT, f2 INT, row3_t ROW(f1 INT, f2 INT))))",
-                ImmutableList.of("(1, ROW(2, 3, ROW(4, 5, ROW(6, 7))))",
+                ImmutableList.of(
+                        "(1, ROW(2, 3, ROW(4, 5, ROW(6, 7))))",
                         "(11, ROW(12, 13, ROW(14, 15, ROW(16, 17))))",
                         "(21, ROW(22, 23, ROW(24, 25, ROW(26, 27))))"))) {
             // Test select projected columns, with and without their parent column

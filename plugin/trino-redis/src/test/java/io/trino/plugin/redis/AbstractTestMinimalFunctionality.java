@@ -69,7 +69,9 @@ public abstract class AbstractTestMinimalFunctionality
         this.stringValueTableName = stringValueTableDescription.tableName();
         this.hashValueTableName = hashValueTableDescription.tableName();
 
-        installRedisPlugin(redisServer, queryRunner,
+        installRedisPlugin(
+                redisServer,
+                queryRunner,
                 ImmutableMap.<SchemaTableName, RedisTableDescription>builder()
                         .put(createTableDescription(new RedisTableDescription(tableName, "default", null, null)))
                         .put(createTableDescription(stringValueTableDescription))

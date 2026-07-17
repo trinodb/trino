@@ -13,43 +13,37 @@
  */
 package io.trino.parquet.reader.flat;
 
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
+import static io.trino.spi.block.Bitmap.orPackedBits;
+import static io.trino.spi.block.Bitmap.set;
 
 public class BitPackingUtils
 {
     private BitPackingUtils() {}
 
     /**
-     * @return number of bits equal to 0 (non-nulls)
+     * @return number of set bits (non-nulls)
      */
-    public static int unpack(boolean[] values, int offset, byte packedByte, int startBit, int endBit)
+    public static int unpack(long[] values, int offset, byte packedByte, int startBit, int endBit)
     {
         int nonNullCount = 0;
         for (int i = 0; i < endBit - startBit; i++) {
-            // We need to negate the value as we convert the "does exist" to "is null", hence '== 0' instead of '== 1'
-            boolean value = (((packedByte >>> (startBit + i)) & 1) == 1);
-            nonNullCount += castToByteNegate(value);
-            values[offset + i] = value;
+            if (((packedByte >>> (startBit + i)) & 1) != 0) {
+                set(values, 0, offset + i);
+                nonNullCount++;
+            }
         }
 
         return nonNullCount;
     }
 
     /**
-     * @return number of bits equal to 0 (non-nulls)
+     * @return number of set bits (non-nulls)
      */
-    public static int unpack(boolean[] values, int offset, byte packedByte)
+    public static int unpack(long[] values, int offset, byte packedByte)
     {
-        values[offset] = (packedByte & 1) == 1;
-        values[offset + 1] = ((packedByte >>> 1) & 1) == 1;
-        values[offset + 2] = ((packedByte >>> 2) & 1) == 1;
-        values[offset + 3] = ((packedByte >>> 3) & 1) == 1;
-        values[offset + 4] = ((packedByte >>> 4) & 1) == 1;
-        values[offset + 5] = ((packedByte >>> 5) & 1) == 1;
-        values[offset + 6] = ((packedByte >>> 6) & 1) == 1;
-        values[offset + 7] = ((packedByte >>> 7) & 1) == 1;
+        orPackedBits(values, 0, offset, packedByte & 0xFF, Byte.SIZE);
 
-        return Byte.SIZE - bitCount(packedByte);
+        return bitCount(packedByte);
     }
 
     public static void unpack(byte[] values, int offset, byte packedByte, int startBit, int endBit)

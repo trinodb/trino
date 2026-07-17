@@ -14,20 +14,20 @@ local exchange (GATHER, SINGLE, [])
                                         scan customer
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [ss_customer_sk])
-                                        final aggregation over (ca_address_sk, ca_city, ss_customer_sk, ss_ticket_number)
+                                        final aggregation over (ss_ticket_number, ss_customer_sk, ca_address_sk, ca_city)
                                             local exchange (GATHER, SINGLE, [])
-                                                intermediate aggregation over (ca_address_sk, ca_city, ss_customer_sk, ss_ticket_number)
+                                                intermediate aggregation over (ss_ticket_number, ss_customer_sk, ca_address_sk, ca_city)
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, [ca_address_sk])
                                                             dynamic filter (ca_address_sk::EQUAL)
                                                                 scan customer_address
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [ss_addr_sk])
-                                                                partial aggregation over (ss_addr_sk, ss_customer_sk, ss_ticket_number)
+                                                                partial aggregation over (ss_ticket_number, ss_customer_sk, ss_addr_sk)
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (ss_hdemo_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                                                dynamic filter (ss_hdemo_sk::EQUAL, ss_store_sk::EQUAL, ss_sold_date_sk::EQUAL)
                                                                                     scan store_sales
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])

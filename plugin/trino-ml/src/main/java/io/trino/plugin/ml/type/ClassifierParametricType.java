@@ -15,9 +15,9 @@ package io.trino.plugin.ml.type;
 
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
@@ -39,7 +39,7 @@ public class ClassifierParametricType
     {
         checkArgument(parameters.size() == 1, "Expected only one type, got %s", parameters);
 
-        if (parameters.get(0) instanceof TypeParameter.Type(_, TypeSignature type)) {
+        if (parameters.get(0) instanceof TypeParameter.Type(_, TypeDescriptor type)) {
             return new ClassifierType(typeManager.getType(type));
         }
         throw new IllegalArgumentException("Expected type as a parameter, got " + parameters);

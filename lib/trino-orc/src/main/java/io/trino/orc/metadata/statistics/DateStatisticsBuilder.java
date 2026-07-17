@@ -69,7 +69,7 @@ public class DateStatisticsBuilder
         Optional<DateStatistics> dateStatistics = buildDateStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
-                dateStatistics.map(s -> DATE_VALUE_BYTES).orElse(0L),
+                dateStatistics.map(_ -> DATE_VALUE_BYTES).orElse(0L),
                 null,
                 null,
                 null,

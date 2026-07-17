@@ -25,6 +25,8 @@ import org.apache.parquet.format.DateType;
 import org.apache.parquet.format.DecimalType;
 import org.apache.parquet.format.Encoding;
 import org.apache.parquet.format.EnumType;
+import org.apache.parquet.format.GeographyType;
+import org.apache.parquet.format.GeometryType;
 import org.apache.parquet.format.IntType;
 import org.apache.parquet.format.JsonType;
 import org.apache.parquet.format.ListType;
@@ -51,7 +53,21 @@ import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.ColumnOrder.ColumnOrderName;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.BsonLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.EnumLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.IntLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.IntervalLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.JsonLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.ListLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.LogicalTypeAnnotationVisitor;
+import org.apache.parquet.schema.LogicalTypeAnnotation.MapKeyValueTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.MapLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.StringLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
@@ -59,21 +75,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.parquet.CorruptStatistics.shouldIgnoreStatistics;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.BsonLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.EnumLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.IntLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.IntervalLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.JsonLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.ListLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.MapKeyValueTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.MapLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.StringLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.bsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.dateType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
@@ -160,8 +163,18 @@ public final class ParquetMetadataConverter
             case UUID -> uuidType();
             case FLOAT16 -> float16Type();
             case VARIANT -> variantType((byte) 1);
-            case GEOMETRY -> geometryType("OGC:CRS84");
-            case GEOGRAPHY -> geographyType();
+            case GEOMETRY -> {
+                GeometryType geometry = type.getGEOMETRY();
+                yield geometryType(geometry.isSetCrs() ? geometry.getCrs() : LogicalTypeAnnotation.DEFAULT_CRS);
+            }
+            case GEOGRAPHY -> {
+                GeographyType geography = type.getGEOGRAPHY();
+                yield geographyType(
+                        geography.isSetCrs() ? geography.getCrs() : LogicalTypeAnnotation.DEFAULT_CRS,
+                        geography.isSetAlgorithm() ?
+                                org.apache.parquet.column.schema.EdgeInterpolationAlgorithm.valueOf(geography.getAlgorithm().name()) :
+                                LogicalTypeAnnotation.DEFAULT_ALGO);
+            }
         };
     }
 
@@ -219,13 +232,15 @@ public final class ParquetMetadataConverter
         return builder.build();
     }
 
-    public static org.apache.parquet.internal.column.columnindex.ColumnIndex fromParquetColumnIndex(PrimitiveType type,
+    public static org.apache.parquet.internal.column.columnindex.ColumnIndex fromParquetColumnIndex(
+            PrimitiveType type,
             ColumnIndex parquetColumnIndex)
     {
         if (!isMinMaxStatsSupported(type)) {
             return null;
         }
-        return ColumnIndexBuilder.build(type,
+        return ColumnIndexBuilder.build(
+                type,
                 fromParquetBoundaryOrder(parquetColumnIndex.getBoundary_order()),
                 parquetColumnIndex.getNull_pages(),
                 parquetColumnIndex.getNull_counts(),
@@ -244,6 +259,9 @@ public final class ParquetMetadataConverter
 
     public static boolean isMinMaxStatsSupported(PrimitiveType type)
     {
+        if (isGeospatialLogicalType(type.getLogicalTypeAnnotation())) {
+            return false;
+        }
         return type.columnOrder().getColumnOrderName() == ColumnOrderName.TYPE_DEFINED_ORDER;
     }
 
@@ -281,7 +299,7 @@ public final class ParquetMetadataConverter
                 // Fill the former min-max statistics only if the comparison logic is
                 // signed so the logic of V1 and V2 stats are the same (which is
                 // trivially true for equal min-max values)
-                if (sortOrder(stats.type()) == SortOrder.SIGNED || Arrays.equals(min, max)) {
+                if (sortOrder(stats.type()) == SortOrder.SIGNED || minMaxStatsAreExactSingleValue(stats.type(), min, max)) {
                     if (min != null) {
                         formatStats.setMin(min);
                     }
@@ -290,7 +308,7 @@ public final class ParquetMetadataConverter
                     }
                 }
 
-                if (isMinMaxStatsSupported(stats.type()) || Arrays.equals(min, max)) {
+                if (isMinMaxStatsSupported(stats.type()) || minMaxStatsAreExactSingleValue(stats.type(), min, max)) {
                     if (min != null) {
                         formatStats.setMin_value(min);
                         formatStats.setIs_min_value_exact(isMinValueExact);
@@ -313,14 +331,14 @@ public final class ParquetMetadataConverter
             if (statistics.isSetMin_value() && statistics.isSetMax_value()) {
                 byte[] min = statistics.min_value.array();
                 byte[] max = statistics.max_value.array();
-                if (isMinMaxStatsSupported(type) || Arrays.equals(min, max)) {
+                if (isMinMaxStatsSupported(type) || minMaxStatsAreExactSingleValue(type, min, max)) {
                     statsBuilder.withMin(min);
                     statsBuilder.withMax(max);
                 }
             }
             else {
                 boolean isSet = statistics.isSetMax() && statistics.isSetMin();
-                boolean maxEqualsMin = isSet && Arrays.equals(statistics.getMin(), statistics.getMax());
+                boolean maxEqualsMin = isSet && minMaxStatsAreExactSingleValue(type, statistics.getMin(), statistics.getMax());
                 boolean sortOrdersMatch = SortOrder.SIGNED == sortOrder(type);
                 if (isSet && !shouldIgnoreStatistics(createdBy, type.getPrimitiveTypeName()) && (sortOrdersMatch || maxEqualsMin)) {
                     statsBuilder.withMin(statistics.min.array());
@@ -355,7 +373,7 @@ public final class ParquetMetadataConverter
     {
         SIGNED,
         UNSIGNED,
-        UNKNOWN
+        UNKNOWN,
     }
 
     private static SortOrder sortOrder(PrimitiveType primitive)
@@ -368,6 +386,11 @@ public final class ParquetMetadataConverter
                 .orElse(defaultSortOrder(primitive.getPrimitiveTypeName()));
     }
 
+    private static boolean minMaxStatsAreExactSingleValue(PrimitiveType type, byte[] min, byte[] max)
+    {
+        return !isGeospatialLogicalType(type.getLogicalTypeAnnotation()) && Arrays.equals(min, max);
+    }
+
     private static SortOrder defaultSortOrder(PrimitiveTypeName primitive)
     {
         return switch (primitive) {
@@ -375,6 +398,12 @@ public final class ParquetMetadataConverter
             case BINARY, FIXED_LEN_BYTE_ARRAY -> SortOrder.UNSIGNED;
             default -> SortOrder.UNKNOWN;
         };
+    }
+
+    private static boolean isGeospatialLogicalType(LogicalTypeAnnotation annotation)
+    {
+        return annotation instanceof LogicalTypeAnnotation.GeometryLogicalTypeAnnotation ||
+                annotation instanceof LogicalTypeAnnotation.GeographyLogicalTypeAnnotation;
     }
 
     private static LogicalTypeAnnotation.TimeUnit convertTimeUnit(TimeUnit unit)
@@ -496,6 +525,24 @@ public final class ParquetMetadataConverter
             return Optional.of(LogicalType.UNKNOWN(new NullType()));
         }
 
+        @Override
+        public Optional<LogicalType> visit(LogicalTypeAnnotation.GeometryLogicalTypeAnnotation type)
+        {
+            GeometryType geometry = new GeometryType();
+            geometry.setCrs(requireNonNullElse(type.getCrs(), LogicalTypeAnnotation.DEFAULT_CRS));
+            return Optional.of(LogicalType.GEOMETRY(geometry));
+        }
+
+        @Override
+        public Optional<LogicalType> visit(LogicalTypeAnnotation.GeographyLogicalTypeAnnotation type)
+        {
+            GeographyType geography = new GeographyType();
+            geography.setCrs(requireNonNullElse(type.getCrs(), LogicalTypeAnnotation.DEFAULT_CRS));
+            org.apache.parquet.column.schema.EdgeInterpolationAlgorithm algorithm = requireNonNullElse(type.getAlgorithm(), LogicalTypeAnnotation.DEFAULT_ALGO);
+            geography.setAlgorithm(org.apache.parquet.format.EdgeInterpolationAlgorithm.valueOf(algorithm.name()));
+            return Optional.of(LogicalType.GEOGRAPHY(geography));
+        }
+
         static TimeUnit convertUnit(LogicalTypeAnnotation.TimeUnit unit)
         {
             return switch (unit) {
@@ -571,6 +618,18 @@ public final class ParquetMetadataConverter
 
         @Override
         public Optional<SortOrder> visit(MapLogicalTypeAnnotation mapLogicalType)
+        {
+            return Optional.of(SortOrder.UNKNOWN);
+        }
+
+        @Override
+        public Optional<SortOrder> visit(LogicalTypeAnnotation.GeometryLogicalTypeAnnotation geometryLogicalType)
+        {
+            return Optional.of(SortOrder.UNKNOWN);
+        }
+
+        @Override
+        public Optional<SortOrder> visit(LogicalTypeAnnotation.GeographyLogicalTypeAnnotation geographyLogicalType)
         {
             return Optional.of(SortOrder.UNKNOWN);
         }

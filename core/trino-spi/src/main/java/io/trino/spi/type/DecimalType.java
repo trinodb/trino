@@ -65,7 +65,7 @@ public abstract sealed class DecimalType
 
     DecimalType(int precision, int scale, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(NAME, buildTypeParameters(precision, scale)), javaType, valueBlockType);
+        super(new TypeDescriptor(NAME, buildTypeParameters(precision, scale)), javaType, valueBlockType);
         this.precision = precision;
         this.scale = scale;
     }

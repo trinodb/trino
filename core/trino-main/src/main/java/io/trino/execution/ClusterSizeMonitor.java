@@ -62,8 +62,7 @@ public class ClusterSizeMonitor
     @Inject
     public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig)
     {
-        this(
-                nodeManager,
+        this(nodeManager,
                 nodeSchedulerConfig.isIncludeCoordinator());
     }
 

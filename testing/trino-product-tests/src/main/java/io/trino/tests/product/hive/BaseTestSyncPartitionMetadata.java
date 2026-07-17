@@ -50,7 +50,8 @@ public abstract class BaseTestSyncPartitionMetadata
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
 
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(format(
+                "" +
                         "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
                         "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
                 tableName));
@@ -59,7 +60,8 @@ public abstract class BaseTestSyncPartitionMetadata
         // avoid dealing with the intricacies of adding content on the file system level
         // and possibly url encoding the file path by using
         // an external table which mirrors the previously created table
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(format(
+                "" +
                         "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
                         "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
                 mirrorTableName,
@@ -99,7 +101,8 @@ public abstract class BaseTestSyncPartitionMetadata
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
 
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(format(
+                "" +
                         "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
                         "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
                 tableName));
@@ -109,7 +112,8 @@ public abstract class BaseTestSyncPartitionMetadata
         // and possibly url encoding the file path by using
         // an external table which mirrors the previously created table
         String sharedTableLocation = getTableLocation(tableName, 2);
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(format(
+                "" +
                         "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
                         "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
                 mirrorTableName,

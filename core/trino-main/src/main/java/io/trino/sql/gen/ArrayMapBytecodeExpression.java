@@ -72,8 +72,8 @@ public class ArrayMapBytecodeExpression
             mapperDescription = "null";
         }
         else {
-            Variable element = scope.declareVariable(fromType.getJavaType(), "element_" + NEXT_VARIABLE_ID.getAndIncrement());
-            Variable newElement = scope.declareVariable(toType.getJavaType(), "newElement_" + NEXT_VARIABLE_ID.getAndIncrement());
+            Variable element = scope.declareVariable(binder.getAccessibleType(fromType.getJavaType()), "element_" + NEXT_VARIABLE_ID.getAndIncrement());
+            Variable newElement = scope.declareVariable(binder.getAccessibleType(toType.getJavaType()), "newElement_" + NEXT_VARIABLE_ID.getAndIncrement());
             SqlTypeBytecodeExpression elementTypeConstant = constantType(binder, fromType);
             SqlTypeBytecodeExpression newElementTypeConstant = constantType(binder, toType);
             mapElement = new BytecodeBlock()

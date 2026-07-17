@@ -622,7 +622,8 @@ public class TestBinPackingNodeAllocator
             acquire1.attachTaskId(taskId(1));
 
             // bump memory usage on NODE_1
-            updateWorkerUsedMemory(NODE_1,
+            updateWorkerUsedMemory(
+                    NODE_1,
                     DataSize.of(33, GIGABYTE),
                     ImmutableMap.of(taskId(1), DataSize.of(33, GIGABYTE)));
             nodeAllocatorService.refreshNodePoolMemoryInfos();
@@ -652,7 +653,8 @@ public class TestBinPackingNodeAllocator
             assertNotAcquired(acquire6);
 
             // if memory usage decreases on NODE_1 the pending 16GB allocation should complete
-            updateWorkerUsedMemory(NODE_1,
+            updateWorkerUsedMemory(
+                    NODE_1,
                     DataSize.of(32, GIGABYTE),
                     ImmutableMap.of(taskId(1), DataSize.of(32, GIGABYTE)));
             nodeAllocatorService.refreshNodePoolMemoryInfos();
@@ -680,7 +682,8 @@ public class TestBinPackingNodeAllocator
             acquire1.attachTaskId(taskId(1));
 
             // bump memory usage on NODE_1; per-task usage is kept small
-            updateWorkerUsedMemory(NODE_1,
+            updateWorkerUsedMemory(
+                    NODE_1,
                     DataSize.of(33, GIGABYTE),
                     ImmutableMap.of(taskId(1), DataSize.of(4, GIGABYTE)));
             nodeAllocatorService.refreshNodePoolMemoryInfos();
@@ -699,7 +702,8 @@ public class TestBinPackingNodeAllocator
             acquire1.attachTaskId(taskId(1));
 
             // bump memory usage on NODE_1; per-task usage is 33GB and global is 4GB
-            updateWorkerUsedMemory(NODE_1,
+            updateWorkerUsedMemory(
+                    NODE_1,
                     DataSize.of(4, GIGABYTE),
                     ImmutableMap.of(taskId(1), DataSize.of(33, GIGABYTE)));
             nodeAllocatorService.refreshNodePoolMemoryInfos();
@@ -745,10 +749,12 @@ public class TestBinPackingNodeAllocator
             acquire2.attachTaskId(taskId(2));
 
             // make actual usage on NODE_2 greater than on NODE_1
-            updateWorkerUsedMemory(NODE_1,
+            updateWorkerUsedMemory(
+                    NODE_1,
                     DataSize.of(40, GIGABYTE),
                     ImmutableMap.of(taskId(1), DataSize.of(40, GIGABYTE)));
-            updateWorkerUsedMemory(NODE_2,
+            updateWorkerUsedMemory(
+                    NODE_2,
                     DataSize.of(41, GIGABYTE),
                     ImmutableMap.of(taskId(2), DataSize.of(41, GIGABYTE)));
             nodeAllocatorService.refreshNodePoolMemoryInfos();
@@ -781,7 +787,8 @@ public class TestBinPackingNodeAllocator
             acquire1.attachTaskId(taskId(1));
 
             // set runtime usage of task1 to 30GB
-            updateWorkerUsedMemory(NODE_1,
+            updateWorkerUsedMemory(
+                    NODE_1,
                     DataSize.of(30, GIGABYTE),
                     ImmutableMap.of(taskId(1), DataSize.of(30, GIGABYTE)));
             nodeAllocatorService.refreshNodePoolMemoryInfos();
@@ -792,7 +799,8 @@ public class TestBinPackingNodeAllocator
 
             // decrease runtime usage to 28GB
             // set runtime usage of task1 to 30GB
-            updateWorkerUsedMemory(NODE_1,
+            updateWorkerUsedMemory(
+                    NODE_1,
                     DataSize.of(28, GIGABYTE),
                     ImmutableMap.of(taskId(1), DataSize.of(28, GIGABYTE)));
             nodeAllocatorService.refreshNodePoolMemoryInfos();

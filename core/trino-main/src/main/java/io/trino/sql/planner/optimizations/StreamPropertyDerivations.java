@@ -30,6 +30,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -113,33 +114,37 @@ public final class StreamPropertyDerivations
     public static StreamProperties derivePropertiesRecursively(
             PlanNode node,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, plannerContext, session))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, symbolAllocator))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, plannerContext, session);
+        return deriveProperties(node, inputProperties, plannerContext, session, symbolAllocator);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             StreamProperties inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session);
+        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, symbolAllocator);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             List<StreamProperties> inputProperties,
             PlannerContext plannerContext,
-            Session session)
+            Session session,
+            SymbolAllocator symbolAllocator)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(session, "session is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
 
         // properties.otherActualProperties will never be null here because the only way
         // an external caller should obtain StreamProperties is from this method, and the
@@ -150,7 +155,8 @@ public final class StreamPropertyDerivations
                         .map(properties -> properties.otherActualProperties)
                         .collect(toImmutableList()),
                 plannerContext,
-                session);
+                session,
+                symbolAllocator);
 
         StreamProperties result = deriveStreamPropertiesWithoutActualProperties(node, inputProperties, plannerContext.getMetadata(), session)
                 .withOtherActualProperties(otherProperties);
@@ -243,22 +249,20 @@ public final class StreamPropertyDerivations
                 case LEFT -> leftProperties
                         .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
                         .unordered(unordered);
-                case RIGHT ->
-                    // since this is a right join, none of the matched output rows will contain nulls
-                    // in the left partitioning columns, and all of the unmatched rows will have
-                    // null for all left columns.  therefore, the output is still partitioned on the
-                    // left columns.  the only change is there will be at least two streams so the
-                    // output is multiple
-                    // There is one exception to this.  If the left is partitioned on empty set, we
-                    // we can't say that the output is partitioned on empty set, but we can say that
-                    // it is partitioned on the left join symbols
-                    // todo do something smarter after https://github.com/prestodb/presto/pull/5877 is merged
-                        new StreamProperties(MULTIPLE, Optional.empty(), false);
-                case FULL ->
-                    // the left can contain nulls in any stream so we can't say anything about the
-                    // partitioning, and nulls from the right are produced from a extra new stream
-                    // so we will always have multiple streams.
-                        new StreamProperties(MULTIPLE, Optional.empty(), false);
+                // since this is a right join, none of the matched output rows will contain nulls
+                // in the left partitioning columns, and all of the unmatched rows will have
+                // null for all left columns.  therefore, the output is still partitioned on the
+                // left columns.  the only change is there will be at least two streams so the
+                // output is multiple
+                // There is one exception to this.  If the left is partitioned on empty set, we
+                // we can't say that the output is partitioned on empty set, but we can say that
+                // it is partitioned on the left join symbols
+                // todo do something smarter after https://github.com/prestodb/presto/pull/5877 is merged
+                case RIGHT -> new StreamProperties(MULTIPLE, Optional.empty(), false);
+                // the left can contain nulls in any stream so we can't say anything about the
+                // partitioning, and nulls from the right are produced from a extra new stream
+                // so we will always have multiple streams.
+                case FULL -> new StreamProperties(MULTIPLE, Optional.empty(), false);
             };
         }
 
@@ -284,10 +288,9 @@ public final class StreamPropertyDerivations
 
             return switch (node.getType()) {
                 case INNER -> probeProperties;
-                case SOURCE_OUTER ->
-                    // the probe can contain nulls in any stream so we can't say anything about the
-                    // partitioning but the other properties of the probe will be maintained.
-                        probeProperties.withUnspecifiedPartitioning();
+                // the probe can contain nulls in any stream so we can't say anything about the
+                // partitioning but the other properties of the probe will be maintained.
+                case SOURCE_OUTER -> probeProperties.withUnspecifiedPartitioning();
             };
         }
 
@@ -378,8 +381,9 @@ public final class StreamPropertyDerivations
                         new StreamProperties(
                                 FIXED,
                                 Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                                        .map(ArgumentBinding::getColumn)
-                                        .collect(toImmutableList())), false);
+                                            .map(ArgumentBinding::getColumn)
+                                            .collect(toImmutableList())),
+                                false);
                 case REPLICATE -> new StreamProperties(MULTIPLE, Optional.empty(), false);
             };
         }
@@ -583,7 +587,8 @@ public final class StreamPropertyDerivations
                 return properties;
             }
 
-            return new StreamProperties(properties.getDistribution(),
+            return new StreamProperties(
+                    properties.getDistribution(),
                     Optional.of(ImmutableList.of(node.getIdColumn())),
                     properties.isOrdered());
         }

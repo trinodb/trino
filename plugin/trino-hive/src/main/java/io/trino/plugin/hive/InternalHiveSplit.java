@@ -224,7 +224,7 @@ public class InternalHiveSplit
                 estimatedSizeOf(partitionKeys, HivePartitionKey::estimatedSizeInBytes) +
                 estimatedSizeOf(blocks, InternalHiveBlock::estimatedSizeInBytes) +
                 estimatedSizeOf(partitionName) +
-                estimatedSizeOf(hiveColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes);
+                estimatedSizeOf(hiveColumnCoercions, (Integer _) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes);
         return toIntExact(result);
     }
 

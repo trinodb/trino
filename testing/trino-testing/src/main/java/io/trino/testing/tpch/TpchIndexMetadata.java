@@ -73,7 +73,7 @@ public class TpchIndexMetadata
             return Optional.empty();
         }
 
-        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain.filter((column, domain) -> !fixedValues.containsKey(column));
+        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain.filter((column, _) -> !fixedValues.containsKey(column));
         TpchIndexHandle indexHandle = new TpchIndexHandle(
                 tpchTableHandle.tableName(),
                 tpchTableHandle.scaleFactor(),

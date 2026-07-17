@@ -235,7 +235,7 @@ public final class SplitsMapping
                 return this;
             }
             updates.computeIfAbsent(planNodeId, _ -> new HashMap<>())
-                    .computeIfAbsent(partitionId, key -> ImmutableList.builder())
+                    .computeIfAbsent(partitionId, _ -> ImmutableList.builder())
                     .addAll(splits);
             return this;
         }

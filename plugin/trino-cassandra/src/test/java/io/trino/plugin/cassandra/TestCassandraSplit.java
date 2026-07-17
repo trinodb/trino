@@ -51,12 +51,12 @@ public class TestCassandraSplit
                 CassandraPartition.UNPARTITIONED_ID,
                 "token(k) >= 0 AND token(k) <= 2",
                 addresses);
-        assertThat(split.getWhereClause()).isEqualTo(" WHERE token(k) >= 0 AND token(k) <= 2");
+        assertThat(split.getWhereClause()).isEqualTo("token(k) >= 0 AND token(k) <= 2");
 
         split = new CassandraSplit(
                 "key = 123",
                 null,
                 addresses);
-        assertThat(split.getWhereClause()).isEqualTo(" WHERE key = 123");
+        assertThat(split.getWhereClause()).isEqualTo("key = 123");
     }
 }

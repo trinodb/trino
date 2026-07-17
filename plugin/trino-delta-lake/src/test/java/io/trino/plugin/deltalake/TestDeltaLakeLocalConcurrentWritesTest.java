@@ -54,6 +54,7 @@ import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@Disabled // remove once https://github.com/trinodb/trino/pull/29099 is merged
 @TestInstance(PER_CLASS)
 public class TestDeltaLakeLocalConcurrentWritesTest
         extends AbstractTestQueryFramework
@@ -155,7 +156,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             // T2: (2, 10)
             // T3: (3, 10)
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             getQueryRunner().execute("INSERT INTO " + tableName + " SELECT COUNT(*), 10 AS part FROM " + tableName);
@@ -206,6 +207,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
+    @Disabled // TODO https://github.com/trinodb/trino/issues/22455 Fix flaky test
     public void testConcurrentInsertsSelectingFromTheSameVersionedTable()
             throws Exception
     {
@@ -262,6 +264,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
+    @Disabled // TODO https://github.com/trinodb/trino/issues/22455 Fix flaky test
     void testConcurrentInsertsSelectingFromTheSameTemporalVersionedTable()
             throws Exception
     {
@@ -340,7 +343,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             // The state of the table after the successful INSERT operations would be:
             // (0,10), (1, 10), (2, 10), (3, 10), (11, 20), (22, 30)
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             getQueryRunner().execute("INSERT INTO " + tableName + " SELECT COUNT(*) as a, 10 as part FROM " + tableName + " WHERE part = 10");
@@ -447,6 +450,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
+    @Disabled // TODO https://github.com/trinodb/trino/issues/22455 Fix flaky test
     public void testConcurrentInsertsSelectingFromDifferentPartitionsOfSameTable()
             throws Exception
     {
@@ -579,7 +583,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             // Writing concurrently on the same partition even when doing blind inserts is not permitted
@@ -637,7 +641,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             // Writing concurrently on the same partition of the table as from which we are reading from should fail
@@ -737,7 +741,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             getQueryRunner().execute("DELETE FROM " + tableName + "  WHERE part = 10");
@@ -794,7 +798,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             getQueryRunner().execute("TRUNCATE TABLE " + tableName);
@@ -1011,7 +1015,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             // Deleting concurrently from the same partition even when doing blind inserts is not permitted
@@ -1065,7 +1069,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             // Truncating concurrently is not permitted in Serializable or WriteSerializable isolation level
@@ -1292,7 +1296,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             // Writing concurrently on the same partition even when doing blind inserts is not permitted
@@ -1687,7 +1691,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             // Optimizing concurrently is not permitted on the same partition on Serializable of WriteSerializable isolation level

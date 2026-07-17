@@ -25,7 +25,7 @@ import io.trino.sql.tree.Parameter;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
 public class ParameterRewriter

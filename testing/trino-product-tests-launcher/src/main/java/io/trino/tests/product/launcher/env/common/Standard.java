@@ -310,10 +310,10 @@ public final class Standard
                     script,
                     format(
                             "#!/bin/bash\n" +
-                            "ipv6=$(hostname -I | awk '{print $2}')\n" +
-                            "IPv6 address of the node: ${ipv6}\n" +
-                            "echo '-Djava.net.preferIPv6Addresses=true' >> '%s'\n" +
-                            "echo \"node.internal-address=${ipv6}\" >> '%s'\n",
+                                    "ipv6=$(hostname -I | awk '{print $2}')\n" +
+                                    "IPv6 address of the node: ${ipv6}\n" +
+                                    "echo '-Djava.net.preferIPv6Addresses=true' >> '%s'\n" +
+                                    "echo \"node.internal-address=${ipv6}\" >> '%s'\n",
                             CONTAINER_TRINO_JVM_CONFIG,
                             CONTAINER_TRINO_CONFIG_PROPERTIES),
                     UTF_8);
@@ -356,16 +356,16 @@ public final class Standard
             script.toFile().deleteOnExit();
             Files.writeString(
                     script,
-                        """
-                        #!/bin/bash
-                        printf '%%s\\n' '-Dcom.sun.management.jmxremote=true' >> '%2$s'
-                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.port=%1$s' >> '%2$s'
-                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.rmi.port=%1$s' >> '%2$s'
-                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.authenticate=false' >> '%2$s'
-                        printf '%%s\\n' '-Djava.rmi.server.hostname=0.0.0.0' >> '%2$s'
-                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.ssl=false' >> '%2$s'
-                        printf '%%s\\n' '-XX:FlightRecorderOptions=stackdepth=256' >> '%2$s'
-                        """.formatted(Integer.toString(jmxPort), CONTAINER_TRINO_JVM_CONFIG),
+                    """
+                    #!/bin/bash
+                    printf '%%s\\n' '-Dcom.sun.management.jmxremote=true' >> '%2$s'
+                    printf '%%s\\n' '-Dcom.sun.management.jmxremote.port=%1$s' >> '%2$s'
+                    printf '%%s\\n' '-Dcom.sun.management.jmxremote.rmi.port=%1$s' >> '%2$s'
+                    printf '%%s\\n' '-Dcom.sun.management.jmxremote.authenticate=false' >> '%2$s'
+                    printf '%%s\\n' '-Djava.rmi.server.hostname=0.0.0.0' >> '%2$s'
+                    printf '%%s\\n' '-Dcom.sun.management.jmxremote.ssl=false' >> '%2$s'
+                    printf '%%s\\n' '-XX:FlightRecorderOptions=stackdepth=256' >> '%2$s'
+                    """.formatted(Integer.toString(jmxPort), CONTAINER_TRINO_JVM_CONFIG),
                     UTF_8);
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-java-jmx-rmi.sh");
 

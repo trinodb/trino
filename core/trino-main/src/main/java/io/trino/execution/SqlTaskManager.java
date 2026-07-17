@@ -33,6 +33,7 @@ import io.trino.Session;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.ConnectorServicesProvider.PrunableState;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -89,7 +90,6 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
-import static io.trino.connector.ConnectorServicesProvider.PrunableState;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -136,6 +136,7 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
 
+    private volatile long activeTasks;
     private final CounterStat createdTasks = new CounterStat();
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
@@ -315,6 +316,8 @@ public class SqlTaskManager
                 }
             }, 0, intervalSeconds, SECONDS);
         });
+
+        taskManagementExecutor.scheduleWithFixedDelay(() -> activeTasks = tasks.asMap().values().stream().filter(task -> task.getTaskEndTime() == null).count(), 0, 1, SECONDS);
     }
 
     @PreDestroy
@@ -354,6 +357,12 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
+    }
+
+    @Managed(description = "Active tasks count")
+    public long getActiveTasksCount()
+    {
+        return activeTasks;
     }
 
     @Managed(description = "Tracked tasks count")
@@ -669,7 +678,7 @@ public class SqlTaskManager
             TaskId taskId = sqlTask.getTaskId();
             try {
                 TaskState taskState = sqlTask.getTaskState();
-                if (taskState.isDone()) {
+                if (taskState.isTerminatingOrDone()) {
                     continue;
                 }
                 Instant lastHeartbeat = sqlTask.lastHeartbeat();
@@ -734,7 +743,6 @@ public class SqlTaskManager
 
     @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
-
     {
         return queryContexts.getUnchecked(queryId);
     }

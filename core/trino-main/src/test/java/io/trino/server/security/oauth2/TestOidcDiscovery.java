@@ -16,6 +16,7 @@ package io.trino.server.security.oauth2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -84,19 +85,23 @@ public class TestOidcDiscovery
     public void testOidcDiscovery()
             throws Exception
     {
-        testOidcDiscovery("openid-configuration.json",
+        testOidcDiscovery(
+                "openid-configuration.json",
                 Optional.empty(),
                 Optional.of("/connect/userinfo"),
                 Optional.of("/connect/end_session"));
-        testOidcDiscovery("openid-configuration-without-userinfo.json",
+        testOidcDiscovery(
+                "openid-configuration-without-userinfo.json",
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of("/connect/end_session"));
-        testOidcDiscovery("openid-configuration-with-access-token-issuer.json",
+        testOidcDiscovery(
+                "openid-configuration-with-access-token-issuer.json",
                 Optional.of("http://access-token-issuer.com/adfs/services/trust"),
                 Optional.of("/connect/userinfo"),
                 Optional.of("/adfs/oauth2/logout"));
-        testOidcDiscovery("openid-configuration-without-end-session-url.json",
+        testOidcDiscovery(
+                "openid-configuration-without-end-session-url.json",
                 Optional.empty(),
                 Optional.of("/connect/userinfo"),
                 Optional.empty());
@@ -166,7 +171,8 @@ public class TestOidcDiscovery
                 ImmutableMap.<String, String>builder()
                         .put("/.well-known/openid-configuration", "oidc/openid-configuration.json")
                         .put("/jwks.json", "jwk/jwk-public.json")
-                        .buildOrThrow(), 5));
+                        .buildOrThrow(),
+                5));
                 TestingTrinoServer server = createServer(
                         ImmutableMap.<String, String>builder()
                                 .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
@@ -186,7 +192,8 @@ public class TestOidcDiscovery
                 ImmutableMap.<String, String>builder()
                         .put("/.well-known/openid-configuration", "oidc/openid-configuration.json")
                         .put("/jwks.json", "jwk/jwk-public.json")
-                        .buildOrThrow(), 60));
+                        .buildOrThrow(),
+                60));
                 TestingTrinoServer server = createServer(
                         ImmutableMap.<String, String>builder()
                                 .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
@@ -309,8 +316,8 @@ public class TestOidcDiscovery
                 throws Exception
         {
             NodeInfo nodeInfo = new NodeInfo("test");
-            HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-            HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+            HttpServerConfig config = new HttpServerConfig();
+            HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
             httpServer = new TestingHttpServer("testing-metadata-server", httpServerInfo, nodeInfo, config, servlet);
             httpServer.start();
         }

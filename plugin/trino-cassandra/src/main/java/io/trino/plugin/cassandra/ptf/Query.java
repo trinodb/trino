@@ -77,14 +77,14 @@ public class Query
 
         public QueryFunction(CassandraMetadata cassandraMetadata)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     ImmutableList.of(ScalarArgumentSpecification.builder()
                             .name("QUERY")
                             .type(VARCHAR)
                             .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.cassandraMetadata = requireNonNull(cassandraMetadata, "metadata is null");
         }
 

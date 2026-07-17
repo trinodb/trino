@@ -71,14 +71,12 @@ public class ExponentialGrowthPartitionMemoryEstimator
                 ClusterMemoryManager clusterMemoryManager,
                 MemoryManagerConfig memoryManagerConfig)
         {
-            this(
-                    clusterMemoryManager::getWorkersMemoryInfo,
+            this(clusterMemoryManager::getWorkersMemoryInfo,
                     memoryManagerConfig.isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled());
         }
 
         @VisibleForTesting
-        Factory(
-                Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
+        Factory(Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
                 boolean memoryRequirementIncreaseOnWorkerCrashEnabled)
         {
             this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");

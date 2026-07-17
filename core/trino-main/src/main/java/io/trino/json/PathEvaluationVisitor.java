@@ -109,9 +109,23 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.isCharacterStringType;
+import static io.trino.type.DateTimes.extractTimePrecision;
+import static io.trino.type.DateTimes.extractTimestampPrecision;
+import static io.trino.type.DateTimes.parseTime;
+import static io.trino.type.DateTimes.parseTimeWithTimeZone;
+import static io.trino.type.DateTimes.parseTimestamp;
+import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.type.DateTimes.timeHasTimeZone;
+import static io.trino.type.DateTimes.timestampHasTimeZone;
 import static io.trino.type.DecimalCasts.longDecimalToDouble;
 import static io.trino.type.DecimalCasts.shortDecimalToDouble;
+import static io.trino.util.DateTimeUtils.parseDate;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -536,7 +550,7 @@ class PathEvaluationVisitor
         }
         if (type.equals(DOUBLE)) {
             try {
-                return DoubleOperators.castToLong(value.getDoubleValue());
+                return DoubleOperators.castToBigint(value.getDoubleValue());
             }
             catch (Exception e) {
                 throw new PathEvaluationException(e);
@@ -544,7 +558,7 @@ class PathEvaluationVisitor
         }
         if (type.equals(REAL)) {
             try {
-                return RealOperators.castToLong(value.getLongValue());
+                return RealOperators.castToBigint(value.getLongValue());
             }
             catch (Exception e) {
                 throw new PathEvaluationException(e);
@@ -645,9 +659,69 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context) // TODO
+    protected List<Object> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context)
     {
-        throw new UnsupportedOperationException("date method is not yet supported");
+        List<Object> sequence = process(node.base(), context);
+
+        if (lax) {
+            sequence = unwrapArrays(sequence);
+        }
+
+        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
+        for (Object object : sequence) {
+            TypedValue value;
+            if (object instanceof TypedValue typed) {
+                if (!isCharacterStringType(typed.getType())) {
+                    throw itemTypeError("TEXT", typed.getType().getDisplayName());
+                }
+                value = typed;
+            }
+            else {
+                JsonNode jsonNode = (JsonNode) object;
+                value = getTextTypedValue(jsonNode)
+                        .orElseThrow(() -> itemTypeError("TEXT", jsonNode.getNodeType().name()));
+            }
+            try {
+                outputSequence.add(node.format()
+                        .map(template -> template.parseValue(((Slice) value.getObjectValue()).toStringUtf8()))
+                        .orElseGet(() -> getDatetime(value)));
+            }
+            catch (RuntimeException e) {
+                // A value that cannot be parsed must surface as a path evaluation error, so that
+                // the ON ERROR clause of the enclosing function applies.
+                throw new PathEvaluationException(e);
+            }
+        }
+
+        return outputSequence.build();
+    }
+
+    private static TypedValue getDatetime(TypedValue typedValue)
+    {
+        Slice slice = (Slice) typedValue.getObjectValue();
+
+        // The standard datetime shapes are unambiguously distinguishable by their separators:
+        // a TIMESTAMP value has a space between date and time, a TIME value has at least one
+        // colon, and a DATE value has neither. Dispatch on shape so each input passes through
+        // the matching parser exactly once. Only the timestamp and time parsers need the value as a
+        // String, so a date never decodes one.
+        if (slice.indexOfByte(' ') >= 0) {
+            String value = slice.toStringUtf8();
+            int precision = extractTimestampPrecision(value);
+            if (timestampHasTimeZone(value)) {
+                return TypedValue.fromValueAsObject(createTimestampWithTimeZoneType(precision), parseTimestampWithTimeZone(precision, value));
+            }
+            return TypedValue.fromValueAsObject(createTimestampType(precision), parseTimestamp(precision, value));
+        }
+        if (slice.indexOfByte(':') >= 0) {
+            String value = slice.toStringUtf8();
+            int precision = extractTimePrecision(value);
+            if (timeHasTimeZone(value)) {
+                return TypedValue.fromValueAsObject(createTimeWithTimeZoneType(precision), parseTimeWithTimeZone(precision, value));
+            }
+            return new TypedValue(createTimeType(precision), parseTime(value));
+        }
+        return new TypedValue(DATE, parseDate(slice));
     }
 
     @Override
@@ -996,26 +1070,13 @@ class PathEvaluationVisitor
         for (Object object : sequence) {
             if (object instanceof JsonNode jsonNode) {
                 switch (jsonNode.getNodeType()) {
-                    case NUMBER:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("number")));
-                        break;
-                    case STRING:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("string")));
-                        break;
-                    case BOOLEAN:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("boolean")));
-                        break;
-                    case ARRAY:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("array")));
-                        break;
-                    case OBJECT:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("object")));
-                        break;
-                    case NULL:
-                        outputSequence.add(new TypedValue(resultType, utf8Slice("null")));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("unexpected Json node type: " + jsonNode.getNodeType());
+                    case NUMBER -> outputSequence.add(new TypedValue(resultType, utf8Slice("number")));
+                    case STRING -> outputSequence.add(new TypedValue(resultType, utf8Slice("string")));
+                    case BOOLEAN -> outputSequence.add(new TypedValue(resultType, utf8Slice("boolean")));
+                    case ARRAY -> outputSequence.add(new TypedValue(resultType, utf8Slice("array")));
+                    case OBJECT -> outputSequence.add(new TypedValue(resultType, utf8Slice("object")));
+                    case NULL -> outputSequence.add(new TypedValue(resultType, utf8Slice("null")));
+                    default -> throw new IllegalArgumentException("unexpected Json node type: " + jsonNode.getNodeType());
                 }
             }
             else {

@@ -5,15 +5,15 @@ local exchange (GATHER, SINGLE, [])
                 cross join:
                     join (LEFT, REPLICATED):
                         join (INNER, REPLICATED):
-                            final aggregation over (ca_state, cr_returning_customer_sk)
+                            final aggregation over (cr_returning_customer_sk, ca_state)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [ca_state, cr_returning_customer_sk])
-                                        intermediate aggregation over (ca_state, cr_returning_customer_sk)
+                                    remote exchange (REPARTITION, HASH, [cr_returning_customer_sk, ca_state])
+                                        intermediate aggregation over (cr_returning_customer_sk, ca_state)
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [cr_returning_addr_sk])
-                                                    partial aggregation over (cr_returning_addr_sk, cr_returning_customer_sk)
+                                                    partial aggregation over (cr_returning_customer_sk, cr_returning_addr_sk)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (cr_returned_date_sk::EQUAL, cr_returning_addr_sk::EQUAL, cr_returning_customer_sk::EQUAL)
+                                                            dynamic filter (cr_returning_customer_sk::EQUAL, cr_returning_addr_sk::EQUAL, cr_returned_date_sk::EQUAL)
                                                                 scan catalog_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -35,15 +35,15 @@ local exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [ca_state_94])
                                             partial aggregation over (ca_state_94)
-                                                final aggregation over (ca_state_94, cr_returning_customer_sk_31)
+                                                final aggregation over (cr_returning_customer_sk_31, ca_state_94)
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, [ca_state_94, cr_returning_customer_sk_31])
-                                                            intermediate aggregation over (ca_state_94, cr_returning_customer_sk_31)
+                                                        remote exchange (REPARTITION, HASH, [cr_returning_customer_sk_31, ca_state_94])
+                                                            intermediate aggregation over (cr_returning_customer_sk_31, ca_state_94)
                                                                 join (INNER, PARTITIONED):
                                                                     remote exchange (REPARTITION, HASH, [cr_returning_addr_sk_34])
-                                                                        partial aggregation over (cr_returning_addr_sk_34, cr_returning_customer_sk_31)
+                                                                        partial aggregation over (cr_returning_customer_sk_31, cr_returning_addr_sk_34)
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (cr_returned_date_sk_51::EQUAL, cr_returning_addr_sk_34::EQUAL)
+                                                                                dynamic filter (cr_returning_addr_sk_34::EQUAL, cr_returned_date_sk_51::EQUAL)
                                                                                     scan catalog_returns
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])

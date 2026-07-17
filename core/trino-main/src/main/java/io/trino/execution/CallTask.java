@@ -164,7 +164,7 @@ public class CallTask
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
             Type type = argument.getType();
-            Object value = evaluateConstant(expression, type, plannerContext, session, accessControl);
+            Object value = evaluateConstant(expression, type, parameterLookup, plannerContext, session, accessControl);
 
             values[index] = toTypeObjectValue(type, value);
         }

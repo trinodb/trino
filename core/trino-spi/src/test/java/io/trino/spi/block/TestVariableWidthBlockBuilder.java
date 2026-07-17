@@ -57,7 +57,7 @@ final class TestVariableWidthBlockBuilder
         // force to initialize capacity
         blockBuilder.writeEntry(Slices.wrappedBuffer((byte) 1));
 
-        long actualArraySize = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
+        long actualArraySize = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]);
         long actualBytesSize = sizeOf(new byte[(int) ceil(resetSkew * entries)]);
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualBytesSize + actualArraySize);
     }

@@ -48,8 +48,10 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.TableProperties;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -69,7 +71,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
-import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
@@ -79,9 +80,11 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -531,7 +534,8 @@ public abstract class BaseIcebergMaterializedViewTest
                 .doesNotContain("base_table1");
 
         String qualifiedMaterializedViewName = "iceberg." + schema + ".materialized_view_window";
-        assertQueryFails("SHOW CREATE VIEW materialized_view_window",
+        assertQueryFails(
+                "SHOW CREATE VIEW materialized_view_window",
                 "line 1:1: Relation '" + qualifiedMaterializedViewName + "' is a materialized view, not a view");
 
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_window"))
@@ -550,7 +554,8 @@ public abstract class BaseIcebergMaterializedViewTest
                         "FROM\n" +
                         "  base_table1");
 
-        assertQueryFails("INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
+        assertQueryFails(
+                "INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
                 "line 1:1: Inserting into materialized views is not supported");
 
         computeScalar("EXPLAIN (TYPE LOGICAL) REFRESH MATERIALIZED VIEW materialized_view_window");
@@ -568,18 +573,188 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testReplace()
     {
         // Materialized view to test 'replace' feature
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_replace WITH (partitioning = ARRAY['_date']) as select _date, count(_date) as num_dates from base_table1 group by 1");
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_replace WITH (partitioning = ARRAY['_date']) AS SELECT _date, count(_date) AS num_dates FROM base_table1 GROUP BY 1");
 
-        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace as select sum(1) as num_rows from base_table2");
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace", 3);
+        TableMetadata storageMetadata = getStorageTableMetadata("materialized_view_replace");
+        List<Snapshot> storageSnapshots = storageMetadata.snapshots();
+        String storageTableUuid = storageMetadata.uuid();
+        String storageTableLocation = storageMetadata.location();
+        assertThat(storageSnapshots).hasSize(2);
+
+        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace WITH (format='AVRO') AS SELECT sum(1) AS num_rows FROM base_table2");
+        storageMetadata = getStorageTableMetadata("materialized_view_replace");
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "AVRO"));
+        assertThat(storageMetadata.snapshots()).hasSize(3).containsAll(storageSnapshots);
+        storageSnapshots = storageMetadata.snapshots();
+
         assertThat(getExplainPlan("SELECT * FROM materialized_view_replace", ExplainType.Type.IO))
                 .contains("base_table2");
+
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace", 1);
+        storageMetadata = getStorageTableMetadata("materialized_view_replace");
+        assertThat(storageMetadata.snapshots()).hasSize(5).containsAll(storageSnapshots);
+
         computeScalar("SELECT * FROM materialized_view_replace");
         assertThat(query("SELECT * FROM materialized_view_replace"))
                 .matches("VALUES BIGINT '3'");
 
+        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace WITH (format='PARQUET', location ='" + storageTableLocation + "') AS SELECT * FROM base_table1");
+        assertThat(getExplainPlan("SELECT * FROM materialized_view_replace", ExplainType.Type.IO))
+                .contains("base_table1");
+        storageMetadata = getStorageTableMetadata("materialized_view_replace");
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "PARQUET"));
+        assertThat(storageMetadata.snapshots()).hasSize(6).containsAll(storageSnapshots);
+
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_replace");
+    }
+
+    @Test
+    public void testReplaceWithLegacyMetastoreStorage()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        String materializedViewName = "test_materialized_view_replace_legacy" + randomNameSuffix();
+        // Materialized view to test 'replace' feature
+        assertUpdate(format("CREATE MATERIALIZED VIEW iceberg_legacy_mv.%1$s.%2$s WITH (partitioning = ARRAY['_date']) AS SELECT _date, count(_date) AS num_dates FROM iceberg.%1$s.base_table1 GROUP BY 1", schemaName, materializedViewName));
+        String storageTableName = (String) computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'");
+
+        assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 3);
+        TableMetadata storageMetadata = getStorageTableMetadata(storageTableName);
+        String storageTableUuid = storageMetadata.uuid();
+        List<Snapshot> storageSnapshots = storageMetadata.snapshots();
+        assertThat(storageSnapshots).hasSize(3);
+
+        assertUpdate(format("CREATE OR REPLACE MATERIALIZED VIEW iceberg_legacy_mv.%1$s.%2$s WITH (format='AVRO') AS SELECT sum(1) AS num_rows FROM iceberg.%1$s.base_table2", schemaName, materializedViewName));
+        storageMetadata = getStorageTableMetadata(storageTableName);
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "AVRO"));
+        assertThat(storageMetadata.snapshots()).hasSize(4).containsAll(storageSnapshots);
+        storageSnapshots = storageMetadata.snapshots();
+
+        assertThat(getExplainPlan(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), ExplainType.Type.IO))
+                .contains("base_table2");
+
+        assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 1);
+        storageMetadata = getStorageTableMetadata(storageTableName);
+        // REFRESH performs "delete" and new data "append"
+        assertThat(storageMetadata.snapshots()).hasSize(6).containsAll(storageSnapshots);
+
+        computeScalar(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
+        assertThat(query(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName)))
+                .matches("VALUES BIGINT '3'");
+
+        // CREATE OR REPLACE without specifying location
+        assertUpdate(format("CREATE OR REPLACE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s WITH (format='PARQUET') AS SELECT * FROM base_table1", schemaName, materializedViewName));
+        assertThat(getExplainPlan(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), ExplainType.Type.IO))
+                .contains("base_table1");
+        storageMetadata = getStorageTableMetadata(storageTableName);
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "PARQUET"));
+        assertThat(storageMetadata.snapshots()).hasSize(7).containsAll(storageSnapshots);
+
+        assertUpdate(format("DROP MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
+    }
+
+    @Test
+    public void testReplaceWithLocation()
+    {
+        // Avoid location conflicts with the file metastore
+        String materializedViewLocation = getSchemaDirectory() + "/materialized_view_replace_location" + randomNameSuffix();
+        // Materialized view to test 'replace' feature
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_replace_location WITH (location='" + materializedViewLocation + "', partitioning = ARRAY['_date']) AS SELECT _date, count(_date) AS num_dates FROM base_table1 GROUP BY 1");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace_location", 3);
+        TableMetadata storageMetadata = getStorageTableMetadata("materialized_view_replace_location");
+        String storageTableUuid = storageMetadata.uuid();
+        List<Snapshot> storageSnapshots = storageMetadata.snapshots();
+        assertThat(storageSnapshots).hasSize(2);
+
+        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace_location WITH (location='" + materializedViewLocation + "', format='AVRO') AS SELECT sum(1) AS num_rows FROM base_table2");
+        storageMetadata = getStorageTableMetadata("materialized_view_replace_location");
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "AVRO"));
+        assertThat(storageMetadata.snapshots()).hasSize(3).containsAll(storageSnapshots);
+        storageSnapshots = storageMetadata.snapshots();
+
+        assertThat(getExplainPlan("SELECT * FROM materialized_view_replace_location", ExplainType.Type.IO))
+                .contains("base_table2");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace_location", 1);
+        storageMetadata = getStorageTableMetadata("materialized_view_replace_location");
+        // REFRESH performs "delete" and new data "append"
+        assertThat(storageMetadata.snapshots()).hasSize(5).containsAll(storageSnapshots);
+
+        computeScalar("SELECT * FROM materialized_view_replace_location");
+        assertThat(query("SELECT * FROM materialized_view_replace_location"))
+                .matches("VALUES BIGINT '3'");
+
+        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace_location WITH (format = 'PARQUET') AS SELECT * FROM base_table1");
+        assertThat(getExplainPlan("SELECT * FROM materialized_view_replace_location", ExplainType.Type.IO))
+                .contains("base_table1");
+        storageMetadata = getStorageTableMetadata("materialized_view_replace_location");
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "PARQUET"));
+        assertThat(storageMetadata.snapshots()).hasSize(6).containsAll(storageSnapshots);
+
+        String newMaterializedViewLocation = getSchemaDirectory() + "/new_materialized_view_replace_location" + randomNameSuffix();
+        assertThatThrownBy(() -> computeActual("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace_location WITH (location='" + newMaterializedViewLocation + "') as select 1 as data"))
+                .hasMessage("The provided location '%s' does not match the existing storage table location '%s'".formatted(newMaterializedViewLocation, materializedViewLocation));
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_replace_location");
+    }
+
+    @Test
+    public void testReplaceWithLegacyMetastoreStorageWithLocation()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        String materializedViewName = "test_materialized_view_replace_legacy" + randomNameSuffix();
+        // Avoid location conflicts with the file metastore
+        String storageTableLocation = getSchemaDirectory() + "/" + materializedViewName + "location";
+
+        // Materialized view to test 'replace' feature
+        assertUpdate(format("CREATE MATERIALIZED VIEW iceberg_legacy_mv.%1$s.%2$s WITH (partitioning = ARRAY['_date'], location='%3$s') AS SELECT _date, count(_date) AS num_dates FROM iceberg.%1$s.base_table1 GROUP BY 1", schemaName, materializedViewName, storageTableLocation));
+        String storageTableName = (String) computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'");
+
+        assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 3);
+        TableMetadata storageMetadata = getStorageTableMetadata(storageTableName);
+        String storageTableUuid = storageMetadata.uuid();
+        List<Snapshot> storageSnapshots = storageMetadata.snapshots();
+        assertThat(storageSnapshots).hasSize(3);
+
+        assertUpdate(format("CREATE OR REPLACE MATERIALIZED VIEW iceberg_legacy_mv.%1$s.%2$s WITH (location='%3$s', format='AVRO') AS SELECT sum(1) AS num_rows FROM iceberg.%1$s.base_table2", schemaName, materializedViewName, storageTableLocation));
+        storageMetadata = getStorageTableMetadata(storageTableName);
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "AVRO"));
+        assertThat(storageMetadata.snapshots()).hasSize(4).containsAll(storageSnapshots);
+        storageSnapshots = storageMetadata.snapshots();
+
+        assertThat(getExplainPlan(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), ExplainType.Type.IO))
+                .contains("base_table2");
+
+        assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 1);
+        storageMetadata = getStorageTableMetadata(storageTableName);
+        // REFRESH performs "delete" and new data "append"
+        assertThat(storageMetadata.snapshots()).hasSize(6).containsAll(storageSnapshots);
+
+        computeScalar(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
+        assertThat(query(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName)))
+                .matches("VALUES BIGINT '3'");
+
+        // CREATE OR REPLACE without specifying location
+        assertUpdate(format("CREATE OR REPLACE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s WITH (format='PARQUET') AS SELECT * FROM base_table1", schemaName, materializedViewName));
+        assertThat(getExplainPlan(format("SELECT * FROM iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), ExplainType.Type.IO))
+                .contains("base_table1");
+        storageMetadata = getStorageTableMetadata(storageTableName);
+        assertThat(storageMetadata.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadata.properties()).contains(entry(TableProperties.DEFAULT_FILE_FORMAT, "PARQUET"));
+        assertThat(storageMetadata.snapshots()).hasSize(7).containsAll(storageSnapshots);
+
+        String newStorageTableLocation = getSchemaDirectory() + "/" + materializedViewName + "newlocation";
+        assertThatThrownBy(() -> computeActual(format("CREATE OR REPLACE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s WITH (location='%s') AS SELECT 1 AS data", schemaName, materializedViewName, newStorageTableLocation)))
+                .hasMessage("The provided location '%s' does not match the existing storage table location '%s'".formatted(newStorageTableLocation, storageTableLocation));
+
+        assertUpdate(format("DROP MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
     }
 
     @Test
@@ -798,7 +973,8 @@ public abstract class BaseIcebergMaterializedViewTest
                     tswtz_3 timestamp(3) with time zone,
                     tswtz_9 timestamp(9) with time zone
                 )
-                """, sourceTableName));
+                """,
+                sourceTableName));
         assertUpdate(format("INSERT INTO %s VALUES (localtime, localtime, localtimestamp, localtimestamp, current_timestamp, current_timestamp)", sourceTableName), 1);
 
         assertUpdate(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM %s", materializedViewName, sourceTableName));
@@ -853,6 +1029,47 @@ public abstract class BaseIcebergMaterializedViewTest
             assertUpdate("DROP TABLE " + sourceTableName);
             assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
         }
+    }
+
+    @Test
+    public void testMaterializedViewMetadataTables()
+    {
+        assertUpdate("CREATE TABLE base_table1_mv_copy AS SELECT * FROM base_table1", 6L);
+        String mvName = "test_mv_metadata_tables_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " WITH (partitioning = ARRAY['_date']) AS SELECT * FROM base_table1_mv_copy");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+
+        // Metadata tables resolve against the materialized view's storage table via the MV name,
+        // mirroring the behavior for regular tables.
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$files\"")).isEqualTo(3L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$snapshots\"")).isEqualTo(2L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$history\"")).isEqualTo(2L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$partitions\"")).isEqualTo(3L);
+        assertThat(query("SELECT file_path, record_count FROM \"" + mvName + "$files\"")).succeeds();
+        assertThat(query("SELECT * FROM \"" + mvName + "$manifests\"")).succeeds();
+        assertThat(query("SELECT * FROM \"" + mvName + "$refs\"")).succeeds();
+        assertThat(query("SELECT * FROM \"" + mvName + "$properties\"")).succeeds();
+
+        // A second refresh adds a snapshot, visible through the MV's $snapshots table.
+        long snapshotsBefore = (long) computeScalar("SELECT count(*) FROM \"" + mvName + "$snapshots\"");
+        assertUpdate("INSERT INTO base_table1_mv_copy VALUES (6, DATE '2019-09-11')", 1);
+        // implicit RefreshType.INCREMENTAL, only new row is added
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertThat(computeScalar("SELECT count(*) FROM " + mvName)).isEqualTo(7L);
+        assertThat((long) computeScalar("SELECT count(*) FROM \"" + mvName + "$snapshots\"")).isGreaterThan(snapshotsBefore);
+
+        // A metadata-table suffix on a non-existent materialized view still reports the table as missing.
+        assertThat(query("SELECT * FROM \"nonexistent_mv_" + randomNameSuffix() + "$partitions\""))
+                .failure().hasMessageMatching(".* does not exist");
+
+        // Access control is keyed on the suffixed name, exactly as for base-table metadata tables.
+        assertAccessDenied(
+                "SELECT * FROM \"" + mvName + "$partitions\"",
+                "Cannot select from columns .*",
+                privilege(mvName + "$partitions", SELECT_COLUMN));
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE base_table1_mv_copy");
     }
 
     @Test
@@ -1180,8 +1397,8 @@ public abstract class BaseIcebergMaterializedViewTest
 
         String matViewDef =
                 """
-                SELECT a, b FROM %s a WHERE a.a < 3 UNION ALL
-                SELECT * FROM %s b WHERE b.a > 5""".formatted(sourceTableName, sourceTableName);
+                        SELECT a, b FROM %s a WHERE a.a < 3 UNION ALL
+                        SELECT * FROM %s b WHERE b.a > 5""".formatted(sourceTableName, sourceTableName);
 
         // create source table and two identical MVs
         assertUpdate("CREATE TABLE %s (a int, b varchar)".formatted(sourceTableName));
@@ -1298,8 +1515,8 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testSplitOffsetsOnStorageTable()
     {
         String materializedViewName = "test_split_offsets_" + randomNameSuffix();
-        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM tpch.tiny.nation", materializedViewName));
-        assertUpdate(withSmallRowGroups(getSession()), "REFRESH MATERIALIZED VIEW " + materializedViewName, 25);
+        computeActual(format("CREATE MATERIALIZED VIEW %s WITH (parquet_writer_row_group_size = '1kB') AS SELECT * FROM tpch.tiny.nation", materializedViewName));
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 25);
 
         assertQueryStats(
                 getSession(),
@@ -1347,7 +1564,7 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         public SequenceTableFunction()
         {
-            super("system", "sequence_function", List.of(), GENERIC_TABLE);
+            super("system", "sequence_function", List.of(), GENERIC_TABLE, "");
         }
 
         @Override

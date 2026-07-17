@@ -36,7 +36,8 @@ public interface SliceWriteFunction
     {
         requireNonNull(implementation, "implementation is null");
 
-        return new SliceWriteFunction() {
+        return new SliceWriteFunction()
+        {
             @Override
             public void set(PreparedStatement statement, int index, Slice value)
                     throws SQLException

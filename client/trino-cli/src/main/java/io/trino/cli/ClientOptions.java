@@ -30,6 +30,8 @@ import io.trino.client.uri.TrinoUri;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 import java.lang.annotation.Retention;
 import java.net.URI;
@@ -92,8 +94,6 @@ import static java.lang.String.format;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static picocli.CommandLine.Option;
-import static picocli.CommandLine.Parameters;
 
 public class ClientOptions
 {
@@ -306,6 +306,9 @@ public class ClientOptions
     @Option(names = "--decimal-data-size", description = "Show data size and rate in base 10 rather than base 2")
     public boolean decimalDataSize;
 
+    @Option(names = "--theme", paramLabel = "<theme>", defaultValue = "AUTO", description = "Color theme [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public Theme theme;
+
     @Option(names = "--max-buffered-rows", paramLabel = "<maxBufferedRows>", description = "Maximum number of rows to buffer in memory before writing to output (default: ${DEFAULT-VALUE})")
     public int maxBufferedRows = 10_000;
 
@@ -325,7 +328,7 @@ public class ClientOptions
         CSV_HEADER_UNQUOTED,
         JSON,
         MARKDOWN,
-        NULL
+        NULL,
     }
 
     @Retention(RUNTIME)

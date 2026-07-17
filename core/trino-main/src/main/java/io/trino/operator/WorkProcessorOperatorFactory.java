@@ -25,13 +25,13 @@ public interface WorkProcessorOperatorFactory
     String getOperatorType();
 
     WorkProcessorOperator create(
-            ProcessorContext processorContext,
+            OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages);
 
     WorkProcessorOperatorFactory duplicate();
 
     default void close()
     {
-        //do nothing
+        // do nothing
     }
 }

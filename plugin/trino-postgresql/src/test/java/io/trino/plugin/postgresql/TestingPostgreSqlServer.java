@@ -68,7 +68,7 @@ public class TestingPostgreSqlServer
     private static final String LOG_RUNNING_STATEMENT_PREFIX = "LOG:  execute <unnamed>";
     private static final String LOG_CANCELLATION_EVENT = "ERROR:  canceling statement due to user request";
 
-    private static final Pattern SQL_QUERY_FIND_PATTERN = Pattern.compile("^(: |/C_\\d: )(.*)"); //In PgSQL cursor queries and non-cursor queries are logged differently
+    private static final Pattern SQL_QUERY_FIND_PATTERN = Pattern.compile("^(: |/C_\\d: )(.*)"); // In PgSQL cursor queries and non-cursor queries are logged differently
     private static final String LOG_CANCELLED_STATEMENT_PREFIX = "STATEMENT:  ";
 
     private final PostgreSQLContainer dockerContainer;

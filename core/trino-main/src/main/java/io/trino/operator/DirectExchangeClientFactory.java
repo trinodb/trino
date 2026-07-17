@@ -72,8 +72,7 @@ public class DirectExchangeClientFactory
             ExchangeManagerRegistry exchangeManagerRegistry,
             Optional<ExchangeMetricsCollector> exchangeMetricsCollector)
     {
-        this(
-                nodeInfo,
+        this(nodeInfo,
                 featuresConfig.getExchangeDataIntegrityVerification(),
                 config.getMaxBufferSize(),
                 config.getDeduplicationBufferSize(),

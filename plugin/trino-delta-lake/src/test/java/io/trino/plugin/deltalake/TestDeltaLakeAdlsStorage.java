@@ -64,7 +64,7 @@ public class TestDeltaLakeAdlsStorage
         this.accessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
 
         String directoryBase = format("abfs://%s@%s.dfs.core.windows.net", container, account);
-        adlsDirectory = format("%s/tpch-tiny-%s/", directoryBase, randomUUID());
+        adlsDirectory = format("%s/tpch-tiny-%s", directoryBase, randomUUID());
     }
 
     @Override
@@ -84,7 +84,7 @@ public class TestDeltaLakeAdlsStorage
         return DeltaLakeQueryRunner.builder()
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
-                        .put("fs.native-azure.enabled", "true")
+                        .put("fs.azure.enabled", "true")
                         .put("azure.auth-type", "ACCESS_KEY")
                         .put("azure.access-key", accessKey)
                         .put("delta.register-table-procedure.enabled", "true")

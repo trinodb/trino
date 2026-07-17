@@ -63,6 +63,16 @@ public class DictionaryFallbackValuesWriter
         return rawDataByteSize;
     }
 
+    public long getEstimatedBufferedSize()
+    {
+        long estimatedBufferedSize = currentWriter.getBufferedSize();
+        if (!fellBackAlready && firstPage && initialWriter != null &&
+                !initialWriter.isCompressionSatisfying(rawDataByteSize, estimatedBufferedSize)) {
+            return rawDataByteSize;
+        }
+        return estimatedBufferedSize;
+    }
+
     @Override
     public BytesInput getBytes()
     {

@@ -54,7 +54,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -131,22 +130,21 @@ public class TableSnapshot
                 transactionLogMaxCachedFileSize);
     }
 
-    public Optional<TableSnapshot> getUpdatedSnapshot(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, Optional<Long> toVersion)
+    public Optional<TableSnapshot> getUpdatedSnapshot(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, Optional<Long> toVersion, Optional<LastCheckpoint> currentLastCheckpoint)
             throws IOException
     {
         if (toVersion.isEmpty()) {
             // Load any newer table snapshot
 
-            Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
-            if (lastCheckpoint.isPresent()) {
+            if (currentLastCheckpoint.isPresent()) {
                 long ourCheckpointVersion = getLastCheckpointVersion().orElse(0L);
-                if (ourCheckpointVersion != lastCheckpoint.get().version()) {
+                if (ourCheckpointVersion != currentLastCheckpoint.get().version()) {
                     // There is a new checkpoint in the table, load anew
                     return Optional.of(TableSnapshot.load(
                             session,
                             transactionLogReader,
                             table,
-                            lastCheckpoint,
+                            currentLastCheckpoint,
                             tableLocation,
                             parquetReaderOptions,
                             checkpointRowStatisticsWritingEnabled,

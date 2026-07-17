@@ -237,33 +237,46 @@ public class TestHivePartitionProcedures
 
     private QueryResult dropPartition(String tableName, String partitionCol, String partition)
     {
-        return onTrino().executeQuery(format("CALL system.unregister_partition(\n" +
+        return onTrino().executeQuery(format(
+                "CALL system.unregister_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
                         "    partition_values => ARRAY['%s'])",
-                "default", tableName, partitionCol, partition));
+                "default",
+                tableName,
+                partitionCol,
+                partition));
     }
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition, String location)
     {
-        return onTrino().executeQuery(format("CALL system.register_partition(\n" +
+        return onTrino().executeQuery(format(
+                "CALL system.register_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
                         "    partition_values => ARRAY['%s'],\n" +
                         "    location => '%s')",
-                "default", tableName, partitionCol, partition, location));
+                "default",
+                tableName,
+                partitionCol,
+                partition,
+                location));
     }
 
     private QueryResult addPartition(String tableName, String partitionCol, String partition)
     {
-        return onTrino().executeQuery(format("CALL system.register_partition(\n" +
+        return onTrino().executeQuery(format(
+                "CALL system.register_partition(\n" +
                         "    schema_name => '%s',\n" +
                         "    table_name => '%s',\n" +
                         "    partition_columns => ARRAY['%s'],\n" +
                         "    partition_values => ARRAY['%s'])",
-                "default", tableName, partitionCol, partition));
+                "default",
+                tableName,
+                partitionCol,
+                partition));
     }
 
     private void createDanglingLocationWithData(String path, String tableName)

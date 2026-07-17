@@ -7,7 +7,7 @@ to support S3-compatible storage systems, only AWS S3 and MinIO are tested for
 compatibility. For other storage systems, perform your own testing and consult
 your vendor for more information.
 
-Enable the native implementation with `fs.native-s3.enabled=true` in your
+Enable the native implementation with `fs.s3.enabled=true` in your
 catalog properties file.
 
 ## General configuration
@@ -21,7 +21,7 @@ support:
 
 * - Property
   - Description
-* - `fs.native-s3.enabled`
+* - `fs.s3.enabled`
   - Activate the native implementation for S3 storage support. Defaults to
     `false`. Set to `true` to use S3 and enable all other properties.
 * - `s3.endpoint`
@@ -104,12 +104,6 @@ support:
 * - `s3.max-error-retries`
   - Specifies maximum number of retries the client will make on errors.
     Defaults to `20`.
-* - `s3.use-web-identity-token-credentials-provider`
-  - Set to `true` to only use the web identity token credentials provider,
-    instead of the default providers chain. This can be useful when running
-    Trino on Amazon EKS and using [IAM roles for service accounts
-    (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
-    Defaults to `false`.
 * - `s3.application-id`
   - Specify the application identifier appended to the `User-Agent` header 
     for all requests sent to S3. Defaults to `Trino`.
@@ -118,7 +112,10 @@ support:
 ## Authentication
 
 Use the following properties to configure the authentication to S3 with access
-and secret keys, STS, or an IAM role:
+and secret keys, STS, or an IAM role. The access key, secret key, STS, and
+external ID properties are only used by the `DEFAULT` and `IAM_ROLE`
+authentication modes; setting any of them for `ANONYMOUS` or `WEB_IDENTITY`
+fails at startup.
 
 :::{list-table}
 :widths: 40, 60
@@ -136,12 +133,24 @@ and secret keys, STS, or an IAM role:
 * - `s3.sts.region`
   - AWS region of the STS service.
 * - `s3.iam-role`
-  - ARN of an IAM role to assume when connecting to S3.
+  - ARN of an IAM role to assume when connecting to S3. Requires
+    `s3.auth-type=IAM_ROLE`.
 * - `s3.role-session-name`
   - Role session name to use when connecting to S3. Defaults to
     `trino-filesystem`.
 * - `s3.external-id`
   - External ID for the IAM role trust policy when connecting to S3.
+* - `s3.auth-type`
+  - Authentication mode for accessing S3, one of:
+
+    - `ANONYMOUS`: sends no credentials, for reading public buckets.
+    - `DEFAULT` (default): uses the static access keys when set, otherwise the
+      AWS default credentials chain. Security mapping roles are still honored.
+    - `IAM_ROLE`: assumes the IAM role configured in `s3.iam-role`.
+    - `WEB_IDENTITY`: uses the web identity token file credentials provider
+      instead of the default credentials chain. Useful when running Trino on
+      Amazon EKS with [IAM roles for service accounts
+      (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
 :::
 
 ## Security mapping
@@ -298,7 +307,7 @@ system implementation.
 To migrate a catalog to use the native file system implementation for S3, make
 the following edits to your catalog configuration:
 
-1. Add the `fs.native-s3.enabled=true` catalog configuration property.
+1. Add the `fs.s3.enabled=true` catalog configuration property.
 2. If your catalog enabled `fs.hadoop.enabled` only for legacy S3 access,
    remove that property.
 3. Refer to the following table to rename your existing legacy catalog

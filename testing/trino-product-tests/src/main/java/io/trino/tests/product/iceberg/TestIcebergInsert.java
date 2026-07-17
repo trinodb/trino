@@ -58,24 +58,24 @@ public class TestIcebergInsert
             CyclicBarrier barrier = new CyclicBarrier(threads);
             QueryExecutor onTrino = onTrino();
             List<Long> allInserted = executor.invokeAll(
-                    IntStream.range(0, threads)
-                            .mapToObj(thread -> (Callable<List<Long>>) () -> {
-                                List<Long> inserted = new ArrayList<>();
-                                for (int i = 0; i < insertsPerThread; i++) {
-                                    barrier.await(20, SECONDS);
-                                    long value = i + (long) insertsPerThread * thread;
-                                    try {
-                                        onTrino.executeQuery("INSERT INTO " + tableName + " VALUES " + value);
-                                    }
-                                    catch (QueryExecutionException queryExecutionException) {
-                                        // failed to insert
-                                        continue;
-                                    }
-                                    inserted.add(value);
-                                }
-                                return inserted;
-                            })
-                            .collect(toImmutableList())).stream()
+                            IntStream.range(0, threads)
+                                    .mapToObj(thread -> (Callable<List<Long>>) () -> {
+                                        List<Long> inserted = new ArrayList<>();
+                                        for (int i = 0; i < insertsPerThread; i++) {
+                                            barrier.await(20, SECONDS);
+                                            long value = i + (long) insertsPerThread * thread;
+                                            try {
+                                                onTrino.executeQuery("INSERT INTO " + tableName + " VALUES " + value);
+                                            }
+                                            catch (QueryExecutionException queryExecutionException) {
+                                                // failed to insert
+                                                continue;
+                                            }
+                                            inserted.add(value);
+                                        }
+                                        return inserted;
+                                    })
+                                    .collect(toImmutableList())).stream()
                     .map(MoreFutures::getDone)
                     .flatMap(List::stream)
                     .collect(toImmutableList());

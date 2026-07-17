@@ -22,11 +22,15 @@ public interface FlatDefinitionLevelDecoder
 {
     void init(Slice input);
 
-    /**
-     * Populate 'values' with true for nulls and return the number of non-nulls encountered.
-     * 'values' array is assumed to be empty at the start of reading a batch, i.e. contain only false values.
-     */
-    int readNext(boolean[] values, int offset, int length);
+    /// Consume `length` definition levels and return the number of non-null values encountered.
+    ///
+    /// If the return value is less than `length`, the requested range in `values` contains the decoded validity bitmap.
+    /// If the return value is equal to `length`, every requested position is valid, but the requested range in `values`
+    /// is not guaranteed to be populated. The caller must materialize the range before using it as a validity bitmap.
+    ///
+    /// The requested range in `values` must initially contain only unset bits. The array uses the
+    /// [io.trino.spi.block.Bitmap] encoding.
+    int readNext(long[] values, int offset, int length);
 
     /**
      * Skip 'length' values and return the number of non-nulls encountered

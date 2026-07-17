@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
 import io.trino.plugin.hive.orc.OriginalFilesUtils;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +25,6 @@ import java.util.List;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 

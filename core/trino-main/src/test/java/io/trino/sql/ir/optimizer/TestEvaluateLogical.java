@@ -29,6 +29,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -112,6 +113,6 @@ class TestEvaluateLogical
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateLogical().apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateLogical().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

@@ -108,7 +108,7 @@ public class TestDynamicTable
                  AND(("OriginCityName") != 'catfish paradise', ("OriginState") != 'az', ("AirTime") BETWEEN '1' AND '5', "AirTime" NOT IN ('7', '8', '9')),\
                  AND(("DepDelayMinutes") < '10', ("Distance") >= '3', ("ArrDelay") > '4', ("SecurityDelay") < '5', ("LateAircraftDelay") <= '7'))\
                  LIMIT 60\
-                 """.formatted(tableName);
+                """.formatted(tableName);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }
@@ -204,8 +204,7 @@ public class TestDynamicTable
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         PinotColumnHandle columnHandle = new PinotColumnHandle("OriginCityName", VARCHAR);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columnHandle,
-                Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false)));
+                columnHandle, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false)));
         String expectedPql =
                 """
                 SELECT "FlightNum"\

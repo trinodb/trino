@@ -27,7 +27,7 @@ public final class BigintType
 
     private BigintType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

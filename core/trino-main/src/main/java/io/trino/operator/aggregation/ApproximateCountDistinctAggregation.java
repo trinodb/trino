@@ -66,7 +66,7 @@ public final class ApproximateCountDistinctAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") long value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
@@ -91,7 +91,7 @@ public final class ApproximateCountDistinctAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") double value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
@@ -116,7 +116,7 @@ public final class ApproximateCountDistinctAggregation
                     operator = XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
-                    MethodHandle methodHandle,
+            MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") Object value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
@@ -150,7 +150,10 @@ public final class ApproximateCountDistinctAggregation
     {
         checkCondition(maxStandardError >= LOWEST_MAX_STANDARD_ERROR && maxStandardError <= HIGHEST_MAX_STANDARD_ERROR,
                 INVALID_FUNCTION_ARGUMENT,
-                "Max standard error must be in [%s, %s]: %s", LOWEST_MAX_STANDARD_ERROR, HIGHEST_MAX_STANDARD_ERROR, maxStandardError);
+                "Max standard error must be in [%s, %s]: %s",
+                LOWEST_MAX_STANDARD_ERROR,
+                HIGHEST_MAX_STANDARD_ERROR,
+                maxStandardError);
         return log2Ceiling((int) Math.ceil(1.0816 / (maxStandardError * maxStandardError)));
     }
 

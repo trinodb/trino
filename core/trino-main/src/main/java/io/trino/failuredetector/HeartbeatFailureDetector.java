@@ -30,8 +30,8 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.airlift.stats.DecayConfig;
 import io.airlift.stats.DecayCounter;
-import io.airlift.stats.ExponentialDecay;
 import io.airlift.units.Duration;
 import io.trino.client.FailureInfo;
 import io.trino.server.InternalCommunicationConfig;
@@ -389,9 +389,9 @@ public class HeartbeatFailureDetector
         private final long start = System.nanoTime();
         private final URI uri;
 
-        private final DecayCounter recentRequests = new DecayCounter(ExponentialDecay.oneMinute());
-        private final DecayCounter recentFailures = new DecayCounter(ExponentialDecay.oneMinute());
-        private final DecayCounter recentSuccesses = new DecayCounter(ExponentialDecay.oneMinute());
+        private final DecayCounter recentRequests = new DecayCounter(DecayConfig.oneMinute());
+        private final DecayCounter recentFailures = new DecayCounter(DecayConfig.oneMinute());
+        private final DecayCounter recentSuccesses = new DecayCounter(DecayConfig.oneMinute());
         private final AtomicReference<DateTime> lastRequestTime = new AtomicReference<>();
         private final AtomicReference<DateTime> lastResponseTime = new AtomicReference<>();
         private final AtomicReference<Exception> lastFailureException = new AtomicReference<>();
@@ -430,7 +430,7 @@ public class HeartbeatFailureDetector
             synchronized (this) {
                 DecayCounter counter = failureCountByType.get(cause.getClass());
                 if (counter == null) {
-                    counter = new DecayCounter(ExponentialDecay.oneMinute());
+                    counter = new DecayCounter(DecayConfig.oneMinute());
                     failureCountByType.put(cause.getClass(), counter);
                 }
                 counter.add(1);

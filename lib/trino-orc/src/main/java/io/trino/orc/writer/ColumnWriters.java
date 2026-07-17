@@ -80,49 +80,43 @@ public final class ColumnWriters
             return new VariantColumnWriter(columnId, compression, bufferSize, metadataWriter, valueWriter);
         }
         switch (orcType.getOrcTypeKind()) {
-            case BOOLEAN:
+            case BOOLEAN -> {
                 return new BooleanColumnWriter(columnId, type, compression, bufferSize);
-
-            case FLOAT:
+            }
+            case FLOAT -> {
                 return new FloatColumnWriter(columnId, type, compression, bufferSize, () -> new DoubleStatisticsBuilder(bloomFilterBuilder.get()));
-
-            case DOUBLE:
+            }
+            case DOUBLE -> {
                 return new DoubleColumnWriter(columnId, type, compression, bufferSize, () -> new DoubleStatisticsBuilder(bloomFilterBuilder.get()));
-
-            case BYTE:
+            }
+            case BYTE -> {
                 return new ByteColumnWriter(columnId, type, compression, bufferSize);
-
-            case DATE:
+            }
+            case DATE -> {
                 return new LongColumnWriter(columnId, type, compression, bufferSize, () -> new DateStatisticsBuilder(bloomFilterBuilder.get()));
-
-            case SHORT:
-            case INT:
-            case LONG:
+            }
+            case SHORT, INT, LONG -> {
                 return new LongColumnWriter(columnId, type, compression, bufferSize, () -> new IntegerStatisticsBuilder(bloomFilterBuilder.get()));
-
-            case DECIMAL:
+            }
+            case DECIMAL -> {
                 return new DecimalColumnWriter(columnId, type, compression, bufferSize);
-
-            case TIMESTAMP:
-            case TIMESTAMP_INSTANT:
+            }
+            case TIMESTAMP, TIMESTAMP_INSTANT -> {
                 return new TimestampColumnWriter(columnId, type, compression, bufferSize, () -> new TimestampStatisticsBuilder(bloomFilterBuilder.get()));
-
-            case BINARY:
+            }
+            case BINARY -> {
                 return new SliceDirectColumnWriter(columnId, type, compression, bufferSize, BinaryStatisticsBuilder::new);
-
-            case CHAR:
-            case VARCHAR:
-            case STRING:
+            }
+            case CHAR, VARCHAR, STRING -> {
                 return new SliceDictionaryColumnWriter(columnId, type, compression, bufferSize, () -> new StringStatisticsBuilder(toIntExact(stringStatisticsLimit.toBytes()), bloomFilterBuilder.get(), shouldCompactMinMax));
-
-            case LIST: {
+            }
+            case LIST -> {
                 OrcColumnId fieldColumnIndex = orcType.getFieldTypeIndex(0);
                 Type fieldType = ((ArrayType) type).getElementType();
                 ColumnWriter elementWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, bufferSize, stringStatisticsLimit, bloomFilterBuilder, shouldCompactMinMax);
                 return new ListColumnWriter(columnId, compression, bufferSize, elementWriter);
             }
-
-            case MAP: {
+            case MAP -> {
                 ColumnWriter keyWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(0),
                         orcTypes,
@@ -143,8 +137,7 @@ public final class ColumnWriters
                         shouldCompactMinMax);
                 return new MapColumnWriter(columnId, compression, bufferSize, keyWriter, valueWriter);
             }
-
-            case STRUCT: {
+            case STRUCT -> {
                 ImmutableList.Builder<ColumnWriter> fieldWriters = ImmutableList.builder();
                 for (int fieldId = 0; fieldId < orcType.getFieldCount(); fieldId++) {
                     OrcColumnId fieldColumnIndex = orcType.getFieldTypeIndex(fieldId);
@@ -153,9 +146,9 @@ public final class ColumnWriters
                 }
                 return new StructColumnWriter(columnId, compression, bufferSize, fieldWriters.build());
             }
-
-            case UNION:
+            case UNION -> {
                 // unsupported
+            }
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);

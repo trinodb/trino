@@ -138,10 +138,10 @@ public final class JsonIterators
         }
     }
 
-    public static CloseableIterator<List<Object>> forJsonParser(JsonParser parser, List<Column> columns)
+    public static CloseableIterator<List<Object>> forJsonParser(JsonParser parser, List<Column> columns, boolean supportsVariantBinary)
             throws IOException
     {
-        return new JsonIterator(parser, createTypeDecoders(columns));
+        return new JsonIterator(parser, createTypeDecoders(columns, supportsVariantBinary));
     }
 
     public static CloseableIterator<List<Object>> forInputStream(InputStream stream, TypeDecoder[] decoders)

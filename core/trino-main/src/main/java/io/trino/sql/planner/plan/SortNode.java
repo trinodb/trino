@@ -32,7 +32,8 @@ public class SortNode
     private final boolean partial;
 
     @JsonCreator
-    public SortNode(@JsonProperty("id") PlanNodeId id,
+    public SortNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("partial") boolean partial)

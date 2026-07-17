@@ -52,7 +52,7 @@ public abstract class AbstractIntType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractIntType.class, lookup(), long.class);
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
-    protected AbstractIntType(TypeSignature signature)
+    protected AbstractIntType(TypeDescriptor signature)
     {
         super(signature, long.class, IntArrayBlock.class);
     }
@@ -107,10 +107,10 @@ public abstract class AbstractIntType
     protected void checkValueValid(long value)
     {
         if (value > Integer.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT for type %s", value, getTypeDescriptor()));
         }
         if (value < Integer.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT for type %s", value, getTypeDescriptor()));
         }
     }
 

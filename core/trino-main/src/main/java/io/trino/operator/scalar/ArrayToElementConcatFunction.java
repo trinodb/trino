@@ -21,13 +21,13 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArrayToElementConcatFunction
@@ -47,9 +47,9 @@ public class ArrayToElementConcatFunction
         super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(arrayType(new TypeSignature("E")))
-                        .argumentType(arrayType(new TypeSignature("E")))
-                        .argumentType(new TypeSignature("E"))
+                        .returnType(arrayType(typeVariable("E")))
+                        .argumentType(arrayType(typeVariable("E")))
+                        .argumentType(typeVariable("E"))
                         .build())
                 .description("Concatenates an array to an element")
                 .build());

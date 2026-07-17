@@ -62,7 +62,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -100,97 +100,101 @@ public class TestTableWriterOperator
 
     @Test
     public void testBlockedPageSink()
+            throws Exception
     {
         BlockingPageSink blockingPageSink = new BlockingPageSink();
-        Operator operator = createTableWriterOperator(blockingPageSink);
+        try (Operator operator = createTableWriterOperator(blockingPageSink)) {
+            // initial state validation
+            assertThat(operator.isBlocked().isDone()).isTrue();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isTrue();
 
-        // initial state validation
-        assertThat(operator.isBlocked().isDone()).isTrue();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isTrue();
+            // blockingPageSink that will return blocked future
+            operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage());
 
-        // blockingPageSink that will return blocked future
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+            assertThat(operator.isBlocked().isDone()).isFalse();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isFalse();
+            assertThat(operator.getOutput()).isNull();
 
-        assertThat(operator.isBlocked().isDone()).isFalse();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isFalse();
-        assertThat(operator.getOutput()).isNull();
+            // complete previously blocked future
+            blockingPageSink.complete();
 
-        // complete previously blocked future
-        blockingPageSink.complete();
+            assertThat(operator.isBlocked().isDone()).isTrue();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isTrue();
 
-        assertThat(operator.isBlocked().isDone()).isTrue();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isTrue();
+            // add second page
+            operator.addInput(rowPagesBuilder(BIGINT).row(44).buildPage());
 
-        // add second page
-        operator.addInput(rowPagesBuilder(BIGINT).row(44).build().get(0));
+            assertThat(operator.isBlocked().isDone()).isFalse();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isFalse();
 
-        assertThat(operator.isBlocked().isDone()).isFalse();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isFalse();
+            // finish operator, state hasn't changed
+            operator.finish();
 
-        // finish operator, state hasn't changed
-        operator.finish();
+            assertThat(operator.isBlocked().isDone()).isFalse();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isFalse();
 
-        assertThat(operator.isBlocked().isDone()).isFalse();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isFalse();
+            // complete previously blocked future
+            blockingPageSink.complete();
+            // and getOutput which actually finishes the operator
+            List<Type> expectedTypes = ImmutableList.of(BIGINT, VARBINARY);
+            assertPageEquals(
+                    expectedTypes,
+                    operator.getOutput(),
+                    rowPagesBuilder(expectedTypes).row(2, null).buildPage());
 
-        // complete previously blocked future
-        blockingPageSink.complete();
-        // and getOutput which actually finishes the operator
-        List<Type> expectedTypes = ImmutableList.of(BIGINT, VARBINARY);
-        assertPageEquals(expectedTypes,
-                operator.getOutput(),
-                rowPagesBuilder(expectedTypes).row(2, null).build().get(0));
-
-        assertThat(operator.isBlocked().isDone()).isTrue();
-        assertThat(operator.isFinished()).isTrue();
-        assertThat(operator.needsInput()).isFalse();
+            assertThat(operator.isBlocked().isDone()).isTrue();
+            assertThat(operator.isFinished()).isTrue();
+            assertThat(operator.needsInput()).isFalse();
+        }
     }
 
     @Test
     public void addInputFailsOnBlockedOperator()
+            throws Exception
     {
-        Operator operator = createTableWriterOperator(new BlockingPageSink());
+        try (Operator operator = createTableWriterOperator(new BlockingPageSink())) {
+            operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage());
 
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+            assertThat(operator.isBlocked().isDone()).isFalse();
+            assertThat(operator.needsInput()).isFalse();
 
-        assertThat(operator.isBlocked().isDone()).isFalse();
-        assertThat(operator.needsInput()).isFalse();
-
-        assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Operator does not need input");
+            assertThatThrownBy(() -> operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Operator does not need input");
+        }
     }
 
     @Test
     public void testTableWriterInfo()
+            throws Exception
     {
         PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink())));
-        TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
+        try (TableWriterOperator tableWriterOperator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new DevNullOperatorFactory(1, new PlanNodeId("test")),
-                ImmutableList.of(BIGINT, VARBINARY));
+                ImmutableList.of(BIGINT, VARBINARY))) {
+            RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
+            for (int i = 0; i < 100; i++) {
+                rowPagesBuilder.addSequencePage(100, 0);
+            }
+            List<Page> pages = rowPagesBuilder.build();
 
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
-        for (int i = 0; i < 100; i++) {
-            rowPagesBuilder.addSequencePage(100, 0);
-        }
-        List<Page> pages = rowPagesBuilder.build();
-
-        long peakMemoryUsage = 0;
-        long validationCpuNanos = 0;
-        for (int i = 0; i < pages.size(); i++) {
-            Page page = pages.get(i);
-            peakMemoryUsage += page.getRetainedSizeInBytes();
-            validationCpuNanos += page.getPositionCount();
-            tableWriterOperator.addInput(page);
-            TableWriterInfo info = tableWriterOperator.getInfo();
-            assertThat(info.getPageSinkPeakMemoryUsage()).isEqualTo(peakMemoryUsage);
-            assertThat((long) info.getValidationCpuTime().getValue(NANOSECONDS)).isEqualTo(validationCpuNanos);
+            long peakMemoryUsage = 0;
+            long validationCpuNanos = 0;
+            for (int i = 0; i < pages.size(); i++) {
+                Page page = pages.get(i);
+                peakMemoryUsage += page.getRetainedSizeInBytes();
+                validationCpuNanos += page.getPositionCount();
+                tableWriterOperator.addInput(page);
+                TableWriterInfo info = tableWriterOperator.getInfo();
+                assertThat(info.getPageSinkPeakMemoryUsage()).isEqualTo(peakMemoryUsage);
+                assertThat((long) info.getValidationCpuTime().getValue(NANOSECONDS)).isEqualTo(validationCpuNanos);
+            }
         }
     }
 
@@ -216,8 +220,8 @@ public class TestTableWriterOperator
                 session,
                 driverContext);
 
-        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
-        operator.addInput(rowPagesBuilder(BIGINT).row(43).build().get(0));
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).buildPage());
+        operator.addInput(rowPagesBuilder(BIGINT).row(43).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isTrue();
         assertThat(operator.needsInput()).isTrue();
@@ -229,11 +233,11 @@ public class TestTableWriterOperator
 
         assertPageEquals(outputTypes, operator.getOutput(),
                 rowPagesBuilder(outputTypes)
-                        .row(null, null, 43).build().get(0));
+                        .row(null, null, 43).buildPage());
 
         assertPageEquals(outputTypes, operator.getOutput(),
                 rowPagesBuilder(outputTypes)
-                        .row(2, null, null).build().get(0));
+                        .row(2, null, null).buildPage());
 
         assertThat(operator.isBlocked().isDone()).isTrue();
         assertThat(operator.needsInput()).isFalse();

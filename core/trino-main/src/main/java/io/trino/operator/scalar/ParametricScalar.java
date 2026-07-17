@@ -38,7 +38,9 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ParametricScalar
         extends SqlScalarFunction
@@ -58,16 +60,10 @@ public class ParametricScalar
     private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
     {
         FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder(details.getName())
-                .signature(signature);
+                .signature(signature)
+                .description(details.getDescription().orElse(""));
 
         details.getAliases().forEach(functionMetadata::alias);
-
-        if (details.getDescription().isPresent()) {
-            functionMetadata.description(details.getDescription().get());
-        }
-        else {
-            functionMetadata.noDescription();
-        }
 
         if (details.isHidden()) {
             functionMetadata.hidden();
@@ -80,6 +76,14 @@ public class ParametricScalar
         }
         if (deprecated) {
             functionMetadata.deprecated();
+        }
+        if (details.isInstanceMethod()) {
+            checkCondition(!signature.getArgumentTypes().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Instance method %s must declare a self argument", details.getName());
+            functionMetadata.receiverType(signature.getArgumentTypes().getFirst());
+            functionMetadata.instanceMethod();
+        }
+        else {
+            details.getReceiverType().ifPresent(functionMetadata::receiverType);
         }
 
         if (functionNullability.isReturnNullable()) {
@@ -106,7 +110,8 @@ public class ParametricScalar
         return builder.build();
     }
 
-    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder,
+    private static void declareDependencies(
+            FunctionDependencyDeclarationBuilder builder,
             Collection<ParametricScalarImplementation> implementations)
     {
         for (ParametricScalarImplementation implementation : implementations) {
@@ -130,7 +135,13 @@ public class ParametricScalar
         ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(boundSignature.toSignature());
         if (exactImplementation != null) {
             Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = exactImplementation.specialize(functionBinding, functionDependencies);
-            checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, "Exact implementation of %s do not match expected java types", boundSignature.getName());
+            if (scalarFunctionImplementation.isEmpty()) {
+                String expectedTypes = boundSignature.getArgumentTypes().stream()
+                        .map(type -> "@SqlType(%s) %s".formatted(type.getTypeDescriptor().toString().toUpperCase(ENGLISH), type.getJavaType().getSimpleName()))
+                        .collect(joining(", "));
+                throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Expected implementation %s(%s):%s but java types do not match".formatted(
+                        boundSignature.getName(), expectedTypes, boundSignature.getReturnType().getJavaType().getSimpleName()));
+            }
             return scalarFunctionImplementation.get();
         }
 

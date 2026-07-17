@@ -14,17 +14,19 @@
 package io.trino.plugin.redis;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.redis.tls.RedisTlsModule;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class RedisConnectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(RedisConnector.class).in(Scopes.SINGLETON);
 
@@ -35,6 +37,13 @@ public class RedisConnectorModule
         binder.bind(RedisClientManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(RedisConnectorConfig.class);
+
+        newSetBinder(binder, RedisClientConfigurator.class);
+
+        RedisConnectorConfig redisConfig = buildConfigObject(RedisConnectorConfig.class);
+        if (redisConfig.isTlsEnabled()) {
+            install(new RedisTlsModule());
+        }
 
         jsonCodecBinder(binder).bindJsonCodec(RedisTableDescription.class);
 

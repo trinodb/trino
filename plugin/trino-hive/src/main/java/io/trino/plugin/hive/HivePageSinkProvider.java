@@ -100,7 +100,8 @@ public class HivePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction,
+    public ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorOutputTableHandle tableHandle,
             Optional<ConnectorTableCredentials> tableCredentials,

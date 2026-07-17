@@ -2,10 +2,10 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (ca_city, ca_zip)
+                final aggregation over (ca_zip, ca_city)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [ca_city, ca_zip])
-                            partial aggregation over (ca_city, ca_zip)
+                        remote exchange (REPARTITION, HASH, [ca_zip, ca_city])
+                            partial aggregation over (ca_zip, ca_city)
                                 semijoin (REPLICATED):
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [ws_bill_customer_sk])

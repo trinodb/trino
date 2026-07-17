@@ -110,7 +110,7 @@ final class AggregationLoopBuilder
                 type(void.class),
                 aggregationParameters.allParameters());
 
-        Function<List<BlockType>, BytecodeNode> coreLoopBuilder = (blockTypes) -> {
+        Function<List<BlockType>, BytecodeNode> coreLoopBuilder = blockTypes -> {
             MethodDefinition method = buildCoreLoop(binder, classDefinition, function, blockTypes, aggregationParameters);
             return invokeStatic(method, aggregationParameters.allParameters().toArray(new BytecodeExpression[0]));
         };

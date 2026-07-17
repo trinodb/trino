@@ -27,8 +27,6 @@ import java.time.Duration;
 import java.util.UUID;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_LOGGING_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -58,14 +56,6 @@ public class Kafka
     {
         builder.addContainers(createKafka(), createSchemaRegistry())
                 .containerDependsOn(SCHEMA_REGISTRY, KAFKA);
-
-        builder.configureContainers(container -> {
-            if (isTrinoContainer(container.getLogicalName())) {
-                MountableFile logConfigFile = forHostPath(configDir.getPath("log.properties"));
-                container
-                        .withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_LOGGING_CONFIG);
-            }
-        });
 
         // Confluent Docker entry point script overwrites /etc/kafka/log4j.properties
         // Modify the template directly instead

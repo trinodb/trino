@@ -16,7 +16,12 @@ package io.trino.sql.tree;
 import java.util.OptionalInt;
 
 public sealed interface IntervalField
-        permits IntervalField.Year, IntervalField.Month, IntervalField.Day, IntervalField.Hour, IntervalField.Minute, IntervalField.Second
+        permits IntervalField.Day,
+                IntervalField.Hour,
+                IntervalField.Minute,
+                IntervalField.Month,
+                IntervalField.Second,
+                IntervalField.Year
 {
     String name();
 

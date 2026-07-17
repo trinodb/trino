@@ -75,7 +75,7 @@ public class IcebergColumnHandle
 
     /**
      * @deprecated This constructor is intended to be used by JSON deserialization only.
-     * Use {@link #builder(ColumnIdentity)}, {@link #required(ColumnIdentity)} or {@link #optional(ColumnIdentity)} instead.
+     *         Use {@link #builder(ColumnIdentity)}, {@link #required(ColumnIdentity)} or {@link #optional(ColumnIdentity)} instead.
      */
     @Deprecated
     @JsonCreator

@@ -59,12 +59,10 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
-import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
-import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
@@ -102,7 +100,7 @@ public interface ConnectorMetadata
      * or is not a table (e.g. is a view, or a materialized view).
      *
      * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
-     * cannot be queried.
+     *         cannot be queried.
      * @see #getView(ConnectorSession, SchemaTableName)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
@@ -149,17 +147,8 @@ public interface ConnectorMetadata
      */
     default Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
     {
-        Map<String, ColumnHandle> columnHandles = getColumnHandles(connectorSession, tableHandle);
-        return getTableMetadata(connectorSession, tableHandle).getColumns().stream()
-                .filter(not(ColumnMetadata::isHidden))
-                .map(ColumnMetadata::getName)
-                .map(columnName -> {
-                    ColumnHandle columnHandle = columnHandles.get(columnName);
-                    if (columnHandle == null) {
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, format("No handle found for column '%s' in table execute", columnName));
-                    }
-                    return columnHandle;
-                })
+        return getColumnHandles(connectorSession, tableHandle).values().stream()
+                .filter(column -> !getColumnMetadata(connectorSession, tableHandle, column).isHidden())
                 .collect(toUnmodifiableSet());
     }
 
@@ -180,8 +169,9 @@ public interface ConnectorMetadata
      * Finish table execute
      *
      * @param fragments all fragments returned by {@link ConnectorPageSink#finish()}
+     * @return procedure execution metrics that will be populated in the query output
      */
-    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    default Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForExecute() is implemented without finishTableExecute()");
     }
@@ -1431,10 +1421,6 @@ public interface ConnectorMetadata
      * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
      * to loop indefinitely.
      * </p>
-     * <p>
-     * <b>Note</b>: Implementation must not maintain reference to {@code constraint}'s {@link Constraint#predicate()} after the
-     * call returns.
-     * </p>
      *
      * @param constraint constraint to be applied to the table. {@link Constraint#getSummary()} is guaranteed not to be {@link TupleDomain#isNone() none}.
      */
@@ -1837,7 +1823,7 @@ public interface ConnectorMetadata
 
     /**
      * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
-     * performance as reading this table.
+     *         performance as reading this table.
      */
     default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

@@ -22,6 +22,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClient;
 import io.jsonwebtoken.Locator;
+import io.trino.spi.NodeVersion;
 
 import java.net.URI;
 import java.security.Key;
@@ -62,9 +63,9 @@ public class JwtAuthenticatorSupportModule
         @Provides
         @Singleton
         @ForJwt
-        public static JwkService createJwkService(JwtAuthenticatorConfig config, @ForJwt HttpClient httpClient)
+        public static JwkService createJwkService(JwtAuthenticatorConfig config, @ForJwt HttpClient httpClient, NodeVersion nodeVersion)
         {
-            return new JwkService(URI.create(config.getKeyFile()), httpClient);
+            return new JwkService(URI.create(config.getKeyFile()), httpClient, nodeVersion);
         }
 
         @Provides

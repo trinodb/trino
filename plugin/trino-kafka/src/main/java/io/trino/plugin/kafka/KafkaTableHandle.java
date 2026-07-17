@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * @param schemaName The schema name for this table. Is set through configuration and read
- * using {@link KafkaConfig#getDefaultSchema()}. Usually 'default'.
+ *         using {@link KafkaConfig#getDefaultSchema()}. Usually 'default'.
  * @param tableName The table name used by Trino.
  * @param topicName The topic name that is read from Kafka.
  */

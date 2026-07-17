@@ -117,7 +117,8 @@ public final class TestContainers
     private static void pullImage(DockerClient client, DockerImageName imageName)
     {
         try {
-            client.pullImageCmd(imageName.asCanonicalNameString()).exec(new PullImageResultCallback() {
+            client.pullImageCmd(imageName.asCanonicalNameString()).exec(new PullImageResultCallback()
+            {
                 @Override
                 public void onNext(PullResponseItem item)
                 {

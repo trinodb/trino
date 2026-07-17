@@ -135,7 +135,7 @@ public class ConnectorMaterializedViewDefinition
         catalog.ifPresent(value -> joiner.add("catalog=" + value));
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
-        gracePeriod.ifPresent(value -> joiner.add("gracePeriod=" + gracePeriod));
+        gracePeriod.ifPresent(_ -> joiner.add("gracePeriod=" + gracePeriod));
         whenStaleBehavior.ifPresent(value -> joiner.add("whenStaleBehavior=" + value.name()));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("owner=" + owner);

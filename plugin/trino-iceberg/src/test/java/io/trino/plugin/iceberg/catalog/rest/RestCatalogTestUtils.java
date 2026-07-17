@@ -14,16 +14,6 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.jdbc.JdbcCatalog;
@@ -46,14 +36,7 @@ public final class RestCatalogTestUtils
         properties.put(JdbcCatalog.PROPERTY_PREFIX + "schema-version", "V1");
         properties.put(CatalogProperties.WAREHOUSE_LOCATION, warehouseLocation.resolve("iceberg_data").toFile().getAbsolutePath());
 
-        ConnectorSession connectorSession = TestingConnectorSession.builder().build();
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        HdfsContext context = new HdfsContext(connectorSession);
-
         JdbcCatalog catalog = new JdbcCatalog();
-        catalog.setConf(hdfsEnvironment.getConfiguration(context, new org.apache.hadoop.fs.Path(warehouseLocation.toAbsolutePath().toString())));
         catalog.initialize("backend_jdbc", properties.buildOrThrow());
 
         return catalog;

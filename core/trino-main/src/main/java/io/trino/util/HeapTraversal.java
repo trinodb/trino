@@ -44,7 +44,7 @@ public class HeapTraversal
     public enum Child
     {
         LEFT,
-        RIGHT
+        RIGHT,
     }
 
     private static final long INSTANCE_SIZE = instanceSize(HeapTraversal.class);

@@ -32,7 +32,6 @@ import io.trino.sql.analyzer.QueryType;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.CaseStatement;
@@ -86,12 +85,11 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.not;
 
 public class SqlRoutineAnalyzer
 {
@@ -110,24 +108,20 @@ public class SqlRoutineAnalyzer
 
         String functionName = getFunctionName(function);
         Signature.Builder signatureBuilder = Signature.builder()
-                .returnType(toTypeSignature(function.getReturnsClause().getReturnType()));
+                .returnType(toTypeDescriptor(function.getReturnsClause().getReturnType()));
 
         validateArguments(function);
-        function.getParameters().stream()
-                .map(ParameterDeclaration::getType)
-                .map(TypeSignatureTranslator::toTypeSignature)
-                .forEach(signatureBuilder::argumentType);
+        for (ParameterDeclaration parameter : function.getParameters()) {
+            signatureBuilder.argumentType(toTypeDescriptor(parameter.getType()), parameter.getName().orElseThrow().getValue());
+        }
         Signature signature = signatureBuilder.build();
 
         FunctionMetadata.Builder builder = FunctionMetadata.scalarBuilder(functionName)
                 .functionId(functionId)
                 .signature(signature)
                 .nullable()
-                .argumentNullability(nCopies(signature.getArgumentTypes().size(), isCalledOnNull(function)));
-
-        getComment(function)
-                .filter(not(String::isBlank))
-                .ifPresentOrElse(builder::description, builder::noDescription);
+                .argumentNullability(nCopies(signature.getArgumentTypes().size(), isCalledOnNull(function)))
+                .description(getComment(function).orElse(""));
 
         if (!isDeterministic(function)) {
             builder.nondeterministic();
@@ -193,7 +187,7 @@ public class SqlRoutineAnalyzer
     private Type getType(Node node, DataType type)
     {
         try {
-            return plannerContext.getTypeManager().getType(toTypeSignature(type));
+            return plannerContext.getTypeManager().getType(toTypeDescriptor(type));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", type);
@@ -383,7 +377,7 @@ public class SqlRoutineAnalyzer
         private final Type returnType;
 
         private final Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
-        private final TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        private final TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
 
         public StatementVisitor(Session session, AccessControl accessControl, Type returnType)
         {

@@ -220,8 +220,7 @@ public class TaskResource
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
         }
 
-        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo ->
-                Response.ok(taskInfo).build(), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo -> Response.ok(taskInfo).build(), directExecutor());
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
@@ -364,8 +363,10 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse,
-                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), timeoutExecutor), responseExecutor);
+        bindAsyncResponse(
+                asyncResponse,
+                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), timeoutExecutor),
+                responseExecutor);
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
 
@@ -445,40 +446,39 @@ public class TaskResource
         InjectedFailure failure = injectedFailure.get();
         Duration timeout = failureInjector.getRequestTimeout();
         switch (failure.getInjectedFailureType()) {
-            case TASK_MANAGEMENT_REQUEST_FAILURE:
+            case TASK_MANAGEMENT_REQUEST_FAILURE -> {
                 if (requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
                     asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
-                break;
-            case TASK_MANAGEMENT_REQUEST_TIMEOUT:
+            }
+            case TASK_MANAGEMENT_REQUEST_TIMEOUT -> {
                 if (requestType.isTaskManagement()) {
                     log.info("Timing out %s request for task %s", requestType, taskId);
                     asyncResponse.setTimeout(timeout.toMillis(), MILLISECONDS);
                     return true;
                 }
-                break;
-            case TASK_GET_RESULTS_REQUEST_FAILURE:
+            }
+            case TASK_GET_RESULTS_REQUEST_FAILURE -> {
                 if (!requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
                     asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
-                break;
-            case TASK_GET_RESULTS_REQUEST_TIMEOUT:
+            }
+            case TASK_GET_RESULTS_REQUEST_TIMEOUT -> {
                 if (!requestType.isTaskManagement()) {
                     log.info("Timing out %s request for task %s", requestType, taskId);
                     asyncResponse.setTimeout(timeout.toMillis(), MILLISECONDS);
                     return true;
                 }
-                break;
-            case TASK_FAILURE:
+            }
+            case TASK_FAILURE -> {
                 log.info("Injecting failure for task %s at %s", taskId, requestType);
                 taskManager.failTask(taskId, injectedFailure.get().getTaskFailureException());
-                break;
-            default:
-                throw new IllegalArgumentException("unexpected failure type: " + failure.getInjectedFailureType());
+            }
+            default -> throw new IllegalArgumentException("unexpected failure type: " + failure.getInjectedFailureType());
         }
 
         return false;

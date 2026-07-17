@@ -225,7 +225,7 @@ public class TestAsyncQueue
         assertThat(future1.isDone()).isFalse();
 
         Runnable runnable = () -> {
-            getFutureValue(queue.borrowBatchAsync(1, elements -> {
+            getFutureValue(queue.borrowBatchAsync(1, _ -> {
                 throw new RuntimeException("test fail");
             }));
         };

@@ -74,7 +74,7 @@ public class TestHiveRequireQueryPartitionsFilter
         return new Object[][] {
                 {"ARRAY['default']"},
                 {"ARRAY['DEFAULT']"},
-                {"ARRAY['deFAUlt']"}
+                {"ARRAY['deFAUlt']"},
         };
     }
 }

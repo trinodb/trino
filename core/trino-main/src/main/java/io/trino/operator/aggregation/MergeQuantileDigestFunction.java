@@ -25,6 +25,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
@@ -38,7 +39,7 @@ public final class MergeQuantileDigestFunction
 {
     private MergeQuantileDigestFunction() {}
 
-    private static final double COMPARISON_EPSILON = 1.0E-6;
+    private static final double COMPARISON_EPSILON = 1.0e-6;
 
     @InputFunction
     @TypeParameter("V")
@@ -69,15 +70,20 @@ public final class MergeQuantileDigestFunction
         }
         else {
             checkArgument(nearlyEqual(previous.getMaxError(), input.getMaxError(), COMPARISON_EPSILON),
-                    "Cannot merge qdigests with different accuracies (%s vs. %s)", state.getQuantileDigest().getMaxError(), input.getMaxError());
+                    "Cannot merge qdigests with different accuracies (%s vs. %s)",
+                    state.getQuantileDigest().getMaxError(),
+                    input.getMaxError());
             checkArgument(nearlyEqual(previous.getAlpha(), input.getAlpha(), COMPARISON_EPSILON),
-                    "Cannot merge qdigests with different alpha values (%s vs. %s)", state.getQuantileDigest().getAlpha(), input.getAlpha());
+                    "Cannot merge qdigests with different alpha values (%s vs. %s)",
+                    state.getQuantileDigest().getAlpha(),
+                    input.getAlpha());
             state.addMemoryUsage(-previous.estimatedInMemorySizeInBytes());
             previous.merge(input);
             state.addMemoryUsage(previous.estimatedInMemorySizeInBytes());
         }
     }
 
+    @SqlNullable
     @OutputFunction("qdigest(V)")
     public static void output(
             @TypeParameter("qdigest(V)") Type type,

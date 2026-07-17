@@ -239,4 +239,81 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INPUT + "', 'lax $var' PASSING null FORMAT JSON AS \"var\")"))
                 .matches("VALUES false");
     }
+
+    @Test
+    public void testLikeRegex()
+    {
+        // matches anywhere in the input — XQuery semantics, no anchor required
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"foobar\"}', 'lax $.s ? (@ like_regex \"foo\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"foobar\"}', 'lax $.s ? (@ like_regex \"baz\")')"))
+                .matches("VALUES false");
+
+        // case-insensitive flag
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"Foobar\"}', 'lax $.s ? (@ like_regex \"foo\" flag \"i\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"Foobar\"}', 'lax $.s ? (@ like_regex \"foo\")')"))
+                .matches("VALUES false");
+
+        // non-string targets in strict mode are an evaluation error; default handler is FALSE ON ERROR
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"n\":42}', 'strict $.n ? (@ like_regex \"4\")')"))
+                .matches("VALUES false");
+
+        // malformed regex is rejected at analysis time, not via ON ERROR (§9.46 non-recoverable)
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"[\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("invalid like_regex pattern");
+
+        // Joni-only constructs (POSIX classes, named groups, atomic groups, lookaround,
+        // inline-flag scope, hex / unicode escapes outside the XQuery x{HHHH} form, possessive
+        // quantifiers) are rejected at analysis to keep the dialect honest to XQuery F&O 3.0.
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"[[:alpha:]]\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("POSIX bracket classes");
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"(?<name>x)\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("named groups");
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"(?>x)\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("atomic groups");
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"(?=x)\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("lookahead");
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"(?i)x\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("inline regex flags");
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"\\x41\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("xHH");
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"x\"}', 'lax $.s ? (@ like_regex \"x*+\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("possessive quantifiers");
+        // The XQuery-style codepoint escape \x{41} stays accepted.
+        assertThat(assertions.query(
+                "SELECT json_exists('{\"s\":\"A\"}', 'lax $.s ? (@ like_regex \"\\x{41}\")')"))
+                .matches("VALUES true");
+    }
 }

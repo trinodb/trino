@@ -60,6 +60,7 @@ import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
 import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.security.AccessControlMetadata;
@@ -291,7 +292,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
-import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
@@ -311,7 +311,7 @@ import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveDereferenceNames;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getTableColumnMetadata;
@@ -355,7 +355,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toMap;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -592,7 +591,7 @@ public class HiveMetadata
 
             handle = handle.withAnalyzePartitionValues(list);
             HivePartitionResult partitions = partitionManager.getPartitions(handle, list);
-            handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue());
+            handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue(), partitions.getPrepared());
         }
 
         if (analyzeColumnNames.isPresent()) {
@@ -852,7 +851,7 @@ public class HiveMetadata
     public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         return streamTables(session, optionalSchemaName)
-                .collect(toImmutableMap(TableInfo::tableName, tableInfo -> tableInfo.extendedRelationType().toRelationType(), (ignore, second) -> second));
+                .collect(toImmutableMap(TableInfo::tableName, tableInfo -> tableInfo.extendedRelationType().toRelationType(), (_, second) -> second));
     }
 
     private Stream<TableInfo> streamTables(ConnectorSession session, Optional<String> optionalSchemaName)
@@ -947,7 +946,7 @@ public class HiveMetadata
 
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
-        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()));
+        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()), session);
         // If partitions are not loaded, then don't generate table statistics.
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
@@ -978,7 +977,7 @@ public class HiveMetadata
         }
         return optionalTable
                 .filter(table -> !hideDeltaLakeTables || !isDeltaLakeTable(table))
-                .map(table -> ImmutableList.of(tableName))
+                .map(_ -> ImmutableList.of(tableName))
                 .orElseGet(ImmutableList::of);
     }
 
@@ -2633,13 +2632,13 @@ public class HiveMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         String procedureName = ((HiveTableExecuteHandle) tableExecuteHandle).getProcedureName();
 
         if (procedureName.equals(OptimizeTableProcedure.NAME)) {
             finishOptimize(session, tableExecuteHandle, fragments, splitSourceInfo);
-            return;
+            return ImmutableMap.of();
         }
         throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
     }
@@ -3029,7 +3028,7 @@ public class HiveMetadata
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, handle);
+            Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, handle, session);
             List<String> partitionIds = new ArrayList<>();
             while (partitions.hasNext()) {
                 partitionIds.add(partitions.next().getPartitionId());
@@ -3067,7 +3066,7 @@ public class HiveMetadata
                         // We load the partitions to compute the predicates enforced by the table.
                         // Note that the computation is not persisted in the table handle, so can be redone many times
                         // TODO: https://github.com/trinodb/trino/issues/10980.
-                        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
+                        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()), session);
                         return partitionManager.tryLoadPartitions(partitionResult);
                     });
 
@@ -3127,8 +3126,8 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         checkArgument(handle.getAnalyzePartitionValues().isEmpty() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
-        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint);
-        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint);
+        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint, session);
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint, partitionResult.getPrepared());
 
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getPartitionNames().equals(newHandle.getPartitionNames()) &&
@@ -3141,7 +3140,7 @@ public class HiveMetadata
         TupleDomain<ColumnHandle> unenforcedConstraint = partitionResult.getEffectivePredicate();
         if (newHandle.getPartitions().isPresent()) {
             List<HiveColumnHandle> partitionColumns = partitionResult.getPartitionColumns();
-            unenforcedConstraint = partitionResult.getEffectivePredicate().filter((column, domain) -> !partitionColumns.contains(column));
+            unenforcedConstraint = partitionResult.getEffectivePredicate().filter((column, _) -> !partitionColumns.contains(column));
         }
 
         return Optional.of(new ConstraintApplicationResult<>(newHandle, unenforcedConstraint, constraint.getExpression(), false));
@@ -3277,7 +3276,7 @@ public class HiveMetadata
                         .addAll(getHiveDereferenceNames(oldHiveType, indices))
                         .build(),
                 newHiveType,
-                typeManager.getType(getTypeSignature(newHiveType)));
+                typeManager.getType(getTypeDescriptor(newHiveType)));
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),
@@ -3391,7 +3390,7 @@ public class HiveMetadata
 
         return withColumnDomains(
                 partitionColumns.stream()
-                        .collect(toMap(identity(), column -> buildColumnDomain(column, partitions))));
+                        .collect(toImmutableMap(identity(), column -> buildColumnDomain(column, partitions))));
     }
 
     private static Domain buildColumnDomain(ColumnHandle column, List<HivePartition> partitions)
@@ -3521,7 +3520,7 @@ public class HiveMetadata
 
         List<String> bucketedBy = bucketInfo.get().bucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
-                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
+                .collect(toImmutableMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
         return Optional.of(new ConnectorTableLayout(
                 new HivePartitioningHandle(
                         bucketInfo.get().bucketingVersion(),

@@ -110,22 +110,32 @@ public class TableStatisticsWriter
         return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches);
     }
 
-    public StatisticsFile rewriteStatisticsFile(ConnectorSession session, Table table, long snapshotId)
+    public Optional<StatisticsFile> rewriteStatisticsFile(ConnectorSession session, Table table, long snapshotId)
     {
+        Optional<StatisticsFile> latestStatisticsFile = getLatestStatisticsFile(table, snapshotId);
+        if (latestStatisticsFile.isEmpty() || latestStatisticsFile.get().blobMetadata().isEmpty()) {
+            return Optional.empty();
+        }
         TableOperations operations = ((HasTableOperations) table).operations();
         FileIO fileIO = operations.io();
         // This will rewrite old statistics file as ndvSketches map is empty
-        return writeStatisticsFile(session, table, fileIO, snapshotId, Map.of());
+        return Optional.of(writeStatisticsFile(session, table, fileIO, snapshotId, Map.of(), latestStatisticsFile));
     }
 
-    private GenericStatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactThetaSketch> ndvSketches)
+    private StatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactThetaSketch> ndvSketches)
+    {
+        Optional<StatisticsFile> latestStatisticsFile = getLatestStatisticsFile(table, snapshotId);
+        return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches, latestStatisticsFile);
+    }
+
+    private StatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactThetaSketch> ndvSketches, Optional<StatisticsFile> latestStatisticsFile)
     {
         Snapshot snapshot = table.snapshot(snapshotId);
         long snapshotSequenceNumber = snapshot.sequenceNumber();
         TableOperations operations = ((HasTableOperations) table).operations();
         Schema schema = table.schemas().get(snapshot.schemaId());
-        Set<Integer> validFieldIds = stream(
-                Traverser.forTree((Types.NestedField nestedField) -> {
+        Set<Integer> validFieldIds = stream(Traverser
+                .forTree((Types.NestedField nestedField) -> {
                     Type type = nestedField.type();
                     if (type instanceof Type.NestedType nestedType) {
                         return nestedType.fields();
@@ -148,7 +158,7 @@ public class TableStatisticsWriter
             try (PuffinWriter writer = Puffin.write(outputFile)
                     .createdBy("Trino version " + trinoVersion)
                     .build()) {
-                getLatestStatisticsFile(table, snapshotId)
+                latestStatisticsFile
                         .ifPresent(previousStatisticsFile -> copyRetainedStatistics(fileIO, previousStatisticsFile, validFieldIds, ndvSketches.keySet(), writer));
 
                 ndvSketches.entrySet().stream()

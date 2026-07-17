@@ -14,24 +14,27 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.DriverYieldSignal;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -47,21 +50,16 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
-import static io.trino.sql.relational.SpecialForm.Form.IN;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
@@ -95,7 +93,6 @@ public class BenchmarkInCodeGenerator
         public void setup()
         {
             Random random = new Random(0);
-            List<RowExpression> arguments = new ArrayList<>(1 + inListCount);
 
             Type trinoType = switch (type) {
                 case StandardTypes.BIGINT -> BIGINT;
@@ -105,34 +102,35 @@ public class BenchmarkInCodeGenerator
             };
 
             List<Object> inList = new ArrayList<>();
-            arguments.add(field(0, trinoType));
+            List<Expression> valueList = new ArrayList<>();
             switch (type) {
-                case StandardTypes.BIGINT:
+                case StandardTypes.BIGINT -> {
                     for (int i = 1; i <= inListCount; i++) {
                         int value = random.nextInt();
                         inList.add((long) value);
-                        arguments.add(constant((long) value, BIGINT));
+                        valueList.add(new Constant(BIGINT, (long) value));
                     }
-                    break;
-                case StandardTypes.DOUBLE:
+                }
+                case StandardTypes.DOUBLE -> {
                     for (int i = 1; i <= inListCount; i++) {
                         double value = random.nextDouble();
                         inList.add(value);
-                        arguments.add(constant(value, DOUBLE));
+                        valueList.add(new Constant(DOUBLE, value));
                     }
-                    break;
-                case StandardTypes.VARCHAR:
+                }
+                case StandardTypes.VARCHAR -> {
                     for (int i = 1; i <= inListCount; i++) {
                         Slice value = Slices.utf8Slice(Long.toString(random.nextLong()));
                         inList.add(value);
-                        arguments.add(constant(value, VARCHAR));
+                        valueList.add(new Constant(VARCHAR, value));
                     }
-                    break;
-                default:
-                    throw new IllegalStateException();
+                }
+                default -> throw new IllegalStateException();
             }
 
-            RowExpression project = field(0, trinoType);
+            String colName = "$col_0";
+            Reference colRef = new Reference(trinoType, colName);
+            Expression project = colRef;
 
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(trinoType));
             for (int i = 0; i < 10_000; i++) {
@@ -141,51 +139,39 @@ public class BenchmarkInCodeGenerator
                 if (random.nextDouble() <= hitRate) {
                     // pick one of the values from in list as value written to page
                     switch (type) {
-                        case StandardTypes.BIGINT:
-                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), (long) inList.get(random.nextInt(inList.size())));
-                            break;
-                        case StandardTypes.DOUBLE:
-                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), (double) inList.get(random.nextInt(inList.size())));
-                            break;
-                        case StandardTypes.VARCHAR:
-                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), (Slice) inList.get(random.nextInt(inList.size())));
-                            break;
+                        case StandardTypes.BIGINT -> BIGINT.writeLong(pageBuilder.getBlockBuilder(0), (long) inList.get(random.nextInt(inList.size())));
+                        case StandardTypes.DOUBLE -> DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), (double) inList.get(random.nextInt(inList.size())));
+                        case StandardTypes.VARCHAR -> VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), (Slice) inList.get(random.nextInt(inList.size())));
                     }
                 }
                 else {
                     // use random value; universum is wide so we can safely assume it will not be on of values in inList
                     switch (type) {
-                        case StandardTypes.BIGINT:
-                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
-                            break;
-                        case StandardTypes.DOUBLE:
-                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
-                            break;
-                        case StandardTypes.VARCHAR:
-                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
-                            break;
+                        case StandardTypes.BIGINT -> BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
+                        case StandardTypes.DOUBLE -> DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
+                        case StandardTypes.VARCHAR -> VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
                     }
                 }
             }
             inputPage = pageBuilder.build();
 
-            Metadata metadata = createTestingMetadataManager();
+            Expression filter = new In(colRef, valueList);
+            Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(trinoType, colName), 0);
 
-            List<ResolvedFunction> functionalDependencies = ImmutableList.of(
-                    metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),
-                    metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(trinoType)),
-                    metadata.resolveOperator(OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
-            RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
-
-            FunctionManager functionManager = createTestingFunctionManager();
+            TestingFunctionResolution functions = new TestingFunctionResolution();
+            FunctionManager functionManager = functions.getPlannerContext().getFunctionManager();
+            Metadata metadata = functions.getMetadata();
+            TypeManager typeManager = functions.getPlannerContext().getTypeManager();
             processor = new ExpressionCompiler(
-                    new PageFunctionCompiler(functionManager, 0),
-                    new ColumnarFilterCompiler(functionManager, 0))
+                    new PageFunctionCompiler(functionManager, metadata, typeManager, 0),
+                    new ColumnarFilterCompiler(functions.getPlannerContext(), 0))
                     .compilePageProcessor(
                             columnarEvaluationEnabled,
+                            true,
                             Optional.of(filter),
                             Optional.empty(),
                             ImmutableList.of(project),
+                            layout,
                             Optional.empty(),
                             OptionalInt.empty())
                     .apply(DynamicFilter.EMPTY);
@@ -198,7 +184,6 @@ public class BenchmarkInCodeGenerator
         return ImmutableList.copyOf(
                 data.processor.process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.inputPage)));
     }

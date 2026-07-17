@@ -19,15 +19,27 @@ public class WebUiConfig
 {
     private boolean enabled = true;
     private boolean previewEnabled = true;
+    private boolean legacyEnabled;
 
     public boolean isEnabled()
     {
         return enabled;
     }
 
+    @Deprecated
     public boolean isPreviewEnabled()
     {
         return previewEnabled;
+    }
+
+    public boolean isLegacyEnabled()
+    {
+        return legacyEnabled;
+    }
+
+    public boolean isLegacyUiAvailable()
+    {
+        return legacyEnabled || !previewEnabled;
     }
 
     @Config("web-ui.enabled")
@@ -37,10 +49,18 @@ public class WebUiConfig
         return this;
     }
 
+    @Deprecated
     @Config("web-ui.preview.enabled")
     public WebUiConfig setPreviewEnabled(boolean previewEnabled)
     {
         this.previewEnabled = previewEnabled;
+        return this;
+    }
+
+    @Config("web-ui.legacy.enabled")
+    public WebUiConfig setLegacyEnabled(boolean legacyEnabled)
+    {
+        this.legacyEnabled = legacyEnabled;
         return this;
     }
 }

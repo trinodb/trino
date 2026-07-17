@@ -59,6 +59,7 @@ public class PinotPageSourceProvider
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to non-deprecated createPageSource overload
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
@@ -78,19 +79,21 @@ public class PinotPageSourceProvider
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
 
-        switch (pinotSplit.getSplitType()) {
-            case SEGMENT:
+        return switch (pinotSplit.getSplitType()) {
+            case SEGMENT -> {
                 String segmentQuery = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
                 PinotDataFetcher pinotDataFetcher = pinotDataFetcherFactory.create(segmentQuery, pinotSplit);
-                return new PinotSegmentPageSource(
+                yield new PinotSegmentPageSource(
                         targetSegmentPageSizeBytes,
                         handles,
                         pinotDataFetcher);
-            case BROKER:
+            }
+            case BROKER -> {
                 PinotQueryInfo pinotQueryInfo;
                 if (pinotTableHandle.query().isPresent()) {
                     DynamicTable dynamicTable = pinotTableHandle.query().get();
-                    pinotQueryInfo = new PinotQueryInfo(dynamicTable.tableName(),
+                    pinotQueryInfo = new PinotQueryInfo(
+                            dynamicTable.tableName(),
                             extractPql(dynamicTable, pinotTableHandle.constraint()),
                             dynamicTable.groupingColumns().size());
                 }
@@ -99,13 +102,13 @@ public class PinotPageSourceProvider
                     pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.tableName(), brokerQuery, 0);
                 }
 
-                return new PinotBrokerPageSource(
+                yield new PinotBrokerPageSource(
                         session,
                         pinotQueryInfo,
                         handles,
                         clusterInfoFetcher,
                         limitForBrokerQueries);
-        }
-        throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
+            }
+        };
     }
 }

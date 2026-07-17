@@ -14,12 +14,12 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -31,17 +31,17 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -73,14 +73,13 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
+import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
-import static io.trino.sql.relational.SpecialForm.Form.DEREFERENCE;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Boolean.TRUE;
@@ -112,7 +111,6 @@ public class BenchmarkArrayFilter
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -124,7 +122,6 @@ public class BenchmarkArrayFilter
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -144,7 +141,8 @@ public class BenchmarkArrayFilter
         {
             TestingFunctionResolution functionResolution = new TestingFunctionResolution(InternalFunctionBundle.builder().function(EXACT_ARRAY_FILTER_FUNCTION).build());
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> projectionsBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, Integer> layoutBuilder = ImmutableMap.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
@@ -153,16 +151,18 @@ public class BenchmarkArrayFilter
                         name,
                         fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
                 ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-                projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(
-                        field(0, arrayType),
-                        new LambdaDefinitionExpression(
+                projectionsBuilder.add(call(
+                        resolvedFunction,
+                        new Reference(arrayType, "$col_" + i),
+                        new Lambda(
                                 ImmutableList.of(new Symbol(BIGINT, "x")),
-                                new CallExpression(lessThan, ImmutableList.of(constant(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));
+                                call(lessThan, new Constant(BIGINT, 0L), new Reference(BIGINT, "x")))));
+                layoutBuilder.put(new Symbol(arrayType, "$col_" + i), i);
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            List<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            List<Expression> projections = projectionsBuilder.build();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
             page = new Page(blocks);
         }
 
@@ -210,7 +210,8 @@ public class BenchmarkArrayFilter
         {
             TestingFunctionResolution functionResolution = new TestingFunctionResolution(InternalFunctionBundle.builder().function(EXACT_ARRAY_FILTER_OBJECT_FUNCTION).build());
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> projectionsBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, Integer> layoutBuilder = ImmutableMap.builder();
             Block[] blocks = new Block[ROW_TYPES.size()];
             for (int i = 0; i < ROW_TYPES.size(); i++) {
                 Type elementType = ROW_TYPES.get(i);
@@ -218,30 +219,26 @@ public class BenchmarkArrayFilter
                 ResolvedFunction resolvedFunction = functionResolution.resolveFunction(name, fromTypes(arrayType, new FunctionType(ROW_TYPES, BOOLEAN)));
                 ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
 
-                projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(
-                        field(0, arrayType),
-                        new LambdaDefinitionExpression(
+                projectionsBuilder.add(call(
+                        resolvedFunction,
+                        new Reference(arrayType, "$col_" + i),
+                        new Lambda(
                                 ImmutableList.of(new Symbol(elementType, "x")),
-                                new CallExpression(
-                                        lessThan,
-                                        ImmutableList.of(
-                                                constant(0L, BIGINT),
-                                                new SpecialForm(
-                                                        DEREFERENCE,
-                                                        BIGINT,
-                                                        ImmutableList.of(new VariableReferenceExpression("x", elementType), constant(0, INTEGER)),
-                                                        ImmutableList.of())))))));
+                                call(lessThan,
+                                        new Constant(BIGINT, 0L),
+                                        new FieldReference(new Reference(elementType, "x"), 0)))));
+                layoutBuilder.put(new Symbol(arrayType, "$col_" + i), i);
                 blocks[i] = createChannel(POSITIONS, arrayType);
             }
 
-            List<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            List<Expression> projections = projectionsBuilder.build();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
             page = new Page(blocks);
         }
 
         private static Block createChannel(int positionCount, ArrayType arrayType)
         {
-            return createRandomBlockForType(arrayType, positionCount, 0.2F);
+            return createRandomBlockForType(arrayType, positionCount, 0.2f);
         }
 
         public PageProcessor getPageProcessor()
@@ -285,9 +282,9 @@ public class BenchmarkArrayFilter
             super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
                             .typeVariable("T")
-                            .returnType(arrayType(new TypeSignature("T")))
-                            .argumentType(arrayType(new TypeSignature("T")))
-                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")
@@ -340,9 +337,9 @@ public class BenchmarkArrayFilter
             super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
                             .typeVariable("T")
-                            .returnType(arrayType(new TypeSignature("T")))
-                            .argumentType(arrayType(new TypeSignature("T")))
-                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .returnType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.arrayType(typeVariable("T")))
+                            .argumentType(TypeTemplates.functionType(typeVariable("T"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                             .build())
                     .nondeterministic()
                     .description("return array containing elements that match the given predicate")

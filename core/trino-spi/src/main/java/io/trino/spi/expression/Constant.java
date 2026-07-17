@@ -13,7 +13,11 @@
  */
 package io.trino.spi.expression;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slice;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -21,6 +25,8 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Collections.emptyList;
 
 public class Constant
@@ -40,10 +46,26 @@ public class Constant
         this.value = value;
     }
 
+    @JsonCreator
+    public static Constant fromJson(
+            @JsonProperty("type") Type type,
+            @JsonProperty("valueBlock") @Nullable Block valueBlock)
+    {
+        return new Constant(valueBlock == null ? null : readNativeValue(type, valueBlock, 0), type);
+    }
+
     @Nullable
+    @JsonIgnore
     public Object getValue()
     {
         return value;
+    }
+
+    @Nullable
+    @JsonProperty("valueBlock")
+    public Block getValueBlock()
+    {
+        return value == null ? null : writeNativeValue(getType(), value);
     }
 
     @Override

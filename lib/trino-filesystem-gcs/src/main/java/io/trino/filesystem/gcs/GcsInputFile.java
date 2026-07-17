@@ -137,7 +137,7 @@ public class GcsInputFile
     private Storage.BlobGetOption[] blobGetOptions()
     {
         return key
-                .map(encryption -> new Storage.BlobGetOption[]{Storage.BlobGetOption.decryptionKey(encodedKey(encryption))})
+                .map(encryption -> new Storage.BlobGetOption[] {Storage.BlobGetOption.decryptionKey(encodedKey(encryption))})
                 .orElseGet(() -> new Storage.BlobGetOption[0]);
     }
 }

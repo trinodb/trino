@@ -40,7 +40,7 @@ public class BenchmarkShortColumnReader
     private static final Random RANDOM = new Random(23423523L);
 
     @Param({
-            "0", "1", "2", "3", "4", "8", "10", "11", "14", "16"
+            "0", "1", "2", "3", "4", "8", "10", "11", "14", "16",
     })
     public int bitWidth;
 

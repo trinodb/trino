@@ -42,7 +42,7 @@ import java.util.stream.IntStream;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -85,7 +85,7 @@ public class BenchmarkGroupedTypedHistogram
                 for (int i = 0; i < rowCount; i++) {
                     // makes sure rows don't exceed rowSize
                     String str = String.valueOf(i % 10);
-                    String item = IntStream.range(0, rowSize).mapToObj(x -> str).collect(Collectors.joining());
+                    String item = IntStream.range(0, rowSize).mapToObj(_ -> str).collect(Collectors.joining());
                     boolean distinctValue = random.nextDouble() < distinctFraction;
 
                     if (distinctValue) {

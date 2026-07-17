@@ -131,7 +131,8 @@ public class UriDownloader
 
         private Source source(Source source)
         {
-            return new ForwardingSource(source) {
+            return new ForwardingSource(source)
+            {
                 long totalBytesRead;
 
                 @Override

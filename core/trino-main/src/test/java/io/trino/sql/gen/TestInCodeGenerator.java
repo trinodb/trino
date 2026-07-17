@@ -15,12 +15,11 @@ package io.trino.sql.gen;
 
 import io.airlift.slice.Slices;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -32,7 +31,8 @@ import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITC
 import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
 import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
 import static io.trino.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
-import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.IrExpressions.constantNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInCodeGenerator
@@ -42,108 +42,108 @@ public class TestInCodeGenerator
     @Test
     public void testInteger()
     {
-        List<RowExpression> values = new ArrayList<>();
-        values.add(constant((long) Integer.MIN_VALUE, INTEGER));
-        values.add(constant((long) Integer.MAX_VALUE, INTEGER));
-        values.add(constant(3L, INTEGER));
+        List<Expression> values = new ArrayList<>();
+        values.add(new Constant(INTEGER, (long) Integer.MIN_VALUE));
+        values.add(new Constant(INTEGER, (long) Integer.MAX_VALUE));
+        values.add(new Constant(INTEGER, 3L));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(DIRECT_SWITCH);
 
-        values.add(constant(null, INTEGER));
+        values.add(constantNull(INTEGER));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(DIRECT_SWITCH);
-        values.add(new CallExpression(
+        values.add(call(
                 functionResolution.getCoercion(DOUBLE, INTEGER),
-                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
+                new Constant(DOUBLE, 12345678901234.0)));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(DIRECT_SWITCH);
 
-        values.add(constant(6L, BIGINT));
-        values.add(constant(7L, BIGINT));
+        values.add(new Constant(BIGINT, 6L));
+        values.add(new Constant(BIGINT, 7L));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(DIRECT_SWITCH);
 
-        values.add(constant(8L, INTEGER));
+        values.add(new Constant(INTEGER, 8L));
         assertThat(checkSwitchGenerationCase(INTEGER, values)).isEqualTo(SET_CONTAINS);
     }
 
     @Test
     public void testBigint()
     {
-        List<RowExpression> values = new ArrayList<>();
-        values.add(constant(Integer.MAX_VALUE + 1L, BIGINT));
-        values.add(constant(Integer.MIN_VALUE - 1L, BIGINT));
-        values.add(constant(3L, BIGINT));
+        List<Expression> values = new ArrayList<>();
+        values.add(new Constant(BIGINT, Integer.MAX_VALUE + 1L));
+        values.add(new Constant(BIGINT, Integer.MIN_VALUE - 1L));
+        values.add(new Constant(BIGINT, 3L));
         assertThat(checkSwitchGenerationCase(BIGINT, values)).isEqualTo(HASH_SWITCH);
 
-        values.add(constant(null, BIGINT));
+        values.add(constantNull(BIGINT));
         assertThat(checkSwitchGenerationCase(BIGINT, values)).isEqualTo(HASH_SWITCH);
-        values.add(new CallExpression(
+        values.add(call(
                 functionResolution.getCoercion(DOUBLE, BIGINT),
-                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
+                new Constant(DOUBLE, 12345678901234.0)));
         assertThat(checkSwitchGenerationCase(BIGINT, values)).isEqualTo(HASH_SWITCH);
 
-        values.add(constant(6L, BIGINT));
-        values.add(constant(7L, BIGINT));
+        values.add(new Constant(BIGINT, 6L));
+        values.add(new Constant(BIGINT, 7L));
         assertThat(checkSwitchGenerationCase(BIGINT, values)).isEqualTo(HASH_SWITCH);
 
-        values.add(constant(8L, BIGINT));
+        values.add(new Constant(BIGINT, 8L));
         assertThat(checkSwitchGenerationCase(BIGINT, values)).isEqualTo(SET_CONTAINS);
     }
 
     @Test
     public void testDate()
     {
-        List<RowExpression> values = new ArrayList<>();
-        values.add(constant(1L, DATE));
-        values.add(constant(2L, DATE));
-        values.add(constant(3L, DATE));
+        List<Expression> values = new ArrayList<>();
+        values.add(new Constant(DATE, 1L));
+        values.add(new Constant(DATE, 2L));
+        values.add(new Constant(DATE, 3L));
         assertThat(checkSwitchGenerationCase(DATE, values)).isEqualTo(DIRECT_SWITCH);
 
         for (long i = 4; i <= 7; ++i) {
-            values.add(constant(i, DATE));
+            values.add(new Constant(DATE, i));
         }
         assertThat(checkSwitchGenerationCase(DATE, values)).isEqualTo(DIRECT_SWITCH);
 
-        values.add(constant(33L, DATE));
+        values.add(new Constant(DATE, 33L));
         assertThat(checkSwitchGenerationCase(DATE, values)).isEqualTo(SET_CONTAINS);
     }
 
     @Test
     public void testDouble()
     {
-        List<RowExpression> values = new ArrayList<>();
-        values.add(constant(1.5, DOUBLE));
-        values.add(constant(2.5, DOUBLE));
-        values.add(constant(3.5, DOUBLE));
+        List<Expression> values = new ArrayList<>();
+        values.add(new Constant(DOUBLE, 1.5));
+        values.add(new Constant(DOUBLE, 2.5));
+        values.add(new Constant(DOUBLE, 3.5));
         assertThat(checkSwitchGenerationCase(DOUBLE, values)).isEqualTo(HASH_SWITCH);
 
-        values.add(constant(null, DOUBLE));
+        values.add(constantNull(DOUBLE));
         assertThat(checkSwitchGenerationCase(DOUBLE, values)).isEqualTo(HASH_SWITCH);
 
         for (int i = 5; i <= 7; ++i) {
-            values.add(constant(i + 0.5, DOUBLE));
+            values.add(new Constant(DOUBLE, i + 0.5));
         }
         assertThat(checkSwitchGenerationCase(DOUBLE, values)).isEqualTo(HASH_SWITCH);
 
-        values.add(constant(8.5, DOUBLE));
+        values.add(new Constant(DOUBLE, 8.5));
         assertThat(checkSwitchGenerationCase(DOUBLE, values)).isEqualTo(SET_CONTAINS);
     }
 
     @Test
     public void testVarchar()
     {
-        List<RowExpression> values = new ArrayList<>();
-        values.add(constant(Slices.utf8Slice("1"), VARCHAR));
-        values.add(constant(Slices.utf8Slice("2"), VARCHAR));
-        values.add(constant(Slices.utf8Slice("3"), VARCHAR));
+        List<Expression> values = new ArrayList<>();
+        values.add(new Constant(VARCHAR, Slices.utf8Slice("1")));
+        values.add(new Constant(VARCHAR, Slices.utf8Slice("2")));
+        values.add(new Constant(VARCHAR, Slices.utf8Slice("3")));
         assertThat(checkSwitchGenerationCase(VARCHAR, values)).isEqualTo(HASH_SWITCH);
 
-        values.add(constant(null, VARCHAR));
+        values.add(constantNull(VARCHAR));
         assertThat(checkSwitchGenerationCase(VARCHAR, values)).isEqualTo(HASH_SWITCH);
 
         for (int i = 5; i <= 7; ++i) {
-            values.add(constant(Slices.utf8Slice(String.valueOf(i)), VARCHAR));
+            values.add(new Constant(VARCHAR, Slices.utf8Slice(String.valueOf(i))));
         }
         assertThat(checkSwitchGenerationCase(VARCHAR, values)).isEqualTo(HASH_SWITCH);
 
-        values.add(constant(Slices.utf8Slice("8"), VARCHAR));
+        values.add(new Constant(VARCHAR, Slices.utf8Slice("8")));
         assertThat(checkSwitchGenerationCase(VARCHAR, values)).isEqualTo(SET_CONTAINS);
     }
 }

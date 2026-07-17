@@ -34,4 +34,11 @@ public class IcebergManifestUtils
     {
         return CloseableIterable.transform(manifestReader.liveEntries(), ManifestEntry::file);
     }
+
+    public static <F extends ContentFile<F>> CloseableIterable<FileEntryWithMetadata> liveEntriesWithMetadata(ManifestReader<F> manifestReader)
+    {
+        return CloseableIterable.transform(manifestReader.liveEntries(), entry -> new FileEntryWithMetadata(entry.file(), entry.snapshotId()));
+    }
+
+    public record FileEntryWithMetadata(ContentFile<?> file, long snapshotId) {}
 }

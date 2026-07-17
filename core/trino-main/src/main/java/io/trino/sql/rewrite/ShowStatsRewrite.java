@@ -77,7 +77,7 @@ import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectAll;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static java.lang.Double.isFinite;
 import static java.lang.Math.min;
 import static java.lang.Math.round;

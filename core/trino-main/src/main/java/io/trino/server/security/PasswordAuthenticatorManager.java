@@ -67,7 +67,8 @@ public class PasswordAuthenticatorManager
     public void addPasswordAuthenticatorFactory(PasswordAuthenticatorFactory factory)
     {
         checkArgument(factories.putIfAbsent(factory.getName(), factory) == null,
-                "Password authenticator '%s' is already registered", factory.getName());
+                "Password authenticator '%s' is already registered",
+                factory.getName());
     }
 
     public boolean isLoaded()

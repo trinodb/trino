@@ -291,7 +291,7 @@ public final class GlueConverter
         // OpenCSVSerde deserializes columns from csv file into strings, so we set the column type from the metastore
         // to string to avoid cast exceptions.
         if (columnType == ColumnType.DATA && isCsv) {
-            //TODO(https://github.com/trinodb/trino/issues/7240) Add tests
+            // TODO(https://github.com/trinodb/trino/issues/7240) Add tests
             return new Column(glueColumn.name(), HiveType.HIVE_STRING, Optional.ofNullable(glueColumn.comment()), glueColumn.parameters());
         }
         HiveType hiveType;

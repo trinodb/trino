@@ -94,9 +94,17 @@ public class VariantColumnWriter
     }
 
     @Override
-    public long getBufferedBytes()
+    public long getEstimatedBufferedBytes(CompressionStats compressionStats)
     {
-        return metadataColumnWriter.getBufferedBytes() + valueColumnWriter.getBufferedBytes();
+        return metadataColumnWriter.getEstimatedBufferedBytes(compressionStats) + valueColumnWriter.getEstimatedBufferedBytes(compressionStats);
+    }
+
+    @Override
+    public CompressionStats getCompressionStats()
+    {
+        CompressionStats metadataStats = metadataColumnWriter.getCompressionStats();
+        CompressionStats valueStats = valueColumnWriter.getCompressionStats();
+        return metadataStats.add(valueStats);
     }
 
     @Override

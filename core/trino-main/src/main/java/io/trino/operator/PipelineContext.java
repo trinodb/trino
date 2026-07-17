@@ -26,7 +26,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
-import io.trino.memory.context.LocalMemoryContext;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.metrics.Metrics;
 
@@ -122,8 +122,6 @@ public class PipelineContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
-        // Initialize the local memory contexts with the ExchangeOperator tag as ExchangeOperator will do the local memory allocations
-        pipelineMemoryContext.initializeLocalMemoryContexts(ExchangeOperator.class.getSimpleName());
     }
 
     public TaskContext getTaskContext()
@@ -275,9 +273,9 @@ public class PipelineContext
         taskContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localMemoryContext()
+    public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return pipelineMemoryContext.localUserMemoryContext();
+        return pipelineMemoryContext.aggregateUserMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()

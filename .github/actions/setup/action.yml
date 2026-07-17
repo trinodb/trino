@@ -3,7 +3,7 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 25.0.2
+    default: 25.0.3
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
@@ -36,65 +36,76 @@ runs:
       - name: Free additional disk space
         if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
         shell: bash
-        run: ./.github/bin/free-disk-space.sh
-      - uses: actions/setup-java@v5
+        run: |
+          available_kb=$(df -k . | awk 'NR == 2 {print $4}')
+          available_gb=$((available_kb / 1024 / 1024))
+          if ((available_gb < 40)); then
+            echo "Only ${available_gb} GiB available, running disk cleanup"
+            ./.github/bin/free-disk-space.sh
+          else
+            echo "Skipping disk cleanup, ${available_gb} GiB available"
+          fi
+      - name: Configure Docker Hub mirror
+        shell: bash
+        run: ./.github/bin/configure-docker-hub-mirror.sh
+      - uses: actions/setup-java@v5.5.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
-      - name: Get NodeJS version from parent pom
+      - name: Get Bun version from parent pom
         shell: bash
         run: |
-          node_version=$(grep -m 1 '<dep.frontend-node.version>' "pom.xml" | sed -n 's/.*<dep.frontend-node.version>\(.*\)<\/dep.frontend-node.version>.*/\1/p')
-          if [ -n "$node_version" ]; then
-            echo "node version is $node_version"
-            echo "NODE_VERSION=$node_version" >>${GITHUB_ENV}
+          bun_version=$(grep -m 1 '<dep.frontend-bun.version>' "pom.xml" | sed -n 's/.*<dep.frontend-bun.version>\(.*\)<\/dep.frontend-bun.version>.*/\1/p')
+          if [ -n "$bun_version" ]; then
+            echo "bun version is ${bun_version}"
+            echo "BUN_VERSION=$bun_version" >>${GITHUB_ENV}
             exit 0
           fi
-      - name: Cache and Restore local NodeJS
-        id: cache-nodejs
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.NODE_VERSION != '' }}
-        uses: actions/cache@v5
+      - name: Cache and Restore local Bun
+        id: cache-bun
+        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
-          path: .node
-          key: ${{ runner.os }}-nodejs-${{ env.NODE_VERSION }}
+          path: .bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
           restore-keys: |
-            ${{ runner.os }}-nodejs-
-      - name: Restore local NodeJS
-        id: cache_restore-nodejs
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.NODE_VERSION != '' }}
-        uses: actions/cache/restore@v5
+            ${{ runner.os }}-${{ runner.arch }}-bun-
+      - name: Restore local Bun
+        id: cache_restore-bun
+        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
-          path: .node
-          key: ${{ runner.os }}-nodejs-${{ env.NODE_VERSION }}
+          path: .bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}
           restore-keys: |
-            ${{ runner.os }}-nodejs-
-      - name: Cache and Restore npm packages
-        id: cache-npm
-        if: ${{ format('{0}', inputs.cache) == 'true' && env.NODE_VERSION != '' }}
-        uses: actions/cache@v5
+            ${{ runner.os }}-${{ runner.arch }}-bun-
+      - name: Cache and Restore bun packages
+        id: cache-bun-packages
+        if: ${{ format('{0}', inputs.cache) == 'true' && env.BUN_VERSION != '' }}
+        uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-
-      - name: Restore npm packages
-        id: cache-restore-npm
-        if: ${{ format('{0}', inputs.cache) == 'restore' && env.NODE_VERSION != '' }}
-        uses: actions/cache/restore@v5
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
+      - name: Restore bun packages
+        id: cache-restore-bun-packages
+        if: ${{ format('{0}', inputs.cache) == 'restore' && env.BUN_VERSION != '' }}
+        uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.bun
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-
+            ${{ runner.os }}-${{ runner.arch }}-bun-${{ env.BUN_VERSION }}-packages-
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: ~/.m2/repository
@@ -104,14 +115,44 @@ runs:
       - name: Restore local Maven repo
         id: cache_restore
         if: ${{ format('{0}', inputs.cache) == 'restore' }}
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           # Note: must be same set of paths as for cache:true mode
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+      - name: Prefer Google Maven Central for Maven wrapper
+        shell: bash
+        run: echo "MVNW_REPOURL=https://maven-central.storage-download.googleapis.com/maven2" >> "${GITHUB_ENV}"
+      - name: Cache and Restore Maven wrapper
+        id: cache-maven-wrapper
+        if: ${{ format('{0}', inputs.cache) == 'true' }}
+        uses: actions/cache@v6
+        with:
+          # Note: must be same set of paths as for cache:restore mode
+          path: ~/.m2/wrapper/dists
+          key: ${{ runner.os }}-maven-wrapper-google-maven-central-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-wrapper-google-maven-central-
+      - name: Restore Maven wrapper
+        id: cache_restore-maven-wrapper
+        if: ${{ format('{0}', inputs.cache) == 'restore' }}
+        uses: actions/cache/restore@v6
+        with:
+          # Note: must be same set of paths as for cache:true mode
+          path: ~/.m2/wrapper/dists
+          key: ${{ runner.os }}-maven-wrapper-google-maven-central-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-wrapper-google-maven-central-
+      - name: Verify Maven wrapper
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: .github/bin/retry ./mvnw -v
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
         run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Display disk usage
+        shell: bash
+        run: df -h .

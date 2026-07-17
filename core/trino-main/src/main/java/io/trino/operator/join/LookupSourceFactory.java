@@ -41,11 +41,11 @@ public interface LookupSourceFactory
         return immediateFuture(new PartitionedConsumption<>(
                 1,
                 emptyList(),
-                i -> {
+                _ -> {
                     throw new UnsupportedOperationException();
                 },
-                i -> {},
-                i -> {
+                _ -> {},
+                _ -> {
                     throw new UnsupportedOperationException();
                 }));
     }

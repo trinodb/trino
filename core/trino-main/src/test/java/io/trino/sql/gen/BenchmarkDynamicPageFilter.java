@@ -24,6 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Domain.DiscreteSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.ConnectorIdentity;
@@ -46,7 +47,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
-import static io.trino.spi.predicate.Domain.DiscreteSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -117,8 +117,7 @@ public class BenchmarkDynamicPageFilter
                 }
             }
             return TupleDomain.withColumnDomains(ImmutableMap.of(
-                    new TestingColumnHandle("dummy"),
-                    Domain.create(ValueSet.copyOf(type, valuesBuilder.build()), nullsAllowed)));
+                    new TestingColumnHandle("dummy"), Domain.create(ValueSet.copyOf(type, valuesBuilder.build()), nullsAllowed)));
         }
 
         private List<Page> createInputTestData(

@@ -653,8 +653,8 @@ public class RcFileTester
     private static MapType createMapType(Type type)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(
-                TypeParameter.typeParameter(type.getTypeSignature()),
-                TypeParameter.typeParameter(type.getTypeSignature())));
+                TypeParameter.typeParameter(type.getTypeDescriptor()),
+                TypeParameter.typeParameter(type.getTypeDescriptor())));
     }
 
     private static Object toHiveMap(Object nullKeyValue, Object input)

@@ -92,6 +92,18 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
         return checkParquetFileSorting(fileSystem.newInputFile(Location.of(path)), sortColumnName);
     }
 
+    @Override
+    protected String getTableChangesParquetRowGroupSize()
+    {
+        return "16kB";
+    }
+
+    @Override
+    protected int getTableChangesSplitBatchSize()
+    {
+        return 2;
+    }
+
     @AfterAll
     public void destroy()
             throws Exception

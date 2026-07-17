@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -139,7 +140,7 @@ public final class SymbolsExtractor
         protected Void visitReference(Reference node, Context context)
         {
             Symbol symbol = Symbol.from(node);
-            if (!context.lambdaArguments().contains(symbol)) {
+            if (!context.boundSymbols().contains(symbol)) {
                 context.builder().add(symbol);
             }
             return null;
@@ -150,14 +151,28 @@ public final class SymbolsExtractor
         {
             Context lambdaContext = new Context(
                     ImmutableSet.<Symbol>builder()
-                            .addAll(context.lambdaArguments())
+                            .addAll(context.boundSymbols())
                             .addAll(node.arguments())
                             .build(),
                     context.builder());
             process(node.body(), lambdaContext);
             return null;
         }
+
+        @Override
+        protected Void visitLet(Let node, Context context)
+        {
+            process(node.value(), context);
+            Context bodyContext = new Context(
+                    ImmutableSet.<Symbol>builder()
+                            .addAll(context.boundSymbols())
+                            .add(node.name())
+                            .build(),
+                    context.builder());
+            process(node.body(), bodyContext);
+            return null;
+        }
     }
 
-    private record Context(Set<Symbol> lambdaArguments, ImmutableList.Builder<Symbol> builder) {}
+    private record Context(Set<Symbol> boundSymbols, ImmutableList.Builder<Symbol> builder) {}
 }

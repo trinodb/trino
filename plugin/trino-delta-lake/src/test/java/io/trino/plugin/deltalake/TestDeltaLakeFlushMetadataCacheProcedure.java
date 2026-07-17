@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -39,16 +39,16 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName, HIVE3_IMAGE));
-        hiveMinioDataLake.start();
+        Hive3FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName, HIVE3_IMAGE));
+        hiveFlociDataLake.start();
         metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
+                        .metastoreClient(hiveFlociDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
 
         return DeltaLakeQueryRunner.builder("default")
-                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
-                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
+                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("hive.metastore-cache-ttl", "10m")
                 .build();
     }

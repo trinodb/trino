@@ -26,9 +26,9 @@ import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractType;
 import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -52,7 +52,7 @@ public final class UnknownType
         // We never access the native container for UNKNOWN because its null check is always true.
         // The actual native container type does not matter here.
         // We choose boolean to represent UNKNOWN because it's the smallest primitive type.
-        super(new TypeSignature(NAME), boolean.class, ByteArrayBlock.class);
+        super(new TypeDescriptor(NAME), boolean.class, ByteArrayBlock.class);
     }
 
     @Override

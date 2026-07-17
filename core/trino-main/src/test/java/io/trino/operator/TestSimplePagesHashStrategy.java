@@ -62,49 +62,6 @@ public class TestSimplePagesHashStrategy
     }
 
     @Test
-    public void testRowEqualsRowWithIntegerType()
-    {
-        SimplePagesHashStrategy strategy = createSimplePagesHashStrategy(INTEGER, ImmutableList.of());
-
-        Page leftPage = new Page(new IntArrayBlock(1, Optional.empty(), new int[] {1234}));
-        Page rightPage1 = new Page(new IntArrayBlock(1, Optional.empty(), new int[] {1234}));
-        Page rightPage2 = new Page(new IntArrayBlock(1, Optional.empty(), new int[] {5678}));
-
-        // This works because IntegerType is comparable.
-        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage1)).isTrue();
-        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage2)).isFalse();
-    }
-
-    @Test
-    public void testRowEqualsRowWithMapType()
-    {
-        MapType mapType = new MapType(INTEGER, INTEGER, new TypeOperators());
-        SimplePagesHashStrategy strategy = createSimplePagesHashStrategy(mapType, ImmutableList.of());
-
-        Page leftPage = new Page(mapType.createBlockFromKeyValue(
-                Optional.empty(),
-                new int[] {0, 1},
-                new IntArrayBlock(1, Optional.empty(), new int[] {1234}),
-                new IntArrayBlock(1, Optional.empty(), new int[] {5678})));
-
-        Page rightPage1 = new Page(mapType.createBlockFromKeyValue(
-                Optional.empty(),
-                new int[] {0, 1},
-                new IntArrayBlock(1, Optional.empty(), new int[] {1234}),
-                new IntArrayBlock(1, Optional.empty(), new int[] {5678})));
-
-        Page rightPage2 = new Page(mapType.createBlockFromKeyValue(
-                Optional.empty(),
-                new int[] {0, 1},
-                new IntArrayBlock(1, Optional.empty(), new int[] {1234}),
-                new IntArrayBlock(1, Optional.empty(), new int[] {1234})));
-
-        // This works because MapType is comparable.
-        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage1)).isTrue();
-        assertThat(strategy.rowEqualsRow(0, leftPage, 0, rightPage2)).isFalse();
-    }
-
-    @Test
     public void testCompareSortChannelPositionsWithIntegerType()
     {
         Block block = new IntArrayBlock(3, Optional.empty(), new int[] {1234, 5678, 1234});

@@ -51,11 +51,11 @@ public class OraclePoolConnectionFactory
     {
         PoolDataSource dataSource = PoolDataSourceFactory.getPoolDataSource();
 
-        //Setting connection properties of the data source
+        // Setting connection properties of the data source
         dataSource.setConnectionFactoryClassName(OracleDataSource.class.getName());
         dataSource.setURL(connectionUrl);
 
-        //Setting pool properties
+        // Setting pool properties
         dataSource.setInitialPoolSize(connectionPoolMinSize);
         dataSource.setMinPoolSize(connectionPoolMinSize);
         dataSource.setMaxPoolSize(connectionPoolMaxSize);

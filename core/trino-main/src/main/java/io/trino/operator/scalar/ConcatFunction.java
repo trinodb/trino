@@ -20,7 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.lang.invoke.MethodHandle;
 
@@ -38,13 +38,13 @@ public final class ConcatFunction
         extends SqlScalarFunction
 {
     // TODO design new variadic functions binding mechanism that will allow to produce VARCHAR(x) where x < MAX_LENGTH.
-    public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(VARCHAR.getTypeSignature(), "Concatenates given strings");
+    public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(VARCHAR.getTypeDescriptor(), "Concatenates given strings");
 
-    public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeSignature(), "concatenates given varbinary values");
+    public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeDescriptor(), "concatenates given varbinary values");
 
     private static final int MAX_OUTPUT_LENGTH = DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
-    private ConcatFunction(TypeSignature type, String description)
+    private ConcatFunction(TypeDescriptor type, String description)
     {
         super(FunctionMetadata.scalarBuilder("concat")
                 .signature(Signature.builder()

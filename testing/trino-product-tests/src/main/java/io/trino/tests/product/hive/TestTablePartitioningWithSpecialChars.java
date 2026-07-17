@@ -64,7 +64,8 @@ public class TestTablePartitioningWithSpecialChars
         String tableName = "test_string_partitioning_with_special_chars_ctas_in_trino";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery(format("CREATE TABLE %s (id, part_col) " +
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (id, part_col) " +
                         "WITH (partitioned_by = ARRAY['part_col']) " +
                         "AS VALUES " + INSERTED_PARTITION_VALUES,
                 tableName));

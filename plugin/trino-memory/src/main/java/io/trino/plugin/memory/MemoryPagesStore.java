@@ -97,7 +97,8 @@ public class MemoryPagesStore
         }
         TableData tableData = tables.get(tableId);
         if (tableData.getRows() < expectedRows) {
-            throw new TrinoException(MISSING_DATA,
+            throw new TrinoException(
+                    MISSING_DATA,
                     format("Expected to find [%s] rows on a worker, but found [%s].", expectedRows, tableData.getRows()));
         }
 

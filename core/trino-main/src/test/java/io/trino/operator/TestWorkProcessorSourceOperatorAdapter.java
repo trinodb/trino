@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
-import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
@@ -73,7 +72,7 @@ public class TestWorkProcessorSourceOperatorAdapter
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
         assertThat(context.getOperatorStats().getMetrics().getMetrics())
-                .hasSize(5)
+                .hasSize(6)
                 .containsEntry("testOperatorMetric", new LongCount(1));
         assertThat(context.getOperatorStats().getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(2)));
@@ -83,7 +82,7 @@ public class TestWorkProcessorSourceOperatorAdapter
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
         assertThat(context.getOperatorStats().getMetrics().getMetrics())
-                .hasSize(5)
+                .hasSize(6)
                 .containsEntry("testOperatorMetric", new LongCount(2));
         assertThat(context.getOperatorStats().getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(3)));
@@ -97,7 +96,6 @@ public class TestWorkProcessorSourceOperatorAdapter
         @Override
         public WorkProcessorSourceOperator create(
                 OperatorContext operatorContext,
-                MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> split)
         {

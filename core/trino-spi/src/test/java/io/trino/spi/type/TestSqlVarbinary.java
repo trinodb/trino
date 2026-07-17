@@ -52,7 +52,7 @@ final class TestSqlVarbinary
                 }
             }
 
-            builder.append(format("%02x", bytes[i] & 0xff));
+            builder.append(format("%02x", bytes[i] & 0xFF));
         }
         return builder.toString();
     }

@@ -28,10 +28,11 @@ public interface TableFunctionSplitProcessor
      * This method processes a split. It is called multiple times until the whole output for the split is produced.
      *
      * @return {@link TableFunctionProcessorState} including the processor's state and optionally a portion of result.
-     * After the returned state is {@code FINISHED}, the method will not be called again.
+     *         After the returned state is {@code FINISHED}, the method will not be called again.
      */
     TableFunctionProcessorState process();
 
     default void close()
-            throws IOException {}
+            throws IOException
+    {}
 }

@@ -114,10 +114,10 @@ public class StreamingAggregationOperator
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new StreamingAggregationOperator(processorContext, sourcePages, sourceTypes, groupByTypes, groupByChannels, aggregatorFactories, joinCompiler);
+            return new StreamingAggregationOperator(operatorContext, sourcePages, sourceTypes, groupByTypes, groupByChannels, aggregatorFactories, joinCompiler);
         }
 
         @Override
@@ -137,7 +137,7 @@ public class StreamingAggregationOperator
     private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
     private StreamingAggregationOperator(
-            ProcessorContext processorContext,
+            OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages,
             List<Type> sourceTypes,
             List<Type> groupByTypes,
@@ -147,7 +147,7 @@ public class StreamingAggregationOperator
     {
         pages = sourcePages
                 .transform(new StreamingAggregation(
-                        processorContext,
+                        operatorContext,
                         sourceTypes,
                         groupByTypes,
                         groupByChannels,
@@ -184,7 +184,7 @@ public class StreamingAggregationOperator
         private Page currentGroup;
 
         private StreamingAggregation(
-                ProcessorContext processorContext,
+                OperatorContext operatorContext,
                 List<Type> sourceTypes,
                 List<Type> groupByTypes,
                 List<Integer> groupByChannels,
@@ -192,8 +192,7 @@ public class StreamingAggregationOperator
                 JoinCompiler joinCompiler,
                 AggregationMetrics aggregationMetrics)
         {
-            requireNonNull(processorContext, "processorContext is null");
-            this.userMemoryContext = processorContext.getMemoryTrackingContext().localUserMemoryContext();
+            this.userMemoryContext = operatorContext.newLocalUserMemoryContext(StreamingAggregationOperator.class.getSimpleName());
             this.groupByTypes = ImmutableList.copyOf(requireNonNull(groupByTypes, "groupByTypes is null"));
             this.groupByChannels = Ints.toArray(requireNonNull(groupByChannels, "groupByChannels is null"));
             this.aggregatorFactories = requireNonNull(aggregatorFactories, "aggregatorFactories is null");
@@ -208,7 +207,7 @@ public class StreamingAggregationOperator
             pagesHashStrategy = joinCompiler.compilePagesHashStrategyFactory(sourceTypes, groupByChannels, Optional.empty())
                     .createPagesHashStrategy(
                             sourceTypes.stream()
-                                    .map(type -> new ObjectArrayList<Block>())
+                                    .map(_ -> new ObjectArrayList<Block>())
                                     .collect(toImmutableList()));
             this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
         }
@@ -228,6 +227,7 @@ public class StreamingAggregationOperator
                 }
 
                 if (outputPages.isEmpty()) {
+                    userMemoryContext.close();
                     return finished();
                 }
 

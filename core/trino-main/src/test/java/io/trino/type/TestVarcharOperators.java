@@ -206,6 +206,14 @@ public class TestVarcharOperators
 
         assertThat(assertions.operator(EQUAL, "'bar'", "'bar'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "'bar'")
+                .binding("b", "'bar'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "'bar'", "'bar'"))
+                .neverFails();
     }
 
     @Test
@@ -400,6 +408,53 @@ public class TestVarcharOperators
 
         assertThat(assertions.operator(INDETERMINATE, "cast(true as varchar)"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    public void testCastToVarbinary()
+    {
+        assertThat(assertions.expression("CAST(a AS varbinary)")
+                .binding("a", "'abc'"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastFromVarcharFailures()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS boolean)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to BOOLEAN");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS double)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to DOUBLE");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS real)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to REAL");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS bigint)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to BIGINT");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS integer)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to INT");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS smallint)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to SMALLINT");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS tinyint)")
+                .binding("a", "'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'abc' to TINYINT");
     }
 
     /**

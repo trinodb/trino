@@ -101,7 +101,7 @@ public class PrometheusClient
         String status = "";
         if (schema.equals("default")) {
             status = (String) tableSupplier.get().get("status");
-            //TODO prometheus warnings (success|error|warning) could be handled separately
+            // TODO prometheus warnings (success|error|warning) could be handled separately
             if (status.equals("success")) {
                 List<String> tableNames = (List<String>) tableSupplier.get().get("data");
                 if (tableNames == null) {

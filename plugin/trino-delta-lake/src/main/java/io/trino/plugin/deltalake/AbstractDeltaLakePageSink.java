@@ -26,8 +26,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Partitions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -40,7 +40,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.apache.parquet.format.CompressionCodec;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,9 +58,10 @@ import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupMaxRowCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupSize;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static java.lang.String.format;
@@ -104,10 +104,11 @@ public abstract class AbstractDeltaLakePageSink
     private long memoryUsage;
     private long validationCpuNanos;
 
-    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
+    private final List<RollbackAction> closedWriterRollbackActions = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
+    private final boolean useDeltaLengthByteArrayEncoding;
     private long currentOpenWriters;
 
     public AbstractDeltaLakePageSink(
@@ -119,19 +120,20 @@ public abstract class AbstractDeltaLakePageSink
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             Location tableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             Location outputPathDirectory,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            boolean useDeltaLengthByteArrayEncoding)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         requireNonNull(inputColumns, "inputColumns is null");
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
-        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session, credentialsHandle);
+        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session, tableCredentials);
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.parquetSchemaMapping = requireNonNull(parquetSchemaMapping, "parquetSchemaMapping is null");
@@ -155,24 +157,21 @@ public abstract class AbstractDeltaLakePageSink
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
             switch (column.columnType()) {
-                case PARTITION_KEY:
+                case PARTITION_KEY -> {
                     int partitionPosition = toOriginalPartitionPositions.get(column.columnName());
                     partitionColumnInputIndex[partitionPosition] = inputIndex;
                     originalPartitionColumnNames[partitionPosition] = column.columnName();
                     partitionColumnTypes[partitionPosition] = column.baseType();
-                    break;
-                case REGULAR:
+                }
+                case REGULAR -> {
                     verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
                     dataColumnHandles.add(column);
                     dataColumnsInputIndex.add(inputIndex);
                     dataColumnNames.add(column.basePhysicalColumnName());
                     dataColumnTypes.add(column.basePhysicalType());
-                    break;
-                case SYNTHESIZED:
-                    processSynthesizedColumn(column);
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected column type: " + column.columnType());
+                }
+                case SYNTHESIZED -> processSynthesizedColumn(column);
+                default -> throw new IllegalStateException("Unexpected column type: " + column.columnType());
             }
         }
 
@@ -194,6 +193,7 @@ public abstract class AbstractDeltaLakePageSink
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.targetMaxFileSize = DeltaLakeSessionProperties.getTargetMaxFileSize(session);
         this.idleWriterMinFileSize = DeltaLakeSessionProperties.getIdleWriterMinFileSize(session);
+        this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
     }
 
     protected abstract void processSynthesizedColumn(DeltaLakeColumnHandle column);
@@ -238,7 +238,7 @@ public abstract class AbstractDeltaLakePageSink
     @Override
     public void abort()
     {
-        List<Closeable> rollbackActions = Streams.concat(
+        List<RollbackAction> rollbackActions = Streams.concat(
                         writers.stream()
                                 // writers can contain nulls if an exception is thrown when doAppend expands the writer list
                                 .filter(Objects::nonNull)
@@ -246,9 +246,9 @@ public abstract class AbstractDeltaLakePageSink
                         closedWriterRollbackActions.stream())
                 .collect(toImmutableList());
         RuntimeException rollbackException = null;
-        for (Closeable rollbackAction : rollbackActions) {
+        for (RollbackAction rollbackAction : rollbackActions) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Throwable t) {
                 if (rollbackException == null) {
@@ -466,15 +466,17 @@ public abstract class AbstractDeltaLakePageSink
     private ParquetFileWriter createParquetFileWriter(Location path)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
-                .setMaxBlockSize(getParquetWriterBlockSize(session))
+                .setMaxBlockSize(getParquetWriterRowGroupSize(session))
+                .setMaxRowGroupRowCount(getParquetWriterRowGroupMaxRowCount(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
+                .setUseDeltaLengthByteArrayEncoding(useDeltaLengthByteArrayEncoding)
                 .build();
         CompressionCodec compressionCodec = toCompressionCodec(getCompressionCodec(session)).getParquetCompressionCodec()
                 .orElseThrow(); // validated on the session property level
 
         try {
-            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
+            RollbackAction rollbackAction = () -> fileSystem.deleteFile(path);
 
             List<Type> parquetTypes = dataColumnTypes.stream()
                     .map(type -> toParquetType(typeOperators, type))

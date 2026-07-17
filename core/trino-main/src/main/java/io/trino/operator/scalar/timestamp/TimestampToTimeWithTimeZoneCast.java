@@ -23,14 +23,14 @@ import io.trino.spi.type.LongTimestamp;
 
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.getOffsetMinutes;
 import static io.trino.type.DateTimes.rescale;
-import static io.trino.type.DateTimes.round;
 import static java.lang.Math.floorMod;
 
 @ScalarOperator(CAST)

@@ -20,6 +20,7 @@ import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
+import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -57,6 +58,7 @@ public class TrinoGlueCatalogFactory
     private final GlueMetastoreStats stats;
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -72,7 +74,8 @@ public class TrinoGlueCatalogFactory
             @UsingSystemSecurity boolean usingSystemSecurity,
             GlueMetastoreStats stats,
             GlueClient glueClient,
-            @ForIcebergMetadata ExecutorService metadataExecutorService)
+            @ForIcebergMetadata ExecutorService metadataExecutorService,
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -93,6 +96,7 @@ public class TrinoGlueCatalogFactory
         else {
             this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, icebergConfig.getMetadataParallelism());
         }
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
     }
 
     @Managed
@@ -118,6 +122,7 @@ public class TrinoGlueCatalogFactory
                 defaultSchemaLocation,
                 isUniqueTableLocation,
                 hideMaterializedViewStorageTable,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                icebergScanExecutor);
     }
 }

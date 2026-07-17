@@ -173,7 +173,7 @@ values. Typical usage does not require you to configure them.
     contain external files.
   - `false`
 * - `delta.parquet.time-zone`
-  - Time zone for Parquet read and write.
+  - Time zone used when reading timestamps from Parquet files.
   - JVM default
 * - `delta.target-max-file-size`
   - Target maximum size of written files; the actual size could be larger. The
@@ -201,6 +201,13 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving checkpoint files of each table. Currently, only 
     retrievals of V2 Checkpoint's sidecar files are parallelized.
   - `4`
+* - `delta.load-metadata-from-checksum-file`
+  - Speed up query planning by reading table metadata and protocol
+    entries from the Delta version checksum file (`<version>.crc`) when
+    available. Falls back to scanning the transaction log if the checksum
+    file is missing, incomplete, or malformed. The equivalent catalog
+    session property is `load_metadata_from_checksum_file`.
+  - `true`
 :::
 
 ### Catalog session properties
@@ -218,9 +225,12 @@ The following table describes {ref}`catalog session properties
 * - `parquet_max_read_block_size`
   - The maximum block size used when reading Parquet files.
   - `16MB`
-* - `parquet_writer_block_size`
-  - The maximum block size created by the Parquet writer.
+* - `parquet_writer_row_group_size`
+  - The maximum row group size created by the Parquet writer.
   - `128MB`
+* - `parquet_writer_row_group_max_row_count`
+  - The maximum row count of row groups created by the Parquet writer.
+  - `unlimited`
 * - `parquet_writer_page_size`
   - The maximum page size created by the Parquet writer.
   - `1MB`
@@ -233,6 +243,12 @@ The following table describes {ref}`catalog session properties
 * - `projection_pushdown_enabled`
   - Read only projected fields from row columns while performing `SELECT`
     queries.
+  - `true`
+* - `load_metadata_from_checksum_file`
+  - Speed up query planning by reading table metadata and protocol
+    entries from the Delta version checksum file (`<version>.crc`) when
+    available. Falls back to scanning the transaction log if the checksum
+    file is missing, incomplete, or malformed.
   - `true`
 :::
 
@@ -474,8 +490,8 @@ SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 America/Los_Angeles';
 ```
 
-You can use a date to specify a point a time in the past for using a snapshot of a table in a query.
-Assuming that the session time zone is `America/Los_Angeles` the following queries are equivalent:
+You can use a date to specify a point in time in the past for querying a table snapshot.
+Assuming that the session time zone is `America/Los_Angeles`, the following queries are equivalent:
 
 ```sql
 SELECT *
@@ -1284,9 +1300,8 @@ keep a backup of the original values if you change them.
   - `Integer.MAX_VALUE`
 * - `delta.max-split-size`
   - Sets the largest [](prop-type-data-size) for a single read section
-    assigned to a worker after `max-initial-splits` have been processed. You can
-    also use the corresponding catalog session property
-    `<catalog-name>.max_split_size`.
+    assigned to a worker. You can also use the corresponding catalog session
+    property `<catalog-name>.max_split_size`.
   - `128MB`
 * - `delta.minimum-assigned-split-weight`
   - A decimal value in the range (0, 1] used as a minimum for weights assigned

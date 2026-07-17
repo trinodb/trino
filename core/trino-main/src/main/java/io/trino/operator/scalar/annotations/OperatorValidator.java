@@ -13,90 +13,78 @@
  */
 package io.trino.operator.scalar.annotations;
 
-import com.google.common.base.Joiner;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TemplateParameter;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.type.UnknownType;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.stream.Collectors.joining;
 
 public final class OperatorValidator
 {
     private OperatorValidator() {}
 
-    public static void validateOperator(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    @SuppressWarnings("RedundantLabeledSwitchRuleCodeBlock")
+    public static void validateOperator(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes)
     {
         switch (operatorType) {
-            case ADD:
-            case SUBTRACT:
-            case MULTIPLY:
-            case DIVIDE:
-            case MODULUS:
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
-                break;
-            case NEGATION:
+            }
+            case NEGATION, CAST, SATURATED_FLOOR_CAST -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                break;
-            case EQUAL:
-            case COMPARISON_UNORDERED_LAST:
-            case COMPARISON_UNORDERED_FIRST:
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
+            }
+            case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
+                 COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST -> {
                 validateComparisonOperatorSignature(operatorType, returnType, argumentTypes, 2);
-                break;
-            case CAST:
-                validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                break;
-            case SUBSCRIPT:
+            }
+            case SUBSCRIPT -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
-                checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP) || argumentTypes.get(0).getBase().equals(StandardTypes.VARIANT), "First argument must be an ARRAY, MAP, or VARIANT");
-                switch (argumentTypes.get(0).getBase()) {
+                checkArgument(argumentTypes.get(0).baseName().equals(StandardTypes.ARRAY) || argumentTypes.get(0).baseName().equals(StandardTypes.MAP) || argumentTypes.get(0).baseName().equals(StandardTypes.VARIANT), "First argument must be an ARRAY, MAP, or VARIANT");
+                switch (argumentTypes.get(0).baseName()) {
                     case StandardTypes.ARRAY -> {
-                        checkArgument(argumentTypes.get(1).getBase().equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
-                        TypeSignature elementType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(0)).type();
+                        checkArgument(argumentTypes.get(1).baseName().equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
+                        TypeTemplate elementType = ((TemplateParameter.TypeArgument) ((TypeTemplate.TypeApplication) argumentTypes.get(0)).parameters().get(0)).type();
                         checkArgument(returnType.equals(elementType), "[] return type does not match ARRAY element type");
                     }
                     case StandardTypes.MAP -> {
-                        TypeSignature valueType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(1)).type();
+                        TypeTemplate valueType = ((TemplateParameter.TypeArgument) ((TypeTemplate.TypeApplication) argumentTypes.get(0)).parameters().get(1)).type();
                         checkArgument(returnType.equals(valueType), "[] return type does not match MAP value type");
                     }
                     default -> {}
                 }
-                break;
-            case HASH_CODE:
+            }
+            case HASH_CODE -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                checkArgument(returnType.getBase().equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
-                break;
-            case SATURATED_FLOOR_CAST:
-                validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                break;
-            case IDENTICAL:
-            case XX_HASH_64:
-            case INDETERMINATE:
-            case READ_VALUE:
+                checkArgument(returnType.baseName().equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
+            }
+            case IDENTICAL, XX_HASH_64, INDETERMINATE, READ_VALUE -> {
                 // TODO
+            }
         }
     }
 
-    private static void validateOperatorSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, int expectedArgumentCount)
+    private static void validateOperatorSignature(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes, int expectedArgumentCount)
     {
         String signature = formatSignature(operatorType, returnType, argumentTypes);
-        checkArgument(!returnType.getBase().equals(UnknownType.NAME), "%s operator return type cannot be NULL: %s", operatorType, signature);
+        checkArgument(!returnType.baseName().equals(UnknownType.NAME), "%s operator return type cannot be NULL: %s", operatorType, signature);
         checkArgument(argumentTypes.size() == expectedArgumentCount, "%s operator must have exactly %s argument: %s", operatorType, expectedArgumentCount, signature);
     }
 
-    private static void validateComparisonOperatorSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, int expectedArgumentCount)
+    private static void validateComparisonOperatorSignature(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes, int expectedArgumentCount)
     {
         validateOperatorSignature(operatorType, returnType, argumentTypes, expectedArgumentCount);
-        checkArgument(returnType.getBase().equals(StandardTypes.BOOLEAN), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
+        checkArgument(returnType.baseName().equals(StandardTypes.BOOLEAN), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
     }
 
-    private static String formatSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    private static String formatSignature(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes)
     {
-        return operatorType + "(" + Joiner.on(", ").join(argumentTypes) + ")::" + returnType;
+        return operatorType + "(" + argumentTypes.stream()
+                .map(TypeTemplate::render)
+                .collect(joining(", ")) + ")::" + returnType.render();
     }
 }

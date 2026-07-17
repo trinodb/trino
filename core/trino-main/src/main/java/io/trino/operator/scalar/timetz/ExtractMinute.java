@@ -21,9 +21,9 @@ import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
-import static io.trino.type.DateTimes.MINUTES_PER_HOUR;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_MINUTE;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 
 @Description("Minute of the hour of the given time")
 @ScalarFunction("minute")

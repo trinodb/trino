@@ -190,7 +190,7 @@ public class TestCallTask
         public static void testingMethod(Target target, ConnectorAccessControl connectorAccessControl)
         {
             target.invoked = true;
-            connectorAccessControl.checkCanInsertIntoTable(null, new SchemaTableName("test", "testing_table"));
+            connectorAccessControl.checkCanInsertIntoTable(null, new SchemaTableName("test", "testing_table"), Optional.empty());
         }
     }
 }

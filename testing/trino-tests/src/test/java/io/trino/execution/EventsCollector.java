@@ -132,7 +132,7 @@ final class EventsCollector
             if (!finished) {
                 synchronized (this) {
                     TimeoutException exception = new TimeoutException("Query did not complete in %s. Currently, queryCreatedEvent=%s queryCompletedEvent=%s queryCompleteLatch=%s"
-                                    .formatted(timeout, queryCreatedEvent, queryCompletedEvent, queryCompleteLatch));
+                            .formatted(timeout, queryCreatedEvent, queryCompletedEvent, queryCompleteLatch));
                     failures.forEach(exception::addSuppressed);
                     throw exception;
                 }

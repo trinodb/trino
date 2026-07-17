@@ -77,7 +77,8 @@ public class TestDenyOnSchema
                             .toInstance(new DisabledSystemSecurityMetadata()
                             {
                                 @Override
-                                public void denySchemaPrivileges(Session session,
+                                public void denySchemaPrivileges(
+                                        Session session,
                                         CatalogSchemaName schemaName,
                                         Set<Privilege> privileges,
                                         TrinoPrincipal grantee)
@@ -92,9 +93,9 @@ public class TestDenyOnSchema
                 })
                 .build();
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withListSchemaNames(session -> ImmutableList.of("default"))
-                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table.getSchemaName()) : ImmutableList.of())
-                .withGetTableHandle((session, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
+                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                .withListTables((_, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table.getSchemaName()) : ImmutableList.of())
+                .withGetTableHandle((_, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
                 .build();
         queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
         queryRunner.createCatalog("local", "mock");

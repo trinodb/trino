@@ -32,7 +32,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_DELETION_VECTOR_T
 
 public final class DeletionVector
 {
-    private static final int MAGIC_LE = 0x64_39_d3_d1;
+    private static final int MAGIC_LE = 0x64_39_D3_D1;
     private static final int LENGTH_SIZE_BYTES = 4;
     private static final int CRC_SIZE_BYTES = 4;
 

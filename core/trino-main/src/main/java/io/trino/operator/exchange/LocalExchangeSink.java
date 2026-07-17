@@ -27,7 +27,7 @@ public class LocalExchangeSink
 {
     public static LocalExchangeSink finishedLocalExchangeSink()
     {
-        LocalExchangeSink finishedSink = new LocalExchangeSink(FINISHED, sink -> {});
+        LocalExchangeSink finishedSink = new LocalExchangeSink(FINISHED, _ -> {});
         finishedSink.finish();
         return finishedSink;
     }

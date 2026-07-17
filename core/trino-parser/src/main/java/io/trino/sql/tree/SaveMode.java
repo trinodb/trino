@@ -17,5 +17,5 @@ public enum SaveMode
 {
     IGNORE,
     REPLACE,
-    FAIL
+    FAIL,
 }

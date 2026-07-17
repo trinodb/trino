@@ -58,7 +58,7 @@ public class TestThreadPerDriverTaskExecutor
 
             CountDownLatch started = new CountDownLatch(1);
 
-            SplitRunner split = new TestingSplitRunner(ImmutableList.of(duration -> {
+            SplitRunner split = new TestingSplitRunner(ImmutableList.of(_ -> {
                 started.countDown();
                 try {
                     Thread.currentThread().join();
@@ -98,8 +98,8 @@ public class TestThreadPerDriverTaskExecutor
             TestFuture blocked = new TestFuture();
 
             SplitRunner split = new TestingSplitRunner(ImmutableList.of(
-                    duration -> blocked,
-                    duration -> Futures.immediateVoidFuture()));
+                    _ -> blocked,
+                    _ -> Futures.immediateVoidFuture()));
 
             ListenableFuture<Void> splitDone = executor.enqueueSplits(task, false, ImmutableList.of(split)).get(0);
 
@@ -130,12 +130,12 @@ public class TestThreadPerDriverTaskExecutor
 
             Phaser phaser = new Phaser(2);
             SplitRunner split = new TestingSplitRunner(ImmutableList.of(
-                    duration -> {
+                    _ -> {
                         phaser.arriveAndAwaitAdvance(); // wait to start
                         phaser.arriveAndAwaitAdvance(); // wait to advance time
                         return Futures.immediateVoidFuture();
                     },
-                    duration -> {
+                    _ -> {
                         phaser.arriveAndAwaitAdvance();
                         return Futures.immediateVoidFuture();
                     }));

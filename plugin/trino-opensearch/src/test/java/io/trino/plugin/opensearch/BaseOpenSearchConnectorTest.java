@@ -182,7 +182,8 @@ public abstract class BaseOpenSearchConnectorTest
 
         assertExplain(
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey::bigint", "::\\s\\[\\[42\\]\\]");
+                "nationkey::bigint",
+                "::\\s\\[\\[42\\]\\]");
     }
 
     @Test
@@ -1036,18 +1037,18 @@ public abstract class BaseOpenSearchConnectorTest
         index(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b",
-                                ImmutableMap.of("c",
-                                        "value1"))));
+                                ImmutableMap.of(
+                                        "c", "value1"))));
 
         index(indexName,
                 ImmutableMap.of("a.b",
-                        ImmutableMap.of("c",
-                                "value2")));
+                        ImmutableMap.of(
+                                "c", "value2")));
 
         index(indexName,
                 ImmutableMap.of("a",
-                        ImmutableMap.of("b.c",
-                                "value3")));
+                        ImmutableMap.of(
+                                "b.c", "value3")));
 
         index(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
@@ -1713,8 +1714,7 @@ public abstract class BaseOpenSearchConnectorTest
         createIndex(indexName, properties);
 
         index(indexName, ImmutableMap.of(
-                "field",
-                ImmutableMap.<String, Object>builder()
+                "field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1744,8 +1744,17 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM types_nested");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -1783,8 +1792,7 @@ public abstract class BaseOpenSearchConnectorTest
         createIndex(indexName, mappings);
 
         index(indexName, ImmutableMap.of(
-                "nested_field",
-                ImmutableMap.<String, Object>builder()
+                "nested_field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1814,8 +1822,17 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM nested_type_nested");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());

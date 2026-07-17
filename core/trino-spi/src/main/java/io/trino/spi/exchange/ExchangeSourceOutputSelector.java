@@ -274,7 +274,7 @@ public class ExchangeSourceOutputSelector
         {
             requireNonNull(sourceExchanges, "sourceExchanges is null");
             exchangeValues = sourceExchanges.stream()
-                    .collect(toUnmodifiableMap(Function.identity(), exchangeId -> new ValuesBuilder()));
+                    .collect(toUnmodifiableMap(Function.identity(), _ -> new ValuesBuilder()));
         }
 
         public Builder include(ExchangeId exchangeId, int taskPartitionId, int attemptId)

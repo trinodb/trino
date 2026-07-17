@@ -331,61 +331,63 @@ public class TestDataWritableWriter
         }
 
         switch (inspector.getPrimitiveCategory()) {
-            case VOID:
+            case VOID -> {
                 return;
-            case DOUBLE:
+            }
+            case DOUBLE -> {
                 recordConsumer.addDouble(((DoubleObjectInspector) inspector).get(value));
-                break;
-            case BOOLEAN:
+            }
+            case BOOLEAN -> {
                 recordConsumer.addBoolean(((BooleanObjectInspector) inspector).get(value));
-                break;
-            case FLOAT:
+            }
+            case FLOAT -> {
                 recordConsumer.addFloat(((FloatObjectInspector) inspector).get(value));
-                break;
-            case BYTE:
+            }
+            case BYTE -> {
                 recordConsumer.addInteger(((ByteObjectInspector) inspector).get(value));
-                break;
-            case INT:
+            }
+            case INT -> {
                 recordConsumer.addInteger(((IntObjectInspector) inspector).get(value));
-                break;
-            case LONG:
+            }
+            case LONG -> {
                 recordConsumer.addLong(((LongObjectInspector) inspector).get(value));
-                break;
-            case SHORT:
+            }
+            case SHORT -> {
                 recordConsumer.addInteger(((ShortObjectInspector) inspector).get(value));
-                break;
-            case STRING:
+            }
+            case STRING -> {
                 String v = ((StringObjectInspector) inspector).getPrimitiveJavaObject(value);
                 recordConsumer.addBinary(Binary.fromString(v));
-                break;
-            case CHAR:
+            }
+            case CHAR -> {
                 String vChar = ((HiveCharObjectInspector) inspector).getPrimitiveJavaObject(value).getStrippedValue();
                 recordConsumer.addBinary(Binary.fromString(vChar));
-                break;
-            case VARCHAR:
+            }
+            case VARCHAR -> {
                 String vVarchar = ((HiveVarcharObjectInspector) inspector).getPrimitiveJavaObject(value).getValue();
                 recordConsumer.addBinary(Binary.fromString(vVarchar));
-                break;
-            case BINARY:
+            }
+            case BINARY -> {
                 byte[] vBinary = ((BinaryObjectInspector) inspector).getPrimitiveJavaObject(value);
                 recordConsumer.addBinary(Binary.fromByteArray(vBinary));
-                break;
-            case TIMESTAMP:
+            }
+            case TIMESTAMP -> {
                 Timestamp ts = ((TimestampObjectInspector) inspector).getPrimitiveJavaObject(value);
                 ts = Timestamp.ofEpochMilli(timeZone.convertLocalToUTC(ts.toEpochMilli(), true), ts.getNanos());
                 recordConsumer.addBinary(NanoTimeUtils.getNanoTime(ts, false).toBinary());
-                break;
-            case DECIMAL:
+            }
+            case DECIMAL -> {
                 HiveDecimal vDecimal = ((HiveDecimal) inspector.getPrimitiveJavaObject(value));
                 DecimalTypeInfo decTypeInfo = (DecimalTypeInfo) inspector.getTypeInfo();
                 recordConsumer.addBinary(decimalToBinary(vDecimal, decTypeInfo));
-                break;
-            case DATE:
+            }
+            case DATE -> {
                 Date vDate = ((DateObjectInspector) inspector).getPrimitiveJavaObject(value);
                 recordConsumer.addInteger(vDate.toEpochDay());
-                break;
-            default:
+            }
+            default -> {
                 throw new IllegalArgumentException("Unsupported primitive data type: " + inspector.getPrimitiveCategory());
+            }
         }
     }
 

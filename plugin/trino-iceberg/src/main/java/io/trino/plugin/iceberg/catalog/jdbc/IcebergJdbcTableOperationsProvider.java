@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -32,16 +33,19 @@ public class IcebergJdbcTableOperationsProvider
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ForwardingFileIoFactory fileIoFactory;
     private final IcebergJdbcClient jdbcClient;
+    private final EncryptionManagerFactory encryptionManagerFactory;
 
     @Inject
     public IcebergJdbcTableOperationsProvider(
             TrinoFileSystemFactory fileSystemFactory,
             ForwardingFileIoFactory fileIoFactory,
-            IcebergJdbcClient jdbcClient)
+            IcebergJdbcClient jdbcClient,
+            EncryptionManagerFactory encryptionManagerFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
     }
 
     @Override
@@ -60,6 +64,7 @@ public class IcebergJdbcTableOperationsProvider
                 database,
                 table,
                 owner,
-                location);
+                location,
+                encryptionManagerFactory);
     }
 }

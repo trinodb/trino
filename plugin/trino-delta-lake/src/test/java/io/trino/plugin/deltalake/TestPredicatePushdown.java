@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ContiguousSet;
 import io.trino.Session;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -48,18 +48,18 @@ public class TestPredicatePushdown
      */
     private final TableResource testTable = new TableResource("custkey_15rowgroups");
 
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private Hive3FlociDataLake hiveFlociDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
         return DeltaLakeQueryRunner.builder()
-                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
-                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
+                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
@@ -187,7 +187,7 @@ public class TestPredicatePushdown
         assertThat(actualRows).isEqualTo(expectedRows);
         assertThat(getProcessedPositions(result.queryId()))
                 .describedAs("Wrong number of rows processed after pushdown to Parquet")
-                        .isEqualTo(countProcessed);
+                .isEqualTo(countProcessed);
     }
 
     /**
@@ -208,7 +208,7 @@ public class TestPredicatePushdown
 
         assertThat(actualCount.getAsLong())
                 .describedAs("Wrong number of rows updated")
-                        .isEqualTo(count);
+                .isEqualTo(count);
 
         assertThat(getProcessedPositions(result.queryId()))
                 .describedAs("Wrong amount of data filtered by pushdown to Parquet")
@@ -251,7 +251,7 @@ public class TestPredicatePushdown
         String register(String namePrefix)
         {
             String name = format("%s_%s", namePrefix, randomNameSuffix());
-            hiveMinioDataLake.copyResources(RESOURCE_PATH.resolve(resourcePath).toString(), name);
+            hiveFlociDataLake.floci().copyResources(RESOURCE_PATH.resolve(resourcePath).toString(), bucketName, name);
             getQueryRunner().execute(format(
                     "CALL system.register_table(CURRENT_SCHEMA, '%2$s', 's3://%1$s/%2$s')",
                     bucketName,

@@ -196,16 +196,22 @@ public class TestTypeParser
     public void testArray()
     {
         assertThat(type("foo(42, 55) ARRAY"))
-                .isEqualTo(parametricType(location(1, 1),
+                .isEqualTo(parametricType(
+                        location(1, 1),
                         identifier(location(1, 13), "ARRAY"),
-                        parameter(parametricType(location(1, 1), "foo",
+                        parameter(parametricType(
+                                location(1, 1),
+                                "foo",
                                 parameter(location(1, 5), "42"),
                                 parameter(location(1, 9), "55")))));
 
         assertThat(type("foo(1_000, 2_000) ARRAY"))
-                .isEqualTo(parametricType(location(1, 1),
+                .isEqualTo(parametricType(
+                        location(1, 1),
                         identifier(location(1, 19), "ARRAY"),
-                        parameter(parametricType(location(1, 1), "foo",
+                        parameter(parametricType(
+                                location(1, 1),
+                                "foo",
                                 parameter(location(1, 5), "1_000"),
                                 parameter(location(1, 12), "2_000")))));
 

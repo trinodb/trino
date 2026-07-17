@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.XxHash64;
 import io.trino.array.IntBigArray;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.VariableWidthBlock;
 
 import java.util.Arrays;
@@ -27,6 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.allocateWords;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
@@ -88,9 +90,9 @@ public class DictionaryBuilder
 
     public VariableWidthBlock getElementBlock()
     {
-        boolean[] isNull = new boolean[entryCount];
-        isNull[NULL_POSITION] = true;
-        return new VariableWidthBlock(entryCount, sliceOutput.slice(), offsets, Optional.of(isNull));
+        long[] valueIsValid = allocateWords(entryCount, true);
+        Bitmap.clear(valueIsValid, 0, NULL_POSITION);
+        return new VariableWidthBlock(entryCount, sliceOutput.slice(), offsets, Optional.of(valueIsValid));
     }
 
     public void clear()

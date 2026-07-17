@@ -199,7 +199,7 @@ public class MergeOperator
                 comparator,
                 outputChannels,
                 outputTypes,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());

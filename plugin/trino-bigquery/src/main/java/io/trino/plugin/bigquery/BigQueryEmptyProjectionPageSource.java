@@ -65,12 +65,6 @@ public class BigQueryEmptyProjectionPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public void close()
     {
         // nothing to do

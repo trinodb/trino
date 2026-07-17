@@ -13,7 +13,10 @@
  */
 package io.trino.filesystem.local;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import org.junit.jupiter.api.AfterAll;
@@ -116,6 +119,26 @@ public class TestLocalFileSystem
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    @Test
+    void testListFilesStartingFromConsecutiveSlashesInLocation()
+            throws IOException
+    {
+        // LocalFileSystem (Java NIO) canonicalizes runs of slashes; verifies
+        // EmulatedListFilesStartingFromIterator falls back to the slash-collapsed prefix.
+        try (Closer closer = Closer.create()) {
+            Location file1 = createBlob(closer, "level0/level1-file1");
+            Location file2 = createBlob(closer, "level0/level1-file2");
+
+            Location doubledSlash = createLocation("level0").appendSuffix("//");
+            ImmutableList.Builder<Location> builder = ImmutableList.builder();
+            FileIterator iterator = getFileSystem().listFilesStartingFrom(doubledSlash, "level1-file1");
+            while (iterator.hasNext()) {
+                builder.add(iterator.next().location());
+            }
+            assertThat(builder.build()).containsExactlyInAnyOrder(file1, file2);
         }
     }
 

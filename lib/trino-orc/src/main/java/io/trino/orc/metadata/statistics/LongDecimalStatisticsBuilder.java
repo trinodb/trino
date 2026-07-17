@@ -95,7 +95,7 @@ public class LongDecimalStatisticsBuilder
         Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
-                decimalStatistics.map(s -> DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES).orElse(0L),
+                decimalStatistics.map(_ -> DECIMAL_VALUE_BYTES_OVERHEAD + LONG_DECIMAL_VALUE_BYTES).orElse(0L),
                 null,
                 null,
                 null,

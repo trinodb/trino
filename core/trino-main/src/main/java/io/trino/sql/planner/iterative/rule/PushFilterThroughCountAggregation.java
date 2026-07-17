@@ -227,7 +227,7 @@ public class PushFilterThroughCountAggregation
         // Try to simplify filter above the aggregation.
         if (countDomain.getValues().contains(ValueSet.ofRanges(Range.greaterThanOrEqual(countDomain.getType(), 1L)))) {
             // After filtering out `0` values, filter predicate's domain contains all remaining countSymbol values. Remove the countSymbol domain.
-            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(countSymbol));
+            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(countSymbol));
             Expression newPredicate = combineConjuncts(
                     new DomainTranslator(plannerContext.getMetadata()).toPredicate(newTupleDomain),
                     extractionResult.getRemainingExpression());

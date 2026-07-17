@@ -13,19 +13,21 @@
  */
 package io.trino.operator.window;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 
 public final class WindowAnnotationsParser
 {
@@ -43,25 +45,33 @@ public final class WindowAnnotationsParser
     private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window)
     {
         Signature.Builder signatureBuilder = Signature.builder();
+        Set<String> typeVariables = Set.of();
         if (!window.typeVariable().isEmpty()) {
             signatureBuilder.typeVariable(window.typeVariable());
+            typeVariables = Set.of(window.typeVariable());
         }
 
-        Stream.of(window.argumentTypes())
-                .map(type -> parseTypeSignature(type, ImmutableSet.of()))
-                .forEach(signatureBuilder::argumentType);
+        for (String type : window.argumentTypes()) {
+            signatureBuilder.argumentType(parseTypeTemplate(type, typeVariables, Set.of()));
+        }
 
-        signatureBuilder.returnType(parseTypeSignature(window.returnType(), ImmutableSet.of()));
+        signatureBuilder.returnType(parseTypeTemplate(window.returnType(), typeVariables, Set.of()));
 
         Optional<String> description = Optional.ofNullable(clazz.getAnnotation(Description.class)).map(Description::value);
 
         boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
+
+        // Follows the scalar/aggregate convention: the result is non-null unless the row-producing
+        // method (processRow) is annotated @SqlNullable.
+        boolean nullable = Arrays.stream(clazz.getMethods())
+                .anyMatch(method -> method.getName().equals("processRow") && method.isAnnotationPresent(SqlNullable.class));
 
         return new SqlWindowFunction(
                 window.name(),
                 signatureBuilder.build(),
                 description,
                 deprecated,
+                nullable,
                 new ReflectionWindowFunctionSupplier(window.argumentTypes().length, clazz));
     }
 }

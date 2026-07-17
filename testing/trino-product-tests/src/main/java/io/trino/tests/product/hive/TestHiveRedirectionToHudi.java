@@ -49,7 +49,7 @@ public class TestHiveRedirectionToHudi
     {
         return new Object[][] {
                 {HUDI_TABLE_TYPE_COPY_ON_WRITE},
-                {HUDI_TABLE_TYPE_MERGE_ON_READ}
+                {HUDI_TABLE_TYPE_MERGE_ON_READ},
         };
     }
 

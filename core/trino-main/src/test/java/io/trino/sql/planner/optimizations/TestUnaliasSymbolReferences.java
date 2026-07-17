@@ -48,6 +48,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -67,7 +68,7 @@ public class TestUnaliasSymbolReferences
         String buildTable = "nation";
         assertOptimizedPlan(
                 new UnaliasSymbolReferences(),
-                (p, session, metadata) -> {
+                (p, _, metadata) -> {
                     ColumnHandle column = new TpchColumnHandle("nationkey", BIGINT);
                     Symbol buildColumnSymbol = p.symbol("nationkey");
                     Symbol buildAlias1 = p.symbol("buildAlias1");
@@ -113,8 +114,7 @@ public class TestUnaliasSymbolReferences
                                                 tableScan(
                                                         probeTable,
                                                         ImmutableMap.of("probeColumn1", "suppkey", "probeColumn2", "nationkey")))))
-                        .right(
-                                project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))));
+                        .right(project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))));
     }
 
     @Test
@@ -122,7 +122,7 @@ public class TestUnaliasSymbolReferences
     {
         assertOptimizedPlan(
                 new UnaliasSymbolReferences(),
-                (p, session, metadata) -> {
+                (p, _, _) -> {
                     Symbol symbol = p.symbol("symbol");
                     Symbol alias1 = p.symbol("alias1");
                     Symbol alias2 = p.symbol("alias2");
@@ -149,7 +149,7 @@ public class TestUnaliasSymbolReferences
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
             PlanBuilder planBuilder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), session);
 
-            SymbolAllocator symbolAllocator = new SymbolAllocator();
+            SymbolAllocator symbolAllocator = emptySymbolAllocator();
             PlanNode plan = planCreator.create(planBuilder, session, metadata);
             PlanNode optimized = optimizer.optimize(
                     plan,

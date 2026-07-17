@@ -43,9 +43,9 @@ public class PruneSemiJoinColumns
         }
 
         Set<Symbol> requiredSourceInputs = Streams.concat(
-                referencedOutputs.stream()
-                        .filter(symbol -> !symbol.equals(semiJoinNode.getSemiJoinOutput())),
-                Stream.of(semiJoinNode.getSourceJoinSymbol()))
+                        referencedOutputs.stream()
+                                .filter(symbol -> !symbol.equals(semiJoinNode.getSemiJoinOutput())),
+                        Stream.of(semiJoinNode.getSourceJoinSymbol()))
                 .collect(toImmutableSet());
 
         return restrictOutputs(context.getIdAllocator(), semiJoinNode.getSource(), requiredSourceInputs)

@@ -59,9 +59,9 @@ final class TestRowType
                 .invokeExact(singleEmptyRow, 0, singleEmptyRow, 0)).isTrue();
         assertThat((boolean) typeOperators.getIdenticalOperator(emptyRowType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL))
                 .invokeExact(singleEmptyRow, 0, singleEmptyRow, 0)).isTrue();
-        assertThat((boolean) typeOperators.getLessThanOperator(emptyRowType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL))
+        assertThat((Boolean) typeOperators.getLessThanOperator(emptyRowType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL))
                 .invokeExact(singleEmptyRow, 0, singleEmptyRow, 0)).isFalse();
-        assertThat((boolean) typeOperators.getLessThanOrEqualOperator(emptyRowType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL))
+        assertThat((Boolean) typeOperators.getLessThanOrEqualOperator(emptyRowType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL))
                 .invokeExact(singleEmptyRow, 0, singleEmptyRow, 0)).isTrue();
         assertThat((long) typeOperators.getComparisonUnorderedFirstOperator(emptyRowType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL))
                 .invokeExact(singleEmptyRow, 0, singleEmptyRow, 0)).isZero();

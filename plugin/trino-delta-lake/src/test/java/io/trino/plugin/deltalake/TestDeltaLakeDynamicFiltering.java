@@ -22,7 +22,7 @@ import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -60,26 +60,27 @@ public class TestDeltaLakeDynamicFiltering
         extends AbstractTestQueryFramework
 {
     private final String bucketName = "delta-lake-test-dynamic-filtering-" + randomNameSuffix();
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private Hive3FlociDataLake hiveFlociDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
-                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
-                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
+                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
 
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {
             String tableName = table.getTableName();
-            hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks73/" + tableName, tableName);
-            queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%1$s', 's3://%2$s/%1$s')",
+            hiveFlociDataLake.floci().copyResources("io/trino/plugin/deltalake/testing/resources/databricks73/" + tableName, bucketName, tableName);
+            queryRunner.execute(format(
+                    "CALL system.register_table(CURRENT_SCHEMA, '%1$s', 's3://%2$s/%1$s')",
                     tableName,
                     bucketName));
         });

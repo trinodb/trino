@@ -25,6 +25,7 @@ import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
@@ -61,13 +62,14 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_DATA_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
@@ -111,7 +113,7 @@ public class DefaultDeletionVectorWriter
         long snapshotId = table.getSnapshotId().orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "Missing base snapshot id for v3 deletion vector rewrite"));
 
         // deletion vector info may contain multiple entries for the same data file; merge them here
-        Map<String, DeletionVector.Builder> deletionVectorBuilders = deletionVectorInfos.stream().collect(toMap(
+        Map<String, DeletionVector.Builder> deletionVectorBuilders = deletionVectorInfos.stream().collect(toImmutableMap(
                 DeletionVectorInfo::dataFilePath,
                 info -> DeletionVector.builder().deserialize(info.serializedDeletionVector()),
                 DeletionVector.Builder::addAll));
@@ -119,7 +121,7 @@ public class DefaultDeletionVectorWriter
         ExistingDeletes existingDeletes = getExistingDeletesByMetadataOnly(icebergTable, snapshotId, deletionVectorBuilders.keySet());
 
         // merge existing deletion vectors into the new ones
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(icebergTable.io()));
         existingDeletes.deletionVectors().forEach((dataFilePath, deleteFile) -> {
             try (TrinoInput input = fileSystem.newInputFile(Location.of(deleteFile.location()), deleteFile.fileSizeInBytes()).newInput()) {
                 Slice data = input.readFully(deleteFile.contentOffset(), toIntExact(deleteFile.contentSizeInBytes()));
@@ -135,7 +137,7 @@ public class DefaultDeletionVectorWriter
             // determine which of the new deletion vectors need merging
             Map<String, DeletionVector.Builder> deletionVectorsWithLegacyDelete = deletionVectorBuilders.entrySet().stream()
                     .filter(entry -> existingDeletes.fileScopedDeletes().containsKey(entry.getKey()) || !existingDeletes.partitionScopedDeletes().isEmpty())
-                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
             if (!deletionVectorsWithLegacyDelete.isEmpty()) {
                 // process the file-scoped delete files
@@ -171,7 +173,7 @@ public class DefaultDeletionVectorWriter
         // finalize the deletion vectors
         Map<String, DeletionVector> deletionVectors = deletionVectorBuilders.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().build()))
-                .collect(toMap(
+                .collect(toImmutableMap(
                         Map.Entry::getKey,
                         // at this point there should not be an empty deletion vector
                         entry -> entry.getValue().orElseThrow(() -> new VerifyException("Delection vector is empty"))));
@@ -261,7 +263,7 @@ public class DefaultDeletionVectorWriter
                 writer.finish();
 
                 Map<String, DeletionVectorInfo> partitionInfo = deletionVectorInfos.stream()
-                        .collect(toMap(
+                        .collect(toImmutableMap(
                                 DeletionVectorInfo::dataFilePath,
                                 Function.identity(),
                                 (left, right) -> {
@@ -308,6 +310,7 @@ public class DefaultDeletionVectorWriter
         }
     }
 
+    // TODO (https://github.com/trinodb/trino/issues/29957) memory usage reporting
     private ConnectorPageSource openDeleteFilePageSource(ConnectorSession session, DeleteFile deleteFile, TrinoFileSystem fileSystem)
     {
         return pageSourceProviderFactory.createPageSourceProvider().openDeleteFile(
@@ -315,7 +318,8 @@ public class DefaultDeletionVectorWriter
                 fileSystem,
                 io.trino.plugin.iceberg.delete.DeleteFile.fromIceberg(deleteFile),
                 List.of(deleteFilePathColumnHandle, deleteFilePositionColumnHandle),
-                TupleDomain.all());
+                TupleDomain.all(),
+                newSimpleAggregatedMemoryContext());
     }
 
     private static boolean isDeletionVector(DeleteFile deleteFile)

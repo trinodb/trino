@@ -22,6 +22,6 @@ public class CanonicalizeExpressions
 {
     public CanonicalizeExpressions(PlannerContext plannerContext)
     {
-        super((expression, context) -> rewrite(expression, plannerContext));
+        super((expression, _) -> rewrite(expression, plannerContext));
     }
 }

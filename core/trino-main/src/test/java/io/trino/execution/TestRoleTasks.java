@@ -80,7 +80,7 @@ public class TestRoleTasks
     {
         queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, USER_NAME), ROLE_NAME, false)))
+                .withListRoleGrants((_, _, _, _) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, USER_NAME), ROLE_NAME, false)))
                 .build()));
         queryRunner.createCatalog(CATALOG_NAME, "mock", ImmutableMap.of());
 

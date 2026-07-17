@@ -369,7 +369,7 @@ public class TestMemoryManager
             throws Exception
     {
         return TpchQueryRunner.builder()
-                .amendSession(sessionBuilder -> Session.builder(session))
+                .amendSession(_ -> Session.builder(session))
                 .setWorkerCount(1)
                 .setExtraProperties(extraProperties)
                 .build();

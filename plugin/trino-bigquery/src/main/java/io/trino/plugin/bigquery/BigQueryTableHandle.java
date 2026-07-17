@@ -122,7 +122,6 @@ public record BigQueryTableHandle(
         TIME,
         INGESTION,
         RANGE,
-        /**/
     }
 
     public static Optional<BigQueryPartitionType> getPartitionType(TableDefinition definition)

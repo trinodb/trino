@@ -24,7 +24,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.variant.Variant;
 import io.trino.util.variant.VariantUtil.BlockBuilderAppender;
 
@@ -36,7 +35,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.variant.VariantUtil.canCastFromVariant;
@@ -62,8 +62,8 @@ public class VariantToArrayCast
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableFromTypeParameter("T", VARIANT.getTypeSignature())
-                        .returnType(arrayType(new TypeSignature("T")))
+                        .castableFromTypeParameter("T", VARIANT.getTypeDescriptor())
+                        .returnType(arrayType(typeVariable("T")))
                         .argumentType(VARIANT)
                         .build())
                 .nullable()

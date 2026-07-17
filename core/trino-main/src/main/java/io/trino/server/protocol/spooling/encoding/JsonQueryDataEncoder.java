@@ -15,6 +15,7 @@ package io.trino.server.protocol.spooling.encoding;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -34,7 +35,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
-import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.server.protocol.JsonEncodingUtils.createTypeEncoders;
 import static io.trino.server.protocol.JsonEncodingUtils.writePagesToJsonGenerator;
 import static java.lang.Math.toIntExact;
@@ -56,8 +56,8 @@ public class JsonQueryDataEncoder
                 .map(OutputColumn::type)
                 .collect(toImmutableList()));
         this.sourcePageChannels = requireNonNull(columns, "columns is null").stream()
-            .mapToInt(OutputColumn::sourcePageChannel)
-            .toArray();
+                .mapToInt(OutputColumn::sourcePageChannel)
+                .toArray();
         this.factory = requireNonNull(factory, "factory is null");
     }
 
@@ -100,9 +100,10 @@ public class JsonQueryDataEncoder
     {
         protected final JsonFactory factory;
 
-        public Factory()
+        @Inject
+        public Factory(JsonMapper mapper)
         {
-            this.factory = jsonFactory();
+            this.factory = mapper.getFactory();
         }
 
         @Override
@@ -124,8 +125,9 @@ public class JsonQueryDataEncoder
         private final int compressionThreshold;
 
         @Inject
-        public ZstdFactory(QueryDataEncodingConfig config)
+        public ZstdFactory(QueryDataEncodingConfig config, JsonMapper mapper)
         {
+            super(mapper);
             this.compressionThreshold = toIntExact(config.getCompressionThreshold().toBytes());
         }
 
@@ -148,8 +150,9 @@ public class JsonQueryDataEncoder
         private final int compressionThreshold;
 
         @Inject
-        public Lz4Factory(QueryDataEncodingConfig config)
+        public Lz4Factory(QueryDataEncodingConfig config, JsonMapper mapper)
         {
+            super(mapper);
             this.compressionThreshold = toIntExact(config.getCompressionThreshold().toBytes());
         }
 

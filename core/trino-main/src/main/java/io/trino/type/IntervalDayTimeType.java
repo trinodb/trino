@@ -15,7 +15,7 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.type.AbstractLongType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 public final class IntervalDayTimeType
         extends AbstractLongType
@@ -25,7 +25,7 @@ public final class IntervalDayTimeType
 
     private IntervalDayTimeType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

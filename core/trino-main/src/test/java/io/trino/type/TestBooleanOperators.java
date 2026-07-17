@@ -87,29 +87,37 @@ public class TestBooleanOperators
 
         assertThat(assertions.operator(EQUAL, "false", "false"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "false", "false"))
+                .neverFails();
     }
 
     @Test
     public void testNotEqual()
     {
         assertThat(assertions.expression("a <> b")
-        .binding("a", "true")
-        .binding("b", "true"))
+                .binding("a", "true")
+                .binding("b", "true"))
                 .isEqualTo(false);
 
         assertThat(assertions.expression("a <> b")
-        .binding("a", "true")
-        .binding("b", "false"))
+                .binding("a", "true")
+                .binding("b", "false"))
                 .isEqualTo(true);
 
         assertThat(assertions.expression("a <> b")
-        .binding("a", "false")
-        .binding("b", "true"))
+                .binding("a", "false")
+                .binding("b", "true"))
                 .isEqualTo(true);
 
         assertThat(assertions.expression("a <> b")
-        .binding("a", "false")
-        .binding("b", "false"))
+                .binding("a", "false")
+                .binding("b", "false"))
                 .isEqualTo(false);
     }
 
@@ -127,6 +135,14 @@ public class TestBooleanOperators
 
         assertThat(assertions.operator(LESS_THAN, "false", "false"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "false", "false"))
+                .neverFails();
     }
 
     @Test
@@ -143,6 +159,14 @@ public class TestBooleanOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "false", "false"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "false", "false"))
+                .neverFails();
     }
 
     @Test
@@ -246,6 +270,22 @@ public class TestBooleanOperators
     }
 
     @Test
+    public void testCastToDouble()
+    {
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "true"))
+                .isEqualTo(1.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "false"))
+                .isEqualTo(0.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "true"))
+                .neverFails();
+    }
+
+    @Test
     public void testCastToReal()
     {
         assertThat(assertions.expression("cast(a as real)")
@@ -255,6 +295,74 @@ public class TestBooleanOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "false"))
                 .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "true"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastToBigint()
+    {
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "true"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "false"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "true"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastToInteger()
+    {
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "true"))
+                .isEqualTo(1);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "false"))
+                .isEqualTo(0);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "true"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastToSmallint()
+    {
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "true"))
+                .isEqualTo((short) 1);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "false"))
+                .isEqualTo((short) 0);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "true"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastToTinyint()
+    {
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "true"))
+                .isEqualTo((byte) 1);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "false"))
+                .isEqualTo((byte) 0);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "true"))
+                .neverFails();
     }
 
     @Test
@@ -269,6 +377,10 @@ public class TestBooleanOperators
                 .binding("a", "false"))
                 .hasType(NUMBER)
                 .matches("NUMBER '0'");
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "true"))
+                .neverFails();
     }
 
     @Test

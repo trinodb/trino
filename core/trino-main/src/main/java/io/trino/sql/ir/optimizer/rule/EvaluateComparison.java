@@ -20,13 +20,15 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.Comparison.Operator;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -34,14 +36,9 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.isConstantNull;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 
 /**
  * Evaluates a constant Comparison expression
@@ -59,25 +56,46 @@ public class EvaluateComparison
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        return switch (expression) {
-            case Comparison(Operator operator, Constant left, Constant right) when operator == IDENTICAL -> Optional.of(evaluate(OperatorType.IDENTICAL, left, right, session));
-            case Comparison(Operator operator, Constant left, Constant right) when operator == EQUAL -> Optional.of(evaluate(OperatorType.EQUAL, left, right, session));
-            case Comparison(Operator operator, Constant left, Constant right) when operator == NOT_EQUAL -> Optional.of(switch (evaluate(OperatorType.EQUAL, left, right, session)) {
-                case Constant constant when isConstantNull(constant) -> constant;
-                case Constant(Type type, Boolean value) -> new Constant(type, !value);
-                default -> throw new IllegalStateException("Unexpected value for boolean expression");
-            });
-            case Comparison(Operator operator, Constant left, Constant right) when operator == LESS_THAN -> Optional.of(evaluate(OperatorType.LESS_THAN, left, right, session));
-            case Comparison(Operator operator, Constant left, Constant right) when operator == LESS_THAN_OR_EQUAL -> Optional.of(evaluate(OperatorType.LESS_THAN_OR_EQUAL, left, right, session));
-            case Comparison(Operator operator, Constant left, Constant right) when operator == GREATER_THAN -> Optional.of(evaluate(OperatorType.LESS_THAN, right, left, session));
-            case Comparison(Operator operator, Constant left, Constant right) when operator == GREATER_THAN_OR_EQUAL -> Optional.of(evaluate(OperatorType.LESS_THAN_OR_EQUAL, right, left, session));
-            case Comparison(Operator operator, Expression left, Expression right) when operator == IDENTICAL && isConstantNull(left) -> Optional.of(new IsNull(right));
-            case Comparison(Operator operator, Expression left, Expression right) when operator == IDENTICAL && isConstantNull(right) -> Optional.of(new IsNull(left));
-            case Comparison(Operator operator, Expression left, Expression right) when operator != IDENTICAL && (isConstantNull(left) || isConstantNull(right)) -> Optional.of(NULL_BOOLEAN);
-            default -> Optional.empty();
-        };
+        if (!(expression instanceof Call)) {
+            return Optional.empty();
+        }
+
+        if (!(matchComparison(expression) instanceof Comparison comparison)) {
+            return Optional.empty();
+        }
+
+        ComparisonOperator operator = comparison.operator();
+        Expression left = comparison.left();
+        Expression right = comparison.right();
+
+        if (left instanceof Constant leftConstant && right instanceof Constant rightConstant) {
+            return switch (operator) {
+                case IDENTICAL -> Optional.of(evaluate(OperatorType.IDENTICAL, leftConstant, rightConstant, session));
+                case EQUAL -> Optional.of(evaluate(OperatorType.EQUAL, leftConstant, rightConstant, session));
+                case NOT_EQUAL -> Optional.of(switch (evaluate(OperatorType.EQUAL, leftConstant, rightConstant, session)) {
+                    case Constant constant when isConstantNull(constant) -> constant;
+                    case Constant(Type type, Boolean value) -> new Constant(type, !value);
+                    default -> throw new IllegalStateException("Unexpected value for boolean expression");
+                });
+                case LESS_THAN -> Optional.of(evaluate(OperatorType.LESS_THAN, leftConstant, rightConstant, session));
+                case LESS_THAN_OR_EQUAL -> Optional.of(evaluate(OperatorType.LESS_THAN_OR_EQUAL, leftConstant, rightConstant, session));
+                default -> throw new IllegalStateException("Unexpected operator: " + operator);
+            };
+        }
+
+        if (operator == IDENTICAL && isConstantNull(left)) {
+            return Optional.of(new IsNull(right));
+        }
+        if (operator == IDENTICAL && isConstantNull(right)) {
+            return Optional.of(new IsNull(left));
+        }
+        if (operator != IDENTICAL && (isConstantNull(left) || isConstantNull(right))) {
+            return Optional.of(NULL_BOOLEAN);
+        }
+
+        return Optional.empty();
     }
 
     private Constant evaluate(OperatorType operator, Constant left, Constant right, Session session)

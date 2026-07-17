@@ -60,6 +60,7 @@ public class TestSplitPruning
     {
         return DeltaLakeQueryRunner.builder()
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .build();
     }
 

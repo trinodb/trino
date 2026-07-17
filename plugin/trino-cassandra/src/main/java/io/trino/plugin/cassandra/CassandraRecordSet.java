@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.oss.driver.api.core.cql.Statement;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
@@ -28,16 +29,17 @@ public class CassandraRecordSet
 {
     private final CassandraSession cassandraSession;
     private final CassandraTypeManager cassandraTypeManager;
-    private final String cql;
+    private final Statement<?> statement;
+
     private final List<String> cassandraNames;
     private final List<CassandraType> cassandraTypes;
     private final List<Type> columnTypes;
 
-    public CassandraRecordSet(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, String cql, List<CassandraColumnHandle> cassandraColumns)
+    public CassandraRecordSet(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, Statement<?> statement, List<CassandraColumnHandle> cassandraColumns)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
-        this.cql = requireNonNull(cql, "cql is null");
+        this.statement = requireNonNull(statement, "statement is null");
 
         requireNonNull(cassandraColumns, "cassandraColumns is null");
         this.cassandraNames = transformList(cassandraColumns, CassandraColumnHandle::name);
@@ -54,7 +56,7 @@ public class CassandraRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new CassandraRecordCursor(cassandraSession, cassandraTypeManager, cassandraNames, cassandraTypes, cql);
+        return new CassandraRecordCursor(cassandraSession, cassandraTypeManager, cassandraNames, cassandraTypes, statement);
     }
 
     private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)

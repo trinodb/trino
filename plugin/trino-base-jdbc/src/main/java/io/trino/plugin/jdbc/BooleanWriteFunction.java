@@ -34,7 +34,8 @@ public interface BooleanWriteFunction
     {
         requireNonNull(implementation, "implementation is null");
 
-        return new BooleanWriteFunction() {
+        return new BooleanWriteFunction()
+        {
             @Override
             public void set(PreparedStatement statement, int index, boolean value)
                     throws SQLException

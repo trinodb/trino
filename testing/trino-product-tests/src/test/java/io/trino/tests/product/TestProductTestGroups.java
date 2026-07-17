@@ -162,8 +162,7 @@ public class TestProductTestGroups
                 // This is a special test, self-test of CONFIGURED_FEATURES
             }
             else {
-                check(
-                        errors::add,
+                check(errors::add,
                         !intersection(groups, SUITE1_EXCLUSIONS).isEmpty(),
                         "The test should probably have %s (or any other from %s), besides %s, to avoid being run more times than desired: %s",
                         PROFILE_SPECIFIC_TESTS,

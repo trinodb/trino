@@ -137,7 +137,7 @@ public class PushPredicateThroughProjectIntoRowNumber
             return Result.empty();
         }
         // Remove the row number domain because it is absorbed into the node
-        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
+        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
                 domainTranslator.toPredicate(newTupleDomain));

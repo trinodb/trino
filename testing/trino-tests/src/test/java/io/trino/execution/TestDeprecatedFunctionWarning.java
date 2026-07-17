@@ -66,13 +66,13 @@ public class TestDeprecatedFunctionWarning
     {
         queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
         ImmutableList.of(
-                TestScalaFunction.class,
-                TestDeprecatedParametericScalaFunction.class,
-                TestNonDeprecatedParametericScalaFunction.class,
-                TestDeprecatedAggregation.class,
-                TestNonDeprecatedAggregation.class,
-                TestDeprecatedWindow.class,
-                TestNonDeprecatedWindow.class)
+                        TestScalaFunction.class,
+                        TestDeprecatedParametericScalaFunction.class,
+                        TestNonDeprecatedParametericScalaFunction.class,
+                        TestDeprecatedAggregation.class,
+                        TestNonDeprecatedAggregation.class,
+                        TestDeprecatedWindow.class,
+                        TestNonDeprecatedWindow.class)
                 .forEach(udfClass -> queryRunner.addFunctions(InternalFunctionBundle.builder().functions(udfClass).build()));
         queryRunner.installPlugin(new DeprecatedFunctionsPlugin());
     }
@@ -87,16 +87,20 @@ public class TestDeprecatedFunctionWarning
     @Test
     public void testDeprecatedScalaFunction()
     {
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT 123",
                 ImmutableList.of());
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT lower('A')",
                 ImmutableList.of());
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT deprecated_scalar()",
                 ImmutableList.of(DEPRECATED_FUNCTION_WARNING_CODE));
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT non_deprecated_scalar()",
                 ImmutableList.of());
     }
@@ -114,10 +118,12 @@ public class TestDeprecatedFunctionWarning
     @Test
     public void testPluginDeprecatedScalaFunction()
     {
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT plugin_deprecated_scalar()",
                 ImmutableList.of(DEPRECATED_FUNCTION_WARNING_CODE));
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT plugin_non_deprecated_scalar()",
                 ImmutableList.of());
     }
@@ -125,16 +131,20 @@ public class TestDeprecatedFunctionWarning
     @Test
     public void testDeprecatedParametericScalaFunction()
     {
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT deprecated_parameteric_scala(1.2)",
                 ImmutableList.of(DEPRECATED_FUNCTION_WARNING_CODE));
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT deprecated_parameteric_scala(123)",
                 ImmutableList.of(DEPRECATED_FUNCTION_WARNING_CODE));
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT non_deprecated_parameteric_scala(1.2)",
                 ImmutableList.of());
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT non_deprecated_parameteric_scala(123)",
                 ImmutableList.of());
     }
@@ -142,10 +152,12 @@ public class TestDeprecatedFunctionWarning
     @Test
     public void testDeprecatedAggregationFunction()
     {
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT deprecated_aggregation(val) from (VALUES (1),(2),(3)) AS t(val)",
                 ImmutableList.of(DEPRECATED_FUNCTION_WARNING_CODE));
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT non_deprecated_aggregation(val) from (VALUES (1),(2),(3)) AS t(val)",
                 ImmutableList.of());
     }
@@ -153,10 +165,12 @@ public class TestDeprecatedFunctionWarning
     @Test
     public void testDeprecatedWindowFunction()
     {
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT deprecated_window() OVER (PARTITION BY id) FROM (VALUES (1,10),(2,20),(3,30)) AS t(id, val)",
                 ImmutableList.of(DEPRECATED_FUNCTION_WARNING_CODE));
-        assertPlannerWarnings(queryRunner,
+        assertPlannerWarnings(
+                queryRunner,
                 "SELECT non_deprecated_window() OVER (PARTITION BY id) FROM (VALUES (1,10),(2,20),(3,30)) AS t(id, val)",
                 ImmutableList.of());
     }

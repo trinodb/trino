@@ -17,7 +17,7 @@ import io.trino.server.ExternalUriInfo;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_DISABLED;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public class DisabledWebUiAuthenticationFilter
@@ -28,12 +28,12 @@ public class DisabledWebUiAuthenticationFilter
     {
         String path = request.getUriInfo().getRequestUri().getPath();
         if (path.equals("/")) {
-            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(DISABLED_LOCATION)).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_DISABLED)).build());
             return;
         }
 
         // disabled page is always visible
-        if (path.equals(DISABLED_LOCATION)) {
+        if (path.equals(UI_DISABLED)) {
             return;
         }
 
@@ -43,7 +43,7 @@ public class DisabledWebUiAuthenticationFilter
         }
         else {
             // redirect to disabled page
-            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(DISABLED_LOCATION)).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_DISABLED)).build());
         }
     }
 }

@@ -259,8 +259,8 @@ public class OpenXJsonSerializer
         }
         if (type instanceof MapType mapType) {
             return !isStructuralType(mapType.getKeyType()) &&
-                   isSupportedType(mapType.getKeyType()) &&
-                   isSupportedType(mapType.getValueType());
+                    isSupportedType(mapType.getKeyType()) &&
+                    isSupportedType(mapType.getValueType());
         }
         if (type instanceof RowType rowType) {
             return rowType.getFields().stream()

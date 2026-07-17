@@ -19,13 +19,22 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.Type;
 
+import java.util.Arrays;
 import java.util.function.Predicate;
 
+import static io.trino.spi.block.Bitmap.countTransitions;
+import static io.trino.spi.block.Bitmap.getBits;
+import static io.trino.spi.block.Bitmap.isSet;
+import static java.lang.Long.bitCount;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 
 final class ReaderUtils
 {
+    private static final int RANDOM_TRANSITION_THRESHOLD = 12;
+
     private ReaderUtils() {}
 
     public static void verifyStreamType(OrcColumn column, Type actual, Predicate<Type> validTypes)
@@ -53,90 +62,315 @@ final class ReaderUtils
         return max(nonNullCount + 1, 1025);
     }
 
-    public static byte[] unpackByteNulls(byte[] values, boolean[] isNull)
+    public static byte[] unpackByteNulls(byte[] values, long[] valueIsValid, int positionCount)
     {
-        byte[] result = new byte[isNull.length];
+        byte[] result = new byte[positionCount];
 
-        int position = 0;
-        for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
-            if (!isNull[i]) {
-                position++;
-            }
-        }
-        return result;
-    }
-
-    public static short[] unpackShortNulls(short[] values, boolean[] isNull)
-    {
-        short[] result = new short[isNull.length];
-
-        int position = 0;
-        for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
-            if (!isNull[i]) {
-                position++;
-            }
-        }
-        return result;
-    }
-
-    public static int[] unpackIntNulls(int[] values, boolean[] isNull)
-    {
-        int[] result = new int[isNull.length];
-
-        int position = 0;
-        for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
-            if (!isNull[i]) {
-                position++;
-            }
-        }
-        return result;
-    }
-
-    public static long[] unpackLongNulls(long[] values, boolean[] isNull)
-    {
-        long[] result = new long[isNull.length];
-
-        int position = 0;
-        for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
-            if (!isNull[i]) {
-                position++;
-            }
-        }
-        return result;
-    }
-
-    public static long[] unpackInt128Nulls(long[] values, boolean[] isNull)
-    {
-        long[] result = new long[isNull.length * 2];
-
-        int position = 0;
+        int inputPosition = 0;
         int outputPosition = 0;
-        for (int i = 0; i < isNull.length; i++) {
-            result[outputPosition] = values[position];
-            result[outputPosition + 1] = values[position + 1];
-            if (!isNull[i]) {
-                position += 2;
+        while (outputPosition < positionCount) {
+            int bitsInWord = min(Long.SIZE, positionCount - outputPosition);
+            long validBits = getBits(valueIsValid, 0, outputPosition, bitsInWord);
+            if (validBits == 0) {
+                Arrays.fill(result, outputPosition, outputPosition + bitsInWord, values[inputPosition]);
+                outputPosition += bitsInWord;
+                continue;
             }
-            outputPosition += 2;
+            if (bitCount(validBits) == bitsInWord) {
+                arraycopy(values, inputPosition, result, outputPosition, bitsInWord);
+                inputPosition += bitsInWord;
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (countTransitions(validBits, bitsInWord) >= RANDOM_TRANSITION_THRESHOLD) {
+                int endOutputPosition = outputPosition + bitsInWord;
+                while (outputPosition < endOutputPosition) {
+                    result[outputPosition] = values[inputPosition];
+                    inputPosition += (int) (validBits & 1);
+                    outputPosition++;
+                    validBits >>>= 1;
+                }
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                Arrays.fill(result, outputPosition, outputPosition + nullCount, values[inputPosition]);
+                outputPosition += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                arraycopy(values, inputPosition, result, outputPosition, validCount);
+                inputPosition += validCount;
+                outputPosition += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
+            }
         }
         return result;
     }
 
-    public static void unpackLengthNulls(int[] values, boolean[] isNull, int nonNullCount)
+    public static short[] unpackShortNulls(short[] values, long[] valueIsValid, int positionCount)
+    {
+        short[] result = new short[positionCount];
+
+        int inputPosition = 0;
+        int outputPosition = 0;
+        while (outputPosition < positionCount) {
+            int bitsInWord = min(Long.SIZE, positionCount - outputPosition);
+            long validBits = getBits(valueIsValid, 0, outputPosition, bitsInWord);
+            if (validBits == 0) {
+                Arrays.fill(result, outputPosition, outputPosition + bitsInWord, values[inputPosition]);
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (bitCount(validBits) == bitsInWord) {
+                arraycopy(values, inputPosition, result, outputPosition, bitsInWord);
+                inputPosition += bitsInWord;
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (countTransitions(validBits, bitsInWord) >= RANDOM_TRANSITION_THRESHOLD) {
+                int endOutputPosition = outputPosition + bitsInWord;
+                while (outputPosition < endOutputPosition) {
+                    result[outputPosition] = values[inputPosition];
+                    inputPosition += (int) (validBits & 1);
+                    outputPosition++;
+                    validBits >>>= 1;
+                }
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                Arrays.fill(result, outputPosition, outputPosition + nullCount, values[inputPosition]);
+                outputPosition += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                arraycopy(values, inputPosition, result, outputPosition, validCount);
+                inputPosition += validCount;
+                outputPosition += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
+            }
+        }
+        return result;
+    }
+
+    public static int[] unpackIntNulls(int[] values, long[] valueIsValid, int positionCount)
+    {
+        int[] result = new int[positionCount];
+
+        int inputPosition = 0;
+        int outputPosition = 0;
+        while (outputPosition < positionCount) {
+            int bitsInWord = min(Long.SIZE, positionCount - outputPosition);
+            long validBits = getBits(valueIsValid, 0, outputPosition, bitsInWord);
+            if (validBits == 0) {
+                Arrays.fill(result, outputPosition, outputPosition + bitsInWord, values[inputPosition]);
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (bitCount(validBits) == bitsInWord) {
+                arraycopy(values, inputPosition, result, outputPosition, bitsInWord);
+                inputPosition += bitsInWord;
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (countTransitions(validBits, bitsInWord) >= RANDOM_TRANSITION_THRESHOLD) {
+                int endOutputPosition = outputPosition + bitsInWord;
+                while (outputPosition < endOutputPosition) {
+                    result[outputPosition] = values[inputPosition];
+                    inputPosition += (int) (validBits & 1);
+                    outputPosition++;
+                    validBits >>>= 1;
+                }
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                Arrays.fill(result, outputPosition, outputPosition + nullCount, values[inputPosition]);
+                outputPosition += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                arraycopy(values, inputPosition, result, outputPosition, validCount);
+                inputPosition += validCount;
+                outputPosition += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
+            }
+        }
+        return result;
+    }
+
+    public static long[] unpackLongNulls(long[] values, long[] valueIsValid, int positionCount)
+    {
+        long[] result = new long[positionCount];
+
+        int inputPosition = 0;
+        int outputPosition = 0;
+        while (outputPosition < positionCount) {
+            int bitsInWord = min(Long.SIZE, positionCount - outputPosition);
+            long validBits = getBits(valueIsValid, 0, outputPosition, bitsInWord);
+            if (validBits == 0) {
+                Arrays.fill(result, outputPosition, outputPosition + bitsInWord, values[inputPosition]);
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (bitCount(validBits) == bitsInWord) {
+                arraycopy(values, inputPosition, result, outputPosition, bitsInWord);
+                inputPosition += bitsInWord;
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (countTransitions(validBits, bitsInWord) >= RANDOM_TRANSITION_THRESHOLD) {
+                int endOutputPosition = outputPosition + bitsInWord;
+                while (outputPosition < endOutputPosition) {
+                    result[outputPosition] = values[inputPosition];
+                    inputPosition += (int) (validBits & 1);
+                    outputPosition++;
+                    validBits >>>= 1;
+                }
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                Arrays.fill(result, outputPosition, outputPosition + nullCount, values[inputPosition]);
+                outputPosition += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                arraycopy(values, inputPosition, result, outputPosition, validCount);
+                inputPosition += validCount;
+                outputPosition += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
+            }
+        }
+        return result;
+    }
+
+    public static long[] unpackInt128Nulls(long[] values, long[] valueIsValid, int positionCount)
+    {
+        long[] result = new long[positionCount * 2];
+
+        int inputPosition = 0;
+        int outputPosition = 0;
+        while (outputPosition < positionCount) {
+            int bitsInWord = min(Long.SIZE, positionCount - outputPosition);
+            long validBits = getBits(valueIsValid, 0, outputPosition, bitsInWord);
+            if (validBits == 0) {
+                fillInt128Nulls(result, outputPosition, outputPosition + bitsInWord, values, inputPosition);
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (bitCount(validBits) == bitsInWord) {
+                arraycopy(values, inputPosition, result, outputPosition * 2, bitsInWord * 2);
+                inputPosition += bitsInWord * 2;
+                outputPosition += bitsInWord;
+                continue;
+            }
+            if (countTransitions(validBits, bitsInWord) >= RANDOM_TRANSITION_THRESHOLD) {
+                int endOutputPosition = outputPosition + bitsInWord;
+                while (outputPosition < endOutputPosition) {
+                    int outputIndex = outputPosition * 2;
+                    result[outputIndex] = values[inputPosition];
+                    result[outputIndex + 1] = values[inputPosition + 1];
+                    inputPosition += (int) (validBits & 1) * 2;
+                    outputPosition++;
+                    validBits >>>= 1;
+                }
+                continue;
+            }
+
+            int offsetInWord = 0;
+            while (offsetInWord < bitsInWord) {
+                int nullCount = min(Long.numberOfTrailingZeros(validBits), bitsInWord - offsetInWord);
+                fillInt128Nulls(result, outputPosition, outputPosition + nullCount, values, inputPosition);
+                outputPosition += nullCount;
+                offsetInWord += nullCount;
+                validBits >>>= nullCount;
+                if (offsetInWord == bitsInWord) {
+                    break;
+                }
+
+                int validCount = min(Long.numberOfTrailingZeros(~validBits), bitsInWord - offsetInWord);
+                arraycopy(values, inputPosition, result, outputPosition * 2, validCount * 2);
+                inputPosition += validCount * 2;
+                outputPosition += validCount;
+                offsetInWord += validCount;
+                validBits >>>= validCount;
+            }
+        }
+        return result;
+    }
+
+    public static void unpackLengthNulls(int[] values, long[] valueIsValid, int positionCount, int nonNullCount)
     {
         int nullSuppressedPosition = nonNullCount - 1;
-        for (int outputPosition = isNull.length - 1; outputPosition >= 0; outputPosition--) {
-            if (isNull[outputPosition]) {
-                values[outputPosition] = 0;
+        int outputPosition = positionCount;
+        while (outputPosition > 0) {
+            int bitsInWord = min(Long.SIZE, outputPosition);
+            int wordStart = outputPosition - bitsInWord;
+            long validBits = getBits(valueIsValid, 0, wordStart, bitsInWord);
+            if (validBits == 0) {
+                Arrays.fill(values, wordStart, outputPosition, 0);
+                outputPosition = wordStart;
+                continue;
             }
-            else {
-                values[outputPosition] = values[nullSuppressedPosition];
-                nullSuppressedPosition--;
+            if (bitCount(validBits) == bitsInWord) {
+                int sourcePosition = nullSuppressedPosition - bitsInWord + 1;
+                arraycopy(values, sourcePosition, values, wordStart, bitsInWord);
+                nullSuppressedPosition -= bitsInWord;
+                outputPosition = wordStart;
+                continue;
             }
+
+            for (int position = bitsInWord - 1; position >= 0; position--) {
+                if ((validBits & (1L << position)) != 0) {
+                    values[wordStart + position] = values[nullSuppressedPosition];
+                    nullSuppressedPosition--;
+                }
+                else {
+                    values[wordStart + position] = 0;
+                }
+            }
+            outputPosition = wordStart;
+        }
+    }
+
+    private static void fillInt128Nulls(long[] result, int fromPosition, int toPosition, long[] values, int valuePosition)
+    {
+        long low = values[valuePosition];
+        long high = values[valuePosition + 1];
+        for (int position = fromPosition; position < toPosition; position++) {
+            int outputIndex = position * 2;
+            result[outputIndex] = low;
+            result[outputIndex + 1] = high;
         }
     }
 
@@ -151,9 +385,9 @@ final class ReaderUtils
         }
     }
 
-    static Block toNotNullSupressedBlock(int positionCount, boolean[] rowIsNull, Block fieldBlock)
+    static Block toNotNullSupressedBlock(int positionCount, long[] rowIsValid, Block fieldBlock)
     {
-        requireNonNull(rowIsNull, "rowIsNull is null");
+        requireNonNull(rowIsValid, "rowIsValid is null");
         requireNonNull(fieldBlock, "fieldBlock is null");
 
         // find an existing position in the block that is null
@@ -176,12 +410,12 @@ final class ReaderUtils
         int[] dictionaryIds = new int[positionCount];
         int nullSuppressedPosition = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull[position]) {
-                dictionaryIds[position] = nullIndex;
-            }
-            else {
+            if (isSet(rowIsValid, 0, position)) {
                 dictionaryIds[position] = nullSuppressedPosition;
                 nullSuppressedPosition++;
+            }
+            else {
+                dictionaryIds[position] = nullIndex;
             }
         }
         return DictionaryBlock.create(positionCount, fieldBlock, dictionaryIds);

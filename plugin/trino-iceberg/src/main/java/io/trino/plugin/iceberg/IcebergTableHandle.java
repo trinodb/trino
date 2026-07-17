@@ -58,7 +58,7 @@ public class IcebergTableHandle
     // Filter guaranteed to be enforced by Iceberg connector
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
-    // Columns that are present in {@link Constraint#predicate()} applied on the table scan
+    // Columns that are present in {@link Constraint#getExpression()} applied on the table scan
     private final Set<IcebergColumnHandle> constraintColumns;
 
     // semantically limit is applied after enforcedPredicate

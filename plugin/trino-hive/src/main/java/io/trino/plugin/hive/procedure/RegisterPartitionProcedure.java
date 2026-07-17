@@ -125,7 +125,7 @@ public class RegisterPartitionProcedure
             Table table = metastore.getTable(schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
-            accessControl.checkCanInsertIntoTable(null, schemaTableName);
+            accessControl.checkCanInsertIntoTable(null, schemaTableName, Optional.empty());
 
             checkIsPartitionedTable(table);
             checkPartitionColumns(table, partitionColumns);

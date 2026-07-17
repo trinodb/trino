@@ -14,9 +14,9 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -25,8 +25,9 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.MapType;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -52,8 +53,8 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.mapType;
 
@@ -75,7 +76,6 @@ public class BenchmarkMapConcat
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -101,24 +101,23 @@ public class BenchmarkMapConcat
             List<String> leftKeys;
             List<String> rightKeys;
             switch (mapConfig) {
-                case "left_empty":
+                case "left_empty" -> {
                     leftKeys = ImmutableList.of();
                     rightKeys = ImmutableList.of("a", "b", "c");
-                    break;
-                case "right_empty":
+                }
+                case "right_empty" -> {
                     leftKeys = ImmutableList.of("a", "b", "c");
                     rightKeys = ImmutableList.of();
-                    break;
-                case "both_empty":
+                }
+                case "both_empty" -> {
                     leftKeys = ImmutableList.of();
                     rightKeys = ImmutableList.of();
-                    break;
-                case "non_empty":
+                }
+                case "non_empty" -> {
                     leftKeys = ImmutableList.of("a", "b", "c");
                     rightKeys = ImmutableList.of("d", "b", "c");
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
 
             MapType mapType = mapType(createUnboundedVarcharType(), DOUBLE);
@@ -131,14 +130,17 @@ public class BenchmarkMapConcat
             Block rightValueBlock = createValueBlock(POSITIONS, rightKeys.size());
             Block rightBlock = createMapBlock(mapType, POSITIONS, rightKeyBlock, rightValueBlock);
 
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> projectionsBuilder = ImmutableList.builder();
 
-            projectionsBuilder.add(new CallExpression(
+            projectionsBuilder.add(call(
                     functionResolution.resolveFunction(name, fromTypes(mapType, mapType)),
-                    ImmutableList.of(field(0, mapType), field(1, mapType))));
+                    new Reference(mapType, "$col_0"),
+                    new Reference(mapType, "$col_1")));
 
-            List<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            List<Expression> projections = projectionsBuilder.build();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(
+                    new Symbol(mapType, "$col_0"), 0,
+                    new Symbol(mapType, "$col_1"), 1)).get();
             page = new Page(leftBlock, rightBlock);
         }
 

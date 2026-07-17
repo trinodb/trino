@@ -18,6 +18,8 @@ import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.block.Bitmap.orPackedBits;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 
 public class BooleanInputStream
         implements ValueInputStream<BooleanStreamCheckpoint>
@@ -218,103 +220,74 @@ public class BooleanInputStream
         }
     }
 
-    /**
-     * Sets the vector element to true if the bit is not set.
-     */
-    @SuppressWarnings({"NarrowingCompoundAssignment", "PointlessArithmeticExpression", "UnusedAssignment"})
-    public int getUnsetBits(int batchSize, boolean[] vector)
+    /// Sets bits in a validity bitmap using the [io.trino.spi.block.Bitmap] encoding and returns the number of set bits.
+    ///
+    /// ORC present streams use a set bit for a present, non-null value, matching block validity bitmaps. The bitmap must
+    /// be zero-initialized.
+    @SuppressWarnings({"NarrowingCompoundAssignment", "PointlessArithmeticExpression"})
+    public int getSetBits(int batchSize, long[] bitmap)
             throws IOException
     {
-        int unsetCount = 0;
+        checkState(bitmap.length >= wordsForBits(batchSize), "bitmap is too small");
+
+        int setCount = 0;
         int offset = 0;
 
         // handle the head
         int count = Math.min(batchSize, bitsInData);
         if (count != 0) {
             int value = (data & 0xFF) >>> (8 - count);
-            unsetCount += (count - Integer.bitCount(value));
-            switch (count) {
-                case 7:
-                    vector[offset++] = (value & 64) == 0;
-                    // fall through
-                case 6:
-                    vector[offset++] = (value & 32) == 0;
-                    // fall through
-                case 5:
-                    vector[offset++] = (value & 16) == 0;
-                    // fall through
-                case 4:
-                    vector[offset++] = (value & 8) == 0;
-                    // fall through
-                case 3:
-                    vector[offset++] = (value & 4) == 0;
-                    // fall through
-                case 2:
-                    vector[offset++] = (value & 2) == 0;
-                    // fall through
-                case 1:
-                    vector[offset++] = (value & 1) == 0;
-            }
+            setCount += Integer.bitCount(value);
+            orPackedBits(bitmap, 0, offset, reverseBits(value, count), count);
+            offset += count;
             data <<= count;
             bitsInData -= count;
 
             if (count == batchSize) {
-                return unsetCount;
+                return setCount;
             }
         }
 
         // the middle part
+        while (offset < batchSize - 63) {
+            long word = 0;
+            for (int shift = 0; shift < Long.SIZE; shift += Byte.SIZE) {
+                int value = byteStream.next() & 0xFF;
+                setCount += Integer.bitCount(value);
+                word |= (long) reverseBits(value, Byte.SIZE) << shift;
+            }
+            orPackedBits(bitmap, 0, offset, word, Long.SIZE);
+            offset += Long.SIZE;
+        }
+
         while (offset < batchSize - 7) {
-            byte value = byteStream.next();
-            unsetCount += (8 - Integer.bitCount(value & 0xFF));
-            vector[offset + 0] = (value & 128) == 0;
-            vector[offset + 1] = (value & 64) == 0;
-            vector[offset + 2] = (value & 32) == 0;
-            vector[offset + 3] = (value & 16) == 0;
-            vector[offset + 4] = (value & 8) == 0;
-            vector[offset + 5] = (value & 4) == 0;
-            vector[offset + 6] = (value & 2) == 0;
-            vector[offset + 7] = (value & 1) == 0;
-            offset += 8;
+            int value = byteStream.next() & 0xFF;
+            setCount += Integer.bitCount(value);
+            orPackedBits(bitmap, 0, offset, reverseBits(value, Byte.SIZE), Byte.SIZE);
+            offset += Byte.SIZE;
         }
 
         // the tail
         int remaining = batchSize - offset;
         if (remaining > 0) {
             byte data = byteStream.next();
-            int value = (data & 0xff) >> (8 - remaining);
-            unsetCount += (remaining - Integer.bitCount(value));
-            switch (remaining) {
-                case 7:
-                    vector[offset++] = (value & 64) == 0;
-                    // fall through
-                case 6:
-                    vector[offset++] = (value & 32) == 0;
-                    // fall through
-                case 5:
-                    vector[offset++] = (value & 16) == 0;
-                    // fall through
-                case 4:
-                    vector[offset++] = (value & 8) == 0;
-                    // fall through
-                case 3:
-                    vector[offset++] = (value & 4) == 0;
-                    // fall through
-                case 2:
-                    vector[offset++] = (value & 2) == 0;
-                    // fall through
-                case 1:
-                    vector[offset++] = (value & 1) == 0;
-            }
+            int value = (data & 0xFF) >>> (8 - remaining);
+            setCount += Integer.bitCount(value);
+            orPackedBits(bitmap, 0, offset, reverseBits(value, remaining), remaining);
             this.data = (byte) (data << remaining);
             bitsInData = 8 - remaining;
         }
 
-        return unsetCount;
+        return setCount;
     }
 
     private static int bitCount(byte data)
     {
         return Integer.bitCount(data & 0xFF);
+    }
+
+    private static int reverseBits(int value, int bits)
+    {
+        return Integer.reverse(value) >>> (Integer.SIZE - bits);
     }
 }

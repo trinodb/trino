@@ -42,8 +42,8 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -94,7 +94,7 @@ public class ProtobufColumnDecoder
             requireNonNull(columnHandle, "columnHandle is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.descriptorProvider = requireNonNull(descriptorProvider, "descriptorProvider is null");
-            this.jsonType = typeManager.getType(new TypeSignature(JSON));
+            this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
             this.columnType = columnHandle.getType();
             this.columnMapping = columnHandle.getMapping();
             this.columnName = columnHandle.getName();

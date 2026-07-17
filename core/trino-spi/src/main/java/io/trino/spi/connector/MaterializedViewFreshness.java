@@ -95,6 +95,5 @@ public final class MaterializedViewFreshness
         FRESH_WITHIN_GRACE_PERIOD,
         STALE,
         UNKNOWN,
-        /**/
     }
 }

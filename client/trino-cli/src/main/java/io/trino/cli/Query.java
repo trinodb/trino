@@ -56,9 +56,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.logging.Level.FINE;
-import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
-import static org.jline.utils.AttributedStyle.RED;
 
 public class Query
         implements Closeable
@@ -70,13 +68,15 @@ public class Query
     private final boolean debug;
     private final int maxQueuedRows;
     private final int maxBufferedRows;
+    private final Theme theme;
 
-    public Query(StatementClient client, boolean debug, int maxQueuedRows, int maxBufferedRows)
+    public Query(StatementClient client, boolean debug, int maxQueuedRows, int maxBufferedRows, Theme theme)
     {
         this.client = requireNonNull(client, "client is null");
         this.debug = debug;
         this.maxQueuedRows = maxQueuedRows;
         this.maxBufferedRows = maxBufferedRows;
+        this.theme = requireNonNull(theme, "theme is null");
     }
 
     public Optional<String> getSetCatalog()
@@ -166,10 +166,10 @@ public class Query
     private boolean renderQueryOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress, boolean decimalDataSize)
     {
         StatusPrinter statusPrinter = null;
-        WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
+        WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel, theme);
 
         if (showProgress) {
-            statusPrinter = new StatusPrinter(client, errorChannel, debug, isInteractive(pager), decimalDataSize);
+            statusPrinter = new StatusPrinter(client, errorChannel, debug, isInteractive(pager), decimalDataSize, theme);
             statusPrinter.printInitialStatusUpdates(terminal);
         }
         else {
@@ -334,21 +334,21 @@ public class Query
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns, int maxQueuedRows, int maxBufferedRows)
+    private OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns, int maxQueuedRows, int maxBufferedRows)
     {
         return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns), maxQueuedRows, maxBufferedRows);
     }
 
-    private static OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
+    private OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
     {
         List<String> fieldNames = columns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
         switch (format) {
             case AUTO:
-                return new AutoTablePrinter(columns, writer, maxWidth);
+                return new AutoTablePrinter(columns, writer, maxWidth, theme);
             case ALIGNED:
-                return new AlignedTablePrinter(columns, writer);
+                return new AlignedTablePrinter(columns, writer, theme);
             case VERTICAL:
                 return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
@@ -400,7 +400,7 @@ public class Query
         out.println();
     }
 
-    private static void renderErrorLocation(String query, ErrorLocation location, PrintStream out)
+    private void renderErrorLocation(String query, ErrorLocation location, PrintStream out)
     {
         List<String> lines = ImmutableList.copyOf(Splitter.on('\n').split(query).iterator());
 
@@ -415,13 +415,13 @@ public class Query
         if (isRealTerminal()) {
             AttributedStringBuilder builder = new AttributedStringBuilder();
 
-            builder.style(DEFAULT.foreground(CYAN));
+            builder.style(theme.errorContext());
             for (int i = 1; i < location.getLineNumber(); i++) {
                 builder.append(lines.get(i - 1)).append("\n");
             }
             builder.append(good);
 
-            builder.style(DEFAULT.foreground(RED));
+            builder.style(theme.error());
             builder.append(bad).append("\n");
             for (int i = location.getLineNumber(); i < lines.size(); i++) {
                 builder.append(lines.get(i)).append("\n");
@@ -443,9 +443,9 @@ public class Query
     {
         private final PrintStream printStream;
 
-        PrintStreamWarningsPrinter(PrintStream printStream)
+        PrintStreamWarningsPrinter(PrintStream printStream, Theme theme)
         {
-            super(OptionalInt.empty());
+            super(OptionalInt.empty(), theme);
             this.printStream = requireNonNull(printStream, "printStream is null");
         }
 

@@ -164,7 +164,7 @@ public class KdbTree
     public Map<Integer, Rectangle> getLeaves()
     {
         ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> true);
+        addLeaves(root, leaves, _ -> true);
         return leaves.buildOrThrow();
     }
 

@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
+import io.trino.plugin.geospatial.GeoPlugin;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
@@ -30,6 +34,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestGeometryConvexHullGeoAggregation
         extends AbstractTestGeoAggregationFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+        assertions.addPlugin(new GeoPlugin());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testPoint()
     {
@@ -47,7 +67,8 @@ public class TestGeometryConvexHullGeoAggregation
         assertAggregatedGeometries(
                 "null before value yields the value",
                 "POINT (1 2)",
-                null, "POINT (1 2)");
+                null,
+                "POINT (1 2)");
 
         assertAggregatedGeometries(
                 "null after value yields the value",
@@ -334,17 +355,20 @@ public class TestGeometryConvexHullGeoAggregation
         assertAggregatedGeometries(
                 "square with a line crossed",
                 "POLYGON ((0 2, 1 1, 3 1, 5 2, 3 3, 1 3, 0 2))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 2, 5 2)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "LINESTRING (0 2, 5 2)");
 
         assertAggregatedGeometries(
                 "square with adjacent line",
                 "POLYGON ((0 5, 1 1, 3 1, 5 5, 0 5))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 5, 5 5)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "LINESTRING (0 5, 5 5)");
 
         assertAggregatedGeometries(
                 "square with adjacent point",
                 "POLYGON ((5 2, 3 3, 1 3, 1 1, 3 1, 5 2))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "POINT (5 2)");
     }
 
     @Test
@@ -371,6 +395,21 @@ public class TestGeometryConvexHullGeoAggregation
         ConvexHullAggregation.combine(state, otherState);
 
         assertThat(state.getGeometry().getSRID()).isEqualTo(4326);
+    }
+
+    @Test
+    public void testSridAndZMetadata()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT ST_AsEWKT(convex_hull_agg(geometry))
+                FROM (VALUES
+                    ST_SetSRID(ST_GeometryFromText('POINT Z (0 0 1)'), 4326),
+                    ST_SetSRID(ST_GeometryFromText('POINT Z (2 0 2)'), 4326),
+                    ST_SetSRID(ST_GeometryFromText('POINT Z (0 2 3)'), 4326)
+                ) t(geometry)
+                """))
+                .matches("VALUES VARCHAR 'SRID=4326;POLYGON Z ((0 0 1, 0 2 3, 2 0 2, 0 0 1))'");
     }
 
     private static Geometry geometry(String wkt, int srid)

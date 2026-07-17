@@ -33,8 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -83,6 +83,13 @@ public class PushProjectionThroughExchange
     public Result apply(ProjectNode project, Captures captures, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
+        PlanNode exchangeNode = pushProjectThroughExchange(project, exchange, context);
+        // we need to strip unnecessary symbols (hash, partitioning columns).
+        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), exchangeNode, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(exchangeNode));
+    }
+
+    public static ExchangeNode pushProjectThroughExchange(ProjectNode project, ExchangeNode exchange, Context context)
+    {
         Set<Symbol> partitioningColumns = exchange.getPartitioningScheme().getPartitioning().getColumns();
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
@@ -119,7 +126,7 @@ public class PushProjectionThroughExchange
             Set<Symbol> partitioningHashAndOrderingOutputs = outputBuilder.build();
 
             Map<Symbol, Expression> translationMap = outputToInputMap.entrySet().stream()
-                    .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+                    .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
             for (Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
                 // Skip identity projection if symbol is in outputs already
@@ -164,7 +171,7 @@ public class PushProjectionThroughExchange
                 exchange.getPartitioningScheme().getBucketCount(),
                 exchange.getPartitioningScheme().getPartitionCount());
 
-        PlanNode result = new ExchangeNode(
+        return new ExchangeNode(
                 exchange.getId(),
                 exchange.getType(),
                 exchange.getScope(),
@@ -172,12 +179,9 @@ public class PushProjectionThroughExchange
                 newSourceBuilder.build(),
                 inputsBuilder.build(),
                 exchange.getOrderingScheme());
-
-        // we need to strip unnecessary symbols (hash, partitioning columns).
-        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
     }
 
-    private static boolean isSymbolToSymbolProjection(ProjectNode project)
+    public static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
         return project.getAssignments().expressions().stream().allMatch(Reference.class::isInstance);
     }

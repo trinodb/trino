@@ -82,7 +82,8 @@ public final class AggregateFunctionPatterns
 
     public static Pattern<List<Variable>> variables()
     {
-        return new CustomPattern<>(Optional.empty()) {
+        return new CustomPattern<>(Optional.empty())
+        {
             @Override
             public <C> Stream<Match> accept(Object object, Captures captures, C context)
             {

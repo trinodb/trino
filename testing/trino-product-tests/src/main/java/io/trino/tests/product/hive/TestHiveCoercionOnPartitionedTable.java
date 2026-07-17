@@ -413,7 +413,8 @@ public class TestHiveCoercionOnPartitionedTable
     {
         String tableName = mutableTableInstanceOf(HIVE_COERCION_AVRO).getNameInDatabase();
 
-        onHive().executeQuery(format("INSERT INTO TABLE %s " +
+        onHive().executeQuery(format(
+                "INSERT INTO TABLE %s " +
                         "PARTITION (id=1) " +
                         "VALUES" +
                         "(2323, 0.5)," +

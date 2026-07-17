@@ -41,15 +41,14 @@ public class OpenTracingCollector
 
     public OpenTracingCollector()
     {
-        super(
-                "jaegertracing/all-in-one:1.75.0",
+        super("jaegertracing/all-in-one:1.75.0",
                 "opentracing-collector",
                 Set.of(COLLECTOR_PORT, HTTP_PORT),
                 Map.of(),
                 Map.of(
-                    "COLLECTOR_OTLP_ENABLED", "true",
-                    "SPAN_STORAGE_TYPE", "badger", // KV that stores spans to the disk
-                    "GOMAXPROCS", "2"), // limit number of threads used for goroutines
+                        "COLLECTOR_OTLP_ENABLED", "true",
+                        "SPAN_STORAGE_TYPE", "badger", // KV that stores spans to the disk
+                        "GOMAXPROCS", "2"), // limit number of threads used for goroutines
                 Optional.empty(),
                 1);
 
@@ -77,8 +76,8 @@ public class OpenTracingCollector
     {
         super.close();
         try (Stream<File> files = Files.walk(storageDirectory)
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)) {
+                .sorted(Comparator.reverseOrder())
+                .map(Path::toFile)) {
             files.forEach(File::delete);
         }
         catch (IOException e) {

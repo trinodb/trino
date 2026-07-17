@@ -36,7 +36,6 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
@@ -50,6 +49,7 @@ import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -188,17 +188,17 @@ public final class DistributedQueryRunner
             extraCloseables.forEach(closeable -> closer.register(() -> closeUnchecked(closeable)));
 
             createNewWorker = additionalWorkerProperties -> createServer(
-                        false,
-                        ImmutableMap.<String, String>builder()
-                                .putAll(extraProperties)
-                                .putAll(additionalWorkerProperties)
-                                .buildOrThrow(),
-                        environment,
-                        additionalModule,
-                        baseDataDir,
-                        Optional.empty(),
-                        Optional.of(ImmutableList.of()),
-                        ImmutableList.of());
+                    false,
+                    ImmutableMap.<String, String>builder()
+                            .putAll(extraProperties)
+                            .putAll(additionalWorkerProperties)
+                            .buildOrThrow(),
+                    environment,
+                    additionalModule,
+                    baseDataDir,
+                    Optional.empty(),
+                    Optional.of(ImmutableList.of()),
+                    ImmutableList.of());
 
             for (int i = 0; i < workerCount; i++) {
                 createNewWorker.accept(Map.of());
@@ -732,7 +732,7 @@ public final class DistributedQueryRunner
         }
     }
 
-    public static class Builder<SELF extends Builder<?>>
+    public static class Builder<SELF extends Builder<SELF>>
     {
         private Session defaultSession;
         private boolean withTracing;
@@ -741,7 +741,7 @@ public final class DistributedQueryRunner
         private int workerCount = 2;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
-        private Consumer<QueryRunner> additionalSetup = queryRunner -> {};
+        private Consumer<QueryRunner> additionalSetup = _ -> {};
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -1050,7 +1050,8 @@ public final class DistributedQueryRunner
 
     private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encoding)
     {
-        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory() {
+        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory()
+        {
             @Override
             public StatementClient create(OkHttpClient httpClient, Session session, ClientSession clientSession, String query)
             {

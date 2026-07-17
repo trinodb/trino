@@ -65,7 +65,7 @@ public class ThrottledAsyncQueue<T>
 
         return Futures.transformAsync(
                 throttleFuture,
-                any -> {
+                _ -> {
                     int size = maxBatchSize(maxSize);
                     if (size > 0) {
                         rateLimiter.acquire(size);

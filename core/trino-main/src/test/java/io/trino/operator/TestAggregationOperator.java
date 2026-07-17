@@ -35,7 +35,6 @@ import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -47,7 +46,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -93,7 +92,7 @@ public class TestAggregationOperator
                 createLongsBlock(1, 2, 3, 4),
                 new ByteArrayBlock(
                         4,
-                        Optional.of(new boolean[] {true, true, false, false}),
+                        Optional.of(new long[] {0b1100}),
                         new byte[] {0, 27 /* dirty null */, 0, 75 /* non-zero value is true */})));
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
@@ -128,7 +127,7 @@ public class TestAggregationOperator
 
         ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
                 4,
-                Optional.of(new boolean[] {true, true, true, true}), /* all positions are null */
+                Optional.of(new long[] {0}), /* all positions are null */
                 new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
 
         Block trueNullRleMask = RunLengthEncodedBlock.create(trueMaskAllNull.getSingleValueBlock(0), 4);
@@ -183,7 +182,7 @@ public class TestAggregationOperator
     public void testMemoryTracking()
             throws Exception
     {
-        Page input = getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(100, 0).build());
+        Page input = rowPagesBuilder(BIGINT).addSequencePage(100, 0).buildPage();
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,

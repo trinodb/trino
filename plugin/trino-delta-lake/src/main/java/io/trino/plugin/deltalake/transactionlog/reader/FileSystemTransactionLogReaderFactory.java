@@ -15,9 +15,11 @@ package io.trino.plugin.deltalake.transactionlog.reader;
 
 import com.google.inject.Inject;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,14 +35,14 @@ public class FileSystemTransactionLogReaderFactory
     }
 
     @Override
-    public TransactionLogReader createReader(DeltaLakeTableHandle tableHandle)
+    public TransactionLogReader createReader(DeltaLakeTableHandle tableHandle, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
-        return new FileSystemTransactionLogReader(tableHandle.getLocation(), tableHandle.toCredentialsHandle(), fileSystemFactory);
+        return new FileSystemTransactionLogReader(tableHandle.getLocation(), tableCredentials, fileSystemFactory);
     }
 
     @Override
-    public TransactionLogReader createReader(DeltaMetastoreTable table)
+    public TransactionLogReader createReader(DeltaMetastoreTable table, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
-        return new FileSystemTransactionLogReader(table.location(), VendedCredentialsHandle.of(table), fileSystemFactory);
+        return new FileSystemTransactionLogReader(table.location(), tableCredentials, fileSystemFactory);
     }
 }

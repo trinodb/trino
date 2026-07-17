@@ -70,7 +70,8 @@ public class ExchangeSplitSource
                         splits.addAll(createRemoteSplits(partitionToHandles.get(partition)));
                     }
                     return new SplitBatch(splits.build(), batch.lastBatch());
-                }, directExecutor());
+                },
+                directExecutor());
     }
 
     private List<Split> createRemoteSplits(List<ExchangeSourceHandle> handles)

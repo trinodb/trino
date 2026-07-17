@@ -80,6 +80,9 @@ public class TestUnknownOperators
     {
         assertThat(assertions.operator(EQUAL, "NULL", "NULL"))
                 .isNull(BOOLEAN);
+
+        assertThat(assertions.operator(EQUAL, "null_function()", "null_function()"))
+                .neverFails();
     }
 
     @Test

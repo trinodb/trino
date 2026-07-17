@@ -30,7 +30,7 @@ public interface SingleStreamSpillerFactory
 
     static SingleStreamSpillerFactory unsupportedSingleStreamSpillerFactory()
     {
-        return (types, spillContext, memoryContext, parallelSpill) -> {
+        return (_, _, _, _) -> {
             throw new UnsupportedOperationException();
         };
     }

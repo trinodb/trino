@@ -114,10 +114,10 @@ public class TestMetadataReader
                     assertThat(columnStatistics.isNumNullsSet()).isTrue();
                     assertThat(columnStatistics.getNumNulls()).isEqualTo(13);
 
-                    assertThat(columnStatistics.getMin()).isEqualTo(-3.59039552E8f);
-                    assertThat(columnStatistics.getMax()).isEqualTo(1.868E-41f);
-                    assertThat(columnStatistics.genericGetMin()).isEqualTo(-3.59039552E8f);
-                    assertThat(columnStatistics.genericGetMax()).isEqualTo(1.868E-41f);
+                    assertThat(columnStatistics.getMin()).isEqualTo(-3.59039552e8f);
+                    assertThat(columnStatistics.getMax()).isEqualTo(1.868e-41f);
+                    assertThat(columnStatistics.genericGetMin()).isEqualTo(-3.59039552e8f);
+                    assertThat(columnStatistics.genericGetMax()).isEqualTo(1.868e-41f);
                 });
     }
 
@@ -136,10 +136,10 @@ public class TestMetadataReader
                     assertThat(columnStatistics.isNumNullsSet()).isTrue();
                     assertThat(columnStatistics.getNumNulls()).isEqualTo(13);
 
-                    assertThat(columnStatistics.getMin()).isEqualTo(4.36428250013E-312);
-                    assertThat(columnStatistics.getMax()).isEqualTo(9.223372036854776E18);
-                    assertThat(columnStatistics.genericGetMin()).isEqualTo(4.36428250013E-312);
-                    assertThat(columnStatistics.genericGetMax()).isEqualTo(9.223372036854776E18);
+                    assertThat(columnStatistics.getMin()).isEqualTo(4.36428250013e-312);
+                    assertThat(columnStatistics.getMax()).isEqualTo(9.223372036854776e18);
+                    assertThat(columnStatistics.genericGetMin()).isEqualTo(4.36428250013e-312);
+                    assertThat(columnStatistics.genericGetMax()).isEqualTo(9.223372036854776e18);
                 });
     }
 

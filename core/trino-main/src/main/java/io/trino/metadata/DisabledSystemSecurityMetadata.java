@@ -100,7 +100,8 @@ public class DisabledSystemSecurityMetadata
             Session session,
             CatalogSchemaName schemaName,
             Set<Privilege> privileges,
-            TrinoPrincipal grantee, boolean grantOption)
+            TrinoPrincipal grantee,
+            boolean grantOption)
     {
         throw notSupportedException(schemaName.getCatalogName());
     }
@@ -116,7 +117,8 @@ public class DisabledSystemSecurityMetadata
             Session session,
             CatalogSchemaName schemaName,
             Set<Privilege> privileges,
-            TrinoPrincipal grantee, boolean grantOption)
+            TrinoPrincipal grantee,
+            boolean grantOption)
     {
         throw notSupportedException(schemaName.getCatalogName());
     }

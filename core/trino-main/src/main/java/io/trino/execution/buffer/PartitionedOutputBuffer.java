@@ -23,12 +23,12 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.plugin.base.util.Lazy;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -57,7 +57,7 @@ public class PartitionedOutputBuffer
             OutputBufferStateMachine stateMachine,
             PipelinedOutputBuffers outputBuffers,
             DataSize maxBufferSize,
-            Supplier<LocalMemoryContext> memoryContextSupplier,
+            Lazy<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");

@@ -52,7 +52,9 @@ import io.trino.util.variant.VariantUtil;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
@@ -83,22 +85,22 @@ public final class JsonEncodingUtils
     private static final TinyintEncoder TINYINT_ENCODER = new TinyintEncoder();
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
-    private static final VariantEncoder VARIANT_ENCODER = new VariantEncoder();
 
     public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
         verify(!types.isEmpty(), "Columns must not be empty");
 
-        boolean supportsParametricDateTime = requireNonNull(session, "session is null")
-                .getClientCapabilities()
-                .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        Set<String> clientCapabilities = session.getClientCapabilities();
+        boolean supportsParametricDateTime = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        boolean supportsVariant = clientCapabilities.contains(ClientCapabilities.VARIANT.toString());
+        boolean supportsVariantBinary = clientCapabilities.contains(ClientCapabilities.VARIANT_BINARY.toString());
 
         return types.stream()
-                .map(type -> createTypeEncoder(type, supportsParametricDateTime))
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -111,13 +113,13 @@ public final class JsonEncodingUtils
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
-            case VariantType _ -> VARIANT_ENCODER;
+            case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
                     .toArray(TypeEncoder[]::new));
             case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
         };
@@ -321,6 +323,15 @@ public final class JsonEncodingUtils
     private static final class VariantEncoder
             implements TypeEncoder
     {
+        private final boolean supportsVariant;
+        private final boolean supportsVariantBinary;
+
+        public VariantEncoder(boolean supportsVariant, boolean supportsVariantBinary)
+        {
+            this.supportsVariant = supportsVariant;
+            this.supportsVariantBinary = supportsVariantBinary;
+        }
+
         @Override
         public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
@@ -331,7 +342,21 @@ public final class JsonEncodingUtils
             }
 
             Variant variant = VARIANT.getObject(block, position);
-            generator.writeRawValue(VariantUtil.asJson(variant).toStringUtf8());
+            if (supportsVariantBinary) {
+                generator.writeStartObject();
+                generator.writeStringField("metadata", Base64.getEncoder().encodeToString(variant.metadata().toSlice().getBytes()));
+                generator.writeStringField("value", Base64.getEncoder().encodeToString(variant.data().getBytes()));
+                generator.writeEndObject();
+            }
+            else {
+                String json = VariantUtil.asJson(variant).toStringUtf8();
+                if (supportsVariant) {
+                    generator.writeRawValue(json);
+                }
+                else {
+                    generator.writeString(json);
+                }
+            }
         }
     }
 

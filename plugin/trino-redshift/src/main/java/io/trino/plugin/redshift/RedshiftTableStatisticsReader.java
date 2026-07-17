@@ -160,7 +160,7 @@ public class RedshiftTableStatisticsReader
             return handle.createQuery("SELECT attname, null_frac, n_distinct, avg_width FROM pg_stats WHERE schemaname = :schema AND tablename = :table_name")
                     .bind("schema", schema)
                     .bind("table_name", tableName)
-                    .map((rs, ctx) ->
+                    .map((rs, _) ->
                             new ColumnStatisticsResult(
                                     requireNonNull(rs.getString("attname"), "attname is null"),
                                     Optional.of(rs.getFloat("null_frac")),

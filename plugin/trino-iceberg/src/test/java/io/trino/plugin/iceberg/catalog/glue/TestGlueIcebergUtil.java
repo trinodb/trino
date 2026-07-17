@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -94,6 +95,37 @@ public class TestGlueIcebergUtil
             assertThat(column.type()).isEqualTo(expectedLossyGlueType.get(column.name()));
             assertThat(column.parameters())
                     .containsEntry(COLUMN_TRINO_TYPE_ID_PROPERTY, toTrinoType(expectedGlueTypes.get(column.name()), TESTING_TYPE_MANAGER).getTypeId().getId());
+        }
+    }
+
+    @Test
+    public void testSkipGlueCachingWhenColumnCommentContainsCharactersGlueRejects()
+    {
+        for (String rejectedColumnContent : ImmutableList.of("line one\nline two", "carriage\rreturn", "null\0char")) {
+            Schema schema = new Schema(ImmutableList.of(
+                    Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                    Types.NestedField.optional(2, "value", Types.StringType.get(), rejectedColumnContent)));
+            TableMetadata metadata = newTableMetadata(
+                    schema,
+                    PartitionSpec.unpartitioned(),
+                    SortOrder.unsorted(),
+                    "s3://test-bucket/test-table",
+                    ImmutableMap.of(FORMAT_VERSION, "3"));
+
+            TableInput tableInput = getTableInput(
+                    TESTING_TYPE_MANAGER,
+                    "test_table",
+                    Optional.empty(),
+                    metadata,
+                    metadata.location(),
+                    "s3://test-bucket/test-table/metadata/00001.metadata.json",
+                    ImmutableMap.of(),
+                    true);
+
+            assertThat(tableInput.storageDescriptor().hasColumns())
+                    .as("Glue caching should be skipped when column comment contains: %s",
+                            rejectedColumnContent.replace("\n", "\\n").replace("\r", "\\r").replace("\0", "\\0"))
+                    .isFalse();
         }
     }
 }

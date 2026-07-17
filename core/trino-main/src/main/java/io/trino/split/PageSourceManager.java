@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -68,7 +69,8 @@ public class PageSourceManager
                 TableHandle table,
                 Optional<ConnectorTableCredentials> tableCredentials,
                 List<ColumnHandle> columns,
-                DynamicFilter dynamicFilter)
+                DynamicFilter dynamicFilter,
+                MemoryContext memoryContext)
         {
             requireNonNull(columns, "columns is null");
             checkArgument(split.getCatalogHandle().equals(table.catalogHandle()), "mismatched split and table");
@@ -87,7 +89,8 @@ public class PageSourceManager
                     table.connectorHandle(),
                     tableCredentials,
                     columns,
-                    dynamicFilter);
+                    dynamicFilter,
+                    memoryContext);
         }
 
         @Override

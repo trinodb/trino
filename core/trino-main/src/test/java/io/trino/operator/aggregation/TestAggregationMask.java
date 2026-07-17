@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -40,23 +42,23 @@ public class TestAggregationMask
             assertAggregationMaskAll(aggregationMask, positionCount);
 
             boolean[] nullFlags = new boolean[positionCount];
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
             Arrays.fill(nullFlags, true);
             nullFlags[1] = false;
             nullFlags[3] = false;
             nullFlags[5] = false;
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 3, 5);
 
             nullFlags[3] = true;
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 5);
 
             nullFlags[1] = true;
             nullFlags[5] = true;
-            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
+            aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount);
 
             aggregationMask.reset(positionCount);
@@ -65,10 +67,10 @@ public class TestAggregationMask
             aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[1]), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new boolean[] {false}), new int[1]), positionCount));
+            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new long[] {1}), new int[1]), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new boolean[] {true}), new int[1]), positionCount));
+            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new long[] {0}), new int[1]), positionCount));
             assertAggregationMaskPositions(aggregationMask, positionCount);
         }
     }
@@ -133,23 +135,23 @@ public class TestAggregationMask
             assertAggregationMaskAll(aggregationMask, positionCount);
 
             boolean[] nullFlags = new boolean[positionCount];
-            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
+            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), mask));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
             Arrays.fill(nullFlags, true);
             nullFlags[1] = false;
             nullFlags[3] = false;
             nullFlags[5] = false;
-            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
+            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), mask));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 3, 5);
 
             nullFlags[3] = true;
-            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
+            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), mask));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 5);
 
             nullFlags[1] = true;
             nullFlags[5] = true;
-            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
+            aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(toValidity(nullFlags)), mask));
             assertAggregationMaskPositions(aggregationMask, positionCount);
 
             aggregationMask.reset(positionCount);
@@ -158,12 +160,23 @@ public class TestAggregationMask
             aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.empty(), new byte[] {1}), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new boolean[] {false}), new byte[] {1}), positionCount));
+            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new long[] {1}), new byte[] {1}), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[] {1}), positionCount));
+            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new long[] {0}), new byte[] {1}), positionCount));
             assertAggregationMaskPositions(aggregationMask, positionCount);
         }
+    }
+
+    private static long[] toValidity(boolean[] isNull)
+    {
+        long[] validity = new long[wordsForBits(isNull.length)];
+        for (int position = 0; position < isNull.length; position++) {
+            if (!isNull[position]) {
+                set(validity, 0, position);
+            }
+        }
+        return validity;
     }
 
     private static void assertAggregationMaskAll(AggregationMask aggregationMask, int expectedPositionCount)

@@ -23,6 +23,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,7 +38,7 @@ public class EvaluateBind
         implements IrOptimizerRule
 {
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> contextBindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> contextBindings)
     {
         if (!(expression instanceof Bind(List<Expression> values, Lambda function))) {
             return Optional.empty();

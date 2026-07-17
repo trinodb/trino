@@ -15,12 +15,18 @@ package io.trino.tests.product.launcher.cli;
 
 import io.airlift.units.Duration;
 import io.trino.tests.product.launcher.Extensions;
+import io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
+import io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
+import io.trino.tests.product.launcher.cli.Launcher.TestCommand;
+import io.trino.tests.product.launcher.cli.Launcher.VersionProvider;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.HelpCommand;
 import picocli.CommandLine.IFactory;
+import picocli.CommandLine.IVersionProvider;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -32,14 +38,8 @@ import java.util.ResourceBundle;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.testing.TestingProperties.getProjectVersion;
 import static io.trino.testing.TestingProperties.getTemurinRelease;
-import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
-import static io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
-import static io.trino.tests.product.launcher.cli.Launcher.TestCommand;
-import static io.trino.tests.product.launcher.cli.Launcher.VersionProvider;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static picocli.CommandLine.IVersionProvider;
-import static picocli.CommandLine.Spec;
 
 @Command(
         name = "launcher",

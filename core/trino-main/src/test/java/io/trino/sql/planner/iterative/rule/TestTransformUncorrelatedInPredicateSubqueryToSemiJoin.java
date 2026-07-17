@@ -56,8 +56,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
                         ImmutableMap.of(
-                                p.symbol("x"),
-                                new ApplyNode.In(
+                                p.symbol("x"), new ApplyNode.In(
                                         p.symbol("y"),
                                         p.symbol("z"))),
                         emptyList(),

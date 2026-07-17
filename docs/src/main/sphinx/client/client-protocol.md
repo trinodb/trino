@@ -118,6 +118,14 @@ and transfer demands vary with the query workload on your cluster.
 Segments on object storage are encrypted, compressed, and can only be used by
 the specific client who initiated the query.
 
+:::{note}
+When using S3 or S3-compatible storage, the bucket must allow Server-Side
+Encryption with Customer-provided keys (SSE-C) operations. The spooling protocol
+encrypts segments using SSE-C by default (controlled by the
+[](prop-spooling-file-system) property `fs.segment.encryption`). If the bucket
+policy or storage configuration does not support SSE-C, segment writes fail.
+:::
+
 The following client drivers and client applications support the spooling protocol.
 
 * [Trino JDBC driver](jdbc-spooling-protocol), version 466 and newer

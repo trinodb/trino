@@ -65,10 +65,12 @@ public class TestStatsCalculator
     @Test
     public void testStatsCalculatorUsesLayout()
     {
-        assertPlan("SELECT orderstatus FROM orders WHERE orderstatus = 'P'",
+        assertPlan(
+                "SELECT orderstatus FROM orders WHERE orderstatus = 'P'",
                 anyTree(node(TableScanNode.class).withOutputRowCount(363.0)));
 
-        assertPlan("SELECT orderstatus FROM orders WHERE orderkey = 42",
+        assertPlan(
+                "SELECT orderstatus FROM orders WHERE orderkey = 42",
                 anyTree(node(TableScanNode.class).withOutputRowCount(15000.0)));
     }
 

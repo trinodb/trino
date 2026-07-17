@@ -63,7 +63,7 @@ public class UuidType
 
     private UuidType()
     {
-        super(new TypeSignature(NAME), Slice.class, Int128ArrayBlock.class);
+        super(new TypeDescriptor(NAME), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override

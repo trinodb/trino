@@ -24,8 +24,8 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.MAX_VALUE;
@@ -46,7 +46,7 @@ public class TestVarcharToFloatCoercer
         assertVarcharToFloatCoercion("123", Float.parseFloat("123"));
         assertVarcharToFloatCoercion("1.17549435E-38f", MIN_NORMAL); // Value where Float.intBitsToFloat(0x00800000)
         assertVarcharToFloatCoercion("3.4028235e+38f", MAX_VALUE); // largest positive value
-        assertVarcharToFloatCoercion("-3.4028235e+38f", -3.4028235E38f); // largest negative value
+        assertVarcharToFloatCoercion("-3.4028235e+38f", -3.4028235e38f); // largest negative value
         assertVarcharToFloatCoercion("4.4028235e+39f", POSITIVE_INFINITY); // Value above max positive value
         assertVarcharToFloatCoercion("-3.4028235e+39f", NEGATIVE_INFINITY); // Value below max negative value
         assertVarcharToFloatCoercion("1.4e-45f", MIN_VALUE); // smallest positive nonzero value
@@ -83,7 +83,7 @@ public class TestVarcharToFloatCoercer
     private static void assertVarcharToFloatCoercion(String actualValue, HiveStorageFormat storageFormat, Float expectedValue)
     {
         Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(REAL), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
-                .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
+                .apply(writeNativeValue(createUnboundedVarcharType(), utf8Slice(actualValue)));
         Float coercedValue = coercedBlock.isNull(0) ? null : REAL.getFloat(coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);
     }

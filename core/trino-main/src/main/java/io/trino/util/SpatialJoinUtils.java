@@ -15,13 +15,15 @@ package io.trino.util;
 
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.IrExpressions.Comparison;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 
 public final class SpatialJoinUtils
@@ -67,23 +69,34 @@ public final class SpatialJoinUtils
      * <li>{@code ... > ST_Distance(...)}</li>
      * </ul>
      * <p>
+     * All four shapes are canonicalized to {@code LESS_THAN} / {@code LESS_THAN_OR_EQUAL} with the
+     * {@code ST_Distance(...)} call on the left and the radius on the right (see
+     * {@link IrExpressions#comparison}); the {@code >} / {@code >=} forms flip their operands onto
+     * {@code <} / {@code <=}.
+     * <p>
      * Doesn't check or guarantee anything about ST_Distance functions arguments
      * or the other side of the comparison.
      */
-    public static List<Comparison> extractSupportedSpatialComparisons(Expression filterExpression)
+    public static List<Call> extractSupportedSpatialComparisons(Expression filterExpression)
     {
         return extractConjuncts(filterExpression).stream()
-                .filter(Comparison.class::isInstance)
-                .map(Comparison.class::cast)
+                .filter(Call.class::isInstance)
+                .map(Call.class::cast)
                 .filter(SpatialJoinUtils::isSupportedSpatialComparison)
                 .collect(toImmutableList());
     }
 
-    private static boolean isSupportedSpatialComparison(Comparison expression)
+    private static boolean isSupportedSpatialComparison(Call expression)
     {
-        return switch (expression.operator()) {
-            case LESS_THAN, LESS_THAN_OR_EQUAL -> isSTDistance(expression.left());
-            case GREATER_THAN, GREATER_THAN_OR_EQUAL -> isSTDistance(expression.right());
+        return matchComparison(expression) instanceof Comparison comparison && isSupportedSpatialComparison(comparison);
+    }
+
+    private static boolean isSupportedSpatialComparison(Comparison comparison)
+    {
+        return switch (comparison.operator()) {
+            // ST_Distance(...) < r and ST_Distance(...) <= r. The > / >= forms are canonicalized to this shape
+            // with ST_Distance(...) on the left, so it is sufficient to check the left operand.
+            case LESS_THAN, LESS_THAN_OR_EQUAL -> isSTDistance(comparison.left());
             default -> false;
         };
     }

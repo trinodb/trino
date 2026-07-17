@@ -22,6 +22,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.Type;
@@ -80,6 +81,7 @@ public final class QuantileDigestAggregationFunction
             internalCombine(state, otherState);
         }
 
+        @SqlNullable
         @OutputFunction("qdigest(DOUBLE)")
         public static void output(@AggregationState QuantileDigestState state, BlockBuilder out)
         {
@@ -128,6 +130,7 @@ public final class QuantileDigestAggregationFunction
             internalCombine(state, otherState);
         }
 
+        @SqlNullable
         @OutputFunction("qdigest(REAL)")
         public static void output(@AggregationState QuantileDigestState state, BlockBuilder out)
         {
@@ -176,6 +179,7 @@ public final class QuantileDigestAggregationFunction
             internalCombine(state, otherState);
         }
 
+        @SqlNullable
         @OutputFunction("qdigest(BIGINT)")
         public static void output(@AggregationState QuantileDigestState state, BlockBuilder out)
         {

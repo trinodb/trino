@@ -51,7 +51,8 @@ public class TestBucketedQueryWithManySplits
         }
 
         // query should not deadlock
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "WITH test_data AS" +
                         "  (SELECT bucket" +
                         "   FROM" +

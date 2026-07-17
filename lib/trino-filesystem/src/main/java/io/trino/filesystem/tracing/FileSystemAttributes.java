@@ -27,4 +27,5 @@ public final class FileSystemAttributes
     public static final AttributeKey<Long> FILE_LOCATION_COUNT = longKey("trino.file.location_count");
     public static final AttributeKey<Long> FILE_READ_SIZE = longKey("trino.file.read_size");
     public static final AttributeKey<Long> FILE_READ_POSITION = longKey("trino.file.read_position");
+    public static final AttributeKey<String> FILE_LIST_STARTING_FROM = stringKey("trino.file.list_starting_from");
 }

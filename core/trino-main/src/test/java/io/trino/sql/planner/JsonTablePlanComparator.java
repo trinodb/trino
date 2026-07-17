@@ -25,6 +25,7 @@ import io.trino.operator.table.json.JsonTableValueColumn;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -118,8 +119,8 @@ public class JsonTablePlanComparator
                 leftColumn.function().equals(rightColumn.function()) &&
                 leftColumn.path().equals(rightColumn.path()) &&
                 leftColumn.emptyBehavior() == rightColumn.emptyBehavior() &&
-                leftColumn.emptyDefaultInput() == rightColumn.emptyDefaultInput() &&
+                Objects.equals(leftColumn.emptyDefault(), rightColumn.emptyDefault()) &&
                 leftColumn.errorBehavior() == rightColumn.errorBehavior() &&
-                leftColumn.errorDefaultInput() == rightColumn.errorDefaultInput();
+                Objects.equals(leftColumn.errorDefault(), rightColumn.errorDefault());
     }
 }

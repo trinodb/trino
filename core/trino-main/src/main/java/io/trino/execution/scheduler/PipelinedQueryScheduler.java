@@ -79,7 +79,6 @@ import io.trino.tracing.TrinoAttributes;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1168,8 +1167,7 @@ public class PipelinedQueryScheduler
             if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 // no remote source
                 bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, partitionCount);
-                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session).allNodes());
-                Collections.shuffle(stageNodeList);
+                stageNodeList = bucketNodeMap.getDistinctNodes();
             }
             else {
                 // remote source requires nodePartitionMap
@@ -1319,17 +1317,12 @@ public class PipelinedQueryScheduler
                         schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
                         if (result.getBlockedReason().isPresent()) {
                             switch (result.getBlockedReason().get()) {
-                                case WRITER_SCALING:
+                                case WRITER_SCALING -> {
                                     // no-op
-                                    break;
-                                case WAITING_FOR_SOURCE:
-                                    schedulerStats.getWaitingForSource().update(1);
-                                    break;
-                                case SPLIT_QUEUES_FULL:
-                                    schedulerStats.getSplitQueuesFull().update(1);
-                                    break;
-                                default:
-                                    throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
+                                }
+                                case WAITING_FOR_SOURCE -> schedulerStats.getWaitingForSource().update(1);
+                                case SPLIT_QUEUES_FULL -> schedulerStats.getSplitQueuesFull().update(1);
+                                default -> throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
                             }
                         }
                     }
@@ -1340,9 +1333,11 @@ public class PipelinedQueryScheduler
                         futures.addAll(blockedStages);
                         // allow for schedule to resume scheduling (e.g. when some active stage completes
                         // and dependent stages can be started)
-                        stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
-                        try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
-                            tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                        if (blockedStages.size() == stagesScheduleResult.getStagesToSchedule().size()) {
+                            stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
+                            try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
+                                tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
+                            }
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
                             blockedStage.cancel(true);

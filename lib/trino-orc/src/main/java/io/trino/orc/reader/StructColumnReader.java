@@ -51,6 +51,7 @@ import static io.trino.orc.reader.ColumnReaders.createColumnReader;
 import static io.trino.orc.reader.ReaderUtils.toNotNullSupressedBlock;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -143,17 +144,22 @@ public class StructColumnReader
             }
         }
 
-        boolean[] nullVector = null;
+        long[] valueIsValid = null;
         Block[] blocks;
 
         if (presentStream == null) {
             blocks = getBlocks(nextBatchSize, nextBatchSize, null);
         }
         else {
-            nullVector = new boolean[nextBatchSize];
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
-            if (nullValues != nextBatchSize) {
-                blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
+            valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullValues = nextBatchSize - nonNullCount;
+            if (nullValues == 0) {
+                valueIsValid = null;
+                blocks = getBlocks(nextBatchSize, nextBatchSize, null);
+            }
+            else if (nullValues != nextBatchSize) {
+                blocks = getBlocks(nextBatchSize, nonNullCount, valueIsValid);
             }
             else {
                 List<Type> fieldTypes = type.getFieldTypes();
@@ -170,7 +176,7 @@ public class StructColumnReader
                 .count() == 1);
 
         // Struct is represented as a row block
-        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(nextBatchSize, Optional.ofNullable(nullVector), blocks);
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(nextBatchSize, Optional.ofNullable(valueIsValid), blocks);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -230,7 +236,7 @@ public class StructColumnReader
                 .toString();
     }
 
-    private Block[] getBlocks(int positionCount, int nonNullCount, boolean[] nullVector)
+    private Block[] getBlocks(int positionCount, int nonNullCount, long[] valueIsValid)
             throws IOException
     {
         Block[] blocks = new Block[fieldNames.size()];
@@ -243,8 +249,8 @@ public class StructColumnReader
                 columnReader.prepareNextRead(nonNullCount);
 
                 Block block = columnReader.readBlock();
-                if (nullVector != null) {
-                    block = toNotNullSupressedBlock(positionCount, nullVector, block);
+                if (valueIsValid != null) {
+                    block = toNotNullSupressedBlock(positionCount, valueIsValid, block);
                 }
                 blocks[i] = block;
             }

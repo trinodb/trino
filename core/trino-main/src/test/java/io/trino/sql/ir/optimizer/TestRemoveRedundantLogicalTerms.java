@@ -33,6 +33,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -138,6 +139,6 @@ class TestRemoveRedundantLogicalTerms
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantLogicalTerms().apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantLogicalTerms().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

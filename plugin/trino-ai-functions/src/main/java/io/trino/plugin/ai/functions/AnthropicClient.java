@@ -36,16 +36,16 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.opentelemetry.api.trace.StatusCode.ERROR;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_OPERATION_NAME;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_PROVIDER_NAME;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_REQUEST_MODEL;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_ID;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_MODEL;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_INPUT_TOKENS;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_OUTPUT_TOKENS;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiOperationNameIncubatingValues.CHAT;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiProviderNameIncubatingValues.ANTHROPIC;
 import static io.trino.plugin.ai.functions.AiErrorCode.AI_ERROR;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_OPERATION_NAME;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_PROVIDER_NAME;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_REQUEST_MODEL;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_RESPONSE_ID;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_RESPONSE_MODEL;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_USAGE_INPUT_TOKENS;
+import static io.trino.plugin.ai.functions.GenAiAttributes.GEN_AI_USAGE_OUTPUT_TOKENS;
+import static io.trino.plugin.ai.functions.GenAiAttributes.OPERATION_NAME_CHAT;
+import static io.trino.plugin.ai.functions.GenAiAttributes.PROVIDER_NAME_ANTHROPIC;
 import static java.util.Objects.requireNonNull;
 
 public class AnthropicClient
@@ -90,9 +90,9 @@ public class AnthropicClient
                 .setBodyGenerator(jsonBodyGenerator(MESSAGE_REQUEST_CODEC, body))
                 .build();
 
-        Span span = tracer.spanBuilder(CHAT + " " + model)
-                .setAttribute(GEN_AI_OPERATION_NAME, CHAT)
-                .setAttribute(GEN_AI_PROVIDER_NAME, ANTHROPIC)
+        Span span = tracer.spanBuilder(OPERATION_NAME_CHAT + " " + model)
+                .setAttribute(GEN_AI_OPERATION_NAME, OPERATION_NAME_CHAT)
+                .setAttribute(GEN_AI_PROVIDER_NAME, PROVIDER_NAME_ANTHROPIC)
                 .setAttribute(GEN_AI_REQUEST_MODEL, model)
                 .setSpanKind(SpanKind.CLIENT)
                 .startSpan();

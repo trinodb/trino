@@ -19,7 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -34,10 +34,10 @@ public class ModelType
 
     private ModelType()
     {
-        super(new TypeSignature("Model"), Slice.class);
+        super(new TypeDescriptor("Model"), Slice.class);
     }
 
-    protected ModelType(TypeSignature signature)
+    protected ModelType(TypeDescriptor signature)
     {
         super(signature, Slice.class);
     }
@@ -75,6 +75,6 @@ public class ModelType
             return null;
         }
 
-        return format("<%s>", getTypeSignature()).getBytes(UTF_8);
+        return format("<%s>", getTypeDescriptor()).getBytes(UTF_8);
     }
 }

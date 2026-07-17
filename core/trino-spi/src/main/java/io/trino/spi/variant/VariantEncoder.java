@@ -381,6 +381,12 @@ public final class VariantEncoder
         boolean large = elementCount > 255;
 
         int offsetSize = getOffsetSize(totalElementsLength);
+        return encodedArraySize(elementCount, totalElementsLength, large, offsetSize);
+    }
+
+    // Visible for testing
+    static int encodedArraySize(int elementCount, int totalElementsLength, boolean large, int offsetSize)
+    {
         int offsetsLength = (elementCount + 1) * offsetSize;
 
         return 1 + (large ? 4 : 1) + offsetsLength + totalElementsLength;
@@ -395,6 +401,12 @@ public final class VariantEncoder
             totalElementsLength += elementLength.applyAsInt(i);
         }
         int offsetSize = getOffsetSize(totalElementsLength);
+        return encodeArrayHeading(elementCount, elementLength, variant, offset, large, offsetSize, totalElementsLength);
+    }
+
+    // Visible for testing
+    static int encodeArrayHeading(int elementCount, IntUnaryOperator elementLength, Slice variant, int offset, boolean large, int offsetSize, int totalElementsLength)
+    {
         int offsetsLength = (elementCount + 1) * offsetSize;
 
         int headerSize = 1 + (large ? 4 : 1) + offsetsLength;
@@ -446,8 +458,14 @@ public final class VariantEncoder
         boolean large = elementCount > 255;
 
         int fieldIdSize = getOffsetSize(maxField);
-        int fieldIdsLength = elementCount * fieldIdSize;
         int offsetSize = getOffsetSize(totalElementsLength);
+        return encodedObjectSize(elementCount, totalElementsLength, large, fieldIdSize, offsetSize);
+    }
+
+    // Visible for testing
+    static int encodedObjectSize(int elementCount, int totalElementsLength, boolean large, int fieldIdSize, int offsetSize)
+    {
+        int fieldIdsLength = elementCount * fieldIdSize;
         int offsetsLength = (elementCount + 1) * offsetSize;
 
         return 1 + (large ? 4 : 1) + fieldIdsLength + offsetsLength + totalElementsLength;
@@ -495,8 +513,14 @@ public final class VariantEncoder
         }
 
         int fieldIdSize = getOffsetSize(maxFieldId);
-        int fieldIdsLength = fieldCount * fieldIdSize;
         int offsetSize = getOffsetSize(totalElementsLength);
+        return encodeObjectHeading(fieldCount, fieldIds, fieldLength, variant, offset, large, fieldIdSize, offsetSize, totalElementsLength);
+    }
+
+    // Visible for testing
+    static int encodeObjectHeading(int fieldCount, IntUnaryOperator fieldIds, IntUnaryOperator fieldLength, Slice variant, int offset, boolean large, int fieldIdSize, int offsetSize, int totalElementsLength)
+    {
+        int fieldIdsLength = fieldCount * fieldIdSize;
         int offsetsLength = (fieldCount + 1) * offsetSize;
 
         int headerSize = 1 + (large ? 4 : 1) + fieldIdsLength + offsetsLength;

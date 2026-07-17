@@ -21,8 +21,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -32,7 +32,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.QuantileDigestParametricType.QDIGEST;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class TestMergeQuantileDigestFunction
@@ -57,7 +57,7 @@ public class TestMergeQuantileDigestFunction
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = functionResolution.getPlannerContext().getTypeManager().getType(new TypeSignature(QDIGEST.getName(), TypeParameter.typeParameter(DOUBLE.getTypeSignature())));
+        Type type = functionResolution.getPlannerContext().getTypeManager().getType(new TypeDescriptor(QDIGEST.getName(), TypeParameter.typeParameter(DOUBLE.getTypeDescriptor())));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             QuantileDigest qdigest = new QuantileDigest(0.0);

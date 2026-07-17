@@ -195,7 +195,7 @@ public class TimestampEncoding
 
         int secondsLow32 = (int) seconds;
         if (nanosReversed == 0 && !hasSecondsHigh32) {
-            secondsLow32 &= 0X7FFF_FFFF;
+            secondsLow32 &= 0x7FFF_FFFF;
         }
         else {
             secondsLow32 |= 0x8000_0000;

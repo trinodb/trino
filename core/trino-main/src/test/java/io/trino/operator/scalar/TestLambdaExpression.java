@@ -272,10 +272,10 @@ public class TestLambdaExpression
     {
         assertTrinoExceptionThrownBy(assertions.expression("count(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:12: Unexpected parameters (<function>) for function count. Expected: count(), count(t) T");
+                .hasMessage("line 1:12: Unexpected parameters (<function>) for function count. Expected: count(), count(T) T");
         assertTrinoExceptionThrownBy(assertions.expression("max(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:12: Unexpected parameters (<function>) for function max. Expected: max(e, bigint) E:orderable, max(t) T:orderable");
+                .hasMessage("line 1:12: Unexpected parameters (<function>) for function max. Expected: max(E, bigint) E:orderable, max(T) T:orderable");
         assertTrinoExceptionThrownBy(assertions.expression("sqrt(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>) for function sqrt. Expected: sqrt(double)");

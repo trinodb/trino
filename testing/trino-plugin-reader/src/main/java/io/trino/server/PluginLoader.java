@@ -73,7 +73,7 @@ public class PluginLoader
         config.setInstalledPluginsDirs(path);
         ServerPluginsProvider pluginsProvider = new ServerPluginsProvider(config, directExecutor());
         ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
-        pluginsProvider.loadPlugins((plugin, createClassLoader) -> loadPlugin(createClassLoader, plugins), PluginManager::createClassLoader);
+        pluginsProvider.loadPlugins((_, createClassLoader) -> loadPlugin(createClassLoader, plugins), PluginManager::createClassLoader);
         return plugins.build();
     }
 

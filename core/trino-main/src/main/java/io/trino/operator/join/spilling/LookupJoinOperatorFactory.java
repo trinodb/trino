@@ -18,8 +18,8 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.NullSafeHashCompiler;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorFactory;
@@ -161,7 +161,7 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+    public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
     {
         checkState(!closed, "Factory is already closed");
         LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
@@ -179,7 +179,7 @@ public class LookupJoinOperatorFactory
                 totalOperatorsCount,
                 probeHashGenerator,
                 partitioningSpillerFactory,
-                processorContext,
+                operatorContext,
                 sourcePages);
     }
 

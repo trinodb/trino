@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -51,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestFileBasedConflictDetection
 {
-    private static final HadoopTables HADOOP_TABLES = new HadoopTables(new Configuration(false));
+    private static final HadoopTables HADOOP_TABLES = new HadoopTables();
     private static final String COLUMN_1_NAME = "col1";
     private static final ColumnIdentity COLUMN_1_IDENTITY = new ColumnIdentity(1, COLUMN_1_NAME, PRIMITIVE, ImmutableList.of());
     private static final IcebergColumnHandle COLUMN_1_HANDLE = IcebergColumnHandle.optional(COLUMN_1_IDENTITY).columnType(INTEGER).build();
@@ -126,7 +125,8 @@ class TestFileBasedConflictDetection
                 """;
         Map<IcebergColumnHandle, Domain> expectedDomains = Map.of(COLUMN_2_HANDLE, Domain.multipleValues(INTEGER, ImmutableList.of(40L, 50L)));
         // Create commit tasks for updates in two partitions, with values 40 and 50
-        List<CommitTaskData> commitTasks = Stream.concat(getCommitTaskDataForUpdate(partitionSpec, Optional.of(partitionDataJson1)).stream(),
+        List<CommitTaskData> commitTasks = Stream.concat(
+                getCommitTaskDataForUpdate(partitionSpec, Optional.of(partitionDataJson1)).stream(),
                 getCommitTaskDataForUpdate(partitionSpec, Optional.of(partitionDataJson2)).stream()).collect(toImmutableList());
         TupleDomain<IcebergColumnHandle> icebergColumnHandleTupleDomain = extractTupleDomainsFromCommitTasks(getIcebergTableHandle(partitionSpec), icebergTable, commitTasks, null);
         assertThat(icebergColumnHandleTupleDomain.getDomains().orElseThrow()).isEqualTo(expectedDomains);
@@ -211,11 +211,31 @@ class TestFileBasedConflictDetection
                 """
                 {"partitionValues":[40]}
                 """;
-        CommitTaskData commitTaskData1 = new CommitTaskData("test_location/data/new.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(currentPartitionSpec),
-                Optional.of(partitionDataJson), DATA, Optional.empty(), Optional.empty(), SortOrder.unsorted().orderId(), Optional.empty());
+        CommitTaskData commitTaskData1 = new CommitTaskData(
+                "test_location/data/new.parquet",
+                IcebergFileFormat.PARQUET,
+                0,
+                new MetricsWrapper(new Metrics()),
+                PartitionSpecParser.toJson(currentPartitionSpec),
+                Optional.of(partitionDataJson),
+                DATA,
+                Optional.empty(),
+                Optional.empty(),
+                SortOrder.unsorted().orderId(),
+                Optional.empty());
         // Remove file from version with previous partition specification
-        CommitTaskData commitTaskData2 = new CommitTaskData("test_location/data/old.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(previousPartitionSpec),
-                Optional.of(partitionDataJson), POSITION_DELETES, Optional.empty(), Optional.empty(), SortOrder.unsorted().orderId(), Optional.empty());
+        CommitTaskData commitTaskData2 = new CommitTaskData(
+                "test_location/data/old.parquet",
+                IcebergFileFormat.PARQUET,
+                0,
+                new MetricsWrapper(new Metrics()),
+                PartitionSpecParser.toJson(previousPartitionSpec),
+                Optional.of(partitionDataJson),
+                POSITION_DELETES,
+                Optional.empty(),
+                Optional.empty(),
+                SortOrder.unsorted().orderId(),
+                Optional.empty());
         TupleDomain<IcebergColumnHandle> icebergColumnHandleTupleDomain = extractTupleDomainsFromCommitTasks(getIcebergTableHandle(currentPartitionSpec), icebergTable, List.of(commitTaskData1, commitTaskData2), null);
         assertThat(icebergColumnHandleTupleDomain.getDomains().orElseThrow()).isEmpty();
 

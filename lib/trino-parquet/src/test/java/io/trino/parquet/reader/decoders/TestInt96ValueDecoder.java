@@ -102,7 +102,8 @@ public final class TestInt96ValueDecoder
                         LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1000000),
                         LocalDateTime.of(2022, 2, 3, 12, 8, 51, 1),
                         LocalDateTime.of(123456, 1, 2, 3, 4, 5, 678901234),
-                        LocalDateTime.MAX};
+                        LocalDateTime.MAX,
+                };
                 long[] epochSeconds = new long[dataSize];
                 int[] nanos = new int[dataSize];
                 for (int i = 0; i < dataSize; i++) {

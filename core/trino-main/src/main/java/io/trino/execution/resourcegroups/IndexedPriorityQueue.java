@@ -35,7 +35,7 @@ public final class IndexedPriorityQueue<E>
     public enum PriorityOrdering
     {
         LOW_TO_HIGH,
-        HIGH_TO_LOW
+        HIGH_TO_LOW,
     }
 
     private final Map<E, Entry<E>> index = new HashMap<>();

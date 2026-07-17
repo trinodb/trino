@@ -158,8 +158,7 @@ public class TestTextFileHiveTable
                         "   format = 'TEXTFILE', " +
                         "   skip_footer_line_count = 1 " +
                         ") " +
-                        "AS SELECT 1  AS col_header;")
-        ).hasMessageMatching(".* Creating Hive table with data with value of skip.footer.line.count property greater than 0 is not supported");
+                        "AS SELECT 1  AS col_header;")).hasMessageMatching(".* Creating Hive table with data with value of skip.footer.line.count property greater than 0 is not supported");
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_footer");
     }
 }

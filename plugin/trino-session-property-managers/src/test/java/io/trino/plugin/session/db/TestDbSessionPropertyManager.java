@@ -134,24 +134,36 @@ public class TestDbSessionPropertyManager
         dao.insertSessionProperty(2, "prop_2", "val_2");
 
         specsProvider.refresh();
-        SessionConfigurationContext context1 = new SessionConfigurationContext("foo123", Optional.of("src1"),
-                ImmutableSet.of(), Optional.empty(), TEST_RG);
+        SessionConfigurationContext context1 = new SessionConfigurationContext(
+                "foo123",
+                Optional.of("src1"),
+                ImmutableSet.of(),
+                Optional.empty(),
+                TEST_RG);
         Map<String, String> sessionProperties1 = manager.getSystemSessionProperties(context1);
         assertThat(sessionProperties1)
                 .containsEntry("prop_1", "val_1")
                 .doesNotContainKey("prop_2");
 
         specsProvider.refresh();
-        SessionConfigurationContext context2 = new SessionConfigurationContext("bar123", Optional.of("bar123"),
-                ImmutableSet.of(), Optional.empty(), TEST_RG);
+        SessionConfigurationContext context2 = new SessionConfigurationContext(
+                "bar123",
+                Optional.of("bar123"),
+                ImmutableSet.of(),
+                Optional.empty(),
+                TEST_RG);
         Map<String, String> sessionProperties2 = manager.getSystemSessionProperties(context2);
         assertThat(sessionProperties2)
                 .doesNotContainKey("prop_1")
                 .containsEntry("prop_2", "val_2");
 
         specsProvider.refresh();
-        SessionConfigurationContext context3 = new SessionConfigurationContext("foo123", Optional.of("bar123"),
-                ImmutableSet.of(), Optional.empty(), TEST_RG);
+        SessionConfigurationContext context3 = new SessionConfigurationContext(
+                "foo123",
+                Optional.of("bar123"),
+                ImmutableSet.of(),
+                Optional.empty(),
+                TEST_RG);
         Map<String, String> sessionProperties3 = manager.getSystemSessionProperties(context3);
         assertThat(sessionProperties3)
                 .containsEntry("prop_1", "val_1")
@@ -238,8 +250,8 @@ public class TestDbSessionPropertyManager
 
         specsProvider.refresh();
         SessionConfigurationContext context1 = new SessionConfigurationContext("foo", Optional.empty(), ImmutableSet.of(), Optional.empty(), TEST_RG);
-        assertThat(manager.getCatalogSessionProperties(context1)).isEqualTo(ImmutableMap.of("catalog_1",
-                ImmutableMap.of("prop_1", "val_1_bis", "prop_2", "val_2", "prop_3", "val_3")));
+        assertThat(manager.getCatalogSessionProperties(context1)).isEqualTo(ImmutableMap.of(
+                "catalog_1", ImmutableMap.of("prop_1", "val_1_bis", "prop_2", "val_2", "prop_3", "val_3")));
     }
 
     @Test

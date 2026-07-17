@@ -52,6 +52,14 @@ final class TestIcebergJdbcCatalogV0SchemaConnectorSmokeTest
 
     @Test
     @Override
+    void testReplaceViewReuseExistingLocation()
+    {
+        assertThatThrownBy(super::testReplaceViewReuseExistingLocation)
+                .hasMessageContaining("Schema version V0 does not support views");
+    }
+
+    @Test
+    @Override
     void testUnsupportedViewDialect()
     {
         assertThatThrownBy(super::testUnsupportedViewDialect)

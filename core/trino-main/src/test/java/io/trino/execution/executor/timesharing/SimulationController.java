@@ -224,7 +224,7 @@ class SimulationController
         enum Type
         {
             LEAF,
-            INTERMEDIATE
+            INTERMEDIATE,
         }
 
         private final Type type;

@@ -152,13 +152,9 @@ public class OrcMetadataWriter
     private void setWriter(OrcProto.Footer.Builder builder)
     {
         switch (writerIdentification) {
-            case LEGACY_HIVE_COMPATIBLE:
-                return;
-            case TRINO:
-                builder.setWriter(TRINO_WRITER_ID);
-                return;
+            case LEGACY_HIVE_COMPATIBLE -> {}
+            case TRINO -> builder.setWriter(TRINO_WRITER_ID);
         }
-        throw new IllegalStateException("Unexpected value: " + writerIdentification);
     }
 
     private static OrcProto.StripeInformation toStripeInformation(StripeInformation stripe)
@@ -262,11 +258,13 @@ public class OrcMetadataWriter
 
         if (columnStatistics.getStringStatistics() != null) {
             OrcProto.StringStatistics.Builder statisticsBuilder = OrcProto.StringStatistics.newBuilder();
-            if (columnStatistics.getStringStatistics().getMin() != null) {
-                statisticsBuilder.setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()));
+            Slice min = columnStatistics.getStringStatistics().getMin();
+            if (min != null) {
+                statisticsBuilder.setMinimumBytes(ByteString.copyFrom(min.byteArray(), min.byteArrayOffset(), min.length()));
             }
-            if (columnStatistics.getStringStatistics().getMax() != null) {
-                statisticsBuilder.setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()));
+            Slice max = columnStatistics.getStringStatistics().getMax();
+            if (max != null) {
+                statisticsBuilder.setMaximumBytes(ByteString.copyFrom(max.byteArray(), max.byteArrayOffset(), max.length()));
             }
             statisticsBuilder.setSum(columnStatistics.getStringStatistics().getSum());
             builder.setStringStatistics(statisticsBuilder.build());
@@ -304,9 +302,10 @@ public class OrcMetadataWriter
 
     private static UserMetadataItem toUserMetadata(Entry<String, Slice> entry)
     {
+        Slice value = entry.getValue();
         return OrcProto.UserMetadataItem.newBuilder()
                 .setName(entry.getKey())
-                .setValue(ByteString.copyFrom(entry.getValue().getBytes()))
+                .setValue(ByteString.copyFrom(value.byteArray(), value.byteArrayOffset(), value.length()))
                 .build();
     }
 
@@ -338,28 +337,20 @@ public class OrcMetadataWriter
 
     private static OrcProto.Stream.Kind toStreamKind(StreamKind streamKind)
     {
-        switch (streamKind) {
-            case PRESENT:
-                return OrcProto.Stream.Kind.PRESENT;
-            case DATA:
-                return OrcProto.Stream.Kind.DATA;
-            case LENGTH:
-                return OrcProto.Stream.Kind.LENGTH;
-            case DICTIONARY_DATA:
-                return OrcProto.Stream.Kind.DICTIONARY_DATA;
-            case DICTIONARY_COUNT:
-                return OrcProto.Stream.Kind.DICTIONARY_COUNT;
-            case SECONDARY:
-                return OrcProto.Stream.Kind.SECONDARY;
-            case ROW_INDEX:
-                return OrcProto.Stream.Kind.ROW_INDEX;
-            case BLOOM_FILTER:
+        return switch (streamKind) {
+            case PRESENT -> OrcProto.Stream.Kind.PRESENT;
+            case DATA -> OrcProto.Stream.Kind.DATA;
+            case LENGTH -> OrcProto.Stream.Kind.LENGTH;
+            case DICTIONARY_DATA -> OrcProto.Stream.Kind.DICTIONARY_DATA;
+            case DICTIONARY_COUNT -> OrcProto.Stream.Kind.DICTIONARY_COUNT;
+            case SECONDARY -> OrcProto.Stream.Kind.SECONDARY;
+            case ROW_INDEX -> OrcProto.Stream.Kind.ROW_INDEX;
+            case BLOOM_FILTER_UTF8 -> OrcProto.Stream.Kind.BLOOM_FILTER_UTF8;
+            case BLOOM_FILTER -> {
                 // unsupported
-                break;
-            case BLOOM_FILTER_UTF8:
-                return OrcProto.Stream.Kind.BLOOM_FILTER_UTF8;
-        }
-        throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
+                throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
+            }
+        };
     }
 
     private static OrcProto.CalendarKind toOrcCalendarKind(CalendarKind calendarKind)

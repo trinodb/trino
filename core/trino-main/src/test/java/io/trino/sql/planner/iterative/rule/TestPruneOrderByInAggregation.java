@@ -75,20 +75,24 @@ public class TestPruneOrderByInAggregation
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, PlanBuilder.aggregation(
-                        "avg",
-                        ImmutableList.of(new Reference(BIGINT, "input")),
-                        new OrderingScheme(
-                                ImmutableList.of(new Symbol(BIGINT, "input")),
-                                ImmutableMap.of(new Symbol(BIGINT, "input"), SortOrder.ASC_NULLS_LAST))),
+                .addAggregation(
+                        avg,
+                        PlanBuilder.aggregation(
+                                "avg",
+                                ImmutableList.of(new Reference(BIGINT, "input")),
+                                new OrderingScheme(
+                                        ImmutableList.of(new Symbol(BIGINT, "input")),
+                                        ImmutableMap.of(new Symbol(BIGINT, "input"), SortOrder.ASC_NULLS_LAST))),
                         ImmutableList.of(BIGINT),
                         mask)
-                .addAggregation(arrayAgg, PlanBuilder.aggregation(
-                        "array_agg",
-                        ImmutableList.of(new Reference(BIGINT, "input")),
-                        new OrderingScheme(
-                                ImmutableList.of(new Symbol(BIGINT, "input")),
-                                ImmutableMap.of(new Symbol(BIGINT, "input"), SortOrder.ASC_NULLS_LAST))),
+                .addAggregation(
+                        arrayAgg,
+                        PlanBuilder.aggregation(
+                                "array_agg",
+                                ImmutableList.of(new Reference(BIGINT, "input")),
+                                new OrderingScheme(
+                                        ImmutableList.of(new Symbol(BIGINT, "input")),
+                                        ImmutableMap.of(new Symbol(BIGINT, "input"), SortOrder.ASC_NULLS_LAST))),
                         ImmutableList.of(BIGINT),
                         mask)
                 .source(planBuilder.values(sourceSymbols, ImmutableList.of())));

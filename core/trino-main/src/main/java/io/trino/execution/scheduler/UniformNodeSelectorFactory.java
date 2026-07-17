@@ -32,7 +32,6 @@ import io.trino.spi.SplitWeight;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,6 +40,7 @@ import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.node.NodeState.ACTIVE;
+import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -52,10 +52,11 @@ public class UniformNodeSelectorFactory
 
     private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
             CacheBuilder.newBuilder()
-                    .expireAfterWrite(30, TimeUnit.SECONDS));
+                    .expireAfterWrite(ofSeconds(30)));
 
     private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
+    private final StableHostAddressProvider stableHostAddressProvider;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
@@ -71,9 +72,10 @@ public class UniformNodeSelectorFactory
             InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
-            NodeTaskMap nodeTaskMap)
+            NodeTaskMap nodeTaskMap,
+            StableHostAddressProvider stableHostAddressProvider)
     {
-        this(currentNode, nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
+        this(currentNode, nodeManager, config, nodeTaskMap, stableHostAddressProvider, new Duration(5, SECONDS));
     }
 
     @VisibleForTesting
@@ -82,10 +84,12 @@ public class UniformNodeSelectorFactory
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
+            StableHostAddressProvider stableHostAddressProvider,
             Duration nodeMapMemoizationDuration)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.splitsBalancingPolicy = config.getSplitsBalancingPolicy();
@@ -111,7 +115,8 @@ public class UniformNodeSelectorFactory
         if (nodeMapMemoizationDuration.toMillis() > 0) {
             nodeMap = Suppliers.memoizeWithExpiration(
                     this::createNodeMap,
-                    nodeMapMemoizationDuration.toMillis(), MILLISECONDS);
+                    nodeMapMemoizationDuration.toMillis(),
+                    MILLISECONDS);
         }
         else {
             nodeMap = this::createNodeMap;
@@ -128,7 +133,8 @@ public class UniformNodeSelectorFactory
                 maxAdjustedPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 splitsBalancingPolicy,
-                optimizedLocalScheduling);
+                optimizedLocalScheduling,
+                stableHostAddressProvider);
     }
 
     private NodeMap createNodeMap()

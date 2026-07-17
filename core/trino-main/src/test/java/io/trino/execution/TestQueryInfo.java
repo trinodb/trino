@@ -42,14 +42,14 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
-import io.trino.type.TypeSignatureDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
+import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -77,9 +77,9 @@ public class TestQueryInfo
                                 Span.class, new SpanSerializer(OpenTelemetry.noop())))
                         .withJsonDeserializers(Map.of(
                                 Span.class, new SpanDeserializer(OpenTelemetry.noop()),
-                                TypeSignature.class, new TypeSignatureDeserializer()))
+                                TypeDescriptor.class, new TypeDescriptorDeserializer()))
                         .withKeyDeserializers(Map.of(
-                                TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                                TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
                                 Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                         .get())
                 .jsonCodec(QueryInfo.class);

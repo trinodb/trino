@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import io.trino.Session;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertThatTrinoException;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -83,19 +85,61 @@ public abstract class BaseJdbcCastPushdownTest
 
         for (InvalidCastTestCase testCase : invalidCastTestCases) {
             if (testCase.pushdownErrorMessage().isPresent()) {
-                assertThat(query("SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), tableName)))
-                        .failure()
-                        .hasMessageMatching(testCase.pushdownErrorMessage().get());
-                assertThat(query(withoutPushdown, "SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), tableName)))
-                        .failure()
-                        .hasMessageMatching(testCase.errorMessage());
+                assertInvalidCastFailure(getSession(), tableName, testCase, testCase.pushdownErrorMessage().get());
+                assertInvalidCastFailure(withoutPushdown, tableName, testCase, testCase.errorMessage());
             }
             else {
-                assertThat(query("SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), tableName)))
-                        .failure()
-                        .hasMessageMatching(testCase.errorMessage());
+                assertInvalidCastFailure(getSession(), tableName, testCase, testCase.errorMessage());
             }
         }
+    }
+
+    private void assertInvalidCastFailure(Session session, String tableName, InvalidCastTestCase testCase, String expectedMessage)
+    {
+        String sql = "SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), tableName);
+        MaterializedResult result;
+        try {
+            result = getQueryRunner().execute(session, sql).toTestTypes();
+        }
+        catch (Throwable throwable) {
+            try {
+                assertThatTrinoException(throwable)
+                        .hasMessageMatching(expectedMessage);
+            }
+            catch (AssertionError e) {
+                throw invalidCastAssertionError(tableName, testCase, sql, e);
+            }
+            return;
+        }
+
+        throw invalidCastAssertionError(
+                tableName,
+                testCase,
+                sql,
+                new AssertionError("Expected invalid cast query to fail, but it returned " + describeResult(result)));
+    }
+
+    private static AssertionError invalidCastAssertionError(String tableName, InvalidCastTestCase testCase, String sql, AssertionError cause)
+    {
+        return new AssertionError(
+                "Invalid cast assertion failed for table '%s', source column '%s', cast type '%s', query: %s"
+                        .formatted(tableName, testCase.sourceColumn(), testCase.castType(), sql),
+                cause);
+    }
+
+    private static String describeResult(MaterializedResult result)
+    {
+        if (result.getRowCount() == 0) {
+            return "0 rows";
+        }
+
+        List<?> sampleRows = result.getMaterializedRows().stream()
+                .limit(10)
+                .toList();
+        if (result.getRowCount() > sampleRows.size()) {
+            return "%s rows, first %s: %s".formatted(result.getRowCount(), sampleRows.size(), sampleRows);
+        }
+        return "%s rows: %s".formatted(result.getRowCount(), sampleRows);
     }
 
     public record CastTestCase(String sourceColumn, String castType, String targetColumn)

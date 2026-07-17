@@ -14,11 +14,11 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -26,8 +26,9 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -50,7 +51,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -72,7 +73,6 @@ public class BenchmarkJsonToArrayCast
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(
                         SESSION,
-                        new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
     }
@@ -92,26 +92,19 @@ public class BenchmarkJsonToArrayCast
         {
             Type elementType;
             switch (valueTypeName) {
-                case "BIGINT":
-                    elementType = BIGINT;
-                    break;
-                case "DOUBLE":
-                    elementType = DOUBLE;
-                    break;
-                case "VARCHAR":
-                    elementType = VARCHAR;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case "BIGINT" -> elementType = BIGINT;
+                case "DOUBLE" -> elementType = DOUBLE;
+                case "VARCHAR" -> elementType = VARCHAR;
+                default -> throw new UnsupportedOperationException();
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-            List<RowExpression> projections = ImmutableList.of(new CallExpression(
+            List<Expression> projections = ImmutableList.of(call(
                     functionResolution.getCoercion(JSON, new ArrayType(elementType)),
-                    ImmutableList.of(field(0, JSON))));
+                    new Reference(JSON, "$col_0")));
 
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(JSON, "$col_0"), 0))
                     .get();
 
             page = new Page(createChannel(POSITION_COUNT, ARRAY_SIZE, elementType));

@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.TableKind;
 import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -37,6 +39,11 @@ public final class TestingGlueHiveMetastore
 
     public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir, Consumer<AutoCloseable> registerResource)
     {
+        return createTestingGlueHiveMetastore(defaultWarehouseDir, registerResource, false);
+    }
+
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir, Consumer<AutoCloseable> registerResource, boolean assumeCanonicalPartitionKeys)
+    {
         if (!exists(defaultWarehouseDir)) {
             try {
                 createDirectories(defaultWarehouseDir);
@@ -46,22 +53,49 @@ public final class TestingGlueHiveMetastore
             }
         }
         verify(isDirectory(defaultWarehouseDir), "%s is not a directory", defaultWarehouseDir);
-        return createTestingGlueHiveMetastore(defaultWarehouseDir.toUri(), registerResource);
+        return createTestingGlueHiveMetastore(defaultWarehouseDir.toUri(), registerResource, assumeCanonicalPartitionKeys);
     }
 
     public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource)
     {
+        return createTestingGlueHiveMetastore(warehouseUri, registerResource, false);
+    }
+
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource, boolean assumeCanonicalPartitionKeys)
+    {
+        return createTestingGlueHiveMetastore(warehouseUri, registerResource, assumeCanonicalPartitionKeys, _ -> {}, HDFS_FILE_SYSTEM_FACTORY);
+    }
+
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(
+            URI warehouseUri,
+            Consumer<AutoCloseable> registerResource,
+            boolean assumeCanonicalPartitionKeys,
+            Consumer<GlueHiveMetastoreConfig> configureGlueConfig,
+            TrinoFileSystemFactory fileSystemFactory)
+    {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
-                .setDefaultWarehouseDir(warehouseUri.toString());
+                .setDefaultWarehouseDir(warehouseUri.toString())
+                .setAssumeCanonicalPartitionKeys(assumeCanonicalPartitionKeys);
+        configureGlueConfig.accept(glueConfig);
         GlueClient glueClient = createGlueClient(glueConfig, ImmutableSet.of());
         registerResource.accept(glueClient);
         return new GlueHiveMetastore(
                 glueClient,
                 GlueCache.NOOP,
                 new GlueMetastoreStats(),
-                HDFS_FILE_SYSTEM_FACTORY,
+                fileSystemFactory,
                 glueConfig,
                 new CatalogName("test"),
                 EnumSet.allOf(TableKind.class));
+    }
+
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource, FlociS3AndGlue floci, boolean assumeCanonicalPartitionKeys)
+    {
+        return createTestingGlueHiveMetastore(
+                warehouseUri,
+                registerResource,
+                assumeCanonicalPartitionKeys,
+                floci::configureGlueHiveMetastore,
+                floci.createFileSystemFactory());
     }
 }

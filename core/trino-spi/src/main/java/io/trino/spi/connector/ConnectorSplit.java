@@ -17,6 +17,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ConnectorSplit
 {
@@ -38,6 +39,17 @@ public interface ConnectorSplit
             throw new IllegalStateException("getAddresses must be implemented when for splits with isRemotelyAccessible=false");
         }
         return List.of();
+    }
+
+    /**
+     * Returns an optional affinity key so splits reading related content are routed to the
+     * same worker(s) across queries. When empty, scheduling falls back to {@link #getAddresses()}.
+     * <p>
+     * Only remotely accessible splits may supply an affinity key (see {@link #isRemotelyAccessible()}).
+     */
+    default Optional<String> getAffinityKey()
+    {
+        return Optional.empty();
     }
 
     default SplitWeight getSplitWeight()

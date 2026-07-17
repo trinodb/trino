@@ -18,13 +18,6 @@ The authentication mechanism to allow user access to the Web UI. See
 
 This property controls whether or not the [](/admin/web-interface) is available.
 
-## `web-ui.preview.enabled`
-
-- **Type:** {ref}`prop-type-boolean`
-- **Default value:** `false`
-
-This property controls whether or not the [](/admin/preview-web-interface) is available.
-
 ## `web-ui.shared-secret`
 
 - **Type:** {ref}`prop-type-string`

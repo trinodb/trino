@@ -39,7 +39,7 @@ public class TestFairScheduler
             Group group = scheduler.createGroup("G1");
 
             AtomicBoolean ran = new AtomicBoolean();
-            ListenableFuture<Void> done = scheduler.submit(group, 1, context -> ran.set(true));
+            ListenableFuture<Void> done = scheduler.submit(group, 1, _ -> ran.set(true));
 
             done.get();
             assertThat(ran.get())
@@ -71,7 +71,7 @@ public class TestFairScheduler
 
             task1Started.await();
 
-            ListenableFuture<Void> task2 = scheduler.submit(group, 2, context -> {
+            ListenableFuture<Void> task2 = scheduler.submit(group, 2, _ -> {
                 task2Ran.set(true);
             });
 
@@ -120,7 +120,7 @@ public class TestFairScheduler
 
             task1Started.await();
 
-            ListenableFuture<Void> task2 = scheduler.submit(group, 2, context -> {
+            ListenableFuture<Void> task2 = scheduler.submit(group, 2, _ -> {
                 task2Started.countDown();
                 task2Ran.set(true);
             });
@@ -213,7 +213,7 @@ public class TestFairScheduler
             Group group = scheduler.createGroup("G");
 
             AtomicInteger counter = new AtomicInteger();
-            ListenableFuture<Void> task1 = scheduler.submit(group, 1, context -> {
+            ListenableFuture<Void> task1 = scheduler.submit(group, 1, _ -> {
                 counter.incrementAndGet();
             });
 

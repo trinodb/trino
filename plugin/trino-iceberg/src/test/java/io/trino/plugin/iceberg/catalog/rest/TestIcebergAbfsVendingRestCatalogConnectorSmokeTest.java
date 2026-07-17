@@ -113,7 +113,7 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.rest-catalog.socket-timeout", "30s")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                                .put("fs.native-azure.enabled", "true")
+                                .put("fs.azure.enabled", "true")
                                 .put("azure.auth-type", "DEFAULT")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
@@ -319,9 +319,7 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     @Test
     @Override
     @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed bumped in Trino")
-    public void testDropTableWithMissingMetadataFile()
-    {
-    }
+    public void testDropTableWithMissingMetadataFile() {}
 
     @Test
     @Override

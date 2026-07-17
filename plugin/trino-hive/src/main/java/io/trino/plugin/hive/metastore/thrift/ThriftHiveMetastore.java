@@ -695,8 +695,10 @@ public final class ThriftHiveMetastore
             for (String role : roles) {
                 grantRole(
                         role,
-                        grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
-                        grantor.getName(), fromTrinoPrincipalType(grantor.getType()),
+                        grantee.getName(),
+                        fromTrinoPrincipalType(grantee.getType()),
+                        grantor.getName(),
+                        fromTrinoPrincipalType(grantor.getType()),
                         adminOption);
             }
         }
@@ -730,7 +732,8 @@ public final class ThriftHiveMetastore
             for (String role : roles) {
                 revokeRole(
                         role,
-                        grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
+                        grantee.getName(),
+                        fromTrinoPrincipalType(grantee.getType()),
                         adminOption);
             }
         }
@@ -1121,7 +1124,8 @@ public final class ThriftHiveMetastore
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
                             int partitionsAdded = client.addPartitions(partitions);
                             if (partitionsAdded != partitions.size()) {
-                                throw new TrinoException(HIVE_METASTORE_ERROR,
+                                throw new TrinoException(
+                                        HIVE_METASTORE_ERROR,
                                         format("Hive metastore only added %s of %s partitions", partitionsAdded, partitions.size()));
                             }
                             return null;

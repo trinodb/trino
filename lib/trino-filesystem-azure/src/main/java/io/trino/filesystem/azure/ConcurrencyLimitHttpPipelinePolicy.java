@@ -19,19 +19,23 @@ import com.azure.core.http.HttpResponse;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.concurrent.Semaphore;
 
 import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public final class ConcurrencyLimitHttpPipelinePolicy
         implements HttpPipelinePolicy
 {
     private final Semaphore semaphore;
+    private final Duration requestTimeout;
 
-    public ConcurrencyLimitHttpPipelinePolicy(int maxHttpRequests)
+    public ConcurrencyLimitHttpPipelinePolicy(int maxHttpRequests, Duration requestTimeout)
     {
         verify(maxHttpRequests > 0, "maxHttpRequests must be greater than 0");
         this.semaphore = new Semaphore(maxHttpRequests);
+        this.requestTimeout = requireNonNull(requestTimeout, "requestTimeout is null");
     }
 
     @Override
@@ -44,6 +48,8 @@ public final class ConcurrencyLimitHttpPipelinePolicy
             Thread.currentThread().interrupt();
             return Mono.error(e);
         }
-        return next.process().doFinally(_ -> semaphore.release());
+        return next.process()
+                .timeout(requestTimeout)
+                .doFinally(_ -> semaphore.release());
     }
 }

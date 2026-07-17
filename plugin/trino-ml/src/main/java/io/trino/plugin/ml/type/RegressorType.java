@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.ml.type;
 
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -26,7 +26,7 @@ public class RegressorType
 
     private RegressorType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

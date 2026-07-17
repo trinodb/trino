@@ -26,9 +26,18 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SystemPartitioningHandle;
+import io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsHandle;
+import io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
+import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
+import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
+import io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewTarget;
+import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -36,15 +45,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.planner.Partitioning.ArgumentBinding;
-import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsHandle;
-import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -63,14 +63,14 @@ public class CounterBasedAnonymizer
         COLUMN,
         SYMBOL,
         LITERAL,
-        VALUE
+        VALUE,
     }
 
     private final ExpressionFormatter.Formatter anonymizeExpressionFormatter =
             new ExpressionFormatter.Formatter(Optional.of(this::anonymizeLiteral), Optional.of(this::anonymizeSymbolReference));
     private final Map<String, String> anonymizedMap = new HashMap<>();
     private final Map<ObjectType, Integer> counterMap = Arrays.stream(ObjectType.values())
-            .collect(toMap(objectType -> objectType, objectType -> 0));
+            .collect(toMap(objectType -> objectType, _ -> 0));
 
     @Override
     public String anonymize(Type type, String value)
@@ -270,7 +270,7 @@ public class CounterBasedAnonymizer
     private <T> String anonymize(T object, ObjectType objectType)
     {
         return anonymizedMap.computeIfAbsent(objectType.name() + object, _ -> {
-            Integer counter = counterMap.computeIfPresent(objectType, (k, v) -> v + 1);
+            Integer counter = counterMap.computeIfPresent(objectType, (_, v) -> v + 1);
             return objectType.name().toLowerCase(ENGLISH) + "_" + counter;
         });
     }

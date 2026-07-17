@@ -33,7 +33,7 @@ public final class DateType
 
     private DateType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

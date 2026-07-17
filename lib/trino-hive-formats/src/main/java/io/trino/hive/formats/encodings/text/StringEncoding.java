@@ -26,6 +26,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.Type;
 
+import static io.trino.hive.formats.ByteSearch.indexOfByte;
 import static io.trino.hive.formats.ReadWriteUtils.calculateTruncationLength;
 
 public class StringEncoding
@@ -126,8 +127,10 @@ public class StringEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        if (needsEscape != null) {
-            Slice newSlice = Slices.allocate(slice.length());
+        // Unescaping copies the value, so only do it for values that actually contain an escape.
+        // The columnar path already skips the copy this way.
+        if (needsEscape != null && containsEscapeByte(slice, offset, length)) {
+            Slice newSlice = Slices.allocate(length);
             SliceOutput output = newSlice.getOutput();
             unescape(escapeByte, output, slice, offset, length);
             slice = newSlice;
@@ -137,6 +140,12 @@ public class StringEncoding
 
         length = calculateTruncationLength(type, slice, offset, length);
         type.writeSlice(builder, slice, offset, length);
+    }
+
+    private boolean containsEscapeByte(Slice slice, int offset, int length)
+    {
+        int start = slice.byteArrayOffset() + offset;
+        return indexOfByte(slice.byteArray(), start, start + length, escapeByte) >= 0;
     }
 
     private static ColumnData unescape(ColumnData columnData, byte escapeByte)

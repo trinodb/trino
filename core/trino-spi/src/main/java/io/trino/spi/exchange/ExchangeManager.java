@@ -43,13 +43,13 @@ public interface ExchangeManager
      *
      * @param context contains various information about the query and stage being executed
      * @param outputPartitionCount number of distinct partitions to be created (grouped) by the exchange.
-     * Values of the <code>partitionId</code> parameter of the {@link ExchangeSink#add(int, Slice)} method
-     * will be in the <code>[0..outputPartitionCount)</code> range
+     *         Values of the <code>partitionId</code> parameter of the {@link ExchangeSink#add(int, Slice)} method
+     *         will be in the <code>[0..outputPartitionCount)</code> range
      * @param preserveOrderWithinPartition preserve order of records within a single partition written by a single writer.
-     * This property does not impose any specific order on the sub partitions of a single output partition written by multiple independent writers.
-     * The order is preserved only for the records written by a single writer. The reader will read sub partitions written by different writers in no specific order.
-     * This setting is useful when collecting ordered output from a single task that produces a single partition (for example a task that performs a global "order by" operation).
-     * May impact performance as it makes certain optimizations not possible.
+     *         This property does not impose any specific order on the sub partitions of a single output partition written by multiple independent writers.
+     *         The order is preserved only for the records written by a single writer. The reader will read sub partitions written by different writers in no specific order.
+     *         This setting is useful when collecting ordered output from a single task that produces a single partition (for example a task that performs a global "order by" operation).
+     *         May impact performance as it makes certain optimizations not possible.
      * @return {@link Exchange} object to be used by the coordinator to interact with the external exchange
      */
     Exchange createExchange(ExchangeContext context, int outputPartitionCount, boolean preserveOrderWithinPartition);

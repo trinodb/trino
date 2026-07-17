@@ -149,8 +149,8 @@ public final class TaskTestUtils
                 hashCompiler,
                 CatalogServiceProvider.fail());
 
-        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
-        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), 0);
+        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT, 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 Optional.empty(),
@@ -161,18 +161,18 @@ public final class TaskTestUtils
                 new MockDirectExchangeClientSupplier(),
                 new ExpressionCompiler(pageFunctionCompiler, columnarFilterCompiler),
                 pageFunctionCompiler,
-                new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
+                new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager()),
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig(),
-                new GenericSpillerFactory((types, spillContext, memoryContext, parallelSpill) -> {
+                new GenericSpillerFactory((_, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 }),
                 new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
                 Optional.empty(),
-                (types, spillContext, memoryContext, parallelSpill) -> {
+                (_, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
-                (types, partitionFunction, spillContext, memoryContext, operatorName) -> {
+                (_, _, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 new PagesIndex.TestingFactory(false),

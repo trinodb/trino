@@ -141,7 +141,7 @@ public class TestTimestamp
     }
 
     private static void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, Iterable<?> expectedValues, DateTimeZone dateTimeZone)
-             throws IOException
+            throws IOException
     {
         Iterator<?> expected = expectedValues.iterator();
         try (ConnectorPageSource pageSource = ParquetUtil.createPageSource(session, tempFile.getFile(), columnNames, ImmutableList.of(type), dateTimeZone)) {

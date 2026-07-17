@@ -39,6 +39,11 @@ public final class StandardFunctions
      * $nullif is a function accepting two arguments. Returns null if both values are the same, otherwise returns the first value.
      */
     public static final FunctionName NULLIF_FUNCTION_NAME = new FunctionName("$nullif");
+    /**
+     * $coalesce is a vararg function accepting at least two arguments of the same type.
+     * Returns the first non-null value, or null if all values are null.
+     */
+    public static final FunctionName COALESCE_FUNCTION_NAME = new FunctionName("$coalesce");
 
     /**
      * $cast function result type is determined by the {@link Call#getType()}
@@ -56,6 +61,14 @@ public final class StandardFunctions
      * $identical function is equivalent to the SQL operator "IS NOT DISTINCT FROM".
      */
     public static final FunctionName IDENTICAL_OPERATOR_FUNCTION_NAME = new FunctionName("$identical");
+
+    /**
+     * $between is a 3-argument boolean function equivalent to the SQL `value BETWEEN min AND max`
+     * predicate. The value is named once, preserving the spec's single-evaluation semantics
+     * without the duplication that an explicit `$and($greater_than_or_equal(value, min),
+     * $less_than_or_equal(value, max))` would carry.
+     */
+    public static final FunctionName BETWEEN_FUNCTION_NAME = new FunctionName("$between");
 
     /**
      * Arithmetic addition.
@@ -78,9 +91,14 @@ public final class StandardFunctions
     public static final FunctionName DIVIDE_FUNCTION_NAME = new FunctionName("$divide");
 
     /**
-     * Arithmetic modulus.
+     * Arithmetic modulo.
      */
-    public static final FunctionName MODULUS_FUNCTION_NAME = new FunctionName("$modulus");
+    public static final FunctionName MODULO_FUNCTION_NAME = new FunctionName("$modulo");
+    /**
+     * @deprecated Use {@link #MODULO_FUNCTION_NAME} instead.
+     */
+    @Deprecated
+    public static final FunctionName MODULUS_FUNCTION_NAME = new FunctionName("$modulo");
 
     /**
      * Arithmetic unary minus.

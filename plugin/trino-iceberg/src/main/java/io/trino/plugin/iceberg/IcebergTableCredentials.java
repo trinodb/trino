@@ -13,22 +13,35 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.SupportsStorageCredentials;
 
+import java.util.List;
 import java.util.Map;
 
-public record IcebergTableCredentials(Map<String, String> fileIoProperties)
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+public record IcebergTableCredentials(Map<String, String> fileIoProperties, List<IcebergStorageCredentials> storageCredentials)
         implements ConnectorTableCredentials
 {
     public IcebergTableCredentials
     {
         fileIoProperties = ImmutableMap.copyOf(fileIoProperties);
+        storageCredentials = ImmutableList.copyOf(storageCredentials);
     }
 
     public static IcebergTableCredentials forFileIO(FileIO io)
     {
-        return new IcebergTableCredentials(io.properties());
+        if (io instanceof SupportsStorageCredentials storageCredentials) {
+            return new IcebergTableCredentials(
+                    io.properties(),
+                    storageCredentials.credentials().stream()
+                            .map(credential -> new IcebergStorageCredentials(credential.prefix(), credential.config()))
+                            .collect(toImmutableList()));
+        }
+        return new IcebergTableCredentials(io.properties(), ImmutableList.of());
     }
 }

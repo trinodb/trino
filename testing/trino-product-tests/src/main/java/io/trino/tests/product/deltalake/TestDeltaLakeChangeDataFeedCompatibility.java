@@ -19,7 +19,6 @@ import com.google.inject.name.Named;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -31,15 +30,9 @@ import java.util.Map;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_154;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_164;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertiesOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -70,8 +63,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         s3Client = null;
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     public void testUpdateTableWithCdf(String columnMappingMode)
     {
         String tableName = "test_updates_to_table_with_cdf_" + randomNameSuffix();
@@ -106,8 +98,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testUpdateTableWithChangeDataFeedWriterFeature()
     {
         String tableName = "test_change_data_feed_writer_feature_" + randomNameSuffix();
@@ -207,8 +198,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     public void testUpdatePartitionedTableWithCdf(String columnMappingMode)
     {
         String tableName = "test_updates_to_partitioned_table_with_cdf_" + randomNameSuffix();
@@ -393,8 +383,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     public void testDeleteFromTableWithCdf(String columnMappingMode)
     {
         String tableName = "test_deletes_from_table_with_cdf_" + randomNameSuffix();
@@ -539,8 +528,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_DATABRICKS_154, DELTA_LAKE_DATABRICKS_164, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testMergeMixedDeleteAndUpdateIntoTableWithCdfEnabled()
     {
         String targetTableName = "test_merge_mixed_delete_and_update_into_table_with_cdf_" + randomNameSuffix();
@@ -627,8 +615,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     " WHERE partitioning_column_2 IS NULL");
 
             assertThat(onTrino().executeQuery(
-                    "SELECT * FROM delta.default." + tableName
-            )).containsOnly(
+                    "SELECT * FROM delta.default." + tableName)).containsOnly(
                     row("testValue1", 1, "partition1"),
                     row("testValue2", 2, "partition2"));
 
@@ -758,7 +745,8 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     row(4, "pageUrl4", 400, "update_preimage", 3),
                     row(3, "pageUrl3", 300, "update_preimage", 4),
                     row(3, "pageUrl30", 300, "update_postimage", 4),
-                    row(1, "pageUrl1", 100, "delete", 5)};
+                    row(1, "pageUrl1", 100, "delete", 5),
+            };
             assertThat(onTrino().executeQuery(
                     "SELECT page_id, page_url, views, _change_type, _commit_version " +
                             "FROM TABLE(delta.system.table_changes('default', '" + targetTableName + "'))"))
@@ -849,7 +837,8 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         return new Object[][] {
                 {"name"},
                 {"id"},
-                {"none"}};
+                {"none"},
+        };
     }
 
     private void assertThereIsNoCdfFileGenerated(String tableName, String tableProperty)

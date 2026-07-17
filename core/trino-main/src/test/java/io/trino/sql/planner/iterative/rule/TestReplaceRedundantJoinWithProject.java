@@ -38,8 +38,7 @@ public class TestReplaceRedundantJoinWithProject
     {
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
@@ -50,16 +49,14 @@ public class TestReplaceRedundantJoinWithProject
     {
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
@@ -70,8 +67,7 @@ public class TestReplaceRedundantJoinWithProject
     {
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
@@ -82,8 +78,7 @@ public class TestReplaceRedundantJoinWithProject
     {
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(10, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .matches(
@@ -99,8 +94,7 @@ public class TestReplaceRedundantJoinWithProject
     {
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(0, p.symbol("a", BIGINT)),
                                 p.values(10, p.symbol("b", BIGINT))))
                 .matches(
@@ -116,8 +110,7 @@ public class TestReplaceRedundantJoinWithProject
     {
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(10, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .matches(
@@ -129,8 +122,7 @@ public class TestReplaceRedundantJoinWithProject
 
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(0, p.symbol("a")),
                                 p.values(10, p.symbol("b"))))
                 .matches(

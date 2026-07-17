@@ -22,6 +22,9 @@ import org.apache.parquet.format.CompressionCodec;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.foreign.MemorySegment;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.util.zip.GZIPOutputStream;
 
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
@@ -29,45 +32,36 @@ import static java.util.Objects.requireNonNull;
 
 interface ParquetCompressor
 {
-    ParquetDataOutput compress(byte[] input)
+    ParquetDataOutput compress(ByteBuffer input)
             throws IOException;
 
     static ParquetCompressor getCompressor(CompressionCodec codec)
     {
-        switch (codec) {
-            case GZIP:
-                return new GzipCompressor();
-            case SNAPPY:
-                return new AirLiftCompressor(SnappyCompressor.create());
-            case ZSTD:
-                return new AirLiftCompressor(ZstdCompressor.create());
-            case LZ4:
-                return new AirLiftCompressor(Lz4Compressor.create());
-            case UNCOMPRESSED:
-                return null;
-            case LZO:
-            case LZ4_RAW:
+        return switch (codec) {
+            case GZIP -> new GzipCompressor();
+            case SNAPPY -> new AirLiftCompressor(SnappyCompressor.create());
+            case ZSTD -> new AirLiftCompressor(ZstdCompressor.create());
+            case LZ4 -> new AirLiftCompressor(Lz4Compressor.create());
+            case UNCOMPRESSED -> null;
+            case LZO, LZ4_RAW, BROTLI -> {
                 // TODO Support LZO and LZ4_RAW compression
                 // Note: LZ4 compression scheme has been deprecated by parquet-format in favor of LZ4_RAW
                 // When using airlift LZO or LZ4 compressor, decompressing page in reader throws exception.
-                break;
-            case BROTLI:
-                // unsupported
-                break;
-        }
-        throw new RuntimeException("Unsupported codec: " + codec);
+                throw new RuntimeException("Unsupported codec: " + codec);
+            }
+        };
     }
 
     class GzipCompressor
             implements ParquetCompressor
     {
         @Override
-        public ParquetDataOutput compress(byte[] input)
+        public ParquetDataOutput compress(ByteBuffer input)
                 throws IOException
         {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             try (GZIPOutputStream outputStream = new GZIPOutputStream(byteArrayOutputStream)) {
-                outputStream.write(input, 0, input.length);
+                Channels.newChannel(outputStream).write(input);
             }
             return createDataOutput(byteArrayOutputStream);
         }
@@ -84,13 +78,13 @@ interface ParquetCompressor
         }
 
         @Override
-        public ParquetDataOutput compress(byte[] input)
+        public ParquetDataOutput compress(ByteBuffer input)
                 throws IOException
         {
-            int minCompressionBufferSize = compressor.maxCompressedLength(input.length);
+            int minCompressionBufferSize = compressor.maxCompressedLength(input.remaining());
             byte[] compressionBuffer = new byte[minCompressionBufferSize];
             // TODO compressedDataSize > bytes.length?
-            int compressedDataSize = compressor.compress(input, 0, input.length, compressionBuffer, 0, compressionBuffer.length);
+            int compressedDataSize = compressor.compress(MemorySegment.ofBuffer(input), MemorySegment.ofArray(compressionBuffer));
             return createDataOutput(Slices.wrappedBuffer(compressionBuffer, 0, compressedDataSize));
         }
     }

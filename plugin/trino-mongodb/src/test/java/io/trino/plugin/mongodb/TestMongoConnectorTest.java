@@ -139,7 +139,7 @@ public class TestMongoConnectorTest
         assertThat(query("SHOW COLUMNS FROM " + table))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                         "('mixed_array_col', 'row(\"_pos1\" bigint, \"_pos2\" varchar, \"_pos3\" double, \"_pos4\" row(\"nested_arr\" array(bigint)))', '', '')");
+                        "('mixed_array_col', 'row(\"_pos1\" bigint, \"_pos2\" varchar, \"_pos3\" double, \"_pos4\" row(\"nested_arr\" array(bigint)))', '', '')");
 
         assertThat(query("SELECT mixed_array_col._pos1, mixed_array_col._pos2, mixed_array_col._pos3 FROM " + table))
                 .matches("VALUES (BIGINT '1', VARCHAR 'two', DOUBLE '3.0')");
@@ -480,17 +480,18 @@ public class TestMongoConnectorTest
                         "   (8, CAST('\0 ' AS char(3)))," +
                         "   (9, CAST('\0  ' AS char(3)))")) {
             assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = ''"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
                     .matches("VALUES 0, 1, 2, 3")
                     .isFullyPushedDown();
-            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x'"))
                     .matches("VALUES 4, 5, 6")
                     .isFullyPushedDown();
-            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0'"))
                     .matches("VALUES 7, 8, 9")
                     .isFullyPushedDown();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
+                    .returnsEmptyResult();
         }
     }
 
@@ -852,7 +853,8 @@ public class TestMongoConnectorTest
         String listMapToVarcharTable = "test_list_map_to_varchar" + randomNameSuffix();
         assertUpdate("CREATE TABLE test." + listMapToVarcharTable + " (col VARCHAR)");
         client.getDatabase("test").getCollection(listMapToVarcharTable).insertOne(new Document(
-                ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
+                ImmutableMap.of("col", ImmutableList.of(
+                        new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
                         new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
         assertQuery("SELECT col FROM test." + listMapToVarcharTable, "SELECT '[{\"key1\": \"value1\", \"key2\": \"value2\"}, {\"key3\": \"value3\", \"key4\": \"value4\"}]'");
         assertUpdate("DROP TABLE test." + listMapToVarcharTable);
@@ -1159,7 +1161,7 @@ public class TestMongoConnectorTest
                 "Only lowercase database name is supported");
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))",
-                 "Only lowercase collection name is supported");
+                "Only lowercase collection name is supported");
 
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ invalid }'))",
@@ -1918,23 +1920,28 @@ public class TestMongoConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "bigint -> integer":
-            case "bigint -> smallint":
-            case "bigint -> tinyint":
-            case "decimal(5,3) -> decimal(5,2)":
-            case "time(3) -> time(6)":
-            case "time(6) -> time(3)":
-            case "timestamp(3) -> timestamp(6)":
-            case "timestamp(6) -> timestamp(3)":
-            case "timestamp(3) with time zone -> timestamp(6) with time zone":
-            case "timestamp(6) with time zone -> timestamp(3) with time zone":
-            case "map(integer, varchar) -> map(bigint, varchar)":
-            case "map(varchar, integer) -> map(varchar, bigint)":
-            case "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))":
-                return Optional.of(setup.asUnsupported());
+        if (setup.sourceColumnType().startsWith("char(") && setup.newColumnType().startsWith("varchar")) {
+            // MongoDB keeps the blank padding of the existing CHAR data when the column is converted to VARCHAR,
+            // whereas Trino's char-to-varchar cast (which computes the default expected value) trims trailing spaces.
+            int length = Integer.parseInt(setup.sourceColumnType().substring("char(".length(), setup.sourceColumnType().length() - 1));
+            return Optional.of(setup.withNewValueLiteral(format("rpad(%s, %s, ' ')", setup.sourceValueLiteral(), length)));
         }
-        return Optional.of(setup);
+        return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer",
+                 "bigint -> smallint",
+                 "bigint -> tinyint",
+                 "decimal(5,3) -> decimal(5,2)",
+                 "time(3) -> time(6)",
+                 "time(6) -> time(3)",
+                 "timestamp(3) -> timestamp(6)",
+                 "timestamp(6) -> timestamp(3)",
+                 "timestamp(3) with time zone -> timestamp(6) with time zone",
+                 "timestamp(6) with time zone -> timestamp(3) with time zone",
+                 "map(integer, varchar) -> map(bigint, varchar)",
+                 "map(varchar, integer) -> map(varchar, bigint)",
+                 "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))" -> Optional.of(setup.asUnsupported());
+            default -> Optional.of(setup);
+        };
     }
 
     private void assertOneNotNullResult(String query)

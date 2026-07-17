@@ -18,5 +18,4 @@ public enum DataCompression
     NONE,
     ROW,
     PAGE,
-    /**/;
 }

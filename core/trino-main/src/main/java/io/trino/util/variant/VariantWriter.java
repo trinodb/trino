@@ -57,8 +57,9 @@ public interface VariantWriter
             case RowType rowType -> new RowVariantWriter(rowType);
             case VariantType _ -> VARIANT_VARIANT_WRITER;
             case JsonType _ -> JSON_VARIANT_WRITER;
-            // VariantWriter cannot be used for primitive types. Instead, use VariantEncoder directly, which is significantly more efficient.
-            default -> throw new IllegalArgumentException("Unsupported type for VariantWriter: " + type);
+            default -> PrimitiveVariantEncoder.create(type)
+                    .<VariantWriter>map(primitiveEncoder -> new PrimitiveVariantWriter(type, primitiveEncoder))
+                    .orElseThrow(() -> new IllegalArgumentException("Unsupported type for VariantWriter: " + type));
         };
     }
 
@@ -78,6 +79,7 @@ public interface VariantWriter
     /// Fields required for writing the value will be registered in the provided Builder.
     /// The returned PlannedValue can then be used to write the value after finalizing with remapped
     /// field IDs from the `Metadata.Builder`.
+    ///
     /// @param metadataBuilder the metadata builder to register required fields
     /// @param value the stack value to plan writing for
     PlannedValue plan(Metadata.Builder metadataBuilder, Object value);
@@ -98,6 +100,7 @@ public interface VariantWriter
         /// Writes the value to the given output slice at the specified offset.
         /// This must be called after finalize().
         /// This method can be called multiple times to write the same value to different output slices.
+        ///
         /// @return the number of bytes written
         int write(Slice out, int offset);
     }

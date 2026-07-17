@@ -16,12 +16,12 @@ package io.trino.parquet.reader.decoders;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedIntDecoder;
 import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.VarcharType;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedIntDecoder;
 import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.trino.spi.type.Varchars.byteCount;
 import static java.lang.Math.max;

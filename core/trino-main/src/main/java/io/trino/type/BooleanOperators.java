@@ -34,60 +34,63 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class BooleanOperators
 {
+    public static final String NOT_FUNCTION_NAME = "$not";
+
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
 
     private BooleanOperators() {}
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? floatToRawIntBits(1.0f) : floatToRawIntBits(0.0f);
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return TrinoNumber.from(value ? BigDecimal.ONE : BigDecimal.ZERO);
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -102,7 +105,7 @@ public final class BooleanOperators
     }
 
     @SqlType(StandardTypes.BOOLEAN)
-    @ScalarFunction(value = "$not", hidden = true, neverFails = true) // TODO: this should not be callable from SQL
+    @ScalarFunction(value = NOT_FUNCTION_NAME, hidden = true, neverFails = true) // TODO: this should not be callable from SQL
     public static boolean not(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return !value;

@@ -40,13 +40,12 @@ public class TestingLocalCatalogPruneTask
             CatalogPruneTaskConfig catalogPruneTaskConfig,
             SqlTaskManager sqlTaskManagerToPrune)
     {
-        super(
-                transactionManager,
+        super(transactionManager,
                 catalogManager,
                 connectorServicesProvider,
                 new InternalNode(nodeInfo.getNodeId(), URI.create("https://example.com"), new NodeVersion("test"), false),
                 TestingInternalNodeManager.createDefault(),
-                new TestingHttpClient(request -> {
+                new TestingHttpClient(_ -> {
                     throw new UnsupportedOperationException("Testing Local Catalog Prune Task does not make http calls");
                 }),
                 catalogPruneTaskConfig);

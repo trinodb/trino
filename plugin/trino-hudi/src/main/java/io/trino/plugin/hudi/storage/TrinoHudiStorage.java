@@ -73,7 +73,7 @@ public class TrinoHudiStorage
                 fileEntry.length(),
                 false,
                 (short) 0,
-                0,
+                fileEntry.length(),
                 fileEntry.lastModified().toEpochMilli());
     }
 
@@ -318,14 +318,15 @@ public class TrinoHudiStorage
 
     @Override
     public void close()
-            throws IOException {}
+            throws IOException
+    {}
 
     /**
-     * @param path      input directory
+     * @param path input directory
      * @param fileEntry file entry that is in the input directory
      * @return the path info of the file if the file entry is directly in the input directory,
-     * or the subdirectory in the input directory if the file entry is under the subdirectory
-     * or nested directory.
+     *         or the subdirectory in the input directory if the file entry is under the subdirectory
+     *         or nested directory.
      */
     private static StoragePathInfo getDirectEntryPathInfo(StoragePath path, FileEntry fileEntry)
     {

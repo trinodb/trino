@@ -180,7 +180,7 @@ public class BeginTableWrite
                     node.getId(),
                     child,
                     newTarget,
-                    node.getRowCountSymbol(),
+                    node.getOutputSymbols(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }

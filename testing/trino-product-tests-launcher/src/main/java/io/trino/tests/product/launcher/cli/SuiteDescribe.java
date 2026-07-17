@@ -34,6 +34,7 @@ import io.trino.tests.product.launcher.suite.SuiteModule;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -47,7 +48,6 @@ import java.util.function.Supplier;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.ExitCode.OK;
-import static picocli.CommandLine.Option;
 
 @Command(
         name = "describe",

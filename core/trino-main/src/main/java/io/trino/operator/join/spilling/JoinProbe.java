@@ -20,6 +20,8 @@ import io.trino.spi.Page;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.operator.join.JoinUtils.pageMayHaveNull;
+import static io.trino.operator.join.JoinUtils.rowContainsNull;
 
 public class JoinProbe
 {
@@ -54,7 +56,7 @@ public class JoinProbe
         this.positionCount = page.getPositionCount();
         this.page = page;
         this.probePage = probePage;
-        this.probeMayHaveNull = probeMayHaveNull(probePage);
+        this.probeMayHaveNull = pageMayHaveNull(probePage);
     }
 
     public int[] getOutputChannels()
@@ -75,7 +77,7 @@ public class JoinProbe
 
     public long getCurrentJoinPosition(LookupSource lookupSource)
     {
-        if (probeMayHaveNull && currentRowContainsNull()) {
+        if (probeMayHaveNull && rowContainsNull(probePage, position)) {
             return -1;
         }
         return lookupSource.getJoinPosition(position, probePage, page);
@@ -89,25 +91,5 @@ public class JoinProbe
     public Page getPage()
     {
         return page;
-    }
-
-    private boolean currentRowContainsNull()
-    {
-        for (int i = 0; i < probePage.getChannelCount(); i++) {
-            if (probePage.getBlock(i).isNull(position)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean probeMayHaveNull(Page probePage)
-    {
-        for (int i = 0; i < probePage.getChannelCount(); i++) {
-            if (probePage.getBlock(i).mayHaveNull()) {
-                return true;
-            }
-        }
-        return false;
     }
 }

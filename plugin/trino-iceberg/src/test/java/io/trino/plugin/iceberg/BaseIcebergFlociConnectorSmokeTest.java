@@ -1,0 +1,368 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.iceberg;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Table;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.FileFormat;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
+import static io.trino.testing.containers.Floci.FLOCI_REGION;
+import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
+
+@Execution(SAME_THREAD)
+public abstract class BaseIcebergFlociConnectorSmokeTest
+        extends BaseIcebergConnectorSmokeTest
+{
+    private final String schemaName;
+    private final String bucketName;
+
+    private Hive3FlociDataLake hiveFlociDataLake;
+
+    protected BaseIcebergFlociConnectorSmokeTest(FileFormat format)
+    {
+        super(format);
+        this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
+        this.bucketName = "test-iceberg-floci-smoke-test-" + randomNameSuffix();
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        this.hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        this.hiveFlociDataLake.start();
+
+        return IcebergQueryRunner.builder()
+                .setIcebergProperties(
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.file-format", format.name())
+                                .put("iceberg.catalog.type", "HIVE_METASTORE")
+                                .put("hive.metastore.uri", hiveFlociDataLake.getHiveMetastoreEndpoint().toString())
+                                .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
+                                .put("fs.s3.enabled", "true")
+                                .put("s3.aws-access-key", FLOCI_ACCESS_KEY)
+                                .put("s3.aws-secret-key", FLOCI_SECRET_KEY)
+                                .put("s3.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                                .put("s3.region", FLOCI_REGION)
+                                .put("s3.path-style-access", "true")
+                                .put("s3.streaming.part-size", "5MB") // minimize memory usage
+                                .put("s3.max-connections", "2") // verify no leaks
+                                .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.writer-sort-buffer-size", "1MB")
+                                .putAll(getAdditionalIcebergProperties())
+                                .buildOrThrow())
+                .setSchemaInitializer(
+                        SchemaInitializer.builder()
+                                .withSchemaName(schemaName)
+                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                                .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/" + schemaName + "'"))
+                                .build())
+                .build();
+    }
+
+    public Map<String, String> getAdditionalIcebergProperties()
+    {
+        return ImmutableMap.of();
+    }
+
+    @Override
+    protected String createSchemaSql(String schemaName)
+    {
+        return "CREATE SCHEMA IF NOT EXISTS " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')";
+    }
+
+    @Test
+    @Override
+    public void testRenameSchema()
+    {
+        assertQueryFails(
+                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
+                "Hive metastore does not support renaming schemas");
+    }
+
+    @Test
+    public void testS3LocationWithTrailingSlash()
+    {
+        // Verify data and metadata files' uri don't contain fragments
+        String schemaName = getSession().getSchema().orElseThrow();
+        String tableName = "test_s3_location_with_trailing_slash_" + randomNameSuffix();
+        String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
+        assertThat(location).doesNotContain("#");
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location='" + location + "') AS SELECT 1 col", 1);
+        List<String> dataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/data".formatted(schemaName, tableName));
+        assertThat(dataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
+
+        List<String> metadataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        assertThat(metadataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
+
+        // Verify ALTER TABLE succeeds https://github.com/trinodb/trino/issues/14552
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN new_col int");
+        assertTableColumnNames(tableName, "col", "new_col");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMetadataLocationWithDoubleSlash()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/14299
+        String schemaName = getSession().getSchema().orElseThrow();
+        String tableName = "test_meatdata_location_with_double_slash_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 col", 1);
+
+        // Update metadata location to contain double slash
+        String tableId = onMetastore("SELECT tbl_id FROM TBLS t INNER JOIN DBS db ON t.db_id = db.db_id WHERE db.name = '" + schemaName + "' and t.tbl_name = '" + tableName + "'");
+        String metadataLocation = onMetastore("SELECT param_value FROM TABLE_PARAMS WHERE param_key = 'metadata_location' AND tbl_id = " + tableId);
+
+        // Simulate corrupted metadata location as Trino 393-394 was doing
+        String newMetadataLocation = metadataLocation.replace("/metadata/", "//metadata/");
+        onMetastore("UPDATE TABLE_PARAMS SET param_value = '" + newMetadataLocation + "' WHERE tbl_id = " + tableId + " AND param_key = 'metadata_location'");
+
+        // Confirm read and write operations succeed
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testHiveMetastoreTableParameter()
+    {
+        try (TestTable table = newTrinoTable("test_table_params", "(id int)")) {
+            String snapshotId = getTableParameterValue(table.getName(), "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+    }
+
+    @Test
+    void testHiveMetastoreMaterializedParameter()
+    {
+        String mvName = "test_mv_params_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_mv_params", "(id int)")) {
+            assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + table.getName());
+            String snapshotId = getTableParameterValue(mvName, "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(mvName, "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mvName);
+        }
+    }
+
+    private String getTableParameterValue(String tableName, String parameterKey)
+    {
+        String tableId = onMetastore("SELECT tbl_id FROM TBLS t INNER JOIN DBS db ON t.db_id = db.db_id WHERE db.name = '" + schemaName + "' and t.tbl_name = '" + tableName + "'");
+        return onMetastore("SELECT param_value FROM TABLE_PARAMS WHERE param_key = '" + parameterKey + "' AND tbl_id = " + tableId);
+    }
+
+    @Test
+    public void testExpireSnapshotsBatchDeletes()
+    {
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (location='" + location + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
+
+        List<String> initialMetadataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        assertThat(initialMetadataFiles).isNotEmpty();
+
+        List<Long> initialSnapshots = getSnapshotIds(tableName);
+        assertThat(initialSnapshots).hasSizeGreaterThan(1);
+
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+
+        List<String> updatedMetadataFiles = hiveFlociDataLake.floci().listObjects(bucketName, "%s/%s/metadata".formatted(schemaName, tableName));
+        assertThat(updatedMetadataFiles).isNotEmpty().hasSizeLessThan(initialMetadataFiles.size());
+
+        List<Long> updatedSnapshots = getSnapshotIds(tableName);
+        assertThat(updatedSnapshots).hasSize(1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPathContainsSpecialCharacter()
+    {
+        String tableName = "test_path_special_character" + randomNameSuffix();
+        String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
+        assertUpdate(format(
+                "CREATE TABLE %s (id bigint, part varchar) WITH (partitioning = ARRAY['part'], location='%s')",
+                tableName,
+                location));
+
+        String values = "(1, 'with-hyphen')," +
+                "(2, 'with.dot')," +
+                "(3, 'with:colon')," +
+                "(4, 'with/slash')," +
+                "(5, 'with\\\\backslashes')," +
+                "(6, 'with\\backslash')," +
+                "(7, 'with=equal')," +
+                "(8, 'with?question')," +
+                "(9, 'with!exclamation')," +
+                "(10, 'with%percent')," +
+                "(11, 'with%%percents')," +
+                "(12, 'with space')";
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, 12);
+        assertQuery("SELECT * FROM " + tableName, "VALUES " + values);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testCreateViewWithUnsupportedLocation()
+    {
+        String viewName = "test_create_view_with_unsupported_location_" + randomNameSuffix();
+        String viewLocation = schemaPath() + "/" + viewName;
+
+        assertQueryFails(
+                "CREATE OR REPLACE VIEW " + viewName + " WITH (location = '" + viewLocation + "_changed') AS SELECT * FROM nation",
+                "Hive catalog does not support creating views with properties");
+    }
+
+    @Override
+    protected AutoCloseable createSparkIcebergTable(String schema)
+    {
+        HiveMetastore metastore = getHiveMetastore(getQueryRunner());
+        // simulate iceberg table created by spark with lowercase table type
+        Table lowerCaseTableType = Table.builder()
+                .setDatabaseName(schema)
+                .setTableName("lowercase_type_" + randomNameSuffix())
+                .setOwner(Optional.empty())
+                .setDataColumns(ImmutableList.of(new Column("id", HiveType.HIVE_STRING, Optional.empty(), ImmutableMap.of())))
+                .setTableType(EXTERNAL_TABLE.name())
+                .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
+                .setParameter("EXTERNAL", "TRUE")
+                .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(ENGLISH))
+                .build();
+        metastore.createTable(lowerCaseTableType, NO_PRIVILEGES);
+        return () -> metastore.dropTable(lowerCaseTableType.getDatabaseName(), lowerCaseTableType.getTableName(), true);
+    }
+
+    private String onMetastore(@Language("SQL") String sql)
+    {
+        return hiveFlociDataLake.getHiveHadoop().runOnMetastore(sql);
+    }
+
+    private Session prepareCleanUpSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")
+                .build();
+    }
+
+    private List<Long> getSnapshotIds(String tableName)
+    {
+        return getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\"", tableName))
+                .getOnlyColumn()
+                .map(Long.class::cast)
+                .collect(toImmutableList());
+    }
+
+    @Override
+    protected void dropTableFromCatalog(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveFlociDataLake.getHiveMetastoreEndpoint())
+                        .build(this::closeAfterClass));
+        metastore.dropTable(schemaName, tableName, false);
+        assertThat(metastore.getTable(schemaName, tableName)).isEmpty();
+    }
+
+    @Override
+    protected String getMetadataLocation(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveFlociDataLake.getHiveMetastoreEndpoint())
+                        .build(this::closeAfterClass));
+        return metastore
+                .getTable(schemaName, tableName).orElseThrow()
+                .getParameters().get("metadata_location");
+    }
+
+    @Override
+    protected String schemaPath()
+    {
+        return format("s3://%s/%s", bucketName, schemaName);
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        String prefix = "s3://" + bucketName + "/";
+        return !hiveFlociDataLake.floci().listObjects(bucketName, location.substring(prefix.length())).isEmpty();
+    }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        String prefix = "s3://" + bucketName + "/";
+        String key = location.substring(prefix.length());
+
+        hiveFlociDataLake.floci().deleteObjects(bucketName, key);
+        assertThat(hiveFlociDataLake.floci().listObjects(bucketName, key)).isEmpty();
+    }
+}

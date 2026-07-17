@@ -69,7 +69,7 @@ public class TpchStatisticsRecorder
 
     private <E extends TpchEntity> void computeAndOutputStatsFor(String schemaName, TpchTable<E> table)
     {
-        computeAndOutputStatsFor(schemaName, table, row -> true, Optional.empty(), Optional.empty());
+        computeAndOutputStatsFor(schemaName, table, _ -> true, Optional.empty(), Optional.empty());
     }
 
     private <E extends TpchEntity> void computeAndOutputStatsFor(String schemaName, TpchTable<E> table, TpchColumn<E> partitionColumn, String partitionValue)

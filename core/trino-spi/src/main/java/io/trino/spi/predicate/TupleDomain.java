@@ -42,6 +42,7 @@ import java.util.stream.Collector;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
@@ -437,6 +438,94 @@ public final class TupleDomain<T>
     }
 
     /**
+     * Returns the strict union of the given TupleDomains if it can be computed exactly,
+     * or {@code Optional.empty()} if the column-wise union would be a proper superset
+     * of the strict union.
+     * <p>
+     * In most cases, {@link #columnWiseUnion} is only a superset of the actual strict union
+     * (see {@link #columnWiseUnion(List)} for examples). However, there are a few cases where
+     * the column-wise union is actually equivalent to the strict union:
+     * <ul>
+     * <li>If one TupleDomain is a superset of the others
+     *     (e.g. TupleDomain {@code (a > 0, b > 0 && b < 10)} vs TupleDomain {@code (a > 5, b = 5)})
+     * <li>If all TupleDomains consist of the same exact single column
+     *     (e.g. one TupleDomain {@code (a > 0)}, another TupleDomain {@code (a < 10)})
+     *     and NaN is not implicitly added by the union
+     * </ul>
+     */
+    public static <T> Optional<TupleDomain<T>> strictUnion(List<TupleDomain<T>> domains)
+    {
+        if (domains.isEmpty()) {
+            return Optional.of(none());
+        }
+
+        // Filter out NONE domains as they are no-ops for the purpose of OR
+        List<TupleDomain<T>> nonNoneDomains = domains.stream()
+                .filter(domain -> !domain.isNone())
+                .collect(toList());
+
+        if (nonNoneDomains.isEmpty()) {
+            return Optional.of(none());
+        }
+
+        // If one TupleDomain is a superset of all others, it is the exact union
+        if (maximal(nonNoneDomains).isPresent()) {
+            return Optional.of(columnWiseUnion(nonNoneDomains));
+        }
+
+        // The column-wise union is equivalent to the strict union if all TupleDomains
+        // consist of the same exact single column
+        boolean allSingleMatchingColumn = nonNoneDomains.stream()
+                .allMatch(domain -> domain.getDomains().isPresent() && domain.getDomains().get().size() == 1)
+                && nonNoneDomains.stream()
+                .map(domain -> domain.getDomains().get().keySet())
+                .distinct()
+                .count() == 1;
+
+        if (!allSingleMatchingColumn) {
+            // columnWiseUnion would be a superset of the strict union
+            return Optional.empty();
+        }
+
+        TupleDomain<T> columnUnionedTupleDomain = columnWiseUnion(nonNoneDomains);
+
+        // Floating point types such as REAL and DOUBLE require special handling because they include NaN value.
+        // Domains covering the value set partially might union up to a domain covering the whole value set.
+        // While the component domains didn't include NaN, the resulting domain could be further translated
+        // to predicate "TRUE" or "a IS NOT NULL", which is satisfied by NaN.
+        // So during domain union, NaN might be implicitly added.
+        // Example: Let 'a' be a column of type DOUBLE.
+        //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
+        //          Unioned TupleDomain => "is not null" /true for NaN/
+        Map<T, Domain> singleColumnDomains = nonNoneDomains.get(0).getDomains().get();
+        if (singleColumnDomains.size() != 1) {
+            throw new IllegalStateException("Expected single column domain, got " + singleColumnDomains.size());
+        }
+        Type type = singleColumnDomains.values().iterator().next().getType();
+        if (typeHasNaN(type)) {
+            // A Domain of a floating point type contains NaN in the following cases:
+            // 1. When it contains all the values of the type and null.
+            //    In such case the domain is 'all', and if it is the only domain
+            //    in the TupleDomain, the TupleDomain gets normalized to TupleDomain 'all'.
+            // 2. When it contains all the values of the type and doesn't contain null.
+            //    In such case no normalization on the level of TupleDomain takes place,
+            //    and the check for NaN is done by inspecting the Domain's valueSet.
+            //    NaN is included when the valueSet is 'all'.
+            boolean unionedDomainContainsNaN = columnUnionedTupleDomain.isAll() ||
+                    (columnUnionedTupleDomain.getDomains().isPresent() &&
+                            columnUnionedTupleDomain.getDomains().get().values().iterator().next().getValues().isAll());
+            boolean implicitlyAddedNaN = nonNoneDomains.stream().noneMatch(TupleDomain::isAll) &&
+                    unionedDomainContainsNaN;
+            // Guard against wrong results: do not report an exact union if NaN was implicitly added
+            if (implicitlyAddedNaN) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(columnUnionedTupleDomain);
+    }
+
+    /**
      * Returns true only if there exists a strict intersection between the TupleDomains.
      * i.e. there exists some potential tuple that would be allowable in both TupleDomains.
      */
@@ -559,12 +648,12 @@ public final class TupleDomain<T>
 
     public TupleDomain<T> simplify()
     {
-        return transformDomains((key, domain) -> domain.simplify());
+        return transformDomains((_, domain) -> domain.simplify());
     }
 
     public TupleDomain<T> simplify(int threshold)
     {
-        return transformDomains((key, domain) -> domain.simplify(threshold));
+        return transformDomains((_, domain) -> domain.simplify(threshold));
     }
 
     public TupleDomain<T> transformDomains(BiFunction<T, Domain, Domain> transformation)
@@ -586,7 +675,7 @@ public final class TupleDomain<T>
     public Predicate<Map<T, NullableValue>> asPredicate()
     {
         if (isNone()) {
-            return bindings -> false;
+            return _ -> false;
         }
         Map<T, Domain> domains = this.domains.orElseThrow();
         return bindings -> {

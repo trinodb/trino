@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -22,7 +21,8 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -38,7 +38,7 @@ public class TestRemoveDuplicatePredicates
                 disablePushFilterIntoValues(),
                 anyTree(
                         filter(
-                                new Comparison(EQUAL, new Reference(INTEGER, "A"), new Constant(INTEGER, 1L)),
+                                comparison(EQUAL, new Reference(INTEGER, "A"), new Constant(INTEGER, 1L)),
                                 values("A"))));
     }
 
@@ -50,7 +50,7 @@ public class TestRemoveDuplicatePredicates
                 disablePushFilterIntoValues(),
                 anyTree(
                         filter(
-                                new Comparison(EQUAL, new Reference(INTEGER, "A"), new Constant(INTEGER, 1L)),
+                                comparison(EQUAL, new Reference(INTEGER, "A"), new Constant(INTEGER, 1L)),
                                 values("A"))));
     }
 

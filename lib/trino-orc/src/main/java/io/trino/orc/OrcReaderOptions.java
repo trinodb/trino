@@ -43,8 +43,7 @@ public class OrcReaderOptions
 
     public OrcReaderOptions()
     {
-        this(
-                DEFAULT_BLOOM_FILTERS_ENABLED,
+        this(DEFAULT_BLOOM_FILTERS_ENABLED,
                 DEFAULT_MAX_MERGE_DISTANCE,
                 DEFAULT_MAX_BUFFER_SIZE,
                 DEFAULT_TINY_STRIPE_THRESHOLD,

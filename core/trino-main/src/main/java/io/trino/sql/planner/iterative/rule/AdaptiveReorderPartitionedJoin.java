@@ -27,6 +27,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.StreamPreferredProperties;
+import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -48,7 +49,6 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.getFirstKnownOutputSizeInB
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.partitionedOn;
-import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.deriveStreamPropertiesWithoutActualProperties;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -93,7 +93,8 @@ public class AdaptiveReorderPartitionedJoin
             .or(
                     // In case partial aggregation is missing
                     prev -> prev.with(right().matching(
-                            exchange().matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
+                            exchange()
+                                    .matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
                                             // Skip when exchange is gather
                                             && !exchangeNode.getType().equals(GATHER))
                                     .capturedAs(LOCAL_EXCHANGE_NODE))),
@@ -101,7 +102,8 @@ public class AdaptiveReorderPartitionedJoin
                     prev -> prev.with(right().matching(
                             aggregation().matching(node -> node.getStep() == PARTIAL)
                                     .with(source().matching(
-                                            exchange().matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
+                                            exchange()
+                                                    .matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
                                                             // Skip when exchange is gather
                                                             && !exchangeNode.getType().equals(GATHER))
                                                     .capturedAs(LOCAL_EXCHANGE_NODE))))));
@@ -261,9 +263,9 @@ public class AdaptiveReorderPartitionedJoin
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> ctx)
         {
-            verify(
-                    node.getScope().equals(LOCAL) && node.getId().equals(localExchangeNodeId),
-                    "Unexpected exchange node: %s", node.getId());
+            verify(node.getScope().equals(LOCAL) && node.getId().equals(localExchangeNodeId),
+                    "Unexpected exchange node: %s",
+                    node.getId());
             // Remove local exchange if there is only one source since we are converting build side
             // to probe side
             if (node.getSources().size() == 1) {

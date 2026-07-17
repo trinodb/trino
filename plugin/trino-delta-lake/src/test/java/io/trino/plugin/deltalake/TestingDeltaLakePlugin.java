@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Module;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.writer.TestingLocalTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
@@ -51,7 +50,7 @@ public class TestingDeltaLakePlugin
     {
         localFileSystemRootPath.toFile().mkdirs();
         localFileSystemFactory = new LocalFileSystemFactory(localFileSystemRootPath);
-        localTransactionLogSynchronizer = new TestingLocalTransactionLogSynchronizer(new DefaultDeltaLakeFileSystemFactory(localFileSystemFactory, new NoOpVendedCredentialsProvider()));
+        localTransactionLogSynchronizer = new TestingLocalTransactionLogSynchronizer(new DefaultDeltaLakeFileSystemFactory(localFileSystemFactory, new NoOpTableCredentialsProvider()));
         this.metastoreModule = requireNonNull(metastoreModule, "metastoreModule is null");
     }
 

@@ -15,7 +15,12 @@ package io.trino.operator.table.json;
 
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.Symbol;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public record JsonTableValueColumn(
@@ -23,14 +28,16 @@ public record JsonTableValueColumn(
         ResolvedFunction function,
         IrJsonPath path,
         long emptyBehavior,
-        int emptyDefaultInput, // channel number or -1 when default not specified
+        Expression emptyDefault, // evaluated lazily against the current input row
         long errorBehavior,
-        int errorDefaultInput) // channel number or -1 when default not specified
+        Expression errorDefault, // evaluated lazily against the current input row
+        List<Symbol> defaultInputLayout) // input channel layout for default expression evaluation
         implements JsonTableColumn
 {
     public JsonTableValueColumn
     {
         requireNonNull(function, "function is null");
         requireNonNull(path, "path is null");
+        defaultInputLayout = defaultInputLayout.stream().collect(toImmutableList());
     }
 }

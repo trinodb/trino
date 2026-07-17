@@ -61,8 +61,7 @@ public class CachingDirectoryLister
     @Inject
     public CachingDirectoryLister(HiveConfig hiveClientConfig)
     {
-        this(
-                hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
+        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
                 hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
                 hiveClientConfig.getFileStatusCacheTables(),
                 hiveClientConfig.getFileStatusCacheExcludedTables(),

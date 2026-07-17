@@ -19,11 +19,12 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,6 +36,7 @@ import java.util.Set;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -53,7 +55,7 @@ public class RemoveRedundantInItems
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof In(Expression value, List<Expression> list))) {
             return Optional.empty();
@@ -99,7 +101,7 @@ public class RemoveRedundantInItems
                 .build();
 
         if (newItems.size() == 1) {
-            return Optional.of(new Comparison(Comparison.Operator.EQUAL, value, newItems.getFirst()));
+            return Optional.of(comparison(metadata, ComparisonOperator.EQUAL, value, newItems.getFirst()));
         }
 
         return Optional.of(new In(value, newItems));

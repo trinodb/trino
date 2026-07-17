@@ -127,10 +127,10 @@ public final class AesCipherUtils
             readBytes += n;
         }
 
-        int ciphertextLength = ((lengthBuffer[3] & 0xff) << 24)
-                | ((lengthBuffer[2] & 0xff) << 16)
-                | ((lengthBuffer[1] & 0xff) << 8)
-                | (lengthBuffer[0] & 0xff);
+        int ciphertextLength = ((lengthBuffer[3] & 0xFF) << 24)
+                | ((lengthBuffer[2] & 0xFF) << 16)
+                | ((lengthBuffer[1] & 0xFF) << 8)
+                | (lengthBuffer[0] & 0xFF);
 
         if (ciphertextLength < 1) {
             throw new IOException("Wrong length of encrypted metadata: " + ciphertextLength);
@@ -142,8 +142,8 @@ public final class AesCipherUtils
     private static byte[] shortToBytesLittleEndian(short input)
     {
         byte[] output = new byte[2];
-        output[1] = (byte) (0xff & (input >> 8));
-        output[0] = (byte) (0xff & input);
+        output[1] = (byte) (0xFF & (input >> 8));
+        output[0] = (byte) (0xFF & input);
 
         return output;
     }

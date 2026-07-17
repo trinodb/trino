@@ -13,6 +13,8 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlNumber;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,11 +22,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -66,8 +79,9 @@ public class TestCharOperators
         assertThat(assertions.operator(EQUAL, "cast('bar' as char(5))", "'bar'"))
                 .isEqualTo(true);
 
+        // the char is coerced to varchar by trimming, so the trailing spaces in the varchar are significant
         assertThat(assertions.operator(EQUAL, "cast('bar' as char(5))", "'bar   '"))
-                .isEqualTo(true);
+                .isEqualTo(false);
 
         assertThat(assertions.operator(EQUAL, "cast('a' as char(2))", "cast('a ' as char(2))"))
                 .isEqualTo(true);
@@ -116,7 +130,7 @@ public class TestCharOperators
         assertThat(assertions.expression("a <> b")
                 .binding("a", "cast('bar' as char(5))")
                 .binding("b", "'bar   '"))
-                .isEqualTo(false);
+                .isEqualTo(true);
 
         assertThat(assertions.expression("a <> b")
                 .binding("a", "cast('a' as char(2))")
@@ -562,7 +576,7 @@ public class TestCharOperators
                 .isEqualTo(true);
 
         assertThat(assertions.operator(IDENTICAL, "cast('bar' as char(5))", "'bar   '"))
-                .isEqualTo(true);
+                .isEqualTo(false);
 
         assertThat(assertions.operator(IDENTICAL, "NULL", "cast('foo' as char(3))"))
                 .isEqualTo(false);
@@ -576,5 +590,135 @@ public class TestCharOperators
 
         assertThat(assertions.operator(INDETERMINATE, "CHAR '123'"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    public void testCharCast()
+    {
+        assertThat(assertions.expression("CAST(CHAR '1337' AS BIGINT)"))
+                .hasType(BIGINT)
+                .isEqualTo(1337L);
+
+        assertThat(assertions.expression("CAST(CHAR ' 1337 ' AS BIGINT)"))
+                .hasType(BIGINT)
+                .isEqualTo(1337L);
+
+        assertThat(assertions.expression("CAST(CHAR '1337' AS INTEGER)"))
+                .hasType(INTEGER)
+                .isEqualTo(1337);
+
+        assertThat(assertions.expression("CAST(CHAR ' 1337 ' AS INTEGER)"))
+                .hasType(INTEGER)
+                .isEqualTo(1337);
+
+        assertThat(assertions.expression("CAST(CHAR '1337' AS SMALLINT)"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) 1337);
+
+        assertThat(assertions.expression("CAST(CHAR ' 1337 ' AS SMALLINT)"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) 1337);
+
+        assertThat(assertions.expression("CAST(CHAR '21' AS TINYINT)"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 21);
+
+        assertThat(assertions.expression("CAST(CHAR ' 21 ' AS TINYINT)"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 21);
+
+        assertThat(assertions.expression("CAST(CHAR '1.0' AS DOUBLE)"))
+                .hasType(DOUBLE)
+                .isEqualTo(1.0d);
+
+        assertThat(assertions.expression("CAST(CHAR ' 1.0 ' AS DOUBLE)"))
+                .hasType(DOUBLE)
+                .isEqualTo(1.0d);
+
+        assertThat(assertions.expression("CAST(CHAR '13.37' AS REAL)"))
+                .hasType(REAL)
+                .isEqualTo(13.37f);
+
+        assertThat(assertions.expression("CAST(CHAR ' 13.37 ' AS REAL)"))
+                .hasType(REAL)
+                .isEqualTo(13.37f);
+
+        // cast to boolean
+        assertThat(assertions.expression("CAST(CHAR 'true' AS BOOLEAN)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(CHAR 'false' AS BOOLEAN)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("CAST(CHAR '1' AS BOOLEAN)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(CHAR '0' AS BOOLEAN)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("CAST(CHAR 'abc' AS VARBINARY)"))
+                .hasType(VARBINARY)
+                .matches("X'616263'");
+
+        assertThat(assertions.expression("CAST(CAST('abc' AS char(5)) AS VARBINARY)"))
+                .hasType(VARBINARY)
+                .matches("X'6162632020'");
+
+        // cast to number
+        assertThat(assertions.expression("CAST(CHAR '13.37' AS NUMBER)"))
+                .hasType(NUMBER)
+                .isEqualTo(new SqlNumber("13.37"));
+
+        assertThat(assertions.expression("CAST(CHAR ' 13.37 ' AS NUMBER)"))
+                .hasType(NUMBER)
+                .isEqualTo(new SqlNumber("13.37"));
+
+        assertThat(assertions.expression("CAST(CHAR 'NaN' AS NUMBER)"))
+                .hasType(NUMBER)
+                .isEqualTo(new SqlNumber(new TrinoNumber.NotANumber()));
+
+        assertThat(assertions.expression("CAST(CHAR 'Infinity' AS NUMBER)"))
+                .hasType(NUMBER)
+                .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(false)));
+
+        assertThat(assertions.expression("CAST(CHAR '-Infinity' AS NUMBER)"))
+                .hasType(NUMBER)
+                .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(true)));
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(CHAR 'abc' AS BIGINT)")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(CHAR 'abc' AS DOUBLE)")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(CHAR 'abc' AS NUMBER)")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS INTEGER)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS SMALLINT)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS TINYINT)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS REAL)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS BOOLEAN)")
+                .binding("a", "CHAR 'abc'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertThat(assertions.expression("cast(a AS VARBINARY)").binding("a", "CHAR 'abc'"))
+                .neverFails();
     }
 }

@@ -29,7 +29,6 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -231,31 +230,63 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSelectFromColumns(securityContext, getQualifiedObjectName(tableName), branch, columnNames);
+    }
+
+    @Deprecated
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSelectFromColumns(securityContext, getQualifiedObjectName(tableName), columnNames);
+        accessControl.checkCanSelectFromColumns(securityContext, getQualifiedObjectName(tableName), Optional.empty(), columnNames);
     }
 
+    @Override
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName), branch);
+    }
+
+    @Deprecated
     @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName));
+        accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName), Optional.empty());
     }
 
+    @Override
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName), branch);
+    }
+
+    @Deprecated
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName));
+        accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName), Optional.empty());
     }
 
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), branch, updatedColumns);
+    }
+
+    @Deprecated
     @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), updatedColumns);
+        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), Optional.empty(), updatedColumns);
     }
 
     @Override
@@ -294,10 +325,18 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), branch, columnNames);
+    }
+
+    @Deprecated
+    @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), columnNames);
+        accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), Optional.empty(), columnNames);
     }
 
     @Override
@@ -427,7 +466,8 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context,
+    public void checkCanGrantRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -438,7 +478,8 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context,
+    public void checkCanRevokeRoles(
+            ConnectorSecurityContext context,
             Set<String> roles,
             Set<TrinoPrincipal> grantees,
             boolean adminOption,
@@ -572,17 +613,6 @@ public class InjectedConnectorAccessControl
             return ImmutableList.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Row filtering not supported");
-    }
-
-    @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        checkArgument(context == null, "context must be null");
-        ColumnSchema column = ColumnSchema.builder().setName(columnName).setType(type).build();
-        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), ImmutableList.of(column)).containsKey(column)) {
-            return Optional.empty();
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
     }
 
     @Override

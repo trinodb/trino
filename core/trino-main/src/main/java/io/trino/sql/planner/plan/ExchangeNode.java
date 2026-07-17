@@ -49,13 +49,13 @@ public class ExchangeNode
     {
         GATHER,
         REPARTITION,
-        REPLICATE
+        REPLICATE,
     }
 
     public enum Scope
     {
         LOCAL,
-        REMOTE
+        REMOTE,
     }
 
     private final Type type;

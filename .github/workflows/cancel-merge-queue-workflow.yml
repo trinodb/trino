@@ -1,0 +1,57 @@
+name: Cancel merge queue workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Workflow run to cancel
+        required: true
+      run_attempt:
+        description: Workflow run attempt to cancel
+        required: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+permissions:
+  actions: write
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel merge queue workflow after failure is recorded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          RUN_ATTEMPT: ${{ inputs.run_attempt }}
+        run: |
+          # Wait until GitHub records the failed job before cancelling the workflow, so the
+          # failing job keeps the failure conclusion instead of being finalized as cancelled.
+          for attempt in {1..30}; do
+            failed_jobs=$(gh api --paginate "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" \
+                --jq '.jobs[] | select(.status == "completed" and .conclusion == "failure") | .name' \
+                | paste -sd ',' - \
+                | sed 's/,/, /g')
+            if [[ -n "${failed_jobs}" ]]; then
+              echo "::notice::Cancelling merge queue workflow after failed jobs were recorded: ${failed_jobs}"
+              run_status=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq .status)
+              if [[ "${run_status}" == "completed" ]]; then
+                echo "::notice::Workflow run ${RUN_ID} is already completed"
+                exit 0
+              fi
+              if ! gh run cancel "${RUN_ID}" --repo "${GITHUB_REPOSITORY}"; then
+                run_status=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq .status)
+                if [[ "${run_status}" == "completed" ]]; then
+                  echo "::notice::Workflow run ${RUN_ID} completed before it could be cancelled"
+                  exit 0
+                fi
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::warning::Failed to find a job with conclusion=failure for run ${RUN_ID} attempt ${RUN_ATTEMPT}; not cancelling workflow"
+          exit 1

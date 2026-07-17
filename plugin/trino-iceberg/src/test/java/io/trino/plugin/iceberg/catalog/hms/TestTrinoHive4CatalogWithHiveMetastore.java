@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
-import io.trino.plugin.hive.containers.Hive4MinioDataLake;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive4FlociDataLake;
+import io.trino.plugin.hive.containers.HiveFlociDataLake;
 
 public class TestTrinoHive4CatalogWithHiveMetastore
         extends TestTrinoHiveCatalogWithHiveMetastore
 {
     @Override
-    HiveMinioDataLake hiveMinioDataLake()
+    HiveFlociDataLake hiveFlociDataLake()
     {
-        return new Hive4MinioDataLake(bucketName);
+        return new Hive4FlociDataLake(bucketName);
     }
 }

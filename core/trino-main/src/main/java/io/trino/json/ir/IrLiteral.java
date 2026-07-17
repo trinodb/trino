@@ -22,8 +22,8 @@ import io.trino.spi.type.Type;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 
 public record IrLiteral(Optional<Type> type, Object value)
@@ -53,6 +53,6 @@ public record IrLiteral(Optional<Type> type, Object value)
     @JsonProperty
     public Block getValueAsBlock()
     {
-        return nativeValueToBlock(type().orElseThrow(), value);
+        return writeNativeValue(type().orElseThrow(), value);
     }
 }

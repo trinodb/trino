@@ -29,6 +29,8 @@ import io.airlift.jaxrs.JaxRsJsonMapper;
 import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
+import io.airlift.tracing.SpanSerialization.SpanDeserializer;
+import io.airlift.tracing.SpanSerialization.SpanSerializer;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -72,9 +74,9 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -83,9 +85,9 @@ import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSplit;
+import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -121,8 +123,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.airlift.tracing.SpanSerialization.SpanDeserializer;
-import static io.airlift.tracing.SpanSerialization.SpanSerializer;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED;
@@ -141,6 +141,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -225,7 +226,7 @@ public class TestHttpRemoteTask
     public void testDynamicFilterFetcherFailure()
             throws Exception
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Reference df1 = symbol1.toSymbolReference();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
@@ -283,7 +284,7 @@ public class TestHttpRemoteTask
     public void testDynamicFilterFetcherVersionMismatch()
             throws Exception
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Reference df1 = symbol1.toSymbolReference();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
@@ -334,7 +335,7 @@ public class TestHttpRemoteTask
     {
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", BIGINT);
         Reference df1 = symbol1.toSymbolReference();
@@ -353,8 +354,7 @@ public class TestHttpRemoteTask
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
 
         Map<DynamicFilterId, Domain> initialDomain = ImmutableMap.of(
-                filterId1,
-                Domain.singleValue(BIGINT, 1L));
+                filterId1, Domain.singleValue(BIGINT, 1L));
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(1L, initialDomain));
         dynamicFilterService.registerQuery(
@@ -414,7 +414,7 @@ public class TestHttpRemoteTask
     {
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", BIGINT);
         Reference df1 = symbol1.toSymbolReference();
@@ -592,19 +592,17 @@ public class TestHttpRemoteTask
 
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().failures()).errorCode();
         switch (failureScenario) {
-            case TASK_MISMATCH:
-            case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+            case TASK_MISMATCH, TASK_MISMATCH_WHEN_VERSION_IS_HIGH -> {
                 assertThat(remoteTask.getTaskInfo().taskStatus().state().isDone())
                         .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
-                break;
-            case REJECTED_EXECUTION:
+            }
+            case REJECTED_EXECUTION -> {
                 // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_ERROR.toErrorCode());
-                break;
-            default:
-                throw new UnsupportedOperationException();
+            }
+            default -> throw new UnsupportedOperationException();
         }
     }
 
@@ -634,7 +632,7 @@ public class TestHttpRemoteTask
                 ImmutableMap.of(),
                 ImmutableMultimap.of(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
-                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
+                new NodeTaskMap.PartitionedSplitCountTracker(_ -> {}),
                 outboundDynamicFilterIds,
                 Optional.empty(),
                 true);
@@ -667,8 +665,8 @@ public class TestHttpRemoteTask
                         binder.bind(JaxRsJsonMapper.class).in(SINGLETON);
                         binder.bind(Metadata.class).toInstance(createTestingMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
-                        jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
-                        jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
+                        jsonBinder(binder).addDeserializerBinding(TypeDescriptor.class).to(TypeDescriptorDeserializer.class);
+                        jsonBinder(binder).addKeyDeserializerBinding(TypeDescriptor.class).to(TypeDescriptorKeyDeserializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(SymbolKeyDeserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
@@ -827,7 +825,7 @@ public class TestHttpRemoteTask
                 @Context UriInfo uriInfo)
         {
             for (SplitAssignment splitAssignment : taskUpdateRequest.splitAssignments()) {
-                taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (planNodeId, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
+                taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (_, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
             }
             if (!taskUpdateRequest.dynamicFilterDomains().isEmpty()) {
                 dynamicFiltersSentCounter++;
@@ -911,17 +909,13 @@ public class TestHttpRemoteTask
             this.taskState = initialTaskStatus.state();
             this.version = initialTaskStatus.version();
             switch (failureScenario) {
-                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH -> {
                     // Make the initial version large enough.
                     // This way, the version number can't be reached if it is reset to 0.
                     version = 1_000_000;
-                    break;
-                case TASK_MISMATCH:
-                case REJECTED_EXECUTION:
-                case NO_FAILURE:
-                    break; // do nothing
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                case TASK_MISMATCH, REJECTED_EXECUTION, NO_FAILURE -> {}
+                default -> throw new UnsupportedOperationException();
             }
         }
 
@@ -983,23 +977,20 @@ public class TestHttpRemoteTask
             statusFetchCounter++;
             // Change the task instance id after 10th fetch to simulate worker restart
             switch (failureScenario) {
-                case TASK_MISMATCH:
-                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+                case TASK_MISMATCH, TASK_MISMATCH_WHEN_VERSION_IS_HIGH -> {
                     if (statusFetchCounter == 10) {
                         taskInstanceId = NEW_TASK_INSTANCE_ID;
                         version = 0;
                     }
-                    break;
-                case REJECTED_EXECUTION:
+                }
+                case REJECTED_EXECUTION -> {
                     if (statusFetchCounter >= 10) {
                         httpClient.get().close();
                         throw new RejectedExecutionException();
                     }
-                    break;
-                case NO_FAILURE:
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                case NO_FAILURE -> {}
+                default -> throw new UnsupportedOperationException();
             }
 
             return new TaskStatus(

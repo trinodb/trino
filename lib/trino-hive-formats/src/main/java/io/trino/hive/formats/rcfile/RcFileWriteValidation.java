@@ -127,7 +127,7 @@ public class RcFileWriteValidation
                     .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
-            for (Type ignored : types) {
+            for (var _ : types) {
                 columnHashes.add(new XxHash64());
             }
             this.columnHashes = columnHashes.build();

@@ -145,7 +145,7 @@ public enum TestingConnectorBehavior
 
     TestingConnectorBehavior(boolean hasBehaviorByDefault)
     {
-        this(fallback -> hasBehaviorByDefault);
+        this(_ -> hasBehaviorByDefault);
         checkArgument(
                 !hasBehaviorByDefault ==
                         // TODO make these marked as expected by default

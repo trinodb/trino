@@ -16,6 +16,4 @@ package io.trino.spi.connector;
 /**
  * Credentials required for accessing data represented by {@link ConnectorTableHandle}.
  */
-public interface ConnectorTableCredentials
-{
-}
+public interface ConnectorTableCredentials {}

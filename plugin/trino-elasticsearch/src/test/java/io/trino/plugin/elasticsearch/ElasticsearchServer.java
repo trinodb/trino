@@ -21,8 +21,6 @@ import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.RestHighLevelClientBuilder;
 import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -111,13 +109,11 @@ public class ElasticsearchServer
         return HostAndPort.fromString(container.getHttpHostAddress());
     }
 
-    public RestHighLevelClient getClient()
+    public RestClient getClient()
     {
         HostAndPort address = getAddress();
-        return new RestHighLevelClientBuilder(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
-                .setStrictDeprecationMode(false)
-                .setHttpClientConfigCallback(ElasticsearchServer::enableSecureCommunication).build())
-                .setApiCompatibilityMode(true) // Needed for 7.x client to work with 8.x server
+        return RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
+                .setHttpClientConfigCallback(ElasticsearchServer::enableSecureCommunication)
                 .build();
     }
 

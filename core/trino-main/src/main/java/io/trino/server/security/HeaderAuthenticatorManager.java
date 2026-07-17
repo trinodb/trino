@@ -66,7 +66,8 @@ public class HeaderAuthenticatorManager
     public void addHeaderAuthenticatorFactory(HeaderAuthenticatorFactory factory)
     {
         checkArgument(this.factories.putIfAbsent(factory.getName(), factory) == null,
-                "Header authenticator '%s' is already registered", factory.getName());
+                "Header authenticator '%s' is already registered",
+                factory.getName());
     }
 
     public void loadHeaderAuthenticator()

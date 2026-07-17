@@ -97,8 +97,7 @@ public class DbResourceGroupConfigurationManager
             ResourceGroupsDao dao,
             @ForEnvironment String environment)
     {
-        this(
-                Optional.of(lifeCycleManager),
+        this(Optional.of(lifeCycleManager),
                 memoryPoolManager,
                 config,
                 dao,
@@ -112,8 +111,7 @@ public class DbResourceGroupConfigurationManager
             ResourceGroupsDao dao,
             String environment)
     {
-        this(
-                Optional.empty(),
+        this(Optional.empty(),
                 memoryPoolManager,
                 config,
                 dao,
@@ -313,7 +311,8 @@ public class DbResourceGroupConfigurationManager
     }
 
     // Populate temporary data structures to build resource group specs and selectors from db
-    private synchronized void populateFromDbHelper(Map<Long, ResourceGroupSpecBuilder> recordMap,
+    private synchronized void populateFromDbHelper(
+            Map<Long, ResourceGroupSpecBuilder> recordMap,
             Set<Long> rootGroupIds,
             Map<Long, ResourceGroupIdTemplate> resourceGroupIdTemplateMap,
             Map<Long, Set<Long>> subGroupIdsToBuild)
@@ -326,7 +325,7 @@ public class DbResourceGroupConfigurationManager
                 resourceGroupIdTemplateMap.put(record.getId(), new ResourceGroupIdTemplate(record.getNameTemplate().toString()));
             }
             else {
-                subGroupIdsToBuild.computeIfAbsent(record.getParentId().get(), k -> new HashSet<>()).add(record.getId());
+                subGroupIdsToBuild.computeIfAbsent(record.getParentId().get(), _ -> new HashSet<>()).add(record.getId());
             }
         }
     }
@@ -349,7 +348,7 @@ public class DbResourceGroupConfigurationManager
         // Build up resource group specs from leaf to root
         for (LinkedList<Long> queue = new LinkedList<>(rootGroupIds); !queue.isEmpty(); ) {
             Long id = queue.pollFirst();
-            resourceGroupIdTemplateMap.computeIfAbsent(id, k -> {
+            resourceGroupIdTemplateMap.computeIfAbsent(id, _ -> {
                 ResourceGroupSpecBuilder builder = recordMap.get(id);
                 return ResourceGroupIdTemplate.forSubGroupNamed(
                         resourceGroupIdTemplateMap.get(builder.getParentId().get()),
@@ -393,8 +392,7 @@ public class DbResourceGroupConfigurationManager
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
                                 selectorRecord.getSelectorResourceEstimate(),
-                                resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
-                ).collect(Collectors.toList());
+                                resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))).collect(Collectors.toList());
 
         ResourceGroupGlobalProperties globalProperties = dao.getResourceGroupGlobalProperties();
         ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, globalProperties.getCpuQuotaPeriod(), globalProperties.getPhysicalDataScanQuotaPeriod());

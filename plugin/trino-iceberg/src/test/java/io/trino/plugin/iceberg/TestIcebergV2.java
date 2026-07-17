@@ -52,6 +52,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -65,9 +66,12 @@ import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.data.parquet.InternalWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
@@ -113,6 +117,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -122,6 +127,7 @@ import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.Files.localOutput;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
@@ -229,9 +235,11 @@ public class TestIcebergV2
             assertThat(loadTable(table.getName()).properties())
                     .doesNotContainKey("write.data.path");
 
-            assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'",
-                    "Data location can only be set when object store layout is enabled");
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("data_location = 'local:///data-location'");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.data.path", "local:///data-location");
 
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true, data_location = 'local:///data-location'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
@@ -324,7 +332,7 @@ public class TestIcebergV2
             throws Exception
     {
         String tableDefinition = "AS SELECT regionkey, ARRAY[1,2] array_column, MAP(ARRAY[1], ARRAY[2]) map_column, " +
-                                 "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation";
+                "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation";
         try (TestTable table = newTrinoTable("test_v2_equality_delete_column_nested", tableDefinition)) {
             String tableName = table.getName();
             Table icebergTable = loadTable(tableName);
@@ -438,10 +446,81 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testOptimizeNotNullViolation()
+            throws Exception
+    {
+        testOptimizeNotNullViolation(true);
+        testOptimizeNotNullViolation(false);
+    }
+
+    private void testOptimizeNotNullViolation(boolean partitioned)
+            throws Exception
+    {
+        String tableProperty = partitioned ? "WITH (partitioning = ARRAY['x'])" : "";
+        try (TestTable table = newTrinoTable("test_optimize_not_null", "(x INT NOT NULL)" + tableProperty)) {
+            BaseTable icebergTable = loadTable(table.getName());
+
+            // Add data file with NULL value on NOT NULL column
+            Schema nullableSchema = new Schema(Types.NestedField.optional(1, "x", Types.IntegerType.get()));
+            GenericRecord record = GenericRecord.create(nullableSchema);
+            record.setField("x", null);
+            insertRecord(icebergTable, nullableSchema, record);
+            insertRecord(icebergTable, nullableSchema, record);
+
+            Location dataDirectory = Location.of(icebergTable.location()).appendPath("data");
+            List<String> dataFiles = listFiles(dataDirectory);
+            assertThat(dataFiles).hasSize(2);
+
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES CAST(NULL AS integer), NULL");
+
+            assertThat(query("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE")).failure()
+                    .hasMessage("NULL value not allowed for NOT NULL column: x");
+            assertEventually(() -> assertThat(listFiles(dataDirectory))
+                    .as("Failed optimize procedure shouldn't leave new data files")
+                    .containsExactlyInAnyOrderElementsOf(dataFiles));
+
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES CAST(NULL AS integer), NULL");
+        }
+    }
+
+    private static void insertRecord(Table table, Schema schema, Record record)
+            throws IOException
+    {
+        OutputFile outputFile = localOutput(table.location() + "/data/" + randomNameSuffix() + ".parquet");
+        try (FileAppender<Record> writer = Parquet.write(outputFile)
+                .schema(schema)
+                .createWriterFunc(fileSchema -> InternalWriter.create(schema.asStruct(), fileSchema))
+                .build()) {
+            writer.add(record);
+            DataFile file = DataFiles.builder(PartitionSpec.unpartitioned())
+                    .withRecordCount(1)
+                    .withFileSizeInBytes(1000)
+                    .withPath(outputFile.location())
+                    .withFormat(FileFormat.PARQUET)
+                    .build();
+            table.newAppend().appendFile(file).commit();
+        }
+    }
+
+    protected List<String> listFiles(Location location)
+            throws IOException
+    {
+        ImmutableList.Builder<String> files = ImmutableList.builder();
+        FileIterator listing = fileSystemFactory.create(SESSION).listFiles(location);
+        while (listing.hasNext()) {
+            files.add(listing.next().location().toString());
+        }
+        return files.build();
+    }
+
+    @Test
     public void testMergePopulateSplitOffsets()
     {
         try (TestTable table = newTrinoTable("test_merge_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
-            assertUpdate("MERGE INTO " + table.getName() + " t " +
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
                             "USING " + table.getName() + " s " +
                             "ON t.nationkey = s.nationkey " +
                             "WHEN MATCHED THEN UPDATE SET name = CONCAT(t.name, '_updated')",
@@ -640,6 +719,24 @@ public class TestIcebergV2
             // verify that the equality delete is effective also when not specifying the corresponding column in the projection list
             assertThat(query("SELECT id FROM " + tableName))
                     .matches("VALUES BIGINT '1'");
+
+            // verify equality deletes work with nested field in projection and WHERE clause
+            assertThat(query("SELECT root.nested FROM " + tableName))
+                    .matches("VALUES BIGINT '10'");
+            assertThat(query("SELECT root.nested, root.nested_other FROM " + tableName))
+                    .matches("VALUES (BIGINT '10', BIGINT '100')");
+            assertThat(query("SELECT id FROM " + tableName + " WHERE root.nested = 10"))
+                    .matches("VALUES BIGINT '1'");
+            assertThat(query("SELECT id FROM " + tableName + " WHERE root.nested = 20"))
+                    .returnsEmptyResult();
+
+            // verify equality deletes work with nested field and querying metadata columns
+            assertThat(query("SELECT \"$partition\" FROM " + tableName))
+                    .matches("VALUES VARCHAR ''");
+            assertThat(query("SELECT root.nested, \"$partition\" FROM " + tableName))
+                    .matches("VALUES (BIGINT '10', VARCHAR '')");
+            assertThat(query("SELECT \"$partition\", root.nested FROM " + tableName))
+                    .matches("VALUES (VARCHAR '', BIGINT '10')");
         }
     }
 
@@ -962,7 +1059,8 @@ public class TestIcebergV2
     @Test
     public void testUnsettingAllTableProperties()
     {
-        try (TestTable testTable = newTrinoTable("test_unsetting_all_table_properties_",
+        try (TestTable testTable = newTrinoTable(
+                "test_unsetting_all_table_properties_",
                 "WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey'], sorted_by = ARRAY['comment']) AS SELECT * FROM tpch.tiny.nation")) {
             String tableName = testTable.getName();
             BaseTable table = loadTable(tableName);
@@ -1035,7 +1133,8 @@ public class TestIcebergV2
         String tableName = "test_deleting_entire_file_with_multiple_splits" + randomNameSuffix();
         assertUpdate(
                 Session.builder(getSession()).setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "5").build(),
-                "CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
+                "CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.nation",
+                25);
         // Set the split size to a small number of bytes so each ORC stripe gets its own split
         this.loadTable(tableName).updateProperties().set(SPLIT_SIZE, "100").commit();
 
@@ -1123,21 +1222,33 @@ public class TestIcebergV2
                         "CAST(upper_bounds AS JSON), " +
                         "key_metadata, " +
                         "split_offsets, " +
-                        "equality_ids " +
+                        "equality_ids, " +
+                        "file_sequence_number, " +
+                        "data_sequence_number, " +
+                        "referenced_data_file, " +
+                        "first_row_id, " +
+                        "content_offset, " +
+                        "content_size_in_bytes " +
                         "FROM \"" + tableName + "$files\"",
                 """
                        VALUES
                                (0,
                                 'PARQUET',
                                 25L,
-                                JSON '{"1":137,"2":216,"3":91,"4":801}',
+                                JSON '{"1":137,"2":190,"3":91,"4":773}',
                                 JSON '{"1":25,"2":25,"3":25,"4":25}',
                                 jSON '{"1":0,"2":0,"3":0,"4":0}',
                                 jSON '{}',
-                                JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
-                                JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
+                                JSON '{"1":0,"2":"ALGERIA","3":0,"4":" haggle. careful"}',
+                                JSON '{"1":24,"2":"VIETNAM","3":4,"4":"y final packaget"}',
                                 null,
                                 ARRAY[4L],
+                                null,
+                                1L,
+                                1L,
+                                null,
+                                null,
+                                null,
                                 null),
                                (0,
                                 'ORC',
@@ -1146,10 +1257,16 @@ public class TestIcebergV2
                                 JSON '{"1":5,"2":3,"3":2}',
                                 JSON '{"1":0,"2":2}',
                                 JSON '{"4":1}',
-                                JSON '{"1":"0"}',
-                                JSON '{"1":"4"}',
+                                JSON '{"1":0,"2":null,"3":null,"4":null}',
+                                JSON '{"1":4,"2":null,"3":null,"4":null}',
                                 X'54 72 69 6e 6f',
                                 ARRAY[4L],
+                                null,
+                                2L,
+                                2L,
+                                null,
+                                null,
+                                null,
                                 null),
                                 (2,
                                 'PARQUET',
@@ -1158,12 +1275,21 @@ public class TestIcebergV2
                                 JSON '{"3":1}',
                                 JSON '{"3":0}',
                                 JSON '{}',
-                                JSON '{"3":"1"}',
-                                JSON '{"3":"1"}',
+                                JSON '{"1":null,"2":null,"3":1,"4":null}',
+                                JSON '{"1":null,"2":null,"3":1,"4":null}',
                                 null,
                                 ARRAY[4],
-                                ARRAY[3])
+                                ARRAY[3],
+                                3L,
+                                3L,
+                                null,
+                                null,
+                                null,
+                                null)
                 """);
+        // Verify columns with unpredictable exact values
+        assertThat(query("SELECT bool_and(manifest_location IS NOT NULL), bool_and(pos IS NOT NULL) FROM \"" + tableName + "$files\""))
+                .matches("VALUES (true, true)");
     }
 
     @Test
@@ -1190,8 +1316,7 @@ public class TestIcebergV2
                     table,
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
-                            Domain.singleValue(INTEGER, 10L))),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
                     ImmutableSet.of(),
                     newDirectExecutorService());
@@ -1204,8 +1329,7 @@ public class TestIcebergV2
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            column,
-                            Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
+                            column, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
                     ImmutableSet.of(column),
                     newDirectExecutorService());
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
@@ -1256,8 +1380,7 @@ public class TestIcebergV2
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
-                            Domain.singleValue(INTEGER, 10L))),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     ImmutableSet.of(column),
                     newDirectExecutorService());
             assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
@@ -1269,6 +1392,42 @@ public class TestIcebergV2
                             .setRange(new DoubleRange(1.0, 200.0))
                             .build());
         }
+    }
+
+    @Test
+    public void testStatsManifestDecoding()
+    {
+        int threshold = TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD;
+        try (TestTable testTable = newTrinoTable("test_stats_manifest_decoding_", "(a INT)")) {
+            for (int i = 0; i < threshold - 1; i++) {
+                assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (" + i + ")", 1);
+            }
+            assertThat(manifestCount(testTable.getName())).isLessThan(threshold);
+            assertThat(tableRowCountFromStatistics(testTable.getName())).isEqualTo(threshold - 1);
+
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (100)", 1);
+            assertThat(manifestCount(testTable.getName())).isGreaterThanOrEqualTo(threshold);
+            assertThat(tableRowCountFromStatistics(testTable.getName())).isEqualTo(threshold);
+        }
+    }
+
+    private long manifestCount(String tableName)
+    {
+        return (long) computeScalar("SELECT count(*) FROM \"" + tableName + "$manifests\"");
+    }
+
+    private double tableRowCountFromStatistics(String tableName)
+    {
+        OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+        TableStatistics statistics = TableStatisticsReader.makeTableStatistics(
+                TESTING_TYPE_MANAGER,
+                loadTable(tableName),
+                snapshotId,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                newDirectExecutorService());
+        return statistics.getRowCount().getValue();
     }
 
     @Test
@@ -1364,17 +1523,17 @@ public class TestIcebergV2
 
             assertQuery("SHOW COLUMNS FROM \"" + tableName + "$refs\"",
                     "VALUES ('name', 'varchar', '', '')," +
-                    "('type', 'varchar', '', '')," +
-                    "('snapshot_id', 'bigint', '', '')," +
-                    "('max_reference_age_in_ms', 'bigint', '', '')," +
-                    "('min_snapshots_to_keep', 'integer', '', '')," +
-                    "('max_snapshot_age_in_ms', 'bigint', '', '')");
+                            "('type', 'varchar', '', '')," +
+                            "('snapshot_id', 'bigint', '', '')," +
+                            "('max_reference_age_in_ms', 'bigint', '', '')," +
+                            "('min_snapshots_to_keep', 'integer', '', '')," +
+                            "('max_snapshot_age_in_ms', 'bigint', '', '')");
 
             assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
                     "VALUES ('test-tag', 'TAG', " + snapshotId1 + ", 1, null, null)," +
-                    "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
-                    "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
-                    "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
+                            "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
+                            "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
+                            "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
         }
     }
 
@@ -1391,8 +1550,8 @@ public class TestIcebergV2
                     .commit();
             assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
                     "VALUES ('test-tag', 'TAG', " + refSnapshotId + ", null, null, null)," +
-                    "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
-                    "('main', 'BRANCH', " + refSnapshotId + ", null, null, null)");
+                            "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
+                            "('main', 'BRANCH', " + refSnapshotId + ", null, null, null)");
 
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
             assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId,
@@ -1416,17 +1575,17 @@ public class TestIcebergV2
             String tableName = table.getName();
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('Patna'), ROW('BH')), " +
-                    "(2, ROW('Patna'), ROW('BH')), " +
-                    "(3, ROW('Bengaluru'), ROW('KA')), " +
-                    "(4, ROW('Bengaluru'), ROW('KA'))",
+                            "(1, ROW('Patna'), ROW('BH')), " +
+                            "(2, ROW('Patna'), ROW('BH')), " +
+                            "(3, ROW('Bengaluru'), ROW('KA')), " +
+                            "(4, ROW('Bengaluru'), ROW('KA'))",
                     4);
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(5, ROW('Patna'), ROW('BH')), " +
-                    "(6, ROW('Patna'), ROW('BH')), " +
-                    "(7, ROW('Bengaluru'), ROW('KA')), " +
-                    "(8, ROW('Bengaluru'), ROW('KA'))",
+                            "(5, ROW('Patna'), ROW('BH')), " +
+                            "(6, ROW('Patna'), ROW('BH')), " +
+                            "(7, ROW('Bengaluru'), ROW('KA')), " +
+                            "(8, ROW('Bengaluru'), ROW('KA'))",
                     4);
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
@@ -1440,10 +1599,10 @@ public class TestIcebergV2
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(9, ROW('Patna'), ROW('BH')), " +
-                    "(10, ROW('Bengaluru'), ROW('BH')), " +
-                    "(11, ROW('Bengaluru'), ROW('KA')), " +
-                    "(12, ROW('Bengaluru'), ROW('KA'))",
+                            "(9, ROW('Patna'), ROW('BH')), " +
+                            "(10, ROW('Bengaluru'), ROW('BH')), " +
+                            "(11, ROW('Bengaluru'), ROW('KA')), " +
+                            "(12, ROW('Bengaluru'), ROW('KA'))",
                     4);
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(7);
 
@@ -1467,22 +1626,22 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_cleanup_",
                 "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['\"country.state.district.name\"'])")) {
+                        " WITH (partitioning = ARRAY['\"country.state.district.name\"'])")) {
             String tableName = table.getName();
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(2, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(3, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                    "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(2, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(3, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                            "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(5, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(6, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(7, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                    "(8, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(5, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(6, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(7, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                            "(8, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
@@ -1498,10 +1657,10 @@ public class TestIcebergV2
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(9, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(10, ROW('India', ROW('BH', ROW('Bengaluru')))), " +
-                    "(11, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                    "(12, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(9, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(10, ROW('India', ROW('BH', ROW('Bengaluru')))), " +
+                            "(11, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                            "(12, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
 
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(5);
@@ -1526,15 +1685,15 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_with_transform_cleanup_",
                 "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['truncate(\"country.state.district.name\", 5)'])")) {
+                        " WITH (partitioning = ARRAY['truncate(\"country.state.district.name\", 5)'])")) {
             String tableName = table.getName();
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(2, ROW('India', ROW('BH', ROW('Patna_Truncate')))), " +
-                    "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
-                    "(4, ROW('India', ROW('DL', ROW('Delhi_Truncate'))))",
+                            "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(2, ROW('India', ROW('BH', ROW('Patna_Truncate')))), " +
+                            "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                            "(4, ROW('India', ROW('DL', ROW('Delhi_Truncate'))))",
                     4);
 
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
@@ -1559,15 +1718,15 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_with_transform_cleanup_",
                 "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['bucket(\"country.state.district.name\", 2)'])")) {
+                        " WITH (partitioning = ARRAY['bucket(\"country.state.district.name\", 2)'])")) {
             String tableName = table.getName();
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(2, ROW('India', ROW('MH', ROW('Mumbai')))), " +
-                    "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
-                    "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(2, ROW('India', ROW('MH', ROW('Mumbai')))), " +
+                            "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                            "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
 
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
@@ -1615,8 +1774,8 @@ public class TestIcebergV2
         SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
 
         List<Types.NestedField> fields = IntStream.rangeClosed(1, 10000)
-            .mapToObj(i -> Types.NestedField.optional(i, "field_" + i, Types.LongType.get()))
-            .collect(toImmutableList());
+                .mapToObj(i -> Types.NestedField.optional(i, "field_" + i, Types.LongType.get()))
+                .collect(toImmutableList());
 
         Types.NestedField column = Types.NestedField.optional(10001, "row_col", Types.StructType.of(fields));
 
@@ -1735,11 +1894,11 @@ public class TestIcebergV2
                 .commitTransaction();
 
         String expectedStats =
-        """
-        VALUES
-        ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
-        (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
-        """;
+                """
+                VALUES
+                ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
+                (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
+                """;
 
         assertThat(query("SHOW STATS FOR " + table))
                 .skippingTypesCheck()
@@ -1750,6 +1909,45 @@ public class TestIcebergV2
         assertThat(query("SHOW STATS FOR " + table))
                 .skippingTypesCheck()
                 .matches(expectedStats);
+
+        catalog.dropTable(SESSION, schemaTableName);
+    }
+
+    @Test // regression test for https://github.com/trinodb/trino/issues/20511
+    void testRequiredField()
+    {
+        testRequiredField(true);
+        testRequiredField(false);
+    }
+
+    private void testRequiredField(boolean projectionPushdown)
+    {
+        Session projectionPushdownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "projection_pushdown_enabled", Boolean.toString(projectionPushdown))
+                .build();
+
+        String table = "test_required_field" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(
+                                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                                Types.NestedField.optional(2, "struct", Types.StructType.of(
+                                        Types.NestedField.required(3, "field", Types.IntegerType.get())))),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        assertUpdate("INSERT INTO " + table + " VALUES (1, row(10)), (2, NULL)", 2);
+
+        assertThat(query(projectionPushdownEnabled, "SELECT id FROM " + table + " WHERE struct.field IS NOT NULL"))
+                .matches("VALUES 1");
+        assertThat(query(projectionPushdownEnabled, "SELECT id FROM " + table + " WHERE struct.field IS NULL"))
+                .matches("VALUES 2");
 
         catalog.dropTable(SESSION, schemaTableName);
     }

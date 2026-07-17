@@ -63,7 +63,6 @@ import static io.trino.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_INVALID_RESP
 import static io.trino.plugin.thrift.util.ThriftExceptions.toTrinoException;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.function.Function.identity;
 
@@ -90,8 +89,8 @@ public class ThriftMetadata
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(EXPIRE_AFTER_WRITE.toMillis(), MILLISECONDS)
-                        .refreshAfterWrite(REFRESH_AFTER_WRITE.toMillis(), MILLISECONDS),
+                        .expireAfterWrite(EXPIRE_AFTER_WRITE.toJavaTime())
+                        .refreshAfterWrite(REFRESH_AFTER_WRITE.toJavaTime()),
                 asyncReloading(CacheLoader.from(this::getTableMetadataInternal), metadataRefreshExecutor));
     }
 

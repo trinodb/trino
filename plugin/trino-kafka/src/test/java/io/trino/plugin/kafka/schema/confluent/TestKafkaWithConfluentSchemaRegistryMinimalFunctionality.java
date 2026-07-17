@@ -432,7 +432,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         return new GenericRecordBuilder(EVOLVED_SCHEMA)
                 .set("col_1", multiplyExact(key, 100))
                 .set("col_2", format("string-%s", key))
-                .set("col_3", (key + 10.1D) / 10.0D)
+                .set("col_3", (key + 10.1d) / 10.0d)
                 .build();
     }
 

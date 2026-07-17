@@ -201,7 +201,8 @@ public class ClusterMemoryManager
             if (resourceOvercommit && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
                 DataSize memory = succinctBytes(getQueryMemoryReservation(query));
-                query.fail(new TrinoException(CLUSTER_OUT_OF_MEMORY,
+                query.fail(new TrinoException(
+                        CLUSTER_OUT_OF_MEMORY,
                         format("The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory", RESOURCE_OVERCOMMIT, memory)));
                 queryKilled = true;
             }
@@ -407,10 +408,10 @@ public class ClusterMemoryManager
         QueryInfo queryInfo = query.getQueryInfo();
 
         Map<TaskId, TaskInfo> taskInfos = queryInfo.getStages().map(stagesInfo ->
-                stagesInfo.getStages().stream().flatMap(stageInfo -> stageInfo.tasks().stream())
-                        .collect(toImmutableMap(
-                                taskInfo -> taskInfo.taskStatus().taskId(),
-                                identity())))
+                        stagesInfo.getStages().stream().flatMap(stageInfo -> stageInfo.tasks().stream())
+                                .collect(toImmutableMap(
+                                        taskInfo -> taskInfo.taskStatus().taskId(),
+                                        identity())))
                 .orElse(ImmutableMap.of());
 
         return new RunningQueryInfo(

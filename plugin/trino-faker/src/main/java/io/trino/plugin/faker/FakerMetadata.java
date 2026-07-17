@@ -41,6 +41,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -63,13 +64,11 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.P4HyperLogLogType;
 import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import io.trino.type.IpAddressType;
-import io.trino.type.JsonType;
-import io.trino.type.TDigestType;
 import net.datafaker.Faker;
 
 import java.util.ArrayList;
@@ -135,7 +134,7 @@ public class FakerMetadata
     private final long defaultLimit;
     private final boolean isSequenceDetectionEnabled;
     private final boolean isDictionaryDetectionEnabled;
-    private final FakerFunctionProvider functionsProvider;
+    private final FunctionBundle functionBundle;
 
     private final Random random;
     private final Faker faker;
@@ -146,14 +145,14 @@ public class FakerMetadata
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
 
     @Inject
-    public FakerMetadata(FakerConfig config, FakerFunctionProvider functionProvider)
+    public FakerMetadata(FakerConfig config, FunctionBundle functionBundle)
     {
         this.schemas.add(new SchemaInfo(SCHEMA_NAME, Map.of()));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
         this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
         this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
-        this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
         this.random = new Random(1);
         this.faker = new Faker(random);
     }
@@ -415,14 +414,14 @@ public class FakerMetadata
         return !(type instanceof BooleanType ||
                 type instanceof HyperLogLogType ||
                 type instanceof QuantileDigestType ||
-                type instanceof TDigestType ||
+                type.getBaseName().equals(StandardTypes.TDIGEST) ||
                 type instanceof P4HyperLogLogType ||
                 isCharacterType(type) ||
                 type instanceof RowType ||
                 type instanceof ArrayType ||
                 type instanceof MapType ||
-                type instanceof JsonType ||
-                type instanceof IpAddressType ||
+                type.getBaseName().equals(StandardTypes.JSON) ||
+                type.getBaseName().equals(StandardTypes.IPADDRESS) ||
                 type instanceof UuidType);
     }
 
@@ -530,7 +529,8 @@ public class FakerMetadata
         boolean isSchemaSequenceDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_DETECTION_ENABLED, isSequenceDetectionEnabled);
         boolean isTableSequenceDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.SEQUENCE_DETECTION_ENABLED, isSchemaSequenceDetectionEnabled);
         Map<String, List<Object>> columnValues = getColumnValues(tableName, info, distinctValues, minimums, maximums);
-        return info.withColumns(columns.stream().map(column -> createColumnInfoFromStats(
+        return info.withColumns(columns.stream()
+                .map(column -> createColumnInfoFromStats(
                         column,
                         minimums.get(column.name()),
                         maximums.get(column.name()),
@@ -766,13 +766,13 @@ public class FakerMetadata
     @Override
     public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
     {
-        return functionsProvider.functionsMetadata();
+        return schemaName.equals(SCHEMA_NAME) ? functionBundle.getFunctions() : List.of();
     }
 
     @Override
     public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
     {
-        return functionsProvider.functionsMetadata().stream()
+        return functionBundle.getFunctions().stream()
                 .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .collect(toImmutableList());
     }
@@ -780,7 +780,7 @@ public class FakerMetadata
     @Override
     public FunctionMetadata getFunctionMetadata(ConnectorSession session, FunctionId functionId)
     {
-        return functionsProvider.functionsMetadata().stream()
+        return functionBundle.getFunctions().stream()
                 .filter(function -> function.getFunctionId().equals(functionId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown function " + functionId));

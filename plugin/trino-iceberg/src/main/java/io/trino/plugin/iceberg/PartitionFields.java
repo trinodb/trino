@@ -126,11 +126,10 @@ public final class PartitionFields
 
     public static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix, boolean includeWidthInPartitionName)
     {
-        boolean matched =
-                tryMatch(field, IDENTITY_PATTERN, match -> {
-                    // identity doesn't allow specifying an alias
-                    builder.identity(fromIdentifierToColumn(match.group()));
-                }) ||
+        boolean matched = tryMatch(field, IDENTITY_PATTERN, match -> {
+            // identity doesn't allow specifying an alias
+            builder.identity(fromIdentifierToColumn(match.group()));
+        }) ||
                 tryMatch(field, YEAR_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
                     builder.year(column, column + "_year" + suffix);
@@ -202,14 +201,12 @@ public final class PartitionFields
         String transform = field.transform().toString();
 
         switch (transform) {
-            case "identity":
+            case "identity" -> {
                 return name;
-            case "year":
-            case "month":
-            case "day":
-            case "hour":
-            case "void":
+            }
+            case "year", "month", "day", "hour", "void" -> {
                 return format("%s(%s)", transform, name);
+            }
         }
 
         Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);

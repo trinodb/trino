@@ -135,6 +135,7 @@ public class RemoveRedundantPredicateAboveTableScan
         Expression resultingPredicate = createResultingPredicate(
                 plannerContext,
                 session,
+                context.getSymbolAllocator(),
                 Booleans.TRUE, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
                 domainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,

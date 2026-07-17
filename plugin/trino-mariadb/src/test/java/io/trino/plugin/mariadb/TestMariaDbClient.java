@@ -59,7 +59,7 @@ public class TestMariaDbClient
     private static final JdbcClient JDBC_CLIENT = new MariaDbClient(
             new BaseJdbcConfig(),
             new JdbcStatisticsConfig(),
-            session -> {
+            _ -> {
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),

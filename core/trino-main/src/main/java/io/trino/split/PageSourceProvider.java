@@ -20,6 +20,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,8 +33,10 @@ public interface PageSourceProvider
             TableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter);
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext);
 
+    // TODO (https://github.com/trinodb/trino/issues/29955) replace with MemoryContext
     default long getMemoryUsage()
     {
         return 0;

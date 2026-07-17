@@ -22,6 +22,7 @@ import com.google.common.io.Resources;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Key;
 import com.nimbusds.oauth2.sdk.GrantType;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -60,6 +61,7 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
@@ -168,19 +170,24 @@ public class TestingHydraIdentityProvider
             String callbackUrl,
             String logoutCallbackUrl)
     {
+        String[] command = ImmutableList.<String>builder()
+                .add("clients", "create")
+                .add("--endpoint", "https://hydra:4445")
+                .add("--skip-tls-verify")
+                .add("--id", clientId)
+                .add("--secret", clientSecret)
+                .add("--audience", String.join(",", audiences))
+                .add("--grant-types", "authorization_code,refresh_token,client_credentials")
+                .add("--response-types", "token,code,id_token")
+                .add("--scope", "openid,offline")
+                .add("--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue())
+                .add("--callbacks", callbackUrl)
+                .add("--post-logout-callbacks", logoutCallbackUrl)
+                .build()
+                .toArray(String[]::new);
+
         createHydraContainer()
-                .withCommand("clients", "create",
-                        "--endpoint", "https://hydra:4445",
-                        "--skip-tls-verify",
-                        "--id", clientId,
-                        "--secret", clientSecret,
-                        "--audience", String.join(",", audiences),
-                        "--grant-types", "authorization_code,refresh_token,client_credentials",
-                        "--response-types", "token,code,id_token",
-                        "--scope", "openid,offline",
-                        "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
-                        "--callbacks", callbackUrl,
-                        "--post-logout-callbacks", logoutCallbackUrl)
+                .withCommand(command)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }
@@ -230,8 +237,8 @@ public class TestingHydraIdentityProvider
         NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
                 .setEnvironment("test")
                 .setNodeInternalAddress(InetAddresses.toAddrString(InetAddress.getLocalHost())));
-        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpServerConfig config = new HttpServerConfig();
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
         return new TestingHttpServer("testing-login-and-consent-server", httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet());
     }
 

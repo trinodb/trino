@@ -30,6 +30,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -44,7 +45,9 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // to prevent exceeding BigLake requests quota
 final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
@@ -91,7 +94,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
-                .addIcebergProperty("fs.native-gcs.enabled", "true")
+                .addIcebergProperty("fs.gcs.enabled", "true")
                 .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(SCHEMA)
@@ -174,6 +177,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                         "   comment varchar\n" +
                         "\\)\n" +
                         "WITH \\(\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = 'gs://.*'\n" +
@@ -244,8 +248,8 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         String tableLocationWithTrailingSpace = tableLocationWithoutTrailingSpace + " ";
 
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
-                .hasMessageStartingWith("Failed to commit the transaction during insert")
-                .hasMessageContaining("Malformed request: Table location is immutable");
+                .hasMessage("Failed to create transaction")
+                .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
     @Test
@@ -263,7 +267,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     {
         assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
                 .hasMessageMatching("Expected query .* to succeed: CREATE TABLE.*")
-                .hasStackTraceContaining("Malformed request: Table location is immutable");
+                .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
     @Test
@@ -303,5 +307,26 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .isFalse();
 
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceTable()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceWithTableChangesFunction()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30261
+    public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
+    {
+        abort("skipped");
     }
 }

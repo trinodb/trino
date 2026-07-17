@@ -43,7 +43,7 @@ public class ViewExpression
 
     /**
      * @return user as whom the view expression will be evaluated. If empty identity is returned,
-     * then session user is used.
+     *         then session user is used.
      */
     public Optional<String> getSecurityIdentity()
     {

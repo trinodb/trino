@@ -279,7 +279,7 @@ public class TestStructColumnReader
     {
         ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
         for (String fieldName : fieldNames) {
-            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), VARCHAR.getTypeSignature()));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), VARCHAR.getTypeDescriptor()));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
@@ -289,7 +289,7 @@ public class TestStructColumnReader
         ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
 
         for (int i = 0; i < numFields; i++) {
-            typeParameters.add(TypeParameter.typeParameter(Optional.empty(), VARCHAR.getTypeSignature()));
+            typeParameters.add(TypeParameter.typeParameter(Optional.empty(), VARCHAR.getTypeDescriptor()));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }

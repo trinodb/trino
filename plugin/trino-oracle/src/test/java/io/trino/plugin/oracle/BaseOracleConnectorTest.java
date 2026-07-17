@@ -227,22 +227,19 @@ public abstract class BaseOracleConnectorTest
     @Override
     public void testCharVarcharComparison()
     {
-        // test overridden because super uses all-space char values ('  ') that are null-out by Oracle
+        // test overridden because super uses an all-space char value ('   ') that is nulled-out by Oracle
 
         try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS char(3))), " +
-                        "   (3, CAST('x  ' AS char(3)))")) {
+                        "   (6, CAST('x  ' AS char(3)))")) {
             assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
-                    // The value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (3, 'x  ')");
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x' AS varchar(2))",
+                    "VALUES (6, 'x  ')");
 
-            assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(4))",
-                    // The value is included because both sides of the comparison are coerced to char(4)
-                    "VALUES (3, 'x  ')");
+            assertQueryReturnsEmptyResult(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))");
         }
     }
 
@@ -263,16 +260,16 @@ public abstract class BaseOracleConnectorTest
                         "   (4, CAST('x' AS varchar(3)))," +
                         "   (5, CAST('x ' AS varchar(3)))," +
                         "   (6, CAST('x  ' AS varchar(3)))")) {
-            assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (1, ' '), (2, '  '), (3, '   ')");
+            // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar
+            // (no blank padding): char '  ' becomes '', which would match only the empty varchar - but
+            // Oracle stores '' as NULL, so nothing matches.
+            assertQueryReturnsEmptyResult(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))");
 
-            // value that's not all-spaces
+            // char 'x ' becomes 'x', matching only the exact 'x'.
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+                    "VALUES (4, 'x')");
         }
     }
 
@@ -379,7 +376,9 @@ public abstract class BaseOracleConnectorTest
     public void testPredicatePushdownForChars()
     {
         predicatePushdownTest("CHAR(1)", "'0'", "=", "'0'");
-        predicatePushdownTest("CHAR(1)", "'0'", "<=", "'0'");
+        // An ordering comparison of a char column against a varchar value is not unwrapped (char is PAD SPACE,
+        // varchar is NO PAD), so it no longer pushes down; the comparison must stay char-to-char to push down.
+        predicatePushdownTest("CHAR(1)", "'0'", "<=", "CHAR'0'");
         predicatePushdownTest("CHAR(5)", "'0'", "=", "CHAR'0'");
         predicatePushdownTest("CHAR(7)", "'my_char'", "=", "CAST('my_char' AS CHAR(7))");
         predicatePushdownTest("NCHAR(7)", "'my_char'", "=", "CAST('my_char' AS CHAR(7))");
@@ -403,7 +402,8 @@ public abstract class BaseOracleConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty("oracle", "domain_compaction_threshold", "10000")
                         .build(),
-                "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
+                "SELECT * from nation",
+                "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
     @Test

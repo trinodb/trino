@@ -100,7 +100,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         }
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("fs.native-s3.enabled", "true")
+                .put("fs.s3.enabled", "true")
                 .put("s3.aws-access-key", S3_ACCESS_KEY)
                 .put("s3.aws-secret-key", S3_SECRET_KEY)
                 .put("s3.region", S3_REGION)
@@ -565,7 +565,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testSetTableComment()
     {
         assertThatThrownBy(() -> assertUpdate("COMMENT ON TABLE " + TpchTable.REGION.getTableName() + " is 'my-table-comment'"))
-                .hasMessage("Snowflake managed Iceberg tables do not support modifications");
+                .hasMessage("Failed to set table comment: Snowflake managed Iceberg tables do not support modifications");
     }
 
     @Test
@@ -712,7 +712,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testSetColumnComment()
     {
         assertThatThrownBy(() -> assertUpdate("COMMENT ON COLUMN " + TpchTable.REGION.getTableName() + ".name IS 'region name_col_comment'"))
-                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
+                .hasMessageMatching("Failed to set column comment: Snowflake managed Iceberg tables do not support modifications");
     }
 
     @Test

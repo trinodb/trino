@@ -66,7 +66,8 @@ public final class TestShortValueDecoders
 
     private static InputDataProvider createRandomInputDataProvider(int bitWidth)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {

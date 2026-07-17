@@ -86,8 +86,8 @@ public class Intersect
         }
         Intersect o = (Intersect) obj;
         return Objects.equals(relations, o.relations) &&
-               isDistinct() == o.isDistinct() &&
-               Objects.equals(getCorresponding(), o.getCorresponding());
+                isDistinct() == o.isDistinct() &&
+                Objects.equals(getCorresponding(), o.getCorresponding());
     }
 
     @Override

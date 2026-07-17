@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.OptionalInt;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -148,7 +149,6 @@ public class TestTaskStats
 
         assertThat(actual.physicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(25));
 
-        assertThat(actual.pipelines()).hasSize(1);
-        assertExpectedPipelineStats(actual.pipelines().get(0));
+        assertExpectedPipelineStats(getOnlyElement(actual.pipelines()));
     }
 }

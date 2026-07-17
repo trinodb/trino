@@ -87,7 +87,6 @@ public class PatternRecognitionNode
             @JsonProperty("initial") boolean initial,
             @JsonProperty("pattern") IrRowPattern pattern,
             @JsonProperty("variableDefinitions") Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
-
     {
         super(id);
 

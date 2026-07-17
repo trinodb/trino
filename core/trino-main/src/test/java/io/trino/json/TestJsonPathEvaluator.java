@@ -27,13 +27,14 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.json.ir.IrDatetimeMethod;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
@@ -41,8 +42,10 @@ import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguratio
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
@@ -56,7 +59,10 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -84,10 +90,11 @@ import static io.trino.sql.planner.PathNodes.keyValue;
 import static io.trino.sql.planner.PathNodes.last;
 import static io.trino.sql.planner.PathNodes.lessThan;
 import static io.trino.sql.planner.PathNodes.lessThanOrEqual;
+import static io.trino.sql.planner.PathNodes.likeRegex;
 import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.sql.planner.PathNodes.memberAccessor;
 import static io.trino.sql.planner.PathNodes.minus;
-import static io.trino.sql.planner.PathNodes.modulus;
+import static io.trino.sql.planner.PathNodes.modulo;
 import static io.trino.sql.planner.PathNodes.multiply;
 import static io.trino.sql.planner.PathNodes.negation;
 import static io.trino.sql.planner.PathNodes.notEqual;
@@ -104,6 +111,11 @@ import static io.trino.sql.planner.PathNodes.type;
 import static io.trino.sql.planner.PathNodes.wildcardArrayAccessor;
 import static io.trino.sql.planner.PathNodes.wildcardMemberAccessor;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.DateTimes.parseTime;
+import static io.trino.type.DateTimes.parseTimeWithTimeZone;
+import static io.trino.type.DateTimes.parseTimestamp;
+import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.util.DateTimeUtils.parseDate;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -284,7 +296,7 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, subtract(variable("short_decimal_parameter"), variable("long_decimal_parameter")))))
-                .withEqualsForType(TypeSignature::equals, TypeSignature.class) // we don't want deep TypeSignature comparison because of cached hashCode
+                .withEqualsForType(TypeDescriptor::equals, TypeDescriptor.class) // we don't want deep TypeDescriptor comparison because of cached hashCode
                 .isEqualTo(singletonSequence(new TypedValue(createDecimalType(31, 20), Int128.valueOf("-1330000000000000000000"))));
 
         // division by 0
@@ -296,9 +308,9 @@ public class TestJsonPathEvaluator
         // type mismatch
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
-                path(true, modulus(jsonVariable("json_number_parameter"), literal(BOOLEAN, true)))))
+                path(true, modulo(jsonVariable("json_number_parameter"), literal(BOOLEAN, true)))))
                 .isInstanceOf(PathEvaluationException.class)
-                .hasMessage("path evaluation failed: invalid operand types to MODULUS operator (integer, boolean)");
+                .hasMessage("path evaluation failed: invalid operand types to MODULO operator (integer, boolean)");
 
         // left operand is not singleton
         assertThatThrownBy(() -> evaluate(
@@ -516,6 +528,147 @@ public class TestJsonPathEvaluator
                 path(true, ceiling(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testDatetimeMethod()
+    {
+        // Without a template, the shape of the value determines the resulting type.
+        // text item: DATE shape
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
+
+        // text item: TIME shape
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56.789"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(new TypedValue(createTimeType(3), parseTime("12:34:56.789"))));
+
+        // text item: TIME WITH TIME ZONE shape
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56.789+05:30"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimeWithTimeZoneType(3), parseTimeWithTimeZone(3, "12:34:56.789 +05:30"))));
+
+        // text item: TIMESTAMP shape
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02 12:34:56.789"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampType(3), parseTimestamp(3, "2024-01-02 12:34:56.789"))));
+
+        // text item: TIMESTAMP WITH TIME ZONE shape
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02 12:34:56.789 +05:30"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampWithTimeZoneType(3), parseTimestampWithTimeZone(3, "2024-01-02 12:34:56.789 +05:30"))));
+
+        // the precision of the resulting type follows the number of fractional digits in the value
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(new TypedValue(createTimeType(0), parseTime("12:34:56"))));
+
+        // multiple inputs -- array is automatically unwrapped in lax mode
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("2024-01-02"), TextNode.valueOf("2024-01-03"))),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(sequence(
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))),
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-03")))));
+
+        // in strict mode the array is not unwrapped, so it is not a text item
+        assertThatThrownBy(() -> evaluate(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("2024-01-02"))),
+                path(false, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: ARRAY");
+
+        // a value that does not match any of the recognized shapes fails as a path evaluation error
+        assertThatThrownBy(() -> evaluate(
+                TextNode.valueOf("not a datetime"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasRootCauseMessage("Invalid TIMESTAMP 'not a datetime'");
+
+        // non-text JsonNode → itemTypeError
+        assertThatThrownBy(() -> evaluate(
+                IntNode.valueOf(0),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: NUMBER");
+
+        // non-text TypedValue → itemTypeError (not ClassCastException). The analyzer rejects
+        // statically-typed non-text sources, but defense in depth: if a non-text TypedValue
+        // somehow reaches the runtime, surface a clean item-type error.
+        assertThatThrownBy(() -> evaluate(
+                NullNode.instance,
+                path(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: bigint");
+    }
+
+    @Test
+    public void testDatetimeMethodWithTemplate()
+    {
+        // With a template, the template determines the resulting type, and the value must match it
+        // exactly -- a shape that would be recognized without a template is not accepted.
+        assertThat(pathResult(
+                TextNode.valueOf("01/02/2024"),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
+
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02 12:34:56.789"),
+                path(true, datetimeMethod("YYYY-MM-DD HH24:MI:SS.FF3"))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampType(3), parseTimestamp(3, "2024-01-02 12:34:56.789"))));
+
+        // the template, not the value, fixes the precision of the resulting type
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56.789"),
+                path(true, datetimeMethod("HH24:MI:SS.FF6"))))
+                .isEqualTo(singletonSequence(new TypedValue(createTimeType(6), parseTime("12:34:56.789"))));
+
+        // a template that specifies only the low-order year digits completes the year
+        assertThat(pathResult(
+                TextNode.valueOf("24-01-02"),
+                path(true, datetimeMethod("RR-MM-DD"))))
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02")))));
+
+        // multiple inputs -- array is automatically unwrapped in lax mode
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("01/02/2024"), TextNode.valueOf("01/03/2024"))),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isEqualTo(sequence(
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-02"))),
+                        new TypedValue(DATE, (long) parseDate(utf8Slice("2024-01-03")))));
+
+        // the value does not match the template
+        assertThatThrownBy(() -> evaluate(
+                TextNode.valueOf("2024-01-02"),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasRootCauseMessage("expected literal '/' at position 2");
+
+        // the value carries a field that the template does not accept
+        assertThatThrownBy(() -> evaluate(
+                TextNode.valueOf("13/02/2024"),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasRootCauseInstanceOf(DateTimeException.class);
+
+        // non-text item is rejected before the template is applied
+        assertThatThrownBy(() -> evaluate(
+                IntNode.valueOf(0),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: NUMBER");
+    }
+
+    private static IrDatetimeMethod datetimeMethod(String template)
+    {
+        return new IrDatetimeMethod(contextVariable(), Optional.of(JsonDateTimeTemplate.parse(template)), Optional.empty());
     }
 
     @Test
@@ -1398,6 +1551,42 @@ public class TestJsonPathEvaluator
                 TextNode.valueOf("abc"),
                 true,
                 startsWith(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), literal(VARCHAR, utf8Slice("A")))))
+                .isEqualTo(FALSE);
+    }
+
+    @Test
+    public void testLikeRegexPredicate()
+    {
+        // simple match
+        assertThat(predicateResult(
+                TextNode.valueOf("abcde"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "^abc")))
+                .isEqualTo(TRUE);
+
+        // input is automatically unwrapped in lax mode
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "z$")))
+                .isEqualTo(TRUE);
+
+        // non-text input -> unknown
+        assertThat(predicateResult(
+                IntNode.valueOf(7),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "^abc")))
+                .isEqualTo(null);
+
+        // empty input sequence (subscript out-of-bounds in lax mode) -> FALSE per §9.46 GR F.V
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), "^abc")))
                 .isEqualTo(FALSE);
     }
 

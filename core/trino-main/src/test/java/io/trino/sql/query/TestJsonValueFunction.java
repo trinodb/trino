@@ -21,11 +21,13 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_VALUE_RESULT_ERROR;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -276,6 +278,44 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax $[1]' RETURNING char(10))"))
                 .matches("VALUES cast('b' AS char(10))");
 
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime()' RETURNING date)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"12:34:56.789\"', 'lax $.datetime()' RETURNING time(3))"))
+                .matches("VALUES TIME '12:34:56.789'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"12:34:56.789+05:30\"', 'lax $.datetime()' RETURNING time(3) with time zone)"))
+                .matches("VALUES TIME '12:34:56.789+05:30'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789\"', 'lax $.datetime()' RETURNING timestamp(3))"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789 UTC\"', 'lax $.datetime()' RETURNING timestamp(3) with time zone)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 UTC'");
+
+        // a value that cannot be parsed as a datetime is a path evaluation error, so the ON ERROR clause applies
+        assertThat(assertions.query(
+                "SELECT json_value('\"not a datetime\"', 'lax $.datetime()' RETURNING date DEFAULT DATE '1970-01-01' ON ERROR)"))
+                .matches("VALUES DATE '1970-01-01'");
+
+        // with a format template, the value must match the template
+        assertThat(assertions.query(
+                "SELECT json_value('\"01/02/2024\"', 'lax $.datetime(\"MM/DD/YYYY\")' RETURNING date)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789\"', 'lax $.datetime(\"YYYY-MM-DD HH24:MI:SS.FF3\")' RETURNING timestamp(3))"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"MM/DD/YYYY\")' RETURNING date DEFAULT DATE '1970-01-01' ON ERROR)"))
+                .matches("VALUES DATE '1970-01-01'");
+
         // the actual value does not fit in the expected returned type. the error is handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000' RETURNING tinyint)"))
@@ -285,10 +325,106 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax 1000' RETURNING tinyint DEFAULT TINYINT '-1' ON ERROR)"))
                 .matches("VALUES TINYINT '-1'");
 
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax 1' RETURNING tinyint DEFAULT 1000 ON EMPTY)"))
+                .matches("VALUES TINYINT '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax 1' RETURNING tinyint DEFAULT 1000 ON ERROR)"))
+                .matches("VALUES TINYINT '1'");
+
         // default value cast to the expected returned type
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000000000000 * 1000000000000' RETURNING bigint DEFAULT TINYINT '-1' ON ERROR)"))
                 .matches("VALUES BIGINT '-1'");
+    }
+
+    @Test
+    public void testDefaultExpressionEvaluationIsLazy()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax $[100]' RETURNING tinyint DEFAULT 100 / divisor ON EMPTY)
+                FROM (VALUES 2) t(divisor)
+                """))
+                .matches("VALUES TINYINT '50'");
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax 1' RETURNING tinyint DEFAULT 100 / divisor ON EMPTY)
+                FROM (VALUES 2) t(divisor)
+                """))
+                .matches("VALUES TINYINT '1'");
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax 1' RETURNING tinyint DEFAULT 100 / divisor ON EMPTY)
+                FROM (VALUES 0) t(divisor)
+                """))
+                .matches("VALUES TINYINT '1'");
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax $[100]' RETURNING tinyint DEFAULT 100 / divisor ON EMPTY DEFAULT TINYINT '9' ON ERROR)
+                FROM (VALUES 0) t(divisor)
+                """))
+                .matches("VALUES TINYINT '9'");
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax $[100]' RETURNING tinyint DEFAULT 100 / divisor ON EMPTY ERROR ON ERROR)
+                FROM (VALUES 0) t(divisor)
+                """))
+                .failure()
+                .hasErrorCode(DIVISION_BY_ZERO);
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax 1000' RETURNING tinyint DEFAULT 100 / divisor ON ERROR)
+                FROM (VALUES 2) t(divisor)
+                """))
+                .matches("VALUES TINYINT '50'");
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax 1' RETURNING tinyint DEFAULT 100 / divisor ON ERROR)
+                FROM (VALUES 2) t(divisor)
+                """))
+                .matches("VALUES TINYINT '1'");
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax 1' RETURNING tinyint DEFAULT 100 / divisor ON ERROR)
+                FROM (VALUES 0) t(divisor)
+                """))
+                .matches("VALUES TINYINT '1'");
+
+        assertThat(assertions.query(
+                """
+                SELECT json_value('[1, 2, 3]', 'lax 1000' RETURNING tinyint DEFAULT 100 / divisor ON ERROR)
+                FROM (VALUES 0) t(divisor)
+                """))
+                .failure()
+                .hasErrorCode(DIVISION_BY_ZERO);
+    }
+
+    @Test
+    public void testSubqueriesInDefaultExpressionAreRejected()
+    {
+        // Lazy evaluation requires that nested scalar subqueries only run when the default branch is taken
+        // (SQL:2023 subclause 9.48 defers VE evaluation inside CAST(VE AS DT) to the selected branch).
+        // Trino cannot evaluate scalar subqueries inside a scalar function, so defaults containing subqueries are rejected.
+        assertThat(assertions.query(
+                "SELECT json_value('[1, 2, 3]', 'lax $[100]' RETURNING bigint DEFAULT (SELECT 42) ON EMPTY)"))
+                .failure()
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Subqueries are not supported in JSON_VALUE default expressions");
+
+        assertThat(assertions.query(
+                "SELECT json_value('[1, 2, 3]', 'strict $[100]' RETURNING bigint DEFAULT (SELECT 42) ON ERROR)"))
+                .failure()
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Subqueries are not supported in JSON_VALUE default expressions");
     }
 
     @Test

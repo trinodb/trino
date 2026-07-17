@@ -49,7 +49,7 @@ public final class CachedInstanceBinder
 
     public FieldDefinition getCachedInstance(MethodHandle methodHandle)
     {
-        FieldDefinition field = classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance" + nextId, methodHandle.type().returnType());
+        FieldDefinition field = classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance" + nextId, callSiteBinder.getAccessibleType(methodHandle.type().returnType()));
         initializers.put(field, methodHandle);
         nextId++;
         return field;

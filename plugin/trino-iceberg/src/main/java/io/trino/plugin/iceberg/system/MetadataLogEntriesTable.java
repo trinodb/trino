@@ -41,8 +41,7 @@ public class MetadataLogEntriesTable
 
     public MetadataLogEntriesTable(SchemaTableName tableName, Table icebergTable, ExecutorService executor)
     {
-        super(
-                requireNonNull(icebergTable, "icebergTable is null"),
+        super(requireNonNull(icebergTable, "icebergTable is null"),
                 createConnectorTableMetadata(requireNonNull(tableName, "tableName is null")),
                 METADATA_LOG_ENTRIES,
                 executor);

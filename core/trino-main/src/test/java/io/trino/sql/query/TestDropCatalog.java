@@ -56,7 +56,8 @@ public class TestDropCatalog
     public void setUp()
     {
         Duration catalogPruneInterval = new Duration(1, SECONDS); // lowest allowed
-        QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION,
+        QueryRunner queryRunner = new StandaloneQueryRunner(
+                TEST_SESSION,
                 server -> server.addProperty("catalog.prune.update-interval", catalogPruneInterval.toString()));
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withName("connector_with_cleanup_query")

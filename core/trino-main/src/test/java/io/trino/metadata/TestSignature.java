@@ -13,48 +13,107 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureDeserializer;
+import io.trino.spi.function.Signature.Argument;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSignature
 {
     @Test
-    public void testSerializationRoundTrip()
+    public void testArgumentNames()
     {
-        JsonMapper jsonMapper = new JsonMapperProvider()
-                .withJsonDeserializers(ImmutableMap.of(
-                        Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
-                        TypeSignature.class, new TypeSignatureDeserializer()))
-                .get();
-        JsonCodec<Signature> codec = new JsonCodecFactory(jsonMapper).prettyPrint().jsonCodec(Signature.class);
-
-        Signature expected = Signature.builder()
-                .returnType(BIGINT)
-                .argumentType(BOOLEAN)
-                .argumentType(DOUBLE)
-                .argumentType(VARCHAR)
+        Signature signature = Signature.builder()
+                .returnType(VARCHAR.getTypeDescriptor())
+                .argumentType(VARCHAR.getTypeDescriptor(), "string")
+                .argumentType(BIGINT.getTypeDescriptor(), "from")
+                .argumentType(BIGINT.getTypeDescriptor())
                 .build();
 
-        String json = codec.toJson(expected);
-        Signature actual = codec.fromJson(json);
+        assertThat(signature.getArguments())
+                .extracting(Argument::name)
+                .containsExactly(Optional.of("string"), Optional.of("from"), Optional.empty());
+    }
 
-        assertThat(actual.getReturnType()).isEqualTo(expected.getReturnType());
-        assertThat(actual.getArgumentTypes()).isEqualTo(expected.getArgumentTypes());
+    @Test
+    public void testTypeVariableReferencesMustBeStructural()
+    {
+        // A declared type variable smuggled as a parameterless application would bind by base name
+        // but compare unequal to the canonical TypeVariable form and survive substitution unresolved
+        assertThatThrownBy(() -> Signature.builder()
+                .typeVariable("T")
+                .returnType(type("T"))
+                .argumentType(typeVariable("T"))
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be referenced as a type variable");
+
+        // case-insensitive, like declaration matching
+        assertThatThrownBy(() -> Signature.builder()
+                .typeVariable("T")
+                .returnType(typeVariable("T"))
+                .argumentType(arrayType(type("t")))
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be referenced as a type variable");
+
+        // a parameterless type that does not shadow a declared variable is fine
+        Signature.builder()
+                .typeVariable("T")
+                .returnType(typeVariable("T"))
+                .argumentType(type("bigint"))
+                .argumentType(typeVariable("T"))
+                .build();
+    }
+
+    @Test
+    public void testVariableDeclarationOrderDoesNotMatter()
+    {
+        // build() canonicalizes the declaration order, so signatures declaring the same variables in a
+        // different order are equal AND render identically (FunctionId derives from the rendering)
+        Signature keyFirst = Signature.builder()
+                .typeVariable("K")
+                .typeVariable("V")
+                .numericVariable("p")
+                .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                .argumentType(typeVariable("K"))
+                .argumentType(typeVariable("V"))
+                .build();
+        Signature valueFirst = Signature.builder()
+                .numericVariable("p")
+                .typeVariable("V")
+                .typeVariable("K")
+                .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                .argumentType(typeVariable("K"))
+                .argumentType(typeVariable("V"))
+                .build();
+
+        assertThat(keyFirst).isEqualTo(valueFirst);
+        assertThat(keyFirst.hashCode()).isEqualTo(valueFirst.hashCode());
+        assertThat(keyFirst.toString()).isEqualTo(valueFirst.toString());
+    }
+
+    @Test
+    public void testEqualityIncludesArgumentNames()
+    {
+        Signature withName = Signature.builder()
+                .returnType(BIGINT)
+                .argumentType(BIGINT.getTypeDescriptor(), "x")
+                .build();
+        Signature withoutName = Signature.builder()
+                .returnType(BIGINT)
+                .argumentType(BIGINT)
+                .build();
+        assertThat(withName).isNotEqualTo(withoutName);
     }
 }

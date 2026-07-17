@@ -26,7 +26,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestClient;
 
 import java.io.File;
 import java.net.URISyntaxException;
@@ -137,7 +137,7 @@ public final class ElasticsearchQueryRunner
 
                 LOG.info("Loading data...");
                 long startTime = System.nanoTime();
-                try (RestHighLevelClient client = server.getClient()) {
+                try (RestClient client = server.getClient()) {
                     for (TpchTable<?> table : initialTables) {
                         loadTpchTopic(client, trinoClient, table);
                     }
@@ -153,7 +153,7 @@ public final class ElasticsearchQueryRunner
         }
     }
 
-    private static void loadTpchTopic(RestHighLevelClient client, TestingTrinoClient trinoClient, TpchTable<?> table)
+    private static void loadTpchTopic(RestClient client, TestingTrinoClient trinoClient, TpchTable<?> table)
     {
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());

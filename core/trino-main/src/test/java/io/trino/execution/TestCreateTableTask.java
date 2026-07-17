@@ -76,7 +76,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;
@@ -150,13 +150,15 @@ class TestCreateTableTask
     @Test
     void testCreateTableNotExistsTrue()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_if_not_exists"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_if_not_exists"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             return null;
         });
@@ -165,14 +167,16 @@ class TestCreateTableTask
     @Test
     void testCreateTableNotExistsFalse()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_fail_if_exists"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_fail_if_exists"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(ALREADY_EXISTS)
                     .hasMessage("Table already exists");
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
@@ -183,14 +187,16 @@ class TestCreateTableTask
     @Test
     void testReplaceTable()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_replace"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_replace"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 REPLACE,
                 ImmutableList.of(),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                     .isEqualTo(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
@@ -201,14 +207,16 @@ class TestCreateTableTask
     @Test
     void testCreateTableWithMaterializedViewPropertyFails()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_with_materialized_view_property"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_with_materialized_view_property"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(INVALID_TABLE_PROPERTY)
                     .hasMessage("Catalog 'test_catalog' table property 'foo' does not exist");
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
@@ -226,7 +234,7 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
             assertThat(columns).hasSize(2);
@@ -250,7 +258,7 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
             assertThat(columns).hasSize(1);
@@ -356,7 +364,7 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_not_null_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
             assertThat(columns).hasSize(3);
@@ -393,7 +401,7 @@ class TestCreateTableTask
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
-                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(NOT_SUPPORTED)
                     .hasMessage("Catalog 'other_catalog' does not support non-null column for column name 'b'");
             return null;
@@ -406,7 +414,7 @@ class TestCreateTableTask
         CreateTable statement = getCreateLikeStatement(false);
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -422,7 +430,7 @@ class TestCreateTableTask
         CreateTable statement = getCreateLikeStatement(true);
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -439,7 +447,7 @@ class TestCreateTableTask
         CreateTable statement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_excluding"), false);
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -454,7 +462,7 @@ class TestCreateTableTask
         CreateTable failingStatement = getCreateLikeStatement(QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_including"), true);
 
         queryRunner.inTransaction(transactionSession -> {
-            assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(failingStatement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP)))
+            assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(failingStatement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .isInstanceOf(TrinoException.class)
                     .hasMessageContaining("CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported");
             return null;
@@ -467,7 +475,7 @@ class TestCreateTableTask
         CreateTable statement = getCreateLikeStatement(false);
         queryRunner.getAccessControl().deny(privilege("parent_table", SELECT_COLUMN));
         queryRunner.inTransaction(transactionSession -> {
-            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP)))
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(PERMISSION_DENIED)
                     .hasMessageContaining("Cannot reference columns of table");
             return null;
@@ -482,7 +490,7 @@ class TestCreateTableTask
 
         queryRunner.getAccessControl().deny(privilege("parent_table", SHOW_CREATE_TABLE));
         queryRunner.inTransaction(transactionSession -> {
-            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP)))
+            assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(PERMISSION_DENIED)
                     .hasMessageContaining("Cannot reference properties of table");
             return null;
@@ -503,7 +511,7 @@ class TestCreateTableTask
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
-                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(NOT_SUPPORTED)
                     .hasMessage("line 1:1: Column name 'a.b' must not be qualified");
             return null;
@@ -513,7 +521,9 @@ class TestCreateTableTask
     @Test
     void testCreateTableWithCoercedType()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_coerced_type"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_coerced_type"),
                 ImmutableList.of(
                         new ColumnDefinition(
                                 QualifiedName.of("a"),
@@ -525,7 +535,7 @@ class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns().get(0).getType()).isEqualTo(TIMESTAMP_MILLIS);
             return null;
         });
@@ -546,7 +556,7 @@ class TestCreateTableTask
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
-            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}, WarningCollector.NOOP));
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), _ -> {}, WarningCollector.NOOP));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())

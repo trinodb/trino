@@ -19,7 +19,10 @@ import java.util.List;
 import java.util.Optional;
 
 sealed interface Projection
-        permits DateProjection, EnumProjection, InjectedProjection, IntegerProjection
+        permits DateProjection,
+                EnumProjection,
+                InjectedProjection,
+                IntegerProjection
 {
     List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
 

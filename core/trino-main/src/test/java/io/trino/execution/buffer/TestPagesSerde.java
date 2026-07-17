@@ -117,7 +117,7 @@ public class TestPagesSerde
         Iterator<LineItem> iterator = lineItemGenerator.iterator();
         int pageCount = 3;
         List<Page> pages = IntStream.range(0, pageCount)
-                .mapToObj(i -> generatePage(types, rowCount, iterator))
+                .mapToObj(_ -> generatePage(types, rowCount, iterator))
                 .collect(toImmutableList());
         testRoundTrip(types, pages);
     }
@@ -180,6 +180,30 @@ public class TestPagesSerde
     }
 
     @Test
+    public void testSmallPageWithEncryption()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/23531
+        // Small pages that fit within a single encrypted block caused IndexOutOfBoundsException
+        // because decrypt() unconditionally read the next block header after all blocks were consumed.
+        SecretKey encryptionKey = createRandomAesEncryptionKey();
+        for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+            // Use a large block size so the page fits in a single encrypted block
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, compressionCodec, 64 * 1024);
+            PageSerializer serializer = serdeFactory.createSerializer(Optional.of(encryptionKey));
+            PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.of(encryptionKey));
+
+            // Single-row page is small enough to fit in one encrypted block
+            BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(1);
+            BIGINT.writeLong(builder, 42);
+            Page page = new Page(builder.build());
+
+            Slice serialized = serializer.serialize(page);
+            Page deserialized = deserializer.deserialize(serialized);
+            assertPageEquals(ImmutableList.of(BIGINT), deserialized, page);
+        }
+    }
+
+    @Test
     public void testBigintSerializedSize()
     {
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(5);
@@ -227,7 +251,7 @@ public class TestPagesSerde
         assertThat(secondValueSize).isEqualTo(4 + 3); // one additional ending offset + "bob" (null shared with first entry)
     }
 
-    private int serializedSize(List<? extends Type> types, Page expectedPage)
+    private int serializedSize(List<Type> types, Page expectedPage)
     {
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, NONE);
         PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
@@ -328,14 +352,14 @@ public class TestPagesSerde
             for (int i = 0; i < numberOfEntries; ++i) {
                 long value = slice.getLong(offset);
                 offset += 8;
-                long b7 = value >> 56 & 0xffL;
-                long b6 = value >> 48 & 0xffL;
-                long b5 = value >> 40 & 0xffL;
-                long b4 = value >> 32 & 0xffL;
-                long b3 = value >> 24 & 0xffL;
-                long b2 = value >> 16 & 0xffL;
-                long b1 = value >> 8 & 0xffL;
-                long b0 = value & 0xffL;
+                long b7 = value >> 56 & 0xFFL;
+                long b6 = value >> 48 & 0xFFL;
+                long b5 = value >> 40 & 0xFFL;
+                long b4 = value >> 32 & 0xFFL;
+                long b3 = value >> 24 & 0xFFL;
+                long b2 = value >> 16 & 0xFFL;
+                long b1 = value >> 8 & 0xFFL;
+                long b0 = value & 0xFFL;
                 // write one byte at a time
                 output.writeByte((int) b0);
                 output.writeByte((int) b1);

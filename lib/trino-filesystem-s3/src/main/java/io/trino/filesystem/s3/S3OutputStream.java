@@ -296,10 +296,9 @@ final class S3OutputStream
                     .storageClass(storageClass)
                     .applyMutation(builder ->
                             key.ifPresentOrElse(
-                                    encryption ->
-                                            builder.sseCustomerKey(encoded(encryption))
-                                                    .sseCustomerAlgorithm(encryption.algorithm())
-                                                    .sseCustomerKeyMD5(md5Checksum(encryption)),
+                                    encryption -> builder.sseCustomerKey(encoded(encryption))
+                                            .sseCustomerAlgorithm(encryption.algorithm())
+                                            .sseCustomerKeyMD5(md5Checksum(encryption)),
                                     () -> setEncryptionSettings(builder, context.s3SseContext())))
                     .build();
 
@@ -317,10 +316,9 @@ final class S3OutputStream
                 .partNumber(currentPartNumber)
                 .applyMutation(builder ->
                         key.ifPresentOrElse(
-                                encryption ->
-                                        builder.sseCustomerKey(encoded(encryption))
-                                                .sseCustomerAlgorithm(encryption.algorithm())
-                                                .sseCustomerKeyMD5(md5Checksum(encryption)),
+                                encryption -> builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
                                 () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
@@ -345,10 +343,9 @@ final class S3OutputStream
                 .uploadId(uploadId)
                 .multipartUpload(x -> x.parts(parts))
                 .applyMutation(builder -> key.ifPresentOrElse(
-                        encryption ->
-                                builder.sseCustomerKey(encoded(encryption))
-                                        .sseCustomerAlgorithm(encryption.algorithm())
-                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                        encryption -> builder.sseCustomerKey(encoded(encryption))
+                                .sseCustomerAlgorithm(encryption.algorithm())
+                                .sseCustomerKeyMD5(md5Checksum(encryption)),
                         () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 

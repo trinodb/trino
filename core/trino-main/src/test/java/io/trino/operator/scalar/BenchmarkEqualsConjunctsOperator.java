@@ -14,8 +14,8 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -24,9 +24,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.SpecialForm.Form;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,9 +55,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 
 @State(Scope.Thread)
 @Fork(3)
@@ -70,7 +69,6 @@ public class BenchmarkEqualsConjunctsOperator
     private static final int COMPARISONS_COUNT = 100;
     private static final double NULLS_FRACTION = 0.05;
 
-    private static final DriverYieldSignal SIGNAL = new DriverYieldSignal();
     private static final ConnectorSession SESSION = TEST_SESSION.toConnectorSession();
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
@@ -80,11 +78,15 @@ public class BenchmarkEqualsConjunctsOperator
     public void setup()
     {
         ExpressionCompiler expressionCompiler = functionResolution.getExpressionCompiler();
-        RowExpression projection = generateComplexComparisonProjection(FIELDS_COUNT, COMPARISONS_COUNT);
-        compiledProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projection)).get();
+        ImmutableMap.Builder<Symbol, Integer> layout = ImmutableMap.builder();
+        for (int i = 0; i < FIELDS_COUNT; i++) {
+            layout.put(new Symbol(BIGINT, "$col_" + i), i);
+        }
+        Expression projection = generateComplexComparisonProjection(FIELDS_COUNT, COMPARISONS_COUNT);
+        compiledProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projection), layout.buildOrThrow()).get();
     }
 
-    private RowExpression generateComplexComparisonProjection(int fieldsCount, int comparisonsCount)
+    private Expression generateComplexComparisonProjection(int fieldsCount, int comparisonsCount)
     {
         checkArgument(fieldsCount > 0, "fieldsCount must be greater than zero");
         checkArgument(comparisonsCount > 0, "comparisonsCount must be greater than zero");
@@ -98,17 +100,17 @@ public class BenchmarkEqualsConjunctsOperator
                 generateComplexComparisonProjection(fieldsCount, comparisonsCount - 1));
     }
 
-    private static RowExpression createConjunction(RowExpression left, RowExpression right)
+    private static Expression createConjunction(Expression left, Expression right)
     {
-        return new SpecialForm(Form.OR, BOOLEAN, ImmutableList.of(left, right), ImmutableList.of());
+        return new Logical(Logical.Operator.OR, ImmutableList.of(left, right));
     }
 
-    private RowExpression createComparison(int leftField, int rightField)
+    private Expression createComparison(int leftField, int rightField)
     {
         return call(
                 functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                field(leftField, BIGINT),
-                field(rightField, BIGINT));
+                new Reference(BIGINT, "$col_" + leftField),
+                new Reference(BIGINT, "$col_" + rightField));
     }
 
     @Benchmark
@@ -117,7 +119,6 @@ public class BenchmarkEqualsConjunctsOperator
         List<Page> output = new ArrayList<>();
         Iterator<Optional<Page>> pageProcessorOutput = compiledProcessor.process(
                 SESSION,
-                SIGNAL,
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 SourcePage.create(data.page));
         while (pageProcessorOutput.hasNext()) {

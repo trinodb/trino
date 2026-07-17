@@ -21,7 +21,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -35,7 +35,7 @@ public class JsonPath2016Type
 
     public JsonPath2016Type(JsonCodec<IrJsonPath> jsonPathCodec)
     {
-        super(new TypeSignature(NAME), IrJsonPath.class);
+        super(new TypeDescriptor(NAME), IrJsonPath.class);
         this.jsonPathCodec = requireNonNull(jsonPathCodec, "jsonPathCodec is null");
     }
 

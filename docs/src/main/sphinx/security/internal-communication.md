@@ -26,7 +26,7 @@ A large random key is recommended, and can be generated with the following Linux
 command:
 
 ```text
-openssl rand 512 | base64
+openssl rand 512 | base64 -w 0
 ```
 
 (verify-secrets)=

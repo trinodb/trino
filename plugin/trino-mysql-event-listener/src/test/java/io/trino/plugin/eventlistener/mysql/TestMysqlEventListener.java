@@ -388,7 +388,8 @@ final class TestMysqlEventListener
 
     private static String getJdbcUrl(MySQLContainer container)
     {
-        return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
+        return format(
+                "%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
                 container.getJdbcUrl(),
                 container.getUsername(),
                 container.getPassword());
@@ -419,7 +420,7 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getString("remote_client_address")).isEqualTo("remoteAddress");
                     assertThat(resultSet.getString("user_agent")).isEqualTo("userAgent");
                     assertThat(resultSet.getString("client_info")).isEqualTo("clientInfo");
-                    assertThat(resultSet.getString("client_tags_json")).isEqualTo(jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() { }).toJson(FULL_QUERY_CONTEXT.getClientTags()));
+                    assertThat(resultSet.getString("client_tags_json")).isEqualTo(jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() {}).toJson(FULL_QUERY_CONTEXT.getClientTags()));
                     assertThat(resultSet.getString("source")).isEqualTo("source");
                     assertThat(resultSet.getString("catalog")).isEqualTo("catalog");
                     assertThat(resultSet.getString("schema")).isEqualTo("schema");
@@ -504,7 +505,7 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getString("remote_client_address")).isNull();
                     assertThat(resultSet.getString("user_agent")).isNull();
                     assertThat(resultSet.getString("client_info")).isNull();
-                    assertThat(resultSet.getString("client_tags_json")).isEqualTo(jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() { }).toJson(Set.of()));
+                    assertThat(resultSet.getString("client_tags_json")).isEqualTo(jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() {}).toJson(Set.of()));
                     assertThat(resultSet.getString("source")).isNull();
                     assertThat(resultSet.getString("catalog")).isNull();
                     assertThat(resultSet.getString("schema")).isNull();

@@ -231,7 +231,8 @@ public final class TestByteArrayValueDecoders
 
     private static InputDataProvider createRandomAsciiBinaryInputProvider(int length)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
@@ -251,7 +252,8 @@ public final class TestByteArrayValueDecoders
             Supplier<String> descriptionProvider,
             Function<Random, byte[]> dataProvider)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {

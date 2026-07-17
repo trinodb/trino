@@ -167,7 +167,20 @@ public class TestPreparedStatements
         QueryResult result = onTrino().executeQuery(selectSqlWithTable);
         assertColumnTypes(result);
         assertThat(result).containsOnly(
-                row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                row(null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
                         new byte[] {0, 1, 2, 3, 0, 42, -7}));
     }
 
@@ -448,7 +461,20 @@ public class TestPreparedStatements
         QueryResult result = onTrino().executeQuery(verifySql);
         assertColumnTypes(result);
         assertThat(result).containsOnly(
-                row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                row(null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
                         new byte[] {0, 1, 2, 3, 0, 42, -7}));
     }
 

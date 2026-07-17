@@ -30,12 +30,12 @@ import java.util.Optional;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_OAUTH2_LOGOUT;
 import static io.trino.server.ui.OAuthWebUiCookie.delete;
 import static io.trino.web.ui.WebUiResources.webUiResource;
 import static java.util.Objects.requireNonNull;
 
-@Path(UI_LOGOUT)
+@Path(UI_OAUTH2_LOGOUT)
 public class OAuth2WebUiLogoutResource
 {
     private final OAuth2Client auth2Client;

@@ -612,7 +612,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 node.getTarget(),
-                map(node.getRowCountSymbol()),
+                node.getOutputSymbols(),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
     }

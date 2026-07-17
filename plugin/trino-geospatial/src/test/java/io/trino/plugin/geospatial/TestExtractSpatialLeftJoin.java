@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -32,10 +32,11 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
@@ -55,10 +56,10 @@ public class TestExtractSpatialLeftJoin
     {
         // scalar expression
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol b = p.symbol("b", GEOMETRY);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(),
                             p.values(b),
                             containsCall(geometryFromTextCall("POLYGON ..."), b.toSymbolReference()));
@@ -67,8 +68,7 @@ public class TestExtractSpatialLeftJoin
 
         // OR operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
@@ -78,19 +78,19 @@ public class TestExtractSpatialLeftJoin
                             p.values(point, name2),
                             Logical.or(
                                     containsCall(geometryFromTextCall(wkt), point.toSymbolReference()),
-                                    new Comparison(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference())));
+                                    comparison(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference())));
                 })
                 .doesNotFire();
 
         // NOT operator
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
                     Symbol name2 = p.symbol("name_2", VARCHAR);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt, name1),
                             p.values(point, name2),
                             not(FUNCTIONS.getMetadata(), containsCall(geometryFromTextCall(wkt), point.toSymbolReference())));
@@ -99,14 +99,14 @@ public class TestExtractSpatialLeftJoin
 
         // ST_Distance(...) > r
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.join(LEFT,
                             p.values(a),
                             p.values(b),
-                            new Comparison(Comparison.Operator.GREATER_THAN,
+                            comparison(
+                                    ComparisonOperator.GREATER_THAN,
                                     distanceCall(a.toSymbolReference(), b.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -114,14 +114,14 @@ public class TestExtractSpatialLeftJoin
 
         // SphericalGeography operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", SPHERICAL_GEOGRAPHY);
                     Symbol b = p.symbol("b", SPHERICAL_GEOGRAPHY);
                     return p.join(LEFT,
                             p.values(a),
                             p.values(b),
-                            new Comparison(Comparison.Operator.GREATER_THAN,
+                            comparison(
+                                    ComparisonOperator.GREATER_THAN,
                                     sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -129,14 +129,14 @@ public class TestExtractSpatialLeftJoin
 
         // to_spherical_geography() operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", SPHERICAL_GEOGRAPHY);
                     return p.join(LEFT,
                             p.values(wkt),
                             p.values(point),
-                            new Comparison(Comparison.Operator.GREATER_THAN,
+                            comparison(
+                                    ComparisonOperator.GREATER_THAN,
                                     sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -148,11 +148,11 @@ public class TestExtractSpatialLeftJoin
     {
         // symbols
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(a),
                             p.values(b),
                             containsCall(a.toSymbolReference(), b.toSymbolReference()));
@@ -165,8 +165,7 @@ public class TestExtractSpatialLeftJoin
 
         // AND
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
@@ -175,19 +174,18 @@ public class TestExtractSpatialLeftJoin
                             p.values(a, name1),
                             p.values(b, name2),
                             Logical.and(
-                                    new Comparison(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference()),
+                                    comparison(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference()),
                                     containsCall(a.toSymbolReference(), b.toSymbolReference())));
                 })
                 .matches(
                         spatialLeftJoin(
-                                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(VARCHAR, "name_1"), new Reference(VARCHAR, "name_2")), new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "a"), new Reference(GEOMETRY, "b"))))),
+                                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(VARCHAR, "name_1"), new Reference(VARCHAR, "name_2")), new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "a"), new Reference(GEOMETRY, "b"))))),
                                 values(ImmutableMap.of("a", 0, "name_1", 1)),
                                 values(ImmutableMap.of("b", 0, "name_2", 1))));
 
         // AND
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a1 = p.symbol("a1", GEOMETRY);
                     Symbol a2 = p.symbol("a2", GEOMETRY);
                     Symbol b1 = p.symbol("b1", GEOMETRY);
@@ -210,11 +208,11 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownFirstArgument()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt),
                             p.values(point),
                             containsCall(geometryFromTextCall(wkt), point.toSymbolReference()));
@@ -227,10 +225,10 @@ public class TestExtractSpatialLeftJoin
                                 values(ImmutableMap.of("point", 0))));
 
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt),
                             p.values(),
                             containsCall(geometryFromTextCall(wkt), toPointCall(new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0))));
@@ -242,12 +240,12 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownSecondArgument()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol polygon = p.symbol("polygon", GEOMETRY);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(polygon),
                             p.values(lat, lng),
                             containsCall(polygon.toSymbolReference(), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
@@ -260,11 +258,11 @@ public class TestExtractSpatialLeftJoin
                                         values(ImmutableMap.of("lat", 0, "lng", 1)))));
 
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(),
                             p.values(lat, lng),
                             containsCall(geometryFromTextCall("POLYGON ..."), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
@@ -276,12 +274,12 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownBothArguments()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt),
                             p.values(lat, lng),
                             containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
@@ -299,12 +297,12 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownOppositeOrder()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
                     Symbol wkt = p.symbol("wkt", VARCHAR);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(lat, lng),
                             p.values(wkt),
                             containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
@@ -321,8 +319,7 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownAnd()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
@@ -332,12 +329,12 @@ public class TestExtractSpatialLeftJoin
                             p.values(wkt, name1),
                             p.values(lat, lng, name2),
                             Logical.and(
-                                    new Comparison(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference()),
+                                    comparison(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference()),
                                     containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference()))));
                 })
                 .matches(
                         spatialLeftJoin(
-                                new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new Reference(VARCHAR, "name_1"), new Reference(VARCHAR, "name_2")), new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))))),
+                                new Logical(AND, ImmutableList.of(comparison(NOT_EQUAL, new Reference(VARCHAR, "name_1"), new Reference(VARCHAR, "name_2")), new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))))),
                                 project(ImmutableMap.of("st_geometryfromtext", expression(new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Reference(VARCHAR, "wkt"))))),
                                         values(ImmutableMap.of("wkt", 0, "name_1", 1))),
                                 project(ImmutableMap.of("st_point", expression(new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat"))))),
@@ -345,8 +342,7 @@ public class TestExtractSpatialLeftJoin
 
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt1 = p.symbol("wkt1", VARCHAR);
                     Symbol wkt2 = p.symbol("wkt2", VARCHAR);
                     Symbol geometry1 = p.symbol("geometry1", GEOMETRY);

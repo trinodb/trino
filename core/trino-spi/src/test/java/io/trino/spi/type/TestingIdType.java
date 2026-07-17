@@ -23,7 +23,7 @@ public final class TestingIdType
 
     private TestingIdType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

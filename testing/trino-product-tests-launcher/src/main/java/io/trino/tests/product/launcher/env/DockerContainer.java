@@ -239,9 +239,9 @@ public class DockerContainer
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         try {
-            ((CompletableFuture<?>) executor.runAsync(copy)).whenComplete((Object ignore, Throwable throwable) -> {
+            ((CompletableFuture<?>) executor.runAsync(copy)).whenComplete((Object _, Throwable throwable) -> {
                 if (throwable == null) {
-                    log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+                    log.debug("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
                 }
                 else {
                     log.warn(throwable, "Could not copy files into %s %s", this, containerPath);
@@ -483,6 +483,5 @@ public class DockerContainer
         DISCARD,
         WRITE,
         PRINT_WRITE,
-        /**/;
     }
 }

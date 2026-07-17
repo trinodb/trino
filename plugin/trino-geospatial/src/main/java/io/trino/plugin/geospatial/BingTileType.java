@@ -15,7 +15,7 @@ package io.trino.plugin.geospatial;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.type.AbstractLongType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 public class BingTileType
         extends AbstractLongType
@@ -25,7 +25,7 @@ public class BingTileType
 
     private BingTileType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

@@ -63,7 +63,7 @@ public final class TestHelpers
             Class<? extends OpaQueryException> expectedException,
             String expectedErrorMessage)
     {
-        assertAccessControlMethodThrowsForResponseHandler(request -> response, expectedUri, opaConfig, methodToTest, expectedException, expectedErrorMessage);
+        assertAccessControlMethodThrowsForResponseHandler(_ -> response, expectedUri, opaConfig, methodToTest, expectedException, expectedErrorMessage);
     }
 
     public static void assertAccessControlMethodThrowsForResponseHandler(

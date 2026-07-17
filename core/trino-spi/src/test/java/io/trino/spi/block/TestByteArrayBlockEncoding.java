@@ -18,20 +18,16 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.Random;
 
-import static io.trino.spi.block.ByteArrayBlockEncoding.compactBytesWithNullsScalar;
+import static io.trino.spi.block.Bitmap.compactBitmap;
+import static io.trino.spi.block.Bitmap.hasUnsetBit;
+import static io.trino.spi.block.ByteArrayBlockEncoding.compactBytesWithNulls;
 import static io.trino.spi.block.ByteArrayBlockEncoding.compactBytesWithNullsVectorized;
-import static io.trino.spi.block.ByteArrayBlockEncoding.expandBytesWithNullsScalar;
+import static io.trino.spi.block.ByteArrayBlockEncoding.expandBytesWithNulls;
 import static io.trino.spi.block.ByteArrayBlockEncoding.expandBytesWithNullsVectorized;
-import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.TestEncoderUtil.assertBlockEquals;
-import static io.trino.spi.block.TestEncoderUtil.getEncodedNullsAsBits;
-import static io.trino.spi.block.TestEncoderUtil.getIsNullArray;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestByteArrayBlockEncoding
         extends BaseBlockEncodingTest<Byte>
@@ -55,45 +51,55 @@ final class TestByteArrayBlockEncoding
     }
 
     @Test
-    void testCompressAndExpandBytesScalarEqualsVector()
+    void testCompressAndExpandBytesWithValidity()
     {
         for (int length : TestEncoderUtil.getTestLengths()) {
             for (int offset : TestEncoderUtil.getTestOffsets()) {
                 byte[] values = randomBytes(offset + length);
-                for (boolean[] isNull : getIsNullArray(offset + length)) {
-                    byte[] compressedScalar = compressBytesScalar(values, isNull, offset, length);
-                    byte[] compressedVectorized = compressBytesVectorized(values, isNull, offset, length);
-                    assertThat(compressedVectorized).as("bytes: compressedScalar and vector outputs differ").isEqualTo(compressedScalar);
-                    byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
-                    assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
-                    ByteArrayBlock scalarBlock = expandBytesWithNullsScalar(Slices.wrappedBuffer(compressedScalar).getInput(), length, packedIsNullBits, decodedIsNull);
-                    ByteArrayBlock vectorBlock = expandBytesWithNullsVectorized(Slices.wrappedBuffer(compressedScalar).getInput(), length, decodedIsNull);
-                    assertBlockEquals(BOOLEAN, scalarBlock, vectorBlock);
+                for (long[] validity : TestEncoderUtil.getValidityArrays(offset + length)) {
+                    if (!hasUnsetBit(validity, offset, length)) {
+                        continue;
+                    }
+                    long[] compactedValidity = compactBitmap(validity, offset, length);
+                    byte[] compactedValues = compactBytes(values, validity, offset, length);
+                    ByteArrayBlock actualBlock = expandBytesWithNulls(Slices.wrappedBuffer(compactedValues).getInput(), length, compactedValidity);
+                    ByteArrayBlock expectedBlock = new ByteArrayBlock(0, length, compactedValidity, copyValues(values, offset, length));
+                    assertBlockEquals(TINYINT, actualBlock, expectedBlock);
+
+                    byte[] vectorizedCompactedValues = compactBytesVectorized(values, validity, offset, length);
+                    ByteArrayBlock vectorizedActualBlock = expandBytesWithNullsVectorized(Slices.wrappedBuffer(vectorizedCompactedValues).getInput(), length, compactedValidity);
+                    assertBlockEquals(TINYINT, vectorizedActualBlock, expectedBlock);
                 }
             }
         }
     }
 
-    static byte[] compressBytesScalar(byte[] values, boolean[] isNull, int offset, int length)
+    private static byte[] compactBytes(byte[] values, long[] validity, int offset, int length)
     {
         DynamicSliceOutput out = new DynamicSliceOutput(length * (Byte.BYTES + 4));
-        compactBytesWithNullsScalar(out, values, isNull, offset, length);
+        compactBytesWithNulls(out, values, validity, offset, length);
         return out.slice().getBytes();
     }
 
-    private static byte[] compressBytesVectorized(byte[] values, boolean[] isNull, int offset, int length)
+    private static byte[] compactBytesVectorized(byte[] values, long[] validity, int offset, int length)
     {
         DynamicSliceOutput out = new DynamicSliceOutput(length * (Byte.BYTES + 4));
-        compactBytesWithNullsVectorized(out, values, isNull, offset, length);
+        compactBytesWithNullsVectorized(out, values, validity, offset, length);
         return out.slice().getBytes();
+    }
+
+    private static byte[] copyValues(byte[] values, int offset, int length)
+    {
+        byte[] copy = new byte[length];
+        System.arraycopy(values, offset, copy, 0, length);
+        return copy;
     }
 
     private static byte[] randomBytes(int size)
     {
         byte[] data = new byte[size];
-        Random r = new Random(42);
-        r.nextBytes(data);
+        Random random = new Random(42);
+        random.nextBytes(data);
         return data;
     }
 }

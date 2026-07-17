@@ -742,7 +742,7 @@ public class TestHashDistributionSplitAssigner
                         replicatedSplitIds.put(batch.getPlanNodeId(), splitId);
                     }
                     else {
-                        partitionedSplitIds.computeIfAbsent(entry.getKey(), key -> ArrayListMultimap.create()).put(batch.getPlanNodeId(), splitId);
+                        partitionedSplitIds.computeIfAbsent(entry.getKey(), _ -> ArrayListMultimap.create()).put(batch.getPlanNodeId(), splitId);
                     }
                 }
             }

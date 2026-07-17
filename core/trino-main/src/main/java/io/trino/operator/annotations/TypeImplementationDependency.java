@@ -16,7 +16,7 @@ package io.trino.operator.annotations;
 import io.trino.metadata.FunctionBinding;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 
 import java.util.Objects;
 
@@ -26,14 +26,14 @@ import static java.util.Objects.requireNonNull;
 public final class TypeImplementationDependency
         implements ImplementationDependency
 {
-    private final TypeSignature signature;
+    private final TypeTemplate signature;
 
-    public TypeImplementationDependency(TypeSignature signature)
+    public TypeImplementationDependency(TypeTemplate signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
     }
 
-    public TypeSignature getSignature()
+    public TypeTemplate getSignature()
     {
         return signature;
     }

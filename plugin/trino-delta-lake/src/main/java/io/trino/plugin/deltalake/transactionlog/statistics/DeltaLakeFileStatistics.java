@@ -53,6 +53,6 @@ public interface DeltaLakeFileStatistics
                         identity(),
                         CanonicalColumnName::new,
                         // Ignore duplicate Strings
-                        (name1, name2) -> name1));
+                        (name1, _) -> name1));
     }
 }

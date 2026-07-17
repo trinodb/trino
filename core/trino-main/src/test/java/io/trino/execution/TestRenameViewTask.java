@@ -49,6 +49,19 @@ public class TestRenameViewTask
     }
 
     @Test
+    public void testRenameToUnqualifiedTargetKeepsSourceSchema()
+    {
+        String sourceSchema = "other_schema";
+        QualifiedObjectName viewName = new QualifiedObjectName(TEST_CATALOG_NAME, sourceSchema, "existing_view");
+        QualifiedObjectName newViewName = new QualifiedObjectName(TEST_CATALOG_NAME, sourceSchema, "existing_view_new");
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+
+        getFutureValue(executeRenameView(asQualifiedName(viewName), QualifiedName.of("existing_view_new")));
+        assertThat(metadata.isView(testSession, viewName)).isFalse();
+        assertThat(metadata.isView(testSession, newViewName)).isTrue();
+    }
+
+    @Test
     public void testRenameNotExistingView()
     {
         QualifiedName viewName = qualifiedName("not_existing_view");

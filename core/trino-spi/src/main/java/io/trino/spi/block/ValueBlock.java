@@ -42,10 +42,13 @@ public non-sealed interface ValueBlock
         return position;
     }
 
-    /**
-     * Returns a ByteArrayBlock specifying whether the current positions in the Block contain a NULL.
-     * Returns Optional.empty() when there are no NULLs in the Block.
-     * The returned ByteArrayBlock must not contain NULL values.
-     */
-    Optional<ByteArrayBlock> getNulls();
+    /// Returns a validity bitmap for the current positions in the Block.
+    ///
+    /// `Optional.empty()` means all positions may be treated as valid without consulting a bitmap. Set bits mean valid,
+    /// non-null positions, and unset bits mean null positions.
+    ///
+    /// Validity uses set bits for present values instead of set bits for null values so the bitmap matches the Java
+    /// Vector API mask convention, where a set lane is selected for processing. The returned bitmap uses the raw
+    /// [Bitmap] encoding and can be a view over block storage with a non-zero raw bit offset.
+    Optional<Bitmap> getValidityBitmap();
 }

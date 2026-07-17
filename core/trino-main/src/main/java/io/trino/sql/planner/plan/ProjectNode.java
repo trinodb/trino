@@ -33,7 +33,8 @@ public class ProjectNode
 
     // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)
     @JsonCreator
-    public ProjectNode(@JsonProperty("id") PlanNodeId id,
+    public ProjectNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("assignments") Assignments assignments)
     {

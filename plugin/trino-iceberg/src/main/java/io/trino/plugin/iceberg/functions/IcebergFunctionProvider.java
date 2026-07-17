@@ -43,7 +43,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.transforms.Transforms;
@@ -61,6 +60,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
@@ -76,7 +76,8 @@ public class IcebergFunctionProvider
                     .signature(Signature.builder()
                             .typeVariable("T")
                             .returnType(INTEGER)
-                            .argumentTypes(ImmutableList.of(new TypeSignature("T"), INTEGER.getTypeSignature()))
+                            .argumentType(typeVariable("T"))
+                            .argumentType(INTEGER.getTypeDescriptor())
                             .build())
                     .nullable()
                     .build())

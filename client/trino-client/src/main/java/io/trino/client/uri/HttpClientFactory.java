@@ -19,6 +19,7 @@ import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.HttpTokenPoller;
+import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
 import okhttp3.OkHttpClient;
@@ -40,8 +41,8 @@ import static io.trino.client.OkHttpUtil.setupKerberos;
 import static io.trino.client.OkHttpUtil.setupSocksProxy;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.OkHttpUtil.setupTimeouts;
-import static io.trino.client.OkHttpUtil.tokenAuth;
 import static io.trino.client.OkHttpUtil.userAgent;
+import static io.trino.client.auth.external.ExternalAuthenticator.REDIRECT_URI_FIELD;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.NONE;
@@ -85,7 +86,27 @@ public class HttpClientFactory
             if (!uri.isUseSecureConnection()) {
                 throw new RuntimeException("TLS/SSL required for authentication using an access token");
             }
-            builder.addNetworkInterceptor(tokenAuth(uri.getAccessToken().get()));
+            // Pre-seed the token so the interceptor injects it on the first request; the
+            // authenticator transparently refreshes it via x_token_server on expiry.
+            KnownToken knownToken = KnownToken.withInitialToken(uri.getAccessToken().get());
+            ExternalAuthenticator externalAuthenticator = new ExternalAuthenticator(
+                    redirectUri -> {},
+                    new HttpTokenPoller(builder.build()),
+                    knownToken,
+                    Duration.ofMinutes(2));
+            builder.addNetworkInterceptor(externalAuthenticator);
+            builder.authenticator((route, response) -> {
+                // If x_redirect_server is present the server requires a full browser-based
+                // OAuth2 flow, which cannot be done with a static access token. Return null
+                // so OkHttp surfaces the 401 as an authentication failure.
+                boolean requiresRedirect = response.challenges().stream()
+                        .filter(challenge -> challenge.scheme().equalsIgnoreCase("Bearer"))
+                        .anyMatch(challenge -> challenge.authParams().containsKey(REDIRECT_URI_FIELD));
+                if (requiresRedirect) {
+                    return null;
+                }
+                return externalAuthenticator.authenticate(route, response);
+            });
         }
 
         if (!uri.getExtraHeaders().isEmpty()) {

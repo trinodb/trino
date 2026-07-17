@@ -92,8 +92,10 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(projectedA),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new Reference(BIGINT, "a"),
-                                            projectedC, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                            projectedA,
+                                            new Reference(BIGINT, "a"),
+                                            projectedC,
+                                            new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                     p.values(a, b)));
                 })
                 .matches(

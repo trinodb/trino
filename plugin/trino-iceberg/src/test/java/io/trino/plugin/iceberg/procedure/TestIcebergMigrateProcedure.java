@@ -176,7 +176,8 @@ public class TestIcebergMigrateProcedure
         String hiveTableName = "hive.tpch." + tableName;
         String icebergTableName = "iceberg.tpch." + tableName;
 
-        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format='" + fileFormat + "') AS " +
+        assertUpdate(
+                "CREATE TABLE " + hiveTableName + " WITH (format='" + fileFormat + "') AS " +
                         "SELECT 1 x, array[2, 3] a, " +
                         "CAST(map(array['key1'], array['value1']) AS map(varchar, varchar)) b, " +
                         "CAST(row(1) AS row(d integer)) c",
@@ -214,23 +215,23 @@ public class TestIcebergMigrateProcedure
         String icebergTableName = "iceberg.tpch." + tableName;
 
         assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format='PARQUET') AS " +
-                     "SELECT CAST(row(timestamp '" + inputValue + "') AS row(t timestamp(3))) r," +
-                     "array[timestamp '" + inputValue + "'] a, " +
-                     "CAST(map(array[1], array[timestamp '" + inputValue + "']) AS map(int, timestamp(3))) m", 1);
+                "SELECT CAST(row(timestamp '" + inputValue + "') AS row(t timestamp(3))) r," +
+                "array[timestamp '" + inputValue + "'] a, " +
+                "CAST(map(array[1], array[timestamp '" + inputValue + "']) AS map(int, timestamp(3))) m", 1);
 
         assertThat(query("SELECT a, m, r.t FROM " + hiveTableName))
                 .matches("VALUES (" +
-                         " ARRAY[timestamp '" + inputValue + "'], " +
-                         " CAST(map(ARRAY[1], ARRAY[timestamp '" + inputValue + "']) AS map(int, timestamp(3)))," +
-                         " timestamp '" + inputValue + "')");
+                        " ARRAY[timestamp '" + inputValue + "'], " +
+                        " CAST(map(ARRAY[1], ARRAY[timestamp '" + inputValue + "']) AS map(int, timestamp(3)))," +
+                        " timestamp '" + inputValue + "')");
 
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
 
         assertThat(query("SELECT a, m, r.t FROM " + icebergTableName))
                 .matches("VALUES (" +
-                         " ARRAY[timestamp '" + expectedValue + "'], " +
-                         " CAST(map(ARRAY[1], ARRAY[timestamp '" + expectedValue + "']) AS map(int, timestamp(6) with time zone))," +
-                         " timestamp '" + expectedValue + "')");
+                        " ARRAY[timestamp '" + expectedValue + "'], " +
+                        " CAST(map(ARRAY[1], ARRAY[timestamp '" + expectedValue + "']) AS map(int, timestamp(6) with time zone))," +
+                        " timestamp '" + expectedValue + "')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -575,7 +576,8 @@ public class TestIcebergMigrateProcedure
 
     private String getColumnType(String tableName, String columnName)
     {
-        return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
+        return (String) computeScalar(format(
+                "SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
                 tableName,
                 columnName));
     }

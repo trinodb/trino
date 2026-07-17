@@ -149,7 +149,7 @@ public class S3FileSystemExchangeStorage
     public enum CompatibilityMode
     {
         AWS,
-        GCP
+        GCP,
     }
 
     private final S3FileSystemExchangeStorageStats stats;
@@ -205,7 +205,7 @@ public class S3FileSystemExchangeStorage
                             protected void handle(RequestType requestType, CompletableFuture<?> responseFuture)
                             {
                                 stats.requestStarted(requestType);
-                                responseFuture.whenComplete((result, failure) -> {
+                                responseFuture.whenComplete((_, failure) -> {
                                     if (failure != null && failure.getMessage() != null && failure.getMessage().contains("Maximum pending connection acquisitions exceeded")) {
                                         log.error(failure, "Encountered 'Maximum pending connection acquisitions exceeded' error. Active requests: %s", stats.getActiveRequestsSummary());
                                     }
@@ -690,7 +690,8 @@ public class S3FileSystemExchangeStorage
                             .bucket(bucketName)
                             .range("bytes=" + fileOffset + "-" + (fileOffset + length - 1));
 
-                    ListenableFuture<GetObjectResponse> getObjectFuture = toListenableFuture(s3AsyncClientProvider.apply(bucketName).getObject(getObjectRequestBuilder.build(),
+                    ListenableFuture<GetObjectResponse> getObjectFuture = toListenableFuture(s3AsyncClientProvider.apply(bucketName).getObject(
+                            getObjectRequestBuilder.build(),
                             BufferWriteAsyncResponseTransformer.toBufferWrite(buffer, bufferFill)));
                     stats.getGetObject().record(getObjectFuture);
                     stats.getGetObjectDataSizeInBytes().add(length);
@@ -790,12 +791,13 @@ public class S3FileSystemExchangeStorage
                         .storageClass(storageClass)
                         .applyMutation(builder -> {
                             switch (s3SseContext.sseType()) {
-                                case NONE -> { /* ignored */ }
+                                case NONE -> {}
                                 case S3 -> builder.serverSideEncryption(AES256);
                                 case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(s3SseContext.sseKmsKeyId().get());
                             }
                         }).build();
-                directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(putObjectRequest,
+                directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(
+                        putObjectRequest,
                         fromByteBufferUnsafe(slice.toByteBuffer()))));
                 stats.getPutObject().record(directUploadFuture);
                 stats.getPutObjectDataSizeInBytes().add(slice.length());
@@ -828,7 +830,8 @@ public class S3FileSystemExchangeStorage
                     Futures.allAsList(multiPartUploadFutures),
                     completedParts -> completeMultipartUpload(getFutureValue(multiPartUploadIdFuture), completedParts),
                     directExecutor()));
-            Futures.addCallback(finishFuture, new FutureCallback<>() {
+            Futures.addCallback(finishFuture, new FutureCallback<>()
+            {
                 @Override
                 public void onSuccess(Void result)
                 {
@@ -840,7 +843,7 @@ public class S3FileSystemExchangeStorage
                 {
                     // Rely on caller to abort in case of exceptions during finish
                 }
-                }, directExecutor());
+            }, directExecutor());
             return finishFuture;
         }
 
@@ -878,7 +881,7 @@ public class S3FileSystemExchangeStorage
                     .storageClass(storageClass)
                     .applyMutation(builder -> {
                         switch (s3SseContext.sseType()) {
-                            case NONE -> { /* ignored */ }
+                            case NONE -> {}
                             case S3 -> builder.serverSideEncryption(AES256);
                             case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(s3SseContext.sseKmsKeyId().get());
                         }
@@ -895,8 +898,10 @@ public class S3FileSystemExchangeStorage
                     .partNumber(partNumber);
             UploadPartRequest uploadPartRequest = uploadPartRequestBuilder.build();
             stats.getUploadPartDataSizeInBytes().add(slice.length());
-            return stats.getUploadPart().record(Futures.transform(toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, fromByteBufferUnsafe(slice.toByteBuffer()))),
-                    uploadPartResponse -> CompletedPart.builder().eTag(uploadPartResponse.eTag()).partNumber(partNumber).build(), directExecutor()));
+            return stats.getUploadPart().record(Futures.transform(
+                    toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, fromByteBufferUnsafe(slice.toByteBuffer()))),
+                    uploadPartResponse -> CompletedPart.builder().eTag(uploadPartResponse.eTag()).partNumber(partNumber).build(),
+                    directExecutor()));
         }
 
         private ListenableFuture<CompleteMultipartUploadResponse> completeMultipartUpload(String uploadId, List<CompletedPart> completedParts)

@@ -504,31 +504,36 @@ public class TestSqlFormatter
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
                                 Optional.empty()),
                         Optional.empty(),
-                        false, false)))
+                        false,
+                        false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
         assertThat(formatSql(
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
                                 Optional.of("攻殻機動隊")),
                         Optional.empty(),
-                        false, false)))
+                        false,
+                        false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR COMMENT '攻殻機動隊'");
         assertThat(formatSql(
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
@@ -541,7 +546,8 @@ public class TestSqlFormatter
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),
@@ -554,7 +560,8 @@ public class TestSqlFormatter
                 new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
                                 true,
                                 emptyList(),

@@ -23,19 +23,20 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.rowType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.rowType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
@@ -67,11 +68,10 @@ public final class ZipFunction
                 .signature(Signature.builder()
                         .typeVariableConstraints(typeParameters.stream().map(TypeVariableConstraint::typeVariable).collect(toImmutableList()))
                         .returnType(arrayType(rowType(typeParameters.stream()
-                                .map(TypeSignature::new)
-                                .map(TypeParameter::anonymousField)
+                                .map(name -> new TemplateParameter.TypeArgument(Optional.empty(), typeVariable(name)))
                                 .collect(toImmutableList()))))
                         .argumentTypes(typeParameters.stream()
-                                .map(name -> arrayType(new TypeSignature(name)))
+                                .map(name -> arrayType(typeVariable(name)))
                                 .collect(toImmutableList()))
                         .build())
                 .description("Merges the given arrays, element-wise, into a single array of rows.")

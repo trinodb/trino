@@ -18,5 +18,5 @@ public enum SchedulingPolicy
     FAIR,
     WEIGHTED,
     WEIGHTED_FAIR,
-    QUERY_PRIORITY
+    QUERY_PRIORITY,
 }

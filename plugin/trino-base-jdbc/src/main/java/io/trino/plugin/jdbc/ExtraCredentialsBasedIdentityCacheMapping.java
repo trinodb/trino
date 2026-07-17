@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
 import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ConnectorSession;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -29,19 +29,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class ExtraCredentialsBasedIdentityCacheMapping
         implements IdentityCacheMapping
 {
-    private final MessageDigest sha256;
+    private static final HashFunction SHA256 = Hashing.sha256();
+
     private final Optional<String> userCredentialName;
     private final Optional<String> passwordCredentialName;
 
     @Inject
     public ExtraCredentialsBasedIdentityCacheMapping(ExtraCredentialConfig config)
     {
-        try {
-            sha256 = MessageDigest.getInstance("SHA-256");
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
         userCredentialName = config.getUserCredentialName();
         passwordCredentialName = config.getPasswordCredentialName();
     }
@@ -59,7 +54,7 @@ public final class ExtraCredentialsBasedIdentityCacheMapping
 
     private byte[] hash(String value)
     {
-        return sha256.digest(value.getBytes(UTF_8));
+        return SHA256.hashString(value, UTF_8).asBytes();
     }
 
     private static final class ExtraCredentialsBasedIdentityCacheKey

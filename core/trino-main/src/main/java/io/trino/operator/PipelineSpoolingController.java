@@ -35,8 +35,7 @@ public class PipelineSpoolingController
 
     public PipelineSpoolingController(PipelineContext context, SpoolingController next)
     {
-        this(
-                context.getInlinedPositions(),
+        this(context.getInlinedPositions(),
                 context.getInlinedSize(),
                 isInliningEnabled(context.getSession()),
                 getInliningMaxRows(context.getSession()),

@@ -84,7 +84,7 @@ public class CassandraPartitionManager
                                         .map(Set::stream))
                                 .orElseGet(Stream::empty))
                         .collect(toImmutableSet());
-                remainingTupleDomain = tupleDomain.filter((column, domain) -> !usedPartitionColumns.contains(column));
+                remainingTupleDomain = tupleDomain.filter((column, _) -> !usedPartitionColumns.contains(column));
             }
         }
 
@@ -173,7 +173,7 @@ public class CassandraPartitionManager
                         }
                         return ImmutableSet.of();
                     },
-                    allOrNone -> ImmutableSet.of());
+                    _ -> ImmutableSet.of());
             partitionColumnValues.add(values);
         }
         return partitionColumnValues.build();

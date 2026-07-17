@@ -56,16 +56,15 @@ public class FixedSplitSource
         this.tableExecuteSplitsInfo = tableExecuteSplitsInfo.map(List::copyOf);
     }
 
-    @SuppressWarnings("ObjectEquality")
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         int remainingSplits = splits.size() - offset;
         int size = Math.min(remainingSplits, maxSize);
         List<ConnectorSplit> results = splits.subList(offset, offset + size);
         offset += size;
 
-        return completedFuture(new ConnectorSplitBatch(results, isFinished()));
+        return completedFuture(results);
     }
 
     @Override

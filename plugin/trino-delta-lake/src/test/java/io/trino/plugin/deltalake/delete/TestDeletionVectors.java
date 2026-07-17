@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.delete;
 import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.memory.MemoryFileSystem;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +28,7 @@ import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVectors;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
+import static io.trino.plugin.deltalake.delete.DeletionVectors.writeDeletionVectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -54,6 +56,44 @@ public class TestDeletionVectors
         DeletionVectorEntry deletionVector = new DeletionVectorEntry("i", "wi5b=000010000siXQKl0rr91000f55c8Xg0@@D72lkbi5=-{L", OptionalInt.empty(), 40, 1);
         assertThatThrownBy(() -> readDeletionVectors(fileSystem, Location.of("s3://bucket/table"), deletionVector))
                 .hasMessageContaining("Unsupported storage type for deletion vector: i");
+    }
+
+    @Test
+    public void testWriteDeletionVector()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = new MemoryFileSystem();
+        Location tableLocation = Location.of("memory:///table");
+        RoaringBitmapArray deletedRows = new RoaringBitmapArray();
+        deletedRows.add(1);
+
+        DeletionVectorEntry deletionVector = writeDeletionVectors(fileSystem, tableLocation, deletedRows, 0);
+
+        assertThat(deletionVector.sizeInBytes()).isEqualTo(34);
+        assertThat(deletionVector.cardinality()).isEqualTo(1);
+        assertThat(fileSystem.newInputFile(tableLocation.appendPath(toFileName(deletionVector.pathOrInlineDv()))).length())
+                .isEqualTo(deletionVector.sizeInBytes() + 9); // 1 byte (version) + 4 bytes (sizeInBytes) + 4 bytes (checksum)
+        assertThat(readDeletionVectors(fileSystem, tableLocation, deletionVector).contains(1)).isTrue();
+    }
+
+    @Test
+    public void testWriteRunOptimizedDeletionVector()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = new MemoryFileSystem();
+        Location tableLocation = Location.of("memory:///table");
+        RoaringBitmapArray deletedRows = new RoaringBitmapArray();
+        for (int position = 0; position < 10_000; position++) {
+            deletedRows.add(position);
+        }
+
+        DeletionVectorEntry deletionVector = writeDeletionVectors(fileSystem, tableLocation, deletedRows, 0);
+
+        assertThat(deletionVector.sizeInBytes()).isEqualTo(31);
+        assertThat(deletionVector.cardinality()).isEqualTo(10_000);
+        assertThat(fileSystem.newInputFile(tableLocation.appendPath(toFileName(deletionVector.pathOrInlineDv()))).length())
+                .isEqualTo(deletionVector.sizeInBytes() + 9); // 1 byte (version) + 4 bytes (sizeInBytes) + 4 bytes (checksum)
+        assertThat(readDeletionVectors(fileSystem, tableLocation, deletionVector).cardinality()).isEqualTo(10_000);
     }
 
     @Test

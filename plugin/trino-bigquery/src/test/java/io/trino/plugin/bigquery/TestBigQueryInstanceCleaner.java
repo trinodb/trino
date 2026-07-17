@@ -71,7 +71,7 @@ public class TestBigQueryInstanceCleaner
         LOG.info("Identifying datasets to drop...");
         // Drop all datasets except 'tpch' and 'test' schemas
         TableResult result = bigQuerySqlExecutor.executeQuery(
-                        "SELECT schema_name " +
+                "SELECT schema_name " +
                         "FROM INFORMATION_SCHEMA.SCHEMATA " +
                         "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
                         "AND schema_name NOT IN ('tpch', 'test')");
@@ -109,7 +109,8 @@ public class TestBigQueryInstanceCleaner
 
         LOG.info("Identifying tables to drop...");
         // Drop all tables created more than 24 hours ago
-        TableResult result = bigQuerySqlExecutor.executeQuery(format("" +
+        TableResult result = bigQuerySqlExecutor.executeQuery(format(
+                "" +
                         "SELECT table_name, table_type " +
                         "FROM %s.INFORMATION_SCHEMA.TABLES " +
                         "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
@@ -140,12 +141,14 @@ public class TestBigQueryInstanceCleaner
 
     private void logObjectsCount(String schemaName)
     {
-        TableResult result = bigQuerySqlExecutor.executeQuery(format("" +
+        TableResult result = bigQuerySqlExecutor.executeQuery(format(
+                "" +
                         "SELECT table_type, count(*) AS c " +
                         "FROM %s.INFORMATION_SCHEMA.TABLES " +
                         "GROUP BY table_type",
                 quoted(schemaName)));
-        result.getValues().forEach(fieldValues -> LOG.info("Schema '%s' contains '%s' objects of type '%s'",
+        result.getValues().forEach(fieldValues -> LOG.info(
+                "Schema '%s' contains '%s' objects of type '%s'",
                 schemaName,
                 fieldValues.get("c").getLongValue(),
                 fieldValues.get("table_type").getStringValue()));

@@ -30,9 +30,11 @@ public class TestDataOutputStream
     public void testEncodingBoolean()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeBoolean(true),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeBoolean(true),
                 new byte[] {1});
-        assertEncoding(sliceOutput -> sliceOutput.writeBoolean(false),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeBoolean(false),
                 new byte[] {0});
     }
 
@@ -40,18 +42,24 @@ public class TestDataOutputStream
     public void testEncodingByte()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeByte(92),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeByte(92),
                 new byte[] {92});
-        assertEncoding(sliceOutput -> sliceOutput.writeByte(156),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeByte(156),
                 new byte[] {-100});
-        assertEncoding(sliceOutput -> sliceOutput.writeByte(-17),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeByte(-17),
                 new byte[] {-17});
 
-        assertEncoding(sliceOutput -> sliceOutput.write(92),
+        assertEncoding(
+                sliceOutput -> sliceOutput.write(92),
                 new byte[] {92});
-        assertEncoding(sliceOutput -> sliceOutput.write(156),
+        assertEncoding(
+                sliceOutput -> sliceOutput.write(156),
                 new byte[] {-100});
-        assertEncoding(sliceOutput -> sliceOutput.write(-17),
+        assertEncoding(
+                sliceOutput -> sliceOutput.write(-17),
                 new byte[] {-17});
     }
 
@@ -59,11 +67,14 @@ public class TestDataOutputStream
     public void testEncodingShort()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeShort(23661),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeShort(23661),
                 new byte[] {109, 92});
-        assertEncoding(sliceOutput -> sliceOutput.writeShort(40045),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeShort(40045),
                 new byte[] {109, -100});
-        assertEncoding(sliceOutput -> sliceOutput.writeShort(-27188),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeShort(-27188),
                 new byte[] {-52, -107});
     }
 
@@ -71,9 +82,11 @@ public class TestDataOutputStream
     public void testEncodingInteger()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeInt(978017389),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeInt(978017389),
                 new byte[] {109, 92, 75, 58});
-        assertEncoding(sliceOutput -> sliceOutput.writeInt(-7813904),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeInt(-7813904),
                 new byte[] {-16, -60, -120, -1});
     }
 
@@ -81,9 +94,11 @@ public class TestDataOutputStream
     public void testEncodingLong()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeLong(9214541725452766769L),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeLong(9214541725452766769L),
                 new byte[] {49, -114, -96, -23, -32, -96, -32, 127});
-        assertEncoding(sliceOutput -> sliceOutput.writeLong(-1184314682315678611L),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeLong(-1184314682315678611L),
                 new byte[] {109, 92, 75, 58, 18, 120, -112, -17});
     }
 
@@ -91,13 +106,17 @@ public class TestDataOutputStream
     public void testEncodingDouble()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeDouble(3.14),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeDouble(3.14),
                 new byte[] {31, -123, -21, 81, -72, 30, 9, 64});
-        assertEncoding(sliceOutput -> sliceOutput.writeDouble(Double.NaN),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeDouble(Double.NaN),
                 new byte[] {0, 0, 0, 0, 0, 0, -8, 127});
-        assertEncoding(sliceOutput -> sliceOutput.writeDouble(Double.NEGATIVE_INFINITY),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeDouble(Double.NEGATIVE_INFINITY),
                 new byte[] {0, 0, 0, 0, 0, 0, -16, -1});
-        assertEncoding(sliceOutput -> sliceOutput.writeDouble(Double.POSITIVE_INFINITY),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeDouble(Double.POSITIVE_INFINITY),
                 new byte[] {0, 0, 0, 0, 0, 0, -16, 127});
     }
 
@@ -105,13 +124,17 @@ public class TestDataOutputStream
     public void testEncodingFloat()
             throws Exception
     {
-        assertEncoding(sliceOutput -> sliceOutput.writeFloat(3.14f),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeFloat(3.14f),
                 new byte[] {-61, -11, 72, 64});
-        assertEncoding(sliceOutput -> sliceOutput.writeFloat(Float.NaN),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeFloat(Float.NaN),
                 new byte[] {0, 0, -64, 127});
-        assertEncoding(sliceOutput -> sliceOutput.writeFloat(Float.NEGATIVE_INFINITY),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeFloat(Float.NEGATIVE_INFINITY),
                 new byte[] {0, 0, -128, -1});
-        assertEncoding(sliceOutput -> sliceOutput.writeFloat(Float.POSITIVE_INFINITY),
+        assertEncoding(
+                sliceOutput -> sliceOutput.writeFloat(Float.POSITIVE_INFINITY),
                 new byte[] {0, 0, -128, 127});
     }
 

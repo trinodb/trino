@@ -20,6 +20,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -43,6 +44,7 @@ public final class DoubleRegressionAggregation
     }
 
     @AggregationFunction("regr_slope")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void regrSlope(@AggregationState RegressionState state, BlockBuilder out)
     {
@@ -56,6 +58,7 @@ public final class DoubleRegressionAggregation
     }
 
     @AggregationFunction("regr_intercept")
+    @SqlNullable
     @OutputFunction(StandardTypes.DOUBLE)
     public static void regrIntercept(@AggregationState RegressionState state, BlockBuilder out)
     {

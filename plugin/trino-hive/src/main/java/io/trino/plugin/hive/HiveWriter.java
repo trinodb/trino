@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import io.trino.spi.Page;
 
-import java.io.Closeable;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -78,7 +77,7 @@ public class HiveWriter
         inputSizeInBytes += dataPage.getSizeInBytes();
     }
 
-    public Closeable commit()
+    public RollbackAction commit()
     {
         return fileWriter.commit();
     }

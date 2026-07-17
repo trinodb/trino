@@ -101,10 +101,11 @@ public class Analyzer
         try (var _ = scopedSpan(tracer, "access-control")) {
             // check column access permissions for each table
             analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
-                    tableColumnReferences.forEach((tableName, columns) ->
+                    tableColumnReferences.forEach((tableAndBranch, columns) ->
                             accessControlInfo.getAccessControl().checkCanSelectFromColumns(
                                     accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId(), session.getStart()),
-                                    tableName,
+                                    tableAndBranch.tableName(),
+                                    tableAndBranch.branch(),
                                     columns)));
         }
 

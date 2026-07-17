@@ -62,8 +62,7 @@ public class MarkdownTablePrinter
 
     private enum Align
     {
-        LEFT,
-        RIGHT;
+        LEFT, RIGHT,
     }
 
     @Override

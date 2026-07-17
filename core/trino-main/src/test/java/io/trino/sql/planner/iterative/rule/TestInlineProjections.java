@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -29,7 +30,6 @@ import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -111,7 +111,7 @@ public class TestInlineProjections
                         p.project(
                                 Assignments.builder()
                                         // Use the literal-like expression multiple times. Single-use expression may be inlined regardless of whether it's a literal
-                                        .put(p.symbol("decimal_multiplication", createDecimalType(17, 8)), new Call(MULTIPLY_DECIMAL_8_4, ImmutableList.of(new Reference(createDecimalType(8, 4), "decimal_literal"), new Reference(createDecimalType(8, 4), "decimal_literal"))))
+                                        .put(p.symbol("decimal_multiplication", createDecimalType(16, 8)), new Call(MULTIPLY_DECIMAL_8_4, ImmutableList.of(new Reference(createDecimalType(8, 4), "decimal_literal"), new Reference(createDecimalType(8, 4), "decimal_literal"))))
                                         .put(p.symbol("decimal_addition", createDecimalType(9, 4)), new Call(ADD_DECIMAL_8_4, ImmutableList.of(new Reference(createDecimalType(8, 4), "decimal_literal"), new Reference(createDecimalType(8, 4), "decimal_literal"))))
                                         .build(),
                                 p.project(Assignments.builder()
@@ -151,9 +151,11 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("complex", INTEGER), new Reference(INTEGER, "complex"),
+                                p.symbol("complex", INTEGER),
+                                new Reference(INTEGER, "complex"),
                                 p.symbol("output", new FunctionType(ImmutableList.of(BIGINT), INTEGER)),
-                                new Lambda(ImmutableList.of(p.symbol("arg")),
+                                new Lambda(
+                                        ImmutableList.of(p.symbol("arg")),
                                         new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "arg"), new Reference(INTEGER, "complex"))))),
                         p.project(Assignments.builder()
                                         .put(p.symbol("complex", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 1L))))

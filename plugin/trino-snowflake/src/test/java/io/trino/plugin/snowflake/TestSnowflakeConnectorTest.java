@@ -392,6 +392,11 @@ public class TestSnowflakeConnectorTest
     }
 
     @Test
+    @Disabled // Type mapping is tested by TestSnowflakeTypeMapping. Disable this test to avoid the timeout issue.
+    @Override
+    public void testDataMappingSmokeTest() {}
+
+    @Test
     @Override // Override because for approx_set(nationkey) a ProjectNode is present above the TableScanNode. It's used to project decimals to doubles.
     public void testAggregationWithUnsupportedResultType()
     {

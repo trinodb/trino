@@ -83,6 +83,7 @@ abstract class AbstractPropertiesSystemTable
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
 
         List<CatalogInfo> catalogInfos = listCatalogs(session, metadata, accessControl).stream()
+                .filter(CatalogInfo::isOperational)
                 .sorted(Comparator.comparing(CatalogInfo::catalogName))
                 .collect(toImmutableList());
 

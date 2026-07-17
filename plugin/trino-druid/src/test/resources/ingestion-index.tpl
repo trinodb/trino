@@ -3,31 +3,19 @@
      "spec": {
          "dataSchema": {
              "dataSource": "${datasource}",
-             "parser": {
-                 "type": "string",
-                 "parseSpec": {
-                     "format": "tsv",
-                     "timestampSpec": {
-                         "column": "${timestampSpec.column}",
-                         "format": "${timestampSpec.format}"
-                     },
-                     "columns": [
-                        "${timestampSpec.column}",
-                        <#list columns as column>
-                        "${column.name}"<#sep>, </#sep>
-                        </#list>
-                     ],
-                     "dimensionsSpec": {
-                         "dimensions": [
-                            <#list columns as column>
-                            {
-                                "name": "${column.name}",
-                                "type": "${column.type}"
-                            }<#sep>,
-                            </#list>
-                         ]
-                     }
-                 }
+             "timestampSpec": {
+                 "column": "${timestampSpec.column}",
+                 "format": "${timestampSpec.format}"
+             },
+             "dimensionsSpec": {
+                 "dimensions": [
+                    <#list columns as column>
+                    {
+                        "name": "${column.name}",
+                        "type": "${column.type}"
+                    }<#sep>,
+                    </#list>
+                 ]
              },
              "granularitySpec": {
                  "type": "uniform",
@@ -40,10 +28,20 @@
          },
          "ioConfig": {
              "type": "index",
-             "firehose": {
+             "inputSource": {
                  "type": "local",
                  "baseDir": "/opt/druid/var/",
                  "filter": "${datasource}.tsv"
+             },
+             "inputFormat": {
+                 "type": "tsv",
+                 "findColumnsFromHeader": false,
+                 "columns": [
+                    "${timestampSpec.column}",
+                    <#list columns as column>
+                    "${column.name}"<#sep>, </#sep>
+                    </#list>
+                 ]
              },
              "appendToExisting": false
          },

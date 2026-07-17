@@ -65,8 +65,7 @@ public class SpoolingQueryDataProducer
                             buildSegmentAckURI(uriBuilder, spooled.identifier()),
                             attributes,
                             spooled.headers()));
-                    case SpooledMetadataBlock.Inlined inlined ->
-                            builder.withSegment(inlined(inlined.data().byteArray(), attributes));
+                    case SpooledMetadataBlock.Inlined inlined -> builder.withSegment(inlined(inlined.data().byteArray(), attributes));
                 }
                 currentOffset += attributes.get(ROWS_COUNT, Long.class);
             }

@@ -57,8 +57,8 @@ public class TestingTelemetry
                 binder.bind(NodeInfo.class).toInstance(new NodeInfo("development"));
             }
         })
-        .initialize()
-        .getInstance(Tracer.class);
+                .initialize()
+                .getInstance(Tracer.class);
     }
 
     public Tracer getTracer()

@@ -179,8 +179,10 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x", DOUBLE), new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "a"))),
-                                p.symbol("y", DOUBLE), new Reference(DOUBLE, "b")),
+                                p.symbol("x", DOUBLE),
+                                new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "a"))),
+                                p.symbol("y", DOUBLE),
+                                new Reference(DOUBLE, "b")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", DOUBLE), p.symbol("b", DOUBLE)),
                                 ImmutableList.of(
@@ -206,8 +208,10 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x", DOUBLE), new Reference(DOUBLE, "rand"),
-                                p.symbol("y", DOUBLE), new Reference(DOUBLE, "rand")),
+                                p.symbol("x", DOUBLE),
+                                new Reference(DOUBLE, "rand"),
+                                p.symbol("y", DOUBLE),
+                                new Reference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand", DOUBLE)),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))

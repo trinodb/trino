@@ -51,7 +51,7 @@ public class BenchmarkComputePosition
     @Benchmark
     public long computePositionWithMod()
     {
-        return (int) (hashcode & 0x7fff_ffff_ffff_ffffL) % hashTableSize;
+        return (int) (hashcode & 0x7FFF_FFFF_FFFF_FFFFL) % hashTableSize;
     }
 
     // This reduction function requires the hashTableSize to be power of 2.

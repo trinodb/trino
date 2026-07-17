@@ -28,6 +28,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.plugin.base.util.Lazy;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,7 +40,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,7 +83,7 @@ public class ArbitraryOutputBuffer
             long taskInstanceId,
             OutputBufferStateMachine stateMachine,
             DataSize maxBufferSize,
-            Supplier<LocalMemoryContext> memoryContextSupplier,
+            Lazy<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = taskInstanceId;

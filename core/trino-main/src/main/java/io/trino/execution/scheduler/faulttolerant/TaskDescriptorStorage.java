@@ -17,10 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Table;
 import com.google.common.math.Quantiles;
-import com.google.common.math.Stats;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.compress.v3.zstd.ZstdCompressor;
@@ -31,16 +29,13 @@ import io.airlift.units.DataSize;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.StageId;
-import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -48,7 +43,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -59,12 +53,8 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.math.Quantiles.percentiles;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
 import static java.lang.Math.toIntExact;
@@ -83,7 +73,6 @@ public class TaskDescriptorStorage
     private final long compressingLowWaterMark;
 
     private final JsonCodec<TaskDescriptor> taskDescriptorJsonCodec;
-    private final JsonCodec<Split> splitJsonCodec;
     private final StorageStats storageStats;
 
     @GuardedBy("this")
@@ -111,29 +100,24 @@ public class TaskDescriptorStorage
     @Inject
     public TaskDescriptorStorage(
             QueryManagerConfig config,
-            JsonCodec<TaskDescriptor> taskDescriptorJsonCodec,
-            JsonCodec<Split> splitJsonCodec)
+            JsonCodec<TaskDescriptor> taskDescriptorJsonCodec)
     {
-        this(
-                config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(),
+        this(config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(),
                 config.getFaultTolerantExecutionTaskDescriptorStorageHighWaterMark(),
                 config.getFaultTolerantExecutionTaskDescriptorStorageLowWaterMark(),
-                taskDescriptorJsonCodec,
-                splitJsonCodec);
+                taskDescriptorJsonCodec);
     }
 
     public TaskDescriptorStorage(
             DataSize maxMemory,
             DataSize compressingHighWaterMark,
             DataSize compressingLowWaterMark,
-            JsonCodec<TaskDescriptor> taskDescriptorJsonCodec,
-            JsonCodec<Split> splitJsonCodec)
+            JsonCodec<TaskDescriptor> taskDescriptorJsonCodec)
     {
         this.maxMemoryInBytes = maxMemory.toBytes();
         this.compressingHighWaterMark = compressingHighWaterMark.toBytes();
         this.compressingLowWaterMark = compressingLowWaterMark.toBytes();
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
-        this.splitJsonCodec = requireNonNull(splitJsonCodec, "splitJsonCodec is null");
         this.storageStats = new StorageStats(Suppliers.memoizeWithExpiration(this::computeStats, 1, TimeUnit.SECONDS));
     }
 
@@ -252,7 +236,7 @@ public class TaskDescriptorStorage
      * Get task descriptor
      *
      * @return Non empty {@link TaskDescriptor} for a task identified by the <code>stageId</code> and <code>partitionId</code>.
-     * Returns {@link Optional#empty()} if the query of a given <code>stageId</code> has been finished (e.g.: cancelled by the user or finished early).
+     *         Returns {@link Optional#empty()} if the query of a given <code>stageId</code> has been finished (e.g.: cancelled by the user or finished early).
      * @throws java.util.NoSuchElementException if {@link TaskDescriptor} for a given task does not exist
      */
     public synchronized Optional<TaskDescriptor> get(StageId stageId, int partitionId)
@@ -329,10 +313,6 @@ public class TaskDescriptorStorage
                     .orElseThrow(() -> new VerifyException(format("storage is empty but reservedBytes (%s + %s) is still greater than maxMemoryInBytes (%s)", reservedUncompressedDelta, reservedCompressedDelta, maxMemoryInBytes)));
             TaskDescriptors storage = storages.get(killCandidate);
 
-            if (log.isInfoEnabled()) {
-                log.info("Failing query %s; reclaiming %s of %s/%s task descriptor memory from %s queries; extraStorageInfo=%s", killCandidate, storage.getReservedBytes(), succinctBytes(reservedUncompressedBytes), succinctBytes(reservedCompressedBytes), storages.size(), storage.getDebugInfo());
-            }
-
             runAndUpdateMemory(
                     storage,
                     () -> storage.fail(new TrinoException(
@@ -346,7 +326,7 @@ public class TaskDescriptorStorage
     private void checkStatsNotNegative()
     {
         checkState(reservedUncompressedBytes >= 0, "reservedUncompressedBytes is negative");
-        checkState(reservedUncompressedBytes >= 0, "reservedCompressedBytes is negative");
+        checkState(reservedCompressedBytes >= 0, "reservedCompressedBytes is negative");
         checkState(originalCompressedBytes >= 0, "originalCompressedBytes is negative");
     }
 
@@ -562,54 +542,6 @@ public class TaskDescriptorStorage
         public long getReservedBytes()
         {
             return reservedUncompressedBytes + reservedCompressedBytes;
-        }
-
-        private String getDebugInfo()
-        {
-            Multimap<StageId, TaskDescriptorHolder> descriptorsByStageId = descriptors.cellSet().stream()
-                    .collect(toImmutableSetMultimap(
-                            Table.Cell::getRowKey,
-                            Table.Cell::getValue));
-
-            Map<StageId, String> debugInfoByStageId = descriptorsByStageId.asMap().entrySet().stream()
-                    .collect(toImmutableMap(
-                            Entry::getKey,
-                            entry -> getDebugInfo(entry.getValue())));
-
-            List<String> biggestSplits = descriptorsByStageId.entries().stream()
-                    .flatMap(entry -> entry.getValue().getTaskDescriptor().getSplits().getSplitsFlat().entries().stream().map(splitEntry -> Map.entry("%s/%s".formatted(entry.getKey(), splitEntry.getKey()), splitEntry.getValue())))
-                    .sorted(Comparator.<Entry<String, Split>>comparingLong(entry -> entry.getValue().getRetainedSizeInBytes()).reversed())
-                    .limit(3)
-                    .map(entry -> "{nodeId=%s, size=%s, split=%s}".formatted(entry.getKey(), entry.getValue().getRetainedSizeInBytes(), splitJsonCodec.toJson(entry.getValue())))
-                    .toList();
-
-            return "stagesInfo=%s; biggestSplits=%s".formatted(debugInfoByStageId, biggestSplits);
-        }
-
-        private String getDebugInfo(Collection<TaskDescriptorHolder> taskDescriptors)
-        {
-            int taskDescriptorsCount = taskDescriptors.size();
-            Stats taskDescriptorsRetainedSizeStats = Stats.of(taskDescriptors.stream().mapToLong(TaskDescriptorHolder::getRetainedSizeInBytes));
-
-            Set<PlanNodeId> planNodeIds = taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getTaskDescriptor().getSplits().getSplitsFlat().keySet().stream()).collect(toImmutableSet());
-            Map<PlanNodeId, String> splitsDebugInfo = new HashMap<>();
-            for (PlanNodeId planNodeId : planNodeIds) {
-                Stats splitCountStats = Stats.of(taskDescriptors.stream().mapToLong(taskDescriptor -> taskDescriptor.getTaskDescriptor().getSplits().getSplitsFlat().asMap().get(planNodeId).size()));
-                Stats splitSizeStats = Stats.of(taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getTaskDescriptor().getSplits().getSplitsFlat().get(planNodeId).stream()).mapToLong(Split::getRetainedSizeInBytes));
-                splitsDebugInfo.put(
-                        planNodeId,
-                        "{splitCountMean=%s, splitCountStdDev=%s, splitSizeMean=%s, splitSizeStdDev=%s}".formatted(
-                                splitCountStats.mean(),
-                                splitCountStats.populationStandardDeviation(),
-                                splitSizeStats.mean(),
-                                splitSizeStats.populationStandardDeviation()));
-            }
-
-            return "[taskDescriptorsCount=%s, taskDescriptorsRetainedSizeMean=%s, taskDescriptorsRetainedSizeStdDev=%s, splits=%s]".formatted(
-                    taskDescriptorsCount,
-                    taskDescriptorsRetainedSizeStats.mean(),
-                    taskDescriptorsRetainedSizeStats.populationStandardDeviation(),
-                    splitsDebugInfo);
         }
 
         private void fail(TrinoException failure)
@@ -904,8 +836,6 @@ public class TaskDescriptorStorage
 
     private class TaskDescriptorHolder
     {
-        private static final int INSTANCE_SIZE = instanceSize(TaskDescriptorHolder.class);
-
         private TaskDescriptor taskDescriptor;
         private final long uncompressedSize;
         private byte[] compressedTaskDescriptor;
@@ -944,13 +874,6 @@ public class TaskDescriptorStorage
             taskDescriptor = null;
         }
 
-        public void decompress()
-        {
-            checkState(isCompressed(), "TaskDescriptor is not compressed");
-            this.taskDescriptor = getTaskDescriptor();
-            this.compressedTaskDescriptor = null;
-        }
-
         public boolean isCompressed()
         {
             return compressedTaskDescriptor != null;
@@ -965,11 +888,6 @@ public class TaskDescriptorStorage
         {
             checkState(isCompressed(), "TaskDescriptor is not compressed");
             return compressedTaskDescriptor.length;
-        }
-
-        public long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE + (isCompressed() ? compressedTaskDescriptor.length : uncompressedSize);
         }
     }
 }

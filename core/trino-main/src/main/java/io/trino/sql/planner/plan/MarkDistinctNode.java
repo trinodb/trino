@@ -35,7 +35,8 @@ public class MarkDistinctNode
     private final List<Symbol> distinctSymbols;
 
     @JsonCreator
-    public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
+    public MarkDistinctNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerSymbol") Symbol markerSymbol,
             @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols)

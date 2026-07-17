@@ -25,10 +25,11 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -44,10 +45,10 @@ public class DeltaLakeTransactionsTable
             DeltaMetastoreTable table,
             DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
-        super(
-                requireNonNull(table, "table is null"),
+        super(requireNonNull(table, "table is null"),
                 fileSystemFactory,
                 transactionLogAccess,
                 typeManager,
@@ -55,8 +56,9 @@ public class DeltaLakeTransactionsTable
                         requireNonNull(table.schemaTableName(), "tableName is null"),
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
-                                .add(new ColumnMetadata("transaction", typeManager.getType(new TypeSignature(JSON))))
-                                .build()));
+                                .add(new ColumnMetadata("transaction", typeManager.getType(new TypeDescriptor(JSON))))
+                                .build()),
+                tableCredentials);
     }
 
     @Override

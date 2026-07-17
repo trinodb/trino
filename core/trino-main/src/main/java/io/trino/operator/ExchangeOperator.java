@@ -25,7 +25,6 @@ import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
@@ -99,7 +98,6 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
-            LocalMemoryContext memoryContext = driverContext.getPipelineContext().localMemoryContext();
             if (exchangeDataSource == null) {
                 // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
                 // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.
@@ -110,7 +108,7 @@ public class ExchangeOperator
                         new ExchangeId(format("direct-exchange-%s-%s", taskId.stageId().id(), sourceId)),
                         taskContext.getSession().getQuerySpan(),
                         directExchangeClientSupplier,
-                        memoryContext,
+                        operatorContext.localUserMemoryContext(),
                         taskContext::sourceTaskFailed,
                         retryPolicy,
                         exchangeManagerRegistry);

@@ -38,6 +38,11 @@ public final class ValuePrinter
         this.session = requireNonNull(session, "session is null");
     }
 
+    public Metadata getMetadata()
+    {
+        return metadata;
+    }
+
     public String render(Type type, Object value)
     {
         try {

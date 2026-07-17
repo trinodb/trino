@@ -66,8 +66,7 @@ public class Hive4Metastore
             Optional<Network> network,
             int startupRetryLimit)
     {
-        super(
-                image,
+        super(image,
                 hostName,
                 ports,
                 filesToMount,

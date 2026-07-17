@@ -743,7 +743,7 @@ public class DeduplicatingDirectExchangeBuffer
 
             if (exchangeSink != null) {
                 try {
-                    exchangeSink.abort().whenComplete((result, failure) -> {
+                    exchangeSink.abort().whenComplete((_, failure) -> {
                         if (failure != null) {
                             log.warn(failure, "Error aborting exchange sink");
                         }

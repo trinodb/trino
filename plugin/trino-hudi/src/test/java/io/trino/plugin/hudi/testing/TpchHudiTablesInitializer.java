@@ -130,8 +130,8 @@ public class TpchHudiTablesInitializer
                 .getInstance(TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
         HiveMetastore metastore = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
-                        .getInstance(HiveMetastoreFactory.class)
-                        .createMetastore(Optional.empty());
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
 
         Location dataLocation = externalLocation.appendPath("tpch");
 

@@ -164,7 +164,7 @@ public final class IcebergDefaultValues
      * @param sqlExpression The SQL literal expression (e.g., "42", "'hello'", "DATE '2020-01-01'")
      * @return The Iceberg native value for the default
      */
-    public static Object parseDefaultValue(String sqlExpression, Type trinoType, org.apache.iceberg.types.Type icebergType)
+    public static Object parseDefaultValue(String sqlExpression, Type trinoType)
     {
         requireNonNull(sqlExpression, "sqlExpression is null");
 

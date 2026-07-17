@@ -17,6 +17,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -28,12 +29,12 @@ public class SketchFunctionsConnector
         implements Connector
 {
     private final SketchMetadata metadata;
-    private final SketchFunctions functionProvider;
+    private final FunctionBundle bundle;
 
-    public SketchFunctionsConnector(SketchMetadata metadata, SketchFunctions functionProvider)
+    public SketchFunctionsConnector(SketchMetadata metadata, FunctionBundle bundle)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.bundle = requireNonNull(bundle, "bundle is null");
     }
 
     @Override
@@ -51,7 +52,7 @@ public class SketchFunctionsConnector
     @Override
     public Optional<FunctionProvider> getFunctionProvider()
     {
-        return Optional.of(functionProvider);
+        return Optional.of(bundle.toProvider());
     }
 
     @Override

@@ -15,7 +15,7 @@ tests are run using the [Tempto](https://github.com/trinodb/tempto) harness.
 
 **There is a helper script at `testing/bin/ptl` which calls
 `testing/trino-product-tests-launcher/bin/run-launcher` and helps you avoid
-typing the full path to the launcher everytime. Rest of this document uses
+typing the full path to the launcher every time. The rest of this document uses
 `testing/bin/ptl` to start the launcher but you can use the full path too.**
 
 Developers should consider writing product tests in addition to any unit tests
@@ -91,7 +91,7 @@ testing/bin/ptl test run --environment <environment> \
  single node Trino installation, and one with a pseudo-distributed Hadoop
  installation.
 - **two-kerberos-hives** - two pseudo-distributed Hadoop installations running on
- a single Docker containers. Both Hadoop (Hive) installations are kerberized.
+ a single Docker container. Both Hadoop (Hive) installations are kerberized.
  A single node installation of kerberized Trino also
  running on a single Docker container.
  
@@ -284,7 +284,9 @@ If you see an error similar to
 Failed on local exception: java.net.SocketException: Malformed reply from SOCKS server; Host Details : local host is [...]
 ```
 Make sure your `/etc/hosts` points to proper IP address (see [Debugging Java based tests](#debugging-java-based-tests), step 3).
-Also it's worth confirming that your Hive properties file accounts for the socks proxy used in Hive container (steps 4-5 of [Debugging Java based tests](#debugging-java-based-tests)).
+Also, it's worth confirming that your Hive properties file accounts for the
+SOCKS proxy used in the Hive container (steps 4-5 of [Debugging Java based
+tests](#debugging-java-based-tests)).
 
 If `/etc/hosts` entries have changed since the time when Docker containers were provisioned it's worth removing them and re-provisioning.
 To do so, use `docker rm` on each container used in product tests.

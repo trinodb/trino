@@ -84,7 +84,7 @@ public class TypeOperators
             if (operator != null) {
                 return operator;
             }
-            return cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+            return cache.computeIfAbsent(operatorConvention, _ -> supplier.get());
         };
     }
 
@@ -215,8 +215,7 @@ public class TypeOperators
         private MethodHandle adaptOperator(OperatorConvention operatorConvention)
         {
             OperatorMethodHandle operatorMethodHandle = selectOperatorMethodHandleToAdapt(operatorConvention);
-            MethodHandle methodHandle = adaptOperator(operatorConvention, operatorMethodHandle);
-            return methodHandle;
+            return adaptOperator(operatorConvention, operatorMethodHandle);
         }
 
         private static MethodHandle adaptOperator(OperatorConvention operatorConvention, OperatorMethodHandle operatorMethodHandle)
@@ -526,8 +525,9 @@ public class TypeOperators
         private static List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
         {
             return switch (operatorConvention.operatorType()) {
-                case EQUAL, IDENTICAL, COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL ->
-                        List.of(operatorConvention.type(), operatorConvention.type());
+                case LESS_THAN, LESS_THAN_OR_EQUAL,
+                     COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST,
+                     EQUAL, IDENTICAL -> List.of(operatorConvention.type(), operatorConvention.type());
                 case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE -> List.of(operatorConvention.type());
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
@@ -616,7 +616,9 @@ public class TypeOperators
         return permuteArguments(
                 lookup.findVirtual(Type.class, methodName, MethodType.methodType(void.class, BlockBuilder.class, javaType)),
                 MethodType.methodType(void.class, Type.class, javaType, BlockBuilder.class),
-                0, 2, 1);
+                0,
+                2,
+                1);
     }
 
     private static boolean booleanEqual(boolean left, boolean right)
@@ -630,10 +632,6 @@ public class TypeOperators
 
     private static OperatorMethodHandle defaultIndeterminateOperator(Class<?> javaType)
     {
-        // boolean distinctFrom(T value, boolean valueIsNull)
-        // {
-        //     return valueIsNull;
-        // }
         MethodHandle methodHandle = identity(boolean.class);
         methodHandle = dropArguments(methodHandle, 0, javaType);
         return new OperatorMethodHandle(simpleConvention(FAIL_ON_NULL, NULL_FLAG), methodHandle);

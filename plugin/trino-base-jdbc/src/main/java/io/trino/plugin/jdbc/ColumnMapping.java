@@ -113,14 +113,16 @@ public final class ColumnMapping
         this.writeFunction = requireNonNull(writeFunction, "writeFunction is null");
         checkArgument(
                 type.getJavaType() == readFunction.getJavaType(),
-                "Trino type %s is not compatible with read function %s returning %s",
+                "Trino type %s with Java type %s is not compatible with read function %s returning %s",
                 type,
+                type.getJavaType(),
                 readFunction,
                 readFunction.getJavaType());
         checkArgument(
                 type.getJavaType() == writeFunction.getJavaType(),
-                "Trino type %s is not compatible with write function %s accepting %s",
+                "Trino type %s with Java type %s is not compatible with write function %s accepting %s",
                 type,
+                type.getJavaType(),
                 writeFunction,
                 writeFunction.getJavaType());
         this.predicatePushdownController = requireNonNull(predicatePushdownController, "predicatePushdownController is null");

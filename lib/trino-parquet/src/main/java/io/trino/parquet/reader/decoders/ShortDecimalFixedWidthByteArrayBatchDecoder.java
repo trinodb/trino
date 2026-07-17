@@ -32,7 +32,7 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
             new BigEndianReader5(),
             new BigEndianReader6(),
             new BigEndianReader7(),
-            new BigEndianReader8()
+            new BigEndianReader8(),
     };
     private static final VarHandle LONG_HANDLE_BIG_ENDIAN = byteArrayViewVarHandle(long[].class, BIG_ENDIAN);
     private static final VarHandle INT_HANDLE_BIG_ENDIAN = byteArrayViewVarHandle(int[].class, BIG_ENDIAN);

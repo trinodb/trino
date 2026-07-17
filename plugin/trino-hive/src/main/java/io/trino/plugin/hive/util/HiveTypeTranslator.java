@@ -35,8 +35,8 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
@@ -45,7 +45,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeSignatureForUnionOfTypes;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeDescriptorForUnionOfTypes;
 import static io.trino.metastore.HiveType.HIVE_BINARY;
 import static io.trino.metastore.HiveType.HIVE_BOOLEAN;
 import static io.trino.metastore.HiveType.HIVE_BYTE;
@@ -78,10 +78,10 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeDescriptor.rowType;
 import static io.trino.spi.type.TypeParameter.typeParameter;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeSignature.rowType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -173,49 +173,53 @@ public final class HiveTypeTranslator
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
-    public static TypeSignature toTypeSignature(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
+    public static TypeDescriptor toTypeDescriptor(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
     {
-        switch (typeInfo.getCategory()) {
-            case PRIMITIVE:
+        return switch (typeInfo.getCategory()) {
+            case PRIMITIVE -> {
                 Type primitiveType = fromPrimitiveType((PrimitiveTypeInfo) typeInfo, timestampPrecision);
                 if (primitiveType == null) {
-                    break;
+                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
                 }
-                return primitiveType.getTypeSignature();
-            case MAP:
+                yield primitiveType.getTypeDescriptor();
+            }
+            case MAP -> {
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
-                return mapType(
-                        toTypeSignature(mapTypeInfo.getMapKeyTypeInfo(), timestampPrecision),
-                        toTypeSignature(mapTypeInfo.getMapValueTypeInfo(), timestampPrecision));
-            case LIST:
+                yield mapType(
+                        toTypeDescriptor(mapTypeInfo.getMapKeyTypeInfo(), timestampPrecision),
+                        toTypeDescriptor(mapTypeInfo.getMapValueTypeInfo(), timestampPrecision));
+            }
+            case LIST -> {
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
-                TypeSignature elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
-                return arrayType(typeParameter(elementType));
-            case STRUCT:
+                TypeDescriptor elementType = toTypeDescriptor(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
+                yield arrayType(typeParameter(elementType));
+            }
+            case STRUCT -> {
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 List<TypeInfo> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos();
                 List<String> fieldNames = structTypeInfo.getAllStructFieldNames();
                 if (fieldTypes.size() != fieldNames.size()) {
                     throw new TrinoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
                 }
-                return rowType(Streams.zip(
-                        // We lower case the struct field names.
-                        // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
-                        // Users can't work around this by casting in their queries because Trino parser always lower case types.
-                        // TODO: This is a hack. Trino engine should be able to handle identifiers in a case insensitive way where necessary.
-                        fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
-                        fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
-                        TypeParameter::namedField)
+                yield rowType(Streams.zip(
+                                // We lower case the struct field names.
+                                // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
+                                // Users can't work around this by casting in their queries because Trino parser always lower case types.
+                                // TODO: This is a hack. Trino engine should be able to handle identifiers in a case insensitive way where necessary.
+                                fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
+                                fieldTypes.stream().map(type -> toTypeDescriptor(type, timestampPrecision)),
+                                TypeParameter::namedField)
                         .collect(Collectors.toList()));
-            case UNION:
+            }
+            case UNION -> {
                 // Use a row type to represent a union type in Hive for reading
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
-                return rowTypeSignatureForUnionOfTypes(unionObjectTypes.stream()
-                        .map(unionObjectType -> toTypeSignature(unionObjectType, timestampPrecision))
+                yield rowTypeDescriptorForUnionOfTypes(unionObjectTypes.stream()
+                        .map(unionObjectType -> toTypeDescriptor(unionObjectType, timestampPrecision))
                         .collect(toImmutableList()));
-        }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
+            }
+        };
     }
 
     /**

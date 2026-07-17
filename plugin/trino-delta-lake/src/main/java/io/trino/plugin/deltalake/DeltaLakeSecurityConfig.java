@@ -36,4 +36,5 @@ public class DeltaLakeSecurityConfig
     {
         this.securitySystem = securitySystem;
         return this;
-    }}
+    }
+}

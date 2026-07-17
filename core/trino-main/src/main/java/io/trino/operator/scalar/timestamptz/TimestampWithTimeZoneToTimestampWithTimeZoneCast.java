@@ -25,8 +25,8 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_PRECISION;
 import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.roundToNearest;
 
 @ScalarOperator(CAST)

@@ -66,7 +66,8 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
                         new AppConfigurationEntry(
                                 KERBEROS_LOGIN_MODULE,
                                 AppConfigurationEntry.LoginModuleControlFlag.REQUIRED,
-                                options)};
+                                options),
+                };
             }
         };
     }

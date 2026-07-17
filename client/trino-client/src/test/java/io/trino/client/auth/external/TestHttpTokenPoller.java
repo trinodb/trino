@@ -46,8 +46,8 @@ public class TestHttpTokenPoller
     private static final Duration ONE_SECOND = Duration.ofSeconds(1);
 
     private static final TokenPoller tokenPoller = new HttpTokenPoller(new OkHttpClient.Builder()
-                .callTimeout(Duration.ofMillis(500))
-                .build());
+            .callTimeout(Duration.ofMillis(500))
+            .build());
 
     @StartStop
     private final MockWebServer server = new MockWebServer();

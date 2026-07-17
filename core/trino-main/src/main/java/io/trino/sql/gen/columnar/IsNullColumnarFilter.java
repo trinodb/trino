@@ -13,40 +13,38 @@
  */
 package io.trino.sql.gen.columnar;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.operator.project.InputChannels;
-import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.relational.SpecialForm.Form.IS_NULL;
+import static io.trino.sql.gen.columnar.ColumnarFilterUtils.filterUnsetBitsRange;
+import static io.trino.sql.gen.columnar.ColumnarFilterUtils.isValid;
+import static java.util.Objects.requireNonNull;
 
 public final class IsNullColumnarFilter
         implements ColumnarFilter
 {
     private final InputChannels inputChannels;
 
-    public static Supplier<ColumnarFilter> createIsNullColumnarFilter(SpecialForm specialForm)
+    public static Class<? extends ColumnarFilter> createIsNullColumnarFilter(IsNull isNull)
     {
-        checkArgument(specialForm.form() == IS_NULL, "specialForm %s should be IS_NULL", specialForm);
-        checkArgument(specialForm.arguments().size() == 1, "specialForm %s should have single argument", specialForm);
-        if (!(specialForm.arguments().getFirst() instanceof InputReferenceExpression inputReference)) {
-            throw new UnsupportedOperationException("IS_NULL columnar evaluation is supported only for InputReferenceExpression");
+        checkArgument(isNull.value() != null, "isNull %s should have a value", isNull);
+        if (!(isNull.value() instanceof Reference)) {
+            throw new UnsupportedOperationException("IS_NULL columnar evaluation is supported only for Reference");
         }
-        return () -> new IsNullColumnarFilter(inputReference);
+        return IsNullColumnarFilter.class;
     }
 
-    private IsNullColumnarFilter(InputReferenceExpression inputReference)
+    public IsNullColumnarFilter(InputChannels inputChannels)
     {
-        this.inputChannels = new InputChannels(ImmutableList.of(inputReference.field()), ImmutableSet.of(inputReference.field()));
+        this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }
 
     @Override
@@ -63,19 +61,14 @@ public final class IsNullColumnarFilter
             return 0;
         }
 
-        Optional<ByteArrayBlock> isNullsBlock = block.getNulls();
-        if (isNullsBlock.isEmpty()) {
+        Optional<Bitmap> validityBitmap = block.getValidityBitmap();
+        if (validityBitmap.isEmpty()) {
             return 0;
         }
 
-        byte[] isNull = isNullsBlock.get().getRawValues();
-        int isNullOffset = isNullsBlock.get().getRawValuesOffset();
-        int nullPositionsCount = 0;
-        for (int position = offset; position < offset + size; position++) {
-            outputPositions[nullPositionsCount] = position;
-            nullPositionsCount += isNull[isNullOffset + position];
-        }
-        return nullPositionsCount;
+        long[] rawValidity = validityBitmap.get().getRawWords();
+        int rawBitOffset = validityBitmap.get().getRawBitOffset();
+        return filterUnsetBitsRange(rawValidity, rawBitOffset, offset, size, outputPositions);
     }
 
     @Override
@@ -86,18 +79,18 @@ public final class IsNullColumnarFilter
             return 0;
         }
 
-        Optional<ByteArrayBlock> isNullsBlock = block.getNulls();
-        if (isNullsBlock.isEmpty()) {
+        Optional<Bitmap> validityBitmap = block.getValidityBitmap();
+        if (validityBitmap.isEmpty()) {
             return 0;
         }
 
-        byte[] isNull = isNullsBlock.get().getRawValues();
-        int isNullOffset = isNullsBlock.get().getRawValuesOffset();
+        long[] rawValidity = validityBitmap.get().getRawWords();
+        int rawBitOffset = validityBitmap.get().getRawBitOffset();
         int nullPositionsCount = 0;
         for (int index = offset; index < offset + size; index++) {
             int position = activePositions[index];
             outputPositions[nullPositionsCount] = position;
-            nullPositionsCount += isNull[isNullOffset + position];
+            nullPositionsCount += isValid(rawValidity, rawBitOffset, position) ? 0 : 1;
         }
         return nullPositionsCount;
     }

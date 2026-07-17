@@ -116,7 +116,9 @@ final class TestHttpEventListener
                 Optional.of(new ResourceGroupId("name")),
                 new HashMap<>(), // sessionProperties
                 new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(1000L)),
-                "serverAddress", "serverVersion", "environment",
+                "serverAddress",
+                "serverVersion",
+                "environment",
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.QUERY.toString());
 
@@ -428,7 +430,7 @@ final class TestHttpEventListener
         assertThat(recordedRequest)
                 .describedAs("No request sent when logging is enabled")
                 .isNotNull();
-        customHeaders.forEach((key, value) -> {
+        customHeaders.forEach((key, _) -> {
             assertThat(recordedRequest.getHeaders().get(key))
                     .describedAs(format("Custom header %s not present in request", key))
                     .isNotNull();

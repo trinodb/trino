@@ -37,7 +37,7 @@ public class GcsFileSystemConfig
     {
         ACCESS_TOKEN,
         SERVICE_ACCOUNT,
-        APPLICATION_DEFAULT;
+        APPLICATION_DEFAULT,
     }
 
     private DataSize readBlockSize = DataSize.of(2, MEGABYTE);

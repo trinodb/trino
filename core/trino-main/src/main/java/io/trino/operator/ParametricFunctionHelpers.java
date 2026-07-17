@@ -26,7 +26,8 @@ public final class ParametricFunctionHelpers
 {
     private ParametricFunctionHelpers() {}
 
-    public static MethodHandle bindDependencies(MethodHandle handle,
+    public static MethodHandle bindDependencies(
+            MethodHandle handle,
             List<ImplementationDependency> dependencies,
             FunctionBinding functionBinding,
             FunctionDependencies functionDependencies)

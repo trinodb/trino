@@ -49,8 +49,8 @@ public class TestGrantOnSchema
         return DistributedQueryRunner.builder(admin)
                 .setAdditionalSetup(queryRunner -> {
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                            .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
-                            .withListTables((session, schema) ->
+                            .withListSchemaNames(_ -> ImmutableList.of("information_schema", "default"))
+                            .withListTables((_, schema) ->
                                     "default".equalsIgnoreCase(schema) ? ImmutableList.of("table_one") : ImmutableList.of())
                             .withSchemaGrants(schemaGrants)
                             .build();

@@ -376,6 +376,6 @@ final class TaskControl
         RUNNING,
         BLOCKED,
         INTERRUPTED,
-        FINISHED
+        FINISHED,
     }
 }

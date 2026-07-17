@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.coercions;
 
+import io.airlift.slice.Slice;
+import io.trino.plugin.base.util.NumberParser;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.RealType;
@@ -36,7 +38,8 @@ public class VarcharToFloatCoercer
     {
         float floatValue;
         try {
-            floatValue = Float.parseFloat(fromType.getSlice(block, position).toStringUtf8());
+            Slice slice = fromType.getSlice(block, position);
+            floatValue = NumberParser.parseFloat(slice, 0, slice.length());
         }
         catch (NumberFormatException e) {
             blockBuilder.appendNull();

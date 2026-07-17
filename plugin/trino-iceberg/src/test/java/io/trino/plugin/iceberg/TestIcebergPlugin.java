@@ -259,6 +259,23 @@ public class TestIcebergPlugin
     }
 
     @Test
+    void testRestCatalogWithBigLakeMetastoreUsingApplicationDefaultCredentials()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.catalog.type", "rest")
+                                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                                .put("iceberg.rest-catalog.security", "GOOGLE")
+                                .put("iceberg.rest-catalog.google-project-id", "dev")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
     public void testRestCatalogValidations()
     {
         ConnectorFactory factory = getConnectorFactory();
@@ -275,6 +292,22 @@ public class TestIcebergPlugin
                 .shutdown())
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Using the `register_table` procedure with vended credentials is currently not supported");
+    }
+
+    @Test
+    public void testRestCatalogHttpHeaders()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.catalog.type", "rest")
+                                .put("iceberg.rest-catalog.uri", "https://foo:1234")
+                                .put("iceberg.rest-catalog.http-headers", "Polaris-Realm: default-realm")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test

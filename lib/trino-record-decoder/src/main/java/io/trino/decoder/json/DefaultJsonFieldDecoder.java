@@ -87,8 +87,7 @@ public class DefaultJsonFieldDecoder
                 SMALLINT,
                 TINYINT,
                 BOOLEAN,
-                DOUBLE
-        ).contains(type)) {
+                DOUBLE).contains(type)) {
             return true;
         }
         return false;

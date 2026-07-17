@@ -44,7 +44,7 @@ public class LazyExchangeDataSource
     private final Span querySpan;
     private final ExchangeId exchangeId;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final TaskFailureListener taskFailureListener;
     private final RetryPolicy retryPolicy;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -58,7 +58,7 @@ public class LazyExchangeDataSource
             ExchangeId exchangeId,
             Span querySpan,
             DirectExchangeClientSupplier directExchangeClientSupplier,
-            LocalMemoryContext systemMemoryContext,
+            LocalMemoryContext memoryContext,
             TaskFailureListener taskFailureListener,
             RetryPolicy retryPolicy,
             ExchangeManagerRegistry exchangeManagerRegistry)
@@ -67,7 +67,7 @@ public class LazyExchangeDataSource
         this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
@@ -131,12 +131,12 @@ public class LazyExchangeDataSource
             ExchangeDataSource dataSource = delegate.get();
             if (dataSource == null) {
                 if (input instanceof DirectExchangeInput) {
-                    DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, querySpan, systemMemoryContext, taskFailureListener, retryPolicy);
+                    DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, querySpan, memoryContext, taskFailureListener, retryPolicy);
                     dataSource = new DirectExchangeDataSource(client);
                 }
                 else if (input instanceof SpoolingExchangeInput) {
                     ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
-                    dataSource = new SpoolingExchangeDataSource(exchangeManager.createSource(), systemMemoryContext);
+                    dataSource = new SpoolingExchangeDataSource(exchangeManager.createSource(), memoryContext);
                 }
                 else {
                     throw new IllegalArgumentException("Unexpected input: " + input);

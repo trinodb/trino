@@ -112,7 +112,7 @@ public class LoginBasedUnconstrainedContextProvider
                     principal.ifPresent(value -> options.put("principal", value));
 
                     return new AppConfigurationEntry[] {
-                            new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.buildOrThrow())
+                            new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.buildOrThrow()),
                     };
                 }
             });

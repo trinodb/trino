@@ -25,12 +25,17 @@ import io.trino.spi.type.StandardTypes;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static java.lang.Math.addExact;
+import static java.lang.Math.multiplyExact;
+import static java.lang.Math.negateExact;
+import static java.lang.Math.subtractExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -38,27 +43,46 @@ public final class IntervalYearMonthOperators
 {
     private IntervalYearMonthOperators() {}
 
+    // fallible
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long add(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return left + right;
+        try {
+            return addExact(toIntExact(left), toIntExact(right));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval year to month addition overflow: %s + %s", left, right), e);
+        }
     }
 
+    // fallible
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long subtract(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return left - right;
+        try {
+            return subtractExact(toIntExact(left), toIntExact(right));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval year to month subtraction overflow: %s - %s", left, right), e);
+        }
     }
 
+    // fallible
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long multiplyByBigint(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
-        return left * right;
+        try {
+            return toIntExact(multiplyExact(left, right));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval year to month multiplication overflow: %s * %s", left, right), e);
+        }
     }
 
+    // fallible
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
@@ -69,13 +93,20 @@ public final class IntervalYearMonthOperators
         return (long) (left * right);
     }
 
+    // fallible
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return left * right;
+        try {
+            return toIntExact(multiplyExact(left, right));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval year to month multiplication overflow: %s * %s", left, right), e);
+        }
     }
 
+    // fallible
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
@@ -86,6 +117,7 @@ public final class IntervalYearMonthOperators
         return (long) (left * right);
     }
 
+    // fallible
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
@@ -96,13 +128,20 @@ public final class IntervalYearMonthOperators
         return (long) (left / right);
     }
 
+    // fallible
     @ScalarOperator(NEGATION)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long negate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
-        return -value;
+        try {
+            return negateExact(toIntExact(value));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "interval year to month negation overflow: " + value, e);
+        }
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")

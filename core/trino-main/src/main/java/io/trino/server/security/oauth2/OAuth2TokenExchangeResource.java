@@ -98,7 +98,9 @@ public class OAuth2TokenExchangeResource
         ListenableFuture<TokenPoll> tokenFuture = tokenExchange.getTokenPoll(authId);
         ListenableFuture<Response> responseFuture = withFallbackAfterTimeout(
                 transform(tokenFuture, OAuth2TokenExchangeResource::toResponse, directExecutor()),
-                MAX_POLL_TIME, () -> pendingResponse(request), timeoutExecutor);
+                MAX_POLL_TIME,
+                () -> pendingResponse(request),
+                timeoutExecutor);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor);
     }
 

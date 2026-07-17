@@ -17,15 +17,21 @@ import io.trino.filesystem.Location;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.filesystem.Locations.appendPath;
+import static java.lang.Long.parseLong;
 
 public final class TransactionLogUtil
 {
     private TransactionLogUtil() {}
 
     public static final String TRANSACTION_LOG_DIRECTORY = "_delta_log";
+
+    private static final Pattern TRANSACTION_LOG_PATTERN = Pattern.compile("^(\\d{20})\\.json$");
 
     public static String getTransactionLogDir(String tableLocation)
     {
@@ -35,6 +41,26 @@ public final class TransactionLogUtil
     public static Location getTransactionLogJsonEntryPath(String transactionLogDir, long entryNumber)
     {
         return Location.of(transactionLogDir).appendPath("%020d.json".formatted(entryNumber));
+    }
+
+    public static Location getTransactionLogChecksumEntryPath(String transactionLogDir, long entryNumber)
+    {
+        return Location.of(transactionLogDir).appendPath("%020d.crc".formatted(entryNumber));
+    }
+
+    public static OptionalLong extractCommitVersion(String fileName)
+    {
+        Matcher matcher = TRANSACTION_LOG_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            return OptionalLong.empty();
+        }
+        try {
+            return OptionalLong.of(parseLong(matcher.group(1)));
+        }
+        catch (NumberFormatException e) {
+            // 20-digit strings can overflow long (max is 19 digits); treat as non-commit file
+            return OptionalLong.empty();
+        }
     }
 
     public static Map<String, Optional<String>> canonicalizePartitionValues(Map<String, String> partitionValues)

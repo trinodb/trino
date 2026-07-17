@@ -245,10 +245,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
+            return delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
         }
     }
 
@@ -828,7 +828,8 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(ConnectorSession session,
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(
+            ConnectorSession session,
             FunctionId functionId)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
@@ -837,8 +838,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session,
-            FunctionId functionId, BoundSignature boundSignature)
+    public FunctionDependencyDeclaration getFunctionDependencies(
+            ConnectorSession session,
+            FunctionId functionId,
+            BoundSignature boundSignature)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getFunctionDependencies(session, functionId, boundSignature);

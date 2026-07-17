@@ -25,7 +25,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,16 +37,36 @@ public class TestLambdaCaptureDesugaringRewriter
     @Test
     public void testRewriteBasicLambda()
     {
-        SymbolAllocator allocator = new SymbolAllocator(ImmutableList.of(new Symbol(BIGINT, "a")));
+        SymbolAllocator allocator = new SymbolAllocator(ImmutableList.of(new Symbol(INTEGER, "a")));
 
         assertThat(
                 rewrite(
-                        new Lambda(ImmutableList.of(new Symbol(INTEGER, "x")), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Reference(INTEGER, "x")))),
+                        new Lambda(
+                                ImmutableList.of(new Symbol(INTEGER, "x")),
+                                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Reference(INTEGER, "x")))),
                         allocator))
                 .isEqualTo(new Bind(
                         ImmutableList.of(new Reference(INTEGER, "a")),
                         new Lambda(
                                 ImmutableList.of(new Symbol(INTEGER, "a_0"), new Symbol(INTEGER, "x")),
                                 new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a_0"), new Reference(INTEGER, "x"))))));
+    }
+
+    @Test
+    public void testRewriteAvoidsLambdaArgumentNameCollision()
+    {
+        SymbolAllocator allocator = new SymbolAllocator(ImmutableList.of(new Symbol(INTEGER, "a")));
+
+        assertThat(
+                rewrite(
+                        new Lambda(
+                                ImmutableList.of(new Symbol(INTEGER, "a_0")),
+                                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Reference(INTEGER, "a_0")))),
+                        allocator))
+                .isEqualTo(new Bind(
+                        ImmutableList.of(new Reference(INTEGER, "a")),
+                        new Lambda(
+                                ImmutableList.of(new Symbol(INTEGER, "a_1"), new Symbol(INTEGER, "a_0")),
+                                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a_1"), new Reference(INTEGER, "a_0"))))));
     }
 }

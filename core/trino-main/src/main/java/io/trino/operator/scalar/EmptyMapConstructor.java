@@ -31,7 +31,7 @@ public final class EmptyMapConstructor
 
     public EmptyMapConstructor(@TypeParameter("map(unknown,unknown)") Type mapType)
     {
-        emptyMap = buildMapValue(((MapType) mapType), 0, (keyBuilder, valueBuilder) -> {});
+        emptyMap = buildMapValue(((MapType) mapType), 0, (_, _) -> {});
     }
 
     @SqlType("map(unknown,unknown)")

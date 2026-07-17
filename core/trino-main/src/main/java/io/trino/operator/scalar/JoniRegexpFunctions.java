@@ -55,9 +55,27 @@ public final class JoniRegexpFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean regexpLike(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
     {
-        int offset = source.byteArrayOffset();
-        Matcher matcher = pattern.regex().matcher(source.byteArray(), offset, offset + source.length());
-        return getSearchingOffset(matcher, offset, offset + source.length()) != -1;
+        Matcher matcher = matcher(source, pattern);
+        return search(matcher, source, 0) != -1;
+    }
+
+    static Matcher matcher(Slice source, JoniRegexp pattern)
+    {
+        int base = source.byteArrayOffset();
+        return pattern.regex().matcher(source.byteArray(), base, base + source.length());
+    }
+
+    /**
+     * Searches from {@code at}, a position within the source.
+     * <p>
+     * Joni takes the search bounds as offsets into the array it was given, so they are shifted by
+     * {@link Slice#byteArrayOffset}, while the positions it reports back, including the return value
+     * here, are relative to the start of the source.
+     */
+    static int search(Matcher matcher, Slice source, int at)
+    {
+        int base = source.byteArrayOffset();
+        return getSearchingOffset(matcher, base + at, base + source.length());
     }
 
     private static int getNextStart(Slice source, Matcher matcher)
@@ -93,14 +111,13 @@ public final class JoniRegexpFunctions
     @SqlType("varchar(z)")
     public static Slice regexpReplace(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern, @SqlType("varchar(y)") Slice replacement)
     {
-        Matcher matcher = pattern.matcher(source.getBytes());
+        Matcher matcher = matcher(source, pattern);
         SliceOutput sliceOutput = new DynamicSliceOutput(source.length() + replacement.length() * 5);
 
         int lastEnd = 0;
         int nextStart = 0; // nextStart is the same as lastEnd, unless the last match was zero-width. In such case, nextStart is lastEnd + 1.
         while (true) {
-            int offset = getSearchingOffset(matcher, nextStart, source.length());
-            if (offset == -1) {
+            if (search(matcher, source, nextStart) == -1) {
                 break;
             }
             nextStart = getNextStart(source, matcher);
@@ -209,15 +226,14 @@ public final class JoniRegexpFunctions
     @SqlType("array(varchar(x))")
     public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
-        Matcher matcher = pattern.matcher(source.getBytes());
+        Matcher matcher = matcher(source, pattern);
         validateGroup(groupIndex, matcher.getEagerRegion());
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
         int group = toIntExact(groupIndex);
 
         int nextStart = 0;
         while (true) {
-            int offset = getSearchingOffset(matcher, nextStart, source.length());
-            if (offset == -1) {
+            if (search(matcher, source, nextStart) == -1) {
                 break;
             }
             nextStart = getNextStart(source, matcher);
@@ -252,12 +268,11 @@ public final class JoniRegexpFunctions
     @SqlType("varchar(x)")
     public static Slice regexpExtract(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
-        Matcher matcher = pattern.matcher(source.getBytes());
+        Matcher matcher = matcher(source, pattern);
         validateGroup(groupIndex, matcher.getEagerRegion());
         int group = toIntExact(groupIndex);
 
-        int offset = getSearchingOffset(matcher, 0, source.length());
-        if (offset == -1) {
+        if (search(matcher, source, 0) == -1) {
             return null;
         }
         Region region = matcher.getEagerRegion();
@@ -277,14 +292,13 @@ public final class JoniRegexpFunctions
     @SqlType("array(varchar(x))")
     public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
     {
-        Matcher matcher = pattern.matcher(source.getBytes());
+        Matcher matcher = matcher(source, pattern);
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
 
         int lastEnd = 0;
         int nextStart = 0;
         while (true) {
-            int offset = getSearchingOffset(matcher, nextStart, source.length());
-            if (offset == -1) {
+            if (search(matcher, source, nextStart) == -1) {
                 break;
             }
             nextStart = getNextStart(source, matcher);
@@ -351,15 +365,14 @@ public final class JoniRegexpFunctions
             return -1;
         }
 
-        Matcher matcher = pattern.matcher(source.getBytes());
+        Matcher matcher = matcher(source, pattern);
         long count = 0;
         // convert char position to byte position
         // subtract 1 because codePointCount starts from zero
         int nextStart = SliceUtf8.offsetOfCodePoint(source, (int) start - 1);
         while (true) {
-            int offset = getSearchingOffset(matcher, nextStart, source.length());
             // Check whether offset is negative, offset is -1 if no pattern was found
-            if (offset < 0) {
+            if (search(matcher, source, nextStart) < 0) {
                 return -1;
             }
 
@@ -378,16 +391,15 @@ public final class JoniRegexpFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
     {
-        Matcher matcher = pattern.matcher(source.getBytes());
+        Matcher matcher = matcher(source, pattern);
 
         int count = 0;
         // Start from zero, implies the first byte
         int nextStart = 0;
         while (true) {
-            // getSearchingOffset returns `source.length` if `nextStart` equals `source.length - 1`.
+            // search returns `source.length` if `nextStart` equals `source.length - 1`.
             // It should return -1 if `nextStart` is greater than `source.length - 1`.
-            int offset = getSearchingOffset(matcher, nextStart, source.length());
-            if (offset < 0) {
+            if (search(matcher, source, nextStart) < 0) {
                 break;
             }
 

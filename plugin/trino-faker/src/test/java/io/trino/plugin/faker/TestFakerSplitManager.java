@@ -16,13 +16,14 @@ package io.trino.plugin.faker;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
@@ -39,9 +40,9 @@ final class TestFakerSplitManager
                 TestingTransactionHandle.create(),
                 TestingConnectorSession.SESSION,
                 new FakerTableHandle(new SchemaTableName("schema", "table"), expectedRows),
-                DynamicFilter.EMPTY,
+                Set.of(),
                 Constraint.alwaysTrue());
-        List<ConnectorSplit> splits = splitSource.getNextBatch(1_000_000).get().getSplits();
+        List<ConnectorSplit> splits = splitSource.getNextBatch(1_000_000, DynamicFilterSnapshot.EMPTY).get();
 
         assertThat(splitSource.isFinished()).withFailMessage("split source is not finished").isTrue();
         assertThat(splits)

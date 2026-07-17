@@ -20,6 +20,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
@@ -33,7 +34,6 @@ import java.util.Set;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -75,8 +75,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
-                            PART_KEY_HANDLE,
-                            Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
+                            PART_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
                     // Collected domain is {[1,41], [42,82], [83,123], [124,164], ..., [1928,2000]}
                     assertThat(collectedDomain.simplify(2)).isEqualTo(expectedRange);
                     collectedDomain.getDomains().orElseThrow().values().forEach(domain -> assertThat(domain.isNullableDiscreteSet()).isFalse());
@@ -93,8 +92,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
-                            PART_KEY_HANDLE,
-                            Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
+                            PART_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
                     // Collected domain is {[1,41], [42,82], [83,123], [124,164], ..., [1928,2000]}
                     assertThat(collectedDomain.simplify(2)).isEqualTo(expectedRange);
                     collectedDomain.getDomains().orElseThrow().values().forEach(domain -> assertThat(domain.isNullableDiscreteSet()).isFalse());
@@ -113,8 +111,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
-                            PART_KEY_HANDLE,
-                            Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
+                            PART_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
                     // Collected domain is {[1,41], [42,82], [83,123], [124,164], ..., [1928,2000]}
                     assertThat(collectedDomain.simplify(2)).isEqualTo(expectedRange);
                     collectedDomain.getDomains().orElseThrow().values().forEach(domain -> assertThat(domain.isNullableDiscreteSet()).isFalse());

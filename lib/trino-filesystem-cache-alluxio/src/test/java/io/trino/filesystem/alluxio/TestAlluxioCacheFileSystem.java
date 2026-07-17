@@ -18,13 +18,17 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.cache.CacheFileSystem;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.memory.MemoryFileSystem;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
+import java.io.EOFException;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -33,6 +37,7 @@ import java.util.stream.Stream;
 
 import static io.airlift.tracing.Tracing.noopTracer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAlluxioCacheFileSystem
         extends AbstractTestTrinoFileSystem
@@ -80,6 +85,23 @@ public class TestAlluxioCacheFileSystem
                 }
             }
         }
+    }
+
+    @Test
+    void testReadFullyPastEndOfFile()
+            throws IOException
+    {
+        Location location = getRootLocation().appendPath("testReadFullyPastEndOfFile");
+        byte[] content = new byte[64];
+        try (OutputStream output = fileSystem.newOutputFile(location).create()) {
+            output.write(content);
+        }
+        // cold-cache positioned read starting beyond the file length takes the external read path
+        try (TrinoInput input = fileSystem.newInputFile(location).newInput()) {
+            assertThatThrownBy(() -> input.readFully(content.length + 16, new byte[16], 0, 16))
+                    .isInstanceOf(EOFException.class);
+        }
+        fileSystem.deleteFile(location);
     }
 
     @Override

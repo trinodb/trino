@@ -24,11 +24,12 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
 import io.trino.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -59,34 +59,33 @@ import static java.lang.Math.toIntExact;
 public class InCodeGenerator
         implements BytecodeGenerator
 {
-    private final RowExpression valueExpression;
-    private final List<RowExpression> testExpressions;
+    private final Expression valueExpression;
+    private final List<Expression> testExpressions;
 
     private final ResolvedFunction resolvedEqualsFunction;
     private final ResolvedFunction resolvedHashCodeFunction;
     private final ResolvedFunction resolvedIsIndeterminate;
 
-    public InCodeGenerator(SpecialForm specialForm)
+    public InCodeGenerator(In in, Metadata metadata)
     {
-        checkArgument(specialForm.arguments().size() >= 2, "At least two arguments are required");
-        valueExpression = specialForm.arguments().get(0);
-        testExpressions = specialForm.arguments().subList(1, specialForm.arguments().size());
+        valueExpression = in.value();
+        testExpressions = in.valueList();
 
-        checkArgument(specialForm.functionDependencies().size() == 3);
-        resolvedEqualsFunction = specialForm.getOperatorDependency(EQUAL);
-        resolvedHashCodeFunction = specialForm.getOperatorDependency(HASH_CODE);
-        resolvedIsIndeterminate = specialForm.getOperatorDependency(INDETERMINATE);
+        Type valueType = valueExpression.type();
+        resolvedEqualsFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(valueType, valueType));
+        resolvedHashCodeFunction = metadata.resolveOperator(HASH_CODE, ImmutableList.of(valueType));
+        resolvedIsIndeterminate = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(valueType));
     }
 
     enum SwitchGenerationCase
     {
         DIRECT_SWITCH,
         HASH_SWITCH,
-        SET_CONTAINS
+        SET_CONTAINS,
     }
 
     @VisibleForTesting
-    static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<RowExpression> values)
+    static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<Expression> values)
     {
         if (values.size() >= 8) {
             // SET_CONTAINS is generally faster for not super tiny IN lists.
@@ -97,11 +96,11 @@ public class InCodeGenerator
         if (type.getJavaType() != long.class) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
-        for (RowExpression expression : values) {
+        for (Expression expression : values) {
             // For non-constant expressions, they will be added to the default case in the generated switch code. They do not affect any of
             // the cases other than the default one. Therefore, it's okay to skip them when choosing between DIRECT_SWITCH and HASH_SWITCH.
             // Same argument applies for nulls.
-            if (!(expression instanceof ConstantExpression constantExpression)) {
+            if (!(expression instanceof Constant constantExpression)) {
                 continue;
             }
             Object constant = constantExpression.value();
@@ -132,18 +131,15 @@ public class InCodeGenerator
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
-        for (RowExpression testValue : testExpressions) {
+        for (Expression testValue : testExpressions) {
             BytecodeNode testBytecode = generatorContext.generate(testValue);
 
             if (isDeterminateConstant(testValue, indeterminateMethodHandle)) {
-                ConstantExpression constant = (ConstantExpression) testValue;
+                Constant constant = (Constant) testValue;
                 Object object = constant.value();
                 switch (switchGenerationCase) {
-                    case DIRECT_SWITCH:
-                    case SET_CONTAINS:
-                        constantValuesBuilder.add(object);
-                        break;
-                    case HASH_SWITCH:
+                    case DIRECT_SWITCH, SET_CONTAINS -> constantValuesBuilder.add(object);
+                    case HASH_SWITCH -> {
                         try {
                             int hashCode = Long.hashCode((Long) hashCodeMethodHandle.invoke(object));
                             hashBucketsBuilder.put(hashCode, testBytecode);
@@ -151,9 +147,8 @@ public class InCodeGenerator
                         catch (Throwable throwable) {
                             throw new IllegalArgumentException("Error processing IN statement: error calculating hash code for " + object, throwable);
                         }
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
+                    }
+                    default -> throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
                 }
             }
             else {
@@ -177,7 +172,7 @@ public class InCodeGenerator
         SwitchBuilder switchBuilder = new SwitchBuilder().expression(expression);
 
         switch (switchGenerationCase) {
-            case DIRECT_SWITCH:
+            case DIRECT_SWITCH -> {
                 // A white-list is used to select types eligible for DIRECT_SWITCH.
                 // For these types, it's safe to not use Trino HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
@@ -192,8 +187,8 @@ public class InCodeGenerator
                                         .gotoLabel(defaultLabel)))
                         .append(expression.set(value.cast(int.class)))
                         .append(switchBuilder.build());
-                break;
-            case HASH_SWITCH:
+            }
+            case HASH_SWITCH -> {
                 for (Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
                     Collection<BytecodeNode> testValues = bucket.getValue();
                     BytecodeBlock caseBlock = buildInCase(
@@ -219,8 +214,8 @@ public class InCodeGenerator
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .putVariable(expression)
                         .append(switchBuilder.build());
-                break;
-            case SET_CONTAINS:
+            }
+            case SET_CONTAINS -> {
                 Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, hashCodeMethodHandle, equalsMethodHandle);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
@@ -235,9 +230,8 @@ public class InCodeGenerator
                                         // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
                                         .invokeStatic(FastutilSetHelper.class, "in", boolean.class, javaType.isPrimitive() ? javaType : Object.class, constantValuesSet.getClass()))
                                 .ifTrue(jump(match)));
-                break;
-            default:
-                throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
+            }
+            default -> throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
         }
 
         BytecodeBlock defaultCaseBlock = buildInCase(
@@ -317,7 +311,7 @@ public class InCodeGenerator
 
         Variable wasNull = generatorContext.wasNull();
         if (checkForNulls) {
-            // Consider following expression: "ARRAY[null] IN (ARRAY[1], ARRAY[2], ARRAY[3]) => NULL"
+            // Consider following expression: "ARRAY[null] IN (ARRAY[1], ARRAY[2], ARRAY[3]) => NULL"
             // All lookup values will go to the SET_CONTAINS, since neither of them is indeterminate.
             // As ARRAY[null] is not among them, the code will fall through to the defaultCaseBlock.
             // Since there is no values in the defaultCaseBlock, the defaultCaseBlock will return FALSE.
@@ -370,9 +364,9 @@ public class InCodeGenerator
         return caseBlock;
     }
 
-    private static boolean isDeterminateConstant(RowExpression expression, MethodHandle isIndeterminateFunction)
+    private static boolean isDeterminateConstant(Expression expression, MethodHandle isIndeterminateFunction)
     {
-        if (!(expression instanceof ConstantExpression constantExpression)) {
+        if (!(expression instanceof Constant constantExpression)) {
             return false;
         }
         Object value = constantExpression.value();

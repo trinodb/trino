@@ -22,6 +22,8 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,5 +106,21 @@ public class TestEncodedPolylineFunctions
 
         assertTrinoExceptionThrownBy(assertions.expression("to_encoded_polyline(ST_GeometryFromText('MULTILINESTRING ((-122.39174 37.77701, -122.39174 37.77701))'))")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testEncodedPolylineMetadata()
+    {
+        assertThat(assertions.function("ST_SRID", "from_encoded_polyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@')"))
+                .hasType(INTEGER)
+                .isEqualTo(0);
+
+        assertThat(assertions.function("ST_CoordDim", "from_encoded_polyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@')"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 2);
+
+        assertThat(assertions.function("to_encoded_polyline", "ST_SetSRID(ST_GeometryFromText('LINESTRING Z (-120.2 38.5 1, -120.95 40.7 2, -126.453 43.252 3)'), 4326)"))
+                .hasType(VARCHAR)
+                .isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
     }
 }

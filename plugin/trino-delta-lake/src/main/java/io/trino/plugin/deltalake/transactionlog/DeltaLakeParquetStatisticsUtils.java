@@ -338,7 +338,9 @@ public final class DeltaLakeParquetStatisticsUtils
 
         if (type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER)) {
             checkArgument(statistics instanceof IntStatistics || statistics instanceof LongStatistics,
-                    "Column with %s type contained invalid statistics: %s", type, statistics);
+                    "Column with %s type contained invalid statistics: %s",
+                    type,
+                    statistics);
             return Optional.of(statistics.genericGetMin());
         }
 
@@ -446,7 +448,9 @@ public final class DeltaLakeParquetStatisticsUtils
 
         if (type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER)) {
             checkArgument(statistics instanceof IntStatistics || statistics instanceof LongStatistics,
-                    "Column with %s type contained invalid statistics: %s", type, statistics);
+                    "Column with %s type contained invalid statistics: %s",
+                    type,
+                    statistics);
             return Optional.of(statistics.genericGetMax());
         }
 

@@ -330,6 +330,10 @@ public class TestJdbcConnection
                 statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");
             }
 
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("EXECUTE IMMEDIATE 'SET SESSION join_distribution_type = ?' USING 'BROADCAST'");
+            }
+
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression_codec|NONE|NONE");
@@ -622,7 +626,7 @@ public class TestJdbcConnection
         }
 
         // With an expired token, isValid returns true if validateConnection is not enabled
-        try (Connection conn = createConnectionUsingAccessToken(validAccessToken, "validateConnection=false");) {
+        try (Connection conn = createConnectionUsingAccessToken(validAccessToken, "validateConnection=false")) {
             assertThat(conn.isValid(10)).isTrue();
         }
     }
@@ -634,7 +638,8 @@ public class TestJdbcConnection
         assertThatCode(() -> createConnectionUsingInvalidHost(""))
                 .doesNotThrowAnyException();
 
-        SQLException e = catchThrowableOfType(() -> createConnectionUsingInvalidHost("validateConnection=true"),
+        SQLException e = catchThrowableOfType(
+                () -> createConnectionUsingInvalidHost("validateConnection=true"),
                 SQLException.class);
         assertThat(e.getSQLState().equals("08001")).isTrue();
 
@@ -645,7 +650,8 @@ public class TestJdbcConnection
         assertThatCode(() -> createConnectionUsingInvalidPassword(""))
                 .doesNotThrowAnyException();
 
-        e = catchThrowableOfType(() -> createConnectionUsingInvalidPassword("validateConnection=true"),
+        e = catchThrowableOfType(
+                () -> createConnectionUsingInvalidPassword("validateConnection=true"),
                 SQLException.class);
         assertThat(e.getSQLState().equals("28000")).isTrue();
 

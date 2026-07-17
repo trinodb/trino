@@ -19,20 +19,19 @@ import org.testcontainers.containers.Network;
 
 import java.util.Optional;
 
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-
 public class IcebergS3RestCatalogBackendContainer
         extends BaseTestContainer
 {
     public IcebergS3RestCatalogBackendContainer(
             Optional<Network> network,
             String warehouseLocation,
-            String minioAccessKey,
-            String minioSecretKey,
-            String minioSessionToken)
+            String accessKey,
+            String secretKey,
+            String sessionToken,
+            String endpoint,
+            String region)
     {
-        super(
-                "apache/iceberg-rest-fixture:1.10.1",
+        super("apache/iceberg-rest-fixture:1.10.1",
                 "iceberg-rest",
                 ImmutableSet.of(8181),
                 ImmutableMap.of(),
@@ -40,11 +39,11 @@ public class IcebergS3RestCatalogBackendContainer
                         "CATALOG_INCLUDE__CREDENTIALS", "true",
                         "CATALOG_WAREHOUSE", warehouseLocation,
                         "CATALOG_IO__IMPL", "org.apache.iceberg.aws.s3.S3FileIO",
-                        "AWS_REGION", MINIO_REGION,
-                        "CATALOG_S3_ACCESS__KEY__ID", minioAccessKey,
-                        "CATALOG_S3_SECRET__ACCESS__KEY", minioSecretKey,
-                        "CATALOG_S3_SESSION__TOKEN", minioSessionToken,
-                        "CATALOG_S3_ENDPOINT", "http://minio:4566",
+                        "AWS_REGION", region,
+                        "CATALOG_S3_ACCESS__KEY__ID", accessKey,
+                        "CATALOG_S3_SECRET__ACCESS__KEY", secretKey,
+                        "CATALOG_S3_SESSION__TOKEN", sessionToken,
+                        "CATALOG_S3_ENDPOINT", endpoint,
                         "CATALOG_S3_PATH__STYLE__ACCESS", "true"),
                 network,
                 5);

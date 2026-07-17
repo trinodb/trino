@@ -107,7 +107,7 @@ public class PruneTableScanColumns
 
         Set<ColumnHandle> visibleColumns = ImmutableSet.copyOf(newAssignments.values());
         TupleDomain<ColumnHandle> enforcedConstraint = node.getEnforcedConstraint()
-                .filter((columnHandle, domain) -> visibleColumns.contains(columnHandle));
+                .filter((columnHandle, _) -> visibleColumns.contains(columnHandle));
 
         Optional<PlanNodeStatsEstimate> newStatistics = node.getStatistics().map(statistics ->
                 new PlanNodeStatsEstimate(

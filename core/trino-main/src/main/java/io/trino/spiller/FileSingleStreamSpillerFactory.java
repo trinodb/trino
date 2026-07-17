@@ -88,8 +88,7 @@ public class FileSingleStreamSpillerFactory
     @Inject
     public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, TaskManagerConfig taskManagerConfig)
     {
-        this(
-                listeningDecorator(newFixedThreadPool(
+        this(listeningDecorator(newFixedThreadPool(
                         featuresConfig.getSpillerThreads(),
                         daemonThreadsNamed("binary-spiller-%s"))),
                 requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"),

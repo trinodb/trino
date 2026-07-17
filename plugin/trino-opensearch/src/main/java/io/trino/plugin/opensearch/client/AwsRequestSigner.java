@@ -14,6 +14,7 @@
 package io.trino.plugin.opensearch.client;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.opensearch.AwsSecurityConfig.DeploymentType;
 import org.apache.http.Header;
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpHost;
@@ -46,7 +47,6 @@ import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.opensearch.AwsSecurityConfig.DeploymentType;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 
@@ -83,7 +83,7 @@ class AwsRequestSigner
 
         Map<String, List<String>> parameters = new TreeMap<>(CASE_INSENSITIVE_ORDER);
         for (NameValuePair parameter : uriBuilder.getQueryParams()) {
-            parameters.computeIfAbsent(parameter.getName(), key -> new ArrayList<>())
+            parameters.computeIfAbsent(parameter.getName(), _ -> new ArrayList<>())
                     .add(parameter.getValue());
         }
 

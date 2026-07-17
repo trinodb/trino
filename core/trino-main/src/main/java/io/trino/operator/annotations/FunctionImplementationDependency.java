@@ -19,7 +19,8 @@ import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
 
 import java.util.List;
 import java.util.Objects;
@@ -31,9 +32,9 @@ public final class FunctionImplementationDependency
         extends ScalarImplementationDependency
 {
     private final CatalogSchemaFunctionName name;
-    private final List<TypeSignature> argumentTypes;
+    private final List<TypeTemplate> argumentTypes;
 
-    public FunctionImplementationDependency(CatalogSchemaFunctionName name, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
+    public FunctionImplementationDependency(CatalogSchemaFunctionName name, List<TypeTemplate> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
         this.name = requireNonNull(name, "name is null");
@@ -45,7 +46,7 @@ public final class FunctionImplementationDependency
         return name;
     }
 
-    public List<TypeSignature> getArgumentTypes()
+    public List<TypeTemplate> getArgumentTypes()
     {
         return argumentTypes;
     }
@@ -59,7 +60,7 @@ public final class FunctionImplementationDependency
     @Override
     protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
-        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding.variables());
+        List<TypeDescriptor> types = applyBoundVariables(argumentTypes, functionBinding.variables());
         return functionDependencies.getScalarFunctionImplementationSignature(name, types, invocationConvention);
     }
 

@@ -3,62 +3,45 @@
     "spec": {
         "dataSchema": {
             "dataSource": "customer",
-            "parser": {
-                "type": "string",
-                "parseSpec": {
-                    "format": "tsv",
-                    "timestampSpec": {
-                        "column": "customer_druid_dummy_ts",
-                        "format": "yyyy-MM-dd"
+            "timestampSpec": {
+                "column": "customer_druid_dummy_ts",
+                "format": "yyyy-MM-dd"
+            },
+            "dimensionsSpec": {
+                "dimensions": [
+                    {
+                        "name": "custkey",
+                        "type": "long"
                     },
-                    "columns": [
-                        "custkey",
-                        "name",
-                        "address",
-                        "nationkey",
-                        "phone",
-                        "acctbal",
-                        "mktsegment",
-                        "comment",
-                        "customer_druid_dummy_ts"
-                    ],
-                    "dimensionsSpec": {
-                        "dimensions": [
-                            {
-                                "name": "custkey",
-                                "type": "long"
-                            },
-                            {
-                                "name": "name",
-                                "type": "string"
-                            },
-                            {
-                                "name": "address",
-                                "type": "string"
-                            },
-                            {
-                                "name": "nationkey",
-                                "type": "long"
-                            },
-                            {
-                                "name": "phone",
-                                "type": "string"
-                            },
-                            {
-                                "name": "acctbal",
-                                "type": "double"
-                            },
-                            {
-                                "name": "mktsegment",
-                                "type": "string"
-                            },
-                            {
-                                "name": "comment",
-                                "type": "string"
-                            }
-                        ]
+                    {
+                        "name": "name",
+                        "type": "string"
+                    },
+                    {
+                        "name": "address",
+                        "type": "string"
+                    },
+                    {
+                        "name": "nationkey",
+                        "type": "long"
+                    },
+                    {
+                        "name": "phone",
+                        "type": "string"
+                    },
+                    {
+                        "name": "acctbal",
+                        "type": "double"
+                    },
+                    {
+                        "name": "mktsegment",
+                        "type": "string"
+                    },
+                    {
+                        "name": "comment",
+                        "type": "string"
                     }
-                }
+                ]
             },
             "granularitySpec": {
                 "type": "uniform",
@@ -71,10 +54,25 @@
         },
         "ioConfig": {
             "type": "index",
-            "firehose": {
+            "inputSource": {
                 "type": "local",
                 "baseDir": "/opt/druid/var/",
                 "filter": "customer.tsv"
+            },
+            "inputFormat": {
+                "type": "tsv",
+                "findColumnsFromHeader": false,
+                "columns": [
+                    "custkey",
+                    "name",
+                    "address",
+                    "nationkey",
+                    "phone",
+                    "acctbal",
+                    "mktsegment",
+                    "comment",
+                    "customer_druid_dummy_ts"
+                ]
             },
             "appendToExisting": false
         },

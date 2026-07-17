@@ -49,10 +49,10 @@ public class TestLoki
         client.flush();
 
         assertThat(onTrino().executeQuery("SELECT value FROM TABLE(loki.system.query_range(" +
-                                          "'{test=\"logs_query\"}'," +
-                                          "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(start) + "'," +
-                                          "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(end) + "'))" +
-                                          "LIMIT 1"))
+                "'{test=\"logs_query\"}'," +
+                "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(start) + "'," +
+                "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(end) + "'))" +
+                "LIMIT 1"))
                 .containsOnly(row("line 1"));
     }
 }

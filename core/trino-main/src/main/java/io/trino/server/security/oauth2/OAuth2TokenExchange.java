@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -53,7 +54,7 @@ public class OAuth2TokenExchange
         long challengeTimeoutMillis = config.getChallengeTimeout().toMillis();
         this.cache = buildUnsafeCache(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(challengeTimeoutMillis + (MAX_POLL_TIME.toMillis() * 10), MILLISECONDS)
+                        .expireAfterWrite(ofMillis(challengeTimeoutMillis + (MAX_POLL_TIME.toMillis() * 10)))
                         .removalListener(notification -> notification.getValue().set(TOKEN_POLL_TIMED_OUT)),
                 new CacheLoader<>()
                 {

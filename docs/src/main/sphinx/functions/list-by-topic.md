@@ -23,6 +23,7 @@ For more details, see {doc}`aggregate`
 - {func}`covar_pop`
 - {func}`covar_samp`
 - {func}`every`
+- {func}`geometry_collect_agg`
 - {func}`geometric_mean`
 - {func}`histogram`
 - {func}`kurtosis`
@@ -229,6 +230,7 @@ For more details, see {doc}`geospatial`
 - {func}`convex_hull_agg`
 - {func}`from_encoded_polyline`
 - {func}`from_geojson_geometry`
+- {func}`geometry_collect_agg`
 - {func}`geometry_from_hadoop_shape`
 - {func}`geometry_invalid_reason`
 - {func}`geometry_nearest_points`
@@ -237,14 +239,20 @@ For more details, see {doc}`geospatial`
 - {func}`geometry_union_agg`
 - {func}`great_circle_distance`
 - {func}`line_interpolate_point`
+- {func}`line_interpolate_points`
 - {func}`line_locate_point`
 - {func}`simplify_geometry`
+- {func}`spatial_partitioning`
+- {func}`spatial_partitions`
 - {func}`ST_Area`
 - {func}`ST_AsBinary`
+- {func}`ST_AsEWKB`
+- {func}`ST_AsEWKT`
 - {func}`ST_AsText`
 - {func}`ST_Boundary`
 - {func}`ST_Buffer`
 - {func}`ST_Centroid`
+- {func}`ST_Collect`
 - {func}`ST_Contains`
 - {func}`ST_ConvexHull`
 - {func}`ST_CoordDim`
@@ -255,13 +263,18 @@ For more details, see {doc}`geospatial`
 - {func}`ST_Distance`
 - {func}`ST_EndPoint`
 - {func}`ST_Envelope`
+- {func}`ST_EnvelopeAsPts`
 - {func}`ST_Equals`
 - {func}`ST_ExteriorRing`
+- {func}`ST_Force2D`
+- {func}`ST_Force3D`
 - {func}`ST_Geometries`
 - {func}`ST_GeometryFromText`
 - {func}`ST_GeometryN`
 - {func}`ST_GeometryType`
 - {func}`ST_GeomFromBinary`
+- {func}`ST_GeomFromEWKT`
+- {func}`ST_GeomFromKML`
 - {func}`ST_InteriorRings`
 - {func}`ST_InteriorRingN`
 - {func}`ST_Intersects`
@@ -273,21 +286,35 @@ For more details, see {doc}`geospatial`
 - {func}`ST_IsValid`
 - {func}`ST_Length`
 - {func}`ST_LineFromText`
+- {func}`ST_LineMerge`
 - {func}`ST_LineString`
+- {func}`ST_MakeLine`
+- {func}`ST_MakePolygon`
+- {func}`ST_MinimumBoundingCircle`
+- {func}`ST_Multi`
 - {func}`ST_MultiPoint`
+- {func}`ST_Normalize`
 - {func}`ST_NumGeometries`
 - {func}`ST_NumInteriorRing`
 - {func}`ST_NumPoints`
+- {func}`ST_OrientedEnvelope`
 - {func}`ST_Overlaps`
 - {func}`ST_Point`
 - {func}`ST_PointN`
+- {func}`ST_PointOnSurface`
 - {func}`ST_Points`
 - {func}`ST_Polygon`
+- {func}`ST_Polygonize`
 - {func}`ST_Relate`
+- {func}`ST_ReducePrecision`
+- {func}`ST_SetSRID`
+- {func}`ST_SRID`
 - {func}`ST_StartPoint`
 - {func}`ST_SymDifference`
 - {func}`ST_Touches`
+- {func}`ST_Transform`
 - {func}`ST_Union`
+- {func}`ST_VoronoiPolygons`
 - {func}`ST_Within`
 - {func}`ST_X`
 - {func}`ST_XMax`
@@ -295,6 +322,7 @@ For more details, see {doc}`geospatial`
 - {func}`ST_Y`
 - {func}`ST_YMax`
 - {func}`ST_YMin`
+- {func}`ST_Z`
 - {func}`to_encoded_polyline`
 - {func}`to_geojson_geometry`
 - {func}`to_geometry`
@@ -439,6 +467,12 @@ For more details, see {doc}`regexp`
 - {func}`regexp_replace`
 - {func}`regexp_split`
 
+## Row
+
+For more details, see {doc}`row`
+
+- {func}`ROW::fields`
+
 ## Row pattern recognition expressions
 
 - {ref}`classifier <classifier-function>`
@@ -477,6 +511,7 @@ For more details, see {doc}`string`
 - {func}`codepoint`
 - {func}`concat`
 - {func}`concat_ws`
+- {func}`ends_with`
 - {func}`format`
 - {func}`from_utf8`
 - {func}`hamming_distance`
@@ -488,7 +523,7 @@ For more details, see {doc}`string`
 - {func}`luhn_check`
 - {func}`normalize`
 - {func}`position`
-- {func}`randmom_string`, catalog function of the [](/connector/faker)
+- {func}`random_string`, catalog function of the [](/connector/faker)
 - {func}`replace`
 - {func}`reverse`
 - {func}`rpad`
@@ -502,6 +537,7 @@ For more details, see {doc}`string`
 - {func}`strpos`
 - {func}`substr`
 - {func}`substring`
+- {func}`title_case`
 - {func}`to_utf8`
 - {func}`translate`
 - {func}`trim`

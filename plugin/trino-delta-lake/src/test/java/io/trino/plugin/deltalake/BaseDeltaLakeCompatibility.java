@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -32,7 +32,7 @@ public abstract class BaseDeltaLakeCompatibility
 {
     protected final String bucketName;
     protected final String resourcePath;
-    protected Hive3MinioDataLake hiveMinioDataLake;
+    protected Hive3FlociDataLake hiveFlociDataLake;
 
     public BaseDeltaLakeCompatibility(String resourcePath)
     {
@@ -44,12 +44,12 @@ public abstract class BaseDeltaLakeCompatibility
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
-                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
-                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
+                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .build();
@@ -57,8 +57,9 @@ public abstract class BaseDeltaLakeCompatibility
             String schemaName = queryRunner.getDefaultSession().getSchema().orElseThrow();
             TpchTable.getTables().forEach(table -> {
                 String tableName = table.getTableName();
-                hiveMinioDataLake.copyResources(resourcePath + tableName, schemaName + "/" + tableName);
-                queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%2$s', 's3://%3$s/%1$s/%2$s')",
+                hiveFlociDataLake.floci().copyResources(resourcePath + tableName, bucketName, schemaName + "/" + tableName);
+                queryRunner.execute(format(
+                        "CALL system.register_table(CURRENT_SCHEMA, '%2$s', 's3://%3$s/%1$s/%2$s')",
                         schemaName,
                         tableName,
                         bucketName));

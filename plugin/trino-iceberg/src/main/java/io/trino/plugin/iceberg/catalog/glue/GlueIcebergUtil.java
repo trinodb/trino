@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.builderWithExpectedSize;
@@ -63,6 +64,8 @@ public final class GlueIcebergUtil
     private static final int GLUE_COLUMN_COMMENT_LENGTH_LIMIT = 255;
     // Limit per Glue API docs (https://docs.aws.amazon.com/glue/latest/webapi/API_Column.html as of this writing)
     private static final int GLUE_COLUMN_PARAMETER_LENGTH_LIMIT = 512000;
+    // Column comment pattern per Glue API docs (https://docs.aws.amazon.com/glue/latest/webapi/API_Column.html as of this writing)
+    private static final Pattern GLUE_COLUMN_COMMENT_PATTERN = Pattern.compile("[\\u0020-\\uD7FF\\uE000-\\uFFFD\\uD800\\uDC00-\\uDBFF\\uDFFF\\t]*");
 
     public static TableInput getTableInput(
             TypeManager typeManager,
@@ -127,9 +130,11 @@ public final class GlueIcebergUtil
         boolean firstColumn = true;
         for (Types.NestedField icebergColumn : icebergColumns) {
             String glueTypeString = toGlueTypeStringLossy(icebergColumn.type());
+            String columnComment = requireNonNullElse(icebergColumn.doc(), "");
             if (icebergColumn.name().length() > GLUE_COLUMN_NAME_LENGTH_LIMIT ||
-                    requireNonNullElse(icebergColumn.doc(), "").length() > GLUE_COLUMN_COMMENT_LENGTH_LIMIT ||
-                    glueTypeString.length() > GLUE_COLUMN_TYPE_LENGTH_LIMIT) {
+                    columnComment.length() > GLUE_COLUMN_COMMENT_LENGTH_LIMIT ||
+                    glueTypeString.length() > GLUE_COLUMN_TYPE_LENGTH_LIMIT ||
+                    !GLUE_COLUMN_COMMENT_PATTERN.matcher(columnComment).matches()) {
                 return Optional.empty();
             }
             String trinoTypeId = TypeConverter.toTrinoType(icebergColumn.type(), typeManager).getTypeId().getId();
@@ -161,49 +166,39 @@ public final class GlueIcebergUtil
     // Copied from org.apache.iceberg.aws.glue.IcebergToGlueConverter#toTypeString
     private static String toGlueTypeStringLossy(Type type)
     {
-        switch (type.typeId()) {
-            case BOOLEAN:
-                return "boolean";
-            case INTEGER:
-                return "int";
-            case LONG:
-                return "bigint";
-            case FLOAT:
-                return "float";
-            case DOUBLE:
-                return "double";
-            case DATE:
-                return "date";
-            case TIME:
-            case STRING:
-            case UUID:
-                return "string";
-            case TIMESTAMP:
-            case TIMESTAMP_NANO:
-                return "timestamp";
-            case FIXED:
-            case BINARY:
-                return "binary";
-            case DECIMAL:
+        return switch (type.typeId()) {
+            case BOOLEAN -> "boolean";
+            case INTEGER -> "int";
+            case LONG -> "bigint";
+            case FLOAT -> "float";
+            case DOUBLE -> "double";
+            case DATE -> "date";
+            case TIME, STRING, UUID -> "string";
+            case TIMESTAMP, TIMESTAMP_NANO -> "timestamp";
+            case FIXED, BINARY -> "binary";
+            case DECIMAL -> {
                 final Types.DecimalType decimalType = (Types.DecimalType) type;
-                return format("decimal(%s,%s)", decimalType.precision(), decimalType.scale());
-            case STRUCT:
+                yield format("decimal(%s,%s)", decimalType.precision(), decimalType.scale());
+            }
+            case STRUCT -> {
                 final Types.StructType structType = type.asStructType();
                 final String nameToType =
                         structType.fields().stream()
                                 .map(f -> format("%s:%s", f.name(), toGlueTypeStringLossy(f.type())))
                                 .collect(Collectors.joining(","));
-                return format("struct<%s>", nameToType);
-            case LIST:
+                yield format("struct<%s>", nameToType);
+            }
+            case LIST -> {
                 final Types.ListType listType = type.asListType();
-                return format("array<%s>", toGlueTypeStringLossy(listType.elementType()));
-            case MAP:
+                yield format("array<%s>", toGlueTypeStringLossy(listType.elementType()));
+            }
+            case MAP -> {
                 final Types.MapType mapType = type.asMapType();
-                return format(
+                yield format(
                         "map<%s,%s>", toGlueTypeStringLossy(mapType.keyType()), toGlueTypeStringLossy(mapType.valueType()));
-            default:
-                return type.typeId().name().toLowerCase(Locale.ENGLISH);
-        }
+            }
+            default -> type.typeId().name().toLowerCase(Locale.ENGLISH);
+        };
     }
 
     public static TableInput getViewTableInput(String viewName, String viewOriginalText, @Nullable String owner, Map<String, String> parameters)

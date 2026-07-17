@@ -92,7 +92,7 @@ public class RemoveUnsupportedDynamicFilters
 
         public Rewriter()
         {
-            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
         }
 
         @Override

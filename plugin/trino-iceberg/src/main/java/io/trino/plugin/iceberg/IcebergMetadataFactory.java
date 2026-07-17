@@ -23,6 +23,8 @@ import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -36,6 +38,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
 {
+    private final CatalogName catalogName;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalogFactory catalogFactory;
@@ -52,9 +55,11 @@ public class IcebergMetadataFactory
     private final DeletionVectorWriter deletionVectorWriter;
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
+    private final ConnectorExpressionEvaluator evaluator;
 
     @Inject
     public IcebergMetadataFactory(
+            CatalogName catalogName,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalogFactory catalogFactory,
@@ -67,8 +72,10 @@ public class IcebergMetadataFactory
             @ForIcebergMetadata ExecutorService metadataExecutorService,
             @ForIcebergPlanning ExecutorService icebergPlanningExecutor,
             @ForIcebergFileDelete ExecutorService icebergFileDeleteExecutor,
-            IcebergConfig config)
+            IcebergConfig config,
+            ConnectorExpressionEvaluator evaluator)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
@@ -96,11 +103,13 @@ public class IcebergMetadataFactory
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = config.getMaterializedViewRefreshMaxSnapshotsToExpire();
         this.materializedViewRefreshSnapshotRetentionPeriod = config.getMaterializedViewRefreshSnapshotRetentionPeriod();
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
     {
         return new IcebergMetadata(
+                catalogName,
                 typeManager,
                 commitTaskCodec,
                 catalogFactory.create(identity),
@@ -116,6 +125,7 @@ public class IcebergMetadataFactory
                 icebergPlanningExecutor,
                 icebergFileDeleteExecutor,
                 materializedViewRefreshMaxSnapshotsToExpire,
-                materializedViewRefreshSnapshotRetentionPeriod);
+                materializedViewRefreshSnapshotRetentionPeriod,
+                evaluator);
     }
 }

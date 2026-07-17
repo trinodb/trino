@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -53,7 +54,6 @@ import java.util.stream.StreamSupport;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -97,7 +97,8 @@ public class BasePlanTest
 
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
 
-        planTester.createCatalog(planTester.getDefaultSession().getCatalog().get(),
+        planTester.createCatalog(
+                planTester.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
         return planTester;
@@ -193,6 +194,7 @@ public class BasePlanTest
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
+                        "TestMinimalPlanCleanup",
                         planTester.getPlannerContext(),
                         new RuleStatsRecorder(),
                         planTester.getStatsCalculator(),

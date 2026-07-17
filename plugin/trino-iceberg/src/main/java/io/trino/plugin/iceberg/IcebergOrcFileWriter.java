@@ -23,6 +23,7 @@ import io.trino.orc.OrcWriterStats;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -61,7 +62,7 @@ public final class IcebergOrcFileWriter
     private final Schema icebergSchema;
     private final ColumnMetadata<OrcType> orcColumns;
     private final MetricsConfig metricsConfig;
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
@@ -71,7 +72,7 @@ public final class IcebergOrcFileWriter
             MetricsConfig metricsConfig,
             Schema icebergSchema,
             OrcDataSink orcDataSink,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             ColumnMetadata<OrcType> fileColumnOrcTypes,
@@ -152,14 +153,14 @@ public final class IcebergOrcFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             orcWriter.close();
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (IOException | RuntimeException ex) {
                 if (!e.equals(ex)) {
@@ -189,7 +190,7 @@ public final class IcebergOrcFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             orcWriter.close();
         }
         catch (Exception e) {

@@ -266,7 +266,7 @@ public class TestHiveSchema
 
     /**
      * @apiNote The expected use context is in negative matching. This is why this method works on single values.
-     * When matching full rows, it would be possible to have false-positive results.
+     *         When matching full rows, it would be possible to have false-positive results.
      */
     private static <T> Condition<QueryResult> containsFirstColumnValue(T value)
     {

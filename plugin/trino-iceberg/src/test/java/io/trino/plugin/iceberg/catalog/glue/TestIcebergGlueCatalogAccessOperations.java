@@ -19,6 +19,7 @@ import com.google.common.collect.Multiset;
 import io.airlift.log.Logger;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
+import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergConnector;
@@ -30,7 +31,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -72,11 +72,6 @@ import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-/*
- * The test currently uses AWS Default Credential Provider Chain,
- * See https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html#credentials-default
- * on ways to set your AWS credentials which will be needed to run this test.
- */
 @Execution(SAME_THREAD)
 public class TestIcebergGlueCatalogAccessOperations
         extends AbstractTestQueryFramework
@@ -92,20 +87,21 @@ public class TestIcebergGlueCatalogAccessOperations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        FlociS3AndGlue floci = closeAfterClass(new FlociS3AndGlue());
+        String bucketName = "test-iceberg-glue-access-operations-" + randomNameSuffix();
+        floci.createBucket(bucketName);
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder(testSchema)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .addIcebergProperty("iceberg.catalog.type", "glue")
-                .addIcebergProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
-                .setSchemaInitializer(SchemaInitializer.builder().withSchemaName(testSchema).build())
+                .addIcebergProperty("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
+                .addIcebergProperty("fs.s3.enabled", "true")
+                .addIcebergProperties(floci.s3AndGlueProperties())
+                .setSchemaInitializer(SchemaInitializer.builder()
+                        .withSchemaName(testSchema)
+                        .build())
                 .build();
         glueStats = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector().getInstance(GlueMetastoreStats.class);
         return queryRunner;
-    }
-
-    @AfterAll
-    public void cleanUpSchema()
-    {
-        getQueryRunner().execute("DROP SCHEMA " + testSchema);
     }
 
     @Test
@@ -462,7 +458,7 @@ public class TestIcebergGlueCatalogAccessOperations
             // select from $partitions
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
 
             // select from $files
@@ -495,7 +491,8 @@ public class TestIcebergGlueCatalogAccessOperations
                             .add(GET_TABLE)
                             .build());
 
-            assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
+            assertQueryFails(
+                    "SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
                     "Table '" + testSchema + ".test_select_snapshots\\$materialized_view_storage' not found");
 
             // This test should get updated if a new system table is added.

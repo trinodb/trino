@@ -21,7 +21,6 @@ import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHash;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
@@ -38,7 +37,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.operator.UpdateMemory.NOOP;
-import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
+import static io.trino.operator.index.IndexedData.UNLOADED_INDEX_KEY;
+import static io.trino.operator.join.JoinUtils.rowContainsNull;
 import static java.util.Objects.requireNonNull;
 
 public class UnloadedIndexKeyRecordSet
@@ -82,7 +82,7 @@ public class UnloadedIndexKeyRecordSet
             IntList positions = new IntArrayList(groupCount);
             for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they cannot join
-                if (!containsNullValue(position, page)) {
+                if (!rowContainsNull(page, position)) {
                     // Only include the key if it is not already in the index
                     if (existingSnapshot.getJoinPosition(position, page) == UNLOADED_INDEX_KEY) {
                         // Only add the position if we have not seen this tuple before (based on the distinct channels)
@@ -113,17 +113,6 @@ public class UnloadedIndexKeyRecordSet
     public UnloadedIndexKeyRecordCursor cursor()
     {
         return new UnloadedIndexKeyRecordCursor(types, pageAndPositions);
-    }
-
-    private static boolean containsNullValue(int position, Page page)
-    {
-        for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            Block block = page.getBlock(channel);
-            if (block.isNull(position)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public static class UnloadedIndexKeyRecordCursor

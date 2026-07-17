@@ -151,6 +151,7 @@ public class CreateMaterializedViewTask
                     Long milliseconds = (Long) evaluateConstant(
                             expression,
                             type,
+                            parameterLookup,
                             plannerContext,
                             session,
                             accessControl);
@@ -195,7 +196,7 @@ public class CreateMaterializedViewTask
     private boolean isWhenStaleBehaviorSupported(Session session, WhenStaleBehavior whenStale, CatalogHandle catalogHandle)
     {
         return whenStale == DEFAULT_WHEN_STALE_BEHAVIOR ||
-               plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR);
+                plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR);
     }
 
     private static WhenStaleBehavior toConnectorWhenStaleBehavior(Optional<CreateMaterializedView.WhenStaleBehavior> whenStale)

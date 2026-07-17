@@ -37,7 +37,6 @@ import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -85,7 +84,7 @@ public class HivePageSink
 
     private final long targetMaxFileSize;
     private final long idleWriterMinFileSize;
-    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
+    private final List<RollbackAction> closedWriterRollbackActions = new ArrayList<>();
     private final List<Slice> partitionUpdates = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
 
@@ -219,7 +218,7 @@ public class HivePageSink
     @Override
     public void abort()
     {
-        List<Closeable> rollbackActions = Streams.concat(
+        List<RollbackAction> rollbackActions = Streams.concat(
                         writers.stream()
                                 // writers can contain nulls if an exception is thrown when doAppend expands the writer list
                                 .filter(Objects::nonNull)
@@ -227,9 +226,9 @@ public class HivePageSink
                         closedWriterRollbackActions.stream())
                 .collect(toImmutableList());
         RuntimeException rollbackException = null;
-        for (Closeable rollbackAction : rollbackActions) {
+        for (RollbackAction rollbackAction : rollbackActions) {
             try {
-                rollbackAction.close();
+                rollbackAction.run();
             }
             catch (Throwable t) {
                 if (rollbackException == null) {

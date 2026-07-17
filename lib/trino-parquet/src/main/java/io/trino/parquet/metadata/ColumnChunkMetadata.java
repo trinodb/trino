@@ -50,8 +50,11 @@ public abstract class ColumnChunkMetadata
                 && positiveLongFitsInAnInt(totalSize)
                 && positiveLongFitsInAnInt(totalUncompressedSize)) {
             return new IntColumnChunkMetadata(
-                    path, type, codec,
-                    encodingStats, encodings,
+                    path,
+                    type,
+                    codec,
+                    encodingStats,
+                    encodings,
                     statistics,
                     firstDataPage,
                     dictionaryPageOffset,
@@ -60,8 +63,11 @@ public abstract class ColumnChunkMetadata
                     totalUncompressedSize);
         }
         return new LongColumnChunkMetadata(
-                path, type, codec,
-                encodingStats, encodings,
+                path,
+                type,
+                codec,
+                encodingStats,
+                encodings,
                 statistics,
                 firstDataPage,
                 dictionaryPageOffset,

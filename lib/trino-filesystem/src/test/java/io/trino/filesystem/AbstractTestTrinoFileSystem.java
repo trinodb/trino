@@ -81,6 +81,9 @@ public abstract class AbstractTestTrinoFileSystem
     // The test subclasses are encouraged to use this constant in their configurations.
     protected static final DataSize LARGER_FILE_DATA_SIZE = DataSize.of(10, DataSize.Unit.MEGABYTE);
 
+    // Smaller than LARGER_FILE_DATA_SIZE so streaming file system tests exercise multipart writes.
+    protected static final DataSize STREAMING_PART_SIZE = DataSize.valueOf("5.5MB");
+
     protected abstract boolean isHierarchical();
 
     protected abstract TrinoFileSystem getFileSystem();
@@ -1037,6 +1040,13 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    public void testListFilesStartingFrom()
+            throws IOException
+    {
+        testListFilesStartingFrom(isHierarchical());
+    }
+
+    @Test
     public void testPreSignedUris()
             throws IOException
     {
@@ -1049,25 +1059,28 @@ public abstract class AbstractTestTrinoFileSystem
                 abort("Generating pre-signed URI is not supported");
             }
 
-            Optional<UriLocation> directLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(30, SECONDS));
+            UriLocation directLocation = assertThat(getFileSystem()
+                    .preSignedUri(location, new Duration(30, SECONDS)))
+                    .get().actual();
 
-            Optional<UriLocation> expiredDirectLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(1, SECONDS));
+            UriLocation expiredDirectLocation = assertThat(getFileSystem()
+                    .preSignedUri(location, new Duration(3, SECONDS)))
+                    .get().actual();
 
-            assertThat(directLocation).isPresent();
-
-            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation))
                     .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if it can be retrieved more than once
-            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation))
                     .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if after a timeout the pre-signed URI is no longer valid
-            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation.get()))
-                    .isInstanceOf(IOException.class)
-                    .hasMessageContaining("Failed to retrieve"));
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    new Duration(1, SECONDS),
+                    () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation))
+                            .isInstanceOf(IOException.class)
+                            .hasMessageContaining("Failed to retrieve"));
         }
     }
 
@@ -1097,7 +1110,7 @@ public abstract class AbstractTestTrinoFileSystem
 
     private static HttpRequest.Builder addHeaders(HttpRequest.Builder builder, Map<String, List<String>> headers)
     {
-        headers.forEach((headerName, headerValues) -> headerValues.forEach((headerValue) -> builder.header(headerName, headerValue)));
+        headers.forEach((headerName, headerValues) -> headerValues.forEach(headerValue -> builder.header(headerName, headerValue)));
         return builder;
     }
 
@@ -1148,6 +1161,177 @@ public abstract class AbstractTestTrinoFileSystem
                 // this lists a path in a directory with an empty name
                 assertThat(listPath("/")).isEmpty();
             }
+        }
+    }
+
+    protected void testListFilesStartingFrom(boolean hierarchicalNamingConstraints)
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            createTestDirectoryStructure(closer, hierarchicalNamingConstraints);
+
+            ImmutableList.Builder<Location> rootAllBuilder = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0-file0"),
+                            createLocation("level0-file1"),
+                            createLocation("level0-file2"),
+                            createLocation("level0/level1-file0"),
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                rootAllBuilder.add(
+                        createLocation("level0"),
+                        createLocation("level0/level1"),
+                        createLocation("level0/level1/level2"));
+            }
+            ImmutableList<Location> rootAll = rootAllBuilder.build();
+
+            ImmutableList.Builder<Location> rootStartingFromLevel1File1Builder = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                rootStartingFromLevel1File1Builder.add(createLocation("level0/level1/level2"));
+            }
+            ImmutableList<Location> rootStartingFromLevel1File1 = rootStartingFromLevel1File1Builder.build();
+
+            ImmutableList.Builder<Location> level0AllBuilder = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1-file0"),
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level0AllBuilder.add(
+                        createLocation("level0/level1"),
+                        createLocation("level0/level1/level2"));
+            }
+            ImmutableList<Location> level0All = level0AllBuilder.build();
+
+            ImmutableList.Builder<Location> level0StartingFromLevel1File0zBuilder = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level0StartingFromLevel1File0zBuilder.add(createLocation("level0/level1/level2"));
+            }
+            ImmutableList<Location> level0StartingFromLevel1File0z = level0StartingFromLevel1File0zBuilder.build();
+
+            ImmutableList<Location> level0StartingFromLevel1Level2File1 = ImmutableList.of(
+                    createLocation("level0/level1/level2-file1"),
+                    createLocation("level0/level1/level2-file2"));
+
+            ImmutableList.Builder<Location> level1AllBuilder = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level1AllBuilder.add(createLocation("level0/level1/level2"));
+            }
+            ImmutableList<Location> level1All = level1AllBuilder.build();
+
+            ImmutableList.Builder<Location> level1StartingFromLevel2Builder = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level1StartingFromLevel2Builder.add(createLocation("level0/level1/level2"));
+            }
+            ImmutableList<Location> level1StartingFromLevel2 = level1StartingFromLevel2Builder.build();
+
+            ImmutableList<Location> level1StartingFromLevel2File1 = ImmutableList.of(
+                    createLocation("level0/level1/level2-file1"),
+                    createLocation("level0/level1/level2-file2"));
+
+            assertThat(listPathStartingFrom("", ""))
+                    .containsExactlyInAnyOrderElementsOf(rootAll);
+            assertThat(listPathStartingFrom("", "level0/level1-file1"))
+                    .containsExactlyInAnyOrderElementsOf(rootStartingFromLevel1File1);
+            assertThat(listPathStartingFrom("", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0", ""))
+                    .containsExactlyInAnyOrderElementsOf(level0All);
+            assertThat(listPathStartingFrom("level0/", ""))
+                    .containsExactlyInAnyOrderElementsOf(level0All);
+            assertThat(listPathStartingFrom("level0", "level1"))
+                    .containsExactlyInAnyOrderElementsOf(level0All);
+            assertThat(listPathStartingFrom("level0", "level1-file0z"))
+                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1File0z);
+            assertThat(listPathStartingFrom("level0", "level1/level2-file1"))
+                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1Level2File1);
+            assertThat(listPathStartingFrom("level0/", "level1-file0z"))
+                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1File0z);
+            assertThat(listPathStartingFrom("level0", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0/level1/", ""))
+                    .containsExactlyInAnyOrderElementsOf(level1All);
+            assertThat(listPathStartingFrom("level0/level1", ""))
+                    .containsExactlyInAnyOrderElementsOf(level1All);
+            assertThat(listPathStartingFrom("level0/level1", "level2"))
+                    .containsExactlyInAnyOrderElementsOf(level1StartingFromLevel2);
+            assertThat(listPathStartingFrom("level0/level1", "level2-file1"))
+                    .containsExactlyInAnyOrderElementsOf(level1StartingFromLevel2File1);
+            assertThat(listPathStartingFrom("level0/level1", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0/level1/level2/", "")).isEmpty();
+            assertThat(listPathStartingFrom("level0/level1/level2", "")).isEmpty();
+            assertThat(listPathStartingFrom("level0/level1/level2", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0/level1/level2/level3", "")).isEmpty();
+            assertThat(listPathStartingFrom("level0/level1/level2/level3/", "")).isEmpty();
+
+            assertThat(listPathStartingFrom("unknown/", "")).isEmpty();
+
+            for (String directory : ImmutableList.of(
+                    "",
+                    "level0",
+                    "level0/level1",
+                    "level0/level1/level2",
+                    "level0/level1/level2/level3")) {
+                assertThat(listPathStartingFrom(directory, ""))
+                        .containsExactlyInAnyOrderElementsOf(listPath(directory));
+
+                if (!directory.isEmpty()) {
+                    assertThat(listPathStartingFrom(directory + "/", ""))
+                            .containsExactlyInAnyOrderElementsOf(listPath(directory + "/"));
+                }
+            }
+
+            if (isHierarchical()) {
+                assertThatThrownBy(() -> listPathStartingFrom("level0-file0", ""))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining(createLocation("level0-file0").toString());
+            }
+            else {
+                assertThat(listPathStartingFrom("level0-file0", "")).isEmpty();
+            }
+
+            if (!hierarchicalNamingConstraints && !normalizesListFilesResult()) {
+                assertThat(listPathStartingFrom("/", "")).isEmpty();
+            }
+
+            assertThatThrownBy(() -> listPathStartingFrom("", "é"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("ASCII");
+            assertThatThrownBy(() -> listPathStartingFrom("", "level0/é"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("ASCII");
+            assertThatThrownBy(() -> listPathStartingFrom("", "💡"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("ASCII");
         }
     }
 
@@ -1404,6 +1588,20 @@ public abstract class AbstractTestTrinoFileSystem
     {
         List<Location> locations = new ArrayList<>();
         FileIterator fileIterator = getFileSystem().listFiles(createListingLocation(path));
+        while (fileIterator.hasNext()) {
+            FileEntry fileEntry = fileIterator.next();
+            Location location = fileEntry.location();
+            assertThat(fileEntry.length()).isEqualTo(TEST_BLOB_CONTENT_PREFIX.length() + location.toString().length());
+            locations.add(location);
+        }
+        return locations;
+    }
+
+    private List<Location> listPathStartingFrom(String path, String startingFrom)
+            throws IOException
+    {
+        List<Location> locations = new ArrayList<>();
+        FileIterator fileIterator = getFileSystem().listFilesStartingFrom(createListingLocation(path), startingFrom);
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
             Location location = fileEntry.location();

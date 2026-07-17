@@ -117,7 +117,8 @@ public class TablesAuthorization
             Session session,
             TupleDomain<Integer> constraint)
     {
-        Set<CatalogSchemaName> availableSchemas = listAllAvailableSchemas(session,
+        Set<CatalogSchemaName> availableSchemas = listAllAvailableSchemas(
+                session,
                 metadata,
                 accessControl,
                 constraint.getDomain(0, VARCHAR),

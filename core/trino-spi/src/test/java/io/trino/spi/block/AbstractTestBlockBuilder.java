@@ -246,6 +246,35 @@ abstract class AbstractTestBlockBuilder<T>
         }
     }
 
+    @Test
+    public void testResetToThenAppendNulls()
+    {
+        List<T> values = getTestValues();
+        for (int offset : OFFSETS) {
+            ValueBlock inputValues = createOffsetBlock(values, offset);
+            ValueBlock inputValuesWithNull = createOffsetBlockWithOddPositionsNull(values, offset);
+
+            BlockBuilder blockBuilder = createBlockBuilder();
+            blockBuilder.appendRange(inputValues, 0, inputValues.getPositionCount());
+
+            blockBuilder.resetTo(0);
+            blockBuilder.appendNull();
+            assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactly((T) null);
+
+            blockBuilder.resetTo(0);
+            blockBuilder.appendRepeated(inputValuesWithNull, 1, 3);
+            assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactly(null, null, null);
+
+            blockBuilder.resetTo(0);
+            blockBuilder.appendRange(inputValuesWithNull, 1, 3);
+            assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactly(null, values.get(2), null);
+
+            blockBuilder.resetTo(0);
+            blockBuilder.appendPositions(inputValuesWithNull, new int[] {1, 2, 3}, 0, 3);
+            assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactly(null, values.get(2), null);
+        }
+    }
+
     /**
      * Create a block that is offset from the start of the underlying array
      */

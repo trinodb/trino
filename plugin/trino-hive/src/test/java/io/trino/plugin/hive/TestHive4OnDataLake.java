@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.containers.Hive4MinioDataLake;
+import io.trino.plugin.hive.containers.Hive4FlociDataLake;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -29,7 +29,7 @@ class TestHive4OnDataLake
 
     public TestHive4OnDataLake()
     {
-        super(BUCKET_NAME, new Hive4MinioDataLake(BUCKET_NAME));
+        super(BUCKET_NAME, new Hive4FlociDataLake(BUCKET_NAME));
     }
 
     @Override

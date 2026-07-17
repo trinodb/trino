@@ -219,7 +219,7 @@ public class JoinGraph
         @Override
         public JoinGraph visitJoin(JoinNode node, Context context)
         {
-            //TODO: add support for non inner joins
+            // TODO: add support for non inner joins
             if (node.getType() != INNER) {
                 return visitPlan(node, context);
             }

@@ -134,7 +134,7 @@ public class IndexJoinOptimizer
                 }
 
                 switch (node.getType()) {
-                    case INNER:
+                    case INNER -> {
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
@@ -158,27 +158,21 @@ public class IndexJoinOptimizer
 
                             return indexJoinNode;
                         }
-                        break;
-
-                    case LEFT:
+                    }
+                    case LEFT -> {
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (node.getFilter().isEmpty() && rightIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
                         }
-                        break;
-
-                    case RIGHT:
+                    }
+                    case RIGHT -> {
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (node.getFilter().isEmpty() && leftIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
                         }
-                        break;
-
-                    case FULL:
-                        break;
-
-                    default:
-                        throw new IllegalArgumentException("Unknown type: " + node.getType());
+                    }
+                    case FULL -> {}
+                    default -> throw new IllegalArgumentException("Unknown type: " + node.getType());
                 }
             }
 

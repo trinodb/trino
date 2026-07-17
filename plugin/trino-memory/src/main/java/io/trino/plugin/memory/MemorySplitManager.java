@@ -15,6 +15,7 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -22,16 +23,11 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
 import java.util.List;
 import java.util.OptionalLong;
-import java.util.concurrent.CompletableFuture;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.spi.connector.DynamicFilter.NOT_BLOCKED;
-import static java.util.Objects.requireNonNull;
+import java.util.Set;
 
 public final class MemorySplitManager
         implements ConnectorSplitManager
@@ -53,7 +49,7 @@ public final class MemorySplitManager
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorTableHandle handle,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
@@ -79,65 +75,22 @@ public final class MemorySplitManager
             }
         }
 
-        ConnectorSplitSource splitSource = new FixedSplitSource(splits.build());
-        if (enableLazyDynamicFiltering) {
+        if (enableLazyDynamicFiltering && !dynamicFilterColumns.isEmpty()) {
             // Needed to avoid scheduling a stage that is waiting for dynamic filters to become available.
             // It makes no difference for pipelined execution where the stages are scheduled eagerly and there's no limit on the number of tasks running in parallel.
             // However in fault tolerant execution if the stage waiting for dynamic filters is scheduled first it may occupy all available slots leaving no resources
             // for the stage that collects dynamic filters to be scheduled effectively creating a deadlock.
-            splitSource = new DelayedSplitSource(whenCompleted(dynamicFilter), splitSource);
+            // Returning Long.MAX_VALUE tells the engine to wait until the dynamic filter is complete
+            // before issuing the first getNextBatch call.
+            return new FixedSplitSource(splits.build())
+            {
+                @Override
+                public long getRequestedDynamicFilterWaitTimeoutMillis()
+                {
+                    return Long.MAX_VALUE;
+                }
+            };
         }
-        return splitSource;
-    }
-
-    private static CompletableFuture<?> whenCompleted(DynamicFilter dynamicFilter)
-    {
-        if (dynamicFilter.isAwaitable()) {
-            return dynamicFilter.isBlocked().thenCompose(_ -> whenCompleted(dynamicFilter));
-        }
-        return NOT_BLOCKED;
-    }
-
-    private static class DelayedSplitSource
-            implements ConnectorSplitSource
-    {
-        private final CompletableFuture<?> delay;
-        private final ConnectorSplitSource delegate;
-
-        public DelayedSplitSource(CompletableFuture<?> delay, ConnectorSplitSource delegate)
-        {
-            this.delay = requireNonNull(delay, "delay is null");
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
-        {
-            return delay.thenCompose(_ -> delegate.getNextBatch(maxSize));
-        }
-
-        @Override
-        public void close()
-        {
-            delegate.close();
-        }
-
-        @Override
-        public boolean isFinished()
-        {
-            if (delay.isDone()) {
-                return delegate.isFinished();
-            }
-            return false;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("delay", delay)
-                    .add("delegate", delegate)
-                    .toString();
-        }
+        return new FixedSplitSource(splits.build());
     }
 }

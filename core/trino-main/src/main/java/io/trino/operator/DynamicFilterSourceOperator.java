@@ -124,7 +124,8 @@ public class DynamicFilterSourceOperator
             return new DynamicFilterSourceOperatorFactory(
                     operatorId,
                     planNodeId,
-                    new DynamicFilterSourceConsumer() {
+                    new DynamicFilterSourceConsumer()
+                    {
                         @Override
                         public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
                         {

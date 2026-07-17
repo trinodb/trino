@@ -107,11 +107,11 @@ public class TestLongDecode
             throws IOException
     {
         while (true) {
-            if ((value & ~0x7f) == 0) {
+            if ((value & ~0x7F) == 0) {
                 output.write((byte) value);
                 return;
             }
-            output.write((byte) (0x80 | (value & 0x7f)));
+            output.write((byte) (0x80 | (value & 0x7F)));
             value >>>= 7;
         }
     }
@@ -133,7 +133,7 @@ public class TestLongDecode
             if (b == -1) {
                 throw new EOFException("Reading Vulong past EOF");
             }
-            result |= (0x7f & b) << offset;
+            result |= (0x7F & b) << offset;
             offset += 7;
         }
         while (b >= 0x80);

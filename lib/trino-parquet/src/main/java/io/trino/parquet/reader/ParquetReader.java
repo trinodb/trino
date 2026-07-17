@@ -31,6 +31,8 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
+import io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.VariantField;
 import io.trino.parquet.crypto.FileDecryptionContext;
@@ -86,12 +88,13 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
-import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.createStatisticsValidationBuilder;
-import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
 import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static io.trino.parquet.reader.PageReader.createPageReader;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
@@ -388,7 +391,9 @@ public class ParquetReader
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
-                    block = selectedPositions.apply(block);
+                    // loaded blocks already reflect the previous selection, so the incoming
+                    // positions apply to them directly
+                    block = block.getPositions(positions, offset, size);
                     retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }
@@ -527,25 +532,30 @@ public class ParquetReader
         // position count and nulls are derived from metadata def levels
         int positionsCount = metadataChunk.getDefinitionLevels().length;
         int variantDefLevel = field.getDefinitionLevel();
-        boolean[] isNull = null;
+        long[] valueIsValid = null;
         for (int i = 0; i < positionsCount; i++) {
-            if (metadataChunk.getDefinitionLevels()[i] < variantDefLevel) {
-                if (isNull == null) {
-                    isNull = new boolean[positionsCount];
+            if (metadataChunk.getDefinitionLevels()[i] >= variantDefLevel) {
+                if (valueIsValid != null) {
+                    set(valueIsValid, 0, i);
                 }
-                isNull[i] = true;
+            }
+            else if (valueIsValid == null) {
+                valueIsValid = new long[wordsForBits(positionsCount)];
+                for (int position = 0; position < i; position++) {
+                    set(valueIsValid, 0, position);
+                }
             }
         }
 
         // if isNull is present, we need to convert the blocks to not-null-suppressed blocks
         Block metadataBlock = metadataChunk.getBlock();
         Block valueBlock = valueChunk.getBlock();
-        if (isNull != null) {
-            metadataBlock = toNotNullSupressedBlock(positionsCount, isNull, metadataBlock);
-            valueBlock = toNotNullSupressedBlock(positionsCount, isNull, valueBlock);
+        if (valueIsValid != null) {
+            metadataBlock = toNotNullSupressedBlock(positionsCount, valueIsValid, metadataBlock);
+            valueBlock = toNotNullSupressedBlock(positionsCount, valueIsValid, valueBlock);
         }
 
-        Block variantBlock = VariantBlock.create(positionsCount, metadataBlock, valueBlock, Optional.ofNullable(isNull));
+        Block variantBlock = VariantBlock.create(positionsCount, metadataBlock, valueBlock, Optional.ofNullable(valueIsValid));
         return new ColumnChunk(variantBlock, metadataChunk.getDefinitionLevels(), metadataChunk.getRepetitionLevels());
     }
 
@@ -583,7 +593,7 @@ public class ParquetReader
 
         ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
         int positionsCount = collectionPositions.offsets().length - 1;
-        Block arrayBlock = ArrayBlock.fromElementBlock(positionsCount, collectionPositions.isNull(), collectionPositions.offsets(), columnChunk.getBlock());
+        Block arrayBlock = ArrayBlock.fromElementBlock(positionsCount, collectionPositions.valueIsValid(), collectionPositions.offsets(), columnChunk.getBlock());
         return new ColumnChunk(arrayBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
@@ -601,7 +611,7 @@ public class ParquetReader
         Optional<Field> valueField = field.getChildren().get(1);
         blocks[1] = valueField.isPresent() ? readColumnChunk(valueField.get()).getBlock() : mapType.getValueType().createNullBlock();
         ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(collectionPositions.isNull(), collectionPositions.offsets(), blocks[0], blocks[1]);
+        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(collectionPositions.valueIsValid(), collectionPositions.offsets(), blocks[0], blocks[1]);
         return new ColumnChunk(mapBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
@@ -625,20 +635,20 @@ public class ParquetReader
         }
 
         StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Optional<boolean[]> isNull = structIsNull.isNull();
+        Optional<long[]> valueIsValid = structIsNull.valueIsValid();
         for (int i = 0; i < blocks.length; i++) {
             if (blocks[i] == null) {
                 blocks[i] = RunLengthEncodedBlock.create(rowType.getFields().get(i).getType(), null, structIsNull.positionsCount());
             }
-            else if (isNull.isPresent()) {
-                blocks[i] = toNotNullSupressedBlock(structIsNull.positionsCount(), isNull.get(), blocks[i]);
+            else if (valueIsValid.isPresent()) {
+                blocks[i] = toNotNullSupressedBlock(structIsNull.positionsCount(), valueIsValid.get(), blocks[i]);
             }
         }
-        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(structIsNull.positionsCount(), structIsNull.isNull(), blocks);
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(structIsNull.positionsCount(), structIsNull.valueIsValid(), blocks);
         return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
-    private static Block toNotNullSupressedBlock(int positionCount, boolean[] rowIsNull, Block fieldBlock)
+    private static Block toNotNullSupressedBlock(int positionCount, long[] rowIsValid, Block fieldBlock)
     {
         // find a existing position in the block that is null
         int nullIndex = -1;
@@ -660,12 +670,12 @@ public class ParquetReader
         int[] dictionaryIds = new int[positionCount];
         int nullSuppressedPosition = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull[position]) {
-                dictionaryIds[position] = nullIndex;
-            }
-            else {
+            if (isSet(rowIsValid, 0, position)) {
                 dictionaryIds[position] = nullSuppressedPosition;
                 nullSuppressedPosition++;
+            }
+            else {
+                dictionaryIds[position] = nullIndex;
             }
         }
         return DictionaryBlock.create(positionCount, fieldBlock, dictionaryIds);

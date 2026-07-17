@@ -33,7 +33,6 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiFunction;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
@@ -46,7 +45,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
-import static io.trino.spi.type.TypeUtils.checkElementNotNull;
 import static java.lang.Math.toIntExact;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.util.Collections.emptyList;
@@ -67,6 +65,7 @@ public class ArrayType
     private static final InvocationConvention IDENTICAL_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, NULL_FLAG);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+    private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
 
     private static final MethodHandle READ_FLAT;
     private static final MethodHandle READ_FLAT_TO_BLOCK;
@@ -76,6 +75,7 @@ public class ArrayType
     private static final MethodHandle IDENTICAL;
     private static final MethodHandle INDETERMINATE;
     private static final MethodHandle COMPARISON;
+    private static final MethodHandle LESS_THAN;
 
     static {
         try {
@@ -87,14 +87,13 @@ public class ArrayType
             HASH_CODE = lookup.findStatic(ArrayType.class, "hashOperator", MethodType.methodType(long.class, MethodHandle.class, Block.class));
             IDENTICAL = lookup.findStatic(ArrayType.class, "identicalOperator", MethodType.methodType(boolean.class, MethodHandle.class, Block.class, Block.class));
             INDETERMINATE = lookup.findStatic(ArrayType.class, "indeterminateOperator", MethodType.methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
-            COMPARISON = lookup.findStatic(ArrayType.class, "comparisonOperator", MethodType.methodType(long.class, MethodHandle.class, Block.class, Block.class));
+            COMPARISON = lookup.findStatic(ArrayType.class, "comparisonOperator", MethodType.methodType(long.class, boolean.class, MethodHandle.class, Block.class, Block.class));
+            LESS_THAN = lookup.findStatic(ArrayType.class, "lessThanOperator", MethodType.methodType(Boolean.class, boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
         }
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
-
-    private static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
 
     private final Type elementType;
 
@@ -104,7 +103,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(new TypeSignature(NAME, TypeParameter.typeParameter(elementType.getTypeSignature())), Block.class, ArrayBlock.class);
+        super(new TypeDescriptor(NAME, TypeParameter.typeParameter(elementType.getTypeDescriptor())), Block.class, ArrayBlock.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
@@ -129,8 +128,10 @@ public class ArrayType
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, elementType))
                 .addIdenticalOperators(getIdenticalOperatorInvokers(typeOperators, elementType))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, elementType))
-                .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedLastOperator, elementType))
-                .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedFirstOperator, elementType))
+                .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators, elementType, false))
+                .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators, elementType, true))
+                .addLessThanOperators(getLessThanOperatorInvokers(typeOperators, elementType, false))
+                .addLessThanOrEqualOperators(getLessThanOperatorInvokers(typeOperators, elementType, true))
                 .build();
     }
 
@@ -193,13 +194,30 @@ public class ArrayType
         return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(elementIndeterminateOperator)));
     }
 
-    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(BiFunction<Type, InvocationConvention, MethodHandle> comparisonOperatorFactory, Type elementType)
+    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(TypeOperators typeOperators, Type elementType, boolean nullsFirst)
     {
         if (!elementType.isOrderable()) {
             return emptyList();
         }
-        MethodHandle elementComparisonOperator = comparisonOperatorFactory.apply(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
-        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(elementComparisonOperator)));
+        InvocationConvention elementConvention = simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL);
+        // compare non-null elements with the same null ordering, so nested nulls are ordered consistently
+        MethodHandle elementComparison = nullsFirst
+                ? typeOperators.getComparisonUnorderedFirstOperator(elementType, elementConvention)
+                : typeOperators.getComparisonUnorderedLastOperator(elementType, elementConvention);
+        MethodHandle comparison = insertArguments(COMPARISON, 0, nullsFirst, elementComparison);
+        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
+    }
+
+    private static List<OperatorMethodHandle> getLessThanOperatorInvokers(TypeOperators typeOperators, Type elementType, boolean orEqual)
+    {
+        if (!elementType.isOrderable()) {
+            return emptyList();
+        }
+        InvocationConvention elementConvention = simpleConvention(NULLABLE_RETURN, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL);
+        MethodHandle elementEqual = typeOperators.getEqualOperator(elementType, elementConvention);
+        MethodHandle elementLessThan = typeOperators.getLessThanOperator(elementType, elementConvention);
+        MethodHandle lessThan = insertArguments(LESS_THAN, 0, orEqual, elementEqual, elementLessThan);
+        return singletonList(new OperatorMethodHandle(LESS_THAN_CONVENTION, lessThan));
     }
 
     public Type getElementType()
@@ -633,19 +651,26 @@ public class ArrayType
         throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
     }
 
-    private static long comparisonOperator(MethodHandle comparisonOperator, Block leftArray, Block rightArray)
+    private static long comparisonOperator(boolean nullsFirst, MethodHandle comparisonOperator, Block leftArray, Block rightArray)
             throws Throwable
     {
         ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
         ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
 
-        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
-        for (int position = 0; position < len; position++) {
-            checkElementNotNull(leftArray.isNull(position), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(position), ARRAY_NULL_ELEMENT_MSG);
-
+        int length = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
+        for (int position = 0; position < length; position++) {
             int leftIndex = leftArray.getUnderlyingValuePosition(position);
             int rightIndex = rightArray.getUnderlyingValuePosition(position);
+
+            boolean leftIsNull = leftValues.isNull(leftIndex);
+            boolean rightIsNull = rightValues.isNull(rightIndex);
+            if (leftIsNull || rightIsNull) {
+                long nullComparison = compareNullElements(nullsFirst, leftIsNull, rightIsNull);
+                if (nullComparison != 0) {
+                    return nullComparison;
+                }
+                continue;
+            }
 
             long result = (long) comparisonOperator.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
             if (result != 0) {
@@ -654,5 +679,53 @@ public class ArrayType
         }
 
         return Integer.compare(leftArray.getPositionCount(), rightArray.getPositionCount());
+    }
+
+    /// Total ordering for an element where at least one side is null. Nulls sort first when
+    /// `nullsFirst` is set (`COMPARISON_UNORDERED_FIRST`) and last otherwise
+    /// (`COMPARISON_UNORDERED_LAST`); two nulls compare equal.
+    private static long compareNullElements(boolean nullsFirst, boolean leftIsNull, boolean rightIsNull)
+    {
+        if (leftIsNull && rightIsNull) {
+            return 0;
+        }
+        if (leftIsNull) {
+            return nullsFirst ? -1 : 1;
+        }
+        return nullsFirst ? 1 : -1;
+    }
+
+    private static Boolean lessThanOperator(boolean orEqual, MethodHandle elementEqual, MethodHandle elementLessThan, Block leftArray, Block rightArray)
+            throws Throwable
+    {
+        ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
+        ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
+
+        int length = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
+        for (int position = 0; position < length; position++) {
+            int leftIndex = leftArray.getUnderlyingValuePosition(position);
+            int rightIndex = rightArray.getUnderlyingValuePosition(position);
+
+            if (leftValues.isNull(leftIndex) || rightValues.isNull(rightIndex)) {
+                // a null element is the deciding one, so the result is unknown
+                return null;
+            }
+
+            Boolean elementsEqual = (Boolean) elementEqual.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
+            if (elementsEqual == null) {
+                return null;
+            }
+            if (!elementsEqual) {
+                // the first unequal element decides the result, which is itself unknown if that element's comparison is
+                return (Boolean) elementLessThan.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
+            }
+        }
+
+        // the common prefix is equal: the shorter array sorts first
+        int lengthComparison = Integer.compare(leftArray.getPositionCount(), rightArray.getPositionCount());
+        if (lengthComparison == 0) {
+            return orEqual;
+        }
+        return lengthComparison < 0;
     }
 }

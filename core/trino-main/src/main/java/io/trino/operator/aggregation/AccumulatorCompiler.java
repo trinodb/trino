@@ -333,7 +333,7 @@ public final class AccumulatorCompiler
 
         try {
             var constructor = windowAccumulator.getConstructor();
-            return lambdaProviders -> {
+            return _ -> {
                 try {
                     return constructor.newInstance();
                 }

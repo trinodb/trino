@@ -15,7 +15,7 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [c_current_hdemo_sk])
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (c_current_addr_sk::EQUAL, c_current_hdemo_sk::EQUAL)
+                                                    dynamic filter (c_current_hdemo_sk::EQUAL, c_current_addr_sk::EQUAL)
                                                         scan customer
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

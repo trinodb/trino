@@ -39,8 +39,7 @@ public class HiveInsertTableHandle
             @JsonProperty("transaction") AcidTransaction transaction,
             @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
-        super(
-                schemaName,
+        super(schemaName,
                 tableName,
                 inputColumns,
                 pageSinkMetadata,

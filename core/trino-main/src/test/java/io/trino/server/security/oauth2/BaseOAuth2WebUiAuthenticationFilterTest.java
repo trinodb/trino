@@ -30,6 +30,7 @@ import io.trino.server.security.jwt.JwkSigningKeyLocator;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
+import io.trino.spi.NodeVersion;
 import okhttp3.Cookie;
 import okhttp3.CookieJar;
 import okhttp3.HttpUrl;
@@ -79,6 +80,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 {
+    private static final NodeVersion TEST_VERSION = new NodeVersion("test-version");
+
     protected static final Duration TTL_ACCESS_TOKEN_IN_SECONDS = Duration.ofSeconds(5);
 
     protected static final String TRINO_CLIENT_ID = "trino-client";
@@ -376,7 +379,8 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
             return newJwtParserBuilder()
                     .keyLocator(new JwkSigningKeyLocator(new JwkService(
                             URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
-                            httpClient)))
+                            httpClient,
+                            TEST_VERSION)))
                     .build()
                     .parseSignedClaims(claimsJws);
         }

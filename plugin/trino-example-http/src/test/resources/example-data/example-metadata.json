@@ -75,7 +75,7 @@
                 },
                 {
                     "name": "linenumber",
-                    "type": "INTEGER"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "quantity",

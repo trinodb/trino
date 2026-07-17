@@ -25,7 +25,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class FeatureVector
 {
-    //TODO replace this with a more efficient data structure
+    // TODO replace this with a more efficient data structure
     private final SortedMap<Integer, Double> features;
 
     @VisibleForTesting

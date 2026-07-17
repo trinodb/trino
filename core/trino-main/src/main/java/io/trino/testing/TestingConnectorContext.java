@@ -16,11 +16,13 @@ package io.trino.testing;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.metadata.InternalFunctionBundleFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
@@ -28,6 +30,7 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.function.FunctionBundleFactory;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.util.EmbedVersion;
@@ -42,7 +45,8 @@ public final class TestingConnectorContext
     private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder = new EmbedVersion(NodeVersion.UNKNOWN);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())));
+    private final FlatHashStrategyCompiler flatHashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()));
+    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(flatHashStrategyCompiler);
 
     public TestingConnectorContext()
     {
@@ -100,5 +104,17 @@ public final class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public FunctionBundleFactory getFunctionBundleFactory()
+    {
+        return new InternalFunctionBundleFactory();
+    }
+
+    @Override
+    public BlocksHashFactory getBlocksHashFactory()
+    {
+        return flatHashStrategyCompiler.createBlocksHashFactory();
     }
 }

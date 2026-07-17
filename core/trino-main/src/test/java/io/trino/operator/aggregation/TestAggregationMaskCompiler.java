@@ -28,6 +28,8 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -222,7 +224,7 @@ public class TestAggregationMaskCompiler
         int positionCount = nulls.length;
         byte[] mask = new byte[positionCount];
         Arrays.fill(mask, (byte) 1);
-        return new ByteArrayBlock(positionCount, Optional.of(nulls), mask);
+        return new ByteArrayBlock(positionCount, Optional.of(toValidity(nulls)), mask);
     }
 
     private static Block createMaskBlockNullsRle(int positionCount, boolean nullValue)
@@ -230,14 +232,25 @@ public class TestAggregationMaskCompiler
         return RunLengthEncodedBlock.create(createMaskBlockNulls(new boolean[] {nullValue}), positionCount);
     }
 
+    private static long[] toValidity(boolean[] isNull)
+    {
+        long[] validity = new long[wordsForBits(isNull.length)];
+        for (int position = 0; position < isNull.length; position++) {
+            if (!isNull[position]) {
+                set(validity, 0, position);
+            }
+        }
+        return validity;
+    }
+
     private static Page buildSingleColumnPage(int positionCount)
     {
         boolean[] ignoredColumnNulls = new boolean[positionCount];
         Arrays.fill(ignoredColumnNulls, true);
         return new Page(
-                new ShortArrayBlock(positionCount, Optional.of(ignoredColumnNulls), new short[positionCount]),
+                new ShortArrayBlock(positionCount, Optional.of(toValidity(ignoredColumnNulls)), new short[positionCount]),
                 // provide a null array to ensure the generated code for null checks does not fail
-                new IntArrayBlock(positionCount, Optional.of(new boolean[positionCount]), new int[positionCount]));
+                new IntArrayBlock(positionCount, Optional.of(toValidity(new boolean[positionCount])), new int[positionCount]));
     }
 
     private static Page buildSingleColumnPage(boolean[] nulls)
@@ -246,17 +259,17 @@ public class TestAggregationMaskCompiler
         boolean[] ignoredColumnNulls = new boolean[positionCount];
         Arrays.fill(ignoredColumnNulls, true);
         return new Page(
-                new ShortArrayBlock(positionCount, Optional.of(ignoredColumnNulls), new short[positionCount]),
-                new IntArrayBlock(positionCount, Optional.of(nulls), new int[positionCount]));
+                new ShortArrayBlock(positionCount, Optional.of(toValidity(ignoredColumnNulls)), new short[positionCount]),
+                new IntArrayBlock(positionCount, Optional.of(toValidity(nulls)), new int[positionCount]));
     }
 
     private static Page buildSingleColumnPageRle(int positionCount, Optional<Boolean> nullValue)
     {
-        Optional<boolean[]> nulls = nullValue.map(value -> new boolean[] {value});
+        Optional<long[]> nulls = nullValue.map(value -> toValidity(new boolean[] {value}));
         boolean[] ignoredColumnNulls = new boolean[positionCount];
         Arrays.fill(ignoredColumnNulls, true);
         return new Page(
-                new ShortArrayBlock(positionCount, Optional.of(ignoredColumnNulls), new short[positionCount]),
+                new ShortArrayBlock(positionCount, Optional.of(toValidity(ignoredColumnNulls)), new short[positionCount]),
                 RunLengthEncodedBlock.create(new IntArrayBlock(1, nulls, new int[positionCount]), positionCount));
     }
 

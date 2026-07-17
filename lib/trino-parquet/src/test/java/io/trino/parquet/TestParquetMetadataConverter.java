@@ -14,13 +14,23 @@
 package io.trino.parquet;
 
 import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.format.LogicalType;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
+import static io.trino.parquet.ParquetMetadataConverter.convertToLogicalType;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
+import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
+import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
 import static io.trino.parquet.ParquetMetadataConverter.toParquetStatistics;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DEFAULT_ALGO;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.geographyType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.geometryType;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestParquetMetadataConverter
@@ -161,5 +171,103 @@ class TestParquetMetadataConverter
         // Max should be omitted (all-0xFF cannot be truncated)
         assertThat(formatStats.isSetMax()).isFalse();
         assertThat(formatStats.isSetMax_value()).isFalse();
+    }
+
+    @Test
+    void testGeometryLogicalTypeRoundTrip()
+    {
+        LogicalType logicalType = convertToLogicalType(geometryType("EPSG:3857"));
+
+        assertThat(logicalType.getGEOMETRY().getCrs()).isEqualTo("EPSG:3857");
+        assertThat(getLogicalTypeAnnotation(logicalType)).isEqualTo(geometryType("EPSG:3857"));
+    }
+
+    @Test
+    void testGeographyLogicalTypeRoundTrip()
+    {
+        LogicalType logicalType = convertToLogicalType(geographyType());
+
+        assertThat(logicalType.getGEOGRAPHY().getCrs()).isEqualTo("OGC:CRS84");
+        assertThat(logicalType.getGEOGRAPHY().getAlgorithm().name()).isEqualTo("SPHERICAL");
+        assertThat(getLogicalTypeAnnotation(logicalType)).isEqualTo(geographyType("OGC:CRS84", DEFAULT_ALGO));
+    }
+
+    @Test
+    void testGeometryStatisticsAreOmitted()
+    {
+        PrimitiveType type = Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                .as(geometryType("EPSG:3857"))
+                .named("geom");
+
+        assertThat(isMinMaxStatsSupported(type)).isFalse();
+
+        org.apache.parquet.column.statistics.Statistics<?> statistics = org.apache.parquet.column.statistics.Statistics.createStats(type);
+        statistics.updateStats(Binary.fromString("a"));
+        statistics.updateStats(Binary.fromString("z"));
+
+        Statistics parquetStatistics = toParquetStatistics(statistics, TRUNCATE_LENGTH);
+
+        assertNoMinMax(parquetStatistics);
+    }
+
+    @Test
+    void testGeographyStatisticsAreOmitted()
+    {
+        PrimitiveType type = Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                .as(geographyType("OGC:CRS84", DEFAULT_ALGO))
+                .named("geog");
+
+        assertThat(isMinMaxStatsSupported(type)).isFalse();
+
+        org.apache.parquet.column.statistics.Statistics<?> statistics = org.apache.parquet.column.statistics.Statistics.createStats(type);
+        statistics.updateStats(Binary.fromString("a"));
+        statistics.updateStats(Binary.fromString("z"));
+
+        Statistics parquetStatistics = toParquetStatistics(statistics, TRUNCATE_LENGTH);
+
+        assertNoMinMax(parquetStatistics);
+    }
+
+    @Test
+    void testGeospatialStatisticsOmitExactSingleValue()
+    {
+        PrimitiveType geometry = Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                .as(geometryType("EPSG:3857"))
+                .named("geom");
+        PrimitiveType geography = Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                .as(geographyType("OGC:CRS84", DEFAULT_ALGO))
+                .named("geog");
+
+        assertGeospatialStatisticsOmitExactSingleValue(geometry);
+        assertGeospatialStatisticsOmitExactSingleValue(geography);
+    }
+
+    private static void assertGeospatialStatisticsOmitExactSingleValue(PrimitiveType type)
+    {
+        Binary value = Binary.fromString("same");
+        org.apache.parquet.column.statistics.Statistics<?> statistics = org.apache.parquet.column.statistics.Statistics.createStats(type);
+        statistics.updateStats(value);
+        statistics.updateStats(value);
+
+        Statistics parquetStatistics = toParquetStatistics(statistics, TRUNCATE_LENGTH);
+
+        assertThat(parquetStatistics.isSetNull_count()).isTrue();
+        assertNoMinMax(parquetStatistics);
+
+        parquetStatistics.setMin_value(value.getBytes());
+        parquetStatistics.setMax_value(value.getBytes());
+        org.apache.parquet.column.statistics.Statistics<?> readStatistics = fromParquetStatistics(null, parquetStatistics, type);
+
+        assertThat(readStatistics.getNumNulls()).isEqualTo(0);
+        assertThat(readStatistics.getMinBytes()).isNull();
+        assertThat(readStatistics.getMaxBytes()).isNull();
+    }
+
+    private static void assertNoMinMax(Statistics statistics)
+    {
+        assertThat(statistics.isSetMin()).isFalse();
+        assertThat(statistics.isSetMax()).isFalse();
+        assertThat(statistics.isSetMin_value()).isFalse();
+        assertThat(statistics.isSetMax_value()).isFalse();
     }
 }

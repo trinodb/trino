@@ -107,7 +107,9 @@ public final class VariantDecoder
     }
 
     public sealed interface VariantLayout
-            permits PrimitiveLayout, ArrayLayout, ObjectLayout {}
+            permits ArrayLayout,
+                    ObjectLayout,
+                    PrimitiveLayout {}
 
     public enum PrimitiveLayout
             implements VariantLayout

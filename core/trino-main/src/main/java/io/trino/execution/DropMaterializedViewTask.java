@@ -65,13 +65,17 @@ public class DropMaterializedViewTask
                 throw semanticException(
                         GENERIC_USER_ERROR,
                         statement,
-                        "Materialized view '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", name, name);
+                        "Materialized view '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?",
+                        name,
+                        name);
             }
             if (metadata.getTableHandle(session, name).isPresent()) {
                 throw semanticException(
                         GENERIC_USER_ERROR,
                         statement,
-                        "Materialized view '%s' does not exist, but a table with that name exists. Did you mean DROP TABLE %s?", name, name);
+                        "Materialized view '%s' does not exist, but a table with that name exists. Did you mean DROP TABLE %s?",
+                        name,
+                        name);
             }
             if (!statement.isExists()) {
                 throw semanticException(GENERIC_USER_ERROR, statement, "Materialized view '%s' does not exist", name);

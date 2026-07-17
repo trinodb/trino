@@ -26,6 +26,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseHandlerUtils;
 import io.airlift.http.client.StringResponseHandler;
+import io.trino.spi.NodeVersion;
 import jakarta.ws.rs.core.UriBuilder;
 
 import java.io.IOException;
@@ -37,6 +38,7 @@ import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.GET;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.POST;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.PUT;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.USER_AGENT;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
@@ -48,11 +50,18 @@ public class NimbusAirliftHttpClient
         implements NimbusHttpClient
 {
     private final HttpClient httpClient;
+    private final String userAgent;
+
+    public NimbusAirliftHttpClient(HttpClient httpClient)
+    {
+        this(httpClient, new NodeVersion("unknown"));
+    }
 
     @Inject
-    public NimbusAirliftHttpClient(@ForOAuth2 HttpClient httpClient)
+    public NimbusAirliftHttpClient(@ForOAuth2 HttpClient httpClient, NodeVersion nodeVersion)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.userAgent = "Trino/" + requireNonNull(nodeVersion, "nodeVersion is null").version();
     }
 
     @Override
@@ -61,7 +70,10 @@ public class NimbusAirliftHttpClient
     {
         try {
             StringResponseHandler.StringResponse response = httpClient.execute(
-                    prepareGet().setUri(url.toURI()).build(),
+                    prepareGet()
+                            .setUri(url.toURI())
+                            .setHeader(USER_AGENT, userAgent)
+                            .build(),
                     createStringResponseHandler());
             return new Resource(response.getBody(), response.getHeader(CONTENT_TYPE).orElse(null));
         }

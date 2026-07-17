@@ -14,8 +14,8 @@
 package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
+import io.trino.plugin.elasticsearch.client.SearchDocument;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
@@ -25,9 +25,9 @@ public class ScoreColumnDecoder
         implements Decoder
 {
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(SearchDocument document, Supplier<Object> getter, BlockBuilder output)
     {
-        REAL.writeLong(output, Float.floatToRawIntBits(hit.getScore()));
+        REAL.writeLong(output, Float.floatToRawIntBits(document.score()));
     }
 
     public static class Descriptor

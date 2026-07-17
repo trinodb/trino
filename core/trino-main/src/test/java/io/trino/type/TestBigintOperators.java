@@ -31,7 +31,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -169,18 +169,18 @@ public class TestBigintOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "100000000037", "37"))
+        assertThat(assertions.operator(MODULO, "100000000037", "37"))
                 .isEqualTo(100000000037L % 37L);
 
-        assertThat(assertions.operator(MODULUS, "37", "100000000017"))
+        assertThat(assertions.operator(MODULO, "37", "100000000017"))
                 .isEqualTo(37 % 100000000017L);
 
-        assertThat(assertions.operator(MODULUS, "100000000017", "37"))
+        assertThat(assertions.operator(MODULO, "100000000017", "37"))
                 .isEqualTo(100000000017L % 37L);
 
-        assertThat(assertions.operator(MODULUS, "100000000017", "100000000017"))
+        assertThat(assertions.operator(MODULO, "100000000017", "100000000017"))
                 .isEqualTo(0L);
     }
 
@@ -208,6 +208,14 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(EQUAL, "100000000017", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "100000000017", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -248,6 +256,14 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(LESS_THAN, "100000000017", "100000000017"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "100000000017", "100000000017"))
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -264,6 +280,14 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "100000000017", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "100000000017", "100000000017"))
+                .neverFails();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -288,6 +312,11 @@ public class TestBigintOperators
                 .binding("a", "100000000017")
                 .binding("b", "100000000017"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -312,6 +341,11 @@ public class TestBigintOperators
                 .binding("a", "100000000017")
                 .binding("b", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -364,6 +398,12 @@ public class TestBigintOperators
                 .binding("low", "100000000017")
                 .binding("high", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "100000000017")
+                .binding("low", "100000000017")
+                .binding("high", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -406,6 +446,10 @@ public class TestBigintOperators
                 .evaluate())
                 .hasMessage("Value 100000000017 cannot be represented as varchar(2)")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertThat(assertions.expression("cast(a as varchar(50))")
+                .binding("a", "100000000017"))
+                .couldFail();
     }
 
     @Test
@@ -418,6 +462,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as double)")
                 .binding("a", "100000000017"))
                 .isEqualTo(100000000017.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -434,6 +482,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "BIGINT '0'"))
                 .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "BIGINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -450,6 +502,49 @@ public class TestBigintOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "BIGINT '0'"))
                 .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "BIGINT '0'"))
+                .neverFails();
+    }
+
+    @Test
+    public void testCastToInteger()
+    {
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "BIGINT '37'"))
+                .isEqualTo(37);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as integer)")
+                .binding("a", "BIGINT '" + Long.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for integer: 9223372036854775807");
+    }
+
+    @Test
+    public void testCastToSmallint()
+    {
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "BIGINT '37'"))
+                .isEqualTo((short) 37);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
+                .binding("a", "BIGINT '" + Long.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for smallint: 9223372036854775807");
+    }
+
+    @Test
+    public void testCastToTinyint()
+    {
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "BIGINT '37'"))
+                .isEqualTo((byte) 37);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "BIGINT '" + Long.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for tinyint: 9223372036854775807");
     }
 
     @Test
@@ -457,6 +552,7 @@ public class TestBigintOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "BIGINT '37'"))
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")
@@ -478,6 +574,10 @@ public class TestBigintOperators
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", "'100000000017'"))
                 .isEqualTo(100000000017L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "'100000000017'"))
+                .couldFail();
     }
 
     @Test
@@ -497,6 +597,9 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(IDENTICAL, "100000000037", "NULL"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "100000000037", "NULL"))
+                .neverFails();
     }
 
     @Test

@@ -101,7 +101,7 @@ public class HashAggregationOperator
                     false,
                     DataSize.of(0, MEGABYTE),
                     DataSize.of(0, MEGABYTE),
-                    (types, spillContext, memoryContext) -> {
+                    (_, _, _) -> {
                         throw new UnsupportedOperationException();
                     },
                     hashStrategyCompiler,

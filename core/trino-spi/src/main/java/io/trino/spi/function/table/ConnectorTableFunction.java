@@ -26,6 +26,11 @@ public interface ConnectorTableFunction
 
     String getName();
 
+    default String getDescription()
+    {
+        return "";
+    }
+
     List<ArgumentSpecification> getArguments();
 
     ReturnTypeSpecification getReturnTypeSpecification();

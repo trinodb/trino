@@ -138,8 +138,7 @@ public final class AddDynamicFilterSource
                                             context.getIdAllocator().getNextId(),
                                             getOnlyElement(filteringSource.getSources()),
                                             ImmutableMap.of(
-                                                    semiJoinNode.getDynamicFilterId().orElseThrow(),
-                                                    semiJoinNode.getFilteringSourceJoinSymbol())))))));
+                                                    semiJoinNode.getDynamicFilterId().orElseThrow(), semiJoinNode.getFilteringSourceJoinSymbol())))))));
         }
     }
 

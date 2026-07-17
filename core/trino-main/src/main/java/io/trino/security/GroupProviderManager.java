@@ -88,7 +88,9 @@ public class GroupProviderManager
 
         String groupProviderName = properties.remove(GROUP_PROVIDER_PROPERTY_NAME);
         checkArgument(!isNullOrEmpty(groupProviderName),
-                "Group provider configuration %s does not contain %s", groupProviderFile.getAbsoluteFile(), GROUP_PROVIDER_PROPERTY_NAME);
+                "Group provider configuration %s does not contain %s",
+                groupProviderFile.getAbsoluteFile(),
+                GROUP_PROVIDER_PROPERTY_NAME);
 
         String groupCase = properties.remove(GROUP_PROVIDER_PROPERTY_GROUP_CASE);
         if (groupCase != null) {
@@ -97,7 +99,8 @@ public class GroupProviderManager
                     .filter(groupCase::equalsIgnoreCase)
                     .map(Case::valueOf)
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(format("Group provider configuration %s does not contain valid %s. Expected one of: %s",
+                    .orElseThrow(() -> new IllegalArgumentException(format(
+                            "Group provider configuration %s does not contain valid %s. Expected one of: %s",
                             groupProviderFile.getAbsoluteFile(),
                             GROUP_PROVIDER_PROPERTY_GROUP_CASE,
                             stream(Case.values()).map(Case::toString).collect(joining(", ", "[", "]")))));

@@ -94,7 +94,7 @@ public class OrcOutputBuffer
         return switch (compression) {
             case NONE -> null;
             case SNAPPY -> SnappyCompressor.create();
-            case ZLIB -> new DeflateCompressor();
+            case ZLIB -> DeflateCompressor.create();
             case LZ4 -> Lz4Compressor.create();
             case ZSTD -> ZstdCompressor.create();
         };

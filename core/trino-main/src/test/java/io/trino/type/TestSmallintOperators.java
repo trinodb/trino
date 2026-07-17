@@ -33,7 +33,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -180,21 +180,21 @@ public class TestSmallintOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "SMALLINT '37'", "SMALLINT '37'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '37'", "SMALLINT '37'"))
                 .isEqualTo((short) 0);
 
-        assertThat(assertions.operator(MODULUS, "SMALLINT '37'", "SMALLINT '17'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '37'", "SMALLINT '17'"))
                 .isEqualTo((short) (37 % 17));
 
-        assertThat(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '37'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '17'", "SMALLINT '37'"))
                 .isEqualTo((short) (17 % 37));
 
-        assertThat(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '17'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) 0);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '0'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "SMALLINT '17'", "SMALLINT '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -229,6 +229,14 @@ public class TestSmallintOperators
 
         assertThat(assertions.operator(EQUAL, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "SMALLINT '17'")
+                .binding("b", "SMALLINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "SMALLINT '17'", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -269,6 +277,14 @@ public class TestSmallintOperators
 
         assertThat(assertions.operator(LESS_THAN, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "SMALLINT '17'")
+                .binding("b", "SMALLINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN, "SMALLINT '17'", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -285,6 +301,14 @@ public class TestSmallintOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "SMALLINT '17'")
+                .binding("b", "SMALLINT '17'"))
+                .neverFails();
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "SMALLINT '17'", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -397,6 +421,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo(17L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -409,6 +437,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as integer)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo(17);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -421,6 +453,11 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as tinyint)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo((byte) 17);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "SMALLINT '" + Short.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for tinyint: 32767");
     }
 
     @Test
@@ -464,6 +501,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as double)")
                 .binding("a", "SMALLINT '17'"))
                 .isEqualTo(17.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "SMALLINT '17'"))
+                .neverFails();
     }
 
     @Test
@@ -480,6 +521,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "SMALLINT '0'"))
                 .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "SMALLINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -496,6 +541,10 @@ public class TestSmallintOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "SMALLINT '0'"))
                 .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "SMALLINT '0'"))
+                .neverFails();
     }
 
     @Test
@@ -503,6 +552,7 @@ public class TestSmallintOperators
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "SMALLINT '37'"))
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")

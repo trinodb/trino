@@ -16,7 +16,7 @@ package io.trino.tests;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.AbstractLongType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 public final class BogusType
         extends AbstractLongType
@@ -26,7 +26,7 @@ public final class BogusType
 
     private BogusType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
     }
 
     @Override

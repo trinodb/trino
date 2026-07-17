@@ -47,6 +47,7 @@ import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -116,7 +117,7 @@ public class TestJoinEnumerator
     private Rule.Context createContext()
     {
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
         CachingStatsProvider statsProvider = new CachingStatsProvider(
                 planTester.getStatsCalculator(),
                 Optional.empty(),

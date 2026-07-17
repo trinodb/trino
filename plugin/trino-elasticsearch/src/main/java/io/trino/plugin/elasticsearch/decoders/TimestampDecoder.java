@@ -17,13 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.primitives.Longs;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
+import io.trino.plugin.elasticsearch.client.SearchDocument;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.common.document.DocumentField;
-import org.elasticsearch.search.SearchHit;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -47,16 +47,16 @@ public class TimestampDecoder
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(SearchDocument document, Supplier<Object> getter, BlockBuilder output)
     {
-        DocumentField documentField = hit.getFields().get(path);
+        List<Object> documentField = document.fields().get(path);
         Object value;
 
         if (documentField != null) {
-            if (documentField.getValues().size() > 1) {
-                throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
+            if (documentField.size() > 1) {
+                throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.size()));
             }
-            value = documentField.getValue();
+            value = documentField.getFirst();
         }
         else {
             value = getter.get();

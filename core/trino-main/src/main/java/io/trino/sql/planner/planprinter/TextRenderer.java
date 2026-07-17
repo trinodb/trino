@@ -142,7 +142,8 @@ public class TextRenderer
         double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / plan.getTotalCpuTime().get().toMillis();
         double blockedTimeFraction = 100.0d * nodeStats.getPlanNodeBlockedTime().toMillis() / plan.getTotalBlockedTime().get().toMillis();
 
-        output.append(format("CPU: %s (%s%%), Scheduled: %s (%s%%), Blocked: %s (%s%%)",
+        output.append(format(
+                "CPU: %s (%s%%), Scheduled: %s (%s%%), Blocked: %s (%s%%)",
                 nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(cpuTimeFraction),
                 nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
@@ -282,7 +283,8 @@ public class TextRenderer
     private String formatPlanNodeStatsAndCostSummary(PlanNodeStatsAndCostSummary stats)
     {
         requireNonNull(stats, "stats is null");
-        return format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+        return format(
+                "{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                 formatAsLong(stats.getOutputRowCount()),
                 formatAsDataSize(stats.getOutputSizeInBytes()),
                 formatAsCpuCost(stats.getCpuCost()),

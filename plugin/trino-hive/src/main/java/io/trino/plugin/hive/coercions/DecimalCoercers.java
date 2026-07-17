@@ -86,7 +86,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            long returnValue = shortToShortCast(fromType.getLong(block, position),
+            long returnValue = shortToShortCast(
+                    fromType.getLong(block, position),
                     fromType.getPrecision(),
                     fromType.getScale(),
                     toType.getPrecision(),
@@ -108,7 +109,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            Int128 coercedValue = shortToLongCast(fromType.getLong(block, position),
+            Int128 coercedValue = shortToLongCast(
+                    fromType.getLong(block, position),
                     fromType.getPrecision(),
                     fromType.getScale(),
                     toType.getPrecision(),
@@ -128,7 +130,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            long returnValue = longToShortCast((Int128) fromType.getObject(block, position),
+            long returnValue = longToShortCast(
+                    (Int128) fromType.getObject(block, position),
                     fromType.getPrecision(),
                     fromType.getScale(),
                     toType.getPrecision(),
@@ -148,7 +151,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            Int128 coercedValue = longToLongCast((Int128) fromType.getObject(block, position),
+            Int128 coercedValue = longToLongCast(
+                    (Int128) fromType.getObject(block, position),
                     fromType.getPrecision(),
                     fromType.getScale(),
                     toType.getPrecision(),
@@ -179,7 +183,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeDouble(blockBuilder,
+            toType.writeDouble(
+                    blockBuilder,
                     shortDecimalToDouble(fromType.getLong(block, position), rescale));
         }
     }
@@ -195,7 +200,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeDouble(blockBuilder,
+            toType.writeDouble(
+                    blockBuilder,
                     longDecimalToDouble((Int128) fromType.getObject(block, position), fromType.getScale()));
         }
     }
@@ -222,7 +228,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeLong(blockBuilder,
+            toType.writeLong(
+                    blockBuilder,
                     shortDecimalToReal(fromType.getLong(block, position), rescale));
         }
     }
@@ -238,7 +245,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeLong(blockBuilder,
+            toType.writeLong(
+                    blockBuilder,
                     longDecimalToReal((Int128) fromType.getObject(block, position), fromType.getScale()));
         }
     }
@@ -410,7 +418,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeLong(blockBuilder,
+            toType.writeLong(
+                    blockBuilder,
                     doubleToShortDecimal(fromType.getDouble(block, position), toType.getPrecision(), toType.getScale()));
         }
     }
@@ -426,7 +435,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeObject(blockBuilder,
+            toType.writeObject(
+                    blockBuilder,
                     doubleToLongDecimal(fromType.getDouble(block, position), toType.getPrecision(), toType.getScale()));
         }
     }
@@ -450,7 +460,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeLong(blockBuilder,
+            toType.writeLong(
+                    blockBuilder,
                     realToShortDecimal(fromType.getFloat(block, position), toType.getPrecision(), toType.getScale()));
         }
     }
@@ -466,7 +477,8 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeObject(blockBuilder,
+            toType.writeObject(
+                    blockBuilder,
                     realToLongDecimal(fromType.getFloat(block, position), toType.getPrecision(), toType.getScale()));
         }
     }

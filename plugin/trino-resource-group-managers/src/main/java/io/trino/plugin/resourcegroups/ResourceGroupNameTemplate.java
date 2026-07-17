@@ -40,7 +40,8 @@ public class ResourceGroupNameTemplate
         String nameNoVariables = VARIABLE_PATTERN.matcher(name).replaceAll("");
         checkArgument(
                 !(nameNoVariables.contains("{") || nameNoVariables.contains("}") || nameNoVariables.contains("$")),
-                "Invalid resource group name. '%s' contains extraneous '$', '{', or '}", name);
+                "Invalid resource group name. '%s' contains extraneous '$', '{', or '}",
+                name);
 
         ImmutableList.Builder<NameFragment> builder = ImmutableList.builder();
         Matcher matcher = VARIABLE_PATTERN.matcher(name);

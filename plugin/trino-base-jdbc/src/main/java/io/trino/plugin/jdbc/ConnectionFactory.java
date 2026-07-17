@@ -29,5 +29,6 @@ public interface ConnectionFactory
     @Override
     @PreDestroy
     default void close()
-            throws SQLException {}
+            throws SQLException
+    {}
 }

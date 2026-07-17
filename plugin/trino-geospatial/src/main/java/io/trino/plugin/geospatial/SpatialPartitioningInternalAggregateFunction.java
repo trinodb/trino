@@ -19,6 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Envelope;
@@ -75,6 +76,7 @@ public final class SpatialPartitioningInternalAggregateFunction
         state.setCount(state.getCount() + 1);
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.VARCHAR)
     public static void output(SpatialPartitioningState state, BlockBuilder out)
     {

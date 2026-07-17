@@ -87,7 +87,9 @@ public final class ScalarFromAnnotationsParser
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
         for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, ScalarFunction.class, ScalarOperator.class, SqlType.class)) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
-                    FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
+                    FUNCTION_IMPLEMENTATION_ERROR,
+                    "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator",
+                    method);
             for (ScalarHeader header : ScalarHeader.fromAnnotatedElement(method)) {
                 builder.add(new ScalarHeaderAndMethods(header, ImmutableList.of(method)));
             }
@@ -125,7 +127,10 @@ public final class ScalarFromAnnotationsParser
         Signature scalarSignature = implementations.getSignature();
 
         scalar.header().getOperatorType().ifPresent(operatorType ->
-                validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
+                validateOperator(
+                        operatorType,
+                        scalarSignature.getReturnType(),
+                        scalarSignature.getArgumentTypes()));
 
         return new ParametricScalar(scalarSignature, scalar.header(), implementations, deprecated);
     }

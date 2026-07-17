@@ -14,9 +14,9 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
@@ -30,8 +30,11 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -43,6 +46,7 @@ import org.openjdk.jmh.annotations.Warmup;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Random;
@@ -50,15 +54,15 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.TestingIr.between;
 import static java.lang.Math.toIntExact;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
@@ -72,6 +76,10 @@ public class BenchmarkColumnarFilter
     private static final Random RANDOM = new Random(5376453765L);
     private static final long CONSTANT = 8456;
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+    private static final String COL_0 = "$col_0";
+    private static final Map<Symbol, Integer> LAYOUT_BIGINT = ImmutableMap.of(new Symbol(BIGINT, COL_0), 0);
+    private static final Map<Symbol, Integer> LAYOUT_INTEGER = ImmutableMap.of(new Symbol(INTEGER, COL_0), 0);
+    private static final Map<Symbol, Integer> LAYOUT_SMALLINT = ImmutableMap.of(new Symbol(SMALLINT, COL_0), 0);
 
     private PageProcessor compiledProcessor;
     private final List<Page> inputPages = new ArrayList<>();
@@ -87,52 +95,42 @@ public class BenchmarkColumnarFilter
     {
         BETWEEN {
             @Override
-            RowExpression getExpression(Type type)
+            Expression getExpression(Type type)
             {
-                return new SpecialForm(
-                        SpecialForm.Form.BETWEEN,
-                        BOOLEAN,
-                        ImmutableList.of(field(0, type), constant(CONSTANT - 5, type), constant(CONSTANT + 5, type)),
-                        ImmutableList.of(FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type))));
+                return between(new Reference(type, COL_0),
+                        new Constant(type, CONSTANT - 5),
+                        new Constant(type, CONSTANT + 5));
             }
         },
         LESS_THAN {
             @Override
-            RowExpression getExpression(Type type)
+            Expression getExpression(Type type)
             {
                 return call(
                         FUNCTION_RESOLUTION.resolveOperator(OperatorType.LESS_THAN, ImmutableList.of(type, type)),
-                        constant(CONSTANT, type),
-                        field(0, type));
+                        new Constant(type, CONSTANT),
+                        new Reference(type, COL_0));
             }
         },
         IS_NULL {
             @Override
-            RowExpression getExpression(Type type)
+            Expression getExpression(Type type)
             {
-                return new SpecialForm(
-                        SpecialForm.Form.IS_NULL,
-                        BOOLEAN,
-                        ImmutableList.of(field(0, type)),
-                        ImmutableList.of());
+                return new IsNull(new Reference(type, COL_0));
             }
         },
         IS_NOT_NULL {
             @Override
-            RowExpression getExpression(Type type)
+            Expression getExpression(Type type)
             {
                 return call(
                         FUNCTION_RESOLUTION.resolveFunction("$not", fromTypes(BOOLEAN)),
-                        new SpecialForm(
-                                SpecialForm.Form.IS_NULL,
-                                BOOLEAN,
-                                ImmutableList.of(field(0, type)),
-                                ImmutableList.of()));
+                        new IsNull(new Reference(type, COL_0)));
             }
         }
         /**/;
 
-        abstract RowExpression getExpression(Type type);
+        abstract Expression getExpression(Type type);
     }
 
     @Setup
@@ -154,12 +152,20 @@ public class BenchmarkColumnarFilter
             case StandardTypes.SMALLINT -> SMALLINT;
             default -> throw new UnsupportedOperationException();
         };
+        Map<Symbol, Integer> layout = switch (dataType) {
+            case StandardTypes.BIGINT -> LAYOUT_BIGINT;
+            case StandardTypes.INTEGER -> LAYOUT_INTEGER;
+            case StandardTypes.SMALLINT -> LAYOUT_SMALLINT;
+            default -> throw new UnsupportedOperationException();
+        };
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         compiledProcessor = expressionCompiler.compilePageProcessor(
                         columnarEvaluationEnabled,
+                        true,
                         Optional.of(filterProvider.getExpression(type)),
                         Optional.empty(),
-                        ImmutableList.of(field(0, type)),
+                        ImmutableList.of(new Reference(type, COL_0)),
+                        layout,
                         Optional.empty(),
                         OptionalInt.empty())
                 .apply(DynamicFilter.EMPTY);
@@ -173,7 +179,6 @@ public class BenchmarkColumnarFilter
         for (Page inputPage : inputPages) {
             WorkProcessor<Page> workProcessor = compiledProcessor.createWorkProcessor(
                     null,
-                    new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
                     SourcePage.create(inputPage));
@@ -206,46 +211,40 @@ public class BenchmarkColumnarFilter
     private static Block createShortsBlock(int positionsCount, int nullsPercentage)
     {
         short[] values = new short[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = (short) RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new ShortArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new ShortArrayBlock(positionsCount, Optional.of(validity), values);
     }
 
     private static Block createIntsBlock(int positionsCount, int nullsPercentage)
     {
         int[] values = new int[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new IntArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new IntArrayBlock(positionsCount, Optional.of(validity), values);
     }
 
     private static Block createLongsBlock(int positionsCount, int nullsPercentage)
     {
         long[] values = new long[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        long[] validity = new long[wordsForBits(positionsCount)];
         for (int i = 0; i < positionsCount; i++) {
-            if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
-            }
-            else {
+            if (RANDOM.nextInt(100) >= nullsPercentage) {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
+                set(validity, 0, i);
             }
         }
-        return new LongArrayBlock(positionsCount, Optional.of(isNull), values);
+        return new LongArrayBlock(positionsCount, Optional.of(validity), values);
     }
 
     static {

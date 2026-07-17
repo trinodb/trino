@@ -27,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
+import static io.trino.filesystem.s3.S3Exceptions.handleS3Exception;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -117,7 +118,7 @@ final class S3Input
             throw new FileNotFoundException(location.toString());
         }
         catch (SdkException e) {
-            throw new IOException("Failed to open S3 file: " + location, e);
+            throw handleS3Exception(e, "Failed to open S3 file: " + location);
         }
     }
 }

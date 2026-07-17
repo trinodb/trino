@@ -305,7 +305,7 @@ public class PathTreeBuilder
             case "-" -> Operator.SUBTRACT;
             case "*" -> Operator.MULTIPLY;
             case "/" -> Operator.DIVIDE;
-            case "%" -> Operator.MODULUS;
+            case "%" -> Operator.MODULO;
             default -> throw new UnsupportedOperationException("unexpected binary operator: " + operator);
         };
     }

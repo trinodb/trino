@@ -59,7 +59,8 @@ public class SimpleHttpResponseHandler<T>
                         cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
                     }
                     else {
-                        cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s%n%s",
+                        cause = new TrinoException(REMOTE_TASK_ERROR, format(
+                                "Expected response code from %s to be %s, but was %s%n%s",
                                 uri,
                                 HttpStatus.OK.code(),
                                 response.getStatusCode(),

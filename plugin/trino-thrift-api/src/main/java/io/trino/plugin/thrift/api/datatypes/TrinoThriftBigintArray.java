@@ -37,6 +37,7 @@ import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.bigintArrayData;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.calculateOffsets;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.sameSizeIfPresent;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.toValidityBitmap;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.totalSize;
 import static io.trino.spi.type.BigintType.BIGINT;
 
@@ -93,11 +94,12 @@ public final class TrinoThriftBigintArray
     public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(desiredType instanceof ArrayType arrayType && BIGINT.equals(arrayType.getElementType()),
-                "type doesn't match: %s", desiredType);
+                "type doesn't match: %s",
+                desiredType);
         int numberOfRecords = numberOfRecords();
         return ArrayBlock.fromElementBlock(
                 numberOfRecords,
-                Optional.of(nulls == null ? new boolean[numberOfRecords] : nulls),
+                toValidityBitmap(nulls),
                 calculateOffsets(sizes, nulls, numberOfRecords),
                 values != null ? values.toBlock(BIGINT) : new LongArrayBlock(0, Optional.empty(), new long[] {}));
     }
@@ -170,11 +172,11 @@ public final class TrinoThriftBigintArray
                 if (sizes == null) {
                     sizes = new int[positions];
                 }
-                sizes[position] = arrayBlock.apply((valuesBlock, startPosition, length) -> length, position);
+                sizes[position] = arrayBlock.apply((_, _, length) -> length, position);
             }
         }
         TrinoThriftBigint values = arrayBlock
-                .apply((valuesBlock, startPosition, length) -> TrinoThriftBigint.fromBlock(valuesBlock), 0)
+                .apply((valuesBlock, _, _) -> TrinoThriftBigint.fromBlock(valuesBlock), 0)
                 .getBigintData();
         checkState(values != null, "values must be present");
         checkState(totalSize(nulls, sizes) == values.numberOfRecords(), "unexpected number of values");

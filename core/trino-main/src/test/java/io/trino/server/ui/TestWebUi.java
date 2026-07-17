@@ -21,6 +21,7 @@ import com.google.common.io.Resources;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import com.google.inject.Key;
+import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -104,10 +105,10 @@ import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.LEGACY_LOGIN_FORM;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.LEGACY_UI_LOGIN;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.LEGACY_UI_LOGOUT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_DISABLED;
 import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -285,15 +286,15 @@ public class TestWebUi
     private void testLoggedOut(URI baseUri)
             throws IOException
     {
-        assertRedirect(client, getUiLocation(baseUri), getLoginHtmlLocation(baseUri));
+        assertOk(client, getUiLocation(baseUri));
 
-        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, LOGIN_FORM, "/ui/query.html?abc123"), false);
+        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, LEGACY_LOGIN_FORM, "/ui/query.html?abc123"), false);
 
         assertResponseCode(client, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
 
-        assertOk(client, getValidAssetsLocation(baseUri));
+        assertOk(client, getValidLegacyAssetsLocation(baseUri));
 
-        assertOk(client, getValidVendorLocation(baseUri));
+        assertOk(client, getValidLegacyVendorLocation(baseUri));
     }
 
     private void testLogIn(URI baseUri, String username, String password, boolean sendPassword)
@@ -486,9 +487,11 @@ public class TestWebUi
 
         assertRedirect(client, getLogoutLocation(baseUri), getDisabledLocation(baseUri));
 
-        assertOk(client, getValidAssetsLocation(baseUri));
+        assertOk(client, getValidLegacyAssetsLocation(baseUri));
 
-        assertOk(client, getValidVendorLocation(baseUri));
+        assertOk(client, getValidLegacyVendorLocation(baseUri));
+
+        assertOk(client, getDisabledLocation(baseUri));
     }
 
     @Test
@@ -535,6 +538,72 @@ public class TestWebUi
         }
     }
 
+    @Test
+    public void testFixedAuthenticatorWithPreviewUiEnabled()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "fixed")
+                        .put("web-ui.user", "test-user")
+                        .put("web-ui.preview.enabled", "true")
+                        .put("web-ui.legacy.enabled", "true")
+                        .buildOrThrow())
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            assertOk(client, getUiLocation(httpServerInfo.getHttpUri()));
+            assertOk(client, getUiLocation(httpServerInfo.getHttpsUri()));
+            assertOk(client, getLegacyUiLocation(httpServerInfo.getHttpUri()));
+            assertOk(client, getLegacyUiLocation(httpServerInfo.getHttpsUri()));
+        }
+    }
+
+    @Test
+    public void testFixedAuthenticatorWithLegacyUiEnabled()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "fixed")
+                        .put("web-ui.user", "test-user")
+                        .put("web-ui.legacy.enabled", "true")
+                        .buildOrThrow())
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            assertOk(client, getUiLocation(httpServerInfo.getHttpUri()));
+            assertOk(client, getUiLocation(httpServerInfo.getHttpsUri()));
+            assertOk(client, getLegacyUiLocation(httpServerInfo.getHttpUri()));
+            assertOk(client, getLegacyUiLocation(httpServerInfo.getHttpsUri()));
+        }
+    }
+
+    @Test
+    public void testFixedAuthenticatorWithPreviewUiDisabled()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "fixed")
+                        .put("web-ui.user", "test-user")
+                        .put("web-ui.preview.enabled", "false")
+                        .buildOrThrow())
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            assertRedirect(client, getLocation(httpServerInfo.getHttpUri(), "/ui"), getLegacyUiLocation(httpServerInfo.getHttpUri()));
+            assertRedirect(client, getUiLocation(httpServerInfo.getHttpUri()), getLegacyUiLocation(httpServerInfo.getHttpUri()));
+            assertRedirect(client, getLocation(httpServerInfo.getHttpsUri(), "/ui"), getLegacyUiLocation(httpServerInfo.getHttpsUri()));
+            assertRedirect(client, getUiLocation(httpServerInfo.getHttpsUri()), getLegacyUiLocation(httpServerInfo.getHttpsUri()));
+            assertOk(client, getLegacyUiLocation(httpServerInfo.getHttpUri()));
+            assertOk(client, getLegacyUiLocation(httpServerInfo.getHttpsUri()));
+        }
+    }
+
     private void testFixedAuthenticator(URI baseUri)
             throws Exception
     {
@@ -545,6 +614,8 @@ public class TestWebUi
         assertResponseCode(client, getLocation(baseUri, "/ui/unknown"), SC_NOT_FOUND);
 
         assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
+
+        assertResponseCode(client, getLegacyUiLocation(baseUri), SC_NOT_FOUND);
     }
 
     @Test
@@ -608,7 +679,7 @@ public class TestWebUi
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -644,7 +715,7 @@ public class TestWebUi
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -1032,7 +1103,7 @@ public class TestWebUi
         Request request = new Request.Builder()
                 .url(url)
                 .build();
-        if (url.endsWith(UI_LOGIN)) {
+        if (url.endsWith(LEGACY_UI_LOGIN)) {
             RequestBody formBody = new FormBody.Builder()
                     .add("username", "test")
                     .add("password", "test")
@@ -1142,7 +1213,8 @@ public class TestWebUi
         return assertResponseCode(client, url, expectedCode, false);
     }
 
-    private static Optional<String> assertResponseCode(OkHttpClient client,
+    private static Optional<String> assertResponseCode(
+            OkHttpClient client,
             String url,
             int expectedCode,
             boolean postLogin)
@@ -1195,24 +1267,29 @@ public class TestWebUi
         return getLocation(baseUri, "/ui/");
     }
 
+    private static String getLegacyUiLocation(URI baseUri)
+    {
+        return getLocation(baseUri, "/ui/legacy/");
+    }
+
     private static String getLoginHtmlLocation(URI baseUri)
     {
-        return getLocation(baseUri, LOGIN_FORM);
+        return getLocation(baseUri, LEGACY_LOGIN_FORM);
     }
 
     private static String getLoginLocation(URI httpsUrl)
     {
-        return getLocation(httpsUrl, UI_LOGIN);
+        return getLocation(httpsUrl, LEGACY_UI_LOGIN);
     }
 
     private static String getLogoutLocation(URI baseUri)
     {
-        return getLocation(baseUri, UI_LOGOUT);
+        return getLocation(baseUri, LEGACY_UI_LOGOUT);
     }
 
     private static String getDisabledLocation(URI baseUri)
     {
-        return getLocation(baseUri, DISABLED_LOCATION);
+        return getLocation(baseUri, UI_DISABLED);
     }
 
     private static String getValidApiLocation(URI baseUri)
@@ -1220,14 +1297,14 @@ public class TestWebUi
         return getLocation(baseUri, "/ui/api/cluster");
     }
 
-    private static String getValidAssetsLocation(URI baseUri)
+    private static String getValidLegacyAssetsLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/assets/favicon.ico");
+        return getLocation(baseUri, "/ui/legacy/assets/favicon.ico");
     }
 
-    private static String getValidVendorLocation(URI baseUri)
+    private static String getValidLegacyVendorLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/vendor/bootstrap/css/bootstrap.css");
+        return getLocation(baseUri, "/ui/legacy/vendor/bootstrap/css/bootstrap.css");
     }
 
     private static String getLocation(URI baseUri, String path)
@@ -1244,8 +1321,8 @@ public class TestWebUi
             throws IOException
     {
         NodeInfo nodeInfo = new NodeInfo("test");
-        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+        HttpServerConfig config = new HttpServerConfig();
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
 
         return new TestingHttpServer("testing-jwk-server", httpServerInfo, nodeInfo, config, new JwkServlet());
     }
@@ -1374,12 +1451,12 @@ public class TestWebUi
         private static Claims createClaims()
         {
             return Jwts.claims()
-                .issuer(TOKEN_ISSUER)
-                .audience().add(OAUTH_CLIENT_ID)
-                .and()
-                .subject("test-user")
-                .expiration(Date.from(Instant.now().plus(Duration.ofMinutes(5))))
-                .build();
+                    .issuer(TOKEN_ISSUER)
+                    .audience().add(OAUTH_CLIENT_ID)
+                    .and()
+                    .subject("test-user")
+                    .expiration(Date.from(Instant.now().plus(Duration.ofMinutes(5))))
+                    .build();
         }
 
         public static String randomNonce()

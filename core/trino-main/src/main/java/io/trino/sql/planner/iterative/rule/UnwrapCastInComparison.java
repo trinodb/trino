@@ -34,13 +34,19 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IrExpressions.Between;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.TypeCoercion;
 
 import java.lang.invoke.MethodHandle;
@@ -49,6 +55,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneOffsetTransition;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -68,12 +75,18 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.between;
+import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchBetween;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
@@ -114,6 +127,24 @@ import static java.util.Objects.requireNonNull;
  * <pre>
  * CAST(x AS bigint) > bigint '10000000'
  * </pre>
+ * <p>
+ * The same unwrapping applies to a BETWEEN range, rewriting
+ *
+ * <pre>
+ * CAST(s AS T) BETWEEN t1 AND t2
+ * </pre>
+ * <p>
+ * into an inclusive range on s. For example, given ts::timestamp(6),
+ *
+ * <pre>
+ * CAST(ts AS date) BETWEEN date '2020-01-01' AND date '2020-01-02'
+ * </pre>
+ * <p>
+ * turns into
+ *
+ * <pre>
+ * ts BETWEEN timestamp '2020-01-01 00:00:00.000000' AND timestamp '2020-01-02 23:59:59.999999'
+ * </pre>
  */
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet
@@ -127,14 +158,16 @@ public class UnwrapCastInComparison
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, expression);
+        return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, context.getSymbolAllocator(), expression);
     }
 
-    public static Expression unwrapCasts(Session session,
+    public static Expression unwrapCasts(
+            Session session,
             PlannerContext plannerContext,
+            SymbolAllocator symbolAllocator,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session, symbolAllocator), expression);
     }
 
     private static class Visitor
@@ -142,51 +175,182 @@ public class UnwrapCastInComparison
     {
         private final PlannerContext plannerContext;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
         private final InterpretedFunctionInvoker functionInvoker;
         private final IrExpressionOptimizer optimizer;
 
-        public Visitor(PlannerContext plannerContext, Session session)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.optimizer = plannerContext.getExpressionOptimizer();
         }
 
         @Override
-        public Expression rewriteComparison(Comparison node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            Comparison expression = treeRewriter.defaultRewrite(node, null);
-            return unwrapCast(expression);
+            Call expression = treeRewriter.defaultRewrite(node, null);
+            if (!(matchComparison(expression) instanceof Comparison comparison)) {
+                return expression;
+            }
+            // The unwrap logic expects the cast on the left. Try the flipped form when the cast is on the right,
+            // but preserve the original comparison when it cannot be unwrapped.
+            if (comparison.right() instanceof Cast) {
+                return tryUnwrapCast(comparison.operator().flip(), comparison.right(), comparison.left())
+                        .orElse(expression);
+            }
+            return tryUnwrapCast(comparison.operator(), comparison.left(), comparison.right())
+                    .orElse(expression);
         }
 
-        private Expression unwrapCast(Comparison expression)
+        @Override
+        public Expression rewriteLet(Let node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            Let expression = treeRewriter.defaultRewrite(node, null);
+            // A BETWEEN over a non-trivial value binds it in a Let; unwrap a cast in that bound value here.
+            return unwrapCastInBetween(expression).orElse(expression);
+        }
+
+        private Optional<Expression> unwrapCastInBetween(Expression expression)
+        {
+            if (!(matchBetween(expression) instanceof Between range) || !(range.value() instanceof Cast cast)) {
+                return Optional.empty();
+            }
+
+            Expression source = cast.expression();
+            Type sourceType = source.type();
+            // Unwrap each half of the BETWEEN independently, as the lower and upper comparison against the cast.
+            Expression low = tryUnwrapCast(GREATER_THAN_OR_EQUAL, cast, range.min())
+                    .orElseGet(() -> comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, cast, range.min()));
+            Expression high = tryUnwrapCast(LESS_THAN_OR_EQUAL, cast, range.max())
+                    .orElseGet(() -> comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, cast, range.max()));
+
+            // Unwrapping can collapse a bound to a constant truth value when the literal falls outside the source
+            // type range: a never-satisfied bound empties the range, an always-satisfied bound drops out.
+            if (isNeverSatisfied(low, source) || isNeverSatisfied(high, source)) {
+                return Optional.of(falseIfNotNull(source));
+            }
+            boolean lowAlwaysHolds = trueIfNotNull(source).equals(low);
+            boolean highAlwaysHolds = trueIfNotNull(source).equals(high);
+            if (lowAlwaysHolds && highAlwaysHolds) {
+                return Optional.of(trueIfNotNull(source));
+            }
+            if (lowAlwaysHolds) {
+                return Optional.of(high);
+            }
+            if (highAlwaysHolds) {
+                return Optional.of(low);
+            }
+
+            // Each surviving bound must be a comparison of the source against a constant; otherwise leave the
+            // BETWEEN untouched.
+            Optional<ComparisonBound> lowBound = comparisonBound(low, source);
+            Optional<ComparisonBound> highBound = comparisonBound(high, source);
+            if (lowBound.isEmpty() || highBound.isEmpty()) {
+                return Optional.empty();
+            }
+            ComparisonBound normalizedLow = lowBound.orElseThrow();
+            ComparisonBound normalizedHigh = highBound.orElseThrow();
+
+            // Rebuild an inclusive BETWEEN when the two comparisons form a lower/upper pair whose strict ends have
+            // an inclusive neighbor; otherwise keep them as a conjunction.
+            Optional<Object> inclusiveLow = inclusiveLowBound(sourceType, normalizedLow);
+            Optional<Object> inclusiveHigh = inclusiveHighBound(sourceType, normalizedHigh);
+            if (inclusiveLow.isEmpty() || inclusiveHigh.isEmpty()) {
+                // The conjunction references the cast source in both halves; bind a non-trivial source once so it is
+                // evaluated a single time, and rebuild each comparison against the bound operand.
+                return Optional.of(bindSourceIfNecessary(source, operand -> and(
+                        comparison(plannerContext.getMetadata(), normalizedLow.operator(), operand, new Constant(sourceType, normalizedLow.value())),
+                        comparison(plannerContext.getMetadata(), normalizedHigh.operator(), operand, new Constant(sourceType, normalizedHigh.value())))));
+            }
+            if (compare(sourceType, inclusiveLow.get(), inclusiveHigh.get()) > 0) {
+                return Optional.of(falseIfNotNull(source));
+            }
+            return Optional.of(between(plannerContext.getMetadata(), symbolAllocator, source, new Constant(sourceType, inclusiveLow.get()), new Constant(sourceType, inclusiveHigh.get())));
+        }
+
+        private static boolean isNeverSatisfied(Expression bound, Expression source)
+        {
+            return FALSE.equals(bound) || falseIfNotNull(source).equals(bound);
+        }
+
+        // A comparison of the source against a non-null constant, with the source normalized to the left operand.
+        private record ComparisonBound(ComparisonOperator operator, Object value) {}
+
+        private static Optional<ComparisonBound> comparisonBound(Expression bound, Expression source)
+        {
+            if (!(matchComparison(bound) instanceof Comparison comparison)) {
+                return Optional.empty();
+            }
+            ComparisonOperator operator;
+            Expression other;
+            if (source.equals(comparison.left())) {
+                operator = comparison.operator();
+                other = comparison.right();
+            }
+            else if (source.equals(comparison.right())) {
+                // comparison() canonicalizes operand order, so an unwrapped `source >= x` surfaces as `x <= source`.
+                operator = comparison.operator().flip();
+                other = comparison.left();
+            }
+            else {
+                return Optional.empty();
+            }
+            if (other instanceof Constant(Type _, Object value) && value != null) {
+                return Optional.of(new ComparisonBound(operator, value));
+            }
+            return Optional.empty();
+        }
+
+        // The inclusive lower bound value, tightening a strict `>` to its next value; empty when the operator is not
+        // a lower bound or the next value does not exist.
+        private static Optional<Object> inclusiveLowBound(Type sourceType, ComparisonBound bound)
+        {
+            return switch (bound.operator()) {
+                case GREATER_THAN_OR_EQUAL -> Optional.of(bound.value());
+                case GREATER_THAN -> sourceType.getNextValue(bound.value());
+                default -> Optional.empty();
+            };
+        }
+
+        // The inclusive upper bound value, tightening a strict `<` to its previous value; empty when the operator is
+        // not an upper bound or the previous value does not exist.
+        private static Optional<Object> inclusiveHighBound(Type sourceType, ComparisonBound bound)
+        {
+            return switch (bound.operator()) {
+                case LESS_THAN_OR_EQUAL -> Optional.of(bound.value());
+                case LESS_THAN -> sourceType.getPreviousValue(bound.value());
+                default -> Optional.empty();
+            };
+        }
+
+        private Optional<Expression> tryUnwrapCast(ComparisonOperator operator, Expression originalLeft, Expression originalRight)
         {
             // Canonicalization is handled by CanonicalizeExpressionRewriter
-            if (!(expression.left() instanceof Cast cast)) {
-                return expression;
+            if (!(originalLeft instanceof Cast cast)) {
+                return Optional.empty();
             }
 
-            Expression right = optimizer.process(expression.right(), session, ImmutableMap.of()).orElse(expression.right());
-
-            Comparison.Operator operator = expression.operator();
+            Expression right = optimizer.process(originalRight, session, symbolAllocator, ImmutableMap.of()).orElse(originalRight);
 
             if (right instanceof Constant constant && constant.value() == null) {
-                return switch (operator) {
+                return Optional.of(switch (operator) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IDENTICAL -> new IsNull(cast);
-                };
+                });
             }
 
-            if (!(right instanceof Constant(Type type, Object rightValue))) {
-                return expression;
+            if (!(right instanceof Constant(Type _, Object rightValue))) {
+                return Optional.empty();
             }
 
             Type sourceType = cast.expression().type();
-            Type targetType = expression.right().type();
+            Type targetType = originalRight.type();
 
             if (sourceType instanceof TimestampType timestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast(timestampType, operator, cast.expression(), (long) rightValue).orElse(expression);
+                return unwrapTimestampToDateCast(timestampType, operator, cast.expression(), (long) rightValue);
             }
 
             if (targetType instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
@@ -194,30 +358,31 @@ public class UnwrapCastInComparison
                 rightValue = withTimeZone(timestampWithTimeZoneType, rightValue, session.getTimeZoneKey());
             }
 
+            if (sourceType instanceof CharType charType && targetType instanceof VarcharType varcharType) {
+                return unwrapCharToVarcharCast(charType, varcharType, operator, cast.expression(), (Slice) rightValue);
+            }
+
             if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
-                return expression;
+                return Optional.empty();
             }
 
             // Handle comparison against NaN.
             // It must be done before source type range bounds are compared to target value.
             if (isFloatingPointNaN(targetType, rightValue)) {
                 switch (operator) {
-                    case EQUAL:
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
-                        return falseIfNotNull(cast.expression());
-                    case NOT_EQUAL:
-                        return trueIfNotNull(cast.expression());
-                    case IDENTICAL:
+                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> {
+                        return Optional.of(falseIfNotNull(cast.expression()));
+                    }
+                    case NOT_EQUAL -> {
+                        return Optional.of(trueIfNotNull(cast.expression()));
+                    }
+                    case IDENTICAL -> {
                         if (!typeHasNaN(sourceType)) {
-                            return FALSE;
+                            return Optional.of(FALSE);
                         }
                         // NaN on the right of comparison will be cast to source type later
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                    }
+                    default -> throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
             }
 
@@ -239,23 +404,22 @@ public class UnwrapCastInComparison
                     int upperBoundComparison = compare(targetType, rightValue, maxInTargetType);
                     if (upperBoundComparison > 0) {
                         // larger than maximum representable value
-                        return switch (operator) {
+                        return Optional.of(switch (operator) {
                             case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> falseIfNotNull(cast.expression());
                             case NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case IDENTICAL -> FALSE;
-                        };
+                        });
                     }
 
                     if (upperBoundComparison == 0) {
                         // equal to max representable value
-                        return switch (operator) {
+                        return Optional.of(switch (operator) {
                             case GREATER_THAN -> falseIfNotNull(cast.expression());
-                            case GREATER_THAN_OR_EQUAL -> new Comparison(EQUAL, cast.expression(), new Constant(sourceType, max));
+                            case GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, max));
                             case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
-                            case LESS_THAN -> new Comparison(NOT_EQUAL, cast.expression(), new Constant(sourceType, max));
-                            case EQUAL, NOT_EQUAL, IDENTICAL ->
-                                    new Comparison(operator, cast.expression(), new Constant(sourceType, max));
-                        };
+                            case LESS_THAN -> comparison(plannerContext.getMetadata(), NOT_EQUAL, cast.expression(), new Constant(sourceType, max));
+                            case EQUAL, NOT_EQUAL, IDENTICAL -> comparison(plannerContext.getMetadata(), operator, cast.expression(), new Constant(sourceType, max));
+                        });
                     }
 
                     Object min = sourceRange.get().getMin();
@@ -264,23 +428,22 @@ public class UnwrapCastInComparison
                     int lowerBoundComparison = compare(targetType, rightValue, minInTargetType);
                     if (lowerBoundComparison < 0) {
                         // smaller than minimum representable value
-                        return switch (operator) {
+                        return Optional.of(switch (operator) {
                             case NOT_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> falseIfNotNull(cast.expression());
                             case IDENTICAL -> FALSE;
-                        };
+                        });
                     }
 
                     if (lowerBoundComparison == 0) {
                         // equal to min representable value
-                        return switch (operator) {
+                        return Optional.of(switch (operator) {
                             case LESS_THAN -> falseIfNotNull(cast.expression());
-                            case LESS_THAN_OR_EQUAL -> new Comparison(EQUAL, cast.expression(), new Constant(sourceType, min));
+                            case LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, min));
                             case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
-                            case GREATER_THAN -> new Comparison(NOT_EQUAL, cast.expression(), new Constant(sourceType, min));
-                            case EQUAL, NOT_EQUAL, IDENTICAL ->
-                                    new Comparison(operator, cast.expression(), new Constant(sourceType, min));
-                        };
+                            case GREATER_THAN -> comparison(plannerContext.getMetadata(), NOT_EQUAL, cast.expression(), new Constant(sourceType, min));
+                            case EQUAL, NOT_EQUAL, IDENTICAL -> comparison(plannerContext.getMetadata(), operator, cast.expression(), new Constant(sourceType, min));
+                        });
                     }
                 }
             }
@@ -291,7 +454,7 @@ public class UnwrapCastInComparison
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do
-                return expression;
+                return Optional.empty();
             }
 
             Object literalInSourceType;
@@ -305,7 +468,7 @@ public class UnwrapCastInComparison
                 //  3. out of range or otherwise unrepresentable value
                 // Since we can't distinguish between those cases, take the conservative option
                 // and bail out.
-                return expression;
+                return Optional.empty();
             }
 
             if (targetType.isOrderable()) {
@@ -315,44 +478,91 @@ public class UnwrapCastInComparison
 
                 if (literalVsRoundtripped > 0) {
                     // cast rounded down
-                    return switch (operator) {
+                    return Optional.of(switch (operator) {
                         case EQUAL -> falseIfNotNull(cast.expression());
                         case NOT_EQUAL -> trueIfNotNull(cast.expression());
                         case IDENTICAL -> FALSE;
                         case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                             if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
-                                yield new Comparison(EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
+                                yield comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                             }
-                            yield new Comparison(LESS_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
+                            yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                         }
-                        case GREATER_THAN, GREATER_THAN_OR_EQUAL ->
-                            // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
-                            // larger than the next value in the source type
-                                new Comparison(GREATER_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
-                    };
+                        // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
+                        // larger than the next value in the source type
+                        case GREATER_THAN, GREATER_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), GREATER_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
+                    });
                 }
 
                 if (literalVsRoundtripped < 0) {
                     // cast rounded up
-                    return switch (operator) {
+                    return Optional.of(switch (operator) {
                         case EQUAL -> falseIfNotNull(cast.expression());
                         case NOT_EQUAL -> trueIfNotNull(cast.expression());
                         case IDENTICAL -> FALSE;
-                        case LESS_THAN, LESS_THAN_OR_EQUAL ->
-                            // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
-                            // smaller than the next value in the source type
-                                new Comparison(LESS_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
+                        // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
+                        // smaller than the next value in the source type
+                        case LESS_THAN, LESS_THAN_OR_EQUAL -> comparison(plannerContext.getMetadata(), LESS_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL -> sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0 ?
-                                new Comparison(EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType)) :
-                                new Comparison(GREATER_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
-                    };
+                                comparison(plannerContext.getMetadata(), EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType)) :
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
+                    });
                 }
             }
 
-            return new Comparison(operator, cast.expression(), new Constant(sourceType, literalInSourceType));
+            return Optional.of(comparison(plannerContext.getMetadata(), operator, cast.expression(), new Constant(sourceType, literalInSourceType)));
         }
 
-        private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, Comparison.Operator operator, Expression timestampExpression, long date)
+        private Optional<Expression> unwrapCharToVarcharCast(CharType charType, VarcharType varcharType, ComparisonOperator operator, Expression charExpression, Slice value)
+        {
+            // CHAR -> VARCHAR trims trailing spaces, and CHAR comparison is PAD SPACE while VARCHAR comparison is
+            // NO PAD, so an ordering comparison does not translate to a CHAR comparison. Only the equality family is
+            // safe to unwrap; leave ordering comparisons as a residual filter.
+            if (operator != EQUAL && operator != NOT_EQUAL && operator != IDENTICAL) {
+                return Optional.empty();
+            }
+
+            // CHAR -> VARCHAR(y) with y shorter than the char length is not injective on the source: distinct char
+            // values that share their first y characters collapse to the same varchar, so a single char equality
+            // cannot represent the comparison. The implicit coercion is always CHAR(n) -> VARCHAR(n) (y == n), so this
+            // only guards explicit narrowing casts.
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() < charType.getLength()) {
+                return Optional.empty();
+            }
+
+            ResolvedFunction varcharToChar;
+            ResolvedFunction charToVarchar;
+            try {
+                varcharToChar = plannerContext.getMetadata().getCoercion(varcharType, charType);
+                charToVarchar = plannerContext.getMetadata().getCoercion(charType, varcharType);
+            }
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
+            }
+
+            Object literalInChar;
+            try {
+                literalInChar = coerce(value, varcharToChar);
+            }
+            catch (TrinoException e) {
+                return Optional.empty();
+            }
+
+            // The literal round-trips through char(n) unchanged exactly when it has no trailing spaces and fits in
+            // char(n). In that case CAST(c AS varchar) = v is equivalent to c = CAST(v AS char(n)); otherwise no char
+            // value's (trimmed) varchar form can equal the literal, so the equality is unsatisfiable.
+            if (value.equals(coerce(literalInChar, charToVarchar))) {
+                return Optional.of(comparison(plannerContext.getMetadata(), operator, charExpression, new Constant(charType, literalInChar)));
+            }
+            return Optional.of(switch (operator) {
+                case EQUAL -> falseIfNotNull(charExpression);
+                case NOT_EQUAL -> trueIfNotNull(charExpression);
+                case IDENTICAL -> FALSE;
+                default -> throw new IllegalStateException("Unexpected operator: " + operator);
+            });
+        }
+
+        private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, ComparisonOperator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
             try {
@@ -366,24 +576,40 @@ public class UnwrapCastInComparison
             Expression nextDateTimestamp = new Constant(sourceType, coerce(date + 1, targetToSource));
 
             return switch (operator) {
-                case EQUAL -> Optional.of(
-                        and(
-                                new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
-                                new Comparison(LESS_THAN, timestampExpression, nextDateTimestamp)));
-                case NOT_EQUAL -> Optional.of(
-                        or(
-                                new Comparison(LESS_THAN, timestampExpression, dateTimestamp),
-                                new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
-                case LESS_THAN -> Optional.of(new Comparison(LESS_THAN, timestampExpression, dateTimestamp));
-                case LESS_THAN_OR_EQUAL -> Optional.of(new Comparison(LESS_THAN, timestampExpression, nextDateTimestamp));
-                case GREATER_THAN -> Optional.of(new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
-                case GREATER_THAN_OR_EQUAL -> Optional.of(new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
-                case IDENTICAL -> Optional.of(
-                        and(
-                                not(plannerContext.getMetadata(), new IsNull(timestampExpression)),
-                                new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
-                                new Comparison(LESS_THAN, timestampExpression, nextDateTimestamp)));
+                case EQUAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
+                        and(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), LESS_THAN, operand, nextDateTimestamp))));
+                case NOT_EQUAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
+                        or(comparison(plannerContext.getMetadata(), LESS_THAN, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, nextDateTimestamp))));
+                case LESS_THAN -> Optional.of(comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, dateTimestamp));
+                case LESS_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), LESS_THAN, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN -> Optional.of(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN_OR_EQUAL -> Optional.of(comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
+                case IDENTICAL -> Optional.of(bindSourceIfNecessary(timestampExpression, operand ->
+                        and(not(plannerContext.getMetadata(), new IsNull(operand)),
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, operand, dateTimestamp),
+                                comparison(plannerContext.getMetadata(), LESS_THAN, operand, nextDateTimestamp))));
             };
+        }
+
+        private Expression bindSourceIfNecessary(Expression source, Function<Expression, Expression> body)
+        {
+            // A cast over a reference or constant is cheap and deterministic, and must stay inline so a later
+            // unwrap pass can reach the underlying column and push the predicate into the scan; bind anything
+            // else once so a non-trivial source is evaluated a single time.
+            if (isCastOverTrivial(source)) {
+                return body.apply(source);
+            }
+            return bindIfNecessary(symbolAllocator, "operand", source, body);
+        }
+
+        private static boolean isCastOverTrivial(Expression value)
+        {
+            return value instanceof Cast cast
+                    && (cast.expression() instanceof Reference
+                    || cast.expression() instanceof Constant
+                    || isCastOverTrivial(cast.expression()));
         }
 
         private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
@@ -452,7 +678,7 @@ public class UnwrapCastInComparison
                 return false;
             }
 
-            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(source, target);
+            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion()).canCoerce(source, target);
             if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
                 if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
                     // Truncation, not injective.

@@ -76,7 +76,7 @@ public class SuiteCompatibility
         try {
             String currentVersionString = TestingProperties.getProjectVersion();
             Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
-            checkState(matcher.matches());
+            checkState(matcher.matches(), "invalid current version: %s", currentVersionString);
             int currentVersion = parseInt(matcher.group(1));
             ImmutableList.Builder<TestedImage> testedTrinoVersions = ImmutableList.builder();
             int testVersion = currentVersion - 1; // always test last release version

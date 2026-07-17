@@ -123,7 +123,7 @@ public class BenchmarkPagesSort
                 ORDERING_COMPILER.compilePageWithPositionComparator(data.getSortTypes(), data.getSortChannels(), data.getSortOrders()),
                 data.getOutputChannels(),
                 data.getTypes(),
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 newSimpleAggregatedMemoryContext(),
                 new DriverYieldSignal());
@@ -220,7 +220,7 @@ public class BenchmarkPagesSort
         {
             AtomicInteger counter = new AtomicInteger(0);
             splitPages = ImmutableList.copyOf(pages.stream()
-                    .collect(Collectors.groupingBy(it -> counter.getAndIncrement() % numMergeSources))
+                    .collect(Collectors.groupingBy(_ -> counter.getAndIncrement() % numMergeSources))
                     .values());
         }
 

@@ -239,6 +239,10 @@ public class TestIpAddressOperators
                 .binding("a", "IPADDRESS '2001:db8::ff00:42:8329'"))
                 .hasType(VARBINARY)
                 .matches("X'20010DB8000000000000FF0000428329'");
+
+        assertThat(assertions.expression("cast(a as VARBINARY)")
+                .binding("a", "IPADDRESS '2001:db8::ff00:42:8329'"))
+                .neverFails();
     }
 
     @Test
@@ -261,6 +265,9 @@ public class TestIpAddressOperators
 
         assertThat(assertions.operator(EQUAL, "CAST('1.2.3.4' AS IPADDRESS)", "IPADDRESS '1.2.3.5'"))
                 .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "CAST('1.2.3.4' AS IPADDRESS)", "IPADDRESS '1.2.3.5'"))
+                .neverFails();
     }
 
     @Test

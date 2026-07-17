@@ -37,6 +37,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -95,7 +97,7 @@ public class UnnestOperator
     private static final int MAX_ROWS_PER_BLOCK = 1000;
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final List<Integer> replicateChannels;
     private final List<Type> replicateTypes;
     private final List<Integer> unnestChannels;
@@ -125,13 +127,13 @@ public class UnnestOperator
     public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalUserMemoryContext(UnnestOperator.class.getSimpleName());
+        this.memoryContext = operatorContext.newLocalUserMemoryContext(UnnestOperator.class.getSimpleName());
 
         this.replicateChannels = ImmutableList.copyOf(requireNonNull(replicateChannels, "replicateChannels is null"));
         this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
         checkArgument(replicateChannels.size() == replicateTypes.size(), "replicate channels or types has wrong size");
         this.replicatedBlockBuilders = replicateTypes.stream()
-                .map(type -> new ReplicatedBlockBuilder())
+                .map(_ -> new ReplicatedBlockBuilder())
                 .collect(toImmutableList());
 
         this.unnestChannels = ImmutableList.copyOf(requireNonNull(unnestChannels, "unnestChannels is null"));
@@ -182,7 +184,7 @@ public class UnnestOperator
         currentPage = page;
         currentPosition = 0;
         resetBlockBuilders();
-        systemMemoryContext.setBytes(getRetainedSizeInBytes());
+        memoryContext.setBytes(getRetainedSizeInBytes());
     }
 
     private void resetBlockBuilders()
@@ -313,22 +315,24 @@ public class UnnestOperator
     private static Block buildOrdinalityBlockWithNulls(int[] outputEntriesPerPosition, boolean[] ordinalityNull, int offset, int inputEntryCount, int outputEntryCount)
     {
         long[] values = new long[outputEntryCount];
-        boolean[] isNull = new boolean[outputEntryCount];
+        long[] validity = new long[wordsForBits(outputEntryCount)];
 
         int outputPosition = 0;
         for (int i = 0; i < inputEntryCount; i++) {
             if (ordinalityNull[offset + i]) {
-                isNull[outputPosition++] = true;
+                outputPosition++;
             }
             else {
                 int currentOutputEntries = outputEntriesPerPosition[offset + i];
                 for (int j = 1; j <= currentOutputEntries; j++) {
-                    values[outputPosition++] = j;
+                    values[outputPosition] = j;
+                    set(validity, 0, outputPosition);
+                    outputPosition++;
                 }
             }
         }
 
-        return new LongArrayBlock(outputEntryCount, Optional.of(isNull), values);
+        return new LongArrayBlock(outputEntryCount, Optional.of(validity), values);
     }
 
     private static Unnester createUnnester(Type nestedType)

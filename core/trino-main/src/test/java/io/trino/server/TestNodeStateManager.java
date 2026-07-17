@@ -141,7 +141,7 @@ class TestNodeStateManager
         nodeStateManager.transitionState(DRAINING);
         assertThat(nodeStateManager.getServerState()).isEqualTo(DRAINING);
 
-        //advance time to execute drain
+        // advance time to execute drain
         ticker.increment(1, SECONDS);
         executor.run();
         // 2 gracePeriods or more

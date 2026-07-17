@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.QueryId;
@@ -289,7 +290,7 @@ public class TestSpoolingExchangeOutputBuffer
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), directExecutor()),
                 SpoolingOutputBuffers.createInitial(TestingExchangeSinkInstanceHandle.INSTANCE, outputPartitionCount),
                 exchangeSink,
-                TestingLocalMemoryContext::new);
+                Lazy.from(TestingLocalMemoryContext::new));
     }
 
     private static void assertNotBlocked(ListenableFuture<Void> blocked)

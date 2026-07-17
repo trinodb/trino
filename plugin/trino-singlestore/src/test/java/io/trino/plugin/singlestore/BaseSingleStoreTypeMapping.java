@@ -556,8 +556,10 @@ public abstract class BaseSingleStoreTypeMapping
                 .addRoundTrip("text " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(65535), "CAST(" + sampleUnicodeLiteral + " AS varchar(65535))")
                 .addRoundTrip("mediumtext " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(16777215), "CAST(" + sampleUnicodeLiteral + " AS varchar(16777215))")
                 .addRoundTrip("longtext " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createUnboundedVarcharType(), "CAST(" + sampleUnicodeLiteral + " AS varchar)")
-                .addRoundTrip("varchar(" + sampleUnicodeLiteral.length() + ") " + CHARACTER_SET_UTF8, sampleUnicodeLiteral,
-                        createVarcharType(sampleUnicodeLiteral.length()), "CAST(" + sampleUnicodeLiteral + " AS varchar(" + sampleUnicodeLiteral.length() + "))")
+                .addRoundTrip("varchar(" + sampleUnicodeLiteral.length() + ") " + CHARACTER_SET_UTF8,
+                        sampleUnicodeLiteral,
+                        createVarcharType(sampleUnicodeLiteral.length()),
+                        "CAST(" + sampleUnicodeLiteral + " AS varchar(" + sampleUnicodeLiteral.length() + "))")
                 .addRoundTrip("varchar(32) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(32), "CAST(" + sampleUnicodeLiteral + " AS varchar(32))")
                 .addRoundTrip("varchar(20000) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(20000), "CAST(" + sampleUnicodeLiteral + " AS varchar(20000))")
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_varchar_unicode"));

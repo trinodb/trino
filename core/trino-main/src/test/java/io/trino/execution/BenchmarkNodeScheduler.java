@@ -26,6 +26,8 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.NodeSelector;
 import io.trino.execution.scheduler.NodeSelectorFactory;
+import io.trino.execution.scheduler.StableHostAddressProvider;
+import io.trino.execution.scheduler.StableHostAddressProviderConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
@@ -128,9 +130,11 @@ public class BenchmarkNodeScheduler
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"uniform",
+        @Param({
+                "uniform",
                 "benchmark",
-                "topology"})
+                "topology",
+        })
         private String policy = "uniform";
 
         private FinalizerService finalizerService = new FinalizerService();
@@ -194,16 +198,13 @@ public class BenchmarkNodeScheduler
         {
             InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
-            switch (policy) {
-                case "uniform":
-                    return new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap);
-                case "topology":
-                    return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig());
-                case "benchmark":
-                    return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig());
-                default:
-                    throw new IllegalStateException();
-            }
+            StableHostAddressProvider stableHostAddressProvider = new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig());
+            return switch (policy) {
+                case "uniform" -> new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, stableHostAddressProvider);
+                case "topology" -> new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig(), stableHostAddressProvider);
+                case "benchmark" -> new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig(), stableHostAddressProvider);
+                default -> throw new IllegalStateException();
+            };
         }
 
         public Map<InternalNode, MockRemoteTaskFactory.MockRemoteTask> getTaskMap()

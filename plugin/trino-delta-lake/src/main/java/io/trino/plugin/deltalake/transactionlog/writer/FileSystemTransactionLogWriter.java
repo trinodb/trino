@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.writer;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
@@ -49,14 +49,14 @@ public class FileSystemTransactionLogWriter
     private final TransactionLogSynchronizer logSynchronizer;
     private final ConnectorSession session;
     private final String tableLocation;
-    private final VendedCredentialsHandle credentialsHandle;
+    private final Optional<DeltaLakeTableCredentials> tableCredentials;
 
-    public FileSystemTransactionLogWriter(ConnectorSession session, TransactionLogSynchronizer logSynchronizer, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public FileSystemTransactionLogWriter(ConnectorSession session, TransactionLogSynchronizer logSynchronizer, String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         this.logSynchronizer = requireNonNull(logSynchronizer, "logSynchronizer is null");
         this.session = requireNonNull(session, "session is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-        this.credentialsHandle = requireNonNull(credentialsHandle, "credentialsHandle is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
     }
 
     @Override
@@ -130,7 +130,7 @@ public class FileSystemTransactionLogWriter
             }
 
             String clusterId = commitInfoEntry.get().getCommitInfo().clusterId();
-            logSynchronizer.write(session, credentialsHandle, clusterId, logEntry, bos.toByteArray());
+            logSynchronizer.write(session, tableCredentials, clusterId, logEntry, bos.toByteArray());
         }
     }
 

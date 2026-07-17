@@ -127,10 +127,12 @@ public class TestHdfsSyncPartitionMetadata
 
         String tableLocation = tableLocation(tableName);
         makeHdfsDirectory(tableLocation);
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(format(
+                "" +
                         "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
                         "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])",
-                tableName, tableLocation));
+                tableName,
+                tableLocation));
 
         onHive().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '10', '1'), (2048, '20', '11')");
         String unconventionalPartitionLocation = schemaLocation() + "/unconventionalpartition";
@@ -142,10 +144,12 @@ public class TestHdfsSyncPartitionMetadata
         // Dropping an external table will not drop its contents
         cleanup(tableName);
 
-        onTrino().executeQuery(format("" +
+        onTrino().executeQuery(format(
+                "" +
                         "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
                         "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])",
-                tableName, tableLocation));
+                tableName,
+                tableLocation));
 
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL')");
         assertPartitions(tableName, row("10", "1"), row("20", "11"));

@@ -162,10 +162,10 @@ public class ConfluentModule
         public void configure(Binder binder)
         {
             MapBinder<String, RowEncoderFactory> encoderFactoriesByName = encoderFactory(binder);
-            encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).toInstance((session, rowEncoderSpec) -> {
+            encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).toInstance((_, _) -> {
                 throw new TrinoException(NOT_SUPPORTED, "Insert not supported");
             });
-            encoderFactoriesByName.addBinding(ProtobufRowEncoder.NAME).toInstance((session, rowEncoderSpec) -> {
+            encoderFactoriesByName.addBinding(ProtobufRowEncoder.NAME).toInstance((_, _) -> {
                 throw new TrinoException(NOT_SUPPORTED, "Insert is not supported for schema registry based tables");
             });
             binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
