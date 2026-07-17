@@ -25,14 +25,12 @@ import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.bytes.BytesUtils;
-import org.apache.parquet.bytes.CapacityByteArrayOutputStream;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.values.dictionary.IntList;
 import org.apache.parquet.column.values.dictionary.IntList.IntIterator;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
-import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.io.ParquetEncodingException;
 
 import java.io.IOException;
@@ -57,7 +55,6 @@ public abstract class DictionaryValuesWriter
 
     /* max entries allowed for the dictionary will fail over to plain encoding if reached */
     private static final int MAX_DICTIONARY_ENTRIES = Integer.MAX_VALUE - 1;
-    private static final int MIN_INITIAL_SLAB_SIZE = 64;
 
     /* encoding to label the data page */
     private final Encoding encodingForDataPage;
@@ -158,13 +155,26 @@ public abstract class DictionaryValuesWriter
         int maxDicId = getDictionarySize() - 1;
         LOG.debug("max dic id %s", maxDicId);
         int bitWidth = BytesUtils.getWidthFromMaxInt(maxDicId);
-        int initialSlabSize = CapacityByteArrayOutputStream.initialSlabSizeHeuristic(MIN_INITIAL_SLAB_SIZE, maxDictionaryByteSize, 10);
 
-        RunLengthBitPackingHybridEncoder encoder = new RunLengthBitPackingHybridEncoder(bitWidth, initialSlabSize, maxDictionaryByteSize, new HeapByteBufferAllocator());
+        RunLengthBitPackingHybridEncoder encoder = new RunLengthBitPackingHybridEncoder(bitWidth, maxDictionaryByteSize);
         IntIterator iterator = encodedValues.iterator();
         try {
-            while (iterator.hasNext()) {
-                encoder.writeInt(iterator.next());
+            // collapse runs of the same id so the encoder skips per-value buffering
+            if (iterator.hasNext()) {
+                int runValue = iterator.next();
+                int runLength = 1;
+                while (iterator.hasNext()) {
+                    int value = iterator.next();
+                    if (value == runValue) {
+                        runLength++;
+                    }
+                    else {
+                        encoder.writeRepeatedInteger(runValue, runLength);
+                        runValue = value;
+                        runLength = 1;
+                    }
+                }
+                encoder.writeRepeatedInteger(runValue, runLength);
             }
             // encodes the bit width
             byte[] bytesHeader = new byte[] {(byte) bitWidth};
