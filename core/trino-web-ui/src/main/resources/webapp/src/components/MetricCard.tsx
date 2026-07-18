@@ -16,7 +16,6 @@ import { Card, CardActionArea, CardContent, Grid, Tooltip, Typography } from '@m
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { styled, useTheme } from '@mui/material/styles'
 import { lineClasses } from '@mui/x-charts/LineChart'
-import { chartsAxisHighlightClasses } from '@mui/x-charts/ChartsAxisHighlight'
 import type { Theme } from '@mui/material/styles'
 
 interface IMetricCardProps {
