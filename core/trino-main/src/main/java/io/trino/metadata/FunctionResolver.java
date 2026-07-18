@@ -103,6 +103,15 @@ public class FunctionResolver
 
     private boolean isFunctionKind(Session session, QualifiedName name, FunctionKind functionKind, AccessControl accessControl)
     {
+        // A name with more than three parts cannot resolve to a function, so it is not a function
+        // of any kind. This is a boolean probe (e.g. the aggregate/window pre-pass over every
+        // FunctionCall), so answer false rather than letting toPath throw "Invalid function name":
+        // an over-long name here is a JSON simplified-accessor item-method chain such as
+        // j.a.b.integer(), which the expression analyzer intercepts later. A genuinely invalid
+        // function call still fails, with the same message, at actual resolution.
+        if (name.getParts().size() > 3) {
+            return false;
+        }
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name, accessControl)) {
             Collection<CatalogFunctionMetadata> candidates = metadata.getFunctions(session, catalogSchemaFunctionName);
             if (!candidates.isEmpty()) {
