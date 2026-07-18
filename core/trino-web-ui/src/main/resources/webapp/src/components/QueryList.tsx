@@ -68,7 +68,7 @@ const SORT_TYPE = {
         }
         return (
             value +
-            (100 - (queryInfo.queryStats.processPercentage ?? 100)) * 1e12 +
+            (100 - (queryInfo.queryStats.progressPercentage ?? 100)) * 1e12 +
             Date.parse(queryInfo.queryStats.createTime)
         )
     },

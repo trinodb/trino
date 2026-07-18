@@ -111,6 +111,7 @@ const KpiRow = ({ label, value, isLast = false }: { label: string; value: string
 
 export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) => {
     const { stageStats } = stage
+    const theme = useTheme<Theme>()
 
     const [workerTaskPath, setWorkerTaskPath] = useState<WorkerTaskPath | null>(null)
     const [workerTaskJson, setWorkerTaskJson] = useState<string | null>(null)
@@ -236,7 +237,6 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
     )
 
     const renderHistogram = (tasks: QueryTask[], timeField: 'totalScheduledTime' | 'totalCpuTime') => {
-        const theme = useTheme<Theme>()
         const inputData = tasks.map((task) => parseDuration(task.stats[timeField]) || 0)
 
         const numBuckets = Math.min(175, Math.floor(Math.sqrt(inputData.length)))
@@ -276,7 +276,6 @@ export const QueryStageCard = ({ stage, taskRetriesEnabled }: IQueryStageCard) =
     }
 
     const renderTasksTimeBarChart = (tasks: QueryTask[], timeField: 'totalScheduledTime' | 'totalCpuTime') => {
-        const theme = useTheme<Theme>()
         const orderedTasks = tasks.slice().sort((a, b) => a.taskStatus.taskId.localeCompare(b.taskStatus.taskId))
 
         const xAxisData: string[] = orderedTasks.map((task) => `Task ${getTaskIdSuffix(task.taskStatus.taskId)}`)

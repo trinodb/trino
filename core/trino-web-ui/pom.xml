@@ -108,7 +108,7 @@
                         <goals>
                             <goal>bun</goal>
                         </goals>
-                        <phase>verify</phase>
+                        <phase>test</phase>
                         <configuration>
                             <arguments>run ${frontend.check.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp-legacy/src</workingDirectory>
@@ -120,7 +120,7 @@
                         <goals>
                             <goal>bun</goal>
                         </goals>
-                        <phase>verify</phase>
+                        <phase>test</phase>
                         <configuration>
                             <arguments>run ${frontend.check.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp</workingDirectory>
