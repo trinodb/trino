@@ -313,7 +313,12 @@ public final class DistributedQueryRunner
                 .put("exchange.http-client.min-threads", "1") // default 8
                 .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
-                .put("task.max-index-memory", "16kB"); // causes index joins to fault load
+                .put("task.max-index-memory", "16kB") // causes index joins to fault load
+                // Purge finished-task info quickly so per-task stats are not retained, preserving memory on CI.
+                // Must stay above task.info-update-interval so the coordinator can fetch a task's final
+                // TaskInfo (incl. SpoolingOutputStats needed by fault-tolerant execution) before it is evicted.
+                .put("task.info.max-age", "2s")
+                .put("task.info-update-interval", "1s");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
