@@ -43,10 +43,8 @@ import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -131,21 +129,8 @@ public class Console
             query += ";";
         }
 
-        List<String> fileQueries = new ArrayList<>();
-
-        if (isFromFiles) {
-            if (hasQuery) {
-                throw new RuntimeException("both --execute and --file specified");
-            }
-
-            for (String file : clientOptions.files) {
-                try {
-                    fileQueries.add(asCharSource(new File(file), UTF_8).read());
-                }
-                catch (IOException e) {
-                    throw new RuntimeException(format("Error reading from file '%s': %s", file, e.getMessage()));
-                }
-            }
+        if (isFromFiles && hasQuery) {
+            throw new RuntimeException("both --execute and --file specified");
         }
 
         // Read queries from stdin
@@ -187,13 +172,17 @@ public class Console
                 clientOptions.maxQueuedRows,
                 clientOptions.maxBufferedRows)) {
             // Run query from each file sequentially
-            if (!fileQueries.isEmpty()) {
+            if (isFromFiles) {
                 boolean overallSuccess = true;
-                for (int i = 0; i < fileQueries.size(); i++) {
-                    String fileName = clientOptions.files.get(i);
-                    String fileQuery = fileQueries.get(i);
+                for (String file : clientOptions.files) {
+                    String fileQuery;
+                    try {
+                        fileQuery = asCharSource(new File(file), UTF_8).read();
+                    }
+                    catch (IOException e) {
+                        throw new RuntimeException(format("Error reading from file '%s': %s", file, e.getMessage()));
+                    }
 
-                    System.err.println("Processing file: '" + fileName + "'");
                     boolean success = executeCommand(
                             queryRunner,
                             exiting,
