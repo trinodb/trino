@@ -35,6 +35,7 @@ import { Texts } from '../constant.ts'
 import { useSnackbar } from './SnackbarContext.ts'
 import { useEffect, useState } from 'react'
 import { addToHistory, formatCount, formatDataSize, MAX_HISTORY, precisionRound } from '../utils/utils.ts'
+import { WorkerThreadSnapshot } from './WorkerThreadSnapshot.tsx'
 
 interface IWorkerStatus {
     info: WorkerStatusInfo | null
@@ -61,7 +62,6 @@ export const WorkerStatus = () => {
     })
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string | null>(null)
-
     useEffect(() => {
         const runLoop = () => {
             getWorkerStatus()
@@ -407,6 +407,7 @@ export const WorkerStatus = () => {
                         </Grid>
                         <Grid size={{ sm: 12 }}>{renderPoolQueries(workerStatus.info.memoryInfo.pool)}</Grid>
                     </Grid>
+                    {nodeId && <WorkerThreadSnapshot nodeId={nodeId} />}
                 </>
             )}
         </>
