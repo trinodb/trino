@@ -43,10 +43,8 @@ import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -131,21 +129,8 @@ public class Console
             query += ";";
         }
 
-        List<String> fileQueries = new ArrayList<>();
-
-        if (isFromFiles) {
-            if (hasQuery) {
-                throw new RuntimeException("both --execute and --file specified");
-            }
-
-            for (String file : clientOptions.files) {
-                try {
-                    fileQueries.add(asCharSource(new File(file), UTF_8).read());
-                }
-                catch (IOException e) {
-                    throw new RuntimeException(format("Error reading from file '%s': %s", file, e.getMessage()));
-                }
-            }
+        if (isFromFiles && hasQuery) {
+            throw new RuntimeException("both --execute and --file specified");
         }
 
         // Read queries from stdin
@@ -187,11 +172,25 @@ public class Console
                 clientOptions.maxQueuedRows,
                 clientOptions.maxBufferedRows)) {
             // Run query from each file sequentially
-            if (!fileQueries.isEmpty()) {
+            if (isFromFiles) {
                 boolean overallSuccess = true;
-                for (String fileQuery : fileQueries) {
+                for (String file : clientOptions.files) {
                     if (exiting.get()) {
                         break;
+                    }
+
+                    String fileQuery;
+                    try {
+                        fileQuery = asCharSource(new File(file), UTF_8).read();
+                    }
+                    catch (IOException e) {
+                        String message = format("Error reading from file '%s': %s", file, e.getMessage());
+                        if (!clientOptions.ignoreErrors) {
+                            throw new RuntimeException(message, e);
+                        }
+                        System.err.println(message);
+                        overallSuccess = false;
+                        continue;
                     }
 
                     boolean success = executeCommand(
