@@ -13,10 +13,12 @@
  */
 import React, { useMemo } from 'react'
 import { Box, useTheme } from '@mui/material'
+import { SxProps, Theme } from '@mui/material/styles'
 
 export interface CodePreviewProps {
     code: string
     height?: string
+    sx?: SxProps<Theme>
 }
 
 // SQL keywords recognized by Trino — kept intentionally short for preview snippets.
@@ -186,7 +188,7 @@ const DARK_COLORS: Record<Token['type'], string> = {
 }
 
 export const CodePreview = React.memo(function CodePreview(props: CodePreviewProps) {
-    const { code, height } = props
+    const { code, height, sx } = props
     const theme = useTheme()
     const isDark = theme.palette.mode === 'dark'
     const colors = isDark ? DARK_COLORS : LIGHT_COLORS
@@ -218,6 +220,7 @@ export const CodePreview = React.memo(function CodePreview(props: CodePreviewPro
                 borderBottom: 'none',
                 backgroundColor: isDark ? '#1e1e1e' : '#fffffe',
                 color: isDark ? '#d4d4d4' : '#000000',
+                ...sx,
             }}
         >
             {highlighted}
