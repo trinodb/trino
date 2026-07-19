@@ -30,6 +30,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryStateMachine;
+import io.trino.execution.admission.ResourceAwareAdmissionController;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorFactory;
@@ -66,6 +67,7 @@ public class LocalDispatchQueryFactory
     private final LocationFactory locationFactory;
 
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final ResourceAwareAdmissionController admissionController;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
@@ -90,6 +92,7 @@ public class LocalDispatchQueryFactory
             WarningCollectorFactory warningCollectorFactory,
             ExchangeMetricsCollector exchangeMetricsCollector,
             ClusterSizeMonitor clusterSizeMonitor,
+            ResourceAwareAdmissionController admissionController,
             DispatchExecutor dispatchExecutor,
             FeaturesConfig featuresConfig,
             NodeVersion version)
@@ -105,6 +108,7 @@ public class LocalDispatchQueryFactory
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.admissionController = requireNonNull(admissionController, "admissionController is null");
         this.executor = dispatchExecutor.getExecutor();
         this.maxStateMachineThreadsPerQuery = queryManagerConfig.getMaxStateMachineCallbackThreads();
         this.queryReportedRuleStatsLimit = queryManagerConfig.getQueryReportedRuleStatsLimit();
@@ -186,6 +190,7 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 queryMonitor,
                 clusterSizeMonitor,
+                admissionController,
                 executor,
                 queryManager::createQuery);
     }
