@@ -22,7 +22,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.query.QueryExecutor.param;
@@ -41,6 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergRedirectionToHive
         extends ProductTest
 {
+    private static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
+
     @BeforeMethodWithContext
     public void createAdditionalSchema()
     {
