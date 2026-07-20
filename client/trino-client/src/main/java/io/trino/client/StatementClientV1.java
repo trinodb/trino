@@ -63,7 +63,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.client.TrinoJsonCodec.jsonCodec;
+import static io.trino.client.TrinoJsonCodec.singlePassQueryResultsCodec;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -77,9 +77,11 @@ class StatementClientV1
         implements StatementClient
 {
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
-    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = singlePassQueryResultsCodec(false);
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_VARIANT_BINARY_CODEC = singlePassQueryResultsCodec(true);
 
     private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
+    private final TrinoJsonCodec<QueryResults> queryResultsCodec;
     private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
@@ -138,9 +140,11 @@ class StatementClientV1
         this.compressionDisabled = session.isCompressionDisabled();
         this.heartbeatInterval = session.getHeartbeatInterval().toMillis() * 1_000_000;
 
+        boolean supportsVariantBinary = effectiveClientCapabilities.contains(ClientCapabilities.VARIANT_BINARY.toString());
+        this.queryResultsCodec = supportsVariantBinary ? QUERY_RESULTS_VARIANT_BINARY_CODEC : QUERY_RESULTS_CODEC;
         this.resultRowsDecoder = new ResultRowsDecoder(
                 new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")),
-                effectiveClientCapabilities.contains(ClientCapabilities.VARIANT_BINARY.toString()));
+                supportsVariantBinary);
 
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
@@ -496,7 +500,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request);
+                response = JsonResponse.execute(queryResultsCodec, httpCallFactory, request);
                 nextHeartbeat.set(System.nanoTime() + heartbeatInterval);
             }
             catch (RuntimeException e) {

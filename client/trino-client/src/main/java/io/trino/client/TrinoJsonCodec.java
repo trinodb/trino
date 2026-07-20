@@ -84,6 +84,13 @@ public class TrinoJsonCodec<T>
         return new TrinoJsonCodec<>(JSON_MAPPER_SUPPLIER.get(), type);
     }
 
+    static TrinoJsonCodec<QueryResults> singlePassQueryResultsCodec(boolean supportsVariantBinary)
+    {
+        JsonMapper mapper = JSON_MAPPER_SUPPLIER.get();
+        mapper.registerModule(new QueryDataJacksonModule(supportsVariantBinary));
+        return new TrinoJsonCodec<>(mapper, QueryResults.class);
+    }
+
     private final JsonMapper mapper;
     private final Type type;
     private final JavaType javaType;
