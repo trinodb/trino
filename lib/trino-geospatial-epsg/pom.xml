@@ -103,6 +103,7 @@
                             <mainClass>io.trino.geospatial.epsg.generator.GenerateEpsgCatalog</mainClass>
                             <arguments>
                                 <argument>${project.build.directory}/generated-resources/epsg</argument>
+                                <argument>${dep.sis.version}</argument>
                             </arguments>
                         </configuration>
                     </execution>
