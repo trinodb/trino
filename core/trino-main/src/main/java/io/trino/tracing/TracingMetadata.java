@@ -993,11 +993,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, SaveMode saveMode)
     {
         Span span = startSpan("createView", viewName);
         try (var _ = scopedSpan(span)) {
-            delegate.createView(session, viewName, definition, properties, replace);
+            delegate.createView(session, viewName, definition, properties, saveMode);
         }
     }
 

@@ -638,9 +638,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
-        hiveMetadata.createView(session, viewName, definition, viewProperties, replace);
+        hiveMetadata.createView(session, viewName, definition, viewProperties, saveMode);
     }
 
     @Override

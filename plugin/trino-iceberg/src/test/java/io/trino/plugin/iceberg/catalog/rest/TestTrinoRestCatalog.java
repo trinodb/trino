@@ -31,6 +31,7 @@ import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
@@ -325,7 +326,7 @@ public class TestTrinoRestCatalog
 
         catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
 
-        catalog.createView(SESSION, viewName, viewDefinition, ImmutableMap.of(), false);
+        catalog.createView(SESSION, viewName, viewDefinition, ImmutableMap.of(), SaveMode.FAIL);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), viewDefinition);
 
         View initialView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);
@@ -338,7 +339,7 @@ public class TestTrinoRestCatalog
                 new ViewColumn("name", VARCHAR.getTypeId(), Optional.empty()),
                 new ViewColumn("comment", VARCHAR.getTypeId(), Optional.empty()));
 
-        catalog.createView(SESSION, viewName, updatedViewDefinition, ImmutableMap.of(), true);
+        catalog.createView(SESSION, viewName, updatedViewDefinition, ImmutableMap.of(), SaveMode.REPLACE);
         assertViewDefinition(catalog.getView(SESSION, viewName).orElseThrow(), updatedViewDefinition);
 
         View updatedView = catalog.getIcebergView(SESSION, viewName, false).orElse(null);

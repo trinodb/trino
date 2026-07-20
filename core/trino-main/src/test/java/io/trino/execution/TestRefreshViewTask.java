@@ -98,7 +98,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
-                false);
+                FAIL);
 
         metadata.addColumn(
                 testSession,
@@ -141,7 +141,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
-                false);
+                FAIL);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
         metadata.dropColumn(
@@ -172,7 +172,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
-                false);
+                FAIL);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
         metadata.renameColumn(
@@ -204,7 +204,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
-                false);
+                FAIL);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
         metadata.setColumnType(
@@ -235,7 +235,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
-                false);
+                FAIL);
 
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).orElseThrow();
         metadata.dropTable(testSession, tableHandle, tableName.asCatalogSchemaTableName());
@@ -262,7 +262,7 @@ final class TestRefreshViewTask
                         Optional.empty(),
                         ImmutableList.of()),
                 ImmutableMap.of(),
-                false);
+                FAIL);
 
         assertThatThrownBy(() -> getFutureValue(
                 executeRefreshView(
@@ -289,7 +289,7 @@ final class TestRefreshViewTask
                         Optional.of(Identity.ofUser("owner")),
                         ImmutableList.of()),
                 ImmutableMap.of(),
-                false);
+                FAIL);
 
         assertThatThrownBy(() -> getFutureValue(
                 executeRefreshView(asQualifiedName(

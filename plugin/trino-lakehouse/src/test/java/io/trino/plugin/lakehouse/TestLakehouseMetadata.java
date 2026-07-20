@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SaveMode;
@@ -66,6 +67,7 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("denyTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class))
                     .add(ConnectorMetadata.class.getMethod("revokeTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
                     .add(ConnectorMetadata.class.getMethod("getMaterializedViewFreshness", ConnectorSession.class, SchemaTableName.class))
+                    .add(ConnectorMetadata.class.getMethod("createView", ConnectorSession.class, SchemaTableName.class, ConnectorViewDefinition.class, Map.class, boolean.class))
                     .build();
         }
         catch (NoSuchMethodException e) {

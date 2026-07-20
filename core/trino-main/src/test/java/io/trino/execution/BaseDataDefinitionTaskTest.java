@@ -622,9 +622,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
         {
-            checkArgument(replace || !views.containsKey(viewName.asSchemaTableName()));
+            checkArgument(saveMode == REPLACE || !views.containsKey(viewName.asSchemaTableName()));
             views.put(viewName.asSchemaTableName(), definition);
         }
 
