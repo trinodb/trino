@@ -20,7 +20,6 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
@@ -35,7 +34,6 @@ import java.io.ByteArrayOutputStream;
 import java.sql.Date;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,7 +48,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -64,7 +61,6 @@ import static io.trino.tests.product.hive.TestHiveTransactionalTable.CompactionM
 import static io.trino.tests.product.hive.TestHiveTransactionalTable.CompactionMode.MINOR;
 import static io.trino.tests.product.hive.TransactionalTableType.ACID;
 import static io.trino.tests.product.hive.TransactionalTableType.INSERT_ONLY;
-import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -88,8 +84,7 @@ public class TestHiveTransactionalTable
     // Older Trino path ends look like /20210416_190616_00000_fsymd_af6f0a3d-5449-4478-a53d-9f9f99c07ed9
     private static final Pattern ORIGINAL_FILE_MATCHER = Pattern.compile(".*/\\d+_\\d+(_[^/]+)?$");
 
-    @Inject
-    private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
+    private static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
 
     @Inject
     private HdfsClient hdfsClient;
@@ -1804,62 +1799,6 @@ public class TestHiveTransactionalTable
     {
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType) + randomNameSuffix())) {
             testRunner.accept(table.getName());
-        }
-    }
-
-    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5463", match = "Expected row count to be <4>, but was <6>")
-    public void testFilesForAbortedTransactionsIgnored()
-            throws Exception
-    {
-        String tableName = "test_aborted_transaction_table";
-        onHive().executeQuery("" +
-                "CREATE TABLE " + tableName + " (col INT) " +
-                "STORED AS ORC " +
-                "TBLPROPERTIES ('transactional'='true')");
-
-        try (ThriftMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient()) {
-            String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + " ORDER BY COL";
-
-            // Create `delta-A` file
-            onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES (1),(2)");
-            QueryResult onePartitionQueryResult = onTrino().executeQuery(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsExactlyInOrder(row(1), row(2));
-
-            String tableLocation = getTablePath(tableName);
-
-            // Insert data to create a valid delta, which creates `delta-B`
-            onHive().executeQuery("INSERT INTO TABLE " + tableName + " SELECT 3");
-
-            // Simulate aborted transaction in Hive which has left behind a write directory and file (`delta-C` i.e `delta_0000003_0000003_0000`)
-            long transaction = client.openTransaction("test");
-            client.allocateTableWriteIds("default", tableName, Collections.singletonList(transaction)).get(0).getWriteId();
-            client.abortTransaction(transaction);
-
-            String deltaA = tableLocation + "/delta_0000001_0000001_0000";
-            String deltaB = tableLocation + "/delta_0000002_0000002_0000";
-            String deltaC = tableLocation + "/delta_0000003_0000003_0000";
-
-            // Delete original `delta-B`, `delta-C`
-            hdfsDeleteAll(deltaB);
-            hdfsDeleteAll(deltaC);
-
-            // Copy content of `delta-A` to `delta-B`
-            hdfsCopyAll(deltaA, deltaB);
-
-            // Verify that data from delta-A and delta-B is visible
-            onePartitionQueryResult = onTrino().executeQuery(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsOnly(row(1), row(1), row(2), row(2));
-
-            // Copy content of `delta-A` to `delta-C` (which is an aborted transaction)
-            hdfsCopyAll(deltaA, deltaC);
-
-            // Verify that delta, corresponding to aborted transaction, is not getting read
-            onePartitionQueryResult = onTrino().executeQuery(selectFromOnePartitionsSql);
-            assertThat(onePartitionQueryResult).containsOnly(row(1), row(1), row(2), row(2));
-        }
-        finally {
-            onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
 

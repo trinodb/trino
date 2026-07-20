@@ -19,7 +19,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -31,6 +30,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSqlStandardAccessControlChecks
         extends ProductTest
 {
+    private static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
+
     private String tableName = "alice_owned_table";
     private String viewName = "alice_owned_view";
     private QueryExecutor aliceExecutor;

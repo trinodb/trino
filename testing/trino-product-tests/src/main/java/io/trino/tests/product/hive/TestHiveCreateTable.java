@@ -22,7 +22,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Optional;
 
-import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -37,6 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveCreateTable
         extends ProductTest
 {
+    private static final String TRANSACTIONAL = "transactional";
+
     @Test(groups = STORAGE_FORMATS)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCreateTable()
