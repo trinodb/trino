@@ -26,8 +26,9 @@ benchmark_outputs
 node_modules
 product-test-reports
 .vscode/
-/gib-impacted.log
+/impacted-modules.log
 /impacted-features.log
+/scalpel-report.json
 .github/test-matrix.yaml
 .github/test-pt-matrix.yaml
 .github/bin/redshift/.cluster-identifier

@@ -253,6 +253,20 @@ with `@Language`:
 - Local variables which otherwise would not be properly recognized by IDE for
   language injection.
 
+## Incremental builds
+
+The [Maveniverse Scalpel](https://github.com/maveniverse/scalpel) core extension can trim the
+reactor to only the modules affected by your changes (compared to the local `master` branch,
+including uncommitted and untracked files). It is disabled by default in `.mvn/maven.config`;
+enable it per invocation:
+
+    ./mvnw install -Dscalpel.enabled=true
+
+Unaffected modules are skipped entirely, and modules that are only needed as upstream
+dependencies are built with tests and checks skipped. CI uses the same mechanism with
+`-Dscalpel.baseBranch=refs/remotes/origin/<PR base branch>` to build and test only impacted
+modules.
+
 ## Building docs
 
 Information about writing and building the documentation can be found in
