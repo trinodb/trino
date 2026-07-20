@@ -42,6 +42,7 @@ import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -122,7 +123,7 @@ public class IcebergPageSinkProvider
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
-                fileSystemFactory.create(session.getIdentity(), tableCredentials),
+                fileSystemFactory.create(session.getIdentity(), enrichWithTableTags(tableCredentials, tableHandle.storageProperties())),
                 tableHandle.partitionColumns(),
                 jsonCodec,
                 session,
@@ -159,7 +160,7 @@ public class IcebergPageSinkProvider
                         locationProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
-                        fileSystemFactory.create(session.getIdentity(), tableCredentials.map(IcebergTableCredentials.class::cast).get()),
+                        fileSystemFactory.create(session.getIdentity(), enrichWithTableTags(tableCredentials.map(IcebergTableCredentials.class::cast).get(), optimizeHandle.tableStorageProperties())),
                         optimizeHandle.partitionColumns(),
                         jsonCodec,
                         session,
@@ -211,7 +212,7 @@ public class IcebergPageSinkProvider
                 formatVersion,
                 locationProvider,
                 fileWriterFactory,
-                fileSystemFactory.create(session.getIdentity(), icebergTableCredentials),
+                fileSystemFactory.create(session.getIdentity(), enrichWithTableTags(icebergTableCredentials, tableHandle.storageProperties())),
                 jsonCodec,
                 session,
                 tableHandle.fileFormat(),
@@ -219,5 +220,16 @@ public class IcebergPageSinkProvider
                 partitionsSpecs,
                 pageSink,
                 schema.columns().size());
+    }
+
+    private static IcebergTableCredentials enrichWithTableTags(IcebergTableCredentials tableCredentials, Map<String, String> storageProperties)
+    {
+        String tableTags = storageProperties.get("write.object-tags");
+        if (tableTags == null) {
+            return tableCredentials;
+        }
+        Map<String, String> enrichedFileIoProperties = new HashMap<>(tableCredentials.fileIoProperties());
+        enrichedFileIoProperties.put("s3.object-tags", tableTags);
+        return new IcebergTableCredentials(enrichedFileIoProperties, tableCredentials.storageCredentials());
     }
 }

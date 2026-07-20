@@ -106,7 +106,9 @@ final class S3FileSystemLoader
                         config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getStorageClass(),
-                config.getCannedAcl());
+                config.getCannedAcl(),
+                ImmutableMap.copyOf(config.getObjectTags()),
+                config.getObjectTagsPrefixes());
     }
 
     @Override

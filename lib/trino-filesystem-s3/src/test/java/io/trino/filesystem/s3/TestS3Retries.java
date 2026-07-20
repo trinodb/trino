@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import eu.rekawek.toxiproxy.Proxy;
 import eu.rekawek.toxiproxy.ToxiproxyClient;
 import eu.rekawek.toxiproxy.model.ToxicDirection;
@@ -200,7 +202,9 @@ public class TestS3Retries
                         config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getStorageClass(),
-                config.getCannedAcl());
+                config.getCannedAcl(),
+                ImmutableMap.of(),
+                ImmutableSet.of());
 
         // The toxicity is randomized, so iterate for more determinism
         for (int iteration = 0; iteration < attempts; iteration++) {
