@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableType;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -135,5 +134,12 @@ public class TestDatabricksWithGlueMetastoreCleanUp
             log.warn(e, "Exception while fetching tables for schema %s", schema);
             return ImmutableSet.of();
         }
+    }
+
+    public static String getTableType(Table glueTable)
+    {
+        // Athena treats a missing table type as EXTERNAL_TABLE.
+        // Table.tableType() is a modernizer violation (nullable, easy to forget); read the field via getValueForField instead.
+        return glueTable.getValueForField("TableType", String.class).orElse("EXTERNAL_TABLE");
     }
 }

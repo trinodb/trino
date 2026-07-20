@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.math.IntMath;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 import io.trino.tests.product.utils.JdbcDriverUtils;
