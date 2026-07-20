@@ -14,7 +14,6 @@
     <description>Trino - Product tests</description>
 
     <properties>
-        <main-class>io.trino.tests.product.TemptoProductTestRunner</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
@@ -464,57 +463,33 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredUnusedDeclaredDependencies>
-                        <!-- Legacy product tests execute test classes from the executable artifact, so Kafka must be
+                        <!-- Legacy product tests execute test classes from the test runtime classpath, so Kafka must be
                              available at runtime even though the analyzer does not see it from main classes. -->
                         <ignoredUnusedDeclaredDependency>org.apache.kafka:kafka-clients</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
-                        <!-- Legacy product tests execute test classes from the executable artifact, so Kafka must be
+                        <!-- Legacy product tests execute test classes from the test runtime classpath, so Kafka must be
                              available at runtime even though the analyzer classifies it as test-only. -->
                         <ignoredNonTestScopedDependency>org.apache.kafka:kafka-clients</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
                 <executions>
                     <execution>
+                        <id>copy-runtime-classpath</id>
                         <goals>
-                            <goal>shade</goal>
+                            <goal>copy-dependencies</goal>
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <!--
-                            trino-product-tests has a dependency on SQL Server (mssql-jdbc) which is a signed jar.
-                            Its invalidated when we repackage it into an uber jar. Hence to avoid
-                            Error: A JNI error has occurred, please check your installation and try again
-                            Exception in thread "main" java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
-
-                            We remove signed information from META-INF
-                            -->
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                            <shadedArtifactAttached>true</shadedArtifactAttached>
-                            <shadedClassifierName>executable</shadedClassifierName>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <manifestEntries>
-                                        <Main-Class>${main-class}</Main-Class>
-                                    </manifestEntries>
-                                </transformer>
-                            </transformers>
+                            <!-- The product test launcher mounts this directory together with the module jar
+                                 into the tests container and runs the tests with a wildcard classpath.
+                                 This replaces the former shaded executable uber-jar, which was slow to build
+                                 and rebuilt from scratch on every invocation. -->
+                            <!-- This execution packages the test runtime classpath, it is not a check.
+                                 Override the airbase plugin-level skip so it still runs with -Dair.check.skip-all. -->
+                            <skip>false</skip>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
                         </configuration>
                     </execution>
                 </executions>

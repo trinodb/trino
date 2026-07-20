@@ -99,8 +99,11 @@ public class SuiteDescribe
         @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite(s) to run (comma separated)", required = true, split = ",")
         public List<String> suites;
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${project.version}-executable.jar")
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${project.version}.jar")
         public File testJar;
+
+        @Option(names = "--test-libs", paramLabel = "<dir>", description = "Path to the directory with test JAR dependencies " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/lib")
+        public File testLibs;
 
         @Option(names = "--format", description = "Table output format: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "TEXT")
         public SuiteDescribeFormat format;
@@ -250,6 +253,7 @@ public class SuiteDescribe
             testRunOptions.extraOptions = suiteTestRun.getExtraOptions();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = describeOptions.testJar;
+            testRunOptions.testLibs = describeOptions.testLibs;
             testRunOptions.reportsDir = Path.of(format("testing/trino-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             testRunOptions.startupRetries = null;
             testRunOptions.logsDirBase = Optional.empty();

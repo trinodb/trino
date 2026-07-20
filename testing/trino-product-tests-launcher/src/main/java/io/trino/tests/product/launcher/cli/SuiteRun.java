@@ -111,8 +111,11 @@ public class SuiteRun
         @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite(s) to run (comma separated)", required = true, split = ",")
         public List<String> suites;
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${project.version}-executable.jar")
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${project.version}.jar")
         public File testJar;
+
+        @Option(names = "--test-libs", paramLabel = "<dir>", description = "Path to the directory with test JAR dependencies " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/lib")
+        public File testLibs;
 
         @Option(names = "--cli-executable", paramLabel = "<jar>", description = "Path to CLI executable " + DEFAULT_VALUE, defaultValue = "${cli.bin}")
         public File cliJar;
@@ -312,6 +315,7 @@ public class SuiteRun
             testRunOptions.extraOptions = suiteTestRun.getExtraOptions();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = suiteRunOptions.testJar;
+            testRunOptions.testLibs = suiteRunOptions.testLibs;
             testRunOptions.cliJar = suiteRunOptions.cliJar;
             testRunOptions.impactedFeatures = suiteRunOptions.impactedFeatures;
             String suiteRunId = suiteRunId(runId, suiteName, suiteTestRun, environmentConfig);

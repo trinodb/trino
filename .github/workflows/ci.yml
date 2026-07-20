@@ -880,7 +880,11 @@ jobs:
             core/trino-server/target/*.tar.gz
             impacted-features.log
             testing/trino-product-tests-launcher/target/*.jar
-            testing/trino-product-tests/target/*-executable.jar
+            testing/trino-product-tests/target/trino-product-tests-*.jar
+            !testing/trino-product-tests/target/*-sources.jar
+            !testing/trino-product-tests/target/*-tests.jar
+            !testing/trino-product-tests/target/*-test-sources.jar
+            testing/trino-product-tests/target/lib/*.jar
             client/trino-cli/target/*-executable.jar
           retention-days: 1
       - id: prepare-matrix-template
