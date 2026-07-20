@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-server-core</artifactId>
-    <packaging>provisio</packaging>
+    <packaging>pom</packaging>
     <name>${project.artifactId}</name>
     <description>Trino - Server core package</description>
 
@@ -24,29 +24,301 @@
         <main-class>io.trino.server.TrinoServer</main-class>
         <process-name>${project.artifactId}</process-name>
 
-        <!-- Special consideration for Takari Lifecycle -->
-        <!-- This works as trino-server have no sources (is just provisio packaged) -->
-        <takari.skip>false</takari.skip>
+        <!-- Source artifacts are staged here; the assembler streams them into the archive -->
+        <plugin.archives.directory>${project.build.directory}/plugin-archives</plugin.archives.directory>
+        <assembly.stage.directory>${project.build.directory}/assembly-stage</assembly.stage.directory>
+        <!-- Exploded distribution, produced for the plugin reader in CI -->
+        <assembly.directory>${project.build.directory}/${project.artifactId}-${project.version}</assembly.directory>
     </properties>
 
+    <!--
+    The archives packaged into this distribution. They are declared so that the
+    reactor builds them first; the dependency plugin below says where each one
+    goes. Provided scope keeps their transitive jars out of lib.
+    -->
     <dependencies>
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>junit-extensions</artifactId>
-            <scope>test</scope>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-functions-python</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-password-authenticators</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-resource-group-managers</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-session-property-managers</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spooling-filesystem</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Staged into lib along with its transitive dependencies -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-server-main</artifactId>
+            <version>${project.version}</version>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>io.takari.maven.plugins</groupId>
-                <artifactId>takari-lifecycle-plugin</artifactId>
-                <version>${dep.takari.version}</version>
-                <configuration>
-                    <proc>none</proc>
-                    <skip>${takari.skip}</skip>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>stage-server</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <!-- air.check.skip-dependency disables the analyzer, not the staging done here -->
+                            <skip>false</skip>
+                            <outputDirectory>${assembly.stage.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                            <!-- Same-named jars from different groups would otherwise collide -->
+                            <prependGroupId>true</prependGroupId>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>stage-plugins</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <!-- air.check.skip-dependency disables the analyzer, not the staging done here -->
+                            <skip>false</skip>
+                            <outputDirectory>${plugin.archives.directory}</outputDirectory>
+                            <!-- The archives packaged into this distribution are the provided scope zips -->
+                            <includeScope>provided</includeScope>
+                            <includeTypes>zip</includeTypes>
+                            <!-- The assembler maps trino-<name>.zip onto plugin/<name> -->
+                            <stripVersion>true</stripVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>stage-archives</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <!-- air.check.skip-dependency disables the analyzer, not the staging done here -->
+                            <skip>false</skip>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>io.airlift</groupId>
+                                    <artifactId>launcher</artifactId>
+                                    <version>${dep.launcher.version}</version>
+                                    <type>tar.gz</type>
+                                    <classifier>bin</classifier>
+                                    <outputDirectory>${assembly.stage.directory}/bin</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.airlift</groupId>
+                                    <artifactId>launcher</artifactId>
+                                    <version>${dep.launcher.version}</version>
+                                    <type>tar.gz</type>
+                                    <classifier>properties</classifier>
+                                    <outputDirectory>${assembly.stage.directory}/bin</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.airlift</groupId>
+                                    <artifactId>secrets-keystore-plugin</artifactId>
+                                    <version>${dep.airlift.version}</version>
+                                    <type>zip</type>
+                                    <outputDirectory>${assembly.stage.directory}/secrets-plugin/keystore-secrets-plugin</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>stage-notices</id>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <outputDirectory>${assembly.stage.directory}</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}</directory>
+                                    <includes>
+                                        <include>NOTICE</include>
+                                        <include>README.txt</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <dependencies>
+                    <dependency>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-server-assembler</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>assemble-server</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <executableDependency>
+                                <groupId>io.trino</groupId>
+                                <artifactId>trino-server-assembler</artifactId>
+                            </executableDependency>
+                            <includePluginDependencies>true</includePluginDependencies>
+                            <includeProjectDependencies>false</includeProjectDependencies>
+                            <classpathScope>runtime</classpathScope>
+                            <mainClass>io.trino.server.assembler.ServerAssembler</mainClass>
+                            <arguments>
+                                <argument>--stage</argument>
+                                <argument>${assembly.stage.directory}</argument>
+                                <argument>--plugins</argument>
+                                <argument>${plugin.archives.directory}</argument>
+                                <argument>--output</argument>
+                                <argument>${project.build.directory}/${project.artifactId}-${project.version}.tar.gz</argument>
+                                <argument>--root-directory</argument>
+                                <argument>${project.artifactId}-${project.version}</argument>
+                                <!-- The plugin reader runs against this tree in CI -->
+                                <argument>--explode</argument>
+                                <argument>${assembly.directory}</argument>
+                                <argument>--timestamp</argument>
+                                <argument>${project.build.outputTimestamp}</argument>
+                                <argument>--filter</argument>
+                                <argument>bin/launcher.properties</argument>
+                                <argument>--property</argument>
+                                <argument>main-class=${main-class}</argument>
+                                <argument>--property</argument>
+                                <argument>process-name=${process-name}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-server</id>
+                        <goals>
+                            <goal>attach-artifact</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <artifacts>
+                                <artifact>
+                                    <file>${project.build.directory}/${project.artifactId}-${project.version}.tar.gz</file>
+                                    <type>tar.gz</type>
+                                </artifact>
+                            </artifacts>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

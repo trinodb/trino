@@ -248,7 +248,7 @@ by running the `testing/trino-plugin-reader` utility:
 ```bash
 testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar \
     -i modules.txt \
-    -p core/trino-server/target/trino-server-*-hardlinks/plugin
+    -p core/trino-server/target/trino-server-*/plugin
 ```
 
 A list of modules modified on a particular Git branch can be obtained by enabling the `gib` profile

@@ -35,6 +35,7 @@
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
         <module>core/trino-server</module>
+        <module>core/trino-server-assembler</module>
         <module>core/trino-server-core</module>
         <module>core/trino-server-main</module>
         <module>core/trino-spi</module>
@@ -210,7 +211,6 @@
         <dep.protobuf.version>4.35.1</dep.protobuf.version>
         <dep.sis.version>1.6</dep.sis.version>
         <dep.swagger.version>2.2.52</dep.swagger.version>
-        <dep.takari.version>2.3.4</dep.takari.version>
         <dep.tcnative.version>2.0.80.Final</dep.tcnative.version>
         <dep.tempto.version>204</dep.tempto.version>
         <dep.testng.version>7.8.0</dep.testng.version>
@@ -2824,12 +2824,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
-                <artifactId>provisio-maven-plugin</artifactId>
-                <extensions>true</extensions>
             </plugin>
 
             <plugin>
