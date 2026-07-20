@@ -17,20 +17,33 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.Version;
+import com.fasterxml.jackson.databind.BeanDescription;
+import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
+import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import com.fasterxml.jackson.databind.type.CollectionType;
+import com.google.common.collect.ImmutableList;
+import io.trino.client.JsonDecodingUtils.TypeDecoder;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.Segment;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import static io.trino.client.JsonDecodingUtils.createTypeDecoders;
+import static java.util.Collections.unmodifiableList;
 
 /**
  * Encodes/decodes the direct and spooling protocols.
@@ -39,14 +52,44 @@ import java.io.IOException;
  * and then parsing rows lazily.
  * <p>
  * Otherwise, this is a spooling protocol.
+ * <p>
+ * The default configuration buffers direct protocol rows as-is, which allows faithful re-serialization.
+ * The single-pass configuration used by {@link StatementClientV1} decodes them directly to typed values
+ * while the response is parsed: the columns are captured into a per-call attribute when the "columns"
+ * field is deserialized, and used to decode "data" when it follows (which is how the server serializes
+ * it). When "columns" does not precede "data", rows are buffered as in the default configuration.
  */
 public class QueryDataJacksonModule
         extends SimpleModule
 {
+    private static final String COLUMNS_ATTRIBUTE = "io.trino.client.columns";
+
     public QueryDataJacksonModule()
     {
-        super(QueryDataJacksonModule.class.getSimpleName(), Version.unknownVersion());
-        addDeserializer(QueryData.class, new Deserializer());
+        this(QueryDataJacksonModule.class.getSimpleName(), new Deserializer());
+    }
+
+    // Distinct module name so that registering it over the default module is not ignored as a duplicate
+    QueryDataJacksonModule(boolean supportsVariantBinary)
+    {
+        this(QueryDataJacksonModule.class.getSimpleName() + "-single-pass", new SinglePassDeserializer(supportsVariantBinary));
+        setDeserializerModifier(new BeanDeserializerModifier()
+        {
+            @Override
+            public JsonDeserializer<?> modifyCollectionDeserializer(DeserializationConfig config, CollectionType type, BeanDescription beanDescription, JsonDeserializer<?> deserializer)
+            {
+                if (type.getContentType().getRawClass() == Column.class) {
+                    return new ColumnsCapturingDeserializer(deserializer);
+                }
+                return deserializer;
+            }
+        });
+    }
+
+    private QueryDataJacksonModule(String name, Deserializer deserializer)
+    {
+        super(name, Version.unknownVersion());
+        addDeserializer(QueryData.class, deserializer);
         addSerializer(QueryData.class, new QueryDataSerializer());
         addSerializer(Segment.class, new SegmentSerializer());
     }
@@ -68,6 +111,81 @@ public class QueryDataJacksonModule
                 return JsonQueryData.copyFrom(parser);
             }
             return context.readValue(parser, EncodedQueryData.class);
+        }
+    }
+
+    private static class ColumnsCapturingDeserializer
+            extends DelegatingDeserializer
+    {
+        public ColumnsCapturingDeserializer(JsonDeserializer<?> delegate)
+        {
+            super(delegate);
+        }
+
+        @Override
+        protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee)
+        {
+            return new ColumnsCapturingDeserializer(newDelegatee);
+        }
+
+        @Override
+        public Object deserialize(JsonParser parser, DeserializationContext context)
+                throws IOException
+        {
+            Object columns = super.deserialize(parser, context);
+            context.setAttribute(COLUMNS_ATTRIBUTE, columns);
+            return columns;
+        }
+    }
+
+    private static class SinglePassDeserializer
+            extends Deserializer
+    {
+        private final boolean supportsVariantBinary;
+
+        public SinglePassDeserializer(boolean supportsVariantBinary)
+        {
+            this.supportsVariantBinary = supportsVariantBinary;
+        }
+
+        @Override
+        public QueryData deserialize(JsonParser parser, DeserializationContext context)
+                throws IOException
+        {
+            if (parser.currentToken() == JsonToken.START_ARRAY) {
+                @SuppressWarnings("unchecked")
+                List<Column> columns = (List<Column>) context.getAttribute(COLUMNS_ATTRIBUTE);
+                if (columns != null && !columns.isEmpty()) {
+                    return decodeRows(parser, context, columns);
+                }
+            }
+            return super.deserialize(parser, context);
+        }
+
+        private QueryData decodeRows(JsonParser parser, DeserializationContext context, List<Column> columns)
+                throws IOException
+        {
+            TypeDecoder[] decoders = createTypeDecoders(columns, supportsVariantBinary);
+            ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
+            while (parser.nextToken() != JsonToken.END_ARRAY) {
+                if (parser.currentToken() != JsonToken.START_ARRAY) {
+                    return (QueryData) context.handleUnexpectedToken(QueryData.class, parser);
+                }
+                List<Object> row = new ArrayList<>(decoders.length);
+                for (TypeDecoder decoder : decoders) {
+                    if (parser.nextToken() == JsonToken.VALUE_NULL) {
+                        row.add(null);
+                    }
+                    else {
+                        row.add(decoder.decode(parser));
+                    }
+                }
+                if (parser.nextToken() != JsonToken.END_ARRAY) {
+                    return (QueryData) context.handleUnexpectedToken(QueryData.class, parser);
+                }
+                rows.add(unmodifiableList(row));
+            }
+            return TypedQueryData.of(rows.build());
         }
     }
 
