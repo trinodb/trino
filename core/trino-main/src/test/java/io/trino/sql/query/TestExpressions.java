@@ -74,4 +74,19 @@ public class TestExpressions
         // https://github.com/trinodb/trino/issues/3411
         assertThat(assertions.query("SELECT try(k) FROM (SELECT null) t(k)")).matches("VALUES null");
     }
+
+    @Test
+    public void testTryOverLetBoundExpression()
+    {
+        // NULLIF and BETWEEN bind a non-trivial operand with a Let so it is evaluated once. Inside
+        // the lambda that TRY desugars to, that binding must not be treated as a captured symbol.
+        assertThat(assertions.query("SELECT try(nullif(trim('harsh'), ''))")).matches("VALUES CAST('harsh' AS varchar(5))");
+        assertThat(assertions.query("SELECT try(nullif(trim('  '), ''))")).matches("VALUES CAST(null AS varchar(2))");
+        assertThat(assertions.query("SELECT try(nullif(trim(x), '')) FROM (VALUES ' abc ', '   ') t(x)")).matches("VALUES CAST('abc' AS varchar(5)), null");
+
+        assertThat(assertions.query("SELECT try(trim(x) BETWEEN 'a' AND 'z') FROM (VALUES ' abc ', ' zzz ') t(x)")).matches("VALUES true, false");
+
+        // the Let-bound operand may itself fail, in which case TRY must swallow the failure
+        assertThat(assertions.query("SELECT try(nullif(x / 0, 1)) FROM (VALUES 1) t(x)")).matches("VALUES cast(null AS integer)");
+    }
 }
