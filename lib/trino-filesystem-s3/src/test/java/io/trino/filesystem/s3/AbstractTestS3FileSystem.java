@@ -262,6 +262,42 @@ public abstract class AbstractTestS3FileSystem
         return location;
     }
 
+    protected boolean isObjectTaggingSupported()
+    {
+        return false;
+    }
+
+    @Test
+    void testObjectTagsOnWrite()
+            throws IOException
+    {
+        if (!isObjectTaggingSupported()) {
+            return;
+        }
+        try (S3Client s3Client = createS3Client()) {
+            String key = "tagged-file.parquet";
+            byte[] contents = "tagged content".getBytes(UTF_8);
+
+            getFileSystem().newOutputFile(getRootLocation().appendPath(key))
+                    .createOrOverwrite(contents);
+
+            var tagResponse = s3Client.getObjectTagging(r -> r.bucket(bucket()).key(key));
+            assertThat(tagResponse.tagSet())
+                    .hasSize(2)
+                    .anySatisfy(tag -> {
+                        assertThat(tag.key()).isEqualTo("env");
+                        assertThat(tag.value()).isEqualTo("test");
+                    })
+                    .anySatisfy(tag -> {
+                        assertThat(tag.key()).isEqualTo("source");
+                        assertThat(tag.value()).isEqualTo("trino-test");
+                    });
+
+            // Clean up the tagged file
+            s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));
+        }
+    }
+
     protected class TempDirectory
             implements Closeable
     {

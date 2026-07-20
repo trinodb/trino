@@ -90,7 +90,7 @@ public class IcebergRestCatalogFileSystemFactory
                 }
             });
         }
-        return fileSystemFactory.create(identity);
+        return fileSystemFactory.create(enrichIdentityWithObjectTags(identity, fileIoProperties));
     }
 
     @Override
@@ -114,7 +114,7 @@ public class IcebergRestCatalogFileSystemFactory
                 }
             });
         }
-        return fileSystemFactory.create(identity);
+        return fileSystemFactory.create(enrichIdentityWithObjectTags(identity, tableCredentials.fileIoProperties()));
     }
 
     private TrinoFileSystem getTrinoFileSystem(Location location, ConnectorIdentity identity, CachedVendedCredentialsProviders cached)
@@ -313,6 +313,24 @@ public class IcebergRestCatalogFileSystemFactory
             }
         }
         return Optional.empty();
+    }
+
+    private static ConnectorIdentity enrichIdentityWithObjectTags(ConnectorIdentity identity, Map<String, String> fileIoProperties)
+    {
+        String objectTags = fileIoProperties.get("s3.object-tags");
+        if (objectTags == null) {
+            return identity;
+        }
+        return ConnectorIdentity.forUser(identity.getUser())
+                .withGroups(identity.getGroups())
+                .withPrincipal(identity.getPrincipal())
+                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                .withConnectorRole(identity.getConnectorRole())
+                .withExtraCredentials(ImmutableMap.<String, String>builder()
+                        .putAll(identity.getExtraCredentials())
+                        .put("internal$s3_object_tags", objectTags)
+                        .buildOrThrow())
+                .build();
     }
 
     private static void addOptionalProperty(
