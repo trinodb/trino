@@ -42,6 +42,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TestPostgreSqlJdbcConnectionCreation
@@ -83,6 +84,12 @@ public class TestPostgreSqlJdbcConnectionCreation
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
     {
         Properties connectionProperties = new Properties();
@@ -118,7 +125,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 1, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 2, Optional.empty());
-        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_postgresql'", 1, Optional.empty());
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'counting_postgresql'", 1, Optional.empty());
 
         testJdbcMergeConnectionCreations();
     }

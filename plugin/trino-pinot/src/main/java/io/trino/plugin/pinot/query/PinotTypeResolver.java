@@ -35,7 +35,6 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PinotTypeResolver
@@ -66,7 +65,7 @@ public class PinotTypeResolver
     {
         return switch (expression.getType()) {
             case IDENTIFIER -> {
-                PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(expression.getIdentifier().toLowerCase(ENGLISH));
+                PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(expression.getIdentifier());
                 if (columnHandle == null) {
                     throw new ColumnNotFoundException(schemaTableName, expression.getIdentifier());
                 }

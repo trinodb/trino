@@ -17,6 +17,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -27,11 +28,13 @@ public class CreateAsSelectDataSetup
 {
     private final SqlExecutor sqlExecutor;
     private final String tableNamePrefix;
+    private final Function<String, String> canonicalizer;
 
-    public CreateAsSelectDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix)
+    public CreateAsSelectDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, Function<String, String> canonicalizer)
     {
         this.sqlExecutor = sqlExecutor;
         this.tableNamePrefix = tableNamePrefix;
+        this.canonicalizer = canonicalizer;
     }
 
     @Override
@@ -41,7 +44,7 @@ public class CreateAsSelectDataSetup
                 .map(this::format)
                 .collect(toList());
         String selectBody = range(0, columnValues.size())
-                .mapToObj(i -> String.format("%s col_%d", columnValues.get(i), i))
+                .mapToObj(i -> String.format("%s %s_%d", columnValues.get(i), canonicalizer.apply("col"), i))
                 .collect(joining(",\n"));
         return new TestTable(sqlExecutor, tableNamePrefix, "AS SELECT " + selectBody);
     }

@@ -34,27 +34,27 @@ public class TestDeltaLakeJmx
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByGlueMetastore()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
-                row("io.airlift.bootstrap:name=delta,type=lifecyclemanager"),
-                row("io.trino.filesystem.s3:name=delta,type=s3filesystemstats"),
-                row("io.trino.metastore.cache:name=delta,type=cachinghivemetastore"),
-                row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluehivemetastore"),
-                row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluemetastorestats"),
-                row("io.trino.plugin.base.metrics:catalog=delta,name=delta,type=fileformatdatasourcestats"),
-                row("trino.plugin.deltalake.metastore:catalog=delta,name=delta,type=deltalaketablemetadatascheduler"),
-                row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
+                row("io.airlift.bootstrap:name=delta,type=LifeCycleManager"),
+                row("io.trino.filesystem.s3:name=delta,type=S3FileSystemStats"),
+                row("io.trino.metastore.cache:name=delta,type=CachingHiveMetastore"),
+                row("io.trino.plugin.hive.metastore.glue:name=delta,type=GlueHiveMetastore"),
+                row("io.trino.plugin.hive.metastore.glue:name=delta,type=GlueMetastoreStats"),
+                row("io.trino.plugin.base.metrics:catalog=delta,name=delta,type=FileFormatDataSourceStats"),
+                row("trino.plugin.deltalake.metastore:catalog=delta,name=delta,type=DeltaLakeTableMetadataScheduler"),
+                row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=TransactionLogAccess"));
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByThriftMetastore()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
-                row("io.airlift.bootstrap:name=delta,type=lifecyclemanager"),
-                row("io.trino.filesystem.s3:name=delta,type=s3filesystemstats"),
-                row("io.trino.metastore.cache:name=delta,type=cachinghivemetastore"),
-                row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thrifthivemetastore"),
-                row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thriftmetastorestats"),
-                row("io.trino.plugin.base.metrics:catalog=delta,name=delta,type=fileformatdatasourcestats"),
-                row("trino.plugin.deltalake.metastore:catalog=delta,name=delta,type=deltalaketablemetadatascheduler"),
-                row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
+                row("io.airlift.bootstrap:name=delta,type=LifeCycleManager"),
+                row("io.trino.filesystem.s3:name=delta,type=S3FileSystemStats"),
+                row("io.trino.metastore.cache:name=delta,type=CachingHiveMetastore"),
+                row("io.trino.plugin.hive.metastore.thrift:name=delta,type=ThriftHiveMetastore"),
+                row("io.trino.plugin.hive.metastore.thrift:name=delta,type=ThriftMetastoreStats"),
+                row("io.trino.plugin.base.metrics:catalog=delta,name=delta,type=FileFormatDataSourceStats"),
+                row("trino.plugin.deltalake.metastore:catalog=delta,name=delta,type=DeltaLakeTableMetadataScheduler"),
+                row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=TransactionLogAccess"));
     }
 }

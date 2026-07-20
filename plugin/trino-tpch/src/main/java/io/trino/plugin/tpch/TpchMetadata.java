@@ -95,6 +95,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -180,6 +181,12 @@ public class TpchMetadata
         orderStatusNullableValues = ORDER_STATUS_VALUES.stream()
                 .map(value -> new NullableValue(getTrinoType(OrderColumn.ORDER_STATUS, decimalTypeMapping), value))
                 .collect(toSet());
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     private static StatisticsEstimator createStatisticsEstimator(JsonMapper jsonMapper)

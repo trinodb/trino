@@ -27,4 +27,10 @@ public class TestMongoComplexTypePredicatePushDown
         return MongoQueryRunner.builder(server)
                 .build();
     }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }

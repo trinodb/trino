@@ -68,6 +68,6 @@ public class TestLateral
     public void testNotInScope()
     {
         assertThat(assertions.query("SELECT * FROM (VALUES 1) t(a), (SELECT * FROM LATERAL (SELECT a))"))
-                .failure().hasMessage("line 1:63: Column 'a' cannot be resolved");
+                .failure().hasMessageMatching("line 1:63: Column 'a' cannot be resolved, .*");
     }
 }

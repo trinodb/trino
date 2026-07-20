@@ -214,24 +214,24 @@ public class TestHiveCompatibility
         String trioTableNameNoBloomFilter = "test_trino_hive_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
 
         onTrino().executeQuery(
-                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", trinoTableNameWithBloomFilter) +
+                String.format("CREATE TABLE %s (test_integer INTEGER, test_long BIGINT, test_string VARCHAR, test_double DOUBLE, test_float REAL) ", trinoTableNameWithBloomFilter) +
                         "WITH (" +
                         "format = 'PARQUET'," +
-                        "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
+                        "parquet_bloom_filter_columns = ARRAY['test_integer', 'test_long', 'test_string', 'test_double', 'test_float']" +
                         ")");
         onTrino().executeQuery(
-                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", trioTableNameNoBloomFilter));
+                String.format("CREATE TABLE %s (test_integer INTEGER, test_long BIGINT, test_string VARCHAR, test_double DOUBLE, test_float REAL) WITH (FORMAT = 'PARQUET')", trioTableNameNoBloomFilter));
         String[] tables = {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
 
         for (String trinoTable : tables) {
             onTrino().executeQuery(format(
                     "INSERT INTO %s " +
-                            "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+                            "SELECT test_integer, test_long, test_string, test_double, test_float FROM (VALUES " +
                             "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
                             ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
                             ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
                             ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
-                            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+                            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(test_integer, test_long, test_string, test_double, test_float)",
                     trinoTable));
         }
 
@@ -245,11 +245,11 @@ public class TestHiveCompatibility
     private static void assertHiveBloomFilterTableSelectResult(String[] hiveTables)
     {
         for (String hiveTable : hiveTables) {
-            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testInteger IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1)));
-            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testLong IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1)));
-            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1)));
-            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testDouble IN (97662.2D, -97221.2D, -88777.22233D)")).containsOnly(List.of(row(1)));
-            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testFloat IN (-65496.1, 98211862.2, 6761111555.1222)")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE test_integer IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE test_long IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE test_string IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE test_double IN (97662.2D, -97221.2D, -88777.22233D)")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE test_float IN (-65496.1, 98211862.2, 6761111555.1222)")).containsOnly(List.of(row(1)));
         }
     }
 

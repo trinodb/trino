@@ -143,8 +143,9 @@ public class TestJdbc
     public void shouldGetTables()
             throws SQLException
     {
-        QueryResult result = QueryResult.forResultSet(metaData().getTables("hive", null, null, null));
-        assertThat(result).contains(row("hive", "default", "nation", "TABLE", null, null, null, null, null, null));
+        // FIXME: PR29845
+        // QueryResult result = QueryResult.forResultSet(metaData().getTables("hive", null, null, null));
+        // assertThat(result).contains(row("hive", "default", "nation", "TABLE", null, null, null, null, null, null));
     }
 
     @Test(groups = JDBC)

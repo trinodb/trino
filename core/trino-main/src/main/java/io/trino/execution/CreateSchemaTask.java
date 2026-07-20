@@ -91,10 +91,11 @@ public class CreateSchemaTask
             Session session,
             List<Expression> parameters)
     {
-        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
+        Metadata metadata = plannerContext.getMetadata();
+        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()), metadata);
 
         String catalogName = schema.getCatalogName();
-        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, statement, catalogName);
 
         Map<String, Object> properties = schemaPropertyManager.getProperties(
                 catalogName,
@@ -116,16 +117,16 @@ public class CreateSchemaTask
                 .collect(toImmutableMap(Function.identity(), properties::get));
         accessControl.checkCanCreateSchema(session.toSecurityContext(), schema, explicitlySetProperties);
 
-        if (plannerContext.getMetadata().schemaExists(session, schema)) {
+        if (metadata.schemaExists(session, schema)) {
             if (!statement.isNotExists()) {
                 throw semanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }
             return immediateVoidFuture();
         }
 
-        TrinoPrincipal principal = getCreatePrincipal(statement, session, plannerContext.getMetadata(), catalogName);
+        TrinoPrincipal principal = getCreatePrincipal(statement, session, metadata, catalogName);
         try {
-            plannerContext.getMetadata().createSchema(session, schema, properties, principal);
+            metadata.createSchema(session, schema, properties, principal);
         }
         catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag

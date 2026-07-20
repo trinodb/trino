@@ -3,8 +3,8 @@ FROM
   (
    SELECT
      "i_manager_id"
-   , "sum"("ss_sales_price") "sum_sales"
-   , "avg"("sum"("ss_sales_price")) OVER (PARTITION BY "i_manager_id") "avg_monthly_sales"
+   , sum("ss_sales_price") "sum_sales"
+   , avg(sum("ss_sales_price")) OVER (PARTITION BY "i_manager_id") "avg_monthly_sales"
    FROM
      ${database}.${schema}.item
    , ${database}.${schema}.store_sales
@@ -22,6 +22,6 @@ FROM
             AND ("i_brand" IN ('amalgimporto #1'         , 'edu packscholar #1'         , 'exportiimporto #1'         , 'importoamalg #1'))))
    GROUP BY "i_manager_id", "d_moy"
 )  tmp1
-WHERE ((CASE WHEN ("avg_monthly_sales" > 0) THEN ("abs"(("sum_sales" - "avg_monthly_sales")) / "avg_monthly_sales") ELSE null END) > DECIMAL '0.1')
+WHERE ((CASE WHEN ("avg_monthly_sales" > 0) THEN (abs(("sum_sales" - "avg_monthly_sales")) / "avg_monthly_sales") ELSE null END) > DECIMAL '0.1')
 ORDER BY "i_manager_id" ASC, "avg_monthly_sales" ASC, "sum_sales" ASC
 LIMIT 100

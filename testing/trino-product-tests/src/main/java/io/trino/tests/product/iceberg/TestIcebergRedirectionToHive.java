@@ -506,7 +506,7 @@ public class TestIcebergRedirectionToHive
 
         // via redirection with table filter
         assertThat(onTrino().executeQuery(
-                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'iceberg' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                format("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'iceberg' AND \"TABLE_SCHEM\" = '%s' AND \"TABLE_NAME\" = '%s'", schemaName, tableName)))
                 .containsOnly(
                         row("iceberg", schemaName, tableName, "nationkey"),
                         row("iceberg", schemaName, tableName, "name"),
@@ -515,7 +515,7 @@ public class TestIcebergRedirectionToHive
 
         // test via redirection with just schema filter - consistent with the functionality of the command `SHOW TABLES` command on the Iceberg connector
         assertThat(onTrino().executeQuery(
-                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'iceberg' AND table_schem = '%s'", schemaName)))
+                format("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'iceberg' AND \"TABLE_SCHEM\" = '%s'", schemaName)))
                 .containsOnly(
                         row("iceberg", schemaName, tableName, "nationkey"),
                         row("iceberg", schemaName, tableName, "name"),
@@ -524,7 +524,7 @@ public class TestIcebergRedirectionToHive
 
         // sanity check that getting columns info without redirection produces matching result
         assertThat(onTrino().executeQuery(
-                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
+                format("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = '%s' AND \"TABLE_NAME\" = '%s'", schemaName, tableName)))
                 .containsOnly(
                         row("hive", schemaName, tableName, "nationkey"),
                         row("hive", schemaName, tableName, "name"),

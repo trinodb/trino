@@ -70,11 +70,11 @@ public final class PatternRecognitionAnalyzer
     {
         // extract label names (Identifiers) from PATTERN and SUBSET clauses. create labels respecting SQL identifier semantics
         Set<String> primaryLabels = extractExpressions(ImmutableList.of(pattern), Identifier.class).stream()
-                .map(PatternRecognitionAnalyzer::label)
+                .map(identifier -> label(identifier))
                 .collect(toImmutableSet());
         List<String> unionLabels = subsets.stream()
                 .map(SubsetDefinition::getName)
-                .map(PatternRecognitionAnalyzer::label)
+                .map(identifier -> label(identifier))
                 .collect(toImmutableList());
 
         // analyze SUBSET

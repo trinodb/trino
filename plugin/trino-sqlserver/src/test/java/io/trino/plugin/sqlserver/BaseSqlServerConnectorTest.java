@@ -85,6 +85,12 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
@@ -123,7 +129,7 @@ public abstract class BaseSqlServerConnectorTest
     {
         try (TestView view = new TestView(onRemoteDatabase(), "test_view", "SELECT * FROM orders")) {
             assertThat(getQueryRunner().tableExists(getSession(), view.getName())).isTrue();
-            assertQuery("SELECT orderkey FROM " + view.getName(), "SELECT orderkey FROM orders");
+            assertQuery("SELECT orderkey FROM " + view.getName(), "SELECT \"orderkey\" FROM \"orders\"");
         }
     }
 
@@ -501,8 +507,8 @@ public abstract class BaseSqlServerConnectorTest
                     ") ON " + partitionScheme + "(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .matches("CREATE TABLE \\w+\\.\\w+\\." + tableName + " \\Q(\n" +
-                            "   salesdate date,\n" +
-                            "   quantity integer\n" +
+                            "   SalesDate date,\n" +
+                            "   Quantity integer\n" +
                             ")");
         }
         finally {
@@ -899,7 +905,9 @@ public abstract class BaseSqlServerConnectorTest
     @Test
     void testInvalidColumn()
     {
-        assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
+        assertQueryFails(
+                "SELECT bogus FROM nation",
+                ".* Column 'bogus' cannot be resolved, available candidates are: '.*'");
     }
 
     private TestProcedure createTestingProcedure(String baseQuery)

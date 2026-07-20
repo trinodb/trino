@@ -1,9 +1,9 @@
 -- database: trino_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 SELECT
-  "avg"("ss_quantity")
-, "avg"("ss_ext_sales_price")
-, "avg"("ss_ext_wholesale_cost")
-, "sum"("ss_ext_wholesale_cost")
+  avg("ss_quantity")
+, avg("ss_ext_sales_price")
+, avg("ss_ext_wholesale_cost")
+, sum("ss_ext_wholesale_cost")
 FROM
   store_sales
 , store

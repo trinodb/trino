@@ -30,6 +30,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.SetDefaultValue;
 
 import java.util.List;
@@ -76,9 +77,10 @@ public class SetDefaultValueTask
     {
         Session session = stateMachine.getSession();
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
-        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
+        Resolver resolver = metadata.getResolverManager().getResolver(session, tableName.catalogName());
 
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
             if (metadata.getMaterializedView(session, tableName).isPresent()) {
@@ -96,11 +98,11 @@ public class SetDefaultValueTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
-        QualifiedName field = statement.getColumnName();
+        QualifiedName field = QualifiedName.of(resolver::canonicalize, statement.getColumnName());
         if (field.getOriginalParts().size() != 1) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
         }
-        String columnName = field.getOriginalParts().getFirst().getValue();
+        String columnName = field.getSuffix();
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
         if (columnHandle == null) {

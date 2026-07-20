@@ -120,7 +120,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -140,6 +139,12 @@ public class MongoMetadata
     public MongoMetadata(MongoSession mongoSession)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value;
     }
 
     @Override
@@ -198,7 +203,7 @@ public class MongoMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : schemaNames) {
             for (String tableName : mongoSession.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
         return tableNames.build();
@@ -212,7 +217,7 @@ public class MongoMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (MongoColumnHandle columnHandle : columns) {
-            columnHandles.put(columnHandle.baseName().toLowerCase(ENGLISH), columnHandle);
+            columnHandles.put(columnHandle.baseName(), columnHandle);
         }
         return columnHandles.buildOrThrow();
     }

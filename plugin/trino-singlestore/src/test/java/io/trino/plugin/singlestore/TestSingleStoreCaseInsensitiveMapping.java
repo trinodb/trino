@@ -44,6 +44,12 @@ public class TestSingleStoreCaseInsensitiveMapping
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected Path getMappingFile()
     {
         return requireNonNull(mappingFile, "mappingFile is null");

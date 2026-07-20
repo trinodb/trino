@@ -57,6 +57,12 @@ final class TestOpenSearchComplexTypePredicatePushDown
         return OpenSearchQueryRunner.builder(opensearch.getAddress()).build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     void testRowTypeOnlyNullsRowGroupPruning()
             throws IOException
@@ -253,7 +259,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
         assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.a = -1");
         assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.a IS NULL");
         assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.c.c2.c22 = -1");
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.a = -1 AND col1ROW.b = -1 AND col1ROW.c.c1 = -1 AND col1Row.c.c2.c22 = -1");
+        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col1Row.a = -1 AND col1Row.b = -1 AND col1Row.c.c1 = -1 AND col1Row.c.c2.c22 = -1");
 
         // read all since predicate case matches with the data
         assertQueryStats(

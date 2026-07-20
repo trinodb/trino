@@ -64,7 +64,6 @@ public class DeltaLakeTableProperties
                         ImmutableList.of(),
                         false,
                         value -> ((Collection<String>) value).stream()
-                                .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value))
                 .add(longProperty(

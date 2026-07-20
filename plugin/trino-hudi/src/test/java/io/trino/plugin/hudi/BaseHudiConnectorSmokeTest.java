@@ -17,6 +17,7 @@ import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseHudiConnectorSmokeTest
@@ -38,6 +39,12 @@ public abstract class BaseHudiConnectorSmokeTest
                  SUPPORTS_COMMENT_ON_COLUMN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

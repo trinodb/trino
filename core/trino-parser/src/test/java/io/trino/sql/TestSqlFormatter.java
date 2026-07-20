@@ -711,7 +711,7 @@ public class TestSqlFormatter
                 .isEqualTo(
                         """
                         MERGE INTO t
-                           USING changes s
+                           USING changes "s"
                            ON true
                         WHEN MATCHED
                            THEN DELETE\
@@ -772,7 +772,7 @@ public class TestSqlFormatter
                 .isEqualTo(
                         """
                         MERGE INTO t@main
-                           USING changes c
+                           USING changes "c"
                            ON true
                         WHEN MATCHED
                            THEN DELETE\

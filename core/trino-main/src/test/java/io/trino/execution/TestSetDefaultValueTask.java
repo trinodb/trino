@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolverManager;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnMetadata;
@@ -60,6 +61,7 @@ final class TestSetDefaultValueTask
     {
         super.setUp();
         metadata = new MockMetadataWithDefaultValue(TEST_CATALOG_NAME);
+        metadata.getResolverManager().addResolver(TEST_CATALOG_NAME, ResolverManager.getLowerCaseCanonicalizer());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 

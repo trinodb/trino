@@ -36,7 +36,7 @@ public final class IgniteQueryRunner
 {
     private IgniteQueryRunner() {}
 
-    private static final String IGNITE_SCHEMA = "public";
+    private static final String IGNITE_SCHEMA = "PUBLIC";
 
     public static Builder builder(TestingIgniteServer server)
     {

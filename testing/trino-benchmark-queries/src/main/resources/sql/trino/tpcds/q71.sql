@@ -3,7 +3,7 @@ SELECT
 , "i_brand" "brand"
 , "t_hour"
 , "t_minute"
-, "sum"("ext_price") "ext_price"
+, sum("ext_price") "ext_price"
 FROM
   ${database}.${schema}.item
 , (

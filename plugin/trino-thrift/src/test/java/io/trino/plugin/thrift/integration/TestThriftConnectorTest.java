@@ -62,6 +62,12 @@ public class TestThriftConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     @Test
     public void testShowSchemas()
     {

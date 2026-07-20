@@ -69,7 +69,7 @@ public class TestHiveViewsLegacy
         onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM nation");
         onHive().executeQuery("CREATE TABLE test_schema.hive_table(a string)");
         onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
-        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
+        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM \"nation\"");
 
         assertThat(onTrino().executeQuery("SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema'")).containsOnly(
                 row("hive", "test_schema", "trino_table", "BASE TABLE"),
@@ -77,7 +77,7 @@ public class TestHiveViewsLegacy
                 row("hive", "test_schema", "hive_test_view", "VIEW"),
                 row("hive", "test_schema", "trino_test_view", "VIEW"));
 
-        assertThat(onTrino().executeQuery("SELECT view_definition FROM information_schema.views WHERE table_schema = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
+        assertThat(onTrino().executeQuery("SELECT view_definition FROM \"information_schema\".\"views\" WHERE \"table_schema\" = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
                 row("SELECT \"nation\".\"n_nationkey\", \"nation\".\"n_name\", \"nation\".\"n_regionkey\", \"nation\".\"n_comment\" FROM \"default\".\"nation\""));
 
         assertThat(onTrino().executeQuery("DESCRIBE test_schema.hive_test_view"))
@@ -108,6 +108,7 @@ public class TestHiveViewsLegacy
     @Test
     public void testArrayIndexingInView()
     {
+        // FIXME PR29845
         assertThatThrownBy(super::testArrayIndexingInView)
                 // Hive uses 0-based array indices so Trino returns incorrect results for such view
                 .hasMessageContaining("Could not find rows:\n" +
@@ -132,7 +133,7 @@ public class TestHiveViewsLegacy
     public void testMapConstructionInView()
     {
         assertThatThrownBy(super::testMapConstructionInView)
-                .hasMessageContaining("Unexpected parameters (varchar(15), varchar(15)) for function map");
+                .hasMessageContaining("Unexpected parameters (varchar(15), varchar(15)) for function MAP");
     }
 
     @Override

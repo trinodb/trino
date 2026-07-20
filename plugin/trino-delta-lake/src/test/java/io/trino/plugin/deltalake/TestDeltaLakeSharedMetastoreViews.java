@@ -82,6 +82,12 @@ public class TestDeltaLakeSharedMetastoreViews
         return queryRunner;
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testViewWithLiteralColumnCreatedInDeltaLakeIsReadableInHive()
     {

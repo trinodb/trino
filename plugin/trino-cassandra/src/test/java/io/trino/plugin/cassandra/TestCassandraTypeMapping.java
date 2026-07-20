@@ -69,6 +69,7 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -122,6 +123,12 @@ public class TestCassandraTypeMapping
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
         checkIsGap(kathmandu, timeGapInKathmandu);
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
@@ -542,7 +549,7 @@ public class TestCassandraTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CassandraCreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, getQueryRunner(), session);
+        return new CassandraCreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, getQueryRunner(), session, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -552,7 +559,7 @@ public class TestCassandraTypeMapping
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup cassandraCreateAndInsert(String tableNamePrefix)
@@ -606,9 +613,9 @@ public class TestCassandraTypeMapping
         private final QueryRunner queryRunner;
         private final Session session;
 
-        public CassandraCreateAsSelectDataSetup(TrinoSqlExecutor sqlExecutor, String tableNamePrefix, QueryRunner queryRunner, Session session)
+        public CassandraCreateAsSelectDataSetup(TrinoSqlExecutor sqlExecutor, String tableNamePrefix, QueryRunner queryRunner, Session session, Function<String, String> canonicalizer)
         {
-            super(sqlExecutor, tableNamePrefix);
+            super(sqlExecutor, tableNamePrefix, canonicalizer);
             this.queryRunner = queryRunner;
             this.session = session;
         }

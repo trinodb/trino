@@ -35,6 +35,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -90,6 +91,12 @@ final class TestHudiSharedMetastore
         return queryRunner;
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     @Test
     void testHudiSelectFromHiveTable()
     {
@@ -138,7 +145,7 @@ final class TestHudiSharedMetastore
     @Test
     void testHiveSelectTableColumns()
     {
-        assertThat(query("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'default' AND table_name = 'region'"))
+        assertThat(query("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = 'default' AND \"TABLE_NAME\" = 'region'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('hive', '" + "default" + "', 'region', 'regionkey')," +
@@ -146,7 +153,7 @@ final class TestHudiSharedMetastore
                         "('hive', '" + "default" + "', 'region', 'comment')");
 
         // Hive does not show any information about tables with unsupported format
-        assertQueryReturnsEmptyResult("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'default' AND table_name = 'nation'");
+        assertQueryReturnsEmptyResult("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = 'default' AND \"TABLE_NAME\" = 'nation'");
     }
 
     @Test

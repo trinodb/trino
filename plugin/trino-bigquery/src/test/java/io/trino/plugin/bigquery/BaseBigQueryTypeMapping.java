@@ -917,7 +917,7 @@ public abstract class BaseBigQueryTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        CreateAsSelectDataSetup dataSetup = new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        CreateAsSelectDataSetup dataSetup = new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
         return new BigQueryDataSetup(getQueryRunner(), dataSetup);
     }
 
@@ -928,13 +928,13 @@ public abstract class BaseBigQueryTypeMapping
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        CreateAndInsertDataSetup dataSetup = new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        CreateAndInsertDataSetup dataSetup = new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
         return new BigQueryDataSetup(getQueryRunner(), dataSetup);
     }
 
     private DataSetup bigqueryCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(getBigQuerySqlExecutor(), tableNamePrefix);
+        return new CreateAndInsertDataSetup(getBigQuerySqlExecutor(), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup bigqueryCreateAndTrinoInsert(String tableNamePrefix)
@@ -944,7 +944,7 @@ public abstract class BaseBigQueryTypeMapping
 
     private DataSetup bigqueryViewCreateAndInsert(String tableNamePrefix)
     {
-        return new BigQueryViewCreateAndInsertDataSetup(getBigQuerySqlExecutor(), tableNamePrefix);
+        return new BigQueryViewCreateAndInsertDataSetup(getBigQuerySqlExecutor(), tableNamePrefix, this::canonicalize);
     }
 
     private SqlExecutor getBigQuerySqlExecutor()

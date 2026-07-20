@@ -137,6 +137,12 @@ public abstract class BaseIcebergSystemTables
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testPartitionsTable()
     {

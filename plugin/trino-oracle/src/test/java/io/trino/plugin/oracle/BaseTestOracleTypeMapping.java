@@ -1369,7 +1369,7 @@ public abstract class BaseTestOracleTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -1379,12 +1379,12 @@ public abstract class BaseTestOracleTypeMapping
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup oracleCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup oracleCreateAndTrinoInsert(String tableNamePrefix)

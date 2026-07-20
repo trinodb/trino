@@ -5,8 +5,8 @@ SELECT
 , "i_category"
 , "i_class"
 , "i_current_price"
-, "sum"("ws_ext_sales_price") "itemrevenue"
-, (("sum"("ws_ext_sales_price") * 100) / "sum"("sum"("ws_ext_sales_price")) OVER (PARTITION BY "i_class")) "revenueratio"
+, sum("ws_ext_sales_price") "itemrevenue"
+, ((sum("ws_ext_sales_price") * 100) / sum(sum("ws_ext_sales_price")) OVER (PARTITION BY "i_class")) "revenueratio"
 FROM
   web_sales
 , item

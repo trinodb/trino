@@ -287,6 +287,7 @@ public class TestRecursiveCte
     @Test
     public void testDuplicateOutputsInAnchorAndStepRelation()
     {
+        // FIXME: This test cannot work without a table name in lowercase.
         // This example tests recursive query with symbol ambiguity on different stages of recursion planning:
         // - the base relation outputs the same symbol (`a`) twice, once as `a`, and once as `root_a`
         // - the step relation in the first recursion step also outputs the same symbol twice:
@@ -301,19 +302,19 @@ public class TestRecursiveCte
                         .setSystemProperty(MAX_RECURSION_DEPTH, "4")
                         .build(),
                 "WITH RECURSIVE " +
-                        "        T(a, orig_a) AS (VALUES (1, 0), (2, 0), (3, 1), (4, 1), (5, 2), (6, 3), (7, 5)), " +
-                        "        CTE(a, orig_a, base_id, root_a) AS( " +
+                        "        t(a, orig_a) AS (VALUES (1, 0), (2, 0), (3, 1), (4, 1), (5, 2), (6, 3), (7, 5)), " +
+                        "        cte(a, orig_a, base_id, root_a) AS( " +
                         "                                           SELECT a, orig_a, 'base_entry', a " +
-                        "                                               FROM T " +
+                        "                                               FROM t " +
                         "                                               WHERE orig_a = 0 " +
                         "                                           UNION ALL " +
-                        "                                           SELECT T.a, T.orig_a, 'derived', CTE.root_a " +
-                        "                                               FROM T " +
+                        "                                           SELECT t.a, t.orig_a, 'derived', cte.root_a " +
+                        "                                               FROM t " +
                         "                                               INNER JOIN " +
-                        "                                               CTE " +
-                        "                                               ON CTE.a = T.orig_a " +
+                        "                                               cte " +
+                        "                                               ON cte.a = t.orig_a " +
                         "                                           ) " +
-                        "SELECT * FROM CTE"))
+                        "SELECT * FROM cte"))
                 .matches("VALUES (1, 0, 'base_entry', 1), " +
                         "        (2, 0, 'base_entry', 2), " +
                         "        (3, 1, 'derived',    1), " +

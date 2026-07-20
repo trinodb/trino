@@ -27,7 +27,9 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 
@@ -68,7 +70,7 @@ public class DropDefaultValueTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
@@ -91,7 +93,9 @@ public class DropDefaultValueTask
         if (field.getOriginalParts().size() != 1) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
         }
-        String columnName = field.getOriginalParts().getFirst().getValue();
+        Identifier identifier = field.getOriginalParts().getFirst();
+        Resolver resolver = metadata.getResolverManager().getResolver(session, tableName.catalogName());
+        String columnName = resolver.canonicalize(identifier);
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
         if (columnHandle == null) {

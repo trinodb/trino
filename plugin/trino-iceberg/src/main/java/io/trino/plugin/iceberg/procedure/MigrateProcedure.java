@@ -320,8 +320,8 @@ public class MigrateProcedure
             int id = nextFieldId.getAndIncrement();
             RowType.Field field = type.getFields().get(i);
             String name = field.getName().orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
-            if (!fieldNames.add(name.toLowerCase(ENGLISH))) {
-                throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name.toLowerCase(ENGLISH)));
+            if (!fieldNames.add(name)) {
+                throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name));
             }
             org.apache.iceberg.types.Type icebergTypeInternal = toIcebergType(field.getType(), nextFieldId, storageFormat);
             fields.add(Types.NestedField.optional(id, name, icebergTypeInternal));
