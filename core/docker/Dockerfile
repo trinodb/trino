@@ -73,6 +73,6 @@ COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 
 EXPOSE 8080
 USER trino:trino
-CMD ["/usr/lib/trino/bin/run-trino"]
+CMD ["/usr/lib/trino/bin/launcher", "run", "--etc-dir", "/etc/trino"]
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s \
   CMD /usr/lib/trino/bin/health-check
