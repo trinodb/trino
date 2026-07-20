@@ -98,6 +98,24 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
+            <exclusions>
+                <!-- Product tests only use the Thrift metastore client classes from trino-hive.
+                     Exclude the connector runtime's heavy transitive dependencies (cloud filesystems,
+                     Alluxio cache with RocksDB and gRPC, Coral, fastutil) which are never used at
+                     test runtime and would otherwise dominate the test classpath size. -->
+                <exclusion>
+                    <groupId>io.trino</groupId>
+                    <artifactId>trino-filesystem-manager</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.trino.coral</groupId>
+                    <artifactId>coral</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>it.unimi.dsi</groupId>
+                    <artifactId>fastutil</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
