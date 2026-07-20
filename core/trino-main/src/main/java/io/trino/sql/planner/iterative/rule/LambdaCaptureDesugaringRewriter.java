@@ -23,6 +23,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -103,9 +104,32 @@ public final class LambdaCaptureDesugaringRewriter
         }
 
         @Override
+        public Expression rewriteLet(Let node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
+        {
+            // The value is evaluated in the enclosing scope, so its references are genuine captures.
+            Expression value = treeRewriter.rewrite(node.value(), context);
+
+            // The bound symbol is local to the body and must not be treated as a captured symbol.
+            Expression body = treeRewriter.rewrite(node.body(), context.withLetBoundSymbol(node.name()));
+
+            // Nested lambda will return the bound symbol as a capture, so we must explicitly exclude
+            // it at this boundary. Otherwise, it would be propagated upward beyond the point of its
+            // definition, and reported as a subexpression's free variable.
+            context.getReferencedSymbols().remove(node.name());
+
+            if (value != node.value() || body != node.body()) {
+                return new Let(node.name(), value, body);
+            }
+            return node;
+        }
+
+        @Override
         public Expression rewriteReference(Reference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
-            context.getReferencedSymbols().add(new Symbol(node.type(), node.name()));
+            Symbol symbol = new Symbol(node.type(), node.name());
+            if (!context.isLetBoundSymbol(symbol)) {
+                context.getReferencedSymbols().add(symbol);
+            }
             return null;
         }
     }
@@ -114,15 +138,17 @@ public final class LambdaCaptureDesugaringRewriter
     {
         // Use linked hash set to guarantee deterministic iteration order
         final LinkedHashSet<Symbol> referencedSymbols;
+        final Set<Symbol> letBoundSymbols;
 
         public Context()
         {
-            this(new LinkedHashSet<>());
+            this(new LinkedHashSet<>(), ImmutableSet.of());
         }
 
-        private Context(LinkedHashSet<Symbol> referencedSymbols)
+        private Context(LinkedHashSet<Symbol> referencedSymbols, Set<Symbol> letBoundSymbols)
         {
             this.referencedSymbols = referencedSymbols;
+            this.letBoundSymbols = letBoundSymbols;
         }
 
         public LinkedHashSet<Symbol> getReferencedSymbols()
@@ -130,9 +156,24 @@ public final class LambdaCaptureDesugaringRewriter
             return referencedSymbols;
         }
 
+        public boolean isLetBoundSymbol(Symbol symbol)
+        {
+            return letBoundSymbols.contains(symbol);
+        }
+
         public Context withReferencedSymbols(LinkedHashSet<Symbol> symbols)
         {
-            return new Context(symbols);
+            // A Let binding from an enclosing scope is a free variable inside a nested lambda, so
+            // it must be captured there. Drop the bindings when crossing a lambda boundary.
+            return new Context(symbols, ImmutableSet.of());
+        }
+
+        public Context withLetBoundSymbol(Symbol symbol)
+        {
+            return new Context(referencedSymbols, ImmutableSet.<Symbol>builder()
+                    .addAll(letBoundSymbols)
+                    .add(symbol)
+                    .build());
         }
     }
 }
