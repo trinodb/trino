@@ -106,6 +106,24 @@ public class TestLambdaCaptureDesugaringRewriter
     }
 
     @Test
+    public void testLetBindingDoesNotHideReferenceInValue()
+    {
+        Symbol symbol = new Symbol(INTEGER, "a");
+        SymbolAllocator allocator = new SymbolAllocator(ImmutableList.of(symbol));
+
+        assertThat(rewrite(
+                new Lambda(
+                        ImmutableList.of(),
+                        new Let(symbol, symbol.toSymbolReference(), symbol.toSymbolReference())),
+                allocator))
+                .isEqualTo(new Bind(
+                        ImmutableList.of(symbol.toSymbolReference()),
+                        new Lambda(
+                                ImmutableList.of(new Symbol(INTEGER, "a_0")),
+                                new Let(symbol, new Reference(INTEGER, "a_0"), symbol.toSymbolReference()))));
+    }
+
+    @Test
     public void testLetBoundSymbolFromEnclosingScopeIsCaptured()
     {
         SymbolAllocator allocator = new SymbolAllocator(ImmutableList.of(new Symbol(INTEGER, "a"), new Symbol(INTEGER, "b")));

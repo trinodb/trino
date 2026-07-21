@@ -110,12 +110,14 @@ public final class LambdaCaptureDesugaringRewriter
             Expression value = treeRewriter.rewrite(node.value(), context);
 
             // The bound symbol is local to the body and must not be treated as a captured symbol.
-            Expression body = treeRewriter.rewrite(node.body(), context.withLetBoundSymbol(node.name()));
+            Context bodyContext = context.forLetBody(node.name());
+            Expression body = treeRewriter.rewrite(node.body(), bodyContext);
 
             // Nested lambda will return the bound symbol as a capture, so we must explicitly exclude
             // it at this boundary. Otherwise, it would be propagated upward beyond the point of its
             // definition, and reported as a subexpression's free variable.
-            context.getReferencedSymbols().remove(node.name());
+            bodyContext.getReferencedSymbols().remove(node.name());
+            context.getReferencedSymbols().addAll(bodyContext.getReferencedSymbols());
 
             if (value != node.value() || body != node.body()) {
                 return new Let(node.name(), value, body);
@@ -168,9 +170,9 @@ public final class LambdaCaptureDesugaringRewriter
             return new Context(symbols, ImmutableSet.of());
         }
 
-        public Context withLetBoundSymbol(Symbol symbol)
+        public Context forLetBody(Symbol symbol)
         {
-            return new Context(referencedSymbols, ImmutableSet.<Symbol>builder()
+            return new Context(new LinkedHashSet<>(), ImmutableSet.<Symbol>builder()
                     .addAll(letBoundSymbols)
                     .add(symbol)
                     .build());
