@@ -38,10 +38,14 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeStatsEstimate
 {
     private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
-    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, ImmutableMap.of());
+    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, HashTreePMap.empty(), ImmutableMap.of());
 
     private final double outputRowCount;
     private final PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+    // Joint NDV for groups of symbols; not included in JSON serialization since Set<Symbol>
+    // cannot be a JSON object key. This is an in-memory optimization hint that is populated
+    // by TableScanStatsRule when the connector supplies ColumnGroupStatistics.
+    private final ImmutableMap<Set<Symbol>, Double> columnGroupNdv;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -53,14 +57,15 @@ public class PlanNodeStatsEstimate
             @JsonProperty("outputRowCount") double outputRowCount,
             @JsonProperty("symbolStatistics") Map<Symbol, SymbolStatsEstimate> symbolStatistics)
     {
-        this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")));
+        this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")), ImmutableMap.of());
     }
 
-    private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
+    private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics, ImmutableMap<Set<Symbol>, Double> columnGroupNdv)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.symbolStatistics = symbolStatistics;
+        this.columnGroupNdv = requireNonNull(columnGroupNdv, "columnGroupNdv is null");
     }
 
     /**
@@ -141,6 +146,16 @@ public class PlanNodeStatsEstimate
         return symbolStatistics.keySet();
     }
 
+    /**
+     * Returns the joint NDV for the given symbol group, or {@link Double#NaN} if no joint
+     * statistics are available for that group.
+     */
+    public double getColumnGroupNdv(Set<Symbol> symbolGroup)
+    {
+        Double value = columnGroupNdv.get(symbolGroup);
+        return value != null ? value : NaN;
+    }
+
     public boolean isOutputRowCountUnknown()
     {
         return isNaN(outputRowCount);
@@ -152,6 +167,7 @@ public class PlanNodeStatsEstimate
         return toStringHelper(this)
                 .add("outputRowCount", outputRowCount)
                 .add("symbolStatistics", symbolStatistics)
+                .add("columnGroupNdv", columnGroupNdv)
                 .toString();
     }
 
@@ -166,13 +182,14 @@ public class PlanNodeStatsEstimate
         }
         PlanNodeStatsEstimate that = (PlanNodeStatsEstimate) o;
         return Double.compare(outputRowCount, that.outputRowCount) == 0 &&
-                Objects.equals(symbolStatistics, that.symbolStatistics);
+                Objects.equals(symbolStatistics, that.symbolStatistics) &&
+                Objects.equals(columnGroupNdv, that.columnGroupNdv);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(outputRowCount, symbolStatistics);
+        return Objects.hash(outputRowCount, symbolStatistics, columnGroupNdv);
     }
 
     public static Builder builder()
@@ -182,23 +199,25 @@ public class PlanNodeStatsEstimate
 
     public static Builder buildFrom(PlanNodeStatsEstimate other)
     {
-        return new Builder(other.getOutputRowCount(), other.symbolStatistics);
+        return new Builder(other.getOutputRowCount(), other.symbolStatistics, other.columnGroupNdv);
     }
 
     public static final class Builder
     {
         private double outputRowCount;
         private PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+        private ImmutableMap.Builder<Set<Symbol>, Double> columnGroupNdv;
 
         public Builder()
         {
-            this(NaN, HashTreePMap.empty());
+            this(NaN, HashTreePMap.empty(), ImmutableMap.of());
         }
 
-        private Builder(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
+        private Builder(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics, ImmutableMap<Set<Symbol>, Double> columnGroupNdv)
         {
             this.outputRowCount = outputRowCount;
             this.symbolStatistics = symbolStatistics;
+            this.columnGroupNdv = ImmutableMap.<Set<Symbol>, Double>builder().putAll(columnGroupNdv);
         }
 
         public Builder setOutputRowCount(double outputRowCount)
@@ -225,9 +244,15 @@ public class PlanNodeStatsEstimate
             return this;
         }
 
+        public Builder addColumnGroupNdv(Set<Symbol> symbolGroup, double ndv)
+        {
+            columnGroupNdv.put(symbolGroup, ndv);
+            return this;
+        }
+
         public PlanNodeStatsEstimate build()
         {
-            return new PlanNodeStatsEstimate(outputRowCount, symbolStatistics);
+            return new PlanNodeStatsEstimate(outputRowCount, symbolStatistics, columnGroupNdv.buildOrThrow());
         }
     }
 }

@@ -187,6 +187,30 @@ public class TestAggregationStatsRule
     }
 
     @Test
+    public void testAggregationWithJointNdvFromConnector()
+    {
+        // country has 50 NDV, state has 500 NDV; independence assumption yields 25000 groups.
+        // With joint NDV of 500, the estimate should be 500 instead.
+        tester().assertStatsFor(pb -> pb
+                        .aggregation(ab -> ab
+                                .singleGroupingSet(pb.symbol("country", BIGINT), pb.symbol("state", BIGINT))
+                                .source(pb.values(pb.symbol("country", BIGINT), pb.symbol("state", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .addSymbolStatistics(new Symbol(BIGINT, "country"), SymbolStatsEstimate.builder()
+                                .setDistinctValuesCount(50)
+                                .setNullsFraction(0)
+                                .build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "state"), SymbolStatsEstimate.builder()
+                                .setDistinctValuesCount(500)
+                                .setNullsFraction(0)
+                                .build())
+                        .addColumnGroupNdv(ImmutableSet.of(new Symbol(BIGINT, "country"), new Symbol(BIGINT, "state")), 500)
+                        .build())
+                .check(check -> check.outputRowsCount(500));
+    }
+
+    @Test
     void testAggregationStep()
     {
         testAggregationStep(AggregationNode.Step.PARTIAL);
