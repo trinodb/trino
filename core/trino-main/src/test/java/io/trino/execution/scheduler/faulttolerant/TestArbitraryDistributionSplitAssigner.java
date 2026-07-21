@@ -22,6 +22,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.execution.scheduler.StableHostAddressProvider;
 import io.trino.execution.scheduler.StableHostAddressProviderConfig;
 import io.trino.metadata.Split;
@@ -48,6 +49,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.scheduler.faulttolerant.SplitAssigner.SINGLE_SOURCE_PARTITION_ID;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +61,7 @@ public class TestArbitraryDistributionSplitAssigner
 
     private static final long STANDARD_SPLIT_SIZE_IN_BYTES = 1;
 
-    private static final StableHostAddressProvider CONSISTENT_HASHING_ADDRESS_PROVIDER = new StableHostAddressProvider(TestingInternalNodeManager.createDefault(), new StableHostAddressProviderConfig());
+    private static final StableHostAddressProvider CONSISTENT_HASHING_ADDRESS_PROVIDER = new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, TestingInternalNodeManager.createDefault(), false), new StableHostAddressProviderConfig());
 
     private static final PlanNodeId PARTITIONED_1 = new PlanNodeId("partitioned-1");
     private static final PlanNodeId PARTITIONED_2 = new PlanNodeId("partitioned-2");

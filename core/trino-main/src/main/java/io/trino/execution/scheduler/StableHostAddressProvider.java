@@ -19,10 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.XxHash64;
-import io.trino.node.InternalNode;
-import io.trino.node.InternalNodeManager;
-import io.trino.node.NodeState;
 import io.trino.spi.HostAddress;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
 
 import java.util.Comparator;
 import java.util.List;
@@ -38,8 +37,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Maps a split's cache key to a stable list of worker host addresses using rendezvous (highest
- * random weight) hashing over a precomputed bucket table. Worker membership is refreshed lazily on
- * access, bounded by a short time window, and the table is rebuilt only when membership changes.
+ * random weight) hashing over a precomputed bucket table. Worker membership comes from
+ * {@link NodeManager#getWorkerNodes()}, is refreshed lazily on access, bounded by a short time
+ * window, and the table is rebuilt only when membership changes.
  */
 public class StableHostAddressProvider
 {
@@ -49,14 +49,14 @@ public class StableHostAddressProvider
     // hosts shift on rebuild, keeping reassignment minimal. Assumes worker count stays well below this.
     private static final int BUCKET_COUNT = 2048;
 
-    private final InternalNodeManager nodeManager;
+    private final NodeManager nodeManager;
     private final int preferredHostsCount;
 
     private volatile Snapshot snapshot = new Snapshot(ImmutableSet.of(), ImmutableList.of());
     private volatile long lastRefreshTime;
 
     @Inject
-    public StableHostAddressProvider(InternalNodeManager nodeManager, StableHostAddressProviderConfig config)
+    public StableHostAddressProvider(NodeManager nodeManager, StableHostAddressProviderConfig config)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.preferredHostsCount = config.getPreferredHostsCount();
@@ -90,8 +90,7 @@ public class StableHostAddressProvider
     synchronized void refreshSnapshot()
     {
         try {
-            Set<TrinoNode> trinoNodes = nodeManager.getNodes(NodeState.ACTIVE).stream()
-                    .filter(node -> !node.isCoordinator())
+            Set<TrinoNode> trinoNodes = nodeManager.getWorkerNodes().stream()
                     .map(TrinoNode::of)
                     .collect(toImmutableSet());
             lastRefreshTime = System.nanoTime();
@@ -142,7 +141,7 @@ public class StableHostAddressProvider
             requireNonNull(hostAndPort, "hostAndPort is null");
         }
 
-        public static TrinoNode of(InternalNode node)
+        public static TrinoNode of(Node node)
         {
             return new TrinoNode(node.getNodeIdentifier(), node.getHostAndPort(), XxHash64.hash(node.getNodeIdentifier().getBytes(UTF_8)));
         }
