@@ -23,36 +23,31 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.IntStream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.Duration.nanosSince;
+import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
- * Maps a split's cache key to a stable list of worker host addresses using rendezvous (highest
- * random weight) hashing over a precomputed bucket table. Worker membership comes from
- * {@link NodeManager#getWorkerNodes()}, is refreshed lazily on access, bounded by a short time
- * window, and the table is rebuilt only when membership changes.
+ * Maps a split's cache key to a stable list of worker host addresses. Keys spread evenly across
+ * workers, and a membership change reassigns only the keys placed on the affected workers. Worker
+ * membership comes from {@link NodeManager#getWorkerNodes()} and is refreshed lazily on access,
+ * bounded by a short time window.
  */
 public class StableHostAddressProvider
 {
     private static final Logger log = Logger.get(StableHostAddressProvider.class);
     private static final long WORKER_NODES_CACHE_TIMEOUT_SECS = 5;
-    // Fixed so a key always maps to the same bucket across membership changes; only the bucket's
-    // hosts shift on rebuild, keeping reassignment minimal. Assumes worker count stays well below this.
-    private static final int BUCKET_COUNT = 2048;
 
     private final NodeManager nodeManager;
     private final int preferredHostsCount;
 
-    private volatile Snapshot snapshot = new Snapshot(ImmutableSet.of(), ImmutableList.of());
+    private volatile Snapshot snapshot = new Snapshot(ImmutableSet.of(), new long[0], new HostAddress[0]);
     private volatile long lastRefreshTime;
 
     @Inject
@@ -66,18 +61,50 @@ public class StableHostAddressProvider
     public List<HostAddress> getHosts(String cacheKey)
     {
         refreshSnapshotIfNeeded();
-        List<List<HostAddress>> bucketToHosts = snapshot.bucketToHosts();
-        if (bucketToHosts.isEmpty()) {
+        Snapshot snapshot = this.snapshot;
+        long[] nodeHashes = snapshot.nodeHashes();
+        int nodeCount = nodeHashes.length;
+        if (nodeCount == 0) {
             return ImmutableList.of();
         }
-        int bucket = Math.floorMod(XxHash64.hash(cacheKey.getBytes(UTF_8)), BUCKET_COUNT);
-        return bucketToHosts.get(bucket);
+        long keyHash = XxHash64.hash(cacheKey.getBytes(UTF_8));
+        int hostsCount = Math.min(preferredHostsCount, nodeCount);
+        long[] topWeights = new long[hostsCount];
+        HostAddress[] topHosts = new HostAddress[hostsCount];
+        int filled = 0;
+        // Rendezvous hashing: route the key to its hostsCount highest-weight workers. Bounded
+        // insertion keeps the top entries in one allocation-free pass; a sorted/limit stream would
+        // sort all nodes and allocate on every split
+        for (int i = 0; i < nodeCount; i++) {
+            long weight = murmurHash3(nodeHashes[i] ^ keyHash);
+            if (filled < hostsCount) {
+                insertDescending(topWeights, topHosts, filled, weight, snapshot.hosts()[i]);
+                filled++;
+            }
+            else if (weight > topWeights[hostsCount - 1]) {
+                insertDescending(topWeights, topHosts, hostsCount - 1, weight, snapshot.hosts()[i]);
+            }
+        }
+        return ImmutableList.copyOf(topHosts);
+    }
+
+    // Places the candidate into the weight-descending top list, shifting lower entries down
+    private static void insertDescending(long[] topWeights, HostAddress[] topHosts, int startPosition, long weight, HostAddress host)
+    {
+        int position = startPosition;
+        while (position > 0 && topWeights[position - 1] < weight) {
+            topWeights[position] = topWeights[position - 1];
+            topHosts[position] = topHosts[position - 1];
+            position--;
+        }
+        topWeights[position] = weight;
+        topHosts[position] = host;
     }
 
     private void refreshSnapshotIfNeeded()
     {
         if (nanosSince(lastRefreshTime).getValue(SECONDS) > WORKER_NODES_CACHE_TIMEOUT_SECS) {
-            // Double-checked locking so only one thread rebuilds the bucket table
+            // Double-checked locking so only one thread rebuilds the snapshot
             synchronized (this) {
                 if (nanosSince(lastRefreshTime).getValue(SECONDS) > WORKER_NODES_CACHE_TIMEOUT_SECS) {
                     refreshSnapshot();
@@ -94,44 +121,30 @@ public class StableHostAddressProvider
                     .map(TrinoNode::of)
                     .collect(toImmutableSet());
             lastRefreshTime = System.nanoTime();
-            Snapshot existing = snapshot;
-            if (existing != null && existing.nodes().equals(trinoNodes)) {
+            if (snapshot.nodes().equals(trinoNodes)) {
                 return;
             }
             snapshot = buildSnapshot(trinoNodes);
         }
         catch (Exception e) {
-            log.error(e, "Error refreshing worker node bucket table");
+            log.error(e, "Error refreshing worker node snapshot");
         }
     }
 
-    private Snapshot buildSnapshot(Set<TrinoNode> trinoNodes)
+    private static Snapshot buildSnapshot(Set<TrinoNode> trinoNodes)
     {
-        if (trinoNodes.isEmpty()) {
-            return new Snapshot(ImmutableSet.of(), ImmutableList.of());
+        long[] nodeHashes = new long[trinoNodes.size()];
+        HostAddress[] hosts = new HostAddress[trinoNodes.size()];
+        int index = 0;
+        for (TrinoNode node : trinoNodes) {
+            nodeHashes[index] = node.nodeHash();
+            hosts[index] = node.hostAndPort();
+            index++;
         }
-        List<TrinoNode> nodes = ImmutableList.copyOf(trinoNodes);
-        int hostsCount = Math.min(preferredHostsCount, nodes.size());
-        List<List<HostAddress>> bucketToHosts = IntStream.range(0, BUCKET_COUNT)
-                .mapToObj(bucket -> computeHosts(nodes, bucket, hostsCount))
-                .collect(toImmutableList());
-        return new Snapshot(trinoNodes, bucketToHosts);
+        return new Snapshot(trinoNodes, nodeHashes, hosts);
     }
 
-    private List<HostAddress> computeHosts(List<TrinoNode> nodes, int bucket, int hostsCount)
-    {
-        long bucketHash = XxHash64.hash(bucket);
-        return nodes.stream()
-                .map(node -> new WeightedNode(XxHash64.hash(node.nodeHash(), bucketHash), node.hostAndPort()))
-                .sorted(Comparator.comparingLong(WeightedNode::weight).reversed())
-                .limit(hostsCount)
-                .map(WeightedNode::hostAndPort)
-                .collect(toImmutableList());
-    }
-
-    private record Snapshot(Set<TrinoNode> nodes, List<List<HostAddress>> bucketToHosts) {}
-
-    private record WeightedNode(long weight, HostAddress hostAndPort) {}
+    private record Snapshot(Set<TrinoNode> nodes, long[] nodeHashes, HostAddress[] hosts) {}
 
     private record TrinoNode(String nodeIdentifier, HostAddress hostAndPort, long nodeHash)
     {
