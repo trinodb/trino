@@ -137,6 +137,28 @@
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>executable</shadedClassifierName>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <!--
+                                This executable only loads plugins and prints the features they provide, which
+                                touches a small part of the engine. The artifacts below are pulled in through
+                                trino-main but no class of theirs is loaded on that path, so shading them only
+                                makes the build slower and the JAR larger. Anything a plugin resolves through
+                                the SPI class loader has to stay, which is why jts-core is not listed here.
+                                -->
+                                <excludes>
+                                    <exclude>com.github.luben:zstd-jni</exclude>
+                                    <exclude>com.mysql:mysql-connector-j</exclude>
+                                    <exclude>io.airlift:aircompressor-v3</exclude>
+                                    <exclude>io.airlift:joni</exclude>
+                                    <exclude>io.trino:trino-web-ui</exclude>
+                                    <exclude>it.unimi.dsi:fastutil</exclude>
+                                    <exclude>net.bytebuddy:byte-buddy</exclude>
+                                    <exclude>org.apache.commons:commons-math3</exclude>
+                                    <exclude>org.apache.lucene:*</exclude>
+                                    <exclude>org.jetbrains.kotlin:kotlin-stdlib</exclude>
+                                    <exclude>org.weakref:jmxutils</exclude>
+                                </excludes>
+                            </artifactSet>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
