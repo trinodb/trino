@@ -48,6 +48,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.snowflake.SnowflakeCatalog;
+import org.apache.iceberg.view.ViewMetadata;
 
 import java.util.Iterator;
 import java.util.List;
@@ -354,6 +355,12 @@ public class TrinoSnowflakeCatalog
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Views are not supported for the Snowflake Iceberg catalog");
+    }
+
+    @Override
+    public void registerView(ConnectorSession session, SchemaTableName schemaViewName, ViewMetadata viewMetadata)
     {
         throw new TrinoException(NOT_SUPPORTED, "Views are not supported for the Snowflake Iceberg catalog");
     }

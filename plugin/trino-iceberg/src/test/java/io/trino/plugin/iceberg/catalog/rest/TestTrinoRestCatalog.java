@@ -35,17 +35,22 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.view.BaseView;
 import org.apache.iceberg.view.View;
+import org.apache.iceberg.view.ViewMetadata;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,6 +81,8 @@ import static org.assertj.core.api.InstanceOfAssertFactories.INTEGER;
 public class TestTrinoRestCatalog
         extends BaseTrinoCatalogTest
 {
+    private final Map<TrinoCatalog, RESTSessionCatalog> underlyingRestCatalogs = new IdentityHashMap<>();
+
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
             throws IOException
@@ -94,7 +101,17 @@ public class TestTrinoRestCatalog
                 new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
     }
 
-    private static TrinoRestCatalog createTrinoRestCatalog(boolean useUniqueTableLocations, Map<String, String> properties)
+    @Override
+    protected Optional<ViewMetadata> loadIcebergViewMetadata(TrinoCatalog catalog, SchemaTableName viewName)
+    {
+        RESTSessionCatalog restSessionCatalog = underlyingRestCatalogs.get(catalog);
+        BaseView view = (BaseView) restSessionCatalog.loadView(
+                SessionContext.createEmpty(),
+                TableIdentifier.of(viewName.getSchemaName(), viewName.getTableName()));
+        return Optional.of(view.operations().current());
+    }
+
+    private TrinoRestCatalog createTrinoRestCatalog(boolean useUniqueTableLocations, Map<String, String> properties)
             throws IOException
     {
         Path warehouseLocation = Files.createTempDirectory(null);
@@ -107,7 +124,9 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, properties);
 
-        return createTrinoRestCatalog(useUniqueTableLocations, restSessionCatalog, false, false);
+        TrinoRestCatalog trinoCatalog = createTrinoRestCatalog(useUniqueTableLocations, restSessionCatalog, false, false);
+        underlyingRestCatalogs.put(trinoCatalog, restSessionCatalog);
+        return trinoCatalog;
     }
 
     private static TrinoRestCatalog createTrinoRestCatalog(
