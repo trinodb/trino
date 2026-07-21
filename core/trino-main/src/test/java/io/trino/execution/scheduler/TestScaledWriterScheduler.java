@@ -20,6 +20,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
@@ -222,7 +223,7 @@ public class TestScaledWriterScheduler
                 nodeManager,
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService()),
-                new StableHostAddressProvider(nodeManager, new StableHostAddressProviderConfig()));
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, true), new StableHostAddressProviderConfig()));
     }
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)

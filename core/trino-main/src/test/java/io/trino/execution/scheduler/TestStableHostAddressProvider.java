@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
@@ -22,9 +23,12 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.NodeVersion.UNKNOWN;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
@@ -92,6 +96,16 @@ public class TestStableHostAddressProvider
     }
 
     @Test
+    public void testCoordinatorIncludedOnlyWhenSchedulingOnCoordinatorEnabled()
+    {
+        TestingInternalNodeManager nodeManager = createNodeManager(5);
+        HostAddress coordinator = CURRENT_NODE.getHostAndPort();
+
+        assertThat(allHosts(createProvider(nodeManager, false))).doesNotContain(coordinator);
+        assertThat(allHosts(createProvider(nodeManager, true))).contains(coordinator);
+    }
+
+    @Test
     public void testAddingNodeReassignsFewKeys()
     {
         TestingInternalNodeManager nodeManager = createNodeManager(20);
@@ -141,9 +155,21 @@ public class TestStableHostAddressProvider
 
     private static StableHostAddressProvider createProvider(TestingInternalNodeManager nodeManager)
     {
+        return createProvider(nodeManager, false);
+    }
+
+    private static StableHostAddressProvider createProvider(TestingInternalNodeManager nodeManager, boolean includeCoordinator)
+    {
         return new StableHostAddressProvider(
-                nodeManager,
+                new DefaultNodeManager(CURRENT_NODE, nodeManager, includeCoordinator),
                 new StableHostAddressProviderConfig().setPreferredHostsCount(PREFERRED_HOSTS));
+    }
+
+    private static Set<HostAddress> allHosts(StableHostAddressProvider provider)
+    {
+        return keys().stream()
+                .flatMap(key -> provider.getHosts(key).stream())
+                .collect(toImmutableSet());
     }
 
     private static TestingInternalNodeManager createNodeManager(int nodeCount)
