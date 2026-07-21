@@ -22,14 +22,12 @@ import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 import org.objectweb.asm.MethodTooLargeException;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -127,22 +125,24 @@ public final class CompilerUtils
         return makeClassName(baseName, Optional.empty());
     }
 
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
+    /**
+     * Defines a named class in the generated class package and loader. Named classes stay
+     * visible in stack traces, which hidden class frames are not, so this exists only for
+     * classes whose name is the point, like the version frame. The class shares the
+     * process-lifetime generated class loader and can never unload, and a name can only be
+     * defined once, so callers must memoize.
+     */
+    public static <T> Class<? extends T> defineNamedClass(ClassDefinition classDefinition, Class<T> superType)
     {
-        return defineClass(classDefinition, superType, new DynamicClassLoader(parentClassLoader, callSiteBindings));
-    }
-
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
-    {
-        log.debug("Defining class: %s", classDefinition.getName());
+        log.debug("Defining named class: %s", classDefinition.getName());
+        byte[] bytecode = hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
+                .omitDebugInfo(DUMP_CLASSES_DIRECTORY.isEmpty())
+                .generateBytes(classDefinition);
         try {
-            return classGenerator(classLoader)
-                    .omitDebugInfo(DUMP_CLASSES_DIRECTORY.isEmpty())
-                    .dumpClassFilesTo(DUMP_CLASSES_DIRECTORY)
-                    .defineClass(classDefinition, superType);
+            return GENERATED_CLASS_LOOKUP.defineClass(bytecode).asSubclass(superType);
         }
-        catch (MethodTooLargeException e) {
-            throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT, "Query exceeded maximum method size.", e);
+        catch (IllegalAccessException e) {
+            throw new RuntimeException("Failed to define class " + classDefinition.getName(), e);
         }
     }
 

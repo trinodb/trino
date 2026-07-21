@@ -77,6 +77,7 @@ import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.slice.Slices.allocate;
@@ -99,7 +100,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.field;
@@ -671,7 +671,10 @@ public class TestPageFunctionCompiler
         identity.getBody()
                 .append(identityValue.ret());
 
-        Class<?> hiddenClass = defineClass(classDefinition, Object.class, new DynamicClassLoader(TestPageFunctionCompiler.class.getClassLoader()));
+        // defined in a separate class loader so the tests exercise the per accessed class
+        // lookup anchors for types the engine loader cannot see
+        Class<?> hiddenClass = classGenerator(new DynamicClassLoader(TestPageFunctionCompiler.class.getClassLoader()))
+                .defineClass(classDefinition, Object.class);
         return new HiddenFunctions(
                 new HiddenType(hiddenClass),
                 insertArguments(constructorMethodHandle(hiddenClass, int.class), 0, 42),
