@@ -1,6 +1,6 @@
 <runtime>
     <!-- Target -->
-    <archive name="${project.artifactId}-${project.version}.tar.gz" streaming="true" hardLinkIncludes="**/*.jar" />
+    <archive name="${project.artifactId}-${project.version}.tar.gz" streaming="true" gzipCompressionLevel="6" hardLinkIncludes="**/*.jar" />
 
     <!-- Notices -->
     <fileSet to="/">
