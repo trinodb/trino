@@ -420,7 +420,12 @@ public class PostgresqlSecretsProviderEnvironment
 
     private static String secretsConfiguration()
     {
+        // the env provider is required because the image default node.properties refers to
+        // ${ENV:HOSTNAME}, and declaring any provider replaces the built-in resolution
         return """
+               [env]
+               secrets-provider.name = "env"
+
                [keystore]
                secrets-provider.name = "keystore"
                keystore-file-path = "/etc/trino/credential.jckes"
