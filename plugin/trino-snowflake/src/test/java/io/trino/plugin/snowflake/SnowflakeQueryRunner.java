@@ -26,10 +26,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -46,19 +46,25 @@ public final class SnowflakeQueryRunner
 
     public static Builder builder()
     {
+        // Password-based authentication
+        return baseBuilder()
+                .addConnectorProperty("connection-password", requiredNonEmptySystemProperty("snowflake.test.server.password"));
+    }
+
+    public static Builder builderWithPrivateKey()
+    {
+        // Key-pair (RSA private key) authentication
+        return baseBuilder()
+                .addConnectorProperty("snowflake.connection-private-key", requiredNonEmptySystemProperty("snowflake.test.server.private-key"));
+    }
+
+    private static Builder baseBuilder()
+    {
         Builder builder = new Builder()
                 .addConnectorProperty("connection-url", TestingSnowflakeServer.TEST_URL)
                 .addConnectorProperty("connection-user", TestingSnowflakeServer.TEST_USER)
                 .addConnectorProperty("snowflake.database", TestingSnowflakeServer.TEST_DATABASE)
                 .addConnectorProperty("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
-
-        checkArgument(
-                TestingSnowflakeServer.TEST_PRIVATE_KEY.isPresent() ^ TestingSnowflakeServer.TEST_PASSWORD.isPresent(),
-                "Exactly one of PrivateKey or Password must be set");
-        TestingSnowflakeServer.TEST_PRIVATE_KEY
-                .ifPresent(privateKey -> builder.addConnectorProperty("snowflake.connection-private-key", privateKey));
-        TestingSnowflakeServer.TEST_PASSWORD
-                .ifPresent(password -> builder.addConnectorProperty("connection-password", password));
         TestingSnowflakeServer.TEST_ROLE.ifPresent(role -> builder.addConnectorProperty("snowflake.role", role));
         return builder;
     }

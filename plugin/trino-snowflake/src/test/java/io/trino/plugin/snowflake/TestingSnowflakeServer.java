@@ -61,10 +61,14 @@ public final class TestingSnowflakeServer
         Properties properties = new Properties();
         properties.setProperty("user", TEST_USER);
         checkArgument(
-                TestingSnowflakeServer.TEST_PRIVATE_KEY.isPresent() ^ TestingSnowflakeServer.TEST_PASSWORD.isPresent(),
-                "Exactly one of PrivateKey or Password must be set");
-        TEST_PRIVATE_KEY.ifPresent(privateKeyString -> properties.put("privateKey", SnowflakeClientModule.parsePrivateKey(privateKeyString)));
-        TEST_PASSWORD.ifPresent(password -> properties.setProperty("password", password));
+                TEST_PRIVATE_KEY.isPresent() || TEST_PASSWORD.isPresent(),
+                "At least one of the private key or password must be set");
+        if (TEST_PRIVATE_KEY.isPresent()) {
+            properties.put("privateKey", SnowflakeClientModule.parsePrivateKey(TEST_PRIVATE_KEY.get()));
+        }
+        else {
+            properties.setProperty("password", TEST_PASSWORD.get());
+        }
         properties.setProperty("db", TEST_DATABASE);
         properties.setProperty("schema", TEST_SCHEMA);
         properties.setProperty("warehouse", TEST_WAREHOUSE);
