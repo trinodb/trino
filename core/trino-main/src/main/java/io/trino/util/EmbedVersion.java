@@ -13,7 +13,6 @@
  */
 package io.trino.util;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
@@ -24,6 +23,8 @@ import io.trino.spi.VersionEmbedder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.bytecode.Access.FINAL;
@@ -32,7 +33,7 @@ import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineNamedClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
@@ -50,33 +51,37 @@ public class EmbedVersion
         this(version.version());
     }
 
+    // the version classes are named, and a name can only be defined once in the shared
+    // generated class loader, so instances with the same version share the classes
+    private static final ConcurrentMap<String, VersionClasses> CLASSES = new ConcurrentHashMap<>();
+
+    private record VersionClasses(Class<?> runnableClass, Class<?> callableClass) {}
+
     public EmbedVersion(String version)
     {
-        Class<?> generatedClass = createClass(format("Trino_%s___", version));
-        this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
-        this.callableConstructor = constructorMethodHandle(generatedClass, Callable.class);
+        VersionClasses classes = CLASSES.computeIfAbsent(version, EmbedVersion::createClasses);
+        this.runnableConstructor = constructorMethodHandle(classes.runnableClass(), Runnable.class);
+        this.callableConstructor = constructorMethodHandle(classes.callableClass(), Callable.class);
     }
 
-    private static Class<?> createClass(String baseClassName)
+    private static VersionClasses createClasses(String version)
+    {
+        return new VersionClasses(
+                createWrapperClass(format("Trino_%s___Runnable", version), Runnable.class, "run", void.class),
+                createWrapperClass(format("Trino_%s___Callable", version), Callable.class, "call", Object.class));
+    }
+
+    private static Class<?> createWrapperClass(String baseClassName, Class<?> interfaceType, String methodName, Class<?> returnType)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(baseClassName),
                 type(Object.class),
-                type(Runnable.class),
-                type(Callable.class));
+                type(interfaceType));
 
-        implementRunnable(classDefinition);
-        implementCallable(classDefinition);
+        FieldDefinition field = classDefinition.declareField(a(PRIVATE, FINAL), "delegate", interfaceType);
 
-        return defineClass(classDefinition, Runnable.class, ImmutableMap.of(), EmbedVersion.class.getClassLoader());
-    }
-
-    private static void implementRunnable(ClassDefinition classDefinition)
-    {
-        FieldDefinition field = classDefinition.declareField(a(PRIVATE), "runnable", Runnable.class);
-
-        Parameter parameter = arg("runnable", type(Runnable.class));
+        Parameter parameter = arg("delegate", type(interfaceType));
         MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
         constructor.getBody()
                 .comment("super();")
@@ -87,37 +92,17 @@ public class EmbedVersion
                 .putField(field)
                 .ret();
 
-        MethodDefinition run = classDefinition.declareMethod(a(PUBLIC), "run", type(void.class));
-        run.getBody()
-                .comment("runnable.run();")
-                .append(run.getThis())
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType));
+        method.getBody()
+                .comment("delegate.%s();", methodName)
+                .append(method.getThis())
                 .getField(field)
-                .invokeInterface(Runnable.class, "run", void.class)
-                .ret();
-    }
+                .invokeInterface(interfaceType, methodName, returnType)
+                .ret(returnType);
 
-    private static void implementCallable(ClassDefinition classDefinition)
-    {
-        FieldDefinition field = classDefinition.declareField(a(PRIVATE), "callable", Callable.class);
-
-        Parameter parameter = arg("callable", type(Callable.class));
-        MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
-        constructor.getBody()
-                .comment("super();")
-                .append(constructor.getThis())
-                .invokeConstructor(Object.class)
-                .append(constructor.getThis())
-                .append(parameter)
-                .putField(field)
-                .ret();
-
-        MethodDefinition run = classDefinition.declareMethod(a(PUBLIC), "call", type(Object.class));
-        run.getBody()
-                .comment("callable.call();")
-                .append(run.getThis())
-                .getField(field)
-                .invokeInterface(Callable.class, "call", Object.class)
-                .ret(Object.class);
+        // defined as a named class: the version bearing name must stay visible in stack
+        // traces, which hidden class frames are not
+        return defineNamedClass(classDefinition, interfaceType);
     }
 
     @Override
