@@ -24,6 +24,11 @@
         </dependency>
 
         <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>
         </dependency>
@@ -51,6 +56,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
         </dependency>
 
         <dependency>
