@@ -1,6 +1,6 @@
 <runtime>
     <!-- Target -->
-    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
+    <archive name="${project.artifactId}-${project.version}.tar.gz" streaming="true" hardLinkIncludes="**/*.jar" />
 
    <!-- Expand on top of trino-server-core -->
     <artifactSet to="">
