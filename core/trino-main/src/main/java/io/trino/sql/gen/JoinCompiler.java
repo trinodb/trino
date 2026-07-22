@@ -181,7 +181,9 @@ public class JoinCompiler
 
     private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, OptionalInt sortChannel)
     {
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels, sortChannel);
+        // the same strategy is reachable through compilePagesHashStrategyFactory, so it is
+        // taken from the cache rather than compiled again into a second identical class
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = hashStrategies.getUnchecked(new CacheKey(types, outputChannels, joinChannels, sortChannel));
 
         OptionalInt singleBigintJoinChannel = OptionalInt.empty();
         if (enableSingleChannelBigintLookupSource) {
