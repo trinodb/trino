@@ -96,6 +96,7 @@ import io.trino.operator.index.IndexManager;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
+import io.trino.security.credential.CredentialModule;
 import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
@@ -476,6 +477,8 @@ public class ServerMainModule
 
         // Dynamic Filtering
         configBinder(binder).bindConfig(DynamicFilterConfig.class);
+
+        install(new CredentialModule()); // TODO add internalHttpClientModule?
 
         // dispatcher
         // TODO remove dispatcher from ServerMainModule, and bind dependent components only on coordinators

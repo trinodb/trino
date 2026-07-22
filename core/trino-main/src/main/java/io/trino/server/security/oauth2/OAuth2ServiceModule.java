@@ -19,12 +19,15 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.DataSize;
 import io.trino.server.ui.OAuth2WebUiInstalled;
+import io.trino.spi.security.CredentialProvider;
 
 import java.time.Duration;
 
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -71,6 +74,9 @@ public class OAuth2ServiceModule
                 .withConfigDefaults(clientConfig -> clientConfig
                         .setRequestBufferSize(DataSize.of(32, KILOBYTE))
                         .setResponseBufferSize(DataSize.of(32, KILOBYTE)));
+
+        binder.bind(OAuthCredentialProvider.class).in(SINGLETON);
+        Multibinder.newSetBinder(binder, CredentialProvider.class).addBinding().to(OAuthCredentialProvider.class);
     }
 
     private void enableRefreshTokens()

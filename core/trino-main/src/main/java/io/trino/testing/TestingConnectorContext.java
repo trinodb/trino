@@ -22,6 +22,7 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.security.credential.CredentialProviderManager;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.NodeVersion;
@@ -31,9 +32,12 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.security.CredentialProviders;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.util.EmbedVersion;
+
+import java.util.Set;
 
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -47,6 +51,7 @@ public final class TestingConnectorContext
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final FlatHashStrategyCompiler flatHashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(flatHashStrategyCompiler);
+    private final CredentialProviders credentialProviders = new CredentialProviderManager(Set.of());
 
     public TestingConnectorContext()
     {
@@ -116,5 +121,11 @@ public final class TestingConnectorContext
     public BlocksHashFactory getBlocksHashFactory()
     {
         return flatHashStrategyCompiler.createBlocksHashFactory();
+    }
+
+    @Override
+    public CredentialProviders getCredentialProviderManager()
+    {
+        return credentialProviders;
     }
 }
