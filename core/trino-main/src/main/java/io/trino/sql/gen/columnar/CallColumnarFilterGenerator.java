@@ -73,6 +73,7 @@ import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockMayH
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockPositionNotNull;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.updateOutputPositions;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -397,9 +398,11 @@ public class CallColumnarFilterGenerator
         // boolean constants stay as bytecode constants: the two values change control flow
         // shapes anyway and are part of the filter template key
         if (javaType == boolean.class) {
-            return new BytecodeBlock()
-                    .comment("constant " + constant.type().getTypeDescriptor())
-                    .append(loadBoolean((Boolean) value));
+            BytecodeBlock block = new BytecodeBlock();
+            if (isClassDumpEnabled()) {
+                block.comment("constant " + constant.type().getTypeDescriptor());
+            }
+            return block.append(loadBoolean((Boolean) value));
         }
 
         // All other constants, including primitives, are class data constants, so the
