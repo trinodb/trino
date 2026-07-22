@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.operator.OperatorInfo;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.IAM_ROLE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -147,6 +149,32 @@ final class TestRedshiftUnload
                     assertThat(operatorInfo).isNull();
                 },
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
+    }
+
+    @Test
+    void testUnloadWithDynamicFilter()
+    {
+        // Dynamic filter applied to the UNLOAD (probe) side of a join must not fail when attaching the predicate to the split
+        String query = "SELECT n.name FROM nation n JOIN nation r ON n.nationkey = r.regionkey WHERE r.name = 'ALGERIA'";
+        assertQuery(query, "VALUES ('ALGERIA')");
+
+        // The dynamic filter must actually reduce the rows Redshift unloads from the probe side
+        Session dynamicFilteringDisabled = Session.builder(getSession())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                .build();
+        assertThat(physicalInputPositions(getSession(), query))
+                .isLessThan(physicalInputPositions(dynamicFilteringDisabled, query));
+    }
+
+    private long physicalInputPositions(Session session, String query)
+    {
+        QueryRunner queryRunner = getDistributedQueryRunner();
+        MaterializedResultWithPlan result = queryRunner.executeWithPlan(session, query);
+        return queryRunner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.queryId())
+                .getQueryStats()
+                .getPhysicalInputPositions();
     }
 
     @Test
