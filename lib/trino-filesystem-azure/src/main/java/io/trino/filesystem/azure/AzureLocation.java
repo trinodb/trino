@@ -34,6 +34,7 @@ class AzureLocation
     private final String scheme;
     private final String account;
     private final String endpoint;
+    private final boolean standardFormat;
 
     /**
      * Creates a new location based on the endpoint, storage account, container and blob path parsed from the location.
@@ -86,16 +87,25 @@ class AzureLocation
                 this.location);
         this.account = host.substring(0, accountSplit);
 
-        // abfs[s] host must contain ".dfs.", and wasb[s] host must contain ".blob." before endpoint
+        // abfs[s] host must contain ".dfs." (standard Azure), or may use a non-standard host (e.g., Microsoft Fabric OneLake).
+        // wasb[s] host must contain ".blob." before endpoint.
         if (scheme.equals("abfs") || scheme.equals("abfss")) {
-            checkArgument(host.substring(accountSplit).startsWith(".dfs."), invalidLocationMessage, location);
-            // endpoint does not include dfs
-            this.endpoint = host.substring(accountSplit + ".dfs.".length());
+            if (host.substring(accountSplit).startsWith(".dfs.")) {
+                // Standard Azure Data Lake Storage: account.dfs.<endpoint>
+                this.endpoint = host.substring(accountSplit + ".dfs.".length());
+                this.standardFormat = true;
+            }
+            else {
+                // Non-standard host (e.g., Microsoft Fabric OneLake): account.<endpoint>
+                this.endpoint = host.substring(accountSplit + 1);
+                this.standardFormat = false;
+            }
         }
         else {
             checkArgument(host.substring(accountSplit).startsWith(".blob."), invalidLocationMessage, location);
             // endpoint does not include blob
             this.endpoint = host.substring(accountSplit + ".blob.".length());
+            this.standardFormat = true;
         }
         checkArgument(!endpoint.isEmpty(), invalidLocationMessage, location);
 
@@ -125,6 +135,11 @@ class AzureLocation
         return endpoint;
     }
 
+    public boolean isStandardFormat()
+    {
+        return standardFormat;
+    }
+
     public String path()
     {
         return location.path();
@@ -147,7 +162,15 @@ class AzureLocation
 
     public Location baseLocation()
     {
-        return Location.of("%s://%s%s.dfs.%s/".formatted(
+        if (standardFormat) {
+            return Location.of("%s://%s%s.dfs.%s/".formatted(
+                    scheme,
+                    container().map(container -> container + "@").orElse(""),
+                    account(),
+                    endpoint));
+        }
+        // Non-standard host (e.g., Microsoft Fabric OneLake): no .dfs. infix
+        return Location.of("%s://%s%s.%s/".formatted(
                 scheme,
                 container().map(container -> container + "@").orElse(""),
                 account(),
