@@ -35,6 +35,7 @@ import static io.airlift.bytecode.BytecodeUtils.toJavaIdentifierString;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.trino.util.CompilerUtils.defineNamedClass;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
@@ -100,8 +101,10 @@ public class EmbedVersion
                 .ret();
 
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType));
+        if (isClassDumpEnabled()) {
+            method.getBody().comment("delegate.%s();", methodName);
+        }
         method.getBody()
-                .comment("delegate.%s();", methodName)
                 .append(method.getThis())
                 .getField(field)
                 .invokeInterface(interfaceType, methodName, returnType)
