@@ -46,20 +46,6 @@ public final class SnowflakeQueryRunner
 
     public static Builder builder()
     {
-        // Password-based authentication
-        return baseBuilder()
-                .addConnectorProperty("connection-password", requiredNonEmptySystemProperty("snowflake.test.server.password"));
-    }
-
-    public static Builder builderWithPrivateKey()
-    {
-        // Key-pair (RSA private key) authentication
-        return baseBuilder()
-                .addConnectorProperty("snowflake.connection-private-key", requiredNonEmptySystemProperty("snowflake.test.server.private-key"));
-    }
-
-    private static Builder baseBuilder()
-    {
         Builder builder = new Builder()
                 .addConnectorProperty("connection-url", TestingSnowflakeServer.TEST_URL)
                 .addConnectorProperty("connection-user", TestingSnowflakeServer.TEST_USER)
@@ -125,6 +111,7 @@ public final class SnowflakeQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = builder()
+                .addConnectorProperty("connection-password", requiredNonEmptySystemProperty("snowflake.test.server.password"))
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .build();
 

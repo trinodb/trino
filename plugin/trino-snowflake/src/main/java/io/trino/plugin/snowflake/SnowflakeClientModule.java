@@ -45,6 +45,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class SnowflakeClientModule
@@ -131,7 +132,7 @@ public class SnowflakeClientModule
             return keyFactory.generatePrivate(keySpec);
         }
         catch (Exception e) {
-            throw new TrinoException(NOT_SUPPORTED, "Unable to parse provided private key", e);
+            throw new TrinoException(GENERIC_USER_ERROR, "Unable to parse provided private key", e);
         }
     }
 }

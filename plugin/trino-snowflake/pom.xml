@@ -229,8 +229,8 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestSnowflakeConnectorTest.java</exclude>
-                                <exclude>**/TestSnowflakeConnectorSmokeTestWithPrivateKey.java</exclude>
                                 <exclude>**/TestSnowflakeTypeMapping.java</exclude>
+                                <exclude>**/TestSnowflakeWithPrivateKeyConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -252,8 +252,8 @@
                         <configuration>
                             <includes>
                                 <include>**/TestSnowflakeConnectorTest.java</include>
-                                <include>**/TestSnowflakeConnectorSmokeTestWithPrivateKey.java</include>
                                 <include>**/TestSnowflakeTypeMapping.java</include>
+                                <include>**/TestSnowflakeWithPrivateKeyConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -20,6 +20,7 @@ import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSnowflakePlugin
 {
@@ -29,5 +30,19 @@ public class TestSnowflakePlugin
         Plugin plugin = new SnowflakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:snowflake://test"), new TestingConnectorContext()).shutdown();
+    }
+
+    @Test
+    public void testCreateConnectorWithInvalidPrivateKey()
+    {
+        Plugin plugin = new SnowflakePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:snowflake://test",
+                        "snowflake.connection-private-key", "invalid-private-key"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Unable to parse provided private key");
     }
 }

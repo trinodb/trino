@@ -17,7 +17,9 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 
-public class TestSnowflakeConnectorSmokeTestWithPrivateKey
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+
+public class TestSnowflakeWithPrivateKeyConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
     @Override
@@ -45,7 +47,8 @@ public class TestSnowflakeConnectorSmokeTestWithPrivateKey
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return SnowflakeQueryRunner.builderWithPrivateKey()
+        return SnowflakeQueryRunner.builder()
+                .addConnectorProperty("snowflake.connection-private-key", requiredNonEmptySystemProperty("snowflake.test.server.private-key"))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
