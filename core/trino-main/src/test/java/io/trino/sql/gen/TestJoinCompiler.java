@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -51,6 +52,23 @@ public class TestJoinCompiler
     private final TypeOperators typeOperators = new TypeOperators();
     private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+
+    @Test
+    void testHashStrategyIsSharedWithLookupSourceFactory()
+    {
+        // a compiler of its own, so the assertion does not depend on what other tests compiled
+        JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+        List<Integer> joinChannels = ImmutableList.of(0);
+
+        // the lookup source takes its strategy from the cache rather than compiling its own
+        joinCompiler.compileLookupSourceFactory(types, joinChannels, OptionalInt.empty(), Optional.empty());
+        assertThat(joinCompiler.getHashStrategiesStats().getLoadCount()).isEqualTo(1);
+
+        // so the equivalent factory reuses that strategy instead of compiling a second one
+        joinCompiler.compilePagesHashStrategyFactory(types, joinChannels);
+        assertThat(joinCompiler.getHashStrategiesStats().getLoadCount()).isEqualTo(1);
+    }
 
     @Test
     void testEmptyChannels()
