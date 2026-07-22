@@ -48,7 +48,7 @@ runs:
       - name: Configure Docker Hub mirror
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
-      - uses: actions/setup-java@v5.5.0
+      - uses: actions/setup-java@v5.6.0
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
