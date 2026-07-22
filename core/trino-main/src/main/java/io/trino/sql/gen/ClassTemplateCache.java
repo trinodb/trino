@@ -87,8 +87,8 @@ public final class ClassTemplateCache<T>
 
     /**
      * The class data slot holding the generated toString description. The description
-     * contains the literal values, so it is recomputed from the current expression on
-     * every template use instead of replaying the value from the first compilation.
+     * describes the literal values, so every template use takes a description of the
+     * expression at hand instead of replaying the one from the first compilation.
      */
     private record DescriptionSlot()
             implements SlotRecipe {}
@@ -128,13 +128,13 @@ public final class ClassTemplateCache<T>
      */
     public Class<? extends T> defineClass(Expression expression, List<?> extraKey, Function<CallSiteBinder, ClassDefinition> generator)
     {
-        String description = description(expression, extraKey);
+        Description description = new Description(superType, expression, extraKey);
 
         // dumped classes retain debug attributes and unique names, which templates skip
         if (cache == null || isClassDumpEnabled()) {
             CallSiteBinder callSiteBinder = new CallSiteBinder();
             ClassDefinition classDefinition = generator.apply(callSiteBinder);
-            generateToString(classDefinition, callSiteBinder.bind(description, String.class));
+            generateToString(classDefinition, callSiteBinder.bind(description, Object.class));
             return defineHiddenClass(classDefinition, superType, callSiteBinder.getClassData());
         }
 
@@ -150,7 +150,7 @@ public final class ClassTemplateCache<T>
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition classDefinition = generator.apply(callSiteBinder);
         // bound after the generator, so the description slot is identified by its binding id
-        Binding descriptionBinding = callSiteBinder.bind(description, String.class);
+        Binding descriptionBinding = callSiteBinder.bind(description, Object.class);
         generateToString(classDefinition, descriptionBinding);
         byte[] bytecode = generateHiddenClassBytes(classDefinition);
         List<Object> classData = callSiteBinder.getClassData();
@@ -165,14 +165,43 @@ public final class ClassTemplateCache<T>
      * The generated toString description: the super type, the expression with its literal
      * values, and any extra key. Instances of the generated hidden class describe
      * themselves with it in debuggers and logs.
+     *
+     * <p>The description is rendered on first use rather than on compilation. Rendering an
+     * expression renders its constants, and rendering a constant materializes its value as
+     * a single position block, so a compilation that describes itself eagerly pays for every
+     * literal it holds. Nothing asks a generated instance to describe itself unless a
+     * debugger or a log line does, so that cost is not paid at all in a running engine.
      */
-    private String description(Expression expression, List<?> extra)
+    private static final class Description
     {
-        String string = expression.toString();
-        if (string.length() > 1000) {
-            string = string.substring(0, 1000) + "...";
+        private final Class<?> superType;
+        private final Expression expression;
+        private final List<?> extra;
+        @Nullable
+        private String description;
+
+        private Description(Class<?> superType, Expression expression, List<?> extra)
+        {
+            this.superType = superType;
+            this.expression = expression;
+            this.extra = extra;
         }
-        return superType.getSimpleName() + "{" + string + (extra.isEmpty() ? "" : ", " + extra) + "}";
+
+        // races produce equal strings, so the result is not published through a volatile
+        @Override
+        public String toString()
+        {
+            String result = description;
+            if (result == null) {
+                String string = expression.toString();
+                if (string.length() > 1000) {
+                    string = string.substring(0, 1000) + "...";
+                }
+                result = superType.getSimpleName() + "{" + string + (extra.isEmpty() ? "" : ", " + extra) + "}";
+                description = result;
+            }
+            return result;
+        }
     }
 
     private static void generateToString(ClassDefinition classDefinition, Binding descriptionBinding)
@@ -180,6 +209,7 @@ public final class ClassTemplateCache<T>
         classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
                 .getBody()
                 .append(loadConstant(descriptionBinding))
+                .invokeVirtual(Object.class, "toString", String.class)
                 .retObject();
     }
 
@@ -269,7 +299,7 @@ public final class ClassTemplateCache<T>
         return recipe.build();
     }
 
-    private static Optional<List<Object>> assembleClassData(List<SlotRecipe> recipe, Expression expression, String description)
+    private static Optional<List<Object>> assembleClassData(List<SlotRecipe> recipe, Expression expression, Description description)
     {
         List<Constant> literals = parameterizableLiterals(expression);
         ImmutableList.Builder<Object> classData = ImmutableList.builder();
