@@ -378,20 +378,24 @@ public class SliceDictionaryColumnWriter
         }
         for (DictionaryRowGroup rowGroup : rowGroups) {
             IntBigArray dictionaryIndexes = rowGroup.getDictionaryIndexes();
-            for (int position = 0; position < rowGroup.getValueCount(); position++) {
-                presentStream.writeBoolean(dictionaryIndexes.get(position) != 0);
-            }
-            for (int position = 0; position < rowGroup.getValueCount(); position++) {
-                int originalDictionaryIndex = dictionaryIndexes.get(position);
-                // index zero in original dictionary is reserved for null
-                if (originalDictionaryIndex != 0) {
-                    int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
-                    if (sortedIndex < 0) {
-                        throw new IllegalArgumentException();
-                    }
-                    dataStream.writeLong(sortedIndex);
+            dictionaryIndexes.forEachSegment(0, rowGroup.getValueCount(), (segment, offset, length) -> {
+                for (int i = offset; i < offset + length; i++) {
+                    presentStream.writeBoolean(segment[i] != 0);
                 }
-            }
+            });
+            dictionaryIndexes.forEachSegment(0, rowGroup.getValueCount(), (segment, offset, length) -> {
+                for (int i = offset; i < offset + length; i++) {
+                    int originalDictionaryIndex = segment[i];
+                    // index zero in original dictionary is reserved for null
+                    if (originalDictionaryIndex != 0) {
+                        int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
+                        if (sortedIndex < 0) {
+                            throw new IllegalArgumentException();
+                        }
+                        dataStream.writeLong(sortedIndex);
+                    }
+                }
+            });
             presentStream.recordCheckpoint();
             dataStream.recordCheckpoint();
         }
