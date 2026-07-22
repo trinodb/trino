@@ -16,6 +16,7 @@ package io.trino.parquet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
+import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.predicate.DictionaryDescriptor;
@@ -62,6 +63,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.log.Level.ERROR;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
@@ -117,6 +119,12 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class TestTupleDomainParquetPredicate
 {
+    static {
+        Logging logging = Logging.initialize();
+        // Tests intentionally store small precision decimals as INT64, which Parquet warns about on every write
+        logging.setLevel("org.apache.parquet.schema", ERROR);
+    }
+
     private static final ParquetDataSourceId ID = new ParquetDataSourceId("testFile");
 
     @Test

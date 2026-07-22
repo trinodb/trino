@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.airlift.log.Level.ERROR;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -34,6 +35,12 @@ import static java.util.Objects.requireNonNull;
 
 public final class IgniteQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        // the Ignite JDBC driver warns about unsupported transactions on every connection
+        logging.setLevel("org.apache.ignite", ERROR);
+    }
+
     private IgniteQueryRunner() {}
 
     private static final String IGNITE_SCHEMA = "public";

@@ -137,6 +137,8 @@ public abstract class AbstractTestParquetReader
 
         // Parquet has excessive logging at INFO level
         Logger.getLogger("org.apache.parquet.hadoop").setLevel(Level.WARNING);
+        // Tests intentionally store small precision decimals as INT64, which Parquet warns about on every write
+        Logger.getLogger("org.apache.parquet.schema").setLevel(Level.SEVERE);
     }
 
     @Test
