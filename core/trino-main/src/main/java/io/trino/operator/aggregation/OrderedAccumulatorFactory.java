@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Long.max;
 import static java.util.Objects.requireNonNull;
@@ -169,7 +170,7 @@ public class OrderedAccumulatorFactory
         public void evaluateFinal(BlockBuilder blockBuilder)
         {
             checkState(pagesIndex != null, "evaluateFinal() already called");
-            pagesIndex.sort(pagesIndexOrdering);
+            pagesIndex.sort(pagesIndexOrdering, newSimpleAggregatedMemoryContext().newLocalMemoryContext(OrderedAccumulator.class.getSimpleName()));
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
             AggregationMask mask = AggregationMask.createSelectAll(0);
             pagesIterator.forEachRemaining(arguments -> {
@@ -267,7 +268,7 @@ public class OrderedAccumulatorFactory
         public void prepareFinal()
         {
             checkState(pagesIndex != null, "prepareFinal() already called");
-            pagesIndex.sort(pagesIndexOrdering);
+            pagesIndex.sort(pagesIndexOrdering, newSimpleAggregatedMemoryContext().newLocalMemoryContext(OrderingGroupedAccumulator.class.getSimpleName()));
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
             AggregationMask mask = AggregationMask.createSelectAll(0);
             pagesIterator.forEachRemaining(page -> {

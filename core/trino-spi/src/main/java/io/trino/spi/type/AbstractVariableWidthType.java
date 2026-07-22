@@ -38,8 +38,11 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Long.reverseBytes;
 import static java.lang.Math.min;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -57,6 +60,7 @@ public abstract class AbstractVariableWidthType
     protected static final TypeOperatorDeclaration DEFAULT_READ_OPERATORS = extractOperatorDeclaration(DefaultReadOperators.class, lookup(), Slice.class);
     protected static final TypeOperatorDeclaration DEFAULT_COMPARABLE_OPERATORS = extractOperatorDeclaration(DefaultComparableOperators.class, lookup(), Slice.class);
     protected static final TypeOperatorDeclaration DEFAULT_ORDERING_OPERATORS = extractOperatorDeclaration(DefaultOrderingOperators.class, lookup(), Slice.class);
+    protected static final TypeOperatorDeclaration DEFAULT_SORT_KEY_PREFIX_OPERATORS = extractOperatorDeclaration(DefaultSortKeyPrefixOperators.class, lookup(), Slice.class);
 
     protected AbstractVariableWidthType(TypeDescriptor signature, Class<?> javaType)
     {
@@ -440,6 +444,34 @@ public abstract class AbstractVariableWidthType
             int rightLength = rightBlock.getSliceLength(rightPosition);
 
             return left.compareTo(0, left.length(), rightRawSlice, rightRawSliceOffset, rightLength);
+        }
+    }
+
+    private static class DefaultSortKeyPrefixOperators
+    {
+        @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+        private static long sortKeyPrefixUnorderedLastOperator(Slice value)
+        {
+            return sortKeyPrefix(value);
+        }
+
+        @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+        private static long sortKeyPrefixUnorderedFirstOperator(Slice value)
+        {
+            return sortKeyPrefix(value);
+        }
+
+        private static long sortKeyPrefix(Slice value)
+        {
+            int length = value.length();
+            if (length >= Long.BYTES) {
+                return reverseBytes(value.getLong(0));
+            }
+            long key = 0;
+            for (int i = 0; i < length; i++) {
+                key = (key << 8) | (value.getByte(i) & 0xFF);
+            }
+            return key << (8 * (Long.BYTES - length));
         }
     }
 }

@@ -56,7 +56,7 @@ public class BenchmarkPagesIndexPageSorter
     public int runBenchmark(BenchmarkData data)
     {
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-        Iterator<Page> outputPages = pageSorter.sort(data.types, data.pages, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000);
+        Iterator<Page> outputPages = pageSorter.sort(data.types, data.pages, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000, _ -> {});
         int totalPositions = 0;
         while (outputPages.hasNext()) {
             Page page = outputPages.next();

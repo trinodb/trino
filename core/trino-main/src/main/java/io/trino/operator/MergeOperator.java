@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -106,6 +107,7 @@ public class MergeOperator
                     directExchangeClientSupplier,
                     serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey)),
                     orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(sortTypes, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);
         }
@@ -122,6 +124,7 @@ public class MergeOperator
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final PageDeserializer deserializer;
     private final PageWithPositionComparator comparator;
+    private final List<PageSortKeyPrefixFiller> prefixFillers;
     private final List<Integer> outputChannels;
     private final List<Type> outputTypes;
 
@@ -139,6 +142,7 @@ public class MergeOperator
             DirectExchangeClientSupplier directExchangeClientSupplier,
             PageDeserializer deserializer,
             PageWithPositionComparator comparator,
+            List<PageSortKeyPrefixFiller> prefixFillers,
             List<Integer> outputChannels,
             List<Type> outputTypes)
     {
@@ -147,6 +151,7 @@ public class MergeOperator
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.deserializer = requireNonNull(deserializer, "deserializer is null");
         this.comparator = requireNonNull(comparator, "comparator is null");
+        this.prefixFillers = ImmutableList.copyOf(requireNonNull(prefixFillers, "prefixFillers is null"));
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
 
@@ -197,6 +202,7 @@ public class MergeOperator
         mergedPages = mergeSortedPages(
                 pageProducers,
                 comparator,
+                prefixFillers,
                 outputChannels,
                 outputTypes,
                 (pageBuilder, _) -> pageBuilder.isFull(),

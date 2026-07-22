@@ -28,6 +28,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 public class OrderedWindowAccumulator
@@ -134,7 +135,7 @@ public class OrderedWindowAccumulator
                 delegate.output(blockBuilder);
                 return;
             }
-            pagesIndex.sort(pagesIndexOrdering);
+            pagesIndex.sort(pagesIndexOrdering, newSimpleAggregatedMemoryContext().newLocalMemoryContext(OrderedWindowAccumulator.class.getSimpleName()));
             WindowIndex sortedWindowIndex = new PagesWindowIndex(pagesIndex, 0, positionCount);
             delegate.addInput(sortedWindowIndex, 0, positionCount - 1);
             pagesIndexSorted = true;

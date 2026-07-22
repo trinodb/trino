@@ -23,12 +23,14 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -48,17 +50,21 @@ public class GroupedTopNRankBuilder
     private GroupByHash groupByHash; // null after output starts
     private final PageWithPositionComparator comparator;
     private final RowReferencePageManager pageManager = new RowReferencePageManager();
+    private final List<PageSortKeyPrefixFiller> prefixFillers;
+    private long[] prefixBuffer = new long[0];
     private final GroupedTopNRankAccumulator groupedTopNRankAccumulator;
 
     public GroupedTopNRankBuilder(
             List<Type> sourceTypes,
             PageWithPositionComparator comparator,
             PageWithPositionEqualsAndHash equalsAndHash,
+            List<PageSortKeyPrefixFiller> prefixFillers,
             int topN,
             boolean produceRanking,
             int[] groupByChannels,
             GroupByHash groupByHash)
     {
+        this.prefixFillers = ImmutableList.copyOf(requireNonNull(prefixFillers, "prefixFillers is null"));
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
         checkArgument(topN > 0, "topN must be > 0");
         this.produceRanking = produceRanking;
@@ -133,12 +139,15 @@ public class GroupedTopNRankBuilder
         return INSTANCE_SIZE
                 + (groupByHash == null ? 0L : groupByHash.getEstimatedSize())
                 + pageManager.sizeOf()
+                + sizeOf(prefixBuffer)
                 + groupedTopNRankAccumulator.sizeOf();
     }
 
     private void processPage(Page newPage, int groupCount, int[] groupIds)
     {
-        int firstPositionToAdd = groupedTopNRankAccumulator.findFirstPositionToAdd(newPage, groupCount, groupIds, comparator, pageManager);
+        long[] prefixes = fillPrefixes(newPage);
+
+        int firstPositionToAdd = groupedTopNRankAccumulator.findFirstPositionToAdd(newPage, groupCount, groupIds, comparator, pageManager, prefixes);
         if (firstPositionToAdd < 0) {
             return;
         }
@@ -147,12 +156,31 @@ public class GroupedTopNRankBuilder
             for (int position = firstPositionToAdd; position < newPage.getPositionCount(); position++) {
                 int groupId = groupIds[position];
                 loadCursor.advance();
-                groupedTopNRankAccumulator.add(groupId, loadCursor);
+                groupedTopNRankAccumulator.add(groupId, loadCursor, prefixes == null ? 0 : prefixes[position]);
             }
             verify(!loadCursor.advance());
         }
 
         pageManager.compactIfNeeded();
+    }
+
+    @Nullable
+    private long[] fillPrefixes(Page newPage)
+    {
+        if (prefixFillers.isEmpty()) {
+            return null;
+        }
+        int positionCount = newPage.getPositionCount();
+        if (prefixBuffer.length < positionCount) {
+            prefixBuffer = new long[positionCount];
+        }
+        else {
+            Arrays.fill(prefixBuffer, 0, positionCount, 0);
+        }
+        for (PageSortKeyPrefixFiller prefixFiller : prefixFillers) {
+            prefixFiller.fill(newPage, prefixBuffer);
+        }
+        return prefixBuffer;
     }
 
     private class ResultIterator

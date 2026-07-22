@@ -468,7 +468,7 @@ public class TableFunctionOperator
             // sorting serves two purposes:
             // - sort by the remaining partition channels so that the input is fully partitioned,
             // - sort by all the sort channels so that the input is fully sorted
-            sortCurrentGroup(pagesIndex, hashStrategies);
+            sortCurrentGroup(pagesIndex, hashStrategies, memoryContext);
             resetPagesIndex = true;
             return WorkProcessor.TransformationState.ofResult(pagesIndex, false);
         }
@@ -505,7 +505,7 @@ public class TableFunctionOperator
         return startPosition;
     }
 
-    private static void sortCurrentGroup(PagesIndex pagesIndex, HashStrategies hashStrategies)
+    private static void sortCurrentGroup(PagesIndex pagesIndex, HashStrategies hashStrategies, LocalMemoryContext memoryContext)
     {
         if (pagesIndex.getPositionCount() > 1 && hashStrategies.remainingPartitionAndSortOrdering.isPresent()) {
             PagesHashStrategy preSortedStrategy = hashStrategies.preSortedStrategy;
@@ -513,7 +513,7 @@ public class TableFunctionOperator
             int startPosition = 0;
             while (startPosition < pagesIndex.getPositionCount()) {
                 int endPosition = findGroupEnd(pagesIndex, preSortedStrategy, startPosition);
-                pagesIndex.sort(remainingPartitionAndSortOrdering, startPosition, endPosition);
+                pagesIndex.sort(remainingPartitionAndSortOrdering, startPosition, endPosition, memoryContext);
                 startPosition = endPosition;
             }
         }

@@ -42,6 +42,28 @@ public enum OperatorType
     XX_HASH_64("XX HASH 64", 1, true),
     INDETERMINATE("INDETERMINATE", 1, true),
     READ_VALUE("READ VALUE", 1, true),
+    /**
+     * Produces a 64-bit key whose unsigned order never contradicts {@link #COMPARISON_UNORDERED_LAST}:
+     * when two keys differ, the values compare in the same order. Equal keys decide nothing unless the
+     * type declares its sort key prefixes to be exact. Unordered values such as NaN map to a key above
+     * all normal keys.
+     */
+    SORT_KEY_PREFIX_UNORDERED_LAST("SORT KEY PREFIX UNORDERED LAST", 1, true),
+    /**
+     * Like {@link #SORT_KEY_PREFIX_UNORDERED_LAST}, but unordered values such as NaN map to a key
+     * below all normal keys, consistent with {@link #COMPARISON_UNORDERED_FIRST}.
+     */
+    SORT_KEY_PREFIX_UNORDERED_FIRST("SORT KEY PREFIX UNORDERED FIRST", 1, true),
+    /**
+     * Batch form of {@link #SORT_KEY_PREFIX_UNORDERED_LAST}: fills an array with the sort key
+     * prefixes of a run of positions of the type's value block in one call. Not available as a
+     * SQL function; only used through type operator declarations.
+     */
+    SORT_KEY_PREFIX_BATCH_UNORDERED_LAST("SORT KEY PREFIX BATCH UNORDERED LAST", 3, true),
+    /**
+     * Batch form of {@link #SORT_KEY_PREFIX_UNORDERED_FIRST}.
+     */
+    SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST("SORT KEY PREFIX BATCH UNORDERED FIRST", 3, true),
     /**/;
 
     private final String operator;
