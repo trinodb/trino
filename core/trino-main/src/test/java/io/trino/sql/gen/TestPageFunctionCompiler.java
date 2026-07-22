@@ -442,6 +442,32 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testLambdaCapturingNothingIsHeldInAField()
+            throws ReflectiveOperationException
+    {
+        MapType mapType = new MapType(BIGINT, BIGINT, TYPE_OPERATORS);
+        ResolvedFunction mapFilter = FUNCTION_RESOLUTION.resolveFunction("map_filter", fromTypes(mapType, new FunctionType(ImmutableList.of(BIGINT, BIGINT), BOOLEAN)));
+        // the lambda body reads neither the enclosing row nor any captured value
+        Expression projection = call(
+                mapFilter,
+                new Reference(mapType, "$col_0"),
+                new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(BIGINT, "v")), new Constant(BOOLEAN, true)));
+
+        PageProjection compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(projection, ImmutableMap.of(new Symbol(mapType, "$col_0"), 0), Optional.empty())
+                .get();
+
+        Field workFactoryField = compiled.getClass().getDeclaredField("pageProjectionWorkFactory");
+        workFactoryField.setAccessible(true);
+        Class<?> workClass = ((MethodHandle) workFactoryField.get(compiled)).type().returnType();
+
+        // the lambda is built into a field of the class that evaluates it, rather than by
+        // every evaluation, so a projection over a page builds one lambda and not one per row
+        assertThat(workClass.getDeclaredFields())
+                .anyMatch(field -> field.getName().endsWith("_instance"));
+    }
+
+    @Test
     public void testProjectionCache()
     {
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
