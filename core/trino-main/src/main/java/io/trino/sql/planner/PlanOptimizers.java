@@ -52,6 +52,7 @@ import io.trino.sql.planner.iterative.rule.EvaluateEmptyIntersect;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
 import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveScan;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
+import io.trino.sql.planner.iterative.rule.FilterOutNullJoinKeys;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.GatherPartialTopN;
 import io.trino.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
@@ -822,6 +823,16 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(new ReorderJoins(plannerContext, costComparator))),
+                // Must run after join reordering: the added filters would break multi-join extraction.
+                // Must run before the PredicatePushDown below, which relocates the added filters towards
+                // table scans, where PushPredicateIntoTableScan turns them into NOT NULL scan domains.
+                new IterativeOptimizer(
+                        "FilterOutNullJoinKeys",
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(new FilterOutNullJoinKeys(plannerContext))),
                 // ReorderJoins may produce filters above joins that could (and should be) pushed back down
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)));
 

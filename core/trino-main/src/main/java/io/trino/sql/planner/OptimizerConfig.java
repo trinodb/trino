@@ -84,6 +84,7 @@ public class OptimizerConfig
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
+    private boolean filterOutNullJoinKeys;
     private boolean optimizeDuplicateInsensitiveJoins = true;
     private boolean useLegacyWindowFilterPushdown;
     private boolean useTableScanNodePartitioning = true;
@@ -625,6 +626,19 @@ public class OptimizerConfig
     public OptimizerConfig setRewriteFilteringSemiJoinToInnerJoin(boolean rewriteFilteringSemiJoinToInnerJoin)
     {
         this.rewriteFilteringSemiJoinToInnerJoin = rewriteFilteringSemiJoinToInnerJoin;
+        return this;
+    }
+
+    public boolean isFilterOutNullJoinKeys()
+    {
+        return filterOutNullJoinKeys;
+    }
+
+    @Config("optimizer.filter-out-null-join-keys")
+    @ConfigDescription("Add filters rejecting rows with null equi-join keys below joins when the keys are not provably non-null")
+    public OptimizerConfig setFilterOutNullJoinKeys(boolean filterOutNullJoinKeys)
+    {
+        this.filterOutNullJoinKeys = filterOutNullJoinKeys;
         return this;
     }
 
