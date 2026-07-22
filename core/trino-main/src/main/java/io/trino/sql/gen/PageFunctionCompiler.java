@@ -94,6 +94,7 @@ import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Objects.requireNonNull;
@@ -386,7 +387,9 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
-        method.comment("Projection: %s", projection);
+        if (isClassDumpEnabled()) {
+            method.comment("Projection: %s", projection);
+        }
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
@@ -590,7 +593,9 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
-        method.comment("Filter: %s", filter);
+        if (isClassDumpEnabled()) {
+            method.comment("Filter: %s", filter);
+        }
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
