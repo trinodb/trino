@@ -100,6 +100,7 @@ import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.preGenerateLambdaExpression;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Arrays.stream;
@@ -492,10 +493,13 @@ public final class SqlRoutineCompiler
                     compiledLambdaMap,
                     ImmutableList.of());
 
-            return new BytecodeBlock()
+            BytecodeBlock block = new BytecodeBlock()
                     .comment("boolean wasNull = false;")
-                    .putVariable(scope.getVariable("wasNull"), expression.type().getJavaType() == void.class)
-                    .comment("expression: " + expression)
+                    .putVariable(scope.getVariable("wasNull"), expression.type().getJavaType() == void.class);
+            if (isClassDumpEnabled()) {
+                block.comment("expression: " + expression);
+            }
+            return block
                     .append(expressionCompiler.compile(expression, scope))
                     .append(boxPrimitiveIfNecessary(scope, wrap(expression.type().getJavaType())));
         }
