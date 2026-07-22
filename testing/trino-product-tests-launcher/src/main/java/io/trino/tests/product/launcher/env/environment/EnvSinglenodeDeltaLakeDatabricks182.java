@@ -21,11 +21,11 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 @TestsEnvironment
-public class EnvSinglenodeDeltaLakeDatabricks122
+public class EnvSinglenodeDeltaLakeDatabricks182
         extends AbstractSinglenodeDeltaLakeDatabricks
 {
     @Inject
-    public EnvSinglenodeDeltaLakeDatabricks122(Standard standard, DockerFiles dockerFiles)
+    public EnvSinglenodeDeltaLakeDatabricks182(Standard standard, DockerFiles dockerFiles)
     {
         super(standard, dockerFiles);
     }
@@ -34,6 +34,6 @@ public class EnvSinglenodeDeltaLakeDatabricks122
     String databricksTestJdbcUrl()
     {
         // we already put `EnableArrow=0` in ci variable to disable the arrow usage
-        return requireEnv("DATABRICKS_122_JDBC_URL");
+        return requireEnv("DATABRICKS_182_JDBC_URL");
     }
 }
