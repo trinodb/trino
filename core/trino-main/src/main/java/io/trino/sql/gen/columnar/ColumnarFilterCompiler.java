@@ -53,6 +53,7 @@ import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.lang.reflect.Constructor;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -199,10 +200,12 @@ public class ColumnarFilterCompiler
         if (filterClass.isEmpty()) {
             return Optional.empty();
         }
-        Class<? extends ColumnarFilter> clazz = filterClass.get();
+        // resolved once: the supplier runs per split, and getConstructor scans the members
+        // and copies the Constructor on every call
+        Constructor<? extends ColumnarFilter> constructor = filterConstructor(filterClass.get(), InputChannels.class);
         return Optional.of(() -> {
             try {
-                return clazz.getConstructor(InputChannels.class).newInstance(inputChannels);
+                return constructor.newInstance(inputChannels);
             }
             catch (ReflectiveOperationException e) {
                 throw new TrinoException(COMPILER_ERROR, e);
@@ -223,14 +226,25 @@ public class ColumnarFilterCompiler
             throw new UncheckedExecutionException(e);
         }
         LongSet valueSet = generator.valueSet();
+        Constructor<? extends ColumnarFilter> constructor = filterConstructor(clazz, InputChannels.class, setClass);
         return () -> {
             try {
-                return clazz.getConstructor(InputChannels.class, setClass).newInstance(inputChannels, valueSet);
+                return constructor.newInstance(inputChannels, valueSet);
             }
             catch (ReflectiveOperationException e) {
                 throw new TrinoException(COMPILER_ERROR, e);
             }
         };
+    }
+
+    private static Constructor<? extends ColumnarFilter> filterConstructor(Class<? extends ColumnarFilter> filterClass, Class<?>... parameterTypes)
+    {
+        try {
+            return filterClass.getConstructor(parameterTypes);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new TrinoException(COMPILER_ERROR, e);
+        }
     }
 
     private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
