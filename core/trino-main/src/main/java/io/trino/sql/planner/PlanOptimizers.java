@@ -65,6 +65,7 @@ import io.trino.sql.planner.iterative.rule.ImplementOffset;
 import io.trino.sql.planner.iterative.rule.ImplementTableFunctionSource;
 import io.trino.sql.planner.iterative.rule.InlineProjectIntoFilter;
 import io.trino.sql.planner.iterative.rule.InlineProjections;
+import io.trino.sql.planner.iterative.rule.LimitBoolOrAggregationSource;
 import io.trino.sql.planner.iterative.rule.MergeExcept;
 import io.trino.sql.planner.iterative.rule.MergeFilters;
 import io.trino.sql.planner.iterative.rule.MergeIntersect;
@@ -609,6 +610,7 @@ public class PlanOptimizers
                                 .add(new InlineProjections())
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
                                 .addAll(new PushFilterThroughBoolOrAggregation(plannerContext).rules())
+                                .add(new LimitBoolOrAggregationSource()) // must run after CheckSubqueryNodesAreRewritten
                                 .build()));
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used

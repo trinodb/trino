@@ -806,7 +806,24 @@ public class TestLogicalPlanner
                 anyTree(
                         node(AggregationNode.class,
                                 project(ImmutableMap.of("subquerytrue", expression(TRUE)),
-                                        tableScan("orders")))));
+                                        limit(1, anyTree(tableScan("orders")))))));
+    }
+
+    @Test
+    public void testUncorrelatedExistsSubqueryLimitedToSingleRow()
+    {
+        // Uncorrelated EXISTS only checks whether the subquery produces any row,
+        // so the subquery source is limited to a single row instead of being fully scanned.
+        assertPlan(
+                "SELECT regionkey FROM region WHERE EXISTS (SELECT 1 FROM nation)",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .left(tableScan("region"))
+                                .right(
+                                        anyTree(
+                                                node(AggregationNode.class,
+                                                        project(ImmutableMap.of("subquerytrue", expression(TRUE)),
+                                                                limit(1, anyTree(tableScan("nation"))))))))));
     }
 
     @Test
