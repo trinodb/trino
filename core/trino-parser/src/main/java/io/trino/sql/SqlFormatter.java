@@ -96,6 +96,7 @@ import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LoopStatement;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
@@ -1920,6 +1921,26 @@ public final class SqlFormatter
         {
             builder.append("ALTER TABLE ");
             builder.append(formatName(node.getTable().getName()));
+            builder.append(" EXECUTE ");
+            builder.append(formatName(node.getProcedureName()));
+            if (!node.getArguments().isEmpty()) {
+                builder.append("(");
+                formatCallArguments(indent, node.getArguments());
+                builder.append(")");
+            }
+            node.getWhere().ifPresent(where -> builder
+                    .append("\n")
+                    .append(indentString(indent))
+                    .append("WHERE ")
+                    .append(formatExpression(where)));
+            return null;
+        }
+
+        @Override
+        protected Void visitMaterializedViewExecute(MaterializedViewExecute node, Integer indent)
+        {
+            builder.append("ALTER MATERIALIZED VIEW ");
+            builder.append(formatName(node.getName()));
             builder.append(" EXECUTE ");
             builder.append(formatName(node.getProcedureName()));
             if (!node.getArguments().isEmpty()) {

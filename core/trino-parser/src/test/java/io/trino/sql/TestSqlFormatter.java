@@ -18,6 +18,7 @@ import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -37,6 +38,7 @@ import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.NodeLocation;
@@ -495,6 +497,26 @@ public class TestSqlFormatter
                         FROM
                           test_base
                         """);
+    }
+
+    @Test
+    public void testMaterializedViewExecute()
+    {
+        Table mv = new Table(QualifiedName.of("test_mv"));
+        Identifier procedure = new Identifier("optimize", false);
+
+        assertThat(formatSql(
+                new MaterializedViewExecute(new NodeLocation(1, 1), mv, procedure, ImmutableList.of(), Optional.empty())))
+                .isEqualTo("ALTER MATERIALIZED VIEW test_mv EXECUTE optimize");
+
+        assertThat(formatSql(
+                new MaterializedViewExecute(
+                        new NodeLocation(1, 1),
+                        mv,
+                        procedure,
+                        ImmutableList.of(new CallArgument(new NodeLocation(1, 1), Optional.of(new Identifier("file_size_threshold", false)), new StringLiteral("10MB"))),
+                        Optional.empty())))
+                .isEqualTo("ALTER MATERIALIZED VIEW test_mv EXECUTE optimize(file_size_threshold => '10MB')");
     }
 
     @Test

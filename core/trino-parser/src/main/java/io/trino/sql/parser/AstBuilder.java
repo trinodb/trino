@@ -185,6 +185,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -974,6 +975,22 @@ class AstBuilder
         return new TableExecute(
                 getLocation(context),
                 new Table(getLocation(context.TABLE()), getQualifiedName(context.tableName)),
+                (Identifier) visit(context.procedureName),
+                arguments,
+                visitIfPresent(context.booleanExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMaterializedViewExecute(SqlBaseParser.MaterializedViewExecuteContext context)
+    {
+        List<CallArgument> arguments = ImmutableList.of();
+        if (context.argument() != null) {
+            arguments = visit(context.argument(), CallArgument.class);
+        }
+
+        return new MaterializedViewExecute(
+                getLocation(context),
+                new Table(getQualifiedName(context.qualifiedName())),
                 (Identifier) visit(context.procedureName),
                 arguments,
                 visitIfPresent(context.booleanExpression(), Expression.class));

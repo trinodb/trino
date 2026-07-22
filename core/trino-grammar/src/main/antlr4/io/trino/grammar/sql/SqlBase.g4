@@ -126,6 +126,10 @@ statement
         RENAME TO to=qualifiedName                                     #renameMaterializedView
     | ALTER MATERIALIZED VIEW qualifiedName
         SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
+    | ALTER MATERIALIZED VIEW qualifiedName
+        EXECUTE procedureName=identifier
+        ('(' (argument (',' argument)*)? ')')?
+        (WHERE where=booleanExpression)?                               #materializedViewExecute
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
     | ALTER VIEW viewName=qualifiedName REFRESH                        #refreshView
