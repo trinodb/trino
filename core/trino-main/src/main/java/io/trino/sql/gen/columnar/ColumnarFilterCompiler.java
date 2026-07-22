@@ -54,6 +54,7 @@ import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,7 @@ import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -195,13 +197,15 @@ public class ColumnarFilterCompiler
         if (filterClass.isEmpty()) {
             return Optional.empty();
         }
-        Class<? extends ColumnarFilter> clazz = filterClass.get();
+        // resolved once: the supplier runs per split, and getConstructor scans the members
+        // and copies the Constructor on every call
+        MethodHandle constructor = filterConstructor(filterClass.get(), InputChannels.class);
         return Optional.of(() -> {
             try {
-                return clazz.getConstructor(InputChannels.class).newInstance(inputChannels);
+                return (ColumnarFilter) constructor.invoke(inputChannels);
             }
-            catch (ReflectiveOperationException e) {
-                throw new TrinoException(COMPILER_ERROR, e);
+            catch (Throwable throwable) {
+                throw new TrinoException(COMPILER_ERROR, throwable);
             }
         });
     }
@@ -219,14 +223,20 @@ public class ColumnarFilterCompiler
             throw new UncheckedExecutionException(e);
         }
         LongSet valueSet = generator.valueSet();
+        MethodHandle constructor = filterConstructor(clazz, InputChannels.class, setClass);
         return () -> {
             try {
-                return clazz.getConstructor(InputChannels.class, setClass).newInstance(inputChannels, valueSet);
+                return (ColumnarFilter) constructor.invoke(inputChannels, valueSet);
             }
-            catch (ReflectiveOperationException e) {
-                throw new TrinoException(COMPILER_ERROR, e);
+            catch (Throwable throwable) {
+                throw new TrinoException(COMPILER_ERROR, throwable);
             }
         };
+    }
+
+    private static MethodHandle filterConstructor(Class<? extends ColumnarFilter> filterClass, Class<?>... parameterTypes)
+    {
+        return constructorMethodHandle(COMPILER_ERROR, filterClass, parameterTypes);
     }
 
     private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
