@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.Optional;
 
@@ -42,5 +43,5 @@ public interface PageSinkProvider
     /*
      * Used to write the result of SQL MERGE to an existing table
      */
-    ConnectorMergeSink createMergeSink(Session session, MergeHandle mergeHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId);
+    ConnectorMergeSink createMergeSink(Session session, MergeHandle mergeHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId, MemoryContext memoryContext);
 }
