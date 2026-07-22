@@ -508,9 +508,9 @@ public class BigQueryMetadata
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
-        checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
-        DatasetInfo datasetInfo = DatasetInfo.newBuilder(client.toDatasetId(schemaName)).build();
-        client.createSchema(datasetInfo);
+        DatasetInfo.Builder datasetInfoBuilder = DatasetInfo.newBuilder(client.toDatasetId(schemaName));
+        BigQuerySchemaProperties.location(properties).ifPresent(datasetInfoBuilder::setLocation);
+        client.createSchema(datasetInfoBuilder.build());
     }
 
     @Override
