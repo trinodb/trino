@@ -660,8 +660,10 @@ public class SqlServerClient
             case Types.NUMERIC, Types.DECIMAL -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();
-                // TODO does sql server support negative scale?
-                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                // SQL Server does not support negative-scale decimal in DDL, but the JDBC driver
+                // may expose negative decimalDigits for computed or linked-server columns.
+                // Map decimal(p, -s) (negative scale) to decimal(p+s, 0) to avoid losing digits.
+                int precision = columnSize + max(-decimalDigits, 0);
                 if (precision > Decimals.MAX_PRECISION) {
                     yield getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
                 }
