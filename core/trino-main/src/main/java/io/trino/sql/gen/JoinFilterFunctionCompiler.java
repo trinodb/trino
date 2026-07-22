@@ -69,6 +69,7 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -206,7 +207,9 @@ public class JoinFilterFunctionCompiler
                         .add(rightPage)
                         .build());
 
-        method.comment("filter: %s", filter.toString());
+        if (isClassDumpEnabled()) {
+            method.comment("filter: %s", filter.toString());
+        }
         BytecodeBlock body = method.getBody();
 
         Scope scope = method.getScope();
