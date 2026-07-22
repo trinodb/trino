@@ -89,7 +89,7 @@ public final class StandaloneQueryRunner
                         // Purge finished-task info quickly so per-task stats are not retained, preserving memory on CI.
                         // Must stay above task.info-update-interval so the coordinator can fetch a task's final
                         // TaskInfo (incl. SpoolingOutputStats needed by fault-tolerant execution) before it is evicted.
-                        .put("task.info.max-age", "2s")
+                        .put("task.info.max-age", "10s")
                         .put("task.info-update-interval", "1s")
                         .buildOrThrow());
         serverProcessor.accept(builder);
