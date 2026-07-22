@@ -40,7 +40,7 @@ public class AiConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new AiModule(),
+                new AiModule(context.getFunctionBundleFactory()),
                 new ConnectorContextModule(catalogName, context));
 
         Injector injector = app

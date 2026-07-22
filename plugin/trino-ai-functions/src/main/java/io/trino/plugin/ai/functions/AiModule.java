@@ -16,17 +16,25 @@ package io.trino.plugin.ai.functions;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.function.FunctionMetadata;
-import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.FunctionBundle;
+import io.trino.spi.function.FunctionBundleFactory;
 
-import java.util.List;
+import static java.util.Objects.requireNonNull;
 
 public class AiModule
         extends AbstractConfigurationAwareModule
 {
+    private final FunctionBundleFactory functionBundleFactory;
+
+    public AiModule(FunctionBundleFactory functionBundleFactory)
+    {
+        this.functionBundleFactory = requireNonNull(functionBundleFactory, "functionBundleFactory is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -36,7 +44,6 @@ public class AiModule
 
         binder.bind(Connector.class).to(AiConnector.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(AiMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(FunctionProvider.class).to(AiFunctions.class).in(Scopes.SINGLETON);
 
         install(switch (buildConfigObject(AiConfig.class).getProvider()) {
             case ANTHROPIC -> new AnthropicModule();
@@ -45,8 +52,11 @@ public class AiModule
     }
 
     @Provides
-    public static List<FunctionMetadata> getFunctionMetadata(AiFunctions functions)
+    @Singleton
+    public FunctionBundle getFunctionBundle(AiFunctions functions)
     {
-        return functions.getFunctions();
+        return functionBundleFactory.builder()
+                .functions(functions)
+                .build();
     }
 }

@@ -47,7 +47,19 @@ public final class ScalarFromAnnotationsParser
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
         for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
-            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz), deprecated));
+            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz), Optional.empty(), deprecated));
+        }
+        return builder.build();
+    }
+
+    public static List<SqlScalarFunction> parseFunctionDefinition(Object instance)
+    {
+        requireNonNull(instance, "instance is null");
+        Class<?> clazz = instance.getClass();
+        ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
+        boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
+        for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
+            builder.add(parseParametricScalar(scalar, Optional.empty(), Optional.of(instance), deprecated));
         }
         return builder.build();
     }
@@ -58,7 +70,19 @@ public final class ScalarFromAnnotationsParser
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
             boolean deprecated = methods.methods().iterator().next().getAnnotationsByType(Deprecated.class).length > 0;
             // Non-static function only makes sense in classes annotated with @ScalarFunction or @ScalarOperator.
-            builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructor(clazz), deprecated));
+            builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructor(clazz), Optional.empty(), deprecated));
+        }
+        return builder.build();
+    }
+
+    public static List<SqlScalarFunction> parseFunctionDefinitions(Object instance)
+    {
+        requireNonNull(instance, "instance is null");
+        Class<?> clazz = instance.getClass();
+        ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
+        for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
+            boolean deprecated = methods.methods().iterator().next().getAnnotationsByType(Deprecated.class).length > 0;
+            builder.add(parseParametricScalar(methods, Optional.empty(), Optional.of(instance), deprecated));
         }
         return builder.build();
     }
@@ -99,11 +123,11 @@ public final class ScalarFromAnnotationsParser
         return methods;
     }
 
-    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor, boolean deprecated)
+    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor, Optional<Object> instance, boolean deprecated)
     {
         Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
         for (Method method : scalar.methods()) {
-            ParametricScalarImplementation.Parser implementation = new ParametricScalarImplementation.Parser(method, constructor);
+            ParametricScalarImplementation.Parser implementation = new ParametricScalarImplementation.Parser(method, constructor, instance);
             if (!signatures.containsKey(implementation.getSpecializedSignature())) {
                 ParametricScalarImplementation.Builder builder = new ParametricScalarImplementation.Builder(
                         implementation.getSignature(),
