@@ -65,6 +65,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -529,6 +530,17 @@ public final class BytecodeUtils
         // TODO: clean up once try_cast is fixed
         Variable tempValue = scope.getOrCreateTempVariable(valueJavaType);
         Variable tempOutput = scope.getOrCreateTempVariable(BlockBuilder.class);
+        BytecodeBlock writeValue = new BytecodeBlock();
+        if (isClassDumpEnabled()) {
+            writeValue.comment("%s.%s(output, %s)", type.getTypeDescriptor(), methodName, valueJavaType.getSimpleName());
+        }
+        writeValue.putVariable(tempValue)
+                .putVariable(tempOutput)
+                .append(loadConstant(callSiteBinder.bind(type, Type.class)))
+                .getVariable(tempOutput)
+                .getVariable(tempValue)
+                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType);
+
         BytecodeBlock block = new BytecodeBlock()
                 .comment("if (wasNull)")
                 .append(new IfStatement()
@@ -538,14 +550,7 @@ public final class BytecodeUtils
                                 .pop(valueJavaType)
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
-                        .ifFalse(new BytecodeBlock()
-                                .comment("%s.%s(output, %s)", type.getTypeDescriptor(), methodName, valueJavaType.getSimpleName())
-                                .putVariable(tempValue)
-                                .putVariable(tempOutput)
-                                .append(loadConstant(callSiteBinder.bind(type, Type.class)))
-                                .getVariable(tempOutput)
-                                .getVariable(tempValue)
-                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
+                        .ifFalse(writeValue));
         scope.releaseTempVariableForReuse(tempOutput);
         scope.releaseTempVariableForReuse(tempValue);
         return block;
