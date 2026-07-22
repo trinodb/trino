@@ -286,6 +286,7 @@ public final class DistributedQueryRunner
     {
         Logging logging = Logging.initialize();
         logging.setLevel("io.trino.bootstrap", WARN);
+        logging.setLevel("org.apache.parquet.schema", ERROR);
         logging.setLevel("org.glassfish", ERROR);
         logging.setLevel("org.eclipse.jetty.server", WARN);
         logging.setLevel("org.hibernate.validator.internal.util.Version", WARN);
