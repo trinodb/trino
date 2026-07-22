@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.base.Suppliers;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -20,7 +21,6 @@ import io.airlift.bytecode.ClassDefinition;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableCache;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
@@ -66,6 +67,14 @@ public final class ClassTemplateCache<T>
 
     private record TemplateKey(Expression normalized, List<Boolean> nonNullLiterals, List<?> extra) {}
 
+    /**
+     * Everything {@link #defineClass} needs from one walk of the expression: the structure
+     * shared by every expression using this template, that structure's null pattern, and the
+     * parameterizable literal nodes themselves, in traversal order, for building or reading a
+     * template's class data.
+     */
+    private record LiteralAnalysis(Expression normalized, List<Boolean> nonNullLiterals, List<Constant> parameterizableLiterals) {}
+
     private record ClassTemplate(byte[] bytecode, List<SlotRecipe> recipe) {}
 
     private sealed interface SlotRecipe {}
@@ -87,8 +96,8 @@ public final class ClassTemplateCache<T>
 
     /**
      * The class data slot holding the generated toString description. The description
-     * contains the literal values, so it is recomputed from the current expression on
-     * every template use instead of replaying the value from the first compilation.
+     * describes the literal values, so every template use takes a description of the
+     * expression at hand instead of replaying the one from the first compilation.
      */
     private record DescriptionSlot()
             implements SlotRecipe {}
@@ -133,11 +142,12 @@ public final class ClassTemplateCache<T>
             return defineClassWithoutTemplate(expression, extraKey, generator);
         }
 
-        String description = description(expression, extraKey);
-        TemplateKey templateKey = templateKey(expression, extraKey);
+        Description description = new Description(superType, expression, extraKey);
+        LiteralAnalysis literals = analyzeLiterals(expression);
+        TemplateKey templateKey = new TemplateKey(literals.normalized(), literals.nonNullLiterals(), extraKey);
         ClassTemplate template = cache.getIfPresent(templateKey);
         if (template != null) {
-            Optional<List<Object>> classData = assembleClassData(template.recipe(), expression, description);
+            Optional<List<Object>> classData = assembleClassData(template.recipe(), literals.parameterizableLiterals(), description);
             if (classData.isPresent()) {
                 return defineHiddenClassFromBytes(template.bytecode(), superType, classData.get());
             }
@@ -146,13 +156,13 @@ public final class ClassTemplateCache<T>
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition classDefinition = generator.apply(callSiteBinder);
         // bound after the generator, so the description slot is identified by its binding id
-        Binding descriptionBinding = callSiteBinder.bind(description, String.class);
+        Binding descriptionBinding = callSiteBinder.bind(description, Object.class);
         generateToString(classDefinition, descriptionBinding);
         byte[] bytecode = generateHiddenClassBytes(classDefinition);
         List<Object> classData = callSiteBinder.getClassData();
         Class<? extends T> clazz = defineHiddenClassFromBytes(bytecode, superType, classData);
         if (!callSiteBinder.isValueDependent()) {
-            cache.put(templateKey, new ClassTemplate(bytecode, buildRecipe(classData, expression, descriptionBinding.getBindingId())));
+            cache.put(templateKey, new ClassTemplate(bytecode, buildRecipe(classData, literals.parameterizableLiterals(), descriptionBinding.getBindingId())));
         }
         return clazz;
     }
@@ -168,10 +178,10 @@ public final class ClassTemplateCache<T>
      */
     public Class<? extends T> defineClassWithoutTemplate(Expression expression, List<?> extraKey, Function<CallSiteBinder, ClassDefinition> generator)
     {
-        String description = description(expression, extraKey);
+        Description description = new Description(superType, expression, extraKey);
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition classDefinition = generator.apply(callSiteBinder);
-        generateToString(classDefinition, callSiteBinder.bind(description, String.class));
+        generateToString(classDefinition, callSiteBinder.bind(description, Object.class));
         return defineHiddenClass(classDefinition, superType, callSiteBinder.getClassData());
     }
 
@@ -179,14 +189,33 @@ public final class ClassTemplateCache<T>
      * The generated toString description: the super type, the expression with its literal
      * values, and any extra key. Instances of the generated hidden class describe
      * themselves with it in debuggers and logs.
+     *
+     * <p>The description is rendered on first use rather than on compilation. Rendering an
+     * expression renders its constants, and rendering a constant materializes its value as
+     * a single position block, so a compilation that describes itself eagerly pays for every
+     * literal it holds. Nothing asks a generated instance to describe itself unless a
+     * debugger or a log line does, so that cost is not paid at all in a running engine.
      */
-    private String description(Expression expression, List<?> extra)
+    private static final class Description
     {
-        String string = expression.toString();
-        if (string.length() > 1000) {
-            string = string.substring(0, 1000) + "...";
+        private final Supplier<String> description;
+
+        private Description(Class<?> superType, Expression expression, List<?> extra)
+        {
+            this.description = Suppliers.memoize(() -> {
+                String string = expression.toString();
+                if (string.length() > 1000) {
+                    string = string.substring(0, 1000) + "...";
+                }
+                return superType.getSimpleName() + "{" + string + (extra.isEmpty() ? "" : ", " + extra) + "}";
+            });
         }
-        return superType.getSimpleName() + "{" + string + (extra.isEmpty() ? "" : ", " + extra) + "}";
+
+        @Override
+        public String toString()
+        {
+            return description.get();
+        }
     }
 
     private static void generateToString(ClassDefinition classDefinition, Binding descriptionBinding)
@@ -194,71 +223,44 @@ public final class ClassTemplateCache<T>
         classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
                 .getBody()
                 .append(loadConstant(descriptionBinding))
+                .invokeVirtual(Object.class, "toString", String.class)
                 .retObject();
     }
 
     /**
-     * The template key is the expression with the values of all parameterizable constants
-     * stripped. Boolean constants stay in the key because they compile to bytecode
-     * constants, and nullness stays in the key because null constants compile to a
-     * different shape than bound constants.
+     * Walks the expression once to produce everything {@link #defineClass} needs from it: the
+     * structure shared by every expression using this template (parameterizable constants
+     * stripped; boolean constants stay because they compile to bytecode constants, and null
+     * constants stay because they compile to a different shape than bound ones), that
+     * structure's null pattern, and the parameterizable literal nodes themselves, in
+     * traversal order, for building or reading a template's class data.
      */
-    private static TemplateKey templateKey(Expression expression, List<?> extra)
+    private static LiteralAnalysis analyzeLiterals(Expression expression)
     {
         ImmutableList.Builder<Boolean> nonNullLiterals = ImmutableList.builder();
-        new DefaultTraversalVisitor<Void>()
-        {
-            @Override
-            protected Void visitConstant(Constant node, Void context)
-            {
-                if (node.type().getJavaType() != boolean.class) {
-                    nonNullLiterals.add(node.value() != null);
-                }
-                return null;
-            }
-        }.process(expression, null);
-        return new TemplateKey(stripConstants(expression), nonNullLiterals.build(), extra);
-    }
-
-    /**
-     * Rewrites the values of all parameterizable constants to null, producing the
-     * structure all expressions sharing a template have in common.
-     */
-    private static Expression stripConstants(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        ImmutableList.Builder<Constant> parameterizableLiterals = ImmutableList.builder();
+        Expression normalized = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
             public Expression rewriteConstant(Constant node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (node.type().getJavaType() == boolean.class || node.value() == null) {
+                if (node.type().getJavaType() == boolean.class) {
                     return node;
                 }
+                boolean nonNull = node.value() != null;
+                nonNullLiterals.add(nonNull);
+                if (!nonNull) {
+                    return node;
+                }
+                parameterizableLiterals.add(node);
                 return new Constant(node.type(), null);
             }
         }, expression);
+        return new LiteralAnalysis(normalized, nonNullLiterals.build(), parameterizableLiterals.build());
     }
 
-    private static List<Constant> parameterizableLiterals(Expression expression)
+    private static List<SlotRecipe> buildRecipe(List<Object> classData, List<Constant> literals, long descriptionBindingId)
     {
-        ImmutableList.Builder<Constant> literals = ImmutableList.builder();
-        new DefaultTraversalVisitor<Void>()
-        {
-            @Override
-            protected Void visitConstant(Constant node, Void context)
-            {
-                if (node.type().getJavaType() != boolean.class && node.value() != null) {
-                    literals.add(node);
-                }
-                return null;
-            }
-        }.process(expression, null);
-        return literals.build();
-    }
-
-    private static List<SlotRecipe> buildRecipe(List<Object> classData, Expression expression, long descriptionBindingId)
-    {
-        List<Constant> literals = parameterizableLiterals(expression);
         // literal values are matched by identity: this is exactly how the binder deduplicated
         // them, so a class data slot holding a literal value maps back to its ordinals
         Map<Object, List<Integer>> literalOrdinals = new IdentityHashMap<>();
@@ -283,9 +285,8 @@ public final class ClassTemplateCache<T>
         return recipe.build();
     }
 
-    private static Optional<List<Object>> assembleClassData(List<SlotRecipe> recipe, Expression expression, String description)
+    private static Optional<List<Object>> assembleClassData(List<SlotRecipe> recipe, List<Constant> literals, Description description)
     {
-        List<Constant> literals = parameterizableLiterals(expression);
         ImmutableList.Builder<Object> classData = ImmutableList.builder();
         for (SlotRecipe slot : recipe) {
             switch (slot) {
