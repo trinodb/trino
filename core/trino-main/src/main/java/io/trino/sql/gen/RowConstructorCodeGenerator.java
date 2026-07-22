@@ -47,6 +47,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +91,9 @@ public class RowConstructorCodeGenerator
                     constantNull(BlockBuilderStatus.class),
                     constantInt(1))));
 
-            block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+            if (isClassDumpEnabled()) {
+                block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+            }
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
             Variable field = scope.getOrCreateTempVariable(binder.getAccessibleType(fieldType.getJavaType()));
@@ -182,7 +185,9 @@ public class RowConstructorCodeGenerator
             BytecodeBlock fieldInitialization = new BytecodeBlock();
             fieldInitialization.append(blockBuilder.set(fieldBuilders.getElement(constantInt(field))));
 
-            fieldInitialization.comment("Clean wasNull and Generate + " + field + "-th field of row");
+            if (isClassDumpEnabled()) {
+                fieldInitialization.comment("Clean wasNull and Generate + " + field + "-th field of row");
+            }
 
             fieldInitialization.append(context.wasNull().set(constantFalse()));
             fieldInitialization.append(context.generate(arguments.get(field)));
