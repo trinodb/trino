@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.analyzer;
+package io.trino.operator.scalar;
 
-public enum RegexLibrary
+import static io.trino.sql.analyzer.RegexLibrary.SAFERE;
+
+public class TestSafeReRegexpFunctions
+        extends AbstractTestRegexpFunctions
 {
-    JONI,
-    RE2J,
-    SAFERE,
+    public TestSafeReRegexpFunctions()
+    {
+        super(SAFERE);
+    }
 }
