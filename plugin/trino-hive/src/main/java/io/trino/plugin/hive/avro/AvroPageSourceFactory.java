@@ -24,6 +24,7 @@ import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.hive.formats.avro.HiveAvroTypeBlockHandler;
+import io.trino.metastore.type.Category;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -39,6 +40,7 @@ import org.apache.avro.util.internal.Accessor;
 
 import java.io.IOException;
 import java.util.AbstractCollection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -51,6 +53,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.hive.formats.avro.AvroHiveConstants.HIVE_UNION_TYPE_SCHEMA_PROP;
+import static io.trino.hive.formats.avro.AvroTypeUtils.isSimpleNullableUnion;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
@@ -158,6 +162,12 @@ public class AvroPageSourceFactory
         verify(tableSchema.getType() == Schema.Type.RECORD);
         Set<String> maskedColumns = columns.stream().map(HiveColumnHandle::getBaseColumnName).collect(LinkedHashSet::new, HashSet::add, AbstractCollection::addAll);
 
+        // Build a lookup to detect which columns are Hive UNIONTYPE columns
+        Map<String, HiveColumnHandle> columnHandlesByName = new HashMap<>();
+        for (HiveColumnHandle column : columns) {
+            columnHandlesByName.putIfAbsent(column.getBaseColumnName(), column);
+        }
+
         SchemaBuilder.FieldAssembler<Schema> maskedSchema = SchemaBuilder.builder()
                 .record(tableSchema.getName())
                 .namespace(tableSchema.getNamespace())
@@ -172,6 +182,22 @@ public class AvroPageSourceFactory
                 }
                 field = tableSchema.getField(lowerToGivenName.get(columnName));
             }
+
+            // For Hive UNIONTYPE columns whose Avro schema is a simple nullable union, the Avro reader would
+            // normally optimize the schema to a scalar type. Mark the schema with HIVE_UNION_TYPE_SCHEMA_PROP so
+            // the reader produces a RowBlock instead, matching the Hive metastore type ROW(tag, field0, ...)
+            // expected by the column dereference projection.
+            Schema fieldSchema = field.schema();
+            HiveColumnHandle columnHandle = columnHandlesByName.get(columnName);
+            if (columnHandle != null
+                    && columnHandle.getBaseHiveType().getCategory() == Category.UNION
+                    && fieldSchema.getType() == Schema.Type.UNION
+                    && isSimpleNullableUnion(fieldSchema)) {
+                Schema markedSchema = Schema.createUnion(fieldSchema.getTypes());
+                markedSchema.addProp(HIVE_UNION_TYPE_SCHEMA_PROP, true);
+                fieldSchema = markedSchema;
+            }
+
             if (field.hasDefaultValue()) {
                 try {
                     Object defaultObj = Accessor.defaultValue(field);
@@ -179,7 +205,7 @@ public class AvroPageSourceFactory
                             .name(field.name())
                             .aliases(field.aliases().toArray(String[]::new))
                             .doc(field.doc())
-                            .type(field.schema())
+                            .type(fieldSchema)
                             .withDefault(defaultObj);
                 }
                 catch (org.apache.avro.AvroTypeException e) {
@@ -204,7 +230,7 @@ public class AvroPageSourceFactory
                         .name(field.name())
                         .aliases(field.aliases().toArray(String[]::new))
                         .doc(field.doc())
-                        .type(field.schema())
+                        .type(fieldSchema)
                         .noDefault();
             }
         }

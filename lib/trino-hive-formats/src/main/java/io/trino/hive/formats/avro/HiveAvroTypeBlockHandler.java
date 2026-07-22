@@ -75,6 +75,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_TYPE;
 import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeForUnionOfTypes;
 import static io.trino.hive.formats.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
+import static io.trino.hive.formats.avro.AvroHiveConstants.HIVE_UNION_TYPE_SCHEMA_PROP;
 import static io.trino.hive.formats.avro.AvroHiveConstants.VARCHAR_TYPE_LOGICAL_NAME;
 import static io.trino.hive.formats.avro.AvroTypeUtils.isSimpleNullableUnion;
 import static io.trino.hive.formats.avro.AvroTypeUtils.unwrapNullableUnion;
@@ -126,11 +127,11 @@ public class HiveAvroTypeBlockHandler
             return BooleanType.BOOLEAN;
         }
         else if (schema.getType() == Schema.Type.UNION) {
-            if (isSimpleNullableUnion(schema)) {
+            if (isSimpleNullableUnion(schema) && schema.getObjectProp(HIVE_UNION_TYPE_SCHEMA_PROP) == null) {
                 return typeFor(unwrapNullableUnion(schema));
             }
             else {
-                // coerce complex unions to structs
+                // coerce complex unions, and Hive UNIONTYPE columns marked with HIVE_UNION_TYPE_SCHEMA_PROP, to row types
                 return rowTypeForUnion(schema);
             }
         }
@@ -201,7 +202,12 @@ public class HiveAvroTypeBlockHandler
             case NullRead _, BooleanRead _, IntRead _, LongRead _, FloatRead _, DoubleRead _, StringRead _, BytesRead _, FixedRead _, ArrayReadAction _, EnumReadAction _,
                  MapReadAction _, RecordReadAction _ -> baseBlockBuildingDecoderFor(readAction, this);
             case WrittenUnionReadAction writtenUnionReadAction -> {
-                if (writtenUnionReadAction.readSchema().getType() == Schema.Type.UNION && !isSimpleNullableUnion(writtenUnionReadAction.readSchema())) {
+                Schema readSchema = writtenUnionReadAction.readSchema();
+                // The UNION type guard is required: WrittenUnionReadAction fires whenever the writer is a
+                // union regardless of the reader type, and WriterUnionCoercedIntoRowBlockBuildingDecoder
+                // requires a union reader schema (it calls readSchema.getTypes() in its constructor).
+                if (readSchema.getType() == Schema.Type.UNION
+                        && (!isSimpleNullableUnion(readSchema) || readSchema.getObjectProp(HIVE_UNION_TYPE_SCHEMA_PROP) != null)) {
                     yield new WriterUnionCoercedIntoRowBlockBuildingDecoder(writtenUnionReadAction, this);
                 }
                 else {
@@ -210,7 +216,9 @@ public class HiveAvroTypeBlockHandler
                 }
             }
             case ReadingUnionReadAction readingUnionReadAction -> {
-                if (isSimpleNullableUnion(readingUnionReadAction.readSchema())) {
+                Schema readSchema = readingUnionReadAction.readSchema();
+                // No UNION type guard needed: ReadingUnionReadAction only fires when the reader is a union.
+                if (isSimpleNullableUnion(readSchema) && readSchema.getObjectProp(HIVE_UNION_TYPE_SCHEMA_PROP) == null) {
                     yield blockBuildingDecoderFor(readingUnionReadAction.actualAction());
                 }
                 else {
