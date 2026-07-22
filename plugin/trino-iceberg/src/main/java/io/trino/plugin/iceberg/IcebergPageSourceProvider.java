@@ -399,7 +399,9 @@ public class IcebergPageSourceProvider
                     "",
                     Map.of(),
                     OptionalLong.empty(),
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    newSimpleAggregatedMemoryContext(),
+                    Optional.empty());
             deleteFilePageSource = readerPageSource.pageSource();
         }
         else {

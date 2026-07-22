@@ -17,6 +17,7 @@ import io.trino.plugin.iceberg.PartitionData;
 import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.IcebergManifestUtils.FileEntryWithMetadata;
 import org.apache.iceberg.ManifestFile;
@@ -64,7 +65,7 @@ public final class PositionDeletesTableSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         TableScan scan = icebergTable.newScan();
         List<ConnectorSplit> splits = new ArrayList<>();
@@ -109,7 +110,7 @@ public final class PositionDeletesTableSplitSource
         }
 
         finished = true;
-        return completedFuture(new ConnectorSplitBatch(splits, true));
+        return completedFuture(splits);
     }
 
     @Override
