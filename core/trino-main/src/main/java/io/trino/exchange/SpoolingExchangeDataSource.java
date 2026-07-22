@@ -14,6 +14,7 @@
 package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
@@ -38,7 +39,8 @@ public class SpoolingExchangeDataSource
     // However since close can be called at any moment this variable has to be accessed in a safe way (avoiding "check-then-use").
     private ExchangeSource exchangeSource;
     private final LocalMemoryContext memoryContext;
-    private volatile boolean closed;
+    @GuardedBy("this")
+    private boolean closed;
 
     public SpoolingExchangeDataSource(ExchangeSource exchangeSource, LocalMemoryContext memoryContext)
     {
@@ -62,14 +64,19 @@ public class SpoolingExchangeDataSource
         }
 
         Slice data = exchangeSource.read();
-        memoryContext.setBytes(exchangeSource.getMemoryUsage());
-
-        // If the data source has been closed in a meantime reset memory usage back to 0
-        if (closed) {
-            memoryContext.setBytes(0);
-        }
-
+        updateMemoryUsage(exchangeSource.getMemoryUsage());
         return data;
+    }
+
+    private synchronized void updateMemoryUsage(long bytes)
+    {
+        // This data source is shared between all ExchangeOperator instances of a pipeline while the
+        // memory context belongs to the operator that created it. Once close() completes, that operator
+        // may already be destroyed together with its memory context, so the memory usage must not be
+        // updated anymore. Synchronizing with close() guarantees no update can slip in after it returns.
+        if (!closed) {
+            memoryContext.setBytes(bytes);
+        }
     }
 
     @Override
