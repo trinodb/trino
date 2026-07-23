@@ -23,6 +23,8 @@ import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKmsWithImpersonation;
 import io.trino.tests.product.launcher.env.common.Hive4WithMinio;
+import io.trino.tests.product.launcher.env.common.Hive4WithMinioHttpThrift;
+import io.trino.tests.product.launcher.env.common.HiveMetastoreThriftHttpsNginx;
 import io.trino.tests.product.launcher.env.common.HttpProxy;
 import io.trino.tests.product.launcher.env.common.HttpsProxy;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
@@ -100,6 +102,8 @@ public final class EnvironmentModule
         binder.bind(HttpProxy.class).in(SINGLETON);
         binder.bind(HttpsProxy.class).in(SINGLETON);
         binder.bind(Hive4WithMinio.class).in(SINGLETON);
+        binder.bind(Hive4WithMinioHttpThrift.class).in(SINGLETON);
+        binder.bind(HiveMetastoreThriftHttpsNginx.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
