@@ -14,7 +14,6 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.plugin.jdbc.RemoteLogTracingEvent;
 import org.intellij.lang.annotations.Language;
@@ -34,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -72,7 +72,7 @@ public class TestingPostgreSqlServer
     private static final String LOG_CANCELLED_STATEMENT_PREFIX = "STATEMENT:  ";
 
     private final PostgreSQLContainer dockerContainer;
-    private final Set<RemoteLogTracingEvent> tracingEvents = Sets.newConcurrentHashSet();
+    private final Set<RemoteLogTracingEvent> tracingEvents = ConcurrentHashMap.newKeySet();
 
     private final Closeable cleanup;
 
