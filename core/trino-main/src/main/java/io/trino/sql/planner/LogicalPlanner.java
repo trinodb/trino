@@ -109,6 +109,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Query;
@@ -390,8 +391,8 @@ public class LogicalPlanner
         if (statement instanceof ExplainAnalyze explainAnalyze) {
             return createExplainAnalyzePlan(analysis, explainAnalyze);
         }
-        if (statement instanceof TableExecute tableExecute) {
-            return createTableExecutePlan(analysis, tableExecute);
+        if (statement instanceof TableExecute || statement instanceof MaterializedViewExecute) {
+            return createTableExecutePlan(analysis, statement);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -1064,9 +1065,15 @@ public class LogicalPlanner
         return result;
     }
 
-    private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
+    private RelationPlan createTableExecutePlan(Analysis analysis, Statement statement)
     {
-        Table table = statement.getTable();
+        Optional<io.trino.sql.tree.Expression> where = switch (statement) {
+            case TableExecute tableExecute -> tableExecute.getWhere();
+            case MaterializedViewExecute materializedViewExecute -> materializedViewExecute.getWhere();
+            default -> throw new IllegalArgumentException("Unexpected statement: " + statement);
+        };
+
+        Table table = analysis.getTableExecuteTable();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
         TableExecuteHandle executeHandle = analysis.getTableExecuteHandle().orElseThrow();
 
@@ -1083,9 +1090,9 @@ public class LogicalPlanner
         TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
         PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
-        if (statement.getWhere().isPresent()) {
+        if (where.isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
-            io.trino.sql.tree.Expression whereExpression = statement.getWhere().get();
+            io.trino.sql.tree.Expression whereExpression = where.get();
             sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));
         }
