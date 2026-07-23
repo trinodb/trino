@@ -4123,7 +4123,7 @@ class StatementAnalyzer
                     Expression predicate = operation.getExpression().get();
                     analysis.recordSubqueries(merge, analyzeExpression(predicate, joinScope));
                     if (operation.getMergeCaseKind() == NOT_MATCHED_BY_SOURCE) {
-                        validateNoSourceColumnReferences(predicate, targetTableScope);
+                        validateNoSourceColumnReferences(predicate, targetTableScope, joinScope);
                     }
                     Type predicateType = analysis.getType(predicate);
 
@@ -4143,7 +4143,7 @@ class StatementAnalyzer
                     Expression expression = setExpressions.get(index);
                     ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, joinScope);
                     if (operation.getMergeCaseKind() == NOT_MATCHED_BY_SOURCE) {
-                        validateNoSourceColumnReferences(expression, targetTableScope);
+                        validateNoSourceColumnReferences(expression, targetTableScope, joinScope);
                     }
                     analysis.recordSubqueries(merge, expressionAnalysis);
                     Type targetType = requireNonNull(dataColumnTypes.get(columnName));
@@ -4341,8 +4341,14 @@ class StatementAnalyzer
          * the expression being validated, so only column references within that expression are
          * checked. The join scope lays out fields as [target fields | source fields], so any
          * {@code relationFieldIndex >= targetFieldCount} identifies a source column.
+         *
+         * <p>The walk descends into nested subqueries, whose column references resolve against
+         * their own local scopes with {@code relationFieldIndex} relative to those scopes. Only
+         * references resolved against the join scope are classified here; subquery-local
+         * references are skipped, while correlated references to the source relation resolve
+         * against the join scope and are still rejected.
          */
-        private void validateNoSourceColumnReferences(Expression expression, Scope targetTableScope)
+        private void validateNoSourceColumnReferences(Expression expression, Scope targetTableScope, Scope joinScope)
         {
             int targetFieldCount = targetTableScope.getRelationType().getAllFieldCount();
             Map<NodeRef<Expression>, ResolvedField> columnRefs = analysis.getColumnReferenceFields();
@@ -4352,7 +4358,8 @@ class StatementAnalyzer
                     .filter(e -> columnRefs.containsKey(NodeRef.of(e)))
                     .forEach(e -> {
                         ResolvedField resolvedField = columnRefs.get(NodeRef.of(e));
-                        if (resolvedField.getRelationFieldIndex() >= targetFieldCount) {
+                        if (resolvedField.getScope().getRelationId().equals(joinScope.getRelationId()) &&
+                                resolvedField.getRelationFieldIndex() >= targetFieldCount) {
                             throw semanticException(
                                     INVALID_COLUMN_REFERENCE,
                                     e,

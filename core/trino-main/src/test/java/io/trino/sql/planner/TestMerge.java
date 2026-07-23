@@ -101,11 +101,25 @@ public class TestMerge
                                 return new MockConnectorTableHandle(schemaTableName);
                             }
 
+                            if (schemaTableName.getTableName().equals("test_table_merge_wide")) {
+                                return new MockConnectorTableHandle(schemaTableName);
+                            }
+
                             return null;
                         })
-                        .withGetColumns(_ -> ImmutableList.of(
-                                new ColumnMetadata("column1", INTEGER),
-                                new ColumnMetadata("column2", INTEGER)))
+                        .withGetColumns(schemaTableName -> {
+                            if (schemaTableName.getTableName().equals("test_table_merge_wide")) {
+                                return ImmutableList.of(
+                                        new ColumnMetadata("column1", INTEGER),
+                                        new ColumnMetadata("column2", INTEGER),
+                                        new ColumnMetadata("column3", INTEGER),
+                                        new ColumnMetadata("column4", INTEGER),
+                                        new ColumnMetadata("column5", INTEGER));
+                            }
+                            return ImmutableList.of(
+                                    new ColumnMetadata("column1", INTEGER),
+                                    new ColumnMetadata("column2", INTEGER));
+                        })
                         .build()));
         planTester.createCatalog("mock", "mock", ImmutableMap.of());
         return planTester;
@@ -202,6 +216,53 @@ public class TestMerge
                         "ON a.column1 = b.column1 " +
                         "WHEN NOT MATCHED BY SOURCE " +
                         "THEN UPDATE SET column2 = b.column2",
+                anyTree(anyTree())))
+                .satisfies(e -> {
+                    Throwable cause = e;
+                    while (cause.getCause() != null && !(cause instanceof TrinoException)) {
+                        cause = cause.getCause();
+                    }
+                    assertThat(cause)
+                            .isInstanceOf(TrinoException.class)
+                            .hasMessageContaining("Columns from the source relation cannot be referenced in a WHEN NOT MATCHED BY SOURCE clause");
+                    assertThat(((TrinoException) cause).getErrorCode())
+                            .isEqualTo(INVALID_COLUMN_REFERENCE.toErrorCode());
+                });
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceAllowsSubqueryLocalColumns()
+    {
+        // Columns resolved inside a nested subquery have field indexes relative to their own
+        // local scope; a high-index subquery-local column must not be mistaken for a source
+        // column of the MERGE join scope
+        getPlanTester().inTransaction(session -> {
+            getPlanTester().createPlan(
+                    session,
+                    "MERGE INTO test_table_merge_target a " +
+                            "USING test_table_merge_source b " +
+                            "ON a.column1 = b.column1 " +
+                            "WHEN NOT MATCHED BY SOURCE AND a.column1 IN (SELECT column5 FROM test_table_merge_wide) " +
+                            "THEN DELETE",
+                    getPlanTester().getPlanOptimizers(true),
+                    LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return null;
+        });
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceRejectSourceColumnInSubquery()
+    {
+        // A correlated reference to a source column inside a subquery resolves against the
+        // MERGE join scope and must still be rejected
+        assertThatThrownBy(() -> assertPlan(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column1 IN (SELECT column1 FROM test_table_merge_wide WHERE column2 = b.column2) " +
+                        "THEN DELETE",
                 anyTree(anyTree())))
                 .satisfies(e -> {
                     Throwable cause = e;
@@ -473,6 +534,38 @@ public class TestMerge
                         "ON a.column1 = b.column1 " +
                         "WHEN NOT MATCHED THEN INSERT (column1, column2) VALUES (b.column1, b.column2) " +
                         "WHEN NOT MATCHED BY SOURCE AND a.column2 > 0 THEN DELETE");
+        assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
+                .where(FilterNode.class::isInstance)
+                .findFirst())
+                .isEmpty();
+    }
+
+    @Test
+    public void testBySourcePredicatesNotPushedWhenNonDeterministic()
+    {
+        // The predicate is also evaluated in the post-join CASE condition; a non-deterministic
+        // predicate could pass the pushed-down filter but fail the CASE (or vice versa).
+        JoinNode join = findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column2 > random(100) THEN DELETE");
+        assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
+                .where(FilterNode.class::isInstance)
+                .findFirst())
+                .isEmpty();
+    }
+
+    @Test
+    public void testBySourcePredicatesNotPushedWhenPredicateContainsSubquery()
+    {
+        // Subqueries are planned only for the post-join CASE condition, so they cannot be
+        // rewritten into the pre-join filter.
+        JoinNode join = findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column1 IN (SELECT column5 FROM test_table_merge_wide) THEN DELETE");
         assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
                 .where(FilterNode.class::isInstance)
                 .findFirst())

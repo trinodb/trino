@@ -110,6 +110,7 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
@@ -160,6 +161,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.trino.sql.analyzer.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
@@ -186,6 +188,7 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.WindowFrame.Type.GROUPS;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
+import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
@@ -1318,12 +1321,16 @@ class QueryPlanner
      * Applies a pre-join filter on the target side when it is safe to do so.
      *
      * <p>Safe condition: every MERGE clause is {@code NOT MATCHED BY SOURCE} and carries
-     * an explicit {@code AND} predicate.  With only BY SOURCE clauses the join is LEFT OUTER,
-     * so source rows that would have matched a filtered-out target row are silently discarded
-     * by the join rather than triggering any action.
+     * an explicit {@code AND} predicate that is deterministic and subquery-free.  With only
+     * BY SOURCE clauses the join is LEFT OUTER, so source rows that would have matched a
+     * filtered-out target row are silently discarded by the join rather than triggering any
+     * action.
      *
      * <p>Returns the original plan unchanged when MATCHED or BY TARGET clauses are present,
-     * or when any BY SOURCE clause is unconditional.
+     * when any BY SOURCE clause is unconditional, when any predicate is non-deterministic
+     * (the predicate is also evaluated in the post-join CASE condition, and both evaluations
+     * must agree), or when any predicate contains a subquery (subqueries are planned only for
+     * the post-join CASE condition, so they cannot be rewritten into the pre-join filter).
      */
     private RelationPlan applyBySourcePredicatePushdown(
             List<MergeCase> mergeCases,
@@ -1339,6 +1346,14 @@ class QueryPlanner
         boolean allHavePredicates = mergeCases.stream()
                 .allMatch(c -> c.getExpression().isPresent());
         if (!allHavePredicates) {
+            return targetPlan;
+        }
+
+        boolean allPushable = mergeCases.stream()
+                .map(mergeCase -> mergeCase.getExpression().orElseThrow())
+                .allMatch(predicate -> isDeterministic(predicate, call -> analysis.getResolvedFunction(call).orElseThrow())
+                        && preOrder(predicate).noneMatch(SubqueryExpression.class::isInstance));
+        if (!allPushable) {
             return targetPlan;
         }
 
