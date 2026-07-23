@@ -13,6 +13,7 @@
  */
 package io.trino.operator.output;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.exchange.ExchangeEncryptionKey;
@@ -99,6 +100,7 @@ public class TaskOutputOperator
     private PageSerializer serializer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
     private boolean finished;
+    private boolean localConsumer;
 
     public TaskOutputOperator(OperatorContext operatorContext, OutputBuffer outputBuffer, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
     {
@@ -156,16 +158,23 @@ public class TaskOutputOperator
 
         page = pagePreprocessor.apply(page);
 
-        if (serializer == null) {
-            Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), outputBuffer);
-            serializer = serdeFactory.createSerializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
-            LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
-            memoryContext.setBytes(serializer.getRetainedSizeInBytes());
+        // localConsumer transitions one way, so once observed the check can be skipped
+        localConsumer = localConsumer || outputBuffer.wantsRawPages(0);
+        if (localConsumer) {
+            // the only consumer of this buffer runs on this node, so the page is passed by reference
+            outputBuffer.enqueuePages(0, ImmutableList.of(page));
         }
-
-        outputBuffer.enqueue(splitAndSerializePage(page, serializer));
+        else {
+            if (serializer == null) {
+                Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), outputBuffer);
+                serializer = serdeFactory.createSerializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
+                LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
+                memoryContext.setBytes(serializer.getRetainedSizeInBytes());
+            }
+            outputBuffer.enqueue(splitAndSerializePage(page, serializer));
+            updateMetrics();
+        }
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
-        updateMetrics();
     }
 
     @Override

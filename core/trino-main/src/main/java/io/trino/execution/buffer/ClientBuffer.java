@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
+import io.trino.spi.Page;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,6 +63,12 @@ class ClientBuffer
 
     @GuardedBy("this")
     private boolean noMorePages;
+
+    // set when the consumer reveals it runs on the same node, allowing the producer to
+    // enqueue raw pages for this buffer, skipping serialization entirely; the transition
+    // is one way and the flag is never reset, since a buffer is consumed by exactly one
+    // task, which never changes location
+    private final AtomicBoolean localConsumer = new AtomicBoolean();
 
     // destroyed is set when the client sends a DELETE to the buffer
     // this is an acknowledgement that the client has observed the end of the buffer
@@ -104,6 +111,19 @@ class ClientBuffer
         @SuppressWarnings("FieldAccessNotGuarded")
         boolean destroyed = this.destroyed.get();
         return destroyed;
+    }
+
+    public void setLocalConsumer()
+    {
+        // one-way transition, avoid repeated volatile stores
+        if (!localConsumer.get()) {
+            localConsumer.set(true);
+        }
+    }
+
+    public boolean isLocalConsumer()
+    {
+        return localConsumer.get();
     }
 
     public void destroy()
@@ -161,7 +181,7 @@ class ClientBuffer
             page.addReference();
             pageCount++;
             rowCount += page.getPositionCount();
-            bytesAdded += page.getRetainedSizeInBytes();
+            bytesAdded += page.getSizeInBytes();
         }
         this.pages.addAll(pages);
         rowsAdded.add(rowCount);
@@ -355,20 +375,40 @@ class ClientBuffer
         // no more pages set, which is checked above
         verify(sequenceId == currentSequenceId.get(), "Invalid sequence id");
 
+        if (pages.isEmpty()) {
+            return emptyResults(taskInstanceId, sequenceId, false);
+        }
+
         // read the new pages
+        // a single result carries pages of one kind only, so a read stops at a boundary
+        // between serialized and raw pages (raw pages can follow serialized ones when the
+        // buffer switched to a local consumer while the producer was already running)
         long maxBytes = maxSize.toBytes();
-        List<Slice> result = new ArrayList<>();
+        boolean serialized = pages.getFirst().isSerialized();
+        List<Slice> serializedResult = serialized ? new ArrayList<>() : ImmutableList.of();
+        List<Page> rawResult = serialized ? ImmutableList.of() : new ArrayList<>();
+        List<?> result = serialized ? serializedResult : rawResult;
         long bytes = 0;
 
         for (SerializedPageReference page : pages) {
-            bytes += page.getRetainedSizeInBytes();
+            if (page.isSerialized() != serialized) {
+                break;
+            }
+            // limit the batch by the size of the data, so that raw pages are not penalized
+            // for memory over-allocated by the producing operators
+            bytes += page.getSizeInBytes();
             // break (and don't add) if this page would exceed the limit
             if (!result.isEmpty() && bytes > maxBytes) {
                 break;
             }
-            result.add(page.getSerializedPage());
+            if (serialized) {
+                serializedResult.add(page.getSerializedPage());
+            }
+            else {
+                rawResult.add(page.getRawPage());
+            }
         }
-        return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, result);
+        return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, serializedResult, rawResult);
     }
 
     /**
@@ -402,7 +442,7 @@ class ClientBuffer
             for (int i = 0; i < pagesToRemove; i++) {
                 SerializedPageReference removedPage = pages.removeFirst();
                 removedPages.add(removedPage);
-                bytesRemoved += removedPage.getRetainedSizeInBytes();
+                bytesRemoved += removedPage.getSizeInBytes();
             }
 
             // update current sequence id

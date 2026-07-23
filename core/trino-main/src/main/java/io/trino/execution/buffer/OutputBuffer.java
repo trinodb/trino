@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.spi.Page;
 
 import java.util.List;
 import java.util.Optional;
@@ -64,7 +65,18 @@ public interface OutputBuffer
      * If the buffer result is marked as complete, the client must call abort to acknowledge
      * receipt of the final state.
      */
-    ListenableFuture<BufferResult> get(PipelinedOutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize);
+    default ListenableFuture<BufferResult> get(PipelinedOutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+    {
+        return get(bufferId, token, maxSize, false);
+    }
+
+    /**
+     * Same as {@link #get(PipelinedOutputBuffers.OutputBufferId, long, DataSize)}, additionally indicating
+     * whether the consumer runs on the same node and accepts raw pages passed by reference. Buffers
+     * that support this switch the given buffer to raw pages permanently, since a buffer is consumed
+     * by exactly one task, which never changes location.
+     */
+    ListenableFuture<BufferResult> get(PipelinedOutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize, boolean localConsumer);
 
     /**
      * Acknowledges the previously received pages from the output buffer.
@@ -92,6 +104,25 @@ public interface OutputBuffer
      * page call is ignored.  This can happen with limit queries.
      */
     void enqueue(int partition, List<Slice> pages);
+
+    /**
+     * Returns {@code true} if pages for the given partition should be enqueued raw via
+     * {@link #enqueuePages(int, List)}, skipping serialization, because the partition
+     * is consumed by a task running on this node.
+     */
+    default boolean wantsRawPages(int partition)
+    {
+        return false;
+    }
+
+    /**
+     * Adds raw pages to a specific partition consumed by a task running on this node.
+     * If no-more-pages has been set, the enqueue page call is ignored.
+     */
+    default void enqueuePages(int partition, List<Page> pages)
+    {
+        throw new UnsupportedOperationException("raw pages are not supported by " + getClass().getSimpleName());
+    }
 
     /**
      * Notify buffer that no more pages will be added. Any future calls to enqueue a

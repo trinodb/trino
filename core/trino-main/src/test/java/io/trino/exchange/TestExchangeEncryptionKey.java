@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
@@ -156,7 +157,7 @@ public class TestExchangeEncryptionKey
         public void setOutputBuffers(OutputBuffers newOutputBuffers) {}
 
         @Override
-        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
+        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize, boolean localConsumer)
         {
             throw new UnsupportedOperationException();
         }
@@ -205,7 +206,7 @@ public class TestExchangeEncryptionKey
             implements ExchangeDataSource
     {
         @Override
-        public Slice pollPage()
+        public ExchangedPage pollPage()
         {
             return null;
         }

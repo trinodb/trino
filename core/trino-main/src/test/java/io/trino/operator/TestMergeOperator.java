@@ -30,6 +30,7 @@ import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.ExchangeMetricsCollector;
+import io.trino.execution.NoOpFailureInjector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -61,6 +62,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.operator.OperatorAssertion.assertOperatorIsBlocked;
 import static io.trino.operator.OperatorAssertion.assertOperatorIsUnblocked;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -99,6 +101,9 @@ public class TestMergeOperator
         taskBuffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, serdeFactory), executor);
         exchangeClientFactory = new DirectExchangeClientFactory(
+                CURRENT_NODE,
+                () -> null, // no local task manager, all results are fetched over http
+                new NoOpFailureInjector(),
                 new NodeInfo("test"),
                 new FeaturesConfig(),
                 new DirectExchangeClientConfig(),

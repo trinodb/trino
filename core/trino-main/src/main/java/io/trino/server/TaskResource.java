@@ -66,6 +66,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
@@ -97,7 +98,7 @@ public class TaskResource
     private static final Logger log = Logger.get(TaskResource.class);
 
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
-    private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
+    public static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
     private final StartupStatus startupStatus;
     private final SqlTaskManager taskManager;
@@ -537,6 +538,8 @@ public class TaskResource
         // This response may have been created as the result of a timeout, so refresh the task heartbeat
         taskWithResults.recordHeartbeat();
 
+        // raw pages are handed only to consumers on the same node and never travel over HTTP
+        verify(result.rawPages().isEmpty(), "unexpected raw pages in an HTTP results request");
         List<Slice> serializedPages = result.serializedPages();
 
         Response.ResponseBuilder response = Response.status(serializedPages.isEmpty() ? Status.NO_CONTENT : Status.OK)

@@ -37,6 +37,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
@@ -168,7 +169,7 @@ public class DeduplicatingDirectExchangeBuffer
     }
 
     @Override
-    public synchronized Slice pollPage()
+    public synchronized ExchangedPage pollPage()
     {
         throwIfFailed();
 
@@ -183,7 +184,10 @@ public class DeduplicatingDirectExchangeBuffer
         checkState(outputSource != null, "outputSource is expected to be set");
         Slice page = outputSource.getNext();
         updateMaxRetainedSize();
-        return page;
+        if (page == null) {
+            return null;
+        }
+        return ExchangedPage.serialized(page);
     }
 
     @Override

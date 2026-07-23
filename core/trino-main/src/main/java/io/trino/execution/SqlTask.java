@@ -611,10 +611,15 @@ public class SqlTask
 
     public ListenableFuture<BufferResult> getTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
+        return getTaskResults(bufferId, startingSequenceId, maxSize, false);
+    }
+
+    public ListenableFuture<BufferResult> getTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize, boolean localConsumer)
+    {
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return outputBuffer.get(bufferId, startingSequenceId, maxSize);
+        return outputBuffer.get(bufferId, startingSequenceId, maxSize, localConsumer);
     }
 
     public void acknowledgeTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long sequenceId)

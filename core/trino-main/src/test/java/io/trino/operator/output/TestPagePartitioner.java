@@ -1064,7 +1064,7 @@ public class TestPagePartitioner
         public void setOutputBuffers(OutputBuffers newOutputBuffers) {}
 
         @Override
-        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
+        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize, boolean localConsumer)
         {
             return null;
         }

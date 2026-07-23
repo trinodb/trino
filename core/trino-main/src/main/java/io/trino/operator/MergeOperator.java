@@ -184,9 +184,9 @@ public class MergeOperator
         client.addLocation(exchangeInput.getTaskId(), URI.create(exchangeInput.getLocation()));
         client.noMoreLocations();
         pageProducers.add(client.pages()
-                .map(serializedPage -> {
-                    Page page = deserializer.deserialize(serializedPage);
-                    operatorContext.recordNetworkInput(serializedPage.length(), page.getPositionCount());
+                .map(exchangedPage -> {
+                    Page page = exchangedPage.page(deserializer);
+                    operatorContext.recordNetworkInput(exchangedPage.networkSizeInBytes(), page.getPositionCount());
                     return page;
                 }));
     }

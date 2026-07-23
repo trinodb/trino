@@ -31,6 +31,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -49,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -359,8 +361,8 @@ public class TestDeduplicatingDirectExchangeBuffer
             int expectedSpilledPageCount,
             List<Slice> expectedOutput)
     {
-        List<Slice> actualOutput = pollPages(retryPolicy, pages, failures, bufferCapacity, expectedSpilledPageCount);
-        assertThat(actualOutput).isEqualTo(expectedOutput);
+        List<ExchangedPage> actualOutput = pollPages(retryPolicy, pages, failures, bufferCapacity, expectedSpilledPageCount);
+        assertThat(actualOutput).isEqualTo(expectedOutput.stream().map(ExchangedPage::serialized).collect(toImmutableList()));
     }
 
     private void testPollPagesFailure(
@@ -374,7 +376,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         assertThatThrownBy(() -> pollPages(retryPolicy, pages, failures, bufferCapacity, expectedSpilledPageCount)).isEqualTo(expectedFailure);
     }
 
-    private List<Slice> pollPages(
+    private List<ExchangedPage> pollPages(
             RetryPolicy retryPolicy,
             Multimap<TaskId, Slice> pages,
             Map<TaskId, RuntimeException> failures,
@@ -400,11 +402,11 @@ public class TestDeduplicatingDirectExchangeBuffer
             }
             buffer.noMoreTasks();
 
-            ImmutableList.Builder<Slice> result = ImmutableList.builder();
+            ImmutableList.Builder<ExchangedPage> result = ImmutableList.builder();
             while (!buffer.isFinished()) {
                 // wait for blocked
                 getUnchecked(buffer.isBlocked());
-                Slice page = buffer.pollPage();
+                ExchangedPage page = buffer.pollPage();
                 if (page == null) {
                     continue;
                 }
@@ -469,7 +471,7 @@ public class TestDeduplicatingDirectExchangeBuffer
 
             assertThat(buffer.isFinished()).isFalse();
             assertNotBlocked(buffer.isBlocked());
-            assertThat(buffer.pollPage()).isEqualTo(page);
+            assertThat(buffer.pollPage()).isEqualTo(ExchangedPage.serialized(page));
             assertThat(buffer.pollPage()).isNull();
             assertThat(buffer.isFinished()).isTrue();
         }

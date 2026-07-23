@@ -270,7 +270,7 @@ public class TestPagePartitionerPool
         }
 
         @Override
-        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
+        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize, boolean localConsumer)
         {
             throw new UnsupportedOperationException();
         }

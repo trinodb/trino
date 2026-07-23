@@ -43,6 +43,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -595,8 +596,8 @@ class Query
         try {
             long bytes = 0;
             while (bytes < targetResultBytes) {
-                Slice serializedPage = exchangeDataSource.pollPage();
-                if (serializedPage == null) {
+                ExchangedPage exchangedPage = exchangeDataSource.pollPage();
+                if (exchangedPage == null) {
                     break;
                 }
 
@@ -609,7 +610,7 @@ class Query
                     deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
                 }
 
-                Page page = deserializer.deserialize(serializedPage);
+                Page page = exchangedPage.page(deserializer);
                 bytes += estimateJsonSize(page);
                 resultBuilder.addPage(page);
             }

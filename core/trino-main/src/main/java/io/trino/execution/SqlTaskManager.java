@@ -578,13 +578,22 @@ public class SqlTaskManager
      */
     public SqlTaskWithResults getTaskResults(TaskId taskId, PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
+        return getTaskResults(taskId, bufferId, startingSequenceId, maxSize, false);
+    }
+
+    /**
+     * Gets results from a task. A consumer running on this node may set {@code localConsumer}
+     * to receive raw pages passed by reference instead of serialized pages.
+     */
+    public SqlTaskWithResults getTaskResults(TaskId taskId, PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize, boolean localConsumer)
+    {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
         requireNonNull(maxSize, "maxSize is null");
 
         SqlTask task = tasks.getUnchecked(taskId);
-        return new SqlTaskWithResults(task, task.getTaskResults(bufferId, startingSequenceId, maxSize));
+        return new SqlTaskWithResults(task, task.getTaskResults(bufferId, startingSequenceId, maxSize, localConsumer));
     }
 
     /**

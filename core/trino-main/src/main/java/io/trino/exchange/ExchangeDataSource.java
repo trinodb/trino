@@ -14,7 +14,7 @@
 package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.operator.OperatorInfo;
 import io.trino.spi.metrics.Metrics;
 
@@ -24,7 +24,7 @@ import java.util.Optional;
 public interface ExchangeDataSource
         extends Closeable
 {
-    Slice pollPage();
+    ExchangedPage pollPage();
 
     boolean isFinished();
 

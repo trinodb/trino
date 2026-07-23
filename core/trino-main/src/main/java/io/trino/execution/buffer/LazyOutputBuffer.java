@@ -26,6 +26,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.util.Lazy;
+import io.trino.spi.Page;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
@@ -209,7 +210,7 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize, boolean localConsumer)
     {
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
@@ -221,14 +222,31 @@ public class LazyOutputBuffer
                         return immediateFuture(emptyResults(taskInstanceId, 0, complete));
                     }
 
-                    PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
+                    PendingRead pendingRead = new PendingRead(bufferId, token, maxSize, localConsumer);
                     pendingReads.add(pendingRead);
                     return pendingRead.getFutureResult();
                 }
                 outputBuffer = delegate;
             }
         }
-        return outputBuffer.get(bufferId, token, maxSize);
+        return outputBuffer.get(bufferId, token, maxSize, localConsumer);
+    }
+
+    @Override
+    public boolean wantsRawPages(int partition)
+    {
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
+        if (outputBuffer == null) {
+            return false;
+        }
+        return outputBuffer.wantsRawPages(partition);
+    }
+
+    @Override
+    public void enqueuePages(int partition, List<Page> pages)
+    {
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        outputBuffer.enqueuePages(partition, pages);
     }
 
     @Override
@@ -387,14 +405,16 @@ public class LazyOutputBuffer
         private final OutputBufferId bufferId;
         private final long startingSequenceId;
         private final DataSize maxSize;
+        private final boolean localConsumer;
 
         private final SettableFuture<BufferResult> futureResult = SettableFuture.create();
 
-        public PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+        public PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize, boolean localConsumer)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
             this.startingSequenceId = startingSequenceId;
             this.maxSize = requireNonNull(maxSize, "maxSize is null");
+            this.localConsumer = localConsumer;
         }
 
         public SettableFuture<BufferResult> getFutureResult()
@@ -409,7 +429,7 @@ public class LazyOutputBuffer
             }
 
             try {
-                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSize);
+                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSize, localConsumer);
                 futureResult.setFuture(result);
             }
             catch (Exception e) {

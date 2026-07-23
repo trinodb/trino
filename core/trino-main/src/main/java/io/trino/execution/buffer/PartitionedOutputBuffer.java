@@ -20,10 +20,12 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.SerializedPageReference.PageReferences;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.plugin.base.util.Lazy;
+import io.trino.spi.Page;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,9 +36,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
+import static io.trino.execution.buffer.SerializedPageReference.referenceRawPages;
+import static io.trino.execution.buffer.SerializedPageReference.referenceSerializedPages;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputBuffer
@@ -187,39 +190,56 @@ public class PartitionedOutputBuffer
             return;
         }
 
-        ImmutableList.Builder<SerializedPageReference> references = ImmutableList.builderWithExpectedSize(pages.size());
-        long bytesAdded = 0;
-        long rowCount = 0;
-        for (Slice page : pages) {
-            bytesAdded += page.getRetainedSize();
-            int positionCount = getSerializedPagePositionCount(page);
-            rowCount += positionCount;
-            // create page reference counts with an initial single reference
-            references.add(new SerializedPageReference(page, positionCount, 1));
-        }
-        List<SerializedPageReference> serializedPageReferences = references.build();
-
-        // update stats
-        totalRowsAdded.add(rowCount);
-        totalPagesAdded.add(serializedPageReferences.size());
-
-        // reserve memory
-        memoryManager.updateMemoryUsage(bytesAdded);
-
-        // add pages to the buffer (this will increase the reference count by one)
-        partitions.get(partitionNumber).enqueuePages(serializedPageReferences);
-
-        // drop the initial reference
-        dereferencePages(serializedPageReferences, onPagesReleased);
+        addToPartition(partitionNumber, referenceSerializedPages(pages));
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize, boolean localConsumer)
     {
         requireNonNull(outputBufferId, "outputBufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return partitions.get(outputBufferId.id()).getPages(startingSequenceId, maxSize);
+        ClientBuffer partition = partitions.get(outputBufferId.id());
+        if (localConsumer) {
+            partition.setLocalConsumer();
+        }
+        return partition.getPages(startingSequenceId, maxSize);
+    }
+
+    @Override
+    public boolean wantsRawPages(int partition)
+    {
+        return partitions.get(partition).isLocalConsumer();
+    }
+
+    @Override
+    public void enqueuePages(int partitionNumber, List<Page> pages)
+    {
+        requireNonNull(pages, "pages is null");
+
+        // ignore pages after "no more pages" is set
+        // this can happen with a limit query
+        if (!stateMachine.getState().canAddPages()) {
+            return;
+        }
+
+        addToPartition(partitionNumber, referenceRawPages(pages));
+    }
+
+    private void addToPartition(int partitionNumber, PageReferences pageReferences)
+    {
+        // update stats
+        totalRowsAdded.add(pageReferences.rowCount());
+        totalPagesAdded.add(pageReferences.references().size());
+
+        // reserve memory
+        memoryManager.updateMemoryUsage(pageReferences.retainedSizeInBytes(), pageReferences.sizeInBytes());
+
+        // add pages to the buffer (this will increase the reference count by one)
+        partitions.get(partitionNumber).enqueuePages(pageReferences.references());
+
+        // drop the initial reference
+        dereferencePages(pageReferences.references(), onPagesReleased);
     }
 
     @Override

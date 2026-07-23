@@ -15,7 +15,6 @@ package io.trino.client.direct;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
@@ -23,6 +22,7 @@ import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
+import io.trino.execution.buffer.ExchangedPage;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClient;
@@ -121,11 +121,10 @@ public class DirectTrinoClient
                             !exchangeClient.isFinished() &&
                             !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getStages().isEmpty());
                     state = queryManager.getQueryState(queryId)) {
-                for (Slice serializedPage = exchangeClient.pollPage(); serializedPage != null; serializedPage = exchangeClient.pollPage()) {
+                for (ExchangedPage exchangedPage = exchangeClient.pollPage(); exchangedPage != null; exchangedPage = exchangeClient.pollPage()) {
                     // record heartbeat for each page to avoid query timeout during large result sets
                     dispatchQuery.recordHeartbeat();
-                    Page page = pageDeserializer.deserialize(serializedPage);
-                    queryResultsListener.consumeOutputPage(page);
+                    queryResultsListener.consumeOutputPage(exchangedPage.page(pageDeserializer));
                 }
 
                 ListenableFuture<Object> anyCompleteFuture = whenAnyComplete(ImmutableList.of(

@@ -44,7 +44,7 @@ public final class BufferTestUtils
     private static final PagesSerdeFactory PAGES_SERDE_FACTORY = createTestingPagesSerdeFactory(LZ4);
     static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
     static final Duration MAX_WAIT = new Duration(1, SECONDS);
-    private static final DataSize BUFFERED_PAGE_SIZE = DataSize.ofBytes(serializePage(createPage(42)).getRetainedSize());
+    private static final DataSize BUFFERED_PAGE_SIZE = DataSize.ofBytes(serializePage(createPage(42)).length());
 
     static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
