@@ -22,6 +22,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecated
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.filesystem.manager.FileSystemConfig.CacheType.NATIVE;
 import static java.lang.System.getenv;
 
 public class TestFileSystemConfig
@@ -38,6 +39,7 @@ public class TestFileSystemConfig
                 .setGcsEnabled(false)
                 .setLocalEnabled(false)
                 .setCacheEnabled(false)
+                .setCacheType(FileSystemConfig.CacheType.ALLUXIO)
                 .setTrackingEnabled(RUNNING_IN_CI));
     }
 
@@ -51,6 +53,7 @@ public class TestFileSystemConfig
                 .put("fs.gcs.enabled", "true")
                 .put("fs.local.enabled", "true")
                 .put("fs.cache.enabled", "true")
+                .put("fs.cache.type", "NATIVE")
                 .put("fs.tracking.enabled", Boolean.toString(!RUNNING_IN_CI))
                 .buildOrThrow();
 
@@ -61,6 +64,7 @@ public class TestFileSystemConfig
                 .setGcsEnabled(true)
                 .setLocalEnabled(true)
                 .setCacheEnabled(true)
+                .setCacheType(NATIVE)
                 .setTrackingEnabled(!RUNNING_IN_CI);
 
         assertFullMapping(properties, expected);
