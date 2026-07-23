@@ -14,6 +14,8 @@
 package io.trino.parquet;
 
 import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.format.BoundingBox;
+import org.apache.parquet.format.GeospatialStatistics;
 import org.apache.parquet.format.LogicalType;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.io.api.Binary;
@@ -22,8 +24,10 @@ import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static io.trino.parquet.ParquetMetadataConverter.convertToLogicalType;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetGeospatialStatistics;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
 import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
 import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
@@ -269,5 +273,53 @@ class TestParquetMetadataConverter
         assertThat(statistics.isSetMax()).isFalse();
         assertThat(statistics.isSetMin_value()).isFalse();
         assertThat(statistics.isSetMax_value()).isFalse();
+    }
+
+    @Test
+    void testFromParquetGeospatialStatisticsNull()
+    {
+        assertThat(fromParquetGeospatialStatistics(null)).isNull();
+    }
+
+    @Test
+    void testFromParquetGeospatialStatisticsXyBoundingBox()
+    {
+        BoundingBox formatBbox = new BoundingBox(-10.0, 10.0, -20.0, 20.0);
+        GeospatialStatistics formatStats = new GeospatialStatistics();
+        formatStats.setBbox(formatBbox);
+
+        org.apache.parquet.column.statistics.geospatial.GeospatialStatistics stats = fromParquetGeospatialStatistics(formatStats);
+
+        assertThat(stats).isNotNull();
+        org.apache.parquet.column.statistics.geospatial.BoundingBox bbox = stats.getBoundingBox();
+        assertThat(bbox).isNotNull();
+        assertThat(bbox.isValid()).isTrue();
+        assertThat(bbox.getXMin()).isEqualTo(-10.0);
+        assertThat(bbox.getXMax()).isEqualTo(10.0);
+        assertThat(bbox.getYMin()).isEqualTo(-20.0);
+        assertThat(bbox.getYMax()).isEqualTo(20.0);
+        assertThat(bbox.isZEmpty()).isTrue();
+        assertThat(bbox.isMEmpty()).isTrue();
+    }
+
+    @Test
+    void testFromParquetGeospatialStatisticsXyzmAndGeospatialTypes()
+    {
+        BoundingBox formatBbox = new BoundingBox(1.0, 2.0, 3.0, 4.0)
+                .setZmin(5.0).setZmax(6.0)
+                .setMmin(7.0).setMmax(8.0);
+        GeospatialStatistics formatStats = new GeospatialStatistics();
+        formatStats.setBbox(formatBbox);
+        formatStats.setGeospatial_types(List.of(1, 2, 3));
+
+        org.apache.parquet.column.statistics.geospatial.GeospatialStatistics stats = fromParquetGeospatialStatistics(formatStats);
+
+        assertThat(stats).isNotNull();
+        org.apache.parquet.column.statistics.geospatial.BoundingBox bbox = stats.getBoundingBox();
+        assertThat(bbox.getZMin()).isEqualTo(5.0);
+        assertThat(bbox.getZMax()).isEqualTo(6.0);
+        assertThat(bbox.getMMin()).isEqualTo(7.0);
+        assertThat(bbox.getMMax()).isEqualTo(8.0);
+        assertThat(stats.getGeospatialTypes().getTypes()).containsExactlyInAnyOrder(1, 2, 3);
     }
 }

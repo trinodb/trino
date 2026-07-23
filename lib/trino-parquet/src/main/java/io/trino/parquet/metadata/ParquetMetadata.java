@@ -25,6 +25,7 @@ import io.trino.parquet.crypto.FileDecryptionContext;
 import io.trino.parquet.crypto.ModuleType;
 import io.trino.parquet.reader.MetadataReader;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.statistics.geospatial.GeospatialStatistics;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnCryptoMetaData;
 import org.apache.parquet.format.ColumnMetaData;
@@ -46,6 +47,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -57,6 +59,7 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetGeospatialStatistics;
 import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
 import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
 import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
@@ -212,6 +215,61 @@ public class ParquetMetadata
         }
 
         return blocks;
+    }
+
+    /**
+     * Returns per-column geospatial statistics merged across all row groups in this file.
+     * A column is included only if every row group in which it appears carries a
+     * geospatial statistics record. Columns whose chunks disagree (some set, some unset)
+     * are omitted, mirroring the drop semantics applied to standard column statistics.
+     */
+    public Map<ColumnPath, GeospatialStatistics> getGeospatialStatisticsByColumn()
+    {
+        List<RowGroup> rowGroups = parquetMetadata.getRow_groups();
+        if (rowGroups == null || rowGroups.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        Map<ColumnPath, GeospatialStatistics> merged = new HashMap<>();
+        Set<ColumnPath> dropped = new HashSet<>();
+
+        for (RowGroup rowGroup : rowGroups) {
+            List<ColumnChunk> columns = rowGroup.getColumns();
+            if (columns == null) {
+                continue;
+            }
+            for (ColumnChunk columnChunk : columns) {
+                ColumnMetaData metaData = columnChunk.getMeta_data();
+                if (metaData == null) {
+                    // Encrypted column whose metadata is unvailable in plaintext
+                    continue;
+                }
+                ColumnPath columnPath = getPath(metaData.getPath_in_schema());
+                if (dropped.contains(columnPath)) {
+                    continue;
+                }
+                if (!metaData.isSetGeospatial_statistics()) {
+                    dropped.add(columnPath);
+                    merged.remove(columnPath);
+                    continue;
+                }
+                GeospatialStatistics chunkStats = fromParquetGeospatialStatistics(metaData.getGeospatial_statistics());
+                if (chunkStats == null) {
+                    dropped.add(columnPath);
+                    merged.remove(columnPath);
+                    continue;
+                }
+                GeospatialStatistics accumulator = merged.get(columnPath);
+                if (accumulator == null) {
+                    merged.put(columnPath, chunkStats.copy());
+                }
+                else {
+                    accumulator.merge(chunkStats);
+                }
+            }
+        }
+
+        return ImmutableMap.copyOf(merged);
     }
 
     @VisibleForTesting
