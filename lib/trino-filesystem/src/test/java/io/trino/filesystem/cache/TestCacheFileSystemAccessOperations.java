@@ -29,7 +29,6 @@ import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.testing.TestingTelemetry;
 import io.trino.testing.connector.TestingConnectorSession;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -123,7 +122,7 @@ public class TestCacheFileSystemAccessOperations
 
     private Multiset<FileOperation> getOperations(List<SpanData> spans)
     {
-        HashMultiset<@Nullable FileOperation> operations = HashMultiset.create();
+        HashMultiset<FileOperation> operations = HashMultiset.create();
         for (SpanData span : spans) {
             if (span.getName().startsWith("InputFile.")) {
                 operations.add(new FileOperation(Location.of(span.getAttributes().get(FILE_LOCATION)), span.getName()));
