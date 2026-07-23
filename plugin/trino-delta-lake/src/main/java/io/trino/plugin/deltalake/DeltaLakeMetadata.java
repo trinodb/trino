@@ -4239,6 +4239,7 @@ public class DeltaLakeMetadata
                 TupleDomain.all(),
                 alwaysTrue())) {
             addFileEntriesWithNoStats = activeFiles
+                    .filter(addFileEntry -> addFileEntry.getDeletionVector().isEmpty())
                     .filter(addFileEntry -> addFileEntry.getStats().isEmpty()
                             || addFileEntry.getStats().get().getNumRecords().isEmpty()
                             || addFileEntry.getStats().get().getMaxValues().isEmpty()
@@ -4634,9 +4635,13 @@ public class DeltaLakeMetadata
                     continue;
                 }
 
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, addFileEntry.getDeletionVector()));
 
-                Optional<Long> fileRecords = addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords);
+                // Older ANALYZE versions rewrote deletion-vector-backed entries with dataChange=false and logical row counts.
+                Optional<Long> fileRecords = addFileEntry.getStats()
+                        .filter(_ -> addFileEntry.isDataChange() || addFileEntry.getDeletionVector().isEmpty())
+                        .flatMap(DeltaLakeFileStatistics::getNumRecords)
+                        .map(records -> records - addFileEntry.getDeletionVector().map(DeletionVectorEntry::cardinality).orElse(0L));
                 allDeletedFilesStatsPresent &= fileRecords.isPresent();
                 deletedRecords += fileRecords.orElse(0L);
             }
