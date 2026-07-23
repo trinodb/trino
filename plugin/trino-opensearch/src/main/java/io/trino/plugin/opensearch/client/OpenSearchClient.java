@@ -579,9 +579,9 @@ public class OpenSearchClient
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
                 .query(query);
 
-        if (limit.isPresent() && limit.getAsLong() < scrollSize) {
+        if (limit.isPresent() && limit.orElseThrow() < scrollSize) {
             // Safe to cast it to int because scrollSize is int.
-            sourceBuilder.size(toIntExact(limit.getAsLong()));
+            sourceBuilder.size(toIntExact(limit.orElseThrow()));
         }
         else {
             sourceBuilder.size(scrollSize);

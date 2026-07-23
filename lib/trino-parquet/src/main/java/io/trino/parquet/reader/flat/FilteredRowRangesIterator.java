@@ -185,14 +185,14 @@ public class FilteredRowRangesIterator
     public void resetForNewPage(OptionalLong firstRowIndex)
     {
         checkArgument(firstRowIndex.isPresent(), "Missing firstRowIndex for selecting rowRanges");
-        checkArgument(firstRowIndex.getAsLong() >= 0, "firstRowIndex %s cannot be negative", firstRowIndex.getAsLong());
+        checkArgument(firstRowIndex.orElseThrow() >= 0, "firstRowIndex %s cannot be negative", firstRowIndex.orElseThrow());
         checkArgument(
-                firstRowIndex.getAsLong() >= pageFirstRowIndex,
+                firstRowIndex.orElseThrow() >= pageFirstRowIndex,
                 "firstRowIndex %s cannot be less than current pageFirstRowIndex %s",
-                firstRowIndex.getAsLong(),
+                firstRowIndex.orElseThrow(),
                 pageFirstRowIndex);
 
-        pageFirstRowIndex = firstRowIndex.getAsLong();
+        pageFirstRowIndex = firstRowIndex.orElseThrow();
         pageValuesConsumed = 0;
         long rangeEnd = currentRange.end();
         if (pageFirstRowIndex > rangeEnd) {

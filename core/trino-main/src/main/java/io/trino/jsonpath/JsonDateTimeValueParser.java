@@ -82,7 +82,7 @@ final class JsonDateTimeValueParser
         // different results depending on when it's evaluated.
         int year = parsedValues.resolveYear();
         if (parsedValues.dayOfYear.isPresent()) {
-            LocalDate date = LocalDate.ofYearDay(year, parsedValues.dayOfYear.getAsInt());
+            LocalDate date = LocalDate.ofYearDay(year, parsedValues.dayOfYear.orElseThrow());
             year = date.getYear();
             parsedValues.month = OptionalInt.of(date.getMonthValue());
             parsedValues.day = OptionalInt.of(date.getDayOfMonth());
@@ -272,10 +272,10 @@ final class JsonDateTimeValueParser
         public int resolveYear()
         {
             if (year.isPresent()) {
-                return prefixYear(REFERENCE_YEAR, year.getAsInt(), yearDigits);
+                return prefixYear(REFERENCE_YEAR, year.orElseThrow(), yearDigits);
             }
             if (roundedYear.isPresent()) {
-                return roundYear(REFERENCE_YEAR, roundedYear.getAsInt(), roundedYearDigits);
+                return roundYear(REFERENCE_YEAR, roundedYear.orElseThrow(), roundedYearDigits);
             }
             return REFERENCE_YEAR;
         }
@@ -283,13 +283,13 @@ final class JsonDateTimeValueParser
         public int resolveHour()
         {
             if (secondOfDay.isPresent()) {
-                return floorDiv(secondOfDay.getAsInt(), 3600);
+                return floorDiv(secondOfDay.orElseThrow(), 3600);
             }
             if (hour24.isPresent()) {
-                return hour24.getAsInt();
+                return hour24.orElseThrow();
             }
             if (hour12.isPresent()) {
-                int hour = hour12.getAsInt() % 12;
+                int hour = hour12.orElseThrow() % 12;
                 if (pm) {
                     hour += 12;
                 }
@@ -301,7 +301,7 @@ final class JsonDateTimeValueParser
         public int resolveMinute()
         {
             if (secondOfDay.isPresent()) {
-                return floorDiv(floorMod(secondOfDay.getAsInt(), 3600), 60);
+                return floorDiv(floorMod(secondOfDay.orElseThrow(), 3600), 60);
             }
             return minute.orElse(0);
         }
@@ -309,7 +309,7 @@ final class JsonDateTimeValueParser
         public int resolveSecond()
         {
             if (secondOfDay.isPresent()) {
-                return floorMod(secondOfDay.getAsInt(), 60);
+                return floorMod(secondOfDay.orElseThrow(), 60);
             }
             return second.orElse(0);
         }
@@ -324,7 +324,7 @@ final class JsonDateTimeValueParser
             if (!timeZoneHour.isPresent()) {
                 return 0;
             }
-            int magnitude = timeZoneHour.getAsInt() * 60 + timeZoneMinute.orElse(0);
+            int magnitude = timeZoneHour.orElseThrow() * 60 + timeZoneMinute.orElse(0);
             return timeZoneOffsetNegative ? -magnitude : magnitude;
         }
 

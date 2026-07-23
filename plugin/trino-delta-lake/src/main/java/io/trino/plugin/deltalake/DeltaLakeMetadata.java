@@ -941,7 +941,7 @@ public class DeltaLakeMetadata
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("Delta table %s has no commits", tableName));
         }
         latestCheckpoints.put(tableName, lastCheckpoint);
-        return commit.getAsLong();
+        return commit.orElseThrow();
     }
 
     private DeltaLakeTableDescriptor loadDescriptorFromTransactionLog(
@@ -1921,11 +1921,11 @@ public class DeltaLakeMetadata
             else {
                 Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(VendedCredentialsHandle.empty(location));
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
-                commitVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), handle.readVersion().getAsLong()) + 1;
-                if (commitVersion != handle.readVersion().getAsLong() + 1) {
+                commitVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), handle.readVersion().orElseThrow()) + 1;
+                if (commitVersion != handle.readVersion().orElseThrow() + 1) {
                     throw new TransactionConflictException(format(
                             "Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
-                            handle.readVersion().getAsLong(),
+                            handle.readVersion().orElseThrow(),
                             commitVersion - 1));
                 }
                 transactionLogWriter = transactionLogWriterFactory.createFileSystemWriter(session, location, tableCredentials);
@@ -1959,7 +1959,7 @@ public class DeltaLakeMetadata
 
             Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(handle.toCredentialsHandle());
             if (handle.replace() && handle.readVersion().isPresent()) {
-                writeCheckpointIfNeeded(session, schemaTableName, handle.location(), tableCredentials, handle.readVersion().getAsLong(), handle.checkpointInterval(), commitVersion, handle.existingColumns(), Optional.of(handle.inputColumns()));
+                writeCheckpointIfNeeded(session, schemaTableName, handle.location(), tableCredentials, handle.readVersion().orElseThrow(), handle.checkpointInterval(), commitVersion, handle.existingColumns(), Optional.of(handle.inputColumns()));
             }
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty()) {

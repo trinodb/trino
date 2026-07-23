@@ -85,11 +85,11 @@ public enum StatisticsUpdateMode
 
     private static PartitionStatistics addIncrementalStatistics(PartitionStatistics existingStatistics, PartitionStatistics incrementalStatistics)
     {
-        if (existingStatistics.basicStatistics().getRowCount().isPresent() && existingStatistics.basicStatistics().getRowCount().getAsLong() == 0) {
+        if (existingStatistics.basicStatistics().getRowCount().isPresent() && existingStatistics.basicStatistics().getRowCount().orElseThrow() == 0) {
             return incrementalStatistics;
         }
 
-        if (incrementalStatistics.basicStatistics().getRowCount().isPresent() && incrementalStatistics.basicStatistics().getRowCount().getAsLong() == 0) {
+        if (incrementalStatistics.basicStatistics().getRowCount().isPresent() && incrementalStatistics.basicStatistics().getRowCount().orElseThrow() == 0) {
             return existingStatistics;
         }
 
@@ -140,14 +140,14 @@ public enum StatisticsUpdateMode
 
         // if one column is entirely non-null and the other is entirely null
         if (firstDistinct.isPresent() && noNulls(firstColumn) && isAllNull(second, secondColumn)) {
-            return OptionalLong.of(firstDistinct.getAsLong() + 1);
+            return OptionalLong.of(firstDistinct.orElseThrow() + 1);
         }
         if (secondDistinct.isPresent() && noNulls(secondColumn) && isAllNull(first, firstColumn)) {
-            return OptionalLong.of(secondDistinct.getAsLong() + 1);
+            return OptionalLong.of(secondDistinct.orElseThrow() + 1);
         }
 
         if (firstDistinct.isPresent() && secondDistinct.isPresent()) {
-            return OptionalLong.of(max(firstDistinct.getAsLong(), secondDistinct.getAsLong()));
+            return OptionalLong.of(max(firstDistinct.orElseThrow(), secondDistinct.orElseThrow()));
         }
         return OptionalLong.empty();
     }
@@ -165,7 +165,7 @@ public enum StatisticsUpdateMode
         if (stats.basicStatistics().getRowCount().isEmpty() || columnStats.getNullsCount().isEmpty()) {
             return false;
         }
-        return stats.basicStatistics().getRowCount().getAsLong() == columnStats.getNullsCount().getAsLong();
+        return stats.basicStatistics().getRowCount().orElseThrow() == columnStats.getNullsCount().orElseThrow();
     }
 
     private static OptionalDouble mergeAverageColumnLength(String column, PartitionStatistics first, PartitionStatistics second)
@@ -174,8 +174,8 @@ public enum StatisticsUpdateMode
         if (first.basicStatistics().getRowCount().isEmpty() || second.basicStatistics().getRowCount().isEmpty()) {
             return OptionalDouble.empty();
         }
-        long firstRowCount = first.basicStatistics().getRowCount().getAsLong();
-        long secondRowCount = second.basicStatistics().getRowCount().getAsLong();
+        long firstRowCount = first.basicStatistics().getRowCount().orElseThrow();
+        long secondRowCount = second.basicStatistics().getRowCount().orElseThrow();
 
         HiveColumnStatistics firstColumn = first.columnStatistics().get(column);
         HiveColumnStatistics secondColumn = second.columnStatistics().get(column);
@@ -195,8 +195,8 @@ public enum StatisticsUpdateMode
         long firstNonNullRowCount = firstRowCount - firstColumn.getNullsCount().orElse(0);
         long secondNonNullRowCount = secondRowCount - secondColumn.getNullsCount().orElse(0);
 
-        double firstTotalSize = firstColumn.getAverageColumnLength().getAsDouble() * firstNonNullRowCount;
-        double secondTotalSize = secondColumn.getAverageColumnLength().getAsDouble() * secondNonNullRowCount;
+        double firstTotalSize = firstColumn.getAverageColumnLength().orElseThrow() * firstNonNullRowCount;
+        double secondTotalSize = secondColumn.getAverageColumnLength().orElseThrow() * secondNonNullRowCount;
 
         return OptionalDouble.of((firstTotalSize + secondTotalSize) / (firstNonNullRowCount + secondNonNullRowCount));
     }
@@ -260,10 +260,10 @@ public enum StatisticsUpdateMode
     {
         if (first.isPresent() && second.isPresent()) {
             return switch (operator) {
-                case ADD -> OptionalLong.of(first.getAsLong() + second.getAsLong());
-                case SUBTRACT -> OptionalLong.of(first.getAsLong() - second.getAsLong());
-                case MAX -> OptionalLong.of(max(first.getAsLong(), second.getAsLong()));
-                case MIN -> OptionalLong.of(min(first.getAsLong(), second.getAsLong()));
+                case ADD -> OptionalLong.of(first.orElseThrow() + second.orElseThrow());
+                case SUBTRACT -> OptionalLong.of(first.orElseThrow() - second.orElseThrow());
+                case MAX -> OptionalLong.of(max(first.orElseThrow(), second.orElseThrow()));
+                case MIN -> OptionalLong.of(min(first.orElseThrow(), second.orElseThrow()));
             };
         }
         if (returnFirstNonEmpty) {
@@ -276,10 +276,10 @@ public enum StatisticsUpdateMode
     {
         if (first.isPresent() && second.isPresent()) {
             return switch (operator) {
-                case ADD -> OptionalDouble.of(first.getAsDouble() + second.getAsDouble());
-                case SUBTRACT -> OptionalDouble.of(first.getAsDouble() - second.getAsDouble());
-                case MAX -> OptionalDouble.of(max(first.getAsDouble(), second.getAsDouble()));
-                case MIN -> OptionalDouble.of(min(first.getAsDouble(), second.getAsDouble()));
+                case ADD -> OptionalDouble.of(first.orElseThrow() + second.orElseThrow());
+                case SUBTRACT -> OptionalDouble.of(first.orElseThrow() - second.orElseThrow());
+                case MAX -> OptionalDouble.of(max(first.orElseThrow(), second.orElseThrow()));
+                case MIN -> OptionalDouble.of(min(first.orElseThrow(), second.orElseThrow()));
             };
         }
         if (returnFirstNonEmpty) {

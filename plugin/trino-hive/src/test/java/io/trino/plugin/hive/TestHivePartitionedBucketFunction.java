@@ -155,8 +155,8 @@ public class TestHivePartitionedBucketFunction
         int[] buckets = new int[100];
         hivePartitionedBucketFunction.getBuckets(page, 0, 100, buckets);
 
-        int minPosition = Arrays.stream(buckets).min().getAsInt();
-        int maxPosition = Arrays.stream(buckets).max().getAsInt();
+        int minPosition = Arrays.stream(buckets).min().orElseThrow();
+        int maxPosition = Arrays.stream(buckets).max().orElseThrow();
 
         // assert that every bucket number was generated
         assertThat(maxPosition - minPosition + 1).isEqualTo(10);

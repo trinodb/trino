@@ -71,7 +71,7 @@ public final class BigQueryUtil
         // include a column name. eg: query => 'SELECT 1'
         String queryString = filter.map(s -> "SELECT * FROM (" + nativeQuery + ") WHERE " + s).orElse(nativeQuery);
         if (limit.isPresent()) {
-            return "SELECT * FROM (" + queryString + ") LIMIT " + limit.getAsLong();
+            return "SELECT * FROM (" + queryString + ") LIMIT " + limit.orElseThrow();
         }
         return queryString;
     }

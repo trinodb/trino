@@ -135,7 +135,7 @@ public final class TableStatisticsReader
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        long snapshotId = snapshot.getAsLong();
+        long snapshotId = snapshot.orElseThrow();
 
         // Including both enforced and unenforced constraint matches how Splits will eventually be generated and allows
         // us to provide more accurate estimates. Stats will be estimated again by FilterStatsCalculator based on the

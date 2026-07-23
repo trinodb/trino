@@ -199,7 +199,7 @@ public class TestOrcPageSourceFactory
     {
         List<Nation> expected = new ArrayList<>();
         for (Nation nation : ImmutableList.copyOf(new NationGenerator().iterator())) {
-            if (nationKeyPredicate.isPresent() && nationKeyPredicate.getAsLong() != nation.nationKey()) {
+            if (nationKeyPredicate.isPresent() && nationKeyPredicate.orElseThrow() != nation.nationKey()) {
                 continue;
             }
             if (deletedRows.test(nation.nationKey())) {
@@ -230,7 +230,7 @@ public class TestOrcPageSourceFactory
     {
         TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.all();
         if (nationKeyPredicate.isPresent()) {
-            tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(toHiveColumnHandle(NATION_KEY, 0), Domain.singleValue(INTEGER, nationKeyPredicate.getAsLong())));
+            tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(toHiveColumnHandle(NATION_KEY, 0), Domain.singleValue(INTEGER, nationKeyPredicate.orElseThrow())));
         }
 
         List<HiveColumnHandle> columnHandles = columns.entrySet().stream()

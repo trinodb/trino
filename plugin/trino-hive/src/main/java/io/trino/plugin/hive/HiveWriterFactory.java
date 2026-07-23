@@ -237,7 +237,7 @@ public class HiveWriterFactory
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         if (bucketCount.isPresent()) {
-            checkArgument(bucketCount.getAsInt() < MAX_BUCKET_COUNT, "bucketCount must be smaller than %s", MAX_BUCKET_COUNT);
+            checkArgument(bucketCount.orElseThrow() < MAX_BUCKET_COUNT, "bucketCount must be smaller than %s", MAX_BUCKET_COUNT);
         }
 
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
@@ -249,7 +249,7 @@ public class HiveWriterFactory
     {
         if (bucketCount.isPresent()) {
             checkArgument(bucketNumber.isPresent(), "Bucket not provided for bucketed table");
-            checkArgument(bucketNumber.getAsInt() < bucketCount.getAsInt(), "Bucket number %s must be less than bucket count %s", bucketNumber, bucketCount);
+            checkArgument(bucketNumber.orElseThrow() < bucketCount.orElseThrow(), "Bucket number %s must be less than bucket count %s", bucketNumber, bucketCount);
         }
         else {
             checkArgument(bucketNumber.isEmpty(), "Bucket number provided by for table that is not bucketed");
@@ -419,7 +419,7 @@ public class HiveWriterFactory
 
         validateSchema(partitionName, schema);
 
-        int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.getAsInt();
+        int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.orElseThrow();
 
         Location path = writeInfo.writePath();
         if (transaction.isAcidTransactionRunning() && transaction.getOperation() != CREATE_TABLE) {
@@ -628,9 +628,9 @@ public class HiveWriterFactory
 
         if (bucketNumber.isPresent()) {
             if (isCreateTransactionalTable) {
-                return computeTransactionalBucketedFilename(bucketNumber.getAsInt());
+                return computeTransactionalBucketedFilename(bucketNumber.orElseThrow());
             }
-            return computeNonTransactionalBucketedFilename(queryId, bucketNumber.getAsInt());
+            return computeNonTransactionalBucketedFilename(queryId, bucketNumber.orElseThrow());
         }
 
         if (isCreateTransactionalTable) {

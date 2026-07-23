@@ -111,7 +111,7 @@ public final class GenerateEpsgCatalog
             }
             try {
                 CoordinateReferenceSystem crs = crsFactory.createCoordinateReferenceSystem(code);
-                crsWkts.put(epsgCode.getAsInt(), format.format(crs).getBytes(UTF_8));
+                crsWkts.put(epsgCode.orElseThrow(), format.format(crs).getBytes(UTF_8));
             }
             catch (Exception e) {
                 skippedCrs++;
@@ -130,13 +130,13 @@ public final class GenerateEpsgCatalog
             try {
                 CoordinateOperation operation = operationFactory.createCoordinateOperation(code);
                 byte[] wkt = format.format(operation).getBytes(UTF_8);
-                operationWkts.put(epsgCode.getAsInt(), new OperationEntry(epsgCode.getAsInt(), wkt));
+                operationWkts.put(epsgCode.orElseThrow(), new OperationEntry(epsgCode.orElseThrow(), wkt));
 
                 OptionalInt source = epsgIdentifier(operation.getSourceCRS());
                 OptionalInt target = epsgIdentifier(operation.getTargetCRS());
                 if (source.isPresent() && target.isPresent()) {
-                    operationCodesByPair.computeIfAbsent(new Pair(source.getAsInt(), target.getAsInt()), _ -> new ArrayList<>())
-                            .add(epsgCode.getAsInt());
+                    operationCodesByPair.computeIfAbsent(new Pair(source.orElseThrow(), target.orElseThrow()), _ -> new ArrayList<>())
+                            .add(epsgCode.orElseThrow());
                 }
             }
             catch (Exception e) {

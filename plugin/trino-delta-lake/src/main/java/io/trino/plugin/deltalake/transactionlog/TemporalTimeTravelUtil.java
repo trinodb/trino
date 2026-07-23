@@ -230,7 +230,7 @@ public final class TemporalTimeTravelUtil
             if (commitVersion.isEmpty()) {
                 continue;
             }
-            long entryNumber = commitVersion.getAsLong();
+            long entryNumber = commitVersion.orElseThrow();
 
             Stream<DeltaLakeTransactionLogEntry> logEntryStream = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0))
                     .map(entry -> entry.getEntries(fileSystem))

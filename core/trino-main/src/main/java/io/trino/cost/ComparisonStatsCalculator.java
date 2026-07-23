@@ -64,7 +64,7 @@ public final class ComparisonStatsCalculator
     {
         StatisticRange filterRange;
         if (literalValue.isPresent()) {
-            filterRange = new StatisticRange(literalValue.getAsDouble(), literalValue.getAsDouble(), 1);
+            filterRange = new StatisticRange(literalValue.orElseThrow(), literalValue.orElseThrow(), 1);
         }
         else {
             // When the literal cannot be represented as a double and the column has no NDV
@@ -91,7 +91,7 @@ public final class ComparisonStatsCalculator
 
         StatisticRange filterRange;
         if (literalValue.isPresent()) {
-            filterRange = new StatisticRange(literalValue.getAsDouble(), literalValue.getAsDouble(), 1);
+            filterRange = new StatisticRange(literalValue.orElseThrow(), literalValue.orElseThrow(), 1);
         }
         else {
             filterRange = new StatisticRange(NEGATIVE_INFINITY, POSITIVE_INFINITY, 1);

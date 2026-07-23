@@ -129,7 +129,7 @@ public class IcebergSplitManager
     private Scan<?, FileScanTask, CombinedScanTask> getScan(IcebergMetadata icebergMetadata, Table icebergTable, IcebergTableHandle table, MetricsReporter metricsReporter, ExecutorService executor)
     {
         if (icebergMetadata.getIncrementalRefreshFromSnapshot().isPresent()) {
-            long snapshotId = icebergMetadata.getIncrementalRefreshFromSnapshot().getAsLong();
+            long snapshotId = icebergMetadata.getIncrementalRefreshFromSnapshot().orElseThrow();
             // check if fromSnapshot is still part of the table's snapshot history
             if (SnapshotUtil.isAncestorOf(icebergTable, snapshotId)) {
                 boolean containsModifiedRows = false;
@@ -151,14 +151,14 @@ public class IcebergSplitManager
             icebergMetadata.disableIncrementalRefresh();
         }
 
-        Schema schema = schemaFor(icebergTable, table.getSnapshotId().getAsLong());
+        Schema schema = schemaFor(icebergTable, table.getSnapshotId().orElseThrow());
         Set<Integer> projectedIds = table.getProjectedColumns().stream()
                 .map(IcebergColumnHandle::getId)
                 .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
                 .collect(toImmutableSet());
 
         return icebergTable.newScan()
-                .useSnapshot(table.getSnapshotId().getAsLong())
+                .useSnapshot(table.getSnapshotId().orElseThrow())
                 .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);

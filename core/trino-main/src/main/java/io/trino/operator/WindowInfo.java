@@ -108,7 +108,7 @@ public class WindowInfo
             double averageIndexSize = indexInfos.stream()
                     .mapToLong(IndexInfo::getSizeInBytes)
                     .average()
-                    .getAsDouble();
+                    .orElseThrow();
             double squaredDifferencesSizeOfIndex = indexInfos.stream()
                     .mapToDouble(index -> Math.pow(index.getSizeInBytes() - averageIndexSize, 2))
                     .sum();
@@ -217,7 +217,7 @@ public class WindowInfo
             if (partitions.isEmpty()) {
                 return Optional.empty();
             }
-            double avgSize = partitions.stream().mapToLong(Integer::longValue).average().getAsDouble();
+            double avgSize = partitions.stream().mapToLong(Integer::longValue).average().orElseThrow();
             double squaredDifferences = partitions.stream().mapToDouble(size -> Math.pow(size - avgSize, 2)).sum();
             if (partitions.stream().mapToLong(Integer::longValue).sum() != rowsNumber) {
                 // when operator is cancelled, then rows in index might not match row count from processed partitions

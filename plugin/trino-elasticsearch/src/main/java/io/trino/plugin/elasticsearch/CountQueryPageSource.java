@@ -47,7 +47,7 @@ class CountQueryPageSource
         readTimeNanos = System.nanoTime() - start;
 
         if (table.limit().isPresent()) {
-            count = Math.min(table.limit().getAsLong(), count);
+            count = Math.min(table.limit().orElseThrow(), count);
         }
 
         remaining = count;

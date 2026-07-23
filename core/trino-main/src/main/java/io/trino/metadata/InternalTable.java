@@ -115,7 +115,7 @@ public class InternalTable
 
         public boolean atLimit(OptionalLong limit)
         {
-            return limit.isPresent() && recordCount >= limit.getAsLong();
+            return limit.isPresent() && recordCount >= limit.orElseThrow();
         }
 
         public InternalTable build()

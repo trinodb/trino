@@ -217,13 +217,13 @@ public abstract class AbstractHiveStatisticsProvider
             checkStatistics(nullsCount >= 0, table, partition, column, "nullsCount must be greater than or equal to zero: %s", nullsCount);
             if (rowCount.isPresent()) {
                 checkStatistics(
-                        nullsCount <= rowCount.getAsLong(),
+                        nullsCount <= rowCount.orElseThrow(),
                         table,
                         partition,
                         column,
                         "nullsCount must be less than or equal to rowCount. nullsCount: %s. rowCount: %s.",
                         nullsCount,
-                        rowCount.getAsLong());
+                        rowCount.orElseThrow());
             }
         });
         columnStatistics.getDistinctValuesWithNullCount().ifPresent(distinctValuesCount -> {
@@ -235,27 +235,27 @@ public abstract class AbstractHiveStatisticsProvider
             OptionalLong max = integerStatistics.getMax();
             if (min.isPresent() && max.isPresent()) {
                 checkStatistics(
-                        min.getAsLong() <= max.getAsLong(),
+                        min.orElseThrow() <= max.orElseThrow(),
                         table,
                         partition,
                         column,
                         "integerStatistics.min must be less than or equal to integerStatistics.max. integerStatistics.min: %s. integerStatistics.max: %s.",
-                        min.getAsLong(),
-                        max.getAsLong());
+                        min.orElseThrow(),
+                        max.orElseThrow());
             }
         });
         columnStatistics.getDoubleStatistics().ifPresent(doubleStatistics -> {
             OptionalDouble min = doubleStatistics.getMin();
             OptionalDouble max = doubleStatistics.getMax();
-            if (min.isPresent() && max.isPresent() && !isNaN(min.getAsDouble()) && !isNaN(max.getAsDouble())) {
+            if (min.isPresent() && max.isPresent() && !isNaN(min.orElseThrow()) && !isNaN(max.orElseThrow())) {
                 checkStatistics(
-                        min.getAsDouble() <= max.getAsDouble(),
+                        min.orElseThrow() <= max.orElseThrow(),
                         table,
                         partition,
                         column,
                         "doubleStatistics.min must be less than or equal to doubleStatistics.max. doubleStatistics.min: %s. doubleStatistics.max: %s.",
-                        min.getAsDouble(),
-                        max.getAsDouble());
+                        min.orElseThrow(),
+                        max.orElseThrow());
             }
         });
         columnStatistics.getDecimalStatistics().ifPresent(decimalStatistics -> {
@@ -295,23 +295,23 @@ public abstract class AbstractHiveStatisticsProvider
                     checkStatistics(count >= 0, table, partition, column, "trueCount must be greater than or equal to zero: %s", count));
             if (rowCount.isPresent() && falseCount.isPresent()) {
                 checkStatistics(
-                        falseCount.getAsLong() <= rowCount.getAsLong(),
+                        falseCount.orElseThrow() <= rowCount.orElseThrow(),
                         table,
                         partition,
                         column,
                         "booleanStatistics.falseCount must be less than or equal to rowCount. booleanStatistics.falseCount: %s. rowCount: %s.",
-                        falseCount.getAsLong(),
-                        rowCount.getAsLong());
+                        falseCount.orElseThrow(),
+                        rowCount.orElseThrow());
             }
             if (rowCount.isPresent() && trueCount.isPresent()) {
                 checkStatistics(
-                        trueCount.getAsLong() <= rowCount.getAsLong(),
+                        trueCount.orElseThrow() <= rowCount.orElseThrow(),
                         table,
                         partition,
                         column,
                         "booleanStatistics.trueCount must be less than or equal to rowCount. booleanStatistics.trueCount: %s. rowCount: %s.",
-                        trueCount.getAsLong(),
-                        rowCount.getAsLong());
+                        trueCount.orElseThrow(),
+                        rowCount.orElseThrow());
             }
         });
     }
@@ -409,7 +409,7 @@ public abstract class AbstractHiveStatisticsProvider
             if (averageRowsPerPartitionOptional.isEmpty()) {
                 return Optional.empty();
             }
-            double averageRowsPerPartition = averageRowsPerPartitionOptional.getAsDouble();
+            double averageRowsPerPartition = averageRowsPerPartitionOptional.orElseThrow();
             return Optional.of(new PartitionsRowCount(averageRowsPerPartition, averageRowsPerPartition * queriedPartitionsCount));
         }
 
@@ -614,8 +614,8 @@ public abstract class AbstractHiveStatisticsProvider
         }
         OptionalLong rowCount = partitionStatistics.basicStatistics().getRowCount();
         if (rowCount.isPresent()) {
-            verify(rowCount.getAsLong() >= 0, "rowCount must be greater than or equal to zero");
-            return OptionalDouble.of(rowCount.getAsLong());
+            verify(rowCount.orElseThrow() >= 0, "rowCount must be greater than or equal to zero");
+            return OptionalDouble.of(rowCount.orElseThrow());
         }
         return OptionalDouble.empty();
     }
@@ -700,8 +700,8 @@ public abstract class AbstractHiveStatisticsProvider
         if (statistics.getBooleanStatistics().isPresent() &&
                 statistics.getBooleanStatistics().get().getFalseCount().isPresent() &&
                 statistics.getBooleanStatistics().get().getTrueCount().isPresent()) {
-            long falseCount = statistics.getBooleanStatistics().get().getFalseCount().getAsLong();
-            long trueCount = statistics.getBooleanStatistics().get().getTrueCount().getAsLong();
+            long falseCount = statistics.getBooleanStatistics().get().getFalseCount().orElseThrow();
+            long trueCount = statistics.getBooleanStatistics().get().getTrueCount().orElseThrow();
             return OptionalLong.of((falseCount > 0 ? 1 : 0) + (trueCount > 0 ? 1 : 0));
         }
 
@@ -709,7 +709,7 @@ public abstract class AbstractHiveStatisticsProvider
             return OptionalLong.empty();
         }
 
-        long distinctValuesCount = statistics.getDistinctValuesWithNullCount().getAsLong();
+        long distinctValuesCount = statistics.getDistinctValuesWithNullCount().orElseThrow();
 
         // Hive includes nulls in the distinct values count, but Trino does not
         long nullsCount = statistics.getNullsCount().orElse(0);
@@ -856,7 +856,7 @@ public abstract class AbstractHiveStatisticsProvider
     private static Optional<DoubleRange> createIntegerRange(Type type, IntegerStatistics statistics)
     {
         if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
-            return Optional.of(createIntegerRange(type, statistics.getMin().getAsLong(), statistics.getMax().getAsLong()));
+            return Optional.of(createIntegerRange(type, statistics.getMin().orElseThrow(), statistics.getMax().orElseThrow()));
         }
         return Optional.empty();
     }
@@ -885,8 +885,8 @@ public abstract class AbstractHiveStatisticsProvider
 
     private static Optional<DoubleRange> createDoubleRange(DoubleStatistics statistics)
     {
-        if (statistics.getMin().isPresent() && statistics.getMax().isPresent() && !isNaN(statistics.getMin().getAsDouble()) && !isNaN(statistics.getMax().getAsDouble())) {
-            return Optional.of(new DoubleRange(statistics.getMin().getAsDouble(), statistics.getMax().getAsDouble()));
+        if (statistics.getMin().isPresent() && statistics.getMax().isPresent() && !isNaN(statistics.getMin().orElseThrow()) && !isNaN(statistics.getMax().orElseThrow())) {
+            return Optional.of(new DoubleRange(statistics.getMin().orElseThrow(), statistics.getMax().orElseThrow()));
         }
         return Optional.empty();
     }
@@ -902,7 +902,7 @@ public abstract class AbstractHiveStatisticsProvider
     private static Optional<DoubleRange> createTimestampRange(IntegerStatistics statistics)
     {
         if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
-            return Optional.of(new DoubleRange(statistics.getMin().getAsLong(), statistics.getMax().getAsLong()));
+            return Optional.of(new DoubleRange(statistics.getMin().orElseThrow(), statistics.getMax().orElseThrow()));
         }
         return Optional.empty();
     }
