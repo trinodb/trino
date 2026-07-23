@@ -32,18 +32,25 @@ public final class FlociGcp
     public static final String FLOCI_GCP_IMAGE = "floci/floci-gcp:0.3.0";
     public static final String FLOCI_GCP_PROJECT_ID = "floci-local";
 
+    private static final String FLOCI_GCP_NETWORK_ALIAS = "floci-gcp";
     private static final int FLOCI_GCP_PORT = 4588;
 
     public FlociGcp()
     {
         super(DockerImageName.parse(FLOCI_GCP_IMAGE));
         addExposedPort(FLOCI_GCP_PORT);
+        withNetworkAliases(FLOCI_GCP_NETWORK_ALIAS);
         waitingFor(Wait.forLogMessage(".*=== floci-gcp Ready ===.*\\n", 1));
     }
 
     public URI getEndpoint()
     {
         return URI.create("http://%s:%s".formatted(getHost(), getMappedPort(FLOCI_GCP_PORT)));
+    }
+
+    public URI getContainerEndpoint()
+    {
+        return URI.create("http://%s:%s".formatted(FLOCI_GCP_NETWORK_ALIAS, FLOCI_GCP_PORT));
     }
 
     public void createBucket(String bucketName)
