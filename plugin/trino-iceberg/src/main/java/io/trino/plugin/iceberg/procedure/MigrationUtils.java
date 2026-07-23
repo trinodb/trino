@@ -52,6 +52,7 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.avro.Avro;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
@@ -77,6 +78,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
@@ -326,6 +328,9 @@ public final class MigrationUtils
             transaction.commitTransaction();
             log.debug("Successfully added files to %s table", table.name());
             return dataFiles.size();
+        }
+        catch (CommitFailedException e) {
+            throw new TrinoException(TRANSACTION_CONFLICT, "Failed to add files: " + requireNonNullElse(e.getMessage(), e), e);
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + requireNonNullElse(e.getMessage(), e), e);
