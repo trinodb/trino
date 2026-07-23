@@ -313,4 +313,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/trino">
+        <artifact id="${project.groupId}:trino-trino:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
