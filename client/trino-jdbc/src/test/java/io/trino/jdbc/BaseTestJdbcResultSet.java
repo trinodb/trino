@@ -904,11 +904,9 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is date");
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -924,11 +922,9 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is date");
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -944,11 +940,9 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is date");
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -966,11 +960,9 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(LocalDate.of(1582, 10, 20));
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is date");
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -986,11 +978,9 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is date");
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -1008,8 +998,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, Time.class)).isEqualTo(toSqlTime(LocalTime.of(9, 39, 5)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 09:39:05.000");
                 assertThat(rs.getTime(column)).isEqualTo(Time.valueOf(LocalTime.of(9, 39, 5)));
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(3)");
             });
 
@@ -1018,8 +1007,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, Time.class)).isEqualTo(toSqlTime(LocalTime.of(0, 39, 5)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 00:39:05");
                 assertThat(rs.getTime(column)).isEqualTo(Time.valueOf(LocalTime.of(0, 39, 5)));
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(0)");
             });
 
@@ -1029,8 +1017,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(toSqlTime(LocalTime.of(10, 11, 12, 123_000_000)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 10:11:12.1235");
                 assertThat(rs.getTime(column)).isEqualTo(toSqlTime(LocalTime.of(10, 11, 12, 123_000_000)));
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(4)");
             });
 
@@ -1041,8 +1028,7 @@ public abstract class BaseTestJdbcResultSet
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 10:59:59.999999999999");
                 // TODO (https://github.com/trinodb/trino/issues/6205) maybe result should be 11:00:00
                 assertThat(rs.getTime(column)).isEqualTo(toSqlTime(LocalTime.of(10, 59, 59, 999_000_000)));
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(12)");
             });
 
@@ -1053,8 +1039,7 @@ public abstract class BaseTestJdbcResultSet
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 23:59:59.999999999999");
                 // TODO (https://github.com/trinodb/trino/issues/6205) maybe result should be 01:00:00 (shifted from 00:00:00 as test JVM has gap in 1970-01-01)
                 assertThat(rs.getTime(column)).isEqualTo(toSqlTime(LocalTime.of(23, 59, 59, 999_000_000)));
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(12)");
             });
         }
@@ -1069,8 +1054,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should represent TIME '09:39:07 +01:00'
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 09:39:07+01:00");
                 assertThat(rs.getTime(column)).isEqualTo(Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should fail, or represent TIME '09:39:07'
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(0) with time zone");
             });
 
@@ -1083,8 +1067,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(someBogusValue); // TODO this should represent TIME '01:39:07 +01:00'
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 01:39:07+01:00");
                 assertThat(rs.getTime(column)).isEqualTo(someBogusValue); // TODO this should fail, or represent TIME '01:39:07'
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(0) with time zone");
             });
 
@@ -1097,8 +1080,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(someBogusValue); // TODO this should represent TIME '00:39:07 +01:00'
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 00:39:07+01:00");
                 assertThat(rs.getTime(column)).isEqualTo(someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in America/Bahia_Banderas
-                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTimestamp(column))
                         .hasMessage("Expected column to be a timestamp type but is time(0) with time zone");
             });
         }
@@ -1113,8 +1095,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
                 assertThat(rs.getObject(column, Timestamp.class)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.123");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(3)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
             });
@@ -1122,8 +1103,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.111111111111'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.111111111111");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
             });
@@ -1131,8 +1111,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.555555555555'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.555555555555");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
             });
@@ -1141,8 +1120,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2019-12-31 23:59:59.999999999999'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 0)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 0)));
             });
@@ -1151,8 +1129,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1957-12-31 23:59:59.999999999999'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1958, 1, 1, 0, 0, 0, 0)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1957-12-31 23:59:59.999999999999");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1958, 1, 1, 0, 0, 0, 0)));
             });
@@ -1161,8 +1138,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '0001-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 0001-01-01 00:00:00");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
             });
@@ -1171,8 +1147,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-04 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1582-10-04 00:00:00");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
             });
@@ -1181,8 +1156,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-10 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1582-10-10 00:00:00");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
             });
@@ -1191,8 +1165,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-15 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1582-10-15 00:00:00");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
             });
@@ -1200,8 +1173,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1583-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1583-01-01 00:00:00");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
             });
@@ -1209,8 +1181,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 14, 15, 123_000_000)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.123");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(3)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 14, 15, 123_000_000)));
             });
@@ -1218,8 +1189,7 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: +123456-01-23 01:23:45.123456789");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(9)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
             });
@@ -1237,8 +1207,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(ZonedDateTime.ofInstant(Instant.EPOCH, ZoneId.of("UTC")));
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 00:00:00.000 UTC");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
             });
@@ -1249,8 +1218,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.227 Europe/Warsaw");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
             });
@@ -1262,8 +1230,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 Europe/Warsaw");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(12) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
             });
@@ -1279,8 +1246,7 @@ public abstract class BaseTestJdbcResultSet
                         assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 JVM ZONE'
                         assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
                         assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 America/Bahia_Banderas");
-                        assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                                .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                        assertSqlExceptionThrownBy(() -> rs.getTime(column))
                                 .hasMessage("Expected column to be a time type but is timestamp(12) with time zone");
                         assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
                     });
@@ -1291,8 +1257,7 @@ public abstract class BaseTestJdbcResultSet
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1957-12-31 23:59:59.999999999999 Europe/Warsaw");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(12) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
             });
@@ -1303,8 +1268,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 09:14:15.227 Europe/Warsaw");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
             });
@@ -1315,8 +1279,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.227 Europe/Warsaw");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
             });
@@ -1332,8 +1295,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should contain the zone
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
                 assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: +12345-01-23 01:23:45.123456789 Europe/Warsaw");
-                assertWrongExceptionThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                assertSqlExceptionThrownBy(() -> rs.getTime(column))
                         .hasMessage("Expected column to be a time type but is timestamp(9) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
             });
@@ -1866,19 +1828,7 @@ public abstract class BaseTestJdbcResultSet
     }
 
     /**
-     * @deprecated Make sure code throws {@link SQLException} and use {@link #assertSqlExceptionThrownBy} instead.
-     */
-    @Deprecated
-    @CheckReturnValue
-    private static AbstractThrowableAssert<?, ? extends Throwable> assertWrongExceptionThrownBy(ThrowableAssert.ThrowingCallable shouldRaiseThrowable)
-    {
-        return Assertions.assertThatThrownBy(shouldRaiseThrowable)
-                .isNotInstanceOf(SQLException.class);
-    }
-
-    /**
      * @deprecated Use {@link #assertSqlExceptionThrownBy} to verify exception is of SQLException type (and verify message).
-     *         When exception (incorrectly) is not of SQLException type, use {@link #assertWrongExceptionThrownBy} with a to-do comment.
      */
     @Deprecated
     // Prevent accidental usage of Assertions.assertThatThrownBy in new code.
