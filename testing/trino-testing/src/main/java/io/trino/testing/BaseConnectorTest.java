@@ -4222,31 +4222,41 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_TABLE));
 
-        String sourceTableName = "test_rename_source_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-
-        String baseTableName = "test_rename_target_" + randomNameSuffix();
-
         int maxLength = maxTableRenameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
+        String baseTableName = "test_rename_target_" + randomNameSuffix();
         String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
-        assertThat(getQueryRunner().tableExists(getSession(), validTargetTableName)).isTrue();
-        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
-        assertUpdate("DROP TABLE " + validTargetTableName);
+        String invalidTargetTableName = validTargetTableName + "z";
+
+        String sourceTableName1 = "test_rename_source_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName1 + " AS SELECT 123 x", 1);
+        try {
+            assertUpdate("ALTER TABLE " + sourceTableName1 + " RENAME TO " + validTargetTableName);
+            assertThat(getQueryRunner().tableExists(getSession(), validTargetTableName)).isTrue();
+            assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + validTargetTableName);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTableName1);
+        }
 
         if (maxTableRenameLength().isEmpty()) {
             return;
         }
 
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-        String invalidTargetTableName = validTargetTableName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
-                .satisfies(this::verifyTableNameLengthFailurePermissible);
-        assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
-        assertUpdate("DROP TABLE " + sourceTableName);
+        String sourceTableName2 = "test_rename_source_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName2 + " AS SELECT 123 x", 1);
+        try {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName2 + " RENAME TO " + invalidTargetTableName))
+                    .satisfies(this::verifyTableNameLengthFailurePermissible);
+            assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + invalidTargetTableName);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTableName2);
+        }
     }
 
     protected OptionalInt maxTableNameLength()
