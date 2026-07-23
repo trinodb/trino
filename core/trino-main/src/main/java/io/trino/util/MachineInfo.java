@@ -13,6 +13,7 @@
  */
 package io.trino.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
@@ -20,8 +21,11 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
+import com.sun.management.HotSpotDiagnosticMXBean;
+import com.sun.management.VMOption;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -32,7 +36,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.lang.Math.min;
+import static java.lang.Math.ceilDiv;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 
@@ -66,18 +70,29 @@ public final class MachineInfo
         String osName = StandardSystemProperty.OS_NAME.value();
         // logical core count (including container cpu quota if there is any)
         int availableProcessorCount = Runtime.getRuntime().availableProcessors();
-        int totalPhysicalProcessorCount;
         if ("Linux".equals(osName) && "amd64".equals(osArch)) {
-            totalPhysicalProcessorCount = readLinuxPhysicalProcessorCount()
-                    .orElse(availableProcessorCount);
-        }
-        else {
-            // Fallback to logical processor count when physical core topology is not available.
-            totalPhysicalProcessorCount = availableProcessorCount;
+            return calculateAvailablePhysicalProcessorCount(
+                    availableProcessorCount,
+                    isActiveProcessorCountExplicitlySet(),
+                    MachineInfo::readLinuxThreadsPerCore);
         }
 
-        // cap available processor count to container cpu quota (if there is any).
-        return min(totalPhysicalProcessorCount, availableProcessorCount);
+        return availableProcessorCount;
+    }
+
+    @VisibleForTesting
+    static int calculateAvailablePhysicalProcessorCount(
+            int availableProcessorCount,
+            boolean activeProcessorCountExplicitlySet,
+            Supplier<Optional<Integer>> linuxThreadsPerCore)
+    {
+        if (activeProcessorCountExplicitlySet) {
+            return availableProcessorCount;
+        }
+
+        return linuxThreadsPerCore.get()
+                .map(threadsPerCore -> ceilDiv(availableProcessorCount, threadsPerCore))
+                .orElse(availableProcessorCount);
     }
 
     private static Set<String> readCpuFlagsInternal()
@@ -89,26 +104,47 @@ public final class MachineInfo
         };
     }
 
-    private static Optional<Integer> readLinuxPhysicalProcessorCount()
+    private static Optional<Integer> readLinuxThreadsPerCore()
     {
         return readLines(Path.of("/proc/cpuinfo"))
-                .flatMap(MachineInfo::parseLinuxPhysicalProcessorCount);
+                .flatMap(MachineInfo::parseLinuxThreadsPerCore);
     }
 
-    static Optional<Integer> parseLinuxPhysicalProcessorCount(List<String> cpuInfoLines)
+    private static boolean isActiveProcessorCountExplicitlySet()
     {
-        Set<String> physicalCores = new HashSet<>();
-        String currentPhysicalId = null;
-        String currentCoreId = null;
+        try {
+            HotSpotDiagnosticMXBean bean = ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class);
+            return bean != null && bean.getVMOption("ActiveProcessorCount").getOrigin() == VMOption.Origin.VM_CREATION;
+        }
+        catch (IllegalArgumentException | UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    static Optional<Integer> parseLinuxThreadsPerCore(List<String> cpuInfoLines)
+    {
+        Integer threadsPerCore = null;
+        Integer currentSiblings = null;
+        Integer currentCpuCores = null;
 
         // add a synthetic section separator so the final section is flushed
         for (String line : withTrailingBlankLine(cpuInfoLines)) {
             if (line.isBlank()) {
-                if (currentPhysicalId != null && currentCoreId != null) {
-                    physicalCores.add(currentPhysicalId + ":" + currentCoreId);
+                if ((currentSiblings == null) != (currentCpuCores == null)) {
+                    return Optional.empty();
                 }
-                currentPhysicalId = null;
-                currentCoreId = null;
+                if (currentSiblings != null && currentCpuCores != null) {
+                    if (currentSiblings < currentCpuCores || currentSiblings % currentCpuCores != 0) {
+                        return Optional.empty();
+                    }
+                    int currentThreadsPerCore = currentSiblings / currentCpuCores;
+                    if (threadsPerCore != null && !threadsPerCore.equals(currentThreadsPerCore)) {
+                        return Optional.empty();
+                    }
+                    threadsPerCore = currentThreadsPerCore;
+                }
+                currentSiblings = null;
+                currentCpuCores = null;
                 continue;
             }
 
@@ -119,18 +155,23 @@ public final class MachineInfo
 
             String key = keyAndValue.getFirst().toLowerCase(ENGLISH);
             String value = keyAndValue.getLast();
-            if (key.equals("physical id")) {
-                currentPhysicalId = value;
+            if (key.equals("siblings")) {
+                Optional<Integer> parsedValue = parsePositiveInteger(value);
+                if (parsedValue.isEmpty()) {
+                    return Optional.empty();
+                }
+                currentSiblings = parsedValue.get();
             }
-            else if (key.equals("core id")) {
-                currentCoreId = value;
+            else if (key.equals("cpu cores")) {
+                Optional<Integer> parsedValue = parsePositiveInteger(value);
+                if (parsedValue.isEmpty()) {
+                    return Optional.empty();
+                }
+                currentCpuCores = parsedValue.get();
             }
         }
 
-        if (physicalCores.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(physicalCores.size());
+        return Optional.ofNullable(threadsPerCore);
     }
 
     private static Set<String> readLinuxCpuFlags()
@@ -196,6 +237,20 @@ public final class MachineInfo
     private static Iterable<String> withTrailingBlankLine(Iterable<String> lines)
     {
         return Iterables.concat(lines, List.of(""));
+    }
+
+    private static Optional<Integer> parsePositiveInteger(String value)
+    {
+        try {
+            int parsedValue = Integer.parseInt(value);
+            if (parsedValue <= 0) {
+                return Optional.empty();
+            }
+            return Optional.of(parsedValue);
+        }
+        catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     private static Set<String> parseCpuFlags(String value)
