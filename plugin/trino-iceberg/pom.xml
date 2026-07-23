@@ -1001,6 +1001,8 @@
                             <includes>
                                 <include>**/Test*Avro*.java</include>
                                 <include>**/Test*Floci*.java</include>
+                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
+                                <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -1021,8 +1023,6 @@
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
-                                <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
