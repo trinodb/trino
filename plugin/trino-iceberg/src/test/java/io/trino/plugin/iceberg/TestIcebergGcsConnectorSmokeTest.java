@@ -13,18 +13,31 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.cloud.NoCredentials;
+import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
+import com.google.cloud.storage.BucketInfo;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.gcs.GcsAuth;
+import io.trino.filesystem.gcs.GcsFileSystemConfig;
+import io.trino.filesystem.gcs.GcsFileSystemFactory;
+import io.trino.filesystem.gcs.GcsStorageFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.containers.FlociGcp;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.testcontainers.containers.Network;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -32,18 +45,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Base64;
+import java.util.Optional;
 
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import static io.trino.testing.containers.FlociGcp.FLOCI_GCP_PROJECT_ID;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.testcontainers.containers.Network.newNetwork;
 
 @TestInstance(PER_CLASS)
 public class TestIcebergGcsConnectorSmokeTest
@@ -52,17 +68,20 @@ public class TestIcebergGcsConnectorSmokeTest
     private static final Logger LOG = Logger.get(TestIcebergGcsConnectorSmokeTest.class);
 
     private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
-    private final String gcpStorageBucket;
-    private final String gcpCredentialKey;
+    private static final String HADOOP_GCS_CONNECTOR = "/usr/hdp/3.1.0.0-78/hadoop-mapreduce/gcs-connector-1.9.10.3.1.0.0-78-shaded.jar";
+    private static final String TEZ_GCS_CONNECTOR = "/usr/hdp/3.1.0.0-78/tez/lib/gcs-connector-1.9.10.3.1.0.0-78-shaded.jar";
+
+    private final String bucketName;
     private final String schema;
 
+    private FlociGcp flociGcp;
     private HiveHadoop hiveHadoop;
+    private Network network;
 
     public TestIcebergGcsConnectorSmokeTest()
     {
         super(ORC);
-        this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
-        this.gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
+        this.bucketName = "test-iceberg-gcs-" + randomNameSuffix();
         this.schema = "test_iceberg_gcs_connector_smoke_test_" + randomNameSuffix();
     }
 
@@ -70,37 +89,44 @@ public class TestIcebergGcsConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
-        gcpCredentialsFile.toFile().deleteOnExit();
-        Files.write(gcpCredentialsFile, jsonKeyBytes);
-        String gcpCredentials = new String(jsonKeyBytes, UTF_8);
+        network = closeAfterClass(newNetwork());
+        flociGcp = closeAfterClass(new FlociGcp().withNetwork(network));
+        flociGcp.start();
 
-        String gcpSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.gcs-template"), UTF_8)
-                .replace("%GCP_CREDENTIALS_FILE_PATH%", "/etc/hadoop/conf/gcp-credentials.json");
+        GcsFileSystemConfig config = new GcsFileSystemConfig()
+                .setEndpoint(Optional.of(flociGcp.getEndpoint().toString()))
+                .setProjectId(FLOCI_GCP_PROJECT_ID);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(
+                config,
+                (builder, _) -> builder.setCredentials(NoCredentials.getInstance()));
+        storageFactory.create(ConnectorIdentity.ofUser("test")).create(BucketInfo.of(bucketName));
 
-        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
-        hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-        Files.writeString(hadoopCoreSiteXmlTempFile, gcpSpecificCoreSiteXmlContent);
+        Path containerCoreSite = createCoreSite(flociGcp.getContainerEndpoint().toString());
+        String gcsConnector = Path.of(GoogleHadoopFileSystem.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .toAbsolutePath()
+                .toString();
 
         this.hiveHadoop = closeAfterClass(HiveHadoop.builder()
                 .withImage(HIVE3_IMAGE)
+                .withNetwork(network)
                 .withFilesToMount(ImmutableMap.of(
-                        "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(),
-                        "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
+                        "/etc/hadoop/conf/core-site.xml", containerCoreSite.normalize().toAbsolutePath().toString(),
+                        HADOOP_GCS_CONNECTOR, gcsConnector,
+                        TEZ_GCS_CONNECTOR, gcsConnector))
                 .build());
         this.hiveHadoop.start();
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "hive_metastore")
-                        .put("fs.gcs.enabled", "true")
-                        .put("gcs.json-key", gcpCredentials)
+                        .put("gcs.endpoint", flociGcp.getEndpoint().toString())
+                        .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                         .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("iceberg.file-format", format.name())
                         .put("iceberg.register-table-procedure.enabled", "true")
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
+                .setAdditionalOverrideModule(gcsModule())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -108,6 +134,32 @@ public class TestIcebergGcsConnectorSmokeTest
                                 .withSchemaProperties(ImmutableMap.of("location", "'" + schemaPath() + "'"))
                                 .build())
                 .build();
+    }
+
+    private static Path createCoreSite(String endpoint)
+            throws IOException
+    {
+        String content = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.gcs-template"), UTF_8)
+                .replace("%GCS_ENDPOINT%", endpoint + "/")
+                .replace("%GCP_PROJECT_ID%", FLOCI_GCP_PROJECT_ID);
+        Path coreSite = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
+        coreSite.toFile().deleteOnExit();
+        Files.writeString(coreSite, content);
+        return coreSite;
+    }
+
+    private static Module gcsModule()
+    {
+        return binder -> {
+            configBinder(binder).bindConfig(GcsFileSystemConfig.class);
+            binder.bind(GcsAuth.class)
+                    .toInstance((builder, _) -> builder.setCredentials(NoCredentials.getInstance()));
+            binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
+            binder.bind(GcsFileSystemFactory.class).in(Scopes.SINGLETON);
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("gs")
+                    .to(GcsFileSystemFactory.class);
+        };
     }
 
     @AfterAll
@@ -141,7 +193,7 @@ public class TestIcebergGcsConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("gs://%s/%s/", gcpStorageBucket, schema);
+        return format("gs://%s/%s/", bucketName, schema);
     }
 
     @Override
