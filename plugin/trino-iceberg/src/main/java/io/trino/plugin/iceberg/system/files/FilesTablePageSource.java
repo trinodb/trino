@@ -59,7 +59,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
@@ -159,7 +158,7 @@ public final class FilesTablePageSource
         }).collect(toImmutableList()));
         this.columnNameToIndex = mapWithIndex(
                 requiredColumns.stream(),
-                (columnName, position) -> immutableEntry(columnName, Long.valueOf(position).intValue()))
+                (columnName, position) -> Map.entry(columnName, Long.valueOf(position).intValue()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         this.completedBytes = split.manifestFile().length();
         this.completedPositions = 0L;

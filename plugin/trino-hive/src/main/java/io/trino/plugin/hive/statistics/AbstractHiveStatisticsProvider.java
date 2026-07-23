@@ -70,7 +70,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.hash.Hashing.murmur3_128;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
@@ -184,7 +183,7 @@ public abstract class AbstractHiveStatisticsProvider
                     .thenComparing(entry -> entry.getKey().getPartitionId());
             partitions.stream()
                     .filter(partition -> !result.contains(partition))
-                    .map(partition -> immutableEntry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId()).asLong()))
+                    .map(partition -> Map.entry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId()).asLong()))
                     .sorted(hashComparator)
                     .limit(samplesLeft)
                     .forEachOrdered(entry -> result.add(entry.getKey()));

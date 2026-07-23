@@ -16,7 +16,6 @@ package io.trino.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -33,6 +32,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
 import org.junit.jupiter.api.Test;
 
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -296,7 +296,7 @@ public class TestHiveBucketing
             Object javaValue = hiveValues.get(i);
             var hiveTypeInfo = getTypeInfoFromTypeString(hiveTypeInfos.get(i).getTypeName());
 
-            columnBindingsBuilder.add(Maps.immutableEntry(
+            columnBindingsBuilder.add(new SimpleImmutableEntry<>(
                     getStandardJavaObjectInspectorFromTypeInfo(hiveTypeInfo),
                     javaValue));
         }
