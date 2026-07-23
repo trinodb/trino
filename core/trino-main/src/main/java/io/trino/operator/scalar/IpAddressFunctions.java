@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -50,7 +49,7 @@ public final class IpAddressFunctions
         String cidrBase = cidr.substring(0, separator);
         InetAddress cidrAddress;
         try {
-            cidrAddress = InetAddresses.forString(cidrBase);
+            cidrAddress = InetAddress.ofLiteral(cidrBase);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid network IP address");
@@ -63,7 +62,7 @@ public final class IpAddressFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid prefix length");
         }
 
-        // We do regex match instead of instanceof Inet4Address because InetAddresses.forString() normalizes
+        // We do regex match instead of instanceof Inet4Address because InetAddress.ofLiteral() normalizes
         // IPv4 mapped IPv6 addresses (e.g., ::ffff:0102:0304) to Inet4Address. We need to be able to
         // distinguish between the two formats in the CIDR string to be able to interpret the prefix length correctly.
         if (IPV4_PATTERN.matcher(cidrBase).matches()) {
