@@ -667,20 +667,22 @@ public class TestAddExchangesPlans
                                         ImmutableMap.of(Optional.of("sum_partial"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
                                         Optional.empty(),
                                         PARTIAL,
-                                        project(aggregation(
-                                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
-                                                Step.FINAL,
-                                                exchange(LOCAL,
-                                                        // forced exact partitioning
-                                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey", "suppkey"),
-                                                                aggregation(
-                                                                        singleGroupingSet("partkey", "suppkey"),
-                                                                        ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
-                                                                        Optional.empty(),
-                                                                        PARTIAL,
-                                                                        tableScan("lineitem", ImmutableMap.of(
-                                                                                "partkey", "partkey",
-                                                                                "suppkey", "suppkey"))))))))))));
+                                        project(exchange(LOCAL,
+                                                // parallelize_chained_aggregations redistributes rows for the outer partial aggregation
+                                                aggregation(
+                                                        ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                        Step.FINAL,
+                                                        exchange(LOCAL,
+                                                                // forced exact partitioning
+                                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey", "suppkey"),
+                                                                        aggregation(
+                                                                                singleGroupingSet("partkey", "suppkey"),
+                                                                                ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
+                                                                                Optional.empty(),
+                                                                                PARTIAL,
+                                                                                tableScan("lineitem", ImmutableMap.of(
+                                                                                        "partkey", "partkey",
+                                                                                        "suppkey", "suppkey")))))))))))));
         // parent partitioning would be preferable but use_cost_based_partitioning=false prevents it
         assertDistributedPlan(singleColumnParentGroupBy, doNotUseCostBasedPartitioning(), exactPartitioningPlan);
         // parent partitioning would be preferable but use_exact_partitioning prevents it
@@ -710,22 +712,24 @@ public class TestAddExchangesPlans
                                                 ImmutableMap.of(Optional.of("sum_partial"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
                                                 Optional.empty(),
                                                 PARTIAL,
-                                                project(aggregation(
-                                                        ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
-                                                        Step.FINAL,
-                                                        exchange(LOCAL,
-                                                                // forced exact partitioning
-                                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr", "suppkey"),
-                                                                        aggregation(
-                                                                                singleGroupingSet("partkey_expr", "suppkey"),
-                                                                                ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
-                                                                                Optional.empty(),
-                                                                                PARTIAL,
-                                                                                project(
-                                                                                        ImmutableMap.of("partkey_expr", expression(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "partkey"), new Constant(BIGINT, 10L))))),
-                                                                                        tableScan("lineitem", ImmutableMap.of(
-                                                                                                "partkey", "partkey",
-                                                                                                "suppkey", "suppkey"))))))))))))));
+                                                project(exchange(LOCAL,
+                                                        // parallelize_chained_aggregations redistributes rows for the outer partial aggregation
+                                                        aggregation(
+                                                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                                Step.FINAL,
+                                                                exchange(LOCAL,
+                                                                        // forced exact partitioning
+                                                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr", "suppkey"),
+                                                                                aggregation(
+                                                                                        singleGroupingSet("partkey_expr", "suppkey"),
+                                                                                        ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
+                                                                                        Optional.empty(),
+                                                                                        PARTIAL,
+                                                                                        project(
+                                                                                                ImmutableMap.of("partkey_expr", expression(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "partkey"), new Constant(BIGINT, 10L))))),
+                                                                                                tableScan("lineitem", ImmutableMap.of(
+                                                                                                        "partkey", "partkey",
+                                                                                                        "suppkey", "suppkey")))))))))))))));
 
         // parent aggregation partitioned by multiple columns
         assertDistributedPlan(
