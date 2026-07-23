@@ -64,16 +64,16 @@ public class TestingOracleServer
     public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
     public static final String TEST_PASS = "trino_test_password";
 
-    private OracleContainer container;
+    protected OracleContainer container;
 
-    private Closeable cleanup = () -> {};
+    protected Closeable cleanup = () -> {};
 
     public TestingOracleServer()
     {
         Failsafe.with(CONTAINER_RETRY_POLICY).run(this::createContainer);
     }
 
-    private void createContainer()
+    protected void createContainer()
     {
         OracleContainer container = new OracleContainer("gvenzl/oracle-free:23.9-slim")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
@@ -92,7 +92,7 @@ public class TestingOracleServer
         }
     }
 
-    private Path createConfigureScript()
+    protected Path createConfigureScript()
     {
         try {
             File tempFile = File.createTempFile("init-", ".sql");

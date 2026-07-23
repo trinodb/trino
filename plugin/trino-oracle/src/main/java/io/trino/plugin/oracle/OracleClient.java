@@ -71,11 +71,17 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleTypes;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 import java.math.RoundingMode;
 import java.sql.Connection;
@@ -233,6 +239,8 @@ public class OracleClient
             .buildOrThrow();
 
     private final boolean synonymsEnabled;
+    private final SpatialColumnMapping spatialColumnMapping;
+    private final Type geometryType;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final ProjectFunctionRewriter<JdbcExpression, ParameterizedExpression> projectFunctionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -244,12 +252,19 @@ public class OracleClient
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
+            TypeManager typeManager,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
+        this.spatialColumnMapping = oracleConfig.getSpatialColumnMapping();
+        // Only resolve the GEOMETRY type when the user has opted into native geometry mapping;
+        // otherwise deployments without the geospatial types registered would fail to start.
+        this.geometryType = spatialColumnMapping == SpatialColumnMapping.GEOMETRY
+                ? typeManager.getType(new TypeDescriptor(StandardTypes.GEOMETRY))
+                : null;
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -531,6 +546,19 @@ public class OracleClient
                     FULL_PUSHDOWN));
         }
 
+        // Oracle Spatial UDTs are OPAQUE and cannot be read through JDBC without oracle.xdb.XMLType
+        // (not on the plugin classpath). OracleQueryBuilder wraps these columns in
+        // MDSYS.SDO_UTIL.TO_WKTGEOMETRY(...) at query time, so the driver only ever sees a CLOB.
+        // Depending on oracle.spatial-column-mapping the value is surfaced as unbounded VARCHAR (WKT)
+        // or as Trino's native GEOMETRY (WKT parsed inside the connector, equivalent to
+        // ST_GeometryFromText applied to the VARCHAR path).
+        if (jdbcTypeName.equalsIgnoreCase("SDO_GEOMETRY") || jdbcTypeName.equalsIgnoreCase("SDO_POINT_TYPE")) {
+            if (spatialColumnMapping == SpatialColumnMapping.GEOMETRY) {
+                return Optional.of(oracleSpatialGeometryColumnMapping(geometryType, jdbcTypeName));
+            }
+            return Optional.of(oracleSpatialColumnMapping(jdbcTypeName));
+        }
+
         Optional<ColumnMapping> columnMapping = switch (typeHandle.jdbcType()) {
             case Types.SMALLINT -> Optional.of(ColumnMapping.longMapping(
                     SMALLINT,
@@ -649,6 +677,39 @@ public class OracleClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private static ColumnMapping oracleSpatialColumnMapping(String remoteTypeName)
+    {
+        return ColumnMapping.sliceMapping(
+                createUnboundedVarcharType(),
+                (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
+                (_, _, _) -> {
+                    throw new TrinoException(NOT_SUPPORTED, "Writing " + remoteTypeName + " is not supported");
+                },
+                DISABLE_PUSHDOWN);
+    }
+
+    private static ColumnMapping oracleSpatialGeometryColumnMapping(Type geometryType, String remoteTypeName)
+    {
+        return ColumnMapping.objectMapping(
+                geometryType,
+                ObjectReadFunction.of(Geometry.class, (resultSet, columnIndex) -> {
+                    String wkt = resultSet.getString(columnIndex);
+                    if (wkt == null) {
+                        return null;
+                    }
+                    try {
+                        return new WKTReader().read(wkt);
+                    }
+                    catch (ParseException e) {
+                        throw new TrinoException(JDBC_ERROR, "Failed to parse WKT geometry from Oracle column: " + wkt, e);
+                    }
+                }),
+                ObjectWriteFunction.of(Geometry.class, (_, _, _) -> {
+                    throw new TrinoException(NOT_SUPPORTED, "Writing " + remoteTypeName + " is not supported");
+                }),
+                DISABLE_PUSHDOWN);
     }
 
     private static ColumnMapping oracleTimestampColumnMapping(TimestampType timestampType)
