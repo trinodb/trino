@@ -6,6 +6,7 @@
 ALTER MATERIALIZED VIEW [ IF EXISTS ] name RENAME TO new_name
 ALTER MATERIALIZED VIEW name SET PROPERTIES property_name = expression [, ...]
 ALTER MATERIALIZED VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
+ALTER MATERIALIZED VIEW name EXECUTE command [ ( parameter => expression [, ... ] ) ]
 ```
 
 ## Description
@@ -30,6 +31,28 @@ reverts its value back to the default in that materialized view.
 
 Support for `ALTER MATERIALIZED VIEW SET PROPERTIES` varies between
 connectors. Refer to the connector documentation for more details.
+
+(alter-materialized-view-execute)=
+### EXECUTE
+
+The `ALTER MATERIALIZED VIEW EXECUTE` statement followed by a `command` and
+`parameters` performs maintenance on the materialized view's underlying
+storage according to the specified command and parameters, without changing
+the view's logical contents. It supports the same commands, on a
+per-connector basis, as {ref}`ALTER TABLE EXECUTE <alter-table-execute>`,
+for example the `optimize` command provided by the
+[Iceberg](iceberg-alter-table-execute) connector:
+
+```
+ALTER MATERIALIZED VIEW example.test.test_mv EXECUTE optimize(file_size_threshold => '16MB')
+```
+
+Running a command against a materialized view requires the privilege to
+execute that command against the view itself, not against its underlying
+storage table, and not the privilege to refresh the view.
+
+Support for `ALTER MATERIALIZED VIEW EXECUTE` varies between connectors.
+Refer to the connector documentation for more details.
 
 ## Examples
 
@@ -69,6 +92,12 @@ Change owner of materialized view `people` to user `alice`:
 
 ```
 ALTER MATERIALIZED VIEW people SET AUTHORIZATION alice
+```
+
+Merge small files in the storage of materialized view `people`:
+
+```
+ALTER MATERIALIZED VIEW people EXECUTE optimize(file_size_threshold => '16MB')
 ```
 
 ## See also

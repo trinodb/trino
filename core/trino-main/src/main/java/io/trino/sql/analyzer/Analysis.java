@@ -275,6 +275,8 @@ public class Analysis
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
     private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
+    // the (possibly synthetic, e.g. a materialized view's storage table) table node the execute handle above refers to
+    private Optional<Table> tableExecuteTable = Optional.empty();
 
     // names of tables and aliased relations. All names are resolved case-insensitive.
     private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
@@ -1498,6 +1500,18 @@ public class Analysis
     public Optional<TableExecuteHandle> getTableExecuteHandle()
     {
         return tableExecuteHandle;
+    }
+
+    public void setTableExecuteTable(Table table)
+    {
+        requireNonNull(table, "table is null");
+        checkState(this.tableExecuteTable.isEmpty(), "tableExecuteTable already set");
+        this.tableExecuteTable = Optional.of(table);
+    }
+
+    public Table getTableExecuteTable()
+    {
+        return tableExecuteTable.orElseThrow(() -> new IllegalStateException("tableExecuteTable not set"));
     }
 
     public void setTableFunctionAnalysis(TableFunctionInvocation node, TableFunctionInvocationAnalysis analysis)
