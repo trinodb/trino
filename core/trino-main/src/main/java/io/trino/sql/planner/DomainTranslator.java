@@ -25,6 +25,7 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
@@ -35,6 +36,7 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -54,6 +56,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
 import io.trino.type.TypeCoercion;
@@ -90,6 +93,7 @@ import static io.trino.spi.predicate.TupleDomain.strictUnion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -435,6 +439,11 @@ public final class DomainTranslator
 
         private ExtractionResult processComparison(Comparison node, Expression originalExpression, Boolean complement)
         {
+            Optional<Expression> decomposedRowComparison = tryDecomposeRowComparison(node, complement);
+            if (decomposedRowComparison.isPresent()) {
+                return process(decomposedRowComparison.get(), complement);
+            }
+
             Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
             if (optionalNormalized.isEmpty()) {
                 return visitExpression(originalExpression, complement);
@@ -496,6 +505,74 @@ public final class DomainTranslator
                 return visitExpression(originalExpression, complement);
             }
             return visitExpression(originalExpression, complement);
+        }
+
+        /**
+         * Decompose a row comparison into per-field comparisons, e.g. {@code ROW(a, b) = ROW(1, 2)}
+         * into {@code a = 1 AND b = 2}. The two forms are equivalent, including their handling of
+         * NULL field values, and the per-field form allows extracting single-column domains, e.g.
+         * for multi-column IN predicates over partition keys.
+         * <p>
+         * This is only valid because both operands are known to be non-null rows, which is what
+         * {@link #rowComparisonFields} buys by accepting only a {@link Row} constructor and a
+         * {@link Constant} holding an {@link SqlRow}. A row constructor never evaluates to NULL, and a
+         * NULL row constant is rejected. The precondition matters for {@code IDENTICAL}, because
+         * {@link RowType}'s identical operator special-cases a NULL row before going field-wise, so
+         * {@code NULL IDENTICAL ROW(1, 2)} is FALSE while the field-wise form would be unknown.
+         */
+        private Optional<Expression> tryDecomposeRowComparison(Comparison node, boolean complement)
+        {
+            ComparisonOperator operator = node.operator();
+            if (operator != EQUAL && operator != NOT_EQUAL && operator != IDENTICAL) {
+                // ordering comparisons on rows are lexicographic and cannot be decomposed field-wise
+                return Optional.empty();
+            }
+
+            Optional<List<Expression>> optionalLeftFields = rowComparisonFields(node.left());
+            Optional<List<Expression>> optionalRightFields = rowComparisonFields(node.right());
+            if (optionalLeftFields.isEmpty() || optionalRightFields.isEmpty()) {
+                return Optional.empty();
+            }
+            List<Expression> leftFields = optionalLeftFields.get();
+            List<Expression> rightFields = optionalRightFields.get();
+            if (leftFields.isEmpty() || leftFields.size() != rightFields.size()) {
+                return Optional.empty();
+            }
+
+            // NOT_EQUAL decomposes into a disjunction, and extracting the complement of EQUAL or IDENTICAL
+            // effectively does the same. A disjunction over more than one field column-wise unions to ALL, so
+            // decomposing would replace the comparison with a larger equivalent expression and derive nothing.
+            boolean conjunctive = (operator == NOT_EQUAL) == complement;
+            if (!conjunctive && leftFields.size() > 1) {
+                return Optional.empty();
+            }
+
+            ImmutableList.Builder<Expression> fieldComparisons = ImmutableList.builder();
+            for (int field = 0; field < leftFields.size(); field++) {
+                fieldComparisons.add(comparison(plannerContext.getMetadata(), operator, leftFields.get(field), rightFields.get(field)));
+            }
+            if (operator == NOT_EQUAL) {
+                // rows are not equal when any field pair is not equal
+                return Optional.of(or(fieldComparisons.build()));
+            }
+            return Optional.of(and(fieldComparisons.build()));
+        }
+
+        private static Optional<List<Expression>> rowComparisonFields(Expression expression)
+        {
+            if (expression instanceof Row row) {
+                return Optional.of(row.items());
+            }
+            if (expression instanceof Constant constant && constant.type() instanceof RowType rowType && constant.value() instanceof SqlRow sqlRow) {
+                ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+                List<RowType.Field> rowFields = rowType.getFields();
+                for (int field = 0; field < rowFields.size(); field++) {
+                    Type fieldType = rowFields.get(field).getType();
+                    fields.add(new Constant(fieldType, readNativeValue(fieldType, sqlRow.getRawFieldBlock(field), sqlRow.getRawIndex())));
+                }
+                return Optional.of(fields.build());
+            }
+            return Optional.empty();
         }
 
         /**
@@ -867,10 +944,14 @@ public final class DomainTranslator
             for (Expression expression : node.valueList()) {
                 disjuncts.add(comparison(plannerContext.getMetadata(), EQUAL, node.value(), expression));
             }
-            ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
+            Expression expansion = or(disjuncts.build());
+            ExtractionResult extractionResult = process(expansion, complement);
 
-            // preserve original IN predicate as remaining predicate
-            if (extractionResult.tupleDomain.isAll()) {
+            // Preserve the original IN predicate as the remaining predicate, to avoid replacing it with the
+            // (potentially large) expansion into a disjunction. This is sound because the extracted domain is a
+            // necessary condition of the IN predicate, so "domain AND node" is equivalent to "node". A residual
+            // that is not the expansion is tighter than the original predicate, and is kept as is.
+            if (extractionResult.tupleDomain.isAll() || extractionResult.remainingExpression.equals(complementIfNecessary(expansion, complement))) {
                 Expression originalPredicate = node;
                 if (complement) {
                     originalPredicate = not(plannerContext.getMetadata(), originalPredicate);
