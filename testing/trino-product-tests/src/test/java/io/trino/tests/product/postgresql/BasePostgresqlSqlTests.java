@@ -30,8 +30,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Concrete subclasses specify which environment to use via @RequiresEnvironment.
  * This pattern allows the same tests to run in multiple environments
  * (basic PostgreSQL, PostgreSQL with spooling, etc.).
- * <p>
- * Migrated from Tempto SQL tests to JUnit 5 with TestContainers.
  */
 abstract class BasePostgresqlSqlTests
 {

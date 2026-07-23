@@ -29,8 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests MySQL connector SQL operations.
- * <p>
- * Migrated from Tempto SQL tests to JUnit 5 with TestContainers.
  */
 @ProductTest
 @RequiresEnvironment(MySqlEnvironment.class)
