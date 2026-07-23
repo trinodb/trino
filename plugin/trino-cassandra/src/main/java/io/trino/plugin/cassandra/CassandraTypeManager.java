@@ -30,7 +30,6 @@ import com.datastax.oss.protocol.internal.util.Bytes;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -518,7 +517,7 @@ public class CassandraTypeManager
     {
         byte[] address;
         try {
-            address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
+            address = InetAddress.ofLiteral(slice.toStringUtf8()).getAddress();
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
