@@ -122,6 +122,12 @@ public interface Metadata
             String procedureName,
             Map<String, Object> executeProperties);
 
+    Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(
+            Session session,
+            TableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties);
+
     Set<ColumnHandle> getColumnHandlesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);
 
     Optional<TableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);

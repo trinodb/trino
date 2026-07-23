@@ -140,6 +140,24 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Variant of {@link #getTableHandleForExecute} used when the procedure is invoked through
+     * {@code ALTER MATERIALIZED VIEW ... EXECUTE}. The statement names a materialized view, while {@code tableHandle}
+     * is the handle of that view's storage table. Connectors that expose a different set of procedures on
+     * materialized view storage than on plain tables can override this to apply those rules, regardless of whether
+     * the storage table is also reachable by name. The default rejects the statement.
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized view procedures");
+    }
+
+    /**
      * Returns source table columns required to execute a table procedure.
      * <p>
      * Connectors may override this to return the exact source-column set needed for the procedure.
