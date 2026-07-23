@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
@@ -1025,7 +1024,7 @@ public class TrinoRestCatalog
             if (identifier.name().equalsIgnoreCase(tableIdentifier.name())) {
                 if (matchingTable != null) {
                     throw new TrinoException(NOT_SUPPORTED, "Duplicate table names are not supported with Iceberg REST catalog: "
-                            + Joiner.on(", ").join(matchingTable, identifier.name()));
+                            + matchingTable + ", " + identifier.name());
                 }
                 matchingTable = identifier;
             }
@@ -1058,7 +1057,7 @@ public class TrinoRestCatalog
             if (identifier.name().equalsIgnoreCase(tableIdentifier.name())) {
                 if (matchingView != null) {
                     throw new TrinoException(NOT_SUPPORTED, "Duplicate view names are not supported with Iceberg REST catalog: "
-                            + Joiner.on(", ").join(matchingView.name(), identifier.name()));
+                            + String.join(", ", matchingView.name(), identifier.name()));
                 }
                 matchingView = identifier;
             }

@@ -16,13 +16,14 @@ package io.trino.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 /**
  * Qualified table name reported by the remote database.
@@ -88,6 +89,8 @@ public final class RemoteTableName
     @Override
     public String toString()
     {
-        return Joiner.on(".").skipNulls().join(catalogName.orElse(null), schemaName.orElse(null), tableName);
+        return Stream.of(catalogName.orElse(null), schemaName.orElse(null), tableName)
+                .filter(Objects::nonNull)
+                .collect(joining("."));
     }
 }
