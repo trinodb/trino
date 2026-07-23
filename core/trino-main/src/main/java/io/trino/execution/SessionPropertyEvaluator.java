@@ -14,8 +14,6 @@
 package io.trino.execution;
 
 import com.google.inject.Inject;
-import info.debatty.java.stringsimilarity.JaroWinkler;
-import info.debatty.java.stringsimilarity.interfaces.StringSimilarity;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
@@ -30,6 +28,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.util.JaroWinkler;
 
 import java.util.List;
 import java.util.Map;
@@ -50,8 +49,6 @@ import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyEvaluator
 {
-    private static final StringSimilarity SIMILARITY = new JaroWinkler();
-
     private final PlannerContext plannerContext;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
@@ -123,7 +120,7 @@ public class SessionPropertyEvaluator
     {
         return candidates.stream()
                 .filter(property -> !property.isHidden())
-                .map(candidate -> new Match(candidate, SIMILARITY.similarity(candidate.getName(), propertyName)))
+                .map(candidate -> new Match(candidate, JaroWinkler.similarity(candidate.getName(), propertyName)))
                 .filter(match -> match.ratio() > 0.85)
                 .sorted(comparingDouble(Match::ratio).reversed())
                 .limit(count)
