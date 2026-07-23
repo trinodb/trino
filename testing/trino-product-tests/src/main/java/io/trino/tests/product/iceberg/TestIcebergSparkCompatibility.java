@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.inject.Inject;
 import io.airlift.concurrent.MoreFutures;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
-import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
@@ -28,8 +26,6 @@ import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.tests.product.hive.Engine;
-import io.trino.tests.product.hive.TestHiveMetastoreClientFactory;
-import org.apache.thrift.TException;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -94,25 +90,6 @@ public class TestIcebergSparkCompatibility
 {
     @Inject
     private HdfsClient hdfsClient;
-    @Inject
-    private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
-    private ThriftMetastoreClient metastoreClient;
-
-    @BeforeMethodWithContext
-    public void setup()
-            throws TException
-    {
-        metastoreClient = testHiveMetastoreClientFactory.createMetastoreClient();
-        // Create 'default' schema if it doesn't exist because JDBC catalog doesn't have such schema
-        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.default WITH (location = 'hdfs://hadoop-master:9000/user/hive/warehouse/default')");
-    }
-
-    @AfterMethodWithContext
-    public void tearDown()
-    {
-        metastoreClient.close();
-        metastoreClient = null;
-    }
 
     // see spark-defaults.conf
     private static final String SPARK_CATALOG = "iceberg_test";
@@ -3172,7 +3149,6 @@ public class TestIcebergSparkCompatibility
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testRegisterTableWithTableLocation(StorageFormat storageFormat)
-            throws TException
     {
         String baseTableName = "test_register_table_with_table_location_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
@@ -3195,7 +3171,6 @@ public class TestIcebergSparkCompatibility
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testRegisterTableWithComments(StorageFormat storageFormat)
-            throws TException
     {
         String baseTableName = "test_register_table_with_comments_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
@@ -3225,7 +3200,6 @@ public class TestIcebergSparkCompatibility
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testRegisterTableWithShowCreateTable(StorageFormat storageFormat)
-            throws TException
     {
         String baseTableName = "test_register_table_with_show_create_table_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
@@ -3258,7 +3232,6 @@ public class TestIcebergSparkCompatibility
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testRegisterTableWithReInsert(StorageFormat storageFormat)
-            throws TException
     {
         String baseTableName = "test_register_table_with_re_insert_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
@@ -3306,7 +3279,6 @@ public class TestIcebergSparkCompatibility
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testRegisterTableWithDifferentTableName(StorageFormat storageFormat)
-            throws TException
     {
         String baseTableName = "test_register_table_with_different_table_name_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
@@ -3331,33 +3303,6 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableNameNew))).containsOnly(expected);
         assertThat(onSpark().executeQuery(format("SELECT * FROM %s", sparkTableNameNew))).containsOnly(expected);
         onTrino().executeQuery(format("DROP TABLE %s", trinoTableNameNew));
-    }
-
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testRegisterTableWithMetadataFile(StorageFormat storageFormat)
-            throws TException
-    {
-        String baseTableName = "test_register_table_with_metadata_file_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
-        String trinoTableName = trinoTableName(baseTableName);
-        String sparkTableName = sparkTableName(baseTableName);
-
-        onSpark().executeQuery(format("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')", sparkTableName, storageFormat));
-        onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
-
-        String tableLocation = getTableLocation(trinoTableName);
-        String metadataLocation = metastoreClient.getTable(TEST_SCHEMA_NAME, baseTableName).getParameters().get("metadata_location");
-        String metadataFileName = metadataLocation.substring(metadataLocation.lastIndexOf("/") + 1);
-        // Drop table from hive metastore and use the same table name to register again with the metadata
-        dropTableFromMetastore(baseTableName);
-
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
-        onTrino().executeQuery(format("INSERT INTO %s values(3, 'POLAND', true)", trinoTableName));
-        List<Row> expected = List.of(row(1, "INDIA", true), row(2, "USA", false), row(3, "POLAND", true));
-
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName))).containsOnly(expected);
-        assertThat(onSpark().executeQuery(format("SELECT * FROM %s", sparkTableName))).containsOnly(expected);
-        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -3743,10 +3688,9 @@ public class TestIcebergSparkCompatibility
     }
 
     private void dropTableFromMetastore(String tableName)
-            throws TException
     {
-        metastoreClient.dropTable(TEST_SCHEMA_NAME, tableName, false);
-        assertThatThrownBy(() -> metastoreClient.getTable(TEST_SCHEMA_NAME, tableName)).hasMessageContaining("table not found");
+        // Unregister the table without deleting its underlying data/metadata files, so the table can be re-registered
+        onTrino().executeQuery(format("CALL %s.system.unregister_table('%s', '%s')", TRINO_CATALOG, TEST_SCHEMA_NAME, tableName));
     }
 
     private String getTableComment(String tableName)

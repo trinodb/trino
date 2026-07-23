@@ -22,7 +22,6 @@ import io.trino.tempto.fulfillment.table.TableInstance;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -42,6 +41,7 @@ public class TestExternalHiveTable
 {
     private static final String HIVE_CATALOG_WITH_EXTERNAL_WRITES = "hive_with_external_writes";
     private static final String EXTERNAL_TABLE_NAME = "target_table";
+    private static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
 
     @Inject
     private HdfsClient hdfsClient;
