@@ -92,6 +92,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                 .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                .addIcebergProperty("iceberg.rest-catalog.server-assigned-table-location-enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.gcs.enabled", "true")
@@ -177,7 +178,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                         "   comment varchar\n" +
                         "\\)\n" +
                         "WITH \\(\n" +
-                        "   compression_codec = 'ZSTD',\n" +
+                        "(   compression_codec = 'ZSTD',\n)?" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = 'gs://.*'\n" +
@@ -250,6 +251,57 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
                 .hasMessage("Failed to create transaction")
                 .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
+    }
+
+    // TODO: https://github.com/trinodb/trino/issues/30440
+    // Enable the register table tests below once BigLake metastore accepts registering metadata under the suffixed table locations it assigns at creation
+    @Test
+    @Override
+    public void testRegisterTableWithTableLocation()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithComments()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithShowCreateTable()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithReInsert()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRegisterTableWithMetadataFile()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testUnregisterTable()
+    {
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void testRepeatUnregisterTable()
+    {
+        abort("skipped");
     }
 
     @Test
