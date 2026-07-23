@@ -82,11 +82,11 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        long startTime = System.nanoTime();
+
         // Trino server behavior does not depend on locale settings.
         // Use en_US as this is what Trino is tested with.
         Locale.setDefault(Locale.US);
-
-        long startTime = System.nanoTime();
         verifySystemRequirements();
 
         Logger log = Logger.get(Server.class);
