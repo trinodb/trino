@@ -42,6 +42,7 @@ public final class StandardTypes
     public static final String CHAR = CharType.NAME;
     public static final String ROW = RowType.NAME;
     public static final String ARRAY = ArrayType.NAME;
+    public static final String MULTISET = MultisetType.NAME;
     public static final String MAP = MapType.NAME;
     public static final String JSON = "json";
     public static final String JSON_2016 = "json2016";

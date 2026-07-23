@@ -15,9 +15,10 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Array;
+import io.trino.spi.type.ArrayType;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -67,7 +68,7 @@ public class TestEvaluateIsNull
         assertThat(optimize(new IsNull(new Row(ImmutableList.of(new Reference(BIGINT, "a"))))))
                 .isEqualTo(Optional.of(FALSE));
 
-        assertThat(optimize(new IsNull(new Array(BIGINT, ImmutableList.of(new Reference(BIGINT, "a"))))))
+        assertThat(optimize(new IsNull(new Collection(new ArrayType(BIGINT), ImmutableList.of(new Reference(BIGINT, "a"))))))
                 .describedAs("array expressions are never null")
                 .isEqualTo(Optional.of(FALSE));
 

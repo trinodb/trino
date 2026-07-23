@@ -33,7 +33,7 @@ public class TestSqlParserErrorHandling
     {
         return Stream.of(
                 Arguments.of("", "line 1:1: mismatched input '<EOF>'. Expecting: <expression>"),
-                Arguments.of("1 + 1 x", "line 1:7: mismatched input 'x'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'OR', '[', '||', <EOF>, <predicate>"));
+                Arguments.of("1 + 1 x", "line 1:7: mismatched input 'x'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'MULTISET', 'OR', '[', '||', <EOF>, <predicate>"));
     }
 
     private static Stream<Arguments> statements()
@@ -77,7 +77,7 @@ public class TestSqlParserErrorHandling
                         "line 1:8: identifiers must not start with a digit; surround the identifier with double quotes"),
                 Arguments.of(
                         "select fuu from dual order by fuu order by fuu",
-                        "line 1:35: mismatched input 'order'. Expecting: '%', '*', '+', ',', '-', '.', '/', 'AND', 'ASC', 'AT', 'DESC', 'FETCH', 'LIMIT', 'NULLS', 'OFFSET', 'OR', '[', '||', <EOF>, <predicate>"),
+                        "line 1:35: mismatched input 'order'. Expecting: '%', '*', '+', ',', '-', '.', '/', 'AND', 'ASC', 'AT', 'DESC', 'FETCH', 'LIMIT', 'MULTISET', 'NULLS', 'OFFSET', 'OR', '[', '||', <EOF>, <predicate>"),
                 Arguments.of(
                         "select fuu from dual limit 10 order by fuu",
                         "line 1:31: mismatched input 'order'. Expecting: <EOF>"),
@@ -125,7 +125,7 @@ public class TestSqlParserErrorHandling
                         "line 1:23: mismatched input 'select'. Expecting: ')', 'BETWEEN', 'CURRENT', 'GROUPS', 'MEASURES', 'ORDER', 'PARTITION', 'RANGE', 'ROWS', 'UNBOUNDED', <expression>"),
                 Arguments.of(
                         "SELECT X() OVER (ROWS UNBOUNDED) FROM T",
-                        "line 1:32: mismatched input ')'. Expecting: '%', '(', '*', '+', '-', '->', '.', '/', '::', 'AND', 'AT', 'FOLLOWING', 'OR', 'OVER', 'PRECEDING', '[', '||', <predicate>, <string>"),
+                        "line 1:32: mismatched input ')'. Expecting: '%', '(', '*', '+', '-', '->', '.', '/', '::', 'AND', 'AT', 'FOLLOWING', 'MULTISET', 'OR', 'OVER', 'PRECEDING', '[', '||', <predicate>, <string>"),
                 Arguments.of(
                         "SELECT a FROM x ORDER BY (SELECT b FROM t WHERE ",
                         "line 1:49: mismatched input '<EOF>'. Expecting: <expression>"),
@@ -140,7 +140,7 @@ public class TestSqlParserErrorHandling
                         "line 1:36: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of(
                         "SELECT a AS z FROM t WHERE a. ",
-                        "line 1:29: mismatched input '.'. Expecting: '%', '*', '+', '-', '/', 'AND', 'AT', 'EXCEPT', 'FETCH', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WINDOW', '||', <EOF>, <predicate>"),
+                        "line 1:29: mismatched input '.'. Expecting: '%', '*', '+', '-', '/', 'AND', 'AT', 'EXCEPT', 'FETCH', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'MULTISET', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WINDOW', '||', <EOF>, <predicate>"),
                 Arguments.of(
                         "CREATE TABLE t (x bigint) COMMENT ",
                         "line 1:35: mismatched input '<EOF>'. Expecting: <string>"),
@@ -176,7 +176,7 @@ public class TestSqlParserErrorHandling
                         "line 1:15: Zero-length delimited identifier not allowed"),
                 Arguments.of("WITH t AS (SELECT 1 SELECT t.* FROM t",
                         "line 1:21: mismatched input 'SELECT'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
-                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WHERE', 'WINDOW', '[', '||', " +
+                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'MULTISET', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WHERE', 'WINDOW', '[', '||', " +
                                 "<identifier>, <predicate>"),
                 Arguments.of(
                         "SHOW CATALOGS LIKE '%$_%' ESCAPE",
@@ -213,10 +213,10 @@ public class TestSqlParserErrorHandling
                         "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of(
                         "SELECT (DATE '2022-10-10', DOUBLE 12.0)",
-                        "line 1:35: mismatched input '12.0'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', '::', 'AND', 'AT', 'OR', 'OVER', 'PRECISION', '[', '||', <predicate>, <string>"),
+                        "line 1:35: mismatched input '12.0'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', '::', 'AND', 'AT', 'MULTISET', 'OR', 'OVER', 'PRECISION', '[', '||', <predicate>, <string>"),
                 Arguments.of(
                         "VALUES(DATE 2)",
-                        "line 1:13: mismatched input '2'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', '::', 'AND', 'AT', 'OR', 'OVER', '[', '||', <predicate>, <string>"),
+                        "line 1:13: mismatched input '2'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', '::', 'AND', 'AT', 'MULTISET', 'OR', 'OVER', '[', '||', <predicate>, <string>"),
                 Arguments.of(
                         "SELECT count(DISTINCT *) FROM (VALUES 1)",
                         "line 1:23: mismatched input '*'. Expecting: <expression>, <identifier>"));
@@ -238,7 +238,7 @@ public class TestSqlParserErrorHandling
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * " +
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * " +
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9",
-                "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'OR', 'THEN', '[', '||', <predicate>");
+                "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'MULTISET', 'OR', 'THEN', '[', '||', <predicate>");
     }
 
     @Test
@@ -269,7 +269,7 @@ public class TestSqlParserErrorHandling
                         "OR (f()\n" +
                         "OR (f()\n" +
                         "GROUP BY id",
-                "line 24:1: mismatched input 'GROUP'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AT', 'FILTER', 'IGNORE', 'OR', 'OVER', 'RESPECT', '[', '||', <predicate>");
+                "line 24:1: mismatched input 'GROUP'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AT', 'FILTER', 'IGNORE', 'MULTISET', 'OR', 'OVER', 'RESPECT', '[', '||', <predicate>");
     }
 
     @ParameterizedTest

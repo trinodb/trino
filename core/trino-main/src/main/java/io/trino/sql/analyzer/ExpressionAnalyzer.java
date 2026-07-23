@@ -48,6 +48,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -139,7 +140,11 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -159,6 +164,7 @@ import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
@@ -166,6 +172,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -321,6 +328,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.MultisetParametricType.MULTISET;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -1218,8 +1226,11 @@ public class ExpressionAnalyzer
                 case IsNullPredicate _ -> analyzeIsNull(node.getValue(), node, context);
                 case LikePredicate predicate -> analyzeLike(node.getValue(), predicate, node, context);
                 case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
+                case MemberPredicate predicate -> analyzeMember(node.getValue(), predicate, node, context);
                 case OverlapsPredicate predicate -> analyzeOverlaps(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
+                case SubmultisetPredicate predicate -> analyzeSubmultiset(node.getValue(), predicate, node, context);
+                case SetPredicate _ -> analyzeSet(node.getValue(), node, context);
             };
         }
 
@@ -1373,8 +1384,11 @@ public class ExpressionAnalyzer
                         case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
                         case LikePredicate fragment -> analyzeLike(operand, fragment, whenClause, context);
                         case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
+                        case MemberPredicate fragment -> analyzeMember(operand, fragment, whenClause, context);
                         case OverlapsPredicate fragment -> analyzeOverlaps(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
+                        case SubmultisetPredicate fragment -> analyzeSubmultiset(operand, fragment, whenClause, context);
+                        case SetPredicate _ -> analyzeSet(operand, whenClause, context);
                     }
                 }
             }
@@ -1382,7 +1396,7 @@ public class ExpressionAnalyzer
             // The case operand is evaluated once and shared by every clause, so all clauses must
             // agree on a single operand type. Reconcile the operand with every value it is
             // directly compared against — equality WHEN values and the value parts of
-            // comparison / BETWEEN / IN-list / IS DISTINCT FROM fragments — into one common
+            // comparison / BETWEEN / IN-list / IS DISTINCT FROM / SUBMULTISET fragments — into one common
             // supertype, then coerce the operand and those values to it. This overrides the
             // narrower per-clause coercions applied above, which each saw only their own clause.
             List<Expression> comparedValues = new ArrayList<>();
@@ -1392,7 +1406,17 @@ public class ExpressionAnalyzer
                     case WhenClause.Partial(Predicate predicate) -> comparedValues.addAll(operandComparedValues(predicate));
                 }
             }
-            if (comparedValues.isEmpty()) {
+            // MEMBER OF compares the operand against the elements of its right-hand multiset rather
+            // than against the multiset itself, so those fragments reconcile through their element
+            // type and are coerced element-wise once the common type is known.
+            List<Expression> memberMultisets = new ArrayList<>();
+            for (WhenClause whenClause : whenClauses) {
+                if (whenClause.getMatch() instanceof WhenClause.Partial(MemberPredicate member)) {
+                    memberMultisets.add(member.getRight());
+                }
+            }
+
+            if (comparedValues.isEmpty() && memberMultisets.isEmpty()) {
                 return;
             }
 
@@ -1404,6 +1428,11 @@ public class ExpressionAnalyzer
                 commonType = typeCoercion.getCommonSuperType(commonType, valueType)
                         .orElseThrow(() -> semanticException(TYPE_MISMATCH, value, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, valueType));
             }
+            for (Expression multiset : memberMultisets) {
+                Type elementType = ((MultisetType) process(multiset, context)).getElementType();
+                commonType = typeCoercion.getCommonSuperType(commonType, elementType)
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, multiset, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, elementType));
+            }
 
             if (commonType != operandType) {
                 addOrReplaceExpressionCoercion(operand, commonType);
@@ -1411,6 +1440,12 @@ public class ExpressionAnalyzer
             for (int i = 0; i < valueTypes.size(); i++) {
                 if (!valueTypes.get(i).equals(commonType)) {
                     addOrReplaceExpressionCoercion(comparedValues.get(i), commonType);
+                }
+            }
+            for (Expression multiset : memberMultisets) {
+                Type elementType = ((MultisetType) process(multiset, context)).getElementType();
+                if (!elementType.equals(commonType)) {
+                    addOrReplaceExpressionCoercion(multiset, multisetOf(commonType));
                 }
             }
         }
@@ -1426,6 +1461,7 @@ public class ExpressionAnalyzer
                 case BetweenPredicate between -> ImmutableList.of(between.getMin(), between.getMax());
                 case DistinctFromPredicate distinct -> ImmutableList.of(distinct.getRight());
                 case InPredicate in when in.getValueList() instanceof InListExpression list -> list.getValues();
+                case SubmultisetPredicate submultiset -> ImmutableList.of(submultiset.getRight());
                 default -> ImmutableList.of();
             };
         }
@@ -1553,6 +1589,82 @@ public class ExpressionAnalyzer
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
             return setExpressionType(node, arrayType);
+        }
+
+        @Override
+        protected Type visitMultisetSubquery(MultisetSubquery node, Context context)
+        {
+            Type rowType = analyzeSubquery(node, context);
+            if (!(rowType instanceof RowType row) || row.getFields().size() != 1) {
+                throw semanticException(INVALID_ARGUMENTS, node, "MULTISET subquery must return exactly one column");
+            }
+            Type elementType = row.getFields().getFirst().getType();
+            Type multisetType = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeDescriptor())));
+            subqueries.add(NodeRef.of((SubqueryExpression) node));
+            return setExpressionType(node, multisetType);
+        }
+
+        @Override
+        protected Type visitMultisetConstructor(MultisetConstructor node, Context context)
+        {
+            Type type = coerceToSingleType(context, "All MULTISET elements", node.getValues());
+            if (!type.isComparable()) {
+                throw semanticException(TYPE_MISMATCH, node, "Multiset element type must be comparable, got %s", type);
+            }
+            Type multisetType = plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
+            return setExpressionType(node, multisetType);
+        }
+
+        @Override
+        protected Type visitMultisetSetOperation(MultisetSetOperation node, Context context)
+        {
+            Type type = coerceToSingleType(context, node, "Both operands of MULTISET " + node.getOperator() + " must be multisets", node.getLeft(), node.getRight());
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, node, "MULTISET %s requires multiset operands, got: %s", node.getOperator(), type);
+            }
+            return setExpressionType(node, type);
+        }
+
+        private Type analyzeSubmultiset(Expression value, SubmultisetPredicate predicate, Expression anchor, Context context)
+        {
+            Type type = coerceToSingleType(context, anchor, "Both operands of SUBMULTISET must be multisets", value, predicate.getRight());
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, anchor, "SUBMULTISET requires multiset operands, got: %s", type);
+            }
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type analyzeMember(Expression value, MemberPredicate predicate, Expression anchor, Context context)
+        {
+            Type valueType = process(value, context);
+            Type rightType = process(predicate.getRight(), context);
+            if (!(rightType instanceof MultisetType multisetType)) {
+                throw semanticException(TYPE_MISMATCH, anchor, "MEMBER OF requires a multiset on the right, got: %s", rightType);
+            }
+            Type elementType = multisetType.getElementType();
+            Type commonType = typeCoercion.getCommonSuperType(valueType, elementType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, anchor, "Cannot check if %s is a member of %s", valueType, rightType));
+            if (!valueType.equals(commonType)) {
+                addOrReplaceExpressionCoercion(value, commonType);
+            }
+            if (!elementType.equals(commonType)) {
+                addOrReplaceExpressionCoercion(predicate.getRight(), multisetOf(commonType));
+            }
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
+        private Type multisetOf(Type elementType)
+        {
+            return plannerContext.getTypeManager().getParameterizedType(MULTISET.getName(), ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeDescriptor())));
+        }
+
+        private Type analyzeSet(Expression value, Expression anchor, Context context)
+        {
+            Type type = process(value, context);
+            if (!(type instanceof MultisetType)) {
+                throw semanticException(TYPE_MISMATCH, anchor, "IS A SET requires a multiset operand, got: %s", type);
+            }
+            return setExpressionType(anchor, BOOLEAN);
         }
 
         @Override

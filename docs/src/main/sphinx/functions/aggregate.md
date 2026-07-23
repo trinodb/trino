@@ -163,6 +163,11 @@ Returns `TRUE` if any input value is `TRUE`, otherwise `FALSE`.
 Returns an order-insensitive checksum of the given values.
 :::
 
+:::{function} collect(x) -> multiset<[same as input]>
+Returns a [multiset](multiset-type) of all input values, including duplicates
+and nulls. Returns null if there are no input rows.
+:::
+
 :::{function} count(*) -> bigint
 Returns the number of input rows.
 :::
@@ -182,8 +187,20 @@ This function is equivalent to `count(CASE WHEN x THEN 1 END)`.
 This is an alias for {func}`bool_and`.
 :::
 
+:::{function} fusion(x) -> multiset<[same as input]>
+Returns the [multiset](multiset-type) union of all the input multisets, adding
+the multiplicity of each element across the inputs. Null input multisets are
+ignored. Returns null if there are no input rows.
+:::
+
 :::{function} geometric_mean(x) -> double
 Returns the geometric mean of all input values.
+:::
+
+:::{function} intersection(x) -> multiset<[same as input]>
+Returns the [multiset](multiset-type) intersection of all the input multisets,
+keeping for each element the minimum of its multiplicities across the inputs.
+Null input multisets are ignored. Returns null if there are no input rows.
 :::
 
 :::{function} listagg(x, separator) -> varchar

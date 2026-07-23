@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -23,14 +24,18 @@ import java.util.stream.Collectors;
 import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
-public record Array(Type elementType, List<Expression> elements)
+/// Constructs a collection value (an array or a multiset) from a list of element expressions. The
+/// node carries its result collection type, so the same construction machinery serves both kinds;
+/// the element order is meaningful only for arrays.
+public record Collection(Type type, List<Expression> elements)
         implements Expression
 {
-    public Array
+    public Collection
     {
-        requireNonNull(elementType, "type is null");
+        requireNonNull(type, "type is null");
         elements = ImmutableList.copyOf(elements);
 
+        Type elementType = elementType(type);
         for (Expression item : elements) {
             validateType(elementType, item);
         }
@@ -39,13 +44,27 @@ public record Array(Type elementType, List<Expression> elements)
     @Override
     public Type type()
     {
-        return new ArrayType(elementType);
+        return type;
+    }
+
+    public Type elementType()
+    {
+        return elementType(type);
+    }
+
+    private static Type elementType(Type type)
+    {
+        return switch (type) {
+            case ArrayType arrayType -> arrayType.getElementType();
+            case MultisetType multisetType -> multisetType.getElementType();
+            default -> throw new IllegalArgumentException("Expected an array or multiset type, got: " + type);
+        };
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitArray(this, context);
+        return visitor.visitCollection(this, context);
     }
 
     @Override
@@ -57,7 +76,8 @@ public record Array(Type elementType, List<Expression> elements)
     @Override
     public String toString()
     {
-        return "[" +
+        String keyword = type instanceof MultisetType ? "MULTISET" : "ARRAY";
+        return keyword + "[" +
                 elements.stream()
                         .map(Expression::toString)
                         .collect(Collectors.joining(", ")) +
