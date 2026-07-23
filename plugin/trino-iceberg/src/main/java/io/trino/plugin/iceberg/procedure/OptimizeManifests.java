@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
 import static java.lang.Math.toIntExact;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
@@ -106,8 +107,9 @@ public final class OptimizeManifests
                     }
                     return clusteredPartitionValues.get(value);
                 })
-                .scanManifestsWith(icebergScanExecutor)
-                .commit();
+                .scanManifestsWith(icebergScanExecutor);
+        carryForwardMaterializedViewDependencies(table, rewriteManifests);
+        rewriteManifests.commit();
 
         CommitReport report = reporter.commitReport();
         if (report == null) {

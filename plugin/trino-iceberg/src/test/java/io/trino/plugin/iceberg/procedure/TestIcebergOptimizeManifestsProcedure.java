@@ -129,6 +129,54 @@ final class TestIcebergOptimizeManifestsProcedure
     }
 
     @Test
+    void testOptimizeManifestsOnMaterializedView()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_manifests_on_mv_storage_table", "(x int)")) {
+            String mvName = "test_optimize_manifests_mv_" + randomNameSuffix();
+            assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + table.getName());
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+
+            Set<String> manifestFiles = manifestFiles(mvName);
+            assertThat(manifestFiles).hasSize(2);
+
+            // The two data manifests are combined into one.
+            assertUpdate(
+                    "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE optimize_manifests",
+                    "VALUES " +
+                            "('rewritten_manifests_count', 2), " +
+                            "('added_manifests_count', 1), " +
+                            "('kept_manifests_count', 0), " +
+                            "('processed_manifest_entries_count', 2)");
+            Set<String> optimizedManifestFiles = manifestFiles(mvName);
+            assertThat(optimizedManifestFiles).hasSize(1);
+            assertThat(Sets.intersection(optimizedManifestFiles, manifestFiles)).isEmpty();
+
+            assertThat(query("SELECT * FROM " + mvName))
+                    .matches("VALUES 1, 2");
+
+            String dependencyMetadataAfterOptimizeManifests = (String) computeScalar(
+                    "SELECT element_at(summary, 'dependsOnTables') FROM \"" + mvName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
+            assertThat(dependencyMetadataAfterOptimizeManifests)
+                    .isNotNull()
+                    .contains(table.getName());
+
+            assertThat((String) computeScalar("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + mvName + "'"))
+                    .isEqualTo("FRESH");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+            assertThat(query("SELECT * FROM " + mvName))
+                    .matches("VALUES 1, 2, 3");
+
+            assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        }
+    }
+
+    @Test
     void testSplitManifests()
     {
         try (TestTable table = newTrinoTable("test_optimize_manifests", "(x int)")) {
