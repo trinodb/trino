@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
@@ -75,7 +74,7 @@ public abstract class BaseSystemTable
 
         Map<String, Integer> columnNameToPosition = mapWithIndex(
                 tableScan.schema().columns().stream(),
-                (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))
+                (column, position) -> Map.entry(column.name(), Long.valueOf(position).intValue()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         List<Type> types = tableMetadata.getColumns().stream()
