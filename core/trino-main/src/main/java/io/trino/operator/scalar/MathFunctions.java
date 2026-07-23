@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
-import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
@@ -866,7 +865,7 @@ public final class MathFunctions
         }
 
         try {
-            long factor = LongMath.checkedPow(10, toIntExact(-decimals));
+            long factor = Math.powExact(10L, toIntExact(-decimals));
             return Math.multiplyExact(LongMath.divide(num, factor, RoundingMode.HALF_UP), factor);
         }
         catch (ArithmeticException e) {
@@ -1393,7 +1392,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isFinite(@SqlType(StandardTypes.DOUBLE) double num)
     {
-        return Doubles.isFinite(num);
+        return Double.isFinite(num);
     }
 
     @ScalarFunction(value = "is_finite", neverFails = true, hidden = true)
