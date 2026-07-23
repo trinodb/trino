@@ -106,6 +106,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
     private static final String SHOWN_TABLES_ACCESS_DENIED_MESSAGE = "Cannot show tables of .*";
     private static final String SELECT_TABLE_ACCESS_DENIED_MESSAGE = "Cannot select from table .*";
+    private static final String SELECT_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot select from columns \\[%s\\] in table or view %s";
     private static final String SHOW_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot show columns of table .*";
     private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot add a column to table .*";
     private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot drop a column from table .*";
@@ -461,7 +462,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         Optional.empty(),
                         ImmutableSet.of("bobcolumn", "private")),
-                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+                SELECT_COLUMNS_ACCESS_DENIED_MESSAGE.formatted("private", "some-catalog.bobschema.bobcolumns"));
         accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), Optional.empty(), ImmutableSet.of());
 
         assertAccessDenied(
