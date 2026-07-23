@@ -76,7 +76,6 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                  SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                  SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_ARRAY,
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_MAP_TYPE,
@@ -570,10 +569,23 @@ public class TestClickHouseConnectorTest
     @Override
     protected TestTable createTableWithUnsupportedColumn()
     {
+        // Point is a ClickHouse geometry type not supported by the connector
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two Array(UInt8), three String) ENGINE=Log");
+                "(one bigint, two Point, three String) ENGINE=Log");
+    }
+
+    @Test
+    @Override
+    public void testInsertArray()
+    {
+        // ClickHouse does not support accessing index 1 of an empty array in Trino; both columns must be set
+        try (TestTable table = newTrinoTable("test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[null], ARRAY[null])", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+            assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (null, null), (12.3, 12)");
+        }
     }
 
     @Override

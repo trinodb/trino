@@ -15,6 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.UuidType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -1238,6 +1239,39 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
+    }
+
+    @Test
+    public void testArray()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("Array(Bool)", "[true, false]", new ArrayType(BOOLEAN), "ARRAY[true, false]")
+                .addRoundTrip("Array(Nullable(Bool))", "[true, NULL, false]", new ArrayType(BOOLEAN), "ARRAY[true, NULL, false]")
+                .addRoundTrip("Array(Int32)", "[]", new ArrayType(INTEGER), "CAST(ARRAY[] AS array(integer))")
+                .addRoundTrip("Array(Int32)", "[1, 2, 3]", new ArrayType(INTEGER), "ARRAY[1, 2, 3]")
+                .addRoundTrip("Array(Int64)", "[1, 2, 3]", new ArrayType(BIGINT), "ARRAY[BIGINT '1', BIGINT '2', BIGINT '3']")
+                .addRoundTrip("Array(Float64)", "[1.1, 2.2, 3.3]", new ArrayType(DOUBLE), "ARRAY[DOUBLE '1.1', DOUBLE '2.2', DOUBLE '3.3']")
+                .addRoundTrip("Array(Date)", "['2024-01-01', '2024-06-15']", new ArrayType(DATE), "ARRAY[DATE '2024-01-01', DATE '2024-06-15']")
+                .addRoundTrip("Array(Nullable(Int32))", "[1, NULL, 3]", new ArrayType(INTEGER), "ARRAY[1, NULL, 3]")
+                .addRoundTrip("Array(Array(Int32))", "[[1, 2], [3, 4]]", new ArrayType(new ArrayType(INTEGER)), "ARRAY[ARRAY[1, 2], ARRAY[3, 4]]")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_array"));
+    }
+
+    @Test
+    public void testArrayWithMapStringAsVarchar()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("Array(String)", "['foo', 'bar']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'foo', VARCHAR 'bar']")
+                .addRoundTrip("Array(Nullable(String))", "['foo', NULL, 'bar']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'foo', NULL, VARCHAR 'bar']")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_array_string"));
+    }
+
+    @Test
+    public void testArrayWithStringAsVarbinary()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("Array(String)", "['hello', 'world']", new ArrayType(VARBINARY), "ARRAY[to_utf8('hello'), to_utf8('world')]")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_array_string_varbinary"));
     }
 
     @Test
