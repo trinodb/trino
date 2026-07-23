@@ -36,6 +36,13 @@ public class TestIcebergFlociAvroConnectorSmokeTest
 
     @Test
     @Override
+    public void testSortedByNestedField()
+    {
+        abort("Avro does not support file sorting");
+    }
+
+    @Test
+    @Override
     public void testFileSortingWithLargerTable()
     {
         abort("Avro does not support file sorting");
