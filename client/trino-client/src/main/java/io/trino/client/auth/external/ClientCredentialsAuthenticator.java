@@ -44,10 +44,11 @@ import static java.util.function.Predicate.not;
  * On the first request the authenticator:
  * 1. Receives a 401 from Trino with a {@code WWW-Authenticate: Bearer x_token_endpoint="...", scope="..."} challenge.
  * 2. POSTs to the token endpoint with {@code grant_type=client_credentials}.
- * 3. Caches the resulting access token, its expiry time, the token endpoint URL, and the scope.
+ * 3. Caches the resulting access token and its expiry time. The token endpoint URL and scope are
+ *    taken from each challenge and are not cached across challenges.
  * 4. Subsequent requests proactively inject the cached token (via the interceptor).
- * 5. Re-fetches transparently when the token expires (proactively via interceptor,
- *    reactively via authenticator on 401).
+ * 5. Re-fetches transparently when the token expires (reactively via the authenticator on 401,
+ *    using the token endpoint and scope from the fresh challenge).
  * <p>
  * The client secret is only ever sent to the IdP token endpoint — never to Trino.
  */
@@ -66,8 +67,6 @@ public class ClientCredentialsAuthenticator
     private final Lock lock = new ReentrantLock();
     private volatile String cachedToken;
     private volatile Instant tokenExpiry = Instant.EPOCH;
-    private volatile String tokenEndpoint;
-    private volatile String cachedScope;
 
     public ClientCredentialsAuthenticator(
             OkHttpClient httpClient,
@@ -83,11 +82,11 @@ public class ClientCredentialsAuthenticator
     public Response intercept(Chain chain)
             throws IOException
     {
-        if (tokenEndpoint == null) {
-            return chain.proceed(chain.request());
+        String token = cachedToken;
+        if (token != null && Instant.now().isBefore(tokenExpiry)) {
+            return chain.proceed(withBearerToken(chain.request(), token));
         }
-        String token = getValidToken(new ChallengeHints(Optional.empty(), Optional.empty()));
-        return chain.proceed(withBearerToken(chain.request(), token));
+        return chain.proceed(chain.request());
     }
 
     @Nullable
@@ -118,7 +117,7 @@ public class ClientCredentialsAuthenticator
 
         ChallengeHints(Optional<String> tokenEndpoint, Optional<String> scope)
         {
-            this.tokenEndpoint = tokenEndpoint;
+            this.tokenEndpoint = requireNonNull(tokenEndpoint, "tokenEndpoint is null");
             this.scope = scope;
         }
 
@@ -159,19 +158,14 @@ public class ClientCredentialsAuthenticator
             if (cachedToken != null && Instant.now().isBefore(tokenExpiry)) {
                 return cachedToken;
             }
-            if (tokenEndpoint == null) {
-                tokenEndpoint = hints.tokenEndpoint()
-                        .orElseThrow(() -> new IOException("OAuth2 token endpoint is not available; the server did not return x_token_endpoint in the WWW-Authenticate challenge"));
-            }
-            hints.scope().ifPresent(scope -> cachedScope = scope);
+            String tokenEndpoint = hints.tokenEndpoint()
+                    .orElseThrow(() -> new IOException("OAuth2 token endpoint is not available; the server did not return x_token_endpoint in the WWW-Authenticate challenge"));
 
             FormBody.Builder formBuilder = new FormBody.Builder()
                     .add("grant_type", "client_credentials")
                     .add("client_id", clientId)
                     .add("client_secret", clientSecret);
-            if (cachedScope != null) {
-                formBuilder.add("scope", cachedScope);
-            }
+            hints.scope().ifPresent(scope -> formBuilder.add("scope", scope));
 
             Request request = new Request.Builder()
                     .url(tokenEndpoint)
@@ -183,15 +177,8 @@ public class ClientCredentialsAuthenticator
                     throw new IOException("OAuth2 Client Credentials authentication failed, HTTP " + response.code());
                 }
                 TokenResponse tokenResponse = OBJECT_MAPPER.readValue(response.body().string(), TokenResponse.class);
-                if (tokenResponse.accessToken() == null) {
-                    throw new IOException("Token response missing 'access_token' field");
-                }
                 cachedToken = tokenResponse.accessToken();
                 tokenExpiry = Instant.now().plusSeconds(Math.max(0, tokenResponse.expiresIn() - EXPIRY_BUFFER_SECONDS));
-            }
-            catch (IOException e) {
-                tokenEndpoint = null;
-                throw e;
             }
             return cachedToken;
         }
@@ -218,7 +205,7 @@ public class ClientCredentialsAuthenticator
                 @JsonProperty("access_token") String accessToken,
                 @JsonProperty("expires_in") Long expiresIn)
         {
-            this.accessToken = accessToken;
+            this.accessToken = requireNonNull(accessToken, "accessToken is null");
             this.expiresIn = expiresIn != null ? expiresIn : 300;
         }
 

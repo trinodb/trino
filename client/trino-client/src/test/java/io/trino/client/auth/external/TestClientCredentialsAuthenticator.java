@@ -120,8 +120,11 @@ public class TestClientCredentialsAuthenticator
         OkHttpClient client = buildTrinoClient();
         client.newCall(trinoRequest()).execute().close();
 
-        // Second call: interceptor injects cached token, but Trino rejects it
-        trinoServer.enqueue(new MockResponse.Builder().code(HTTP_UNAUTHORIZED).build());
+        // Second call: interceptor injects cached token, but Trino rejects it and re-challenges
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", fullChallenge())
+                .build());
         enqueueToken("refreshed-token", 3600);
         trinoServer.enqueue(ok());
 
@@ -133,22 +136,26 @@ public class TestClientCredentialsAuthenticator
     }
 
     @Test
-    public void testExpiredTokenIsRefreshedProactively()
+    public void testExpiredTokenIsRefreshedReactively()
             throws Exception
     {
+        // First call: 401 exchange yields a token that is already expired (expires_in=0).
         trinoServer.enqueue(new MockResponse.Builder()
                 .code(HTTP_UNAUTHORIZED)
                 .addHeader("WWW-Authenticate", fullChallenge())
                 .build());
         enqueueToken("expired-token", 0);
-        // The network interceptor also fires on the authenticated retry; with expiresIn=0 the
-        // token is already stale by then, so it fetches again before the retry reaches Trino.
-        enqueueToken("interim-token", 0);
         trinoServer.enqueue(ok());
 
         OkHttpClient client = buildTrinoClient();
         client.newCall(trinoRequest()).execute().close();
 
+        // Second call: the cached token is expired, so the interceptor does not inject it. Trino
+        // challenges again and the authenticator fetches a fresh token reactively on the 401.
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", fullChallenge())
+                .build());
         enqueueToken("fresh-token", 3600);
         trinoServer.enqueue(ok());
 
@@ -156,12 +163,13 @@ public class TestClientCredentialsAuthenticator
         response.close();
 
         assertThat(response.code()).isEqualTo(HTTP_OK);
-        assertThat(idpServer.getRequestCount()).isEqualTo(3);
+        assertThat(idpServer.getRequestCount()).isEqualTo(2);
 
-        trinoServer.takeRequest();
-        trinoServer.takeRequest();
-        RecordedRequest secondCallRequest = trinoServer.takeRequest();
-        assertThat(secondCallRequest.getHeaders().get(AUTHORIZATION)).isEqualTo("Bearer fresh-token");
+        trinoServer.takeRequest(); // first call: initial 401 challenge
+        trinoServer.takeRequest(); // first call: retry with expired-token
+        trinoServer.takeRequest(); // second call: challenge (no token injected)
+        RecordedRequest refreshedRequest = trinoServer.takeRequest();
+        assertThat(refreshedRequest.getHeaders().get(AUTHORIZATION)).isEqualTo("Bearer fresh-token");
     }
 
     @Test
@@ -198,7 +206,7 @@ public class TestClientCredentialsAuthenticator
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Failed to obtain OAuth2 client credentials token")
                 .cause()
-                .hasMessageContaining("Token response missing 'access_token'");
+                .hasMessageContaining("accessToken is null");
     }
 
     @Test
