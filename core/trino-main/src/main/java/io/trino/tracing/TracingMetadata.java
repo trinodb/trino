@@ -217,6 +217,16 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(Session session, TableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
+    {
+        Span span = startSpan("getTableHandleForMaterializedViewExecute", tableHandle)
+                .setAttribute(TrinoAttributes.PROCEDURE, procedureName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandleForMaterializedViewExecute(session, tableHandle, procedureName, executeProperties);
+        }
+    }
+
+    @Override
     public Set<ColumnHandle> getColumnHandlesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
         Span span = startSpan("getColumnHandlesForTableExecute", tableExecuteHandle);
