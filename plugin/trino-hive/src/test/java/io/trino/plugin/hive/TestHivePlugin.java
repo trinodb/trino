@@ -195,7 +195,7 @@ public class TestHivePlugin
             throws Exception
     {
         ConnectorFactory connectorFactory = getHiveConnectorFactory();
-        File tempFile = File.createTempFile("test-hive-plugin-access-control", ".json");
+        File tempFile = Files.createTempFile("test-hive-plugin-access-control", ".json").toFile();
         tempFile.deleteOnExit();
         Files.write(tempFile.toPath(), "{}".getBytes(UTF_8));
 
