@@ -30,7 +30,9 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
@@ -40,18 +42,25 @@ public class TestingDeltaLakePlugin
     private final LocalFileSystemFactory localFileSystemFactory;
     private final TestingLocalTransactionLogSynchronizer localTransactionLogSynchronizer;
     private final Supplier<Optional<Module>> metastoreModule;
+    private final Module additionalModule;
 
     public TestingDeltaLakePlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional::empty);
+        this(localFileSystemRootPath, Optional::empty, EMPTY_MODULE);
     }
 
     public TestingDeltaLakePlugin(Path localFileSystemRootPath, Supplier<Optional<Module>> metastoreModule)
+    {
+        this(localFileSystemRootPath, metastoreModule, EMPTY_MODULE);
+    }
+
+    public TestingDeltaLakePlugin(Path localFileSystemRootPath, Supplier<Optional<Module>> metastoreModule, Module additionalModule)
     {
         localFileSystemRootPath.toFile().mkdirs();
         localFileSystemFactory = new LocalFileSystemFactory(localFileSystemRootPath);
         localTransactionLogSynchronizer = new TestingLocalTransactionLogSynchronizer(new DefaultDeltaLakeFileSystemFactory(localFileSystemFactory, new NoOpTableCredentialsProvider()));
         this.metastoreModule = requireNonNull(metastoreModule, "metastoreModule is null");
+        this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
     }
 
     @Override
@@ -73,16 +82,18 @@ public class TestingDeltaLakePlugin
                         config,
                         context,
                         metastoreModule.get(),
-                        binder -> {
-                            binder.install(new TestingDeltaLakeExtensionsModule());
-                            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                                    .addBinding("local").toInstance(localFileSystemFactory);
-                            newMapBinder(binder, String.class, TransactionLogSynchronizer.class)
-                                    .addBinding("local").toInstance(localTransactionLogSynchronizer);
-                            configBinder(binder).bindConfigDefaults(
-                                    FileHiveMetastoreConfig.class,
-                                    metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
-                        });
+                        combine(
+                                binder -> {
+                                    binder.install(new TestingDeltaLakeExtensionsModule());
+                                    newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                                            .addBinding("local").toInstance(localFileSystemFactory);
+                                    newMapBinder(binder, String.class, TransactionLogSynchronizer.class)
+                                            .addBinding("local").toInstance(localTransactionLogSynchronizer);
+                                    configBinder(binder).bindConfigDefaults(
+                                            FileHiveMetastoreConfig.class,
+                                            metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
+                                },
+                                additionalModule));
             }
         });
     }

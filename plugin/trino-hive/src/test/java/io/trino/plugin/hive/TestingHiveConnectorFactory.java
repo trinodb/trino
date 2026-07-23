@@ -31,7 +31,9 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.trino.plugin.hive.HiveConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
@@ -42,10 +44,11 @@ public class TestingHiveConnectorFactory
     private final boolean metastoreImpersonationEnabled;
     private final Path localFileSystemRootPath;
     private final Optional<DecryptionKeyRetriever> decryptionKeyRetriever;
+    private final Module additionalModule;
 
     public TestingHiveConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), false, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), false, Optional.empty(), EMPTY_MODULE);
     }
 
     @Deprecated
@@ -55,12 +58,23 @@ public class TestingHiveConnectorFactory
             boolean metastoreImpersonationEnabled,
             Optional<DecryptionKeyRetriever> decryptionKeyRetriever)
     {
+        this(localFileSystemRootPath, metastore, metastoreImpersonationEnabled, decryptionKeyRetriever, EMPTY_MODULE);
+    }
+
+    public TestingHiveConnectorFactory(
+            Path localFileSystemRootPath,
+            Optional<HiveMetastore> metastore,
+            boolean metastoreImpersonationEnabled,
+            Optional<DecryptionKeyRetriever> decryptionKeyRetriever,
+            Module additionalModule)
+    {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
         var rootPath = localFileSystemRootPath.toFile();
         var _ = rootPath.mkdirs();
         this.localFileSystemRootPath = localFileSystemRootPath;
         this.decryptionKeyRetriever = requireNonNull(decryptionKeyRetriever, "decryptionKeyRetriever is null");
+        this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
     }
 
     @Override
@@ -78,19 +92,21 @@ public class TestingHiveConnectorFactory
         if (metastore.isEmpty() && !config.containsKey("hive.metastore")) {
             configBuilder.put("hive.metastore", "file");
         }
-        Supplier<Module> module = () -> binder -> {
-            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
-            configBinder(binder).bindConfigDefaults(
-                    FileHiveMetastoreConfig.class,
-                    metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
+        Supplier<Module> module = () -> combine(
+                binder -> {
+                    newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                            .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+                    configBinder(binder).bindConfigDefaults(
+                            FileHiveMetastoreConfig.class,
+                            metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
 
-            decryptionKeyRetriever.ifPresent(retriever -> {
-                Multibinder<DecryptionKeyRetriever> retrieverBinder =
-                        Multibinder.newSetBinder(binder, DecryptionKeyRetriever.class);
-                retrieverBinder.addBinding().toInstance(retriever);
-            });
-        };
+                    decryptionKeyRetriever.ifPresent(retriever -> {
+                        Multibinder<DecryptionKeyRetriever> retrieverBinder =
+                                Multibinder.newSetBinder(binder, DecryptionKeyRetriever.class);
+                        retrieverBinder.addBinding().toInstance(retriever);
+                    });
+                },
+                additionalModule);
         return createConnector(catalogName, configBuilder.buildOrThrow(), context, module, metastore, metastoreImpersonationEnabled, Optional.empty());
     }
 }

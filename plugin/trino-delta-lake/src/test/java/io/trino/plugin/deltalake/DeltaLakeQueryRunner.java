@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.inject.Module;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -75,6 +77,7 @@ public final class DeltaLakeQueryRunner
         private ImmutableMap.Builder<String, String> deltaProperties = ImmutableMap.builder();
         private Optional<String> schemaLocation = Optional.empty();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
+        private Module additionalModule = EMPTY_MODULE;
 
         protected Builder(String schemaName)
         {
@@ -145,6 +148,13 @@ public final class DeltaLakeQueryRunner
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder setAdditionalModule(Module additionalModule)
+        {
+            this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
+            return this;
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -154,7 +164,10 @@ public final class DeltaLakeQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                queryRunner.installPlugin(new TestingDeltaLakePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data")));
+                queryRunner.installPlugin(new TestingDeltaLakePlugin(
+                        queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data"),
+                        Optional::empty,
+                        additionalModule));
 
                 Map<String, String> deltaProperties = new HashMap<>(this.deltaProperties.buildOrThrow());
                 if (!deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {

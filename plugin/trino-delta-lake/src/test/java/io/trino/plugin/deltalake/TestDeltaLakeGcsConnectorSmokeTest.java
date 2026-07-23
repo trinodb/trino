@@ -13,22 +13,36 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.cloud.NoCredentials;
+import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
+import com.google.cloud.storage.BucketInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.gcs.GcsAuth;
+import io.trino.filesystem.gcs.GcsFileSystemConfig;
+import io.trino.filesystem.gcs.GcsFileSystemFactory;
+import io.trino.filesystem.gcs.GcsStorageFactory;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.containers.FlociGcp;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.testcontainers.containers.Network;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -37,15 +51,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import static io.trino.testing.containers.FlociGcp.FLOCI_GCP_PROJECT_ID;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.regex.Matcher.quoteReplacement;
@@ -53,12 +69,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testcontainers.containers.Network.newNetwork;
 
-/**
- * This test requires these variables to connect to GCS:
- * - gcp-storage-bucket: The name of the bucket to store tables in. The bucket must already exist.
- * - gcp-credentials-key: A base64 encoded copy of the JSON authentication file for the service account used to connect to GCP.
- *   For example, `cat service-account-key.json | base64`
- */
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
 public class TestDeltaLakeGcsConnectorSmokeTest
@@ -66,33 +76,27 @@ public class TestDeltaLakeGcsConnectorSmokeTest
 {
     private static final Logger LOG = Logger.get(TestDeltaLakeGcsConnectorSmokeTest.class);
     private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
+    private static final String HADOOP_GCS_CONNECTOR = "/usr/hdp/3.1.0.0-78/hadoop-mapreduce/gcs-connector-1.9.10.3.1.0.0-78-shaded.jar";
+    private static final String TEZ_GCS_CONNECTOR = "/usr/hdp/3.1.0.0-78/tez/lib/gcs-connector-1.9.10.3.1.0.0-78-shaded.jar";
 
-    private final String gcpStorageBucket;
-    private final String gcpCredentialKey;
-
-    private Path gcpCredentialsFile;
-    private String gcpCredentials;
+    private FlociGcp flociGcp;
+    private Network network;
     private TrinoFileSystem fileSystem;
-
-    public TestDeltaLakeGcsConnectorSmokeTest()
-    {
-        this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
-        this.gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
-    }
 
     @Override
     protected void environmentSetup()
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        gcpCredentials = new String(jsonKeyBytes, UTF_8);
-        try {
-            this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
-            gcpCredentialsFile.toFile().deleteOnExit();
-            Files.write(gcpCredentialsFile, jsonKeyBytes);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        network = closeAfterClass(newNetwork());
+        flociGcp = closeAfterClass(new FlociGcp().withNetwork(network));
+        flociGcp.start();
+
+        GcsFileSystemConfig config = new GcsFileSystemConfig()
+                .setEndpoint(Optional.of(flociGcp.getEndpoint().toString()))
+                .setProjectId(FLOCI_GCP_PROJECT_ID);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(
+                config,
+                (builder, _) -> builder.setCredentials(NoCredentials.getInstance()));
+        storageFactory.create(ConnectorIdentity.ofUser("test")).create(BucketInfo.of(bucketName));
     }
 
     @AfterAll
@@ -114,41 +118,78 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     protected HiveHadoop createHiveHadoop()
             throws Exception
     {
-        String gcpSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.gcs-template"), UTF_8)
-                .replace("%GCP_CREDENTIALS_FILE_PATH%", "/etc/hadoop/conf/gcp-credentials.json");
+        Path containerCoreSite = createCoreSite(flociGcp.getContainerEndpoint().toString());
 
-        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
-        hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-        Files.writeString(hadoopCoreSiteXmlTempFile, gcpSpecificCoreSiteXmlContent);
-
+        String gcsConnector = Path.of(GoogleHadoopFileSystem.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .toAbsolutePath()
+                .toString();
         HiveHadoop hiveHadoop = HiveHadoop.builder()
                 .withImage(HIVE3_IMAGE)
-                .withNetwork(closeAfterClass(newNetwork()))
+                .withNetwork(network)
                 .withFilesToMount(ImmutableMap.of(
-                        "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(),
-                        "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
+                        "/etc/hadoop/conf/core-site.xml", containerCoreSite.normalize().toAbsolutePath().toString(),
+                        HADOOP_GCS_CONNECTOR, gcsConnector,
+                        TEZ_GCS_CONNECTOR, gcsConnector))
                 .build();
         hiveHadoop.start();
         return hiveHadoop; // closed by superclass
     }
 
+    private static Path createCoreSite(String endpoint)
+            throws IOException
+    {
+        String content = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.gcs-template"), UTF_8)
+                .replace("%GCS_ENDPOINT%", endpoint + "/")
+                .replace("%GCP_PROJECT_ID%", FLOCI_GCP_PROJECT_ID);
+        Path coreSite = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
+        coreSite.toFile().deleteOnExit();
+        Files.writeString(coreSite, content);
+        return coreSite;
+    }
+
     @Override
     protected Map<String, String> hiveStorageConfiguration()
     {
-        return ImmutableMap.<String, String>builder()
-                .put("fs.gcs.enabled", "true")
-                .put("gcs.json-key", gcpCredentials)
-                .buildOrThrow();
+        return ImmutableMap.of(
+                "gcs.endpoint", flociGcp.getEndpoint().toString(),
+                "gcs.project-id", FLOCI_GCP_PROJECT_ID);
     }
 
     @Override
     protected Map<String, String> deltaStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
-                .putAll(hiveStorageConfiguration())
+                .put("gcs.endpoint", flociGcp.getEndpoint().toString())
+                .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                 // TODO why not unique table locations? (This is here since 52bf6680c1b25516f6e8e64f82ada089abc0c9d3.)
                 .put("delta.unique-table-location", "false")
                 .buildOrThrow();
+    }
+
+    @Override
+    protected Module additionalDeltaLakeModule()
+    {
+        return gcsModule();
+    }
+
+    @Override
+    protected Module additionalHiveModule()
+    {
+        return gcsModule();
+    }
+
+    private static Module gcsModule()
+    {
+        return binder -> {
+            configBinder(binder).bindConfig(GcsFileSystemConfig.class);
+            binder.bind(GcsAuth.class)
+                    .toInstance((builder, _) -> builder.setCredentials(NoCredentials.getInstance()));
+            binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
+            binder.bind(GcsFileSystemFactory.class).in(Scopes.SINGLETON);
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("gs")
+                    .to(GcsFileSystemFactory.class);
+        };
     }
 
     @Override
@@ -198,6 +239,31 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                 .collect(toImmutableList());
     }
 
+    @Test
+    @Override
+    @Disabled("Floci GCP does not preserve URI-encoded object names")
+    public void testPathUriDecoding() {}
+
+    @Test
+    @Override
+    @Disabled("Floci GCP does not preserve URI-encoded object names")
+    public void testPathUriEncoding() {}
+
+    @Test
+    @Override
+    @Disabled("Floci GCP does not preserve URI-encoded object names")
+    public void testVacuumWithWhiteSpace() {}
+
+    @RepeatedTest(3)
+    @Override
+    @Disabled("Floci GCP does not atomically enforce object preconditions")
+    public void testConcurrentInsertsReconciliationForBlindInserts() {}
+
+    @RepeatedTest(3)
+    @Override
+    @Disabled("Floci GCP does not atomically enforce object preconditions")
+    public void testConcurrentDeletePushdownReconciliation() {}
+
     private List<String> listAllFilesRecursive(String directory)
     {
         ImmutableList.Builder<String> locations = ImmutableList.builder();
@@ -230,6 +296,6 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     @Override
     protected String bucketUrl()
     {
-        return format("gs://%s/%s/", gcpStorageBucket, bucketName);
+        return format("gs://%s/%s/", bucketName, bucketName);
     }
 }

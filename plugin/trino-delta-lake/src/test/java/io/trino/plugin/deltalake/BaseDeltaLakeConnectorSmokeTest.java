@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
+import com.google.inject.Module;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -66,6 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
@@ -161,6 +163,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     protected abstract void deleteFile(String filePath);
 
+    protected Module additionalDeltaLakeModule()
+    {
+        return EMPTY_MODULE;
+    }
+
+    protected Module additionalHiveModule()
+    {
+        return EMPTY_MODULE;
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -203,7 +215,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 registerTableFromResources(table.tableName(), table.resourcePath(), queryRunner);
             });
 
-            queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
+            queryRunner.installPlugin(new TestingHivePlugin(
+                    queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"),
+                    additionalHiveModule()));
 
             queryRunner.createCatalog(
                     "hive",
@@ -235,6 +249,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow())
                 .addDeltaProperty("fs.hadoop.enabled", "true")
+                .setAdditionalModule(additionalDeltaLakeModule())
                 .setSchemaLocation(getLocationForTable(bucketName, SCHEMA))
                 .build();
     }
