@@ -92,32 +92,31 @@ public class Server
         Logger log = Logger.get(Server.class);
         displayBanner(log, trinoVersion);
 
-        ImmutableList.Builder<Module> modules = ImmutableList.builder();
-        modules.add(
-                new NodeModule(),
-                new HttpServerModule(),
-                new JsonModule(),
-                new JaxrsModule(),
-                new MBeanModule(),
-                new PrefixObjectNameGeneratorModule("io.trino"),
-                new JmxModule(),
-                new JmxOpenMetricsModule(),
-                new LogJmxModule(),
-                new TracingModule("trino", trinoVersion),
-                new ServerSecurityModule(),
-                new AccessControlModule(),
-                new EventListenerModule(),
-                new ExchangeManagerModule(),
-                new CatalogManagerModule(),
-                new TransactionManagerModule(),
-                new NodeManagerModule(trinoVersion),
-                new ServerMainModule(trinoVersion),
-                new NodeStateManagerModule(),
-                new WarningCollectorModule());
+        List<Module> modules = ImmutableList.<Module>builder()
+                .add(new AccessControlModule())
+                .add(new CatalogManagerModule())
+                .add(new EventListenerModule())
+                .add(new ExchangeManagerModule())
+                .add(new HttpServerModule())
+                .add(new JaxrsModule())
+                .add(new JmxModule())
+                .add(new JmxOpenMetricsModule())
+                .add(new JsonModule())
+                .add(new LogJmxModule())
+                .add(new MBeanModule())
+                .add(new NodeManagerModule(trinoVersion))
+                .add(new NodeModule())
+                .add(new NodeStateManagerModule())
+                .add(new PrefixObjectNameGeneratorModule("io.trino"))
+                .add(new ServerMainModule(trinoVersion))
+                .add(new ServerSecurityModule())
+                .add(new TracingModule("trino", trinoVersion))
+                .add(new TransactionManagerModule())
+                .add(new WarningCollectorModule())
+                .addAll(getAdditionalModules())
+                .build();
 
-        modules.addAll(getAdditionalModules());
-
-        Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules.build())
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules)
                 .loadSecretsPlugins();
 
         try {
