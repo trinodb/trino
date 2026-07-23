@@ -28,7 +28,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 
@@ -87,7 +86,7 @@ public class PositionDeleteWriter
                 fileFormat,
                 writer.getWrittenBytes(),
                 new MetricsWrapper(writer.getFileMetrics().metrics()),
-                PartitionSpecParser.toJson(partitionSpec),
+                partitionSpec.specId(),
                 partition.map(PartitionData::toJson),
                 FileContent.POSITION_DELETES,
                 Optional.of(dataFilePath),
