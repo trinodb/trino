@@ -69,7 +69,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.computeLevel;
@@ -126,7 +125,7 @@ public class TimeSharingTaskExecutor
     /**
      * Splits running on a thread.
      */
-    private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
+    private final Set<PrioritizedSplitRunner> runningSplits = ConcurrentHashMap.newKeySet();
 
     /**
      * Splits blocked by the driver.

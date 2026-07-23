@@ -63,6 +63,7 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -80,7 +81,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
@@ -115,7 +115,7 @@ public class BinPackingNodeAllocatorService
     private final Ticker ticker;
 
     private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(comparing(QueryId::id));
-    private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
+    private final Set<BinPackingNodeLease> fulfilledAcquires = ConcurrentHashMap.newKeySet();
     private final Duration allowedNoMatchingNodePeriod;
     private final Duration exhaustedNodeWaitPeriod;
     private final boolean optimizedLocalScheduling;
