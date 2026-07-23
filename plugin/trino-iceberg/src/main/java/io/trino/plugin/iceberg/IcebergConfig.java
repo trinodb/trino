@@ -76,6 +76,7 @@ public class IcebergConfig
     private boolean tableStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
+    private boolean aggregationPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
     private boolean addFilesProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
@@ -289,6 +290,19 @@ public class IcebergConfig
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("iceberg.aggregation-pushdown-enabled")
+    @ConfigDescription("Answer MIN/MAX/COUNT aggregation queries from data file statistics instead of scanning data files")
+    public IcebergConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
         return this;
     }
 

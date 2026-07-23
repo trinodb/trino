@@ -159,6 +159,13 @@ implementation is used:
 * - `iceberg.projection-pushdown-enabled`
   - Enable [projection pushdown](/optimizer/pushdown)
   - `true`
+* - `iceberg.aggregation-pushdown-enabled`
+  - Answer `MIN`, `MAX`, and `COUNT` aggregation queries from data file
+    statistics in table metadata instead of scanning data files. The
+    optimization only applies when the statistics are sufficient to produce
+    exact results. The equivalent catalog session property is
+    `aggregation_pushdown_enabled`.
+  - `true`
 * - `iceberg.hive-catalog-name`
   - Catalog to redirect to when a Hive table is referenced.
   -
