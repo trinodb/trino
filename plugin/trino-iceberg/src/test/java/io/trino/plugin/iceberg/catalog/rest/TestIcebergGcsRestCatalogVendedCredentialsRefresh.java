@@ -13,96 +13,34 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.gcs.GcsFileSystemConfig;
-import io.trino.filesystem.gcs.GcsFileSystemFactory;
-import io.trino.filesystem.gcs.GcsServiceAccountAuth;
-import io.trino.filesystem.gcs.GcsServiceAccountAuthConfig;
-import io.trino.filesystem.gcs.GcsStorageFactory;
+import io.trino.testing.containers.FlociGcp;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.gcp.GCPProperties;
 import org.apache.iceberg.gcp.gcs.GCSFileIO;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.Base64;
 import java.util.Map;
 
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.trino.testing.containers.FlociGcp.FLOCI_GCP_PROJECT_ID;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 
 final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
         extends AbstractTestIcebergRestCatalogVendedCredentialsRefresh
 {
-    private static final Logger LOG = Logger.get(TestIcebergGcsRestCatalogVendedCredentialsRefresh.class);
+    private final String gcpStorageBucket = "test-iceberg-gcs-vended-credentials-refresh-" + randomNameSuffix();
 
-    private final String gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
-    private final String gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
-
-    private String oauthToken;
-    private long tokenExpiresAtMs;
-    private String gcpProjectId;
-    private TrinoFileSystem fileSystem;
-
-    @BeforeAll
-    public void initFileSystem()
-    {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        GcsFileSystemConfig config = new GcsFileSystemConfig();
-        GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
-        GcsStorageFactory storageFactory;
-        try {
-            storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        fileSystem = new GcsFileSystemFactory(config, storageFactory).create(SESSION);
-    }
-
-    @AfterAll
-    public void removeTestData()
-    {
-        if (fileSystem == null) {
-            return;
-        }
-        try {
-            fileSystem.deleteDirectory(Location.of(warehouseLocation));
-        }
-        catch (IOException e) {
-            // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
-            LOG.warn(e, "Failed to clean up GCS test directory: %s", warehouseLocation);
-        }
-    }
+    private final String oauthToken = "test-oauth-token";
+    private final long tokenExpiresAtMs = sessionTokenExpirationTime.get().toEpochMilli();
+    private FlociGcp flociGcp;
 
     @Override
     protected String setupStorageAndGetWarehouseLocation()
             throws Exception
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        String gcpCredentials = new String(jsonKeyBytes, UTF_8);
-
-        GoogleCredentials credentials = GoogleCredentials.fromStream(new ByteArrayInputStream(jsonKeyBytes))
-                .createScoped("https://www.googleapis.com/auth/cloud-platform");
-        AccessToken accessToken = credentials.refreshAccessToken();
-        oauthToken = accessToken.getTokenValue();
-        tokenExpiresAtMs = accessToken.getExpirationTime().getTime();
-
-        JsonMapper mapper = new JsonMapper();
-        JsonNode jsonKey = mapper.readTree(gcpCredentials);
-        gcpProjectId = jsonKey.get("project_id").asText();
+        flociGcp = closeAfterClass(new FlociGcp());
+        flociGcp.start();
+        flociGcp.createBucket(gcpStorageBucket);
 
         return "gs://%s/gcs-vending-rest-refresh-test-%s/".formatted(gcpStorageBucket, randomNameSuffix());
     }
@@ -112,7 +50,8 @@ final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
     {
         return ImmutableMap.<String, String>builder()
                 .put(FILE_IO_IMPL, GCSFileIO.class.getName())
-                .put(GCPProperties.GCS_PROJECT_ID, gcpProjectId)
+                .put(GCPProperties.GCS_PROJECT_ID, FLOCI_GCP_PROJECT_ID)
+                .put(GCPProperties.GCS_SERVICE_HOST, flociGcp.getEndpoint().toString())
                 .put(GCPProperties.GCS_OAUTH2_TOKEN, oauthToken)
                 .put(GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, Long.toString(tokenExpiresAtMs))
                 .buildOrThrow();
@@ -161,6 +100,8 @@ final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
         return ImmutableMap.<String, String>builder()
                 .put("fs.gcs.enabled", "true")
                 .put("gcs.auth-type", "APPLICATION_DEFAULT")
+                .put("gcs.endpoint", flociGcp.getEndpoint().toString())
+                .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                 .buildOrThrow();
     }
 }
