@@ -33,7 +33,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 
@@ -173,7 +172,7 @@ public class IcebergMergeSink
                         fileFormat,
                         0, // size of the v2 delete file
                         new MetricsWrapper(new Metrics(deletionVector.cardinality())),
-                        PartitionSpecParser.toJson(partitionSpec),
+                        partitionSpec.specId(),
                         partitionData.map(PartitionData::toJson),
                         FileContent.POSITION_DELETES,
                         Optional.of(dataFilePath.toStringUtf8()),

@@ -261,6 +261,19 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testPositionDeletesAfterPartitionSpecEvolution()
+    {
+        try (TestTable table = newTrinoTable("test_position_deletes_after_partition_evolution_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['bucket(name, 4)']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (25, 'ATLANTIS', 0, 'mythical')", 1);
+            // Deletes rows from data files written under both the previous and the current partition spec
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE 'A%'", 3);
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 23");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 3");
+        }
+    }
+
+    @Test
     public void testV2TableWithPositionDelete()
             throws Exception
     {

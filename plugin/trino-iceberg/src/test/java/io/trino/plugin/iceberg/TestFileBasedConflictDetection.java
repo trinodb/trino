@@ -20,7 +20,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
@@ -198,10 +197,11 @@ class TestFileBasedConflictDetection
         PartitionSpec previousPartitionSpec = PartitionSpec.builderFor(TABLE_SCHEMA)
                 .identity(COLUMN_1_NAME)
                 .build();
-        PartitionSpec currentPartitionSpec = PartitionSpec.builderFor(TABLE_SCHEMA)
-                .identity(COLUMN_2_NAME)
-                .build();
-        Table icebergTable = createIcebergTable(currentPartitionSpec);
+        Table icebergTable = createIcebergTable(previousPartitionSpec);
+        icebergTable.updateSpec()
+                .removeField(COLUMN_1_NAME)
+                .addField(COLUMN_2_NAME)
+                .commit();
 
         String partitionDataJson =
                 """
@@ -212,7 +212,7 @@ class TestFileBasedConflictDetection
                 IcebergFileFormat.PARQUET,
                 0,
                 new MetricsWrapper(new Metrics()),
-                PartitionSpecParser.toJson(currentPartitionSpec),
+                icebergTable.spec().specId(),
                 Optional.of(partitionDataJson),
                 DATA,
                 Optional.empty(),
@@ -225,7 +225,7 @@ class TestFileBasedConflictDetection
                 IcebergFileFormat.PARQUET,
                 0,
                 new MetricsWrapper(new Metrics()),
-                PartitionSpecParser.toJson(previousPartitionSpec),
+                previousPartitionSpec.specId(),
                 Optional.of(partitionDataJson),
                 POSITION_DELETES,
                 Optional.empty(),
@@ -246,7 +246,7 @@ class TestFileBasedConflictDetection
                 IcebergFileFormat.PARQUET,
                 0,
                 new MetricsWrapper(new Metrics()),
-                PartitionSpecParser.toJson(partitionSpec),
+                partitionSpec.specId(),
                 partitionDataJson,
                 DATA,
                 Optional.empty(),
@@ -258,7 +258,7 @@ class TestFileBasedConflictDetection
                 IcebergFileFormat.PARQUET,
                 0,
                 new MetricsWrapper(new Metrics()),
-                PartitionSpecParser.toJson(partitionSpec),
+                partitionSpec.specId(),
                 partitionDataJson,
                 POSITION_DELETES,
                 Optional.empty(),
@@ -273,7 +273,7 @@ class TestFileBasedConflictDetection
     {
         IcebergMetadata.CommitTaskDomainCollector domainCollector = new IcebergMetadata.CommitTaskDomainCollector(icebergTable, TESTING_TYPE_MANAGER);
         for (CommitTaskData task : commitTasks) {
-            domainCollector.add(task, PartitionSpecParser.fromJson(TABLE_SCHEMA, task.partitionSpecJson()));
+            domainCollector.add(task, icebergTable.specs().get(task.partitionSpecId()));
         }
         return domainCollector.domains();
     }
@@ -284,7 +284,7 @@ class TestFileBasedConflictDetection
                 TABLE_SCHEMA,
                 partitionSpec,
                 SortOrder.unsorted(),
-                ImmutableMap.of("write.format.default", "ORC"),
+                ImmutableMap.of("write.format.default", "ORC", "format-version", "2"),
                 "table_location" + randomNameSuffix());
     }
 
