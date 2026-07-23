@@ -308,8 +308,8 @@ public final class PartitionedLookupSourceFactory
             if (!spillingInfo.hasSpilled()) {
                 finishedProbeOperators++;
                 if (lookupJoinsCount.isPresent()) {
-                    checkState(finishedProbeOperators <= lookupJoinsCount.getAsInt(), "%s probe operators finished out of %s declared", finishedProbeOperators, lookupJoinsCount.getAsInt());
-                    if (finishedProbeOperators == lookupJoinsCount.getAsInt()) {
+                    checkState(finishedProbeOperators <= lookupJoinsCount.orElseThrow(), "%s probe operators finished out of %s declared", finishedProbeOperators, lookupJoinsCount.orElseThrow());
+                    if (finishedProbeOperators == lookupJoinsCount.orElseThrow()) {
                         // We can dispose partitions now since right outer is not supported with spill and lookupJoinsCount should be absent
                         freePartitions();
                     }
@@ -342,7 +342,7 @@ public final class PartitionedLookupSourceFactory
                 freePartitions();
                 verify(!partitionedConsumption.isDone());
                 partitionedConsumption.set(new PartitionedConsumption<>(
-                        partitionedConsumptionParticipants.getAsInt(),
+                        partitionedConsumptionParticipants.orElseThrow(),
                         spilledPartitions.keySet(),
                         this::loadSpilledLookupSource,
                         this::disposeSpilledLookupSource,

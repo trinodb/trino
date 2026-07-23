@@ -59,6 +59,6 @@ public class ColumnChunk
         if (maxBlockSize.isEmpty()) {
             maxBlockSize = OptionalLong.of(block.getSizeInBytes());
         }
-        return maxBlockSize.getAsLong();
+        return maxBlockSize.orElseThrow();
     }
 }

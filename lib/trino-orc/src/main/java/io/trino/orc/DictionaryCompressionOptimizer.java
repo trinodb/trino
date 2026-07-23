@@ -147,8 +147,8 @@ public class DictionaryCompressionOptimizer
 
             OptionalInt directBytes = tryConvertToDirect(projection.getColumnToConvert(), getMaxDirectBytes(bufferedBytes));
             if (directBytes.isPresent()) {
-                bufferedBytes = bufferedBytes + directBytes.getAsInt() - selectDictionaryColumnBufferedBytes;
-                nonDictionaryBufferedBytes += directBytes.getAsInt();
+                bufferedBytes = bufferedBytes + directBytes.orElseThrow() - selectDictionaryColumnBufferedBytes;
+                nonDictionaryBufferedBytes += directBytes.orElseThrow();
             }
         }
 
@@ -171,8 +171,8 @@ public class DictionaryCompressionOptimizer
                 int selectDictionaryColumnBufferedBytes = toIntExact(projection.getColumnToConvert().getBufferedBytes());
                 OptionalInt directBytes = tryConvertToDirect(projection.getColumnToConvert(), getMaxDirectBytes(bufferedBytes));
                 if (directBytes.isPresent()) {
-                    bufferedBytes = bufferedBytes + directBytes.getAsInt() - selectDictionaryColumnBufferedBytes;
-                    nonDictionaryBufferedBytes += directBytes.getAsInt();
+                    bufferedBytes = bufferedBytes + directBytes.orElseThrow() - selectDictionaryColumnBufferedBytes;
+                    nonDictionaryBufferedBytes += directBytes.orElseThrow();
                 }
             }
         }
@@ -186,7 +186,7 @@ public class DictionaryCompressionOptimizer
                 int columnBufferedBytes = toIntExact(dictionaryWriter.getBufferedBytes());
                 OptionalInt directBytes = tryConvertToDirect(dictionaryWriter, getMaxDirectBytes(bufferedBytes));
                 if (directBytes.isPresent()) {
-                    bufferedBytes = bufferedBytes + directBytes.getAsInt() - columnBufferedBytes;
+                    bufferedBytes = bufferedBytes + directBytes.orElseThrow() - columnBufferedBytes;
                     if (bufferedBytes >= stripeMaxBytes) {
                         return bufferedBytes;
                     }

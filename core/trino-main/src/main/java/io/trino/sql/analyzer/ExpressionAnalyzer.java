@@ -1976,14 +1976,14 @@ public class ExpressionAnalyzer
                     for (int i = firstNamedArgument; i < arity; i++) {
                         Identifier name = arguments.get(i).getName().orElseThrow();
                         OptionalInt declaredPosition = findArgumentPosition(callerVisibleArguments(candidate, receiverSlots), name.getValue());
-                        if (declaredPosition.isPresent() && declaredPosition.getAsInt() < firstNamedArgument) {
+                        if (declaredPosition.isPresent() && declaredPosition.orElseThrow() < firstNamedArgument) {
                             throw semanticException(
                                     INVALID_FUNCTION_ARGUMENT,
                                     name,
                                     "Named argument %s for %s refers to parameter position %s, which is already supplied positionally",
                                     name.getValue(),
                                     subject,
-                                    declaredPosition.getAsInt());
+                                    declaredPosition.orElseThrow());
                         }
                     }
                 }
@@ -2079,7 +2079,7 @@ public class ExpressionAnalyzer
             for (int i = firstNamedArgument; i < actualArguments.size(); i++) {
                 String name = actualArguments.get(i).getName().orElseThrow().getValue();
                 OptionalInt declaredPosition = findArgumentPosition(formalArguments, name);
-                if (declaredPosition.isEmpty() || declaredPosition.getAsInt() < firstNamedArgument) {
+                if (declaredPosition.isEmpty() || declaredPosition.orElseThrow() < firstNamedArgument) {
                     return false;
                 }
             }

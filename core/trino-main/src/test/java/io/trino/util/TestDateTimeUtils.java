@@ -31,22 +31,22 @@ public class TestDateTimeUtils
         // valid dates
         assertThat(0)
                 .describedAs("1970-01-01")
-                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("1970-01-01")).getAsInt());
+                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("1970-01-01")).orElseThrow());
         assertThat(31)
                 .describedAs("1970-02-01")
-                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("1970-02-01")).getAsInt());
+                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("1970-02-01")).orElseThrow());
         assertThat(-31)
                 .describedAs("1969-12-01")
-                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("1969-12-01")).getAsInt());
+                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("1969-12-01")).orElseThrow());
         assertThat(19051)
                 .describedAs("2022-02-28")
-                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("2022-02-28")).getAsInt());
+                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("2022-02-28")).orElseThrow());
         assertThat(-719528)
                 .describedAs("0000-01-01")
-                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("0000-01-01")).getAsInt());
+                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("0000-01-01")).orElseThrow());
         assertThat(2932896)
                 .describedAs("9999-12-31")
-                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("9999-12-31")).getAsInt());
+                .isEqualTo(parseIfIso8601DateFormat(utf8Slice("9999-12-31")).orElseThrow());
 
         // format invalid
         // invalid length

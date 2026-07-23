@@ -165,7 +165,7 @@ public record IcebergStatistics(
                 long recordCount)
         {
             // If this column is only nulls for this file, don't update or invalidate min/max statistics
-            if (type.isOrderable() && (nullCount.isEmpty() || nullCount.getAsLong() != recordCount)) {
+            if (type.isOrderable() && (nullCount.isEmpty() || nullCount.orElseThrow() != recordCount)) {
                 // Capture the initial bounds during construction so there are always valid min/max values to compare to. This does make the first call to
                 // `ColumnStatistics#updateMinMax` a no-op.
                 columnStatistics.computeIfAbsent(id, _ -> {

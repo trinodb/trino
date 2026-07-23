@@ -89,7 +89,7 @@ public class JoinHashSupplier
         this.pageInstancesRetainedSizeInBytes = getPageInstancesRetainedSizeInBytes(channels);
 
         this.pagesHash = switch (getPagesHashType(addresses, singleBigintJoinChannel)) {
-            case BIGINT -> new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.getAsInt());
+            case BIGINT -> new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.orElseThrow());
             case DEFAULT -> new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
         };
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());

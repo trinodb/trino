@@ -186,7 +186,7 @@ public class DockerContainer
     {
         checkState(lastStartUpCommenceTimeNanos.isPresent(), "Container did not commence starting");
         checkState(lastStartFinishTimeNanos.isPresent(), "Container not started");
-        return Duration.succinctNanos(lastStartFinishTimeNanos.getAsLong() - lastStartUpCommenceTimeNanos.getAsLong()).convertToMostSuccinctTimeUnit();
+        return Duration.succinctNanos(lastStartFinishTimeNanos.orElseThrow() - lastStartUpCommenceTimeNanos.orElseThrow()).convertToMostSuccinctTimeUnit();
     }
 
     @Override

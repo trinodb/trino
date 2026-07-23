@@ -115,18 +115,18 @@ public class PushPredicateThroughProjectIntoRowNumber
         if (upperBound.isEmpty()) {
             return Result.empty();
         }
-        if (upperBound.getAsInt() <= 0) {
+        if (upperBound.orElseThrow() <= 0) {
             return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols()));
         }
         boolean updatedMaxRowCountPerPartition = false;
-        if (rowNumber.getMaxRowCountPerPartition().isEmpty() || rowNumber.getMaxRowCountPerPartition().get() > upperBound.getAsInt()) {
+        if (rowNumber.getMaxRowCountPerPartition().isEmpty() || rowNumber.getMaxRowCountPerPartition().get() > upperBound.orElseThrow()) {
             rowNumber = new RowNumberNode(
                     rowNumber.getId(),
                     rowNumber.getSource(),
                     rowNumber.getPartitionBy(),
                     rowNumber.isOrderSensitive(),
                     rowNumber.getRowNumberSymbol(),
-                    Optional.of(upperBound.getAsInt()));
+                    Optional.of(upperBound.orElseThrow()));
             project = (ProjectNode) project.replaceChildren(ImmutableList.of(rowNumber));
             updatedMaxRowCountPerPartition = true;
         }

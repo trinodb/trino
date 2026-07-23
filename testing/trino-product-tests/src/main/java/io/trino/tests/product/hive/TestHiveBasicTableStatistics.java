@@ -51,7 +51,7 @@ public class TestHiveBasicTableStatistics
         try {
             BasicStatistics statistics = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNonZero(statistics);
-            assertThat(statistics.getNumRows().getAsLong()).isEqualTo(25);
+            assertThat(statistics.getNumRows().orElseThrow()).isEqualTo(25);
         }
         finally {
             onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -124,14 +124,14 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics statisticsFirstInsert = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNonZero(statisticsFirstInsert);
-            assertThat(statisticsFirstInsert.getNumRows().getAsLong()).isEqualTo(25);
+            assertThat(statisticsFirstInsert.getNumRows().orElseThrow()).isEqualTo(25);
 
             insertNationData(onTrino(), tableName);
 
             BasicStatistics statisticsSecondInsert = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNonZero(statisticsSecondInsert);
             assertThatStatisticsValuesHaveIncreased(statisticsFirstInsert, statisticsSecondInsert);
-            assertThat(statisticsSecondInsert.getNumRows().getAsLong()).isEqualTo(50);
+            assertThat(statisticsSecondInsert.getNumRows().orElseThrow()).isEqualTo(50);
         }
         finally {
             onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -165,11 +165,11 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
-            assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
+            assertThat(firstPartitionStatistics.getNumRows().orElseThrow()).isEqualTo(5);
 
             BasicStatistics secondPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=3");
             assertThatStatisticsAreNonZero(secondPartitionStatistics);
-            assertThat(secondPartitionStatistics.getNumRows().getAsLong()).isEqualTo(4);
+            assertThat(secondPartitionStatistics.getNumRows().orElseThrow()).isEqualTo(4);
         }
         finally {
             onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -278,12 +278,12 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics partitionStatisticsFirstInsert = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=3");
             assertThatStatisticsAreNonZero(partitionStatisticsFirstInsert);
-            assertThat(partitionStatisticsFirstInsert.getNumRows().getAsLong()).isEqualTo(5);
+            assertThat(partitionStatisticsFirstInsert.getNumRows().orElseThrow()).isEqualTo(5);
 
             insertNationData(onTrino(), tableName);
 
             BasicStatistics statisticsSecondInsert = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=3");
-            assertThat(statisticsSecondInsert.getNumRows().getAsLong()).isEqualTo(10);
+            assertThat(statisticsSecondInsert.getNumRows().orElseThrow()).isEqualTo(10);
             assertThatStatisticsValuesHaveIncreased(partitionStatisticsFirstInsert, statisticsSecondInsert);
         }
         finally {
@@ -311,20 +311,20 @@ public class TestHiveBasicTableStatistics
         try {
             BasicStatistics statisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNonZero(statisticsAfterCreate);
-            assertThat(statisticsAfterCreate.getNumRows().getAsLong()).isEqualTo(25);
-            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(25); // no files for empty buckets
+            assertThat(statisticsAfterCreate.getNumRows().orElseThrow()).isEqualTo(25);
+            assertThat(statisticsAfterCreate.getNumFiles().orElseThrow()).isEqualTo(25); // no files for empty buckets
 
             insertNationData(onTrino(), tableName);
 
             BasicStatistics statisticsAfterInsert = getBasicStatisticsForTable(onHive(), tableName);
-            assertThat(statisticsAfterInsert.getNumRows().getAsLong()).isEqualTo(50);
-            assertThat(statisticsAfterInsert.getNumFiles().getAsLong()).isEqualTo(50); // no files for empty buckets
+            assertThat(statisticsAfterInsert.getNumRows().orElseThrow()).isEqualTo(50);
+            assertThat(statisticsAfterInsert.getNumFiles().orElseThrow()).isEqualTo(50); // no files for empty buckets
 
             insertNationData(onTrino(), tableName);
 
             BasicStatistics statisticsAfterInsert2 = getBasicStatisticsForTable(onHive(), tableName);
-            assertThat(statisticsAfterInsert2.getNumRows().getAsLong()).isEqualTo(75);
-            assertThat(statisticsAfterInsert2.getNumFiles().getAsLong()).isEqualTo(75); // no files for empty buckets
+            assertThat(statisticsAfterInsert2.getNumRows().orElseThrow()).isEqualTo(75);
+            assertThat(statisticsAfterInsert2.getNumFiles().orElseThrow()).isEqualTo(75); // no files for empty buckets
         }
         finally {
             onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -358,8 +358,8 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
-            assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(firstPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(5); // no files for empty buckets
+            assertThat(firstPartitionStatistics.getNumRows().orElseThrow()).isEqualTo(5);
+            assertThat(firstPartitionStatistics.getNumFiles().orElseThrow()).isEqualTo(5); // no files for empty buckets
 
             String insert = format("INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
                     "SELECT n_nationkey, n_regionkey, n_name, n_comment " +
@@ -369,14 +369,14 @@ public class TestHiveBasicTableStatistics
             onTrino().executeQuery(insert);
 
             BasicStatistics secondPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
-            assertThat(secondPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(secondPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(4); // no files for empty buckets
+            assertThat(secondPartitionStatistics.getNumRows().orElseThrow()).isEqualTo(5);
+            assertThat(secondPartitionStatistics.getNumFiles().orElseThrow()).isEqualTo(4); // no files for empty buckets
 
             onTrino().executeQuery(insert);
 
             BasicStatistics secondPartitionUpdatedStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
-            assertThat(secondPartitionUpdatedStatistics.getNumRows().getAsLong()).isEqualTo(10);
-            assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(8); // no files for empty buckets
+            assertThat(secondPartitionUpdatedStatistics.getNumRows().orElseThrow()).isEqualTo(10);
+            assertThat(secondPartitionUpdatedStatistics.getNumFiles().orElseThrow()).isEqualTo(8); // no files for empty buckets
         }
         finally {
             onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -393,19 +393,19 @@ public class TestHiveBasicTableStatistics
     private static void assertThatStatisticsAreNonZero(BasicStatistics statistics)
     {
         assertThatStatisticsArePresent(statistics);
-        assertThat(statistics.getNumRows().getAsLong()).isGreaterThan(0);
-        assertThat(statistics.getNumFiles().getAsLong()).isGreaterThan(0);
-        assertThat(statistics.getRawDataSize().getAsLong()).isGreaterThan(0);
-        assertThat(statistics.getTotalSize().getAsLong()).isGreaterThan(0);
+        assertThat(statistics.getNumRows().orElseThrow()).isGreaterThan(0);
+        assertThat(statistics.getNumFiles().orElseThrow()).isGreaterThan(0);
+        assertThat(statistics.getRawDataSize().orElseThrow()).isGreaterThan(0);
+        assertThat(statistics.getTotalSize().orElseThrow()).isGreaterThan(0);
     }
 
     private static void assertThatStatisticsAreZero(BasicStatistics statistics)
     {
         assertThatStatisticsArePresent(statistics);
-        assertThat(statistics.getNumRows().getAsLong()).isEqualTo(0);
-        assertThat(statistics.getNumFiles().getAsLong()).isEqualTo(0);
-        assertThat(statistics.getRawDataSize().getAsLong()).isEqualTo(0);
-        assertThat(statistics.getTotalSize().getAsLong()).isEqualTo(0);
+        assertThat(statistics.getNumRows().orElseThrow()).isEqualTo(0);
+        assertThat(statistics.getNumFiles().orElseThrow()).isEqualTo(0);
+        assertThat(statistics.getRawDataSize().orElseThrow()).isEqualTo(0);
+        assertThat(statistics.getTotalSize().orElseThrow()).isEqualTo(0);
     }
 
     private static void assertThatStatisticsArePresent(BasicStatistics statistics)
@@ -426,10 +426,10 @@ public class TestHiveBasicTableStatistics
 
     private static void assertThatStatisticsValuesHaveIncreased(BasicStatistics first, BasicStatistics second)
     {
-        assertThat(second.getNumRows().getAsLong()).isGreaterThan(first.getNumRows().getAsLong());
-        assertThat(second.getNumFiles().getAsLong()).isGreaterThan(first.getNumFiles().getAsLong());
-        assertThat(second.getTotalSize().getAsLong()).isGreaterThan(first.getTotalSize().getAsLong());
-        assertThat(second.getRawDataSize().getAsLong()).isGreaterThan(first.getRawDataSize().getAsLong());
+        assertThat(second.getNumRows().orElseThrow()).isGreaterThan(first.getNumRows().orElseThrow());
+        assertThat(second.getNumFiles().orElseThrow()).isGreaterThan(first.getNumFiles().orElseThrow());
+        assertThat(second.getTotalSize().orElseThrow()).isGreaterThan(first.getTotalSize().orElseThrow());
+        assertThat(second.getRawDataSize().orElseThrow()).isGreaterThan(first.getRawDataSize().orElseThrow());
     }
 
     private static BasicStatistics getBasicStatisticsForTable(QueryExecutor executor, String table)

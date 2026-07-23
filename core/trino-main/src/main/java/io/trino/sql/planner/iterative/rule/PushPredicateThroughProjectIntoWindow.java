@@ -126,7 +126,7 @@ public class PushPredicateThroughProjectIntoWindow
         if (upperBound.isEmpty()) {
             return Result.empty();
         }
-        if (upperBound.getAsInt() <= 0) {
+        if (upperBound.orElseThrow() <= 0) {
             return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols()));
         }
         RankingType rankingType = toTopNRankingType(window).orElseThrow();
@@ -136,9 +136,9 @@ public class PushPredicateThroughProjectIntoWindow
                 window.getSpecification(),
                 rankingType,
                 rankingSymbol,
-                upperBound.getAsInt(),
+                upperBound.orElseThrow(),
                 false)));
-        if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound.getAsInt())) {
+        if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound.orElseThrow())) {
             return Result.ofPlanNode(filter.replaceChildren(ImmutableList.of(project)));
         }
         // Remove the ranking domain because it is absorbed into the node

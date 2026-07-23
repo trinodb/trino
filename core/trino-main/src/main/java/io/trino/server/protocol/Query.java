@@ -425,7 +425,7 @@ class Query
         }
 
         // if this is not a request for the next results, return not found
-        if (token != nextToken.getAsLong()) {
+        if (token != nextToken.orElseThrow()) {
             // unknown token
             throw new NotFoundException();
         }
@@ -442,7 +442,7 @@ class Query
         }
 
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
-        verify(token == nextToken.getAsLong(), "Expected token to equal next token");
+        verify(token == nextToken.orElseThrow(), "Expected token to equal next token");
 
         // get the query info before returning
         // force update if query manager is closed
@@ -498,7 +498,7 @@ class Query
         URI nextResultsUri = null;
         URI partialCancelUri = null;
         if (nextToken.isPresent()) {
-            long nextToken = this.nextToken.getAsLong();
+            long nextToken = this.nextToken.orElseThrow();
             nextResultsUri = createNextResultsUri(externalUriInfo, nextToken);
             partialCancelUri = findCancelableLeafStage(queryInfo)
                     .map(stage -> createPartialCancelUri(stage, externalUriInfo, nextToken))

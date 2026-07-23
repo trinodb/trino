@@ -76,7 +76,7 @@ public class GcsInputFile
             throws IOException
     {
         if (predeclaredLength.isPresent()) {
-            return predeclaredLength.getAsLong();
+            return predeclaredLength.orElseThrow();
         }
         if (length.isEmpty()) {
             loadProperties();
