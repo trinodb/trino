@@ -184,7 +184,7 @@ public class TestDeltaLakePlugin
             throws Exception
     {
         ConnectorFactory factory = getConnectorFactory();
-        File tempFile = File.createTempFile("test-delta-lake-plugin-access-control", ".json");
+        File tempFile = Files.createTempFile("test-delta-lake-plugin-access-control", ".json").toFile();
         Files.writeString(tempFile.toPath(), "{}");
 
         factory.create(
