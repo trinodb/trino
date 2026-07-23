@@ -385,6 +385,7 @@ For more details, see {doc}`map`
 - {func}`element_at`
 - {func}`map`
 - {func}`map_concat`
+- {func}`map_contains_key`
 - {func}`map_entries`
 - {func}`map_filter`
 - {func}`map_from_entries`

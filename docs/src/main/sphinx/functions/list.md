@@ -277,6 +277,7 @@
 - {func}`map`
 - {func}`map_agg`
 - {func}`map_concat`
+- {func}`map_contains_key`
 - {func}`map_entries`
 - {func}`map_filter`
 - {func}`map_from_entries`
