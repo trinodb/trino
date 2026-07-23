@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.oracle;
 
-import com.google.common.base.Joiner;
 import com.google.common.io.Files;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
@@ -97,7 +96,8 @@ public class TestingOracleServer
         try {
             File tempFile = File.createTempFile("init-", ".sql");
 
-            Files.write(Joiner.on("\n").join(
+            Files.write(String.join(
+                    "\n",
                     format("ALTER SESSION SET CONTAINER=FREEPDB1;"),
                     format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
                     format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),

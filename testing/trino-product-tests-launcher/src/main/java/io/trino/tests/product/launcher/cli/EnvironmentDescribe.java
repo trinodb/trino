@@ -152,7 +152,7 @@ public class EnvironmentDescribe
                         JOINER.join(container.getNetworkAliases()),
                         JOINER.join(container.getEnv()),
                         JOINER.join(container.getExposedPorts()),
-                        Joiner.on(' ').join(container.getCommandParts()));
+                        String.join(" ", container.getCommandParts()));
                 containersTable.addSeparator();
             }
 

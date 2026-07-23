@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
@@ -171,7 +170,7 @@ public class RowToRowCast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
+                makeClassName(String.join("$", "RowCast", BaseEncoding.base16().encode(hashSuffix))),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 

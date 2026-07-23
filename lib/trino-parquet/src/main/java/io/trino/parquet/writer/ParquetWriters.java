@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.writer;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 import io.trino.parquet.writer.valuewriter.BigintValueWriter;
@@ -354,7 +353,7 @@ final class ParquetWriters
             if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(colummType)) {
                 return Optional.empty();
             }
-            String dotPath = Joiner.on('.').join(columnDescriptor.getPath());
+            String dotPath = String.join(".", columnDescriptor.getPath());
             if (bloomFilterColumns.contains(dotPath)) {
                 return Optional.of(new AdaptiveBlockSplitBloomFilter(maxBloomFilterSize, BLOOM_FILTER_CANDIDATES_NUMBER, bloomFilterFpp, columnDescriptor));
             }
