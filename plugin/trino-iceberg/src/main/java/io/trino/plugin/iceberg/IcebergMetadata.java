@@ -1693,12 +1693,7 @@ public class IcebergMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
     {
-        List<CommitTaskData> commitTasks = fragments.stream()
-                .map(Slice::getInput)
-                .map(commitTaskCodec::fromJson)
-                .collect(toImmutableList());
-
-        if (commitTasks.isEmpty()) {
+        if (fragments.isEmpty()) {
             transaction = null;
             return Optional.empty();
         }
@@ -1709,7 +1704,9 @@ public class IcebergMetadata
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         PartitionSpec partitionSpec = icebergTable.spec();
-        for (CommitTaskData task : commitTasks) {
+        // Commit tasks are deserialized and converted one at a time to bound coordinator memory for writes producing many files
+        for (Slice fragment : fragments) {
+            CommitTaskData task = commitTaskCodec.fromJson(fragment.getInput());
             DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
@@ -2155,15 +2152,11 @@ public class IcebergMetadata
         Set<DataFile> scannedDataFiles = scannedDataFilesBuilder.build();
         Set<DeleteFile> fullyAppliedDeleteFiles = scannedDeleteFilesBuilder.build();
 
-        List<CommitTaskData> commitTasks = fragments.stream()
-                .map(Slice::getInput)
-                .map(commitTaskCodec::fromJson)
-                .collect(toImmutableList());
-
         Set<DataFile> newFiles = new HashSet<>();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         PartitionSpec partitionSpec = icebergTable.spec();
-        for (CommitTaskData task : commitTasks) {
+        for (Slice fragment : fragments) {
+            CommitTaskData task = commitTaskCodec.fromJson(fragment.getInput());
             DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
@@ -3339,12 +3332,7 @@ public class IcebergMetadata
     {
         Table icebergTable = transaction.table();
 
-        List<CommitTaskData> commitTasks = fragments.stream()
-                .map(Slice::getInput)
-                .map(commitTaskCodec::fromJson)
-                .collect(toImmutableList());
-
-        if (commitTasks.isEmpty()) {
+        if (fragments.isEmpty()) {
             // Avoid recording "empty" write operation
             transaction = null;
             return;
@@ -3357,14 +3345,6 @@ public class IcebergMetadata
         if (baseSnapshotId.isPresent()) {
             rowDelta.validateFromSnapshot(icebergTable.snapshot(baseSnapshotId.getAsLong()).snapshotId());
         }
-        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
-        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
-        effectivePredicate = effectivePredicate.intersect(extractTupleDomainsFromCommitTasks(table, icebergTable, commitTasks, typeManager));
-        effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
-
-        if (!effectivePredicate.isAll()) {
-            rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
-        }
         IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
         if (isolationLevel == IsolationLevel.SERIALIZABLE) {
             rowDelta.validateNoConflictingDataFiles();
@@ -3375,108 +3355,122 @@ public class IcebergMetadata
         rowDelta.validateNoConflictingDeleteFiles();
         rowDelta.scanManifestsWith(icebergScanExecutor);
 
-        List<CommitTaskData> dataTasks = new ArrayList<>();
-        List<CommitTaskData> deleteTasks = new ArrayList<>();
+        int formatVersion = table.getFormatVersion();
+        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+        CommitTaskDomainCollector domainCollector = new CommitTaskDomainCollector(icebergTable, typeManager);
+        ImmutableList.Builder<String> referencedDataFiles = ImmutableList.builder();
+        List<DeletionVectorInfo> deletionVectorInfos = new ArrayList<>();
+        boolean hasDeleteTasks = false;
 
-        for (CommitTaskData task : commitTasks) {
+        // Commit tasks are deserialized and converted one at a time to bound coordinator memory for writes producing many files
+        for (Slice fragment : fragments) {
+            CommitTaskData task = commitTaskCodec.fromJson(fragment.getInput());
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
+            domainCollector.add(task, partitionSpec);
             switch (task.content()) {
-                case DATA -> dataTasks.add(task);
-                case POSITION_DELETES -> deleteTasks.add(task);
+                case DATA -> {
+                    DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                            .withPath(task.path())
+                            .withFormat(task.fileFormat().toIceberg())
+                            .withFileSizeInBytes(task.fileSizeInBytes())
+                            .withMetrics(task.metrics().metrics())
+                            .withSortOrder(sortOrders.get(task.sortOrderId()));
+                    task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+
+                    if (partitionSpec.isPartitioned()) {
+                        String partitionDataJson = task.partitionDataJson()
+                                .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                        builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
+                    }
+                    rowDelta.addRows(builder.build());
+                }
+                case POSITION_DELETES -> {
+                    if (formatVersion < 2) {
+                        throw new TrinoException(ICEBERG_BAD_DATA, "Position delete files are not supported for Iceberg format version < 2");
+                    }
+                    hasDeleteTasks = true;
+                    task.referencedDataFile().ifPresent(referencedDataFiles::add);
+                    if (formatVersion == 2) {
+                        FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                                .withPath(task.path())
+                                .withFormat(task.fileFormat().toIceberg())
+                                .ofPositionDeletes()
+                                .withFileSizeInBytes(task.fileSizeInBytes())
+                                .withMetrics(task.metrics().metrics());
+                        task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
+                        if (partitionSpec.isPartitioned()) {
+                            deleteBuilder.withPartition(PartitionData.fromJson(
+                                    task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
+                                    partitionSpec));
+                        }
+
+                        rowDelta.addDeletes(deleteBuilder.build());
+                    }
+                    else {
+                        // v3 delete: deletion vector for updated files are merged with any existing delection vectors or legacy position delete files.
+                        Optional<PartitionData> partitionData = partitionSpec.isPartitioned()
+                                ? Optional.of(PartitionData.fromJson(
+                                task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
+                                partitionSpec))
+                                : Optional.empty();
+                        deletionVectorInfos.add(new DeletionVectorInfo(
+                                task.referencedDataFile().orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing referencedDataFile")),
+                                task.serializedDeletionVector()
+                                        .map(Slices::wrappedBuffer)
+                                        .orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing serializedDeletionVector")),
+                                partitionSpec,
+                                partitionData));
+                    }
+                }
                 case EQUALITY_DELETES, DATA_MANIFEST, DELETE_MANIFEST -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
             }
         }
 
-        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
-        for (CommitTaskData task : dataTasks) {
-            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
-            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
-                    .withPath(task.path())
-                    .withFormat(task.fileFormat().toIceberg())
-                    .withFileSizeInBytes(task.fileSizeInBytes())
-                    .withMetrics(task.metrics().metrics())
-                    .withSortOrder(sortOrders.get(task.sortOrderId()));
-            task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
+        effectivePredicate = effectivePredicate.intersect(domainCollector.domains());
+        effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
 
-            if (partitionSpec.isPartitioned()) {
-                String partitionDataJson = task.partitionDataJson()
-                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
-            }
-            rowDelta.addRows(builder.build());
+        if (!effectivePredicate.isAll()) {
+            rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
         }
 
-        if (deleteTasks.isEmpty()) {
-            commitUpdateAndTransaction(rowDelta, session, transaction, "write");
-            return;
+        if (hasDeleteTasks) {
+            rowDelta.validateDataFilesExist(referencedDataFiles.build());
         }
-
-        if (table.getFormatVersion() < 2) {
-            throw new TrinoException(ICEBERG_BAD_DATA, "Position delete files are not supported for Iceberg format version < 2");
+        if (!deletionVectorInfos.isEmpty()) {
+            deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
         }
-
-        rowDelta.validateDataFilesExist(deleteTasks.stream()
-                .map(CommitTaskData::referencedDataFile)
-                .flatMap(Optional::stream)
-                .toList());
-
-        if (table.getFormatVersion() == 2) {
-            for (CommitTaskData task : deleteTasks) {
-                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
-                FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
-                        .withPath(task.path())
-                        .withFormat(task.fileFormat().toIceberg())
-                        .ofPositionDeletes()
-                        .withFileSizeInBytes(task.fileSizeInBytes())
-                        .withMetrics(task.metrics().metrics());
-                task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
-                if (partitionSpec.isPartitioned()) {
-                    deleteBuilder.withPartition(PartitionData.fromJson(
-                            task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
-                            partitionSpec));
-                }
-
-                rowDelta.addDeletes(deleteBuilder.build());
-            }
-            commitUpdateAndTransaction(rowDelta, session, transaction, "write");
-            return;
-        }
-
-        // v3 delete: deletion vector for updated files are merged with any existing delection vectors or legacy position delete files.
-        List<DeletionVectorInfo> deletionVectorInfos = deleteTasks.stream()
-                .map(task -> {
-                    PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
-                    Optional<PartitionData> partitionData = partitionSpec.isPartitioned()
-                            ? Optional.of(PartitionData.fromJson(
-                            task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
-                            partitionSpec))
-                            : Optional.empty();
-                    return new DeletionVectorInfo(
-                            task.referencedDataFile().orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing referencedDataFile")),
-                            task.serializedDeletionVector()
-                                    .map(Slices::wrappedBuffer)
-                                    .orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing serializedDeletionVector")),
-                            partitionSpec,
-                            partitionData);
-                })
-                .toList();
-
-        deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
-
         commitUpdateAndTransaction(rowDelta, session, transaction, "write");
     }
 
-    static TupleDomain<IcebergColumnHandle> extractTupleDomainsFromCommitTasks(IcebergTableHandle table, Table icebergTable, List<CommitTaskData> commitTasks, TypeManager typeManager)
+    /**
+     * Collects identity partition value domains from commit tasks for the row-level conflict detection filter.
+     */
+    static class CommitTaskDomainCollector
     {
-        Set<IcebergColumnHandle> partitionColumns = new HashSet<>(getProjectedColumns(icebergTable.schema(), typeManager, identityPartitionColumnsInAllSpecs(icebergTable)));
-        PartitionSpec partitionSpec = icebergTable.spec();
-        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
-        Map<IcebergColumnHandle, List<Domain>> domainsFromTasks = new HashMap<>();
-        for (CommitTaskData commitTask : commitTasks) {
-            PartitionSpec taskPartitionSpec = PartitionSpecParser.fromJson(schema, commitTask.partitionSpecJson());
+        private final PartitionSpec partitionSpec;
+        private final Set<IcebergColumnHandle> partitionColumns;
+        private final Map<IcebergColumnHandle, Set<Domain>> domainsFromTasks = new HashMap<>();
+        private boolean allTasksMatchTableSpec = true;
+
+        CommitTaskDomainCollector(Table icebergTable, TypeManager typeManager)
+        {
+            this.partitionSpec = icebergTable.spec();
+            this.partitionColumns = ImmutableSet.copyOf(getProjectedColumns(icebergTable.schema(), typeManager, identityPartitionColumnsInAllSpecs(icebergTable)));
+        }
+
+        void add(CommitTaskData commitTask, PartitionSpec taskPartitionSpec)
+        {
+            if (!allTasksMatchTableSpec) {
+                return;
+            }
             if (commitTask.partitionDataJson().isEmpty() || taskPartitionSpec.isUnpartitioned() || !taskPartitionSpec.equals(partitionSpec)) {
                 // We should not produce any specific domains if there are no partitions or current partitions does not match task partitions for any of tasks
                 // As each partition value narrows down conflict scope we should produce values from all commit tasks or not at all, to avoid partial information
-                return TupleDomain.all();
+                allTasksMatchTableSpec = false;
+                domainsFromTasks.clear();
+                return;
             }
 
             PartitionData partitionData = PartitionData.fromJson(commitTask.partitionDataJson().get(), partitionSpec);
@@ -3487,13 +3481,20 @@ public class IcebergMetadata
                 IcebergColumnHandle columnHandle = (IcebergColumnHandle) entry.getKey();
                 NullableValue value = entry.getValue();
                 Domain newDomain = value.isNull() ? Domain.onlyNull(columnHandle.getType()) : Domain.singleValue(columnHandle.getType(), value.getValue());
-                domainsFromTasks.computeIfAbsent(columnHandle, _ -> new ArrayList<>()).add(newDomain);
+                domainsFromTasks.computeIfAbsent(columnHandle, _ -> new HashSet<>()).add(newDomain);
             }
         }
-        return withColumnDomains(domainsFromTasks.entrySet().stream()
-                .collect(toImmutableMap(
-                        Entry::getKey,
-                        entry -> Domain.union(entry.getValue()))));
+
+        TupleDomain<IcebergColumnHandle> domains()
+        {
+            if (!allTasksMatchTableSpec) {
+                return TupleDomain.all();
+            }
+            return withColumnDomains(domainsFromTasks.entrySet().stream()
+                    .collect(toImmutableMap(
+                            Entry::getKey,
+                            entry -> Domain.union(ImmutableList.copyOf(entry.getValue())))));
+        }
     }
 
     @Override
@@ -4043,15 +4044,11 @@ public class IcebergMetadata
             log.info("Performing incremental MV refresh for storage table: %s", table.name());
         }
 
-        List<CommitTaskData> commitTasks = fragments.stream()
-                .map(Slice::getInput)
-                .map(commitTaskCodec::fromJson)
-                .collect(toImmutableList());
-
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         PartitionSpec partitionSpec = icebergTable.spec();
-        for (CommitTaskData task : commitTasks) {
+        for (Slice fragment : fragments) {
+            CommitTaskData task = commitTaskCodec.fromJson(fragment.getInput());
             DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
