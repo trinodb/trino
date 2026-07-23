@@ -18,7 +18,6 @@ import com.fasterxml.jackson.core.JsonParser.NumberType;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.TrinoException;
@@ -267,7 +266,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        if (!Doubles.isFinite(value)) {
+        if (!Double.isFinite(value)) {
             return false;
         }
 
@@ -288,7 +287,7 @@ public final class JsonFunctions
 
                 // noinspection FloatingPointEquality
                 if ((token == VALUE_NUMBER_FLOAT) && (parser.getDoubleValue() == value) &&
-                        Doubles.isFinite(parser.getDoubleValue())) {
+                        Double.isFinite(parser.getDoubleValue())) {
                     return true;
                 }
             }

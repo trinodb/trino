@@ -16,7 +16,6 @@ package io.trino.filesystem.alluxio;
 import alluxio.client.file.URIStatus;
 import alluxio.client.file.cache.CacheManager;
 import alluxio.conf.AlluxioConfiguration;
-import com.google.common.primitives.Longs;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
@@ -178,7 +177,7 @@ public class AlluxioInputStream
     {
         ensureOpen();
 
-        n = Longs.constrainToRange(n, 0, fileLength - position);
+        n = Math.clamp(n, 0, fileLength - position);
         position += n;
         return n;
     }
