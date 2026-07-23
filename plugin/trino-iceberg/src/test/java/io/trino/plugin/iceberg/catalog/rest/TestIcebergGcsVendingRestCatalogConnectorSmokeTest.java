@@ -13,17 +13,14 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.storage.BucketInfo;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.gcs.GcsFileSystemConfig;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
-import io.trino.filesystem.gcs.GcsServiceAccountAuth;
-import io.trino.filesystem.gcs.GcsServiceAccountAuthConfig;
 import io.trino.filesystem.gcs.GcsStorageFactory;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -31,6 +28,7 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.containers.FlociGcp;
 import io.trino.testing.containers.IcebergGcsRestCatalogBackendContainer;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
@@ -41,19 +39,18 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.Network;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Base64;
+import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import static io.trino.testing.containers.FlociGcp.FLOCI_GCP_PROJECT_ID;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -61,18 +58,18 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private static final Logger LOG = Logger.get(TestIcebergGcsVendingRestCatalogConnectorSmokeTest.class);
+    private static final String OAUTH_TOKEN = "test-oauth-token";
 
-    private final String gcpCredentialKey;
-    private final String warehouseLocation;
+    private final String bucketName = "test-iceberg-gcs-vending-rest-" + randomNameSuffix();
 
+    private String warehouseLocation;
+    private FlociGcp flociGcp;
+    private GcsFileSystemFactory flociFileSystemFactory;
     private IcebergGcsRestCatalogBackendContainer restCatalog;
 
     public TestIcebergGcsVendingRestCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-        gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
-        String gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
-        warehouseLocation = "gs://%s/gcs-vending-rest-test-%s/".formatted(gcpStorageBucket, randomNameSuffix());
     }
 
     @Override
@@ -90,22 +87,26 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        String gcpCredentials = new String(jsonKeyBytes, UTF_8);
+        Network network = closeAfterClass(Network.newNetwork());
+        flociGcp = closeAfterClass(new FlociGcp().withNetwork(network));
+        flociGcp.start();
 
-        GoogleCredentials credentials = GoogleCredentials.fromStream(new ByteArrayInputStream(jsonKeyBytes))
-                .createScoped("https://www.googleapis.com/auth/cloud-platform");
-        AccessToken accessToken = credentials.refreshAccessToken();
-
-        JsonMapper mapper = new JsonMapper();
-        JsonNode jsonKey = mapper.readTree(gcpCredentials);
-        String gcpProjectId = jsonKey.get("project_id").asText();
+        warehouseLocation = "gs://%s/gcs-vending-rest-test-%s/".formatted(bucketName, randomNameSuffix());
+        GcsFileSystemConfig config = new GcsFileSystemConfig()
+                .setEndpoint(Optional.of(flociGcp.getEndpoint().toString()))
+                .setProjectId(FLOCI_GCP_PROJECT_ID);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(
+                config,
+                (builder, _) -> builder.setCredentials(GoogleCredentials.create(new AccessToken(OAUTH_TOKEN, null))));
+        storageFactory.create(SESSION.getIdentity()).create(BucketInfo.of(bucketName));
+        flociFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
 
         restCatalog = closeAfterClass(new IcebergGcsRestCatalogBackendContainer(
+                Optional.of(network),
                 warehouseLocation,
-                gcpProjectId,
-                accessToken.getTokenValue(),
-                accessToken.getExpirationTime().getTime()));
+                FLOCI_GCP_PROJECT_ID,
+                flociGcp.getContainerEndpoint().toString(),
+                OAUTH_TOKEN));
         restCatalog.start();
 
         return IcebergQueryRunner.builder()
@@ -118,6 +119,8 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("fs.gcs.enabled", "true")
                                 .put("gcs.auth-type", "APPLICATION_DEFAULT")
+                                .put("gcs.endpoint", flociGcp.getEndpoint().toString())
+                                .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -127,17 +130,7 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
     @BeforeAll
     public void initFileSystem()
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        GcsFileSystemConfig config = new GcsFileSystemConfig();
-        GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
-        GcsStorageFactory storageFactory;
-        try {
-            storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        fileSystem = new GcsFileSystemFactory(config, storageFactory).create(SESSION);
+        fileSystem = flociFileSystemFactory.create(SESSION);
     }
 
     @AfterAll
@@ -150,8 +143,7 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
             fileSystem.deleteDirectory(Location.of(warehouseLocation));
         }
         catch (IOException e) {
-            // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
-            LOG.warn(e, "Failed to clean up GCS test directory: %s", warehouseLocation);
+            LOG.warn(e, "Failed to clean up Floci test directory: %s", warehouseLocation);
         }
     }
 
