@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Ordering;
 import io.airlift.concurrent.MoreFutures;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
@@ -60,6 +59,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
@@ -3674,8 +3674,8 @@ public abstract class AbstractTestEngineOnlyQueries
             Long orderKeyFractionalWeighted = ((Number) row.getField(5)).longValue();
             Double totalPriceFractionalWeighted = (Double) row.getField(6);
 
-            List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
-            List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
+            List<Long> orderKeys = orderKeyByStatus.get(status).stream().sorted().collect(toImmutableList());
+            List<Double> totalPrices = totalPriceByStatus.get(status).stream().sorted().collect(toImmutableList());
 
             // verify real rank of returned value is within 0.05% of requested rank
             assertThat(orderKey >= orderKeys.get((int) (0.9985 * orderKeys.size()))).isTrue();

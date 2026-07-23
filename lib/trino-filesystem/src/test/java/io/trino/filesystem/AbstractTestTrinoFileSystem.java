@@ -14,7 +14,6 @@
 package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -914,7 +913,7 @@ public abstract class AbstractTestTrinoFileSystem
 
             getFileSystem().deleteDirectory(createLocation("level0"));
             Location deletedLocationPrefix = createLocation("level0/");
-            for (Location location : Ordering.usingToString().sortedCopy(locations)) {
+            for (Location location : locations.stream().sorted(comparing(Object::toString)).toList()) {
                 assertThat(getFileSystem().newInputFile(location).exists()).as("%s exists", location)
                         .isEqualTo(!location.toString().startsWith(deletedLocationPrefix.toString()));
             }
