@@ -14,6 +14,7 @@
 import { Link as RouterLink } from 'react-router-dom'
 import {
     Box,
+    Container,
     Divider,
     Table,
     TableBody,
@@ -78,7 +79,7 @@ export const WorkersList = () => {
     }
 
     return (
-        <>
+        <Container maxWidth="lg">
             <Box sx={{ pb: 2 }}>
                 <Typography variant="h4">Workers</Typography>
             </Box>
@@ -114,6 +115,6 @@ export const WorkersList = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
-        </>
+        </Container>
     )
 }

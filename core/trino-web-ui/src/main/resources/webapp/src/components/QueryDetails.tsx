@@ -13,7 +13,7 @@
  */
 import React, { ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { Box, Divider, Grid, Tab, Tabs, Typography } from '@mui/material'
+import { Box, Container, Divider, Grid, Tab, Tabs, Typography } from '@mui/material'
 import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
 import { QueryLivePlan } from './QueryLivePlan'
@@ -55,7 +55,7 @@ export const QueryDetails = () => {
     }
 
     return (
-        <>
+        <Container maxWidth="lg">
             <Box sx={{ pb: 2 }}>
                 <Typography variant="h4">Query details</Typography>
             </Box>
@@ -84,6 +84,6 @@ export const QueryDetails = () => {
                     <div>{tabComponentMap[tabValue]}</div>
                 </QueryStatusProvider>
             </>
-        </>
+        </Container>
     )
 }

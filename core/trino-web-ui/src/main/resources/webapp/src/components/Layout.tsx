@@ -17,7 +17,6 @@ import {
     Avatar,
     AppBar,
     Box,
-    Container,
     IconButton,
     List,
     ListItem,
@@ -398,7 +397,7 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
             </Drawer>
             <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
                 <Toolbar />
-                <Container maxWidth="lg">{props.children}</Container>
+                <Box sx={{ flexGrow: 1 }}>{props.children}</Box>
             </Box>
         </Box>
     )
