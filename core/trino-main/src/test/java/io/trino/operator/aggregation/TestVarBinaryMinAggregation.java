@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -49,7 +48,7 @@ public class TestVarBinaryMinAggregation
         Slice min = null;
         for (int i = start; i < start + length; i++) {
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
-            min = (min == null) ? slice : Ordering.natural().min(min, slice);
+            min = (min == null) ? slice : (min.compareTo(slice) <= 0 ? min : slice);
         }
         return min.toStringUtf8();
     }

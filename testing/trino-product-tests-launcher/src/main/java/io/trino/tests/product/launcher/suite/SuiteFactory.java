@@ -13,13 +13,13 @@
  */
 package io.trino.tests.product.launcher.suite;
 
-import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class SuiteFactory
@@ -40,6 +40,6 @@ public final class SuiteFactory
 
     public List<String> listSuites()
     {
-        return Ordering.natural().sortedCopy(suiteProviders.keySet());
+        return suiteProviders.keySet().stream().sorted().collect(toImmutableList());
     }
 }

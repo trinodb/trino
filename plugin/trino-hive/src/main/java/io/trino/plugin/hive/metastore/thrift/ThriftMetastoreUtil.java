@@ -546,10 +546,10 @@ public final class ThriftMetastoreUtil
             // Convert from seconds to microseconds for Trino
             if (TIMESTAMP.equals(columnStatistics.getColType())) {
                 if (min.isPresent()) {
-                    min = OptionalLong.of(min.getAsLong() * MICROSECONDS_PER_SECOND);
+                    min = OptionalLong.of(min.orElseThrow() * MICROSECONDS_PER_SECOND);
                 }
                 if (max.isPresent()) {
-                    max = OptionalLong.of(max.getAsLong() * MICROSECONDS_PER_SECOND);
+                    max = OptionalLong.of(max.orElseThrow() * MICROSECONDS_PER_SECOND);
                 }
             }
             OptionalLong nullsCount = longStatsData.isSetNumNulls() ? fromMetastoreNullsCount(longStatsData.getNumNulls()) : OptionalLong.empty();

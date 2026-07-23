@@ -150,7 +150,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
                 newBaseExpressions = Math.multiplyExact(subPredicates.stream()
                         .mapToInt(Set::size)
                         .reduce(Math::multiplyExact)
-                        .getAsInt(), subPredicates.size());
+                        .orElseThrow(), subPredicates.size());
             }
             catch (ArithmeticException e) {
                 // Integer overflow from multiplication means there are too many expressions

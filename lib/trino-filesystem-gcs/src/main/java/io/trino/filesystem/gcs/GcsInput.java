@@ -146,7 +146,7 @@ final class GcsInput
     {
         long limit = addExact(position, length);
         if (fileSize.isPresent()) {
-            limit = min(limit, fileSize.getAsLong());
+            limit = min(limit, fileSize.orElseThrow());
         }
         return OptionalLong.of(limit);
     }

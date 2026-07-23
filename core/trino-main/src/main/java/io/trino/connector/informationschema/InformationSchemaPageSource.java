@@ -400,6 +400,6 @@ public class InformationSchemaPageSource
 
     private boolean isLimitExhausted()
     {
-        return limit.isPresent() && recordCount >= limit.getAsLong();
+        return limit.isPresent() && recordCount >= limit.orElseThrow();
     }
 }

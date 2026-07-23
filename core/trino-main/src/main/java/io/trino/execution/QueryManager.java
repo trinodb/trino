@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
@@ -397,7 +396,7 @@ public class QueryManager
         for (QueryExecution query : queryTracker.getAllQueries()) {
             Duration cpuTime = query.getTotalCpuTime();
             Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
-            Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
+            Duration limit = maxQueryCpuTime.compareTo(sessionLimit) <= 0 ? maxQueryCpuTime : sessionLimit;
             if (cpuTime.compareTo(limit) > 0) {
                 query.fail(new ExceededCpuLimitException(limit));
             }
@@ -413,7 +412,7 @@ public class QueryManager
             Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession());
             if (maxQueryScanPhysicalBytes.isPresent()) {
                 limitOpt = limitOpt
-                        .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                        .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> serverLimit.compareTo(sessionLimit) <= 0 ? serverLimit : sessionLimit))
                         .or(() -> maxQueryScanPhysicalBytes);
             }
 
@@ -438,7 +437,7 @@ public class QueryManager
             Optional<DataSize> limitOpt = getQueryMaxWritePhysicalSize(query.getSession());
             if (maxQueryWritePhysicalSize.isPresent()) {
                 limitOpt = limitOpt
-                        .flatMap(sessionLimit -> maxQueryWritePhysicalSize.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                        .flatMap(sessionLimit -> maxQueryWritePhysicalSize.map(serverLimit -> serverLimit.compareTo(sessionLimit) <= 0 ? serverLimit : sessionLimit))
                         .or(() -> maxQueryWritePhysicalSize);
             }
 

@@ -609,12 +609,12 @@ public final class GlueConverter
 
     private static Long boxedValue(OptionalLong optionalLong)
     {
-        return optionalLong.isPresent() ? optionalLong.getAsLong() : null;
+        return optionalLong.isPresent() ? optionalLong.orElseThrow() : null;
     }
 
     private static Double boxedValue(OptionalDouble optionalDouble)
     {
-        return optionalDouble.isPresent() ? optionalDouble.getAsDouble() : null;
+        return optionalDouble.isPresent() ? optionalDouble.orElseThrow() : null;
     }
 
     private static Optional<BigDecimal> fromGlueDecimal(DecimalNumber number)

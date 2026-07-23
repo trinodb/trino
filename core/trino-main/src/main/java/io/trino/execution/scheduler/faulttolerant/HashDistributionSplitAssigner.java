@@ -387,7 +387,7 @@ class HashDistributionSplitAssigner
         public int getId()
         {
             checkState(id.isPresent(), "id is expected to be assigned");
-            return id.getAsInt();
+            return id.orElseThrow();
         }
 
         @Override

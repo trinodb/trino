@@ -22,7 +22,6 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -32,6 +31,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
 
+import java.net.InetAddress;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -195,7 +195,7 @@ public class CassandraPageSink
             values.add(trinoUuidToJavaUuid(UuidType.UUID.getSlice(block, position)));
         }
         else if (cassandraTypeManager.isIpAddressType(type)) {
-            values.add(InetAddresses.forString((String) type.getObjectValue(block, position)));
+            values.add(InetAddress.ofLiteral((String) type.getObjectValue(block, position)));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

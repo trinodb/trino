@@ -14,7 +14,6 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
@@ -438,7 +437,8 @@ public class NimbusOAuth2Client
     {
         if (validUntil.isPresent()) {
             if (expiration != null) {
-                return Ordering.natural().min(validUntil.get(), expiration.toInstant());
+                Instant expirationInstant = expiration.toInstant();
+                return validUntil.get().compareTo(expirationInstant) <= 0 ? validUntil.get() : expirationInstant;
             }
 
             return validUntil.get();

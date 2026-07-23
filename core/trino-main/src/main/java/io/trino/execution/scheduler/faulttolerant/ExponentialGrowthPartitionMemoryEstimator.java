@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.TDigest;
@@ -163,7 +162,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
     @Override
     public MemoryRequirements getInitialMemoryRequirements()
     {
-        DataSize memory = Ordering.natural().max(defaultInitialMemoryLimit, getEstimatedMemoryUsage());
+        DataSize memory = defaultInitialMemoryLimit.compareTo(getEstimatedMemoryUsage()) >= 0 ? defaultInitialMemoryLimit : getEstimatedMemoryUsage();
         memory = capMemoryToMaxNodeSize(memory);
         return new MemoryRequirements(memory);
     }
@@ -174,7 +173,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
 
         // start with the maximum of previously used memory and actual usage
-        DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
+        DataSize newMemory = peakMemoryUsage.compareTo(previousMemory) >= 0 ? peakMemoryUsage : previousMemory;
         if (shouldIncreaseMemoryRequirement(errorCode)) {
             if (remainingAttempts == 1) {
                 // on last attempt try as much memory as possible
@@ -187,7 +186,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         }
 
         // if we are still below current estimate for new partition let's bump further
-        newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage());
+        newMemory = newMemory.compareTo(getEstimatedMemoryUsage()) >= 0 ? newMemory : getEstimatedMemoryUsage();
 
         newMemory = capMemoryToMaxNodeSize(newMemory);
         return new MemoryRequirements(newMemory);
@@ -199,7 +198,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         if (currentMaxNodePoolSize.isEmpty()) {
             return memory;
         }
-        return Ordering.natural().min(memory, currentMaxNodePoolSize.get());
+        return memory.compareTo(currentMaxNodePoolSize.get()) <= 0 ? memory : currentMaxNodePoolSize.get();
     }
 
     @Override

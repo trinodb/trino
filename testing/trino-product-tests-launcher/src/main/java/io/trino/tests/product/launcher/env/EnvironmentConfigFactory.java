@@ -14,13 +14,13 @@
 package io.trino.tests.product.launcher.env;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tests.product.launcher.Configurations.canonicalConfigName;
 
 public class EnvironmentConfigFactory
@@ -42,6 +42,6 @@ public class EnvironmentConfigFactory
 
     public List<String> listConfigs()
     {
-        return Ordering.natural().sortedCopy(configurations.keySet());
+        return configurations.keySet().stream().sorted().collect(toImmutableList());
     }
 }

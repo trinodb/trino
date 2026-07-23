@@ -176,7 +176,7 @@ public class SkewedPartitionRebalancer
         int[] bucketToPartition = partitioningScheme.getBucketToPartition()
                 .orElseThrow(() -> new IllegalArgumentException("Bucket to partition must be set before calculating taskCount"));
         // Buckets can be greater than the actual partitions or tasks. Therefore, use max to find the actual taskCount.
-        return IntStream.of(bucketToPartition).max().getAsInt() + 1;
+        return IntStream.of(bucketToPartition).max().orElseThrow() + 1;
     }
 
     public SkewedPartitionRebalancer(

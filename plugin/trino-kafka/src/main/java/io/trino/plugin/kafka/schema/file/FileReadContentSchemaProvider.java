@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kafka.schema.file;
 
-import com.google.common.io.CharStreams;
 import io.trino.plugin.kafka.schema.AbstractContentSchemaProvider;
 import io.trino.spi.TrinoException;
 
@@ -41,7 +40,7 @@ public class FileReadContentSchemaProvider
         }
         checkState(subject.isEmpty(), "Unexpected parameter: subject");
         try (InputStream inputStream = openSchemaLocation(dataSchemaLocation.get())) {
-            return Optional.of(CharStreams.toString(new InputStreamReader(inputStream, UTF_8)));
+            return Optional.of(new InputStreamReader(inputStream, UTF_8).readAllAsString());
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);

@@ -280,7 +280,7 @@ public final class DeltaLakeParquetSchemas
     private static PrimitiveType buildType(String name, OptionalInt id, List<String> parent, Types.PrimitiveBuilder<PrimitiveType> typeBuilder, Type trinoType, ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder)
     {
         if (id.isPresent()) {
-            typeBuilder.id(id.getAsInt());
+            typeBuilder.id(id.orElseThrow());
         }
 
         List<String> fullName = ImmutableList.<String>builder().addAll(parent).add(name).build();
@@ -334,7 +334,7 @@ public final class DeltaLakeParquetSchemas
                 .element(elementType)
                 .named(name);
         if (id.isPresent()) {
-            arrayType = arrayType.withId(id.getAsInt());
+            arrayType = arrayType.withId(id.orElseThrow());
         }
         return arrayType;
     }
@@ -351,7 +351,7 @@ public final class DeltaLakeParquetSchemas
     {
         Types.MapBuilder<GroupType> builder = Types.map(repetition);
         if (id.isPresent()) {
-            builder.id(id.getAsInt());
+            builder.id(id.orElseThrow());
         }
 
         parent = ImmutableList.<String>builder().addAll(parent).add(name).add("key_value").build();
@@ -391,7 +391,7 @@ public final class DeltaLakeParquetSchemas
     {
         Types.GroupBuilder<GroupType> builder = Types.buildGroup(repetition);
         if (id.isPresent()) {
-            builder.id(id.getAsInt());
+            builder.id(id.orElseThrow());
         }
         List<String> currentParent = ImmutableList.<String>builder().addAll(parent).add(name).build();
         stream(typeNode.get("fields").elements())

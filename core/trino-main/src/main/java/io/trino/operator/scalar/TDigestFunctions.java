@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.Ordering;
+import com.google.common.collect.Comparators;
 import com.google.common.primitives.Doubles;
 import io.airlift.stats.TDigest;
 import io.trino.spi.block.Block;
@@ -26,6 +26,7 @@ import io.trino.spi.type.StandardTypes;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.util.Failures.checkCondition;
+import static java.util.Comparator.naturalOrder;
 
 public final class TDigestFunctions
 {
@@ -50,7 +51,7 @@ public final class TDigestFunctions
         for (int i = 0; i < percentiles.length; i++) {
             percentiles[i] = DOUBLE.getDouble(percentilesArrayBlock, i);
         }
-        checkCondition(Ordering.natural().isOrdered(Doubles.asList(percentiles)), INVALID_FUNCTION_ARGUMENT, "percentiles must be sorted in increasing order");
+        checkCondition(Comparators.isInOrder(Doubles.asList(percentiles), naturalOrder()), INVALID_FUNCTION_ARGUMENT, "percentiles must be sorted in increasing order");
         BlockBuilder output = DOUBLE.createFixedSizeBlockBuilder(percentilesArrayBlock.getPositionCount());
         double[] valuesAtPercentiles = input.valuesAt(percentiles);
         for (Double value : valuesAtPercentiles) {

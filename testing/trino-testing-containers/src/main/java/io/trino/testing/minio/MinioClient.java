@@ -13,7 +13,6 @@
  */
 package io.trino.testing.minio;
 
-import com.google.common.collect.Sets;
 import com.google.common.io.ByteSource;
 import com.google.common.reflect.ClassPath;
 import com.google.common.util.concurrent.FutureCallback;
@@ -39,6 +38,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -64,7 +64,7 @@ public class MinioClient
     public static final String DEFAULT_MINIO_ROOT_USER = "minio-access-key";
     public static final String DEFAULT_MINIO_ROOT_PASSWORD = "minio-secret-key";
 
-    private static final Set<String> createdBuckets = Sets.newConcurrentHashSet();
+    private static final Set<String> createdBuckets = ConcurrentHashMap.newKeySet();
 
     private final io.minio.MinioClient client;
     private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(32, daemonThreadsNamed("minio-client-%s")));

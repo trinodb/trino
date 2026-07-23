@@ -574,8 +574,8 @@ public class ElasticsearchClient
         searchBody.set("query", query);
 
         int size;
-        if (limit.isPresent() && limit.getAsLong() < scrollSize) {
-            size = toIntExact(limit.getAsLong());
+        if (limit.isPresent() && limit.orElseThrow() < scrollSize) {
+            size = toIntExact(limit.orElseThrow());
         }
         else {
             size = scrollSize;

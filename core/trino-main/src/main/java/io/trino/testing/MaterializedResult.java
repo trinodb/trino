@@ -212,7 +212,7 @@ public class MaterializedResult
                 .add("setSessionProperties", setSessionProperties)
                 .add("resetSessionProperties", resetSessionProperties)
                 .add("updateType", updateType.orElse(null))
-                .add("updateCount", updateCount.isPresent() ? updateCount.getAsLong() : null)
+                .add("updateCount", updateCount.isPresent() ? updateCount.orElseThrow() : null)
                 .omitNullValues()
                 .toString();
     }

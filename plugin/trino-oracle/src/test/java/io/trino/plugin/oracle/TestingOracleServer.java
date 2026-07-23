@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.oracle;
 
-import com.google.common.base.Joiner;
-import com.google.common.io.Files;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
@@ -29,10 +27,10 @@ import org.testcontainers.oracle.OracleContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -95,17 +93,18 @@ public class TestingOracleServer
     private Path createConfigureScript()
     {
         try {
-            File tempFile = File.createTempFile("init-", ".sql");
+            Path tempFile = Files.createTempFile("init-", ".sql");
 
-            Files.write(Joiner.on("\n").join(
+            Files.write(tempFile, String.join(
+                    "\n",
                     format("ALTER SESSION SET CONTAINER=FREEPDB1;"),
                     format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
                     format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),
                     format("GRANT UNLIMITED TABLESPACE TO %s;", TEST_USER),
                     format("GRANT CREATE SESSION TO %s;", TEST_USER),
-                    format("GRANT ALL PRIVILEGES TO %s;", TEST_USER)).getBytes(StandardCharsets.UTF_8), tempFile);
+                    format("GRANT ALL PRIVILEGES TO %s;", TEST_USER)).getBytes(StandardCharsets.UTF_8));
 
-            return tempFile.toPath();
+            return tempFile;
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

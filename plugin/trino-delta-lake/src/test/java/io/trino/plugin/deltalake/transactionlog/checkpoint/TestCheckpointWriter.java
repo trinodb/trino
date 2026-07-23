@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.Iterator;
 import java.util.List;
@@ -197,7 +198,7 @@ public class TestCheckpointWriter
 
         CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
 
-        File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -339,7 +340,7 @@ public class TestCheckpointWriter
 
         CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
 
-        File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();
@@ -414,7 +415,7 @@ public class TestCheckpointWriter
 
         CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
 
-        File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
+        File targetFile = Files.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet").toFile();
         targetFile.deleteOnExit();
 
         String targetPath = "file://" + targetFile.getAbsolutePath();

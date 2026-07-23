@@ -1097,7 +1097,7 @@ public class BigQueryMetadata
     {
         BigQueryTableHandle table = (BigQueryTableHandle) handle;
 
-        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
+        if (table.limit().isPresent() && table.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
 

@@ -57,11 +57,11 @@ class Histogram<K extends Comparable<K>>
         long min = initialData.stream()
                 .mapToLong(keyFunction::apply)
                 .min()
-                .getAsLong();
+                .orElseThrow();
         long max = initialData.stream()
                 .mapToLong(keyFunction::apply)
                 .max()
-                .getAsLong();
+                .orElseThrow();
 
         checkArgument(max > min);
 

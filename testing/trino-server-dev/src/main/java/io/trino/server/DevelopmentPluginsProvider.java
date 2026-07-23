@@ -14,7 +14,6 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
@@ -29,6 +28,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -155,7 +155,7 @@ public class DevelopmentPluginsProvider
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
     {
         List<Artifact> list = new ArrayList<>(artifacts);
-        list.sort(Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
+        list.sort(Comparator.comparing(Artifact::getFile, Comparator.nullsLast(Comparator.naturalOrder())));
         return list;
     }
 }

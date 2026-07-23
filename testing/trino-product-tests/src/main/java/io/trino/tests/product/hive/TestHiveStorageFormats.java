@@ -43,7 +43,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
@@ -720,7 +719,7 @@ public class TestHiveStorageFormats
         public String getStoragePropertiesAsSql()
         {
             return Stream.concat(
-                            Stream.of(immutableEntry("format", name)),
+                            Stream.of(Map.entry("format", name)),
                             properties.entrySet().stream())
                     .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
                     .collect(joining(", "));

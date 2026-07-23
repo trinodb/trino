@@ -149,7 +149,7 @@ public class IcebergTableHandle
         this.specId = requireNonNull(specId, "specId is null");
         this.partitionSpecJsons = ImmutableMap.copyOf(requireNonNull(partitionSpecJsons, "partitionSpecJsons is null"));
         checkArgument(
-                specId.isEmpty() || partitionSpecJsons.containsKey(specId.getAsInt()),
+                specId.isEmpty() || partitionSpecJsons.containsKey(specId.orElseThrow()),
                 "specId %s is present but partitionSpecJsons does not contain this id",
                 specId);
         this.formatVersion = formatVersion;

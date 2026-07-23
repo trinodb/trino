@@ -83,6 +83,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -332,7 +333,7 @@ class ParquetTester
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
-                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodec, schemaOptions);
+                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.orElseThrow(), compressionCodec, schemaOptions);
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -562,7 +563,7 @@ class ParquetTester
         public TempFile(String prefix, String suffix)
         {
             try {
-                file = File.createTempFile(prefix, suffix);
+                file = Files.createTempFile(prefix, suffix).toFile();
                 verify(file.delete());
             }
             catch (IOException e) {

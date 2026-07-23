@@ -107,14 +107,14 @@ public class MemoryPagesStore
         boolean done = false;
         long totalRows = 0;
         for (int i = partNumber; i < tableData.getPages().size() && !done; i += totalParts) {
-            if (sampleRatio.isPresent() && ThreadLocalRandom.current().nextDouble() >= sampleRatio.getAsDouble()) {
+            if (sampleRatio.isPresent() && ThreadLocalRandom.current().nextDouble() >= sampleRatio.orElseThrow()) {
                 continue;
             }
 
             Page page = tableData.getPages().get(i);
             totalRows += page.getPositionCount();
-            if (limit.isPresent() && totalRows > limit.getAsLong()) {
-                page = page.getRegion(0, (int) (page.getPositionCount() - (totalRows - limit.getAsLong())));
+            if (limit.isPresent() && totalRows > limit.orElseThrow()) {
+                page = page.getRegion(0, (int) (page.getPositionCount() - (totalRows - limit.orElseThrow())));
                 done = true;
             }
             // Append missing columns with null values. This situation happens when a new column is added without additional insert.

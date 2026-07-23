@@ -250,7 +250,7 @@ public class Literal
     {
         byte[] address;
         try {
-            address = InetAddresses.forString(value).getAddress();
+            address = InetAddress.ofLiteral(value).getAddress();
         }
         catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Cannot cast value to IPADDRESS: " + value);

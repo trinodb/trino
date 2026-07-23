@@ -50,11 +50,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -109,7 +109,7 @@ public class TestingRemoteTaskFactory
         private final AtomicLong nextTaskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
         private final AtomicBoolean started = new AtomicBoolean();
-        private final Set<PlanNodeId> noMoreSplits = newConcurrentHashSet();
+        private final Set<PlanNodeId> noMoreSplits = ConcurrentHashMap.newKeySet();
         @GuardedBy("this")
         private final Multimap<PlanNodeId, Split> splits = ArrayListMultimap.create();
         @GuardedBy("this")

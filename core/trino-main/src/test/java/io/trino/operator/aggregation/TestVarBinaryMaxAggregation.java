@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -49,7 +48,7 @@ public class TestVarBinaryMaxAggregation
         Slice max = null;
         for (int i = start; i < start + length; i++) {
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
-            max = (max == null) ? slice : Ordering.natural().max(max, slice);
+            max = (max == null) ? slice : (max.compareTo(slice) >= 0 ? max : slice);
         }
         return max.toStringUtf8();
     }

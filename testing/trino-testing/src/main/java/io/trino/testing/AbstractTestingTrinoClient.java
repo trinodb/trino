@@ -123,7 +123,7 @@ public abstract class AbstractTestingTrinoClient<T>
                     resultsSession.setUpdateType(results.getUpdateType());
                 }
                 if (results.getUpdateCount().isPresent()) {
-                    resultsSession.setUpdateCount(results.getUpdateCount().getAsLong());
+                    resultsSession.setUpdateCount(results.getUpdateCount().orElseThrow());
                 }
 
                 resultsSession.setWarnings(results.getWarnings());
