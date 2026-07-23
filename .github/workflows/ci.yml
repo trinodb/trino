@@ -45,6 +45,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-commit-messages:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: airlift/github-actions/check-commit-messages@1652e24519f5c7cec59d841070bf9beffadabdf9 # v1
+        with:
+          base_ref: ${{ github.event.pull_request.base.ref }}
+
   path-filters:
     runs-on: ubuntu-latest
     outputs:
@@ -1346,6 +1360,7 @@ jobs:
       - build-pt-junit
       - build-test-matrix
       - check-commit
+      - check-commit-messages
       - check-commits-dispatcher
       - error-prone-checks
       - maven-checks
@@ -1364,6 +1379,7 @@ jobs:
           echo '${{ needs.build-pt-junit.result }}' | grep -xE 'success|skipped' || { echo 'Job "build-pt-junit" failed' >&2; exit 1; }
           echo '${{ needs.build-test-matrix.result }}' | grep -xE 'success|skipped' || { echo 'Job "build-test-matrix" failed' >&2; exit 1; }
           echo '${{ needs.check-commit.result }}' | grep -xE 'success|skipped' || { echo 'Job "check-commit" failed' >&2; exit 1; }
+          echo '${{ needs.check-commit-messages.result }}' | grep -xE 'success|skipped' || { echo 'Job "check-commit-messages" failed' >&2; exit 1; }
           echo '${{ needs.check-commits-dispatcher.result }}' | grep -xE 'success|skipped' || { echo 'Job "check-commits-dispatcher" failed' >&2; exit 1; }
           echo '${{ needs.error-prone-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "error-prone-checks" failed' >&2; exit 1; }
           echo '${{ needs.maven-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "maven-checks" failed' >&2; exit 1; }
