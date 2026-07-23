@@ -18,8 +18,10 @@ import org.apache.iceberg.exceptions.CommitFailedException;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V0;
 import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V1;
 import static java.util.Objects.requireNonNull;
@@ -106,6 +108,21 @@ public class IcebergJdbcClient
                     .bind("table", tableName)
                     .mapTo(String.class)
                     .findOne();
+        }
+    }
+
+    public Map<String, String> getViewMetadataLocations(String schemaName)
+    {
+        try (Handle handle = Jdbi.open(connectionFactory)) {
+            return handle.createQuery("" +
+                            "SELECT table_name, metadata_location " +
+                            "FROM iceberg_tables " +
+                            "WHERE catalog_name = :catalog AND table_namespace = :schema AND iceberg_type = 'VIEW'")
+                    .bind("catalog", catalogName)
+                    .bind("schema", schemaName)
+                    .map((rs, _) -> Map.entry(rs.getString("table_name"), rs.getString("metadata_location")))
+                    .stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }
     }
 }
