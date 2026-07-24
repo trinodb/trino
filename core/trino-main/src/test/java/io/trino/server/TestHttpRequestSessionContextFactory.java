@@ -107,6 +107,28 @@ public class TestHttpRequestSessionContextFactory
     }
 
     @Test
+    public void testAuthenticatedExtraCredentialsOverrideRequestExtraCredentials()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "token=request-token")
+                .put(TRINO_HEADERS.requestExtraCredential(), "request-only=request-value")
+                .build());
+
+        SessionContext context = sessionContextFactory(TRINO_HEADERS).createSessionContext(
+                headers,
+                Optional.of("testRemote"),
+                Optional.of(Identity.forUser("testUser")
+                        .withExtraCredentials(ImmutableMap.of("token", "authenticated-token", "authenticated-only", "authenticated-value"))
+                        .build()));
+
+        assertThat(context.getIdentity().getExtraCredentials()).isEqualTo(ImmutableMap.of(
+                "token", "authenticated-token",
+                "request-only", "request-value",
+                "authenticated-only", "authenticated-value"));
+    }
+
+    @Test
     public void testMappedUser()
     {
         assertMappedUser(TRINO_HEADERS);
@@ -186,7 +208,7 @@ public class TestHttpRequestSessionContextFactory
                 .build());
 
         assertInvalidSession(TRINO_HEADERS, headers)
-                .hasMessage("Invalid extra credential name: internal$abc");
+                .hasMessage("Invalid extra credential name");
     }
 
     private static AbstractThrowableAssert<?, ? extends Throwable> assertInvalidSession(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)

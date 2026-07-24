@@ -60,6 +60,7 @@ import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
+import static io.trino.spi.security.ExtraCredentials.isInternalExtraCredential;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -259,11 +260,15 @@ public class HttpRequestSessionContextFactory
         if (systemRole.getType() == Type.ROLE) {
             systemEnabledRoles.add(systemRole.getRole().orElseThrow());
         }
+        // Authenticated credentials (placed by the server-side authenticator under internal$*
+        // keys) take precedence over client-supplied credentials with the same name.
+        Map<String, String> extraCredentials = new HashMap<>(parseExtraCredentials(protocolHeaders, headers));
+        authenticatedIdentity.map(Identity::getExtraCredentials).ifPresent(extraCredentials::putAll);
         Identity newIdentity = authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
                 .withAdditionalConnectorRoles(parseConnectorRoleHeaders(protocolHeaders, headers))
-                .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
+                .withExtraCredentials(extraCredentials)
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .withEnabledRoles(systemEnabledRoles.build())
                 .build();
@@ -343,7 +348,7 @@ public class HttpRequestSessionContextFactory
     {
         Map<String, String> credentials = parseProperty(headers, protocolHeaders.requestExtraCredential());
         for (String name : credentials.keySet()) {
-            assertRequest(!name.startsWith("internal$"), "Invalid extra credential name: %s", name);
+            assertRequest(!isInternalExtraCredential(name), "Invalid extra credential name");
         }
         return credentials;
     }

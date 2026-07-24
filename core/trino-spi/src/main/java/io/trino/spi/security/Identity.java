@@ -160,7 +160,7 @@ public class Identity
         }
         // Do not print any internal credential keys
         List<String> filteredCredentials = extraCredentials.keySet().stream()
-                .filter(key -> !key.contains("$internal"))
+                .filter(key -> !ExtraCredentials.isInternalExtraCredential(key))
                 .collect(toCollection(ArrayList::new));
         if (filteredCredentials.size() != extraCredentials.size()) {
             filteredCredentials.add("...");
