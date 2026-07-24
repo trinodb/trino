@@ -17,6 +17,8 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
 
+import java.util.Optional;
+
 public interface FunctionProvider
 {
     default ScalarFunctionImplementation getScalarFunctionImplementation(
@@ -26,6 +28,14 @@ public interface FunctionProvider
             InvocationConvention invocationConvention)
     {
         throw new UnsupportedOperationException("%s does not provide scalar functions".formatted(getClass().getName()));
+    }
+
+    default Optional<ColumnarScalarFunctionImplementation> getColumnarScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies)
+    {
+        return Optional.empty();
     }
 
     default AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)

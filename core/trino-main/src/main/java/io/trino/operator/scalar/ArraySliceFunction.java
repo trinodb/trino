@@ -13,7 +13,9 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.operator.scalar.ArrayBlockProjection.Region;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.ColumnarScalarImplementation;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -21,14 +23,42 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
+import static io.trino.operator.scalar.ArrayBlockProjection.project;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 @ScalarFunction("slice")
 @Description("Subsets an array given an offset (1-indexed) and length")
 public final class ArraySliceFunction
 {
     private ArraySliceFunction() {}
+
+    @ColumnarScalarImplementation
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block sliceColumnar(
+            @SqlType("array(E)") Block arrayColumn,
+            @SqlType(StandardTypes.BIGINT) Block fromIndexColumn,
+            @SqlType(StandardTypes.BIGINT) Block lengthColumn)
+    {
+        return project(arrayColumn, fromIndexColumn, lengthColumn, (arrayLength, fromIndex, length) -> {
+            checkCondition(length >= 0, INVALID_FUNCTION_ARGUMENT, "length must be greater than or equal to 0");
+            checkCondition(fromIndex != 0, INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
+
+            if (arrayLength == 0) {
+                return new Region(0, 0);
+            }
+            if (fromIndex < 0) {
+                fromIndex = arrayLength + fromIndex + 1;
+            }
+            long toIndex = Math.min(fromIndex + length, arrayLength + 1L);
+            if (fromIndex >= toIndex || fromIndex < 1) {
+                return new Region(0, 0);
+            }
+            return new Region(toIntExact(fromIndex - 1), toIntExact(toIndex - fromIndex));
+        });
+    }
 
     @TypeParameter("E")
     @SqlType("array(E)")

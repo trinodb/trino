@@ -13,6 +13,8 @@
  */
 package io.trino.spi.function;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 class FunctionBundleProvider
@@ -33,6 +35,15 @@ class FunctionBundleProvider
             InvocationConvention invocationConvention)
     {
         return bundle.getScalarFunctionImplementation(functionId, boundSignature, functionDependencies, invocationConvention);
+    }
+
+    @Override
+    public Optional<ColumnarScalarFunctionImplementation> getColumnarScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies)
+    {
+        return bundle.getColumnarScalarFunctionImplementation(functionId, boundSignature, functionDependencies);
     }
 
     @Override
