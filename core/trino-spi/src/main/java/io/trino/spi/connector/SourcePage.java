@@ -107,4 +107,18 @@ public interface SourcePage
      * the underlying reader to filter positions on subsequent reads.
      */
     void selectPositions(int[] positions, int offset, int size);
+
+    /**
+     * Masks this page to the contiguous position range {@code [offset, offset + size)}.
+     * Equivalent to {@link #selectPositions(int[], int, int)} with the identity array for that
+     * range; implementations may narrow via a region view rather than a gather.
+     */
+    default void selectPositions(int offset, int size)
+    {
+        int[] positions = new int[size];
+        for (int i = 0; i < size; i++) {
+            positions[i] = offset + i;
+        }
+        selectPositions(positions, 0, size);
+    }
 }
