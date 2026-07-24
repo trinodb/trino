@@ -499,6 +499,19 @@ the following features:
 ```{include} sql-delete-limitation.fragment
 ```
 
+### Schema properties
+
+The connector supports setting the location of a schema when it is created with
+the {doc}`/sql/create-schema` statement and the `location` schema property. The
+value must be a [BigQuery dataset location](https://cloud.google.com/bigquery/docs/locations),
+for example `US`, `EU`, or `asia-northeast1`. When the property is omitted,
+BigQuery applies its own default location.
+
+```sql
+CREATE SCHEMA example.example_schema
+WITH (location = 'asia-northeast1');
+```
+
 ### Wildcard table
 
 The connector provides support to query multiple tables using a concise
