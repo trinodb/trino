@@ -19,9 +19,9 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
 
 /// Thread-safe wrapper around the (not thread-safe) [SchedulingNode] tree, exposing the flat
 /// `(group, task)` API the scheduler uses: a group is a depth-1 node and a task a leaf beneath it.
@@ -29,7 +29,6 @@ import java.util.concurrent.locks.ReentrantLock;
 final class BlockingSchedulingQueue<G, T>
 {
     private final Lock lock = new ReentrantLock();
-    private final Condition notEmpty = lock.newCondition();
 
     @GuardedBy("lock")
     private final SchedulingNode<T> root = new SchedulingNode<>();
@@ -91,8 +90,6 @@ final class BlockingSchedulingQueue<G, T>
             }
 
             root.enqueue(List.of(group, task), deltaWeight);
-            notEmpty.signal();
-
             return true;
         }
         finally {
@@ -116,21 +113,17 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
-    public T dequeue(long expectedWeight)
-            throws InterruptedException
+    /// Dequeue the next runnable task if `reserve` grants it a slot, or return `null` if no task is
+    /// runnable or no slot is free. `reserve` runs under the queue lock and only when a task is
+    /// runnable, so a slot is never claimed without a task to place on it.
+    public T dequeue(long expectedWeight, BooleanSupplier reserve)
     {
         lock.lock();
         try {
-            T result;
-            do {
-                result = root.dequeue(expectedWeight);
-                if (result == null) {
-                    notEmpty.await();
-                }
+            if (root.peek() == null || !reserve.getAsBoolean()) {
+                return null;
             }
-            while (result == null);
-
-            return result;
+            return root.dequeue(expectedWeight);
         }
         finally {
             lock.unlock();
