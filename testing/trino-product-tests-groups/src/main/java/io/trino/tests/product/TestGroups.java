@@ -64,6 +64,7 @@ public final class TestGroups
     public static final String AZURE = "azure";
     public static final String EXASOL = "exasol";
     public static final String CASSANDRA = "cassandra";
+    public static final String DORIS = "doris";
     public static final String POSTGRESQL = "postgresql";
     public static final String POSTGRESQL_POSTGIS = "postgresql_postgis";
     public static final String SQLSERVER = "sqlserver";

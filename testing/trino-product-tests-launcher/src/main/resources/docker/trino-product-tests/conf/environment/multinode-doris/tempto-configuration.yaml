@@ -1,0 +1,11 @@
+databases:
+  trino:
+    jdbc_url: "jdbc:trino://${databases.trino.host}:${databases.trino.port}/doris/test"
+
+  doris:
+    jdbc_driver_class: com.mysql.cj.jdbc.Driver
+    jdbc_url: "jdbc:mysql://doris-fe:9030/?useSSL=false"
+    jdbc_user: root
+    jdbc_password: ""
+    jdbc_pooling: true
+    table_manager_type: jdbc
