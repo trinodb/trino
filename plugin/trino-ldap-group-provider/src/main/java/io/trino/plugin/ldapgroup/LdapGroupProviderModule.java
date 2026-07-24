@@ -30,11 +30,25 @@ public class LdapGroupProviderModule
 
         if (buildConfigObject(LdapGroupProviderConfig.class).getLdapUseGroupFilter()) {
             configBinder(binder).bindConfig(LdapFilteringGroupProviderConfig.class);
+            bindLdapGroupResolver(binder, buildConfigObject(LdapFilteringGroupProviderConfig.class));
             binder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
         }
         else {
             configBinder(binder).bindConfig(LdapSingleQueryGroupProviderConfig.class);
             binder.bind(GroupProvider.class).to(LdapSingleQueryGroupProvider.class).in(Scopes.SINGLETON);
         }
+    }
+
+    private static void bindLdapGroupResolver(Binder binder, LdapFilteringGroupProviderConfig config)
+    {
+        if (!config.isLdapGroupSearchNestedEnabled()) {
+            binder.bind(LdapGroupResolver.class).to(DirectLdapGroupResolver.class).in(Scopes.SINGLETON);
+            return;
+        }
+        if (config.isLdapGroupSearchNestedUseMatchingRuleInChain()) {
+            binder.bind(LdapGroupResolver.class).to(MatchingRuleInChainLdapGroupResolver.class).in(Scopes.SINGLETON);
+            return;
+        }
+        binder.bind(LdapGroupResolver.class).to(RecursiveLdapGroupResolver.class).in(Scopes.SINGLETON);
     }
 }
