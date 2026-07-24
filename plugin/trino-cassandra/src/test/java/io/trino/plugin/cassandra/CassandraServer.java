@@ -63,7 +63,7 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("cassandra:3.0", "cu-cassandra.yaml");
+        this("cassandra:4.0", "cu-cassandra.yaml");
     }
 
     public CassandraServer(String imageName, String configFileName)
@@ -88,7 +88,7 @@ public class CassandraServer
 
         ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
         driverConfigLoaderBuilder.withDuration(REQUEST_TIMEOUT, java.time.Duration.ofSeconds(30));
-        driverConfigLoaderBuilder.withString(PROTOCOL_VERSION, ProtocolVersion.V3.name());
+        driverConfigLoaderBuilder.withString(PROTOCOL_VERSION, ProtocolVersion.V4.name());
         driverConfigLoaderBuilder.withDuration(CONTROL_CONNECTION_AGREEMENT_TIMEOUT, java.time.Duration.ofSeconds(30));
         // allow the retrieval of metadata for the system keyspaces
         driverConfigLoaderBuilder.withStringList(METADATA_SCHEMA_REFRESHED_KEYSPACES, List.of());
