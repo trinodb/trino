@@ -17,59 +17,63 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-/// Thread-safe wrapper around the (not thread-safe) [SchedulingNode] tree, exposing the flat
-/// `(group, task)` API the scheduler uses: a group is a depth-1 node and a task a leaf beneath it.
+/// Thread-safe wrapper around the (not thread-safe) [SchedulingNode] tree. Groups nest to any depth:
+/// a group's position in the tree is its [Group#path()], and a task is a leaf below its innermost
+/// group.
 @ThreadSafe
-final class BlockingSchedulingQueue<G, T>
+final class BlockingSchedulingQueue
 {
     private final Lock lock = new ReentrantLock();
 
     @GuardedBy("lock")
-    private final SchedulingNode<T> root = new SchedulingNode<>();
+    private final SchedulingNode<TaskControl> root = new SchedulingNode<>();
 
-    public void startGroup(G group)
+    public void startGroup(Group group)
     {
         lock.lock();
         try {
-            root.startGroup(List.of(group));
+            root.startGroup(groupPath(group));
         }
         finally {
             lock.unlock();
         }
     }
 
-    public Set<T> finishGroup(G group)
+    public Set<TaskControl> finishGroup(Group group)
     {
         lock.lock();
         try {
-            return root.finishGroup(List.of(group));
-        }
-        finally {
-            lock.unlock();
-        }
-    }
-
-    public Set<T> getTasks(G group)
-    {
-        lock.lock();
-        try {
-            if (!root.containsGroup(List.of(group))) {
+            if (!root.containsGroup(groupPath(group))) {
                 return ImmutableSet.of();
             }
-
-            return root.getTasks(List.of(group));
+            return root.finishGroup(groupPath(group));
         }
         finally {
             lock.unlock();
         }
     }
 
-    public Set<T> finishAll()
+    public Set<TaskControl> getTasks(Group group)
+    {
+        lock.lock();
+        try {
+            if (!root.containsGroup(groupPath(group))) {
+                return ImmutableSet.of();
+            }
+            return root.getTasks(groupPath(group));
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    public Set<TaskControl> finishAll()
     {
         lock.lock();
         try {
@@ -80,16 +84,14 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
-    public boolean enqueue(G group, T task, long deltaWeight)
+    public boolean enqueue(Group group, TaskControl task, long deltaWeight)
     {
         lock.lock();
         try {
-            if (!root.containsGroup(List.of(group))) {
+            if (!root.containsGroup(groupPath(group))) {
                 return false;
             }
-
-            root.enqueue(List.of(group, task), deltaWeight);
-
+            root.enqueue(leafPath(group, task), deltaWeight);
             return true;
         }
         finally {
@@ -97,15 +99,14 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
-    public boolean block(G group, T task, long deltaWeight)
+    public boolean block(Group group, TaskControl task, long deltaWeight)
     {
         lock.lock();
         try {
-            if (!root.containsGroup(List.of(group))) {
+            if (!root.containsGroup(groupPath(group))) {
                 return false;
             }
-
-            root.block(List.of(group, task), deltaWeight);
+            root.block(leafPath(group, task), deltaWeight);
             return true;
         }
         finally {
@@ -116,7 +117,7 @@ final class BlockingSchedulingQueue<G, T>
     /// Dequeue the next runnable task, or return `null` if none is currently runnable. Unlike a
     /// blocking queue, this never waits — admission is driven by the scheduler calling this whenever
     /// a slot frees or work is enqueued.
-    public T tryDequeue(long expectedWeight)
+    public TaskControl tryDequeue(long expectedWeight)
     {
         lock.lock();
         try {
@@ -127,30 +128,29 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
-    public long weightOf(G group, T task)
+    public long weightOf(Group group, TaskControl task)
     {
         lock.lock();
         try {
-            if (!root.containsGroup(List.of(group))) {
+            if (!root.containsGroup(groupPath(group))) {
                 // The group may have been removed (and the task cancelled) concurrently.
                 return 0;
             }
-            return root.weightOf(List.of(group, task));
+            return root.weightOf(leafPath(group, task));
         }
         finally {
             lock.unlock();
         }
     }
 
-    public boolean finish(G group, T task)
+    public boolean finish(Group group, TaskControl task)
     {
         lock.lock();
         try {
-            if (!root.containsGroup(List.of(group))) {
+            if (!root.containsGroup(groupPath(group))) {
                 return false;
             }
-
-            root.finish(List.of(group, task));
+            root.finish(leafPath(group, task));
             return true;
         }
         finally {
@@ -179,5 +179,17 @@ final class BlockingSchedulingQueue<G, T>
         finally {
             lock.unlock();
         }
+    }
+
+    private static List<Object> groupPath(Group group)
+    {
+        return new ArrayList<>(group.path());
+    }
+
+    private static List<Object> leafPath(Group group, TaskControl task)
+    {
+        List<Object> path = groupPath(group);
+        path.add(task);
+        return path;
     }
 }
