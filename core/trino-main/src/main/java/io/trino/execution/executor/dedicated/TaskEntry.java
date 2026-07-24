@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -269,12 +270,32 @@ class TaskEntry
         return scheduler.submit(
                 pipelineGroup(split.getPipelineId()),
                 splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, this::pipelineGroupForDonation)));
     }
 
     private synchronized Group pipelineGroup(int pipelineId)
     {
         return pipelineGroups.computeIfAbsent(pipelineId, id -> scheduler.createGroup(group, "pipeline-" + id));
+    }
+
+    /// The scheduling group of a pipeline that already has scheduled splits, or empty.
+    public synchronized Optional<Group> pipelineGroupIfPresent(int pipelineId)
+    {
+        return Optional.ofNullable(pipelineGroups.get(pipelineId));
+    }
+
+    /// The scheduling group of the producer pipeline a blocked split donates priority to, creating it
+    /// on demand if that pipeline has not scheduled a split yet — otherwise a probe that blocks before
+    /// its build pipeline is scheduled would silently get no donation, the case where it matters most.
+    /// Creating it early is harmless: an empty group is blocked, so it stays out of fair order until
+    /// its splits arrive, at which point they inherit any boost already applied to the group. Empty
+    /// once the task is being torn down, since its group subtree is gone.
+    public synchronized Optional<Group> pipelineGroupForDonation(int pipelineId)
+    {
+        if (destroyed) {
+            return Optional.empty();
+        }
+        return Optional.of(pipelineGroup(pipelineId));
     }
 
     private void splitDone(SplitRunner split)

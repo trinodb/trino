@@ -14,6 +14,7 @@
 package io.trino.execution.executor.scheduler;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.TreeMultiset;
 import io.trino.annotation.NotThreadSafe;
 
 import java.util.HashMap;
@@ -92,6 +93,8 @@ final class SchedulingNode<T>
     private State state;
     private long weight;
     private long uncommittedWeight; // leaf only
+    private final Map<SchedulingNode<T>, Boost> boosts = new HashMap<>();
+    private final TreeMultiset<Long> boostOffsets = TreeMultiset.create();
 
     // internal nodes only
     private final Map<Object, SchedulingNode<T>> children = new HashMap<>();
@@ -154,7 +157,7 @@ final class SchedulingNode<T>
         SchedulingNode<T> group = navigate(path);
         ImmutableSet.Builder<T> builder = ImmutableSet.builder();
         group.collectLeaves(builder);
-        finishRecursive(path, 0);
+        finish(path);
         return builder.build();
     }
 
@@ -182,6 +185,11 @@ final class SchedulingNode<T>
 
     public void finish(List<Object> path)
     {
+        // Withdraw every contribution originating in the removed subtree from its ancestors.
+        // Other targets retain their contributions and the runtime accrued under them.
+        for (SchedulingNode<T> producer : List.copyOf(navigate(path).boosts.keySet())) {
+            applyBoost(path, 0, producer, null);
+        }
         finishRecursive(path, 0);
     }
 
@@ -208,6 +216,63 @@ final class SchedulingNode<T>
     public int getRunnableCount()
     {
         return runnableLeafCount();
+    }
+
+    /// The natural (non-boosted) ordering weight of the leaf at `path` — i.e. the donor's virtual
+    /// runtime, used as its urgency when it donates priority to a producer.
+    public long weightOf(List<Object> path)
+    {
+        return navigate(path).naturalWeight();
+    }
+
+    /// Donate priority to the node at `path` and every ancestor on its path by priority inheritance:
+    /// each is repositioned to the donor's virtual runtime `rank` (a lower rank — a more urgent
+    /// consumer — sorts earlier) and then accrues from there like any other node. Used to run a
+    /// producer a blocked consumer depends on ahead of fair order, avoiding priority inversion.
+    /// Because a boosted node competes from the donor's position rather than being pinned absolutely
+    /// ahead, it cannot starve the sibling work the consumer is ultimately waiting on. Reverse or
+    /// re-rank with [#setBoost] again, or [#clearBoost]. Contributions from different targets compose
+    /// at their shared ancestors: the lowest accrued rank wins, and clearing one target preserves
+    /// the contributions and accrued runtime of the others.
+    public void setBoost(List<Object> path, long rank)
+    {
+        SchedulingNode<T> producer = find(path);
+        if (producer != null) {
+            applyBoost(path, 0, producer, rank);
+        }
+    }
+
+    public void clearBoost(List<Object> path)
+    {
+        SchedulingNode<T> producer = find(path);
+        if (producer != null) {
+            applyBoost(path, 0, producer, null);
+        }
+    }
+
+    private void applyBoost(List<Object> path, int index, SchedulingNode<T> producer, Long rank)
+    {
+        SchedulingNode<T> child = children.get(path.get(index));
+        Boost previous = child.boosts.get(producer);
+        if (previous != null && (rank == null || previous.rank() != rank)) {
+            child.boosts.remove(producer);
+            child.boostOffsets.remove(previous.offset());
+        }
+        if (rank != null && (previous == null || previous.rank() != rank)) {
+            // Retain each target's own accrual anchor, including when another target changes.
+            Boost boost = new Boost(rank, rank - child.naturalWeight());
+            child.boosts.put(producer, boost);
+            child.boostOffsets.add(boost.offset());
+        }
+        if (runnable.contains(child)) {
+            runnable.addOrReplace(child, child.orderingWeight());
+        }
+        if (baseline.contains(child)) {
+            baseline.addOrReplace(child, child.orderingWeight());
+        }
+        if (index < path.size() - 1) {
+            child.applyBoost(path, index + 1, producer, rank);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -375,6 +440,17 @@ final class SchedulingNode<T>
 
     private long orderingWeight()
     {
+        if (!boostOffsets.isEmpty()) {
+            // Priority inheritance: start at the donor's virtual runtime and accrue from there, so a
+            // boosted node competes with — rather than permanently preempts — its siblings. Pinning it
+            // absolutely ahead would let a busy producer starve the very work a blocked consumer waits on.
+            return naturalWeight() + boostOffsets.firstEntry().getElement();
+        }
+        return naturalWeight();
+    }
+
+    private long naturalWeight()
+    {
         return leaf ? weight + uncommittedWeight : weight;
     }
 
@@ -448,6 +524,8 @@ final class SchedulingNode<T>
             entry.getValue().appendTo(builder, entry.getKey(), depth + 1);
         }
     }
+
+    private record Boost(long rank, long offset) {}
 
     @SuppressWarnings("unchecked")
     private static <T> T cast(Object key)

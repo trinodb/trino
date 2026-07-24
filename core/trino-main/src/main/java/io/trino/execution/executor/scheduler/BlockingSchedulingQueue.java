@@ -128,6 +128,63 @@ final class BlockingSchedulingQueue
         }
     }
 
+    public long weightOf(Group group, TaskControl task)
+    {
+        lock.lock();
+        try {
+            if (!root.containsGroup(groupPath(group))) {
+                // The group may have been removed (and the task cancelled) concurrently.
+                return 0;
+            }
+            return root.weightOf(leafPath(group, task));
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    /// The group's own virtual runtime — how far fair order has deferred it. A missing group (removed
+    /// concurrently, or a producer that never scheduled a split) sorts last.
+    public long groupWeightOf(Group group)
+    {
+        lock.lock();
+        try {
+            if (!root.containsGroup(groupPath(group))) {
+                return Long.MIN_VALUE;
+            }
+            return root.weightOf(groupPath(group));
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    public void boost(Group group, long rank)
+    {
+        lock.lock();
+        try {
+            if (root.containsGroup(groupPath(group))) {
+                root.setBoost(groupPath(group), rank);
+            }
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    public void unboost(Group group)
+    {
+        lock.lock();
+        try {
+            if (root.containsGroup(groupPath(group))) {
+                root.clearBoost(groupPath(group));
+            }
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
     public boolean finish(Group group, TaskControl task)
     {
         lock.lock();

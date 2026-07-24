@@ -18,6 +18,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 
 import java.io.Closeable;
+import java.util.OptionalInt;
 
 public interface SplitRunner
         extends Closeable
@@ -29,6 +30,15 @@ public interface SplitRunner
     boolean isFinished();
 
     ListenableFuture<Void> processFor(Duration duration);
+
+    /// When [#processFor] last returned an unfinished blocked future, the id of the pipeline whose
+    /// output this split is waiting on (e.g. the build pipeline a hash-join probe reads from), if
+    /// known. The scheduler donates priority to that pipeline while this split is blocked so the
+    /// dependency clears sooner. Empty when the block has no identifiable producer pipeline.
+    default OptionalInt getBlockedProducerPipeline()
+    {
+        return OptionalInt.empty();
+    }
 
     String getInfo();
 
