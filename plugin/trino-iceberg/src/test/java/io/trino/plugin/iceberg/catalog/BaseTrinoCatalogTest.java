@@ -50,6 +50,7 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.view.ViewMetadata;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -408,6 +409,62 @@ public abstract class BaseTrinoCatalogTest
                     .startsWith(namespaceLocation + "/");
             assertThat(location2)
                     .startsWith(namespaceLocation + "/");
+        }
+        finally {
+            try {
+                catalog.dropNamespace(SESSION, namespace);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: %s", namespace);
+            }
+        }
+    }
+
+    /**
+     * Load the {@link ViewMetadata} backing an Iceberg-native view previously created via
+     * {@link TrinoCatalog#createView}. Overridden by REST and JDBC catalog test classes to
+     * enable {@link #testRegisterView()}. Default returns empty for catalogs that do not
+     * store Iceberg-native view metadata (HMS, Glue, Nessie, Snowflake); those subclasses
+     * override {@link #testRegisterView()} directly to assert NOT_SUPPORTED.
+     */
+    protected Optional<ViewMetadata> loadIcebergViewMetadata(TrinoCatalog catalog, SchemaTableName viewName)
+    {
+        return Optional.empty();
+    }
+
+    @Test
+    public void testRegisterView()
+            throws IOException
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        String namespace = "test_register_view_" + randomNameSuffix();
+        SchemaTableName sourceViewName = new SchemaTableName(namespace, "view_" + randomNameSuffix());
+        SchemaTableName registeredViewName = new SchemaTableName(namespace, "view_" + randomNameSuffix());
+        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+                "SELECT name FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorViewDefinition.ViewColumn("name", VarcharType.createUnboundedVarcharType().getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.of(SESSION.getUser()),
+                false,
+                ImmutableList.of());
+
+        try {
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createView(SESSION, sourceViewName, viewDefinition, ImmutableMap.of(), false);
+
+            ViewMetadata viewMetadata = loadIcebergViewMetadata(catalog, sourceViewName)
+                    .orElseThrow(() -> new AssertionError("Subclass did not provide loadIcebergViewMetadata but base testRegisterView was not overridden"));
+
+            // Register the existing metadata under a new name. This mirrors the register_view
+            // procedure, which attaches an existing Iceberg view metadata file to a catalog
+            // entry without going through createView.
+            catalog.registerView(SESSION, registeredViewName, viewMetadata);
+            assertViewDefinition(catalog.getView(SESSION, registeredViewName).orElseThrow(), viewDefinition);
+            // The source view is still registered and readable through the same shared metadata
+            assertViewDefinition(catalog.getView(SESSION, sourceViewName).orElseThrow(), viewDefinition);
         }
         finally {
             try {
