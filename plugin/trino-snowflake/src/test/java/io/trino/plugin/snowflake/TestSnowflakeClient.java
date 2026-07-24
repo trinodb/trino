@@ -37,6 +37,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSnowflakeClient
@@ -60,7 +61,8 @@ public class TestSnowflakeClient
             _ -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
-            RemoteQueryModifier.NONE);
+            RemoteQueryModifier.NONE,
+            TESTING_TYPE_MANAGER);
 
     @Test
     public void testImplementCount()
