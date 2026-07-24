@@ -2194,6 +2194,12 @@ public class IcebergPageSourceProvider
         }
 
         @Override
+        public boolean trySelectPositions(int[] positions, int offset, int size)
+        {
+            return sourcePage.trySelectPositions(positions, offset, size);
+        }
+
+        @Override
         public Page getColumns(int[] channels)
         {
             for (int channel : channels) {

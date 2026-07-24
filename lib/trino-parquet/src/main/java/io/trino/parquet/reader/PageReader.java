@@ -14,8 +14,7 @@
 package io.trino.parquet.reader;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
@@ -37,7 +36,9 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -53,11 +54,14 @@ public final class PageReader
     private final CompressionCodec codec;
     private final boolean hasOnlyDictionaryEncodedPages;
     private final boolean hasNoNulls;
-    private final PeekingIterator<Page> compressedPages;
+    private final Iterator<? extends Page> compressedPages;
+    private final ArrayDeque<Page> bufferedPages = new ArrayDeque<>();
     private final Optional<BlockCipher.Decryptor> blockDecryptor;
 
     private boolean dictionaryAlreadyRead;
     private int dataPageReadCount;
+    private long bufferedPageBytes;
+    private long currentPageRetainedBytes;
     @Nullable
     private byte[] dataPageAad;
     @Nullable
@@ -114,7 +118,7 @@ public final class PageReader
     {
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.codec = codec;
-        this.compressedPages = Iterators.peekingIterator(compressedPages);
+        this.compressedPages = requireNonNull(compressedPages, "compressedPages is null");
         this.hasOnlyDictionaryEncodedPages = hasOnlyDictionaryEncodedPages;
         this.hasNoNulls = hasNoNulls;
         this.blockDecryptor = decryptionContext.map(ColumnDecryptionContext::dataDecryptor);
@@ -136,10 +140,10 @@ public final class PageReader
 
     public DataPage readPage()
     {
-        if (!compressedPages.hasNext()) {
+        if (!hasNext()) {
             return null;
         }
-        Page compressedPage = compressedPages.next();
+        Page compressedPage = nextCompressedPage();
         checkState(compressedPage instanceof DataPage, "Found page %s instead of a DataPage", compressedPage);
         dataPageReadCount++;
         try {
@@ -148,7 +152,7 @@ public final class PageReader
             }
             Slice slice = decryptSliceIfNeeded(compressedPage.getSlice(), dataPageAad);
             if (compressedPage instanceof DataPageV1 dataPageV1) {
-                return new DataPageV1(
+                DataPage page = new DataPageV1(
                         !arePagesCompressed() ? slice : decompress(dataSourceId, codec, slice, dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
@@ -157,6 +161,10 @@ public final class PageReader
                         dataPageV1.getDefinitionLevelEncoding(),
                         dataPageV1.getValueEncoding(),
                         dataPageV1.getPageIndex());
+                if (arePagesCompressed()) {
+                    currentPageRetainedBytes = 0;
+                }
+                return page;
             }
             DataPageV2 dataPageV2 = (DataPageV2) compressedPage;
             if (!dataPageV2.isCompressed()) {
@@ -165,7 +173,7 @@ public final class PageReader
             int uncompressedSize = dataPageV2.getUncompressedSize()
                     - dataPageV2.getDefinitionLevels().length()
                     - dataPageV2.getRepetitionLevels().length();
-            return new DataPageV2(
+            DataPage page = new DataPageV2(
                     dataPageV2.getRowCount(),
                     dataPageV2.getNullCount(),
                     dataPageV2.getValueCount(),
@@ -178,6 +186,8 @@ public final class PageReader
                     dataPageV2.getStatistics(),
                     false,
                     dataPageV2.getPageIndex());
+            currentPageRetainedBytes = 0;
+            return page;
         }
         catch (IOException e) {
             throw new RuntimeException("Could not decompress page", e);
@@ -189,16 +199,18 @@ public final class PageReader
         checkState(!dictionaryAlreadyRead, "Dictionary was already read");
         checkState(dataPageReadCount == 0, "Dictionary has to be read first but %s was read already", dataPageReadCount);
         dictionaryAlreadyRead = true;
-        if (!(compressedPages.peek() instanceof DictionaryPage)) {
+        if (!(peekCompressedPage() instanceof DictionaryPage)) {
             return null;
         }
         try {
-            DictionaryPage compressedDictionaryPage = (DictionaryPage) compressedPages.next();
+            DictionaryPage compressedDictionaryPage = (DictionaryPage) nextCompressedPage();
             Slice slice = decryptSliceIfNeeded(compressedDictionaryPage.getSlice(), dictionaryPageAad);
-            return new DictionaryPage(
+            DictionaryPage dictionaryPage = new DictionaryPage(
                     decompress(dataSourceId, codec, slice, compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
                     compressedDictionaryPage.getEncoding());
+            currentPageRetainedBytes = 0;
+            return dictionaryPage;
         }
         catch (IOException e) {
             throw new RuntimeException("Error reading dictionary page", e);
@@ -207,20 +219,99 @@ public final class PageReader
 
     public boolean hasNext()
     {
-        return compressedPages.hasNext();
+        return !bufferedPages.isEmpty() || compressedPages.hasNext();
     }
 
     public DataPage getNextPage()
     {
         verifyDictionaryPageRead();
 
-        return (DataPage) compressedPages.peek();
+        return (DataPage) peekCompressedPage();
     }
 
     public void skipNextPage()
     {
         verifyDictionaryPageRead();
-        compressedPages.next();
+        nextCompressedPage();
+        currentPageRetainedBytes = 0;
+    }
+
+    public List<DataPage> getNextDataPages(int valueCount, int maxPageCount, long maxBufferedBytes)
+    {
+        verifyDictionaryPageRead();
+        checkArgument(valueCount >= 0, "valueCount is negative");
+        checkArgument(maxPageCount > 0, "maxPageCount must be positive");
+        checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be positive");
+
+        ImmutableList.Builder<DataPage> pages = ImmutableList.builder();
+        int bufferedValueCount = 0;
+        int pageCount = 0;
+        for (Page page : bufferedPages) {
+            checkState(page instanceof DataPage, "Found page %s instead of a DataPage", page);
+            DataPage dataPage = (DataPage) page;
+            pages.add(dataPage);
+            pageCount++;
+            bufferedValueCount += dataPage.getValueCount();
+            if (bufferedValueCount >= valueCount || pageCount >= maxPageCount) {
+                return pages.build();
+            }
+        }
+
+        while (bufferedValueCount < valueCount && pageCount < maxPageCount && bufferedPageBytes < maxBufferedBytes && compressedPages.hasNext()) {
+            Page page = compressedPages.next();
+            checkState(page instanceof DataPage, "Found page %s instead of a DataPage", page);
+            bufferedPages.addLast(page);
+            bufferedPageBytes += getRetainedBytes(page);
+            DataPage dataPage = (DataPage) page;
+            pages.add(dataPage);
+            bufferedValueCount += dataPage.getValueCount();
+            pageCount++;
+        }
+        return pages.build();
+    }
+
+    public long getRetainedPageBytes()
+    {
+        return bufferedPageBytes + currentPageRetainedBytes;
+    }
+
+    @VisibleForTesting
+    public int getDataPageReadCount()
+    {
+        return dataPageReadCount;
+    }
+
+    private Page peekCompressedPage()
+    {
+        if (bufferedPages.isEmpty()) {
+            Page page = compressedPages.next();
+            bufferedPages.addLast(page);
+            bufferedPageBytes += getRetainedBytes(page);
+        }
+        return bufferedPages.peekFirst();
+    }
+
+    private Page nextCompressedPage()
+    {
+        currentPageRetainedBytes = 0;
+        if (!bufferedPages.isEmpty()) {
+            Page page = bufferedPages.removeFirst();
+            long retainedBytes = getRetainedBytes(page);
+            bufferedPageBytes -= retainedBytes;
+            currentPageRetainedBytes = retainedBytes;
+            return page;
+        }
+        return compressedPages.next();
+    }
+
+    private static long getRetainedBytes(Page page)
+    {
+        if (page instanceof DataPageV2 dataPageV2) {
+            return dataPageV2.getRepetitionLevels().getRetainedSize()
+                    + dataPageV2.getDefinitionLevels().getRetainedSize()
+                    + dataPageV2.getSlice().getRetainedSize();
+        }
+        return page.getSlice().getRetainedSize();
     }
 
     public boolean arePagesCompressed()
