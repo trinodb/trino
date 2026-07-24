@@ -34,6 +34,8 @@ import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracing.TracingModule;
 import io.airlift.units.Duration;
+import io.trino.cache.CacheManagerModule;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
 import io.trino.connector.ConnectorServicesProvider;
@@ -94,6 +96,7 @@ public class Server
 
         List<Module> modules = ImmutableList.<Module>builder()
                 .add(new AccessControlModule())
+                .add(new CacheManagerModule())
                 .add(new CatalogManagerModule())
                 .add(new EventListenerModule())
                 .add(new ExchangeManagerModule())
@@ -127,6 +130,8 @@ public class Server
             log.info("Snappy native compression: %s", formatEnabled(SnappyNativeCompressor.isEnabled()));
 
             injector.getInstance(PluginInstaller.class).loadPlugins();
+            // Caches can be requested for initial catalogs so we need to wire these first
+            injector.getInstance(CacheManagerRegistry.class).loadCacheManagers();
 
             var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
             catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);

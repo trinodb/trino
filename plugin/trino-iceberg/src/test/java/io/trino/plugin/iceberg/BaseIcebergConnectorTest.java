@@ -234,6 +234,8 @@ public abstract class BaseIcebergConnectorTest
                         .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
+                        // Some tests rely on the caching being disabled
+                        .put("iceberg.metadata-cache.enabled", "false")
                         .buildOrThrow())
                 .addIcebergProperty("fs.hadoop.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES);
@@ -4917,7 +4919,7 @@ public abstract class BaseIcebergConnectorTest
         // Using Iceberg provided file size fails the query
         assertQueryFails(
                 "SELECT * FROM test_iceberg_file_size",
-                "(Malformed ORC file\\. Invalid file metadata.*)|(.*Malformed Parquet file.*)");
+                "(Malformed ORC file\\. (Invalid file metadata|Invalid postscript).*)|(.*Malformed Parquet file.*)");
 
         assertUpdate("DROP TABLE test_iceberg_file_size");
     }

@@ -7,9 +7,16 @@ and processed on these workers. Repeated queries with different parameters, or
 even different queries from different users, often access, and therefore
 transfer, the same objects.
 
-Trino includes support for caching these files with the help of the open
-source [Alluxio](https://github.com/Alluxio/alluxio) libraries with catalogs
-using the following connectors:
+Trino caches these files with a *cache manager*, configured on every node of the
+cluster. Two cache managers are available:
+
+* `alluxio` caches files on local disks with the help of the open source
+  [Alluxio](https://github.com/Alluxio/alluxio) libraries, and is the cache
+  manager to use for caching table data.
+* `memory` caches files on the Java heap, and is used by the coordinator to cache
+  the metadata files it reads during query planning.
+
+Caching of table data is available for catalogs using the following connectors:
 
 * [](/connector/delta-lake)
 * [](/connector/hive)
@@ -91,27 +98,59 @@ also when hosted in public cloud provider systems.
 (fs-cache-configuration)=
 ## Configuration
 
-Use the properties from the following table in your catalog properties files to
-enable and configure caching for the specific catalogs.
+Configuring the cache takes two steps:
 
-:::{list-table} File system cache configuration properties
+1. Configure one or more cache managers on every node of the cluster, as
+   described in [](fs-cache-managers). All nodes must use the same
+   configuration.
+2. Enable caching in each catalog that must use it, as described in
+   [](fs-cache-catalogs).
+
+(fs-cache-managers)=
+### Cache managers
+
+Cache managers are configured per node, not per catalog. Set
+`cache-manager.config-files` in the node's `etc/config.properties` to a
+comma-separated list of properties files, one per cache manager:
+
+```properties
+cache-manager.config-files=etc/cache-manager-alluxio.properties,etc/cache-manager-memory.properties
+```
+
+Every listed file must set `cache-manager.name` to the name of the cache
+manager, followed by that manager's own properties. For example
+`etc/cache-manager-alluxio.properties`:
+
+```properties
+cache-manager.name=alluxio
+fs.cache.directories=/tmp/trino-cache
+fs.cache.max-sizes=500GB
+```
+
+A cluster can load at most one cache manager for each kind of caching. Loading
+both `alluxio` and `memory` therefore uses `alluxio` for table data, since it is
+the only one that can cache more data than fits on the heap, and `memory` for
+coordinator metadata caching.
+
+If `cache-manager.config-files` is not set, Trino loads the `memory` cache
+manager with default configuration, so that the coordinator caches metadata
+files. Once the property is set, only the listed cache managers are loaded, and
+metadata caching requires listing a `memory` cache manager explicitly.
+
+:::{list-table} Alluxio cache manager properties
 :widths: 25, 75
 :header-rows: 1
 
 * - Property
   - Description
-* - `fs.cache.enabled`
-  - Enable object storage caching. Defaults to no caching with the value `false`.
 * - `fs.cache.directories`
   - Required, comma-separated list of absolute paths to directories to use for
     caching. All directories must exist on the coordinator and all workers.
     Trino must have read and write permissions for files and nested directories.
     A valid example with only one directory is `/tmp/trino-cache`.
 
-    Directories must be specific for each catalog with caching enabled. When
-    enabling caching in multiple catalogs, you must use different directories
-    and set the values for `fs.cache.max-sizes` or
-    `fs.cache.max-disk-usage-percentages` accordingly.
+    All catalogs with caching enabled share these directories, and entries are
+    separated by catalog within the cache.
 * - `fs.cache.max-sizes`
   - Comma-separated list of maximum [data sizes](prop-type-data-size) for each
     caching directory. Order of values must be identical to the directories
@@ -135,14 +174,72 @@ enable and configure caching for the specific catalogs.
     smaller values are less efficient since they result in more individual downloads.
 :::
 
+:::{list-table} Memory cache manager properties
+:widths: 25, 75
+:header-rows: 1
+
+* - Property
+  - Description
+* - `fs.memory-cache.max-size`
+  - Maximum total [data size](prop-type-data-size) of the cache on the heap.
+    Defaults to two percent of the maximum heap size.
+* - `fs.memory-cache.max-content-length`
+  - Maximum [data size](prop-type-data-size) of a single cached file. Larger
+    files are read directly from storage and never cached. Defaults to `8MB`,
+    and must not exceed `15MB`.
+* - `fs.memory-cache.ttl`
+  - The maximum [duration](prop-type-duration) for files to remain in the cache
+    before eviction. Defaults to `1h`.
+:::
+
+(fs-cache-catalogs)=
+### Catalog configuration
+
+Set `fs.cache.enabled` to `true` in the catalog properties file of every catalog
+that must cache table data:
+
+```properties
+fs.cache.enabled=true
+```
+
+Every node must have a cache manager that can cache table data, `alluxio`, when
+a catalog enables caching. Trino fails to start the catalog otherwise.
+
 ## Monitoring
 
-The cache exposes the
+The Alluxio cache manager exposes the
 [Alluxio JMX client metrics](https://docs.alluxio.io/ee-da/user/stable/en/reference/Metrics-List.html#client-metrics)
-under the `org.alluxio` package, and metrics on external reads and cache reads under
-`io.trino.filesystem.alluxio.AlluxioCacheStats`.
+under the `org.alluxio` package, and metrics on external reads and cache reads
+per catalog under `io.trino.blob.cache.alluxio:type=AlluxioCacheStats,name=<catalog>`.
+
+The memory cache manager exposes per-catalog metrics under
+`io.trino.blob.cache.memory:type=MemoryBlobCacheStats,name=<catalog>`, and metrics
+for the shared cache under `io.trino.blob.cache.memory:name=MemoryBlobCache`.
 
 The cache code uses [OpenTelemetry tracing](/admin/opentelemetry).
+
+(fs-cache-migration)=
+## Migration from catalog-level caching
+
+In earlier versions the Alluxio cache was configured with `fs.cache.*`
+properties in each catalog properties file. When upgrading:
+
+* Move `fs.cache.directories`, `fs.cache.max-sizes`,
+  `fs.cache.max-disk-usage-percentages`, `fs.cache.ttl`, and
+  `fs.cache.page-size` out of the catalog properties files and into an
+  `alluxio` cache manager properties file on every node. Catalogs keep only
+  `fs.cache.enabled`.
+* Catalogs no longer need separate cache directories. All catalogs that enable
+  caching share the directories of the node's cache manager.
+* Existing cached data on disk is not reused, because cache entries are
+  identified differently. The cache repopulates from storage on the first
+  queries after the upgrade, and the previous cache directory contents are
+  evicted by the configured size limit.
+* JMX object names changed. The Alluxio cache statistics moved from
+  `io.trino.filesystem.alluxio:type=AlluxioCacheStats,name=<catalog>` to
+  `io.trino.blob.cache.alluxio:type=AlluxioCacheStats,name=<catalog>`, and the
+  Hive connector's `io.trino.plugin.hive.fs:type=TrinoFileSystemCache` bean no
+  longer exists. Update dashboards and alerts accordingly.
 
 ## Recommendations
 
