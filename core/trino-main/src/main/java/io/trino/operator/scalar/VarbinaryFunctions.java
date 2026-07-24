@@ -17,6 +17,10 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
+import io.airlift.compress.v3.MalformedInputException;
+import io.airlift.compress.v3.zstd.ZstdCompressor;
+import io.airlift.compress.v3.zstd.ZstdDecompressor;
+import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
 import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -44,6 +48,9 @@ public final class VarbinaryFunctions
             '0', '1', '2', '3', '4', '5', '6', '7',
             '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
     };
+
+    private static final int ZSTD_MIN_COMPRESSION_LEVEL = 1;
+    private static final int ZSTD_MAX_COMPRESSION_LEVEL = 22;
 
     private VarbinaryFunctions() {}
 
@@ -377,6 +384,65 @@ public final class VarbinaryFunctions
         CRC32 crc32 = new CRC32();
         crc32.update(slice.byteArray(), slice.byteArrayOffset(), slice.length());
         return crc32.getValue();
+    }
+
+    @Description("Compresses binary data using Zstandard")
+    @ScalarFunction("zstd_compress")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice zstdCompress(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return zstdCompress(slice, ZstdCompressor.create());
+    }
+
+    @Description("Compresses binary data using Zstandard at the given compression level (1-22, higher is slower and smaller). Requires the native Zstandard compressor to be available on the current platform")
+    @ScalarFunction("zstd_compress")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice zstdCompress(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long level)
+    {
+        if (level < ZSTD_MIN_COMPRESSION_LEVEL || level > ZSTD_MAX_COMPRESSION_LEVEL) {
+            throw new TrinoException(
+                    INVALID_FUNCTION_ARGUMENT,
+                    "zstd compression level must be between %s and %s: %s".formatted(ZSTD_MIN_COMPRESSION_LEVEL, ZSTD_MAX_COMPRESSION_LEVEL, level));
+        }
+        if (!ZstdNativeCompressor.isEnabled()) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "zstd_compress with an explicit level requires the native Zstandard compressor, which is not available on this platform");
+        }
+        return zstdCompress(slice, ZstdCompressor.create((int) level));
+    }
+
+    private static Slice zstdCompress(Slice slice, ZstdCompressor compressor)
+    {
+        byte[] input = slice.byteArray();
+        int inputOffset = slice.byteArrayOffset();
+        int inputLength = slice.length();
+        byte[] output = new byte[compressor.maxCompressedLength(inputLength)];
+        int outputLength = compressor.compress(input, inputOffset, inputLength, output, 0, output.length);
+        return Slices.wrappedBuffer(output, 0, outputLength);
+    }
+
+    @Description("Decompresses Zstandard-compressed binary data")
+    @ScalarFunction("zstd_decompress")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice zstdDecompress(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        ZstdDecompressor decompressor = ZstdDecompressor.create();
+        byte[] input = slice.byteArray();
+        int inputOffset = slice.byteArrayOffset();
+        int inputLength = slice.length();
+        try {
+            long decompressedSize = decompressor.getDecompressedSize(input, inputOffset, inputLength);
+            if (decompressedSize < 0 || decompressedSize > Integer.MAX_VALUE) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "invalid zstd frame: content size is unknown or too large");
+            }
+            byte[] output = new byte[(int) decompressedSize];
+            decompressor.decompress(input, inputOffset, inputLength, output, 0, output.length);
+            return Slices.wrappedBuffer(output);
+        }
+        catch (MalformedInputException | IllegalArgumentException e) {
+            // The pure-Java decompressor throws MalformedInputException; the native
+            // decompressor reports the same class of error as IllegalArgumentException.
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "invalid zstd frame: " + e.getMessage(), e);
+        }
     }
 
     @Description("Suffix starting at given index")
