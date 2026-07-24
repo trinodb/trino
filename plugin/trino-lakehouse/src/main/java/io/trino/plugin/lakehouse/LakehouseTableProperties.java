@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -39,6 +40,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class LakehouseTableProperties
 {
     public static final String TABLE_TYPE_PROPERTY = "type";
+    private static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
 
     private final List<PropertyMetadata<?>> tableProperties;
     private final PropertyMetadata<?> hiveFormatProperty;
@@ -82,6 +84,7 @@ public class LakehouseTableProperties
                         icebergTableProperties.getTableProperties().stream(),
                         deltaTableProperties.getTableProperties().stream(),
                         hudiTableProperties.getTableProperties().stream())
+                .map(LakehouseTableProperties::normalizePropertyMetadata)
                 .filter(property -> !property.getName().equals("format"))
                 .filter(property -> !property.getName().equals("sorted_by"))
                 .toList();
@@ -127,6 +130,18 @@ public class LakehouseTableProperties
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    private static PropertyMetadata<?> normalizePropertyMetadata(PropertyMetadata<?> property)
+    {
+        if (!property.getName().equals(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {
+            return property;
+        }
+        return booleanProperty(
+                OBJECT_STORE_LAYOUT_ENABLED_PROPERTY,
+                "Set to true to enable object store file layout",
+                Boolean.class.cast(property.getDefaultValue()),
+                property.isHidden());
     }
 
     public Map<String, Object> unwrapProperties(Map<String, Object> wrappedProperties)

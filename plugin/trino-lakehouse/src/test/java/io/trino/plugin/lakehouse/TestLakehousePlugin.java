@@ -15,11 +15,13 @@ package io.trino.plugin.lakehouse;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestLakehousePlugin
 {
@@ -28,13 +30,24 @@ final class TestLakehousePlugin
     {
         Plugin plugin = new LakehousePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create(
-                        "test",
-                        ImmutableMap.<String, String>builder()
-                                .put("hive.metastore.uri", "thrift://foo:1234")
-                                .put("bootstrap.quiet", "true")
-                                .buildOrThrow(),
-                        new TestingConnectorContext())
-                .shutdown();
+        Connector connector = factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("bootstrap.quiet", "true")
+                        .buildOrThrow(),
+                new TestingConnectorContext());
+        try {
+            assertThat(connector.getTableProperties())
+                    .filteredOn(property -> property.getName().equals("object_store_layout_enabled"))
+                    .singleElement()
+                    .satisfies(property -> {
+                        assertThat(property.getDescription()).isEqualTo("Set to true to enable object store file layout");
+                        assertThat(property.getDefaultValue()).isEqualTo(false);
+                    });
+        }
+        finally {
+            connector.shutdown();
+        }
     }
 }

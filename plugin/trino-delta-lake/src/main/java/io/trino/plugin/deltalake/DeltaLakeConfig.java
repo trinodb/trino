@@ -92,6 +92,7 @@ public class DeltaLakeConfig
     private boolean projectionPushdownEnabled = true;
     private boolean queryPartitionFilterRequired;
     private boolean deletionVectorsEnabled;
+    private boolean objectStoreLayoutEnabled;
     private boolean deltaLogFileSystemCacheDisabled;
     private int metadataParallelism = 8;
     private boolean metadataVirtualThreadsEnabled = true;
@@ -546,6 +547,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setDeletionVectorsEnabled(boolean deletionVectorsEnabled)
     {
         this.deletionVectorsEnabled = deletionVectorsEnabled;
+        return this;
+    }
+
+    public boolean isObjectStoreLayoutEnabled()
+    {
+        return objectStoreLayoutEnabled;
+    }
+
+    @Config("delta.object-store-layout.enabled")
+    @ConfigDescription("Enable the Delta Lake object store file layout by default for new tables")
+    public DeltaLakeConfig setObjectStoreLayoutEnabled(boolean objectStoreLayoutEnabled)
+    {
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
         return this;
     }
 
