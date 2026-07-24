@@ -67,4 +67,15 @@ final class Gate
             lock.unlock();
         }
     }
+
+    public boolean isOpen()
+    {
+        lock.lock();
+        try {
+            return open;
+        }
+        finally {
+            lock.unlock();
+        }
+    }
 }

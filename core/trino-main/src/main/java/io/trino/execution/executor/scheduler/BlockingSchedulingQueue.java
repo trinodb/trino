@@ -19,7 +19,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -29,7 +28,6 @@ import java.util.concurrent.locks.ReentrantLock;
 final class BlockingSchedulingQueue<G, T>
 {
     private final Lock lock = new ReentrantLock();
-    private final Condition notEmpty = lock.newCondition();
 
     @GuardedBy("lock")
     private final SchedulingNode<T> root = new SchedulingNode<>();
@@ -91,7 +89,6 @@ final class BlockingSchedulingQueue<G, T>
             }
 
             root.enqueue(List.of(group, task), deltaWeight);
-            notEmpty.signal();
 
             return true;
         }
@@ -116,21 +113,14 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
-    public T dequeue(long expectedWeight)
-            throws InterruptedException
+    /// Dequeue the next runnable task, or return `null` if none is currently runnable. Unlike a
+    /// blocking queue, this never waits — admission is driven by the scheduler calling this whenever
+    /// a slot frees or work is enqueued.
+    public T tryDequeue(long expectedWeight)
     {
         lock.lock();
         try {
-            T result;
-            do {
-                result = root.dequeue(expectedWeight);
-                if (result == null) {
-                    notEmpty.await();
-                }
-            }
-            while (result == null);
-
-            return result;
+            return root.dequeue(expectedWeight);
         }
         finally {
             lock.unlock();

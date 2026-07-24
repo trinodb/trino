@@ -24,13 +24,12 @@ import io.airlift.log.Logger;
 
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,16 +38,17 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 
-/**
- * <h2>Implementation nodes</h2>
- *
- * <ul>
- *     <li>The TaskControl state machine is only modified by the task executor
- * thread (i.e., from within {@link FairScheduler#runTask(Schedulable, TaskControl)} )}). Other threads
- * can indirectly affect what the task executor thread does by marking the task as ready or cancelled
- * and unblocking the task executor thread, which will then act on that information.</li>
- * </ul>
- */
+/// Implementation notes:
+///
+///   - The [TaskControl] state machine is only modified by the task executor thread (i.e. from
+///     within [#runTask]). Other threads can indirectly affect what the task executor thread does by
+///     marking the task as ready or cancelled and unblocking it, which will then act on that
+///     information.
+///   - Admission is event-driven: whenever a slot frees (a task yields, blocks or finishes) or
+///     runnable work appears (a task is submitted or unblocked), the acting thread calls
+///     [#schedule()], which fills every free slot by dequeuing the next runnable task and waking its
+///     thread directly. [#schedule()] is serialized by [#scheduleLock] so that concurrent callers
+///     cannot lose a wakeup.
 @ThreadSafe
 public final class FairScheduler
         implements AutoCloseable
@@ -57,14 +57,16 @@ public final class FairScheduler
 
     public static final long QUANTUM_NANOS = TimeUnit.MILLISECONDS.toNanos(1000);
 
-    private final ExecutorService schedulerExecutor;
-    private final ThreadPoolExecutorMBean schedulerExecutorMBean;
     private final ListeningExecutorService taskExecutor;
     private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
     private final ThreadPoolExecutorMBean executorMBean;
     private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
+
+    // Serializes admission so that a concurrent enqueue cannot race a "reserved a slot but found
+    // the queue momentarily empty" caller into dropping a runnable task on the floor.
+    private final ReentrantLock scheduleLock = new ReentrantLock();
 
     private final Gate paused = new Gate(true);
 
@@ -87,9 +89,6 @@ public final class FairScheduler
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
 
-        schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
-        schedulerExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) schedulerExecutor);
-
         executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), threadFactory);
         executorMBean = new ThreadPoolExecutorMBean(executor);
         taskExecutor = MoreExecutors.listeningDecorator(executor);
@@ -109,7 +108,8 @@ public final class FairScheduler
 
     public void start()
     {
-        schedulerExecutor.submit(this::runScheduler);
+        // Admission is driven by schedule(); kick it in case work was enqueued before start().
+        schedule();
     }
 
     public void pause()
@@ -120,6 +120,7 @@ public final class FairScheduler
     public void resume()
     {
         paused.open();
+        schedule();
     }
 
     @Override
@@ -139,7 +140,6 @@ public final class FairScheduler
             }
 
             taskExecutor.shutdownNow();
-            schedulerExecutor.shutdownNow();
         }
         finally {
             lifecycleLock.writeLock().unlock();
@@ -219,6 +219,8 @@ public final class FairScheduler
             }
             queue.finish(task.group(), task);
             task.transitionToFinished();
+            // The finished task freed a slot; hand it to the next runnable task.
+            schedule();
         }
     }
 
@@ -231,6 +233,9 @@ public final class FairScheduler
         if (!queue.enqueue(task.group(), task, deltaWeight)) {
             return false;
         }
+
+        // The task is now runnable; try to place it (or another runnable task) on a free slot.
+        schedule();
 
         // wait for the task to be scheduled
         return awaitReadyAndTransitionToRunning(task);
@@ -246,12 +251,14 @@ public final class FairScheduler
                 // If the task was marked as ready (slot acquired) but then cancelled before
                 // awaitReady() was notified, we need to release the slot.
                 concurrencyControl.release(task);
+                schedule();
             }
             return false;
         }
 
         if (!task.transitionToRunning()) {
             concurrencyControl.release(task);
+            schedule();
             return false;
         }
 
@@ -280,6 +287,9 @@ public final class FairScheduler
 
         concurrencyControl.release(task);
 
+        // The blocking task just freed a slot; let another runnable task use it.
+        schedule();
+
         if (!task.transitionToBlocked()) {
             return false;
         }
@@ -294,26 +304,38 @@ public final class FairScheduler
         return makeRunnableAndAwait(task, 0);
     }
 
-    private void runScheduler()
+    /// Fill every free concurrency slot with the next runnable task and wake its thread. Runs on
+    /// whichever thread triggered a scheduling opportunity; serialized by [#scheduleLock].
+    private void schedule()
     {
-        while (true) {
-            try {
-                paused.awaitOpen();
-                concurrencyControl.reserve();
-                TaskControl task = queue.dequeue(QUANTUM_NANOS);
+        if (closed) {
+            return;
+        }
+
+        scheduleLock.lock();
+        try {
+            while (paused.isOpen() && !closed) {
+                if (!concurrencyControl.tryReserve()) {
+                    // No free slot; a running task will call schedule() again when it releases one.
+                    break;
+                }
+
+                TaskControl task = queue.tryDequeue(QUANTUM_NANOS);
+                if (task == null) {
+                    // Slot is free but nothing is runnable; return the slot and stop.
+                    concurrencyControl.releaseSlot();
+                    break;
+                }
 
                 concurrencyControl.register(task);
                 if (!task.markReady()) {
+                    // Task was cancelled before it could run; free the slot and try the next one.
                     concurrencyControl.release(task);
                 }
             }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            catch (Exception e) {
-                LOG.error(e);
-            }
+        }
+        finally {
+            scheduleLock.unlock();
         }
     }
 
@@ -352,9 +374,6 @@ public final class FairScheduler
                 concurrencyControl.availableSlots()));
 
         builder.append("Reservations:\n");
-        if (concurrencyControl.totalSlots() - concurrencyControl.availableSlots() == 1) {
-            builder.append("    (pending)\n");
-        }
         concurrencyControl.reservations().forEach(reservation ->
                 builder.append("    ")
                         .append(reservation)
@@ -376,11 +395,6 @@ public final class FairScheduler
     //
     // STATS, exposed from ThreadPerDriverTaskExecutor
     //
-    public ThreadPoolExecutorMBean getSchedulerExecutor()
-    {
-        return schedulerExecutorMBean;
-    }
-
     public ThreadPoolExecutorMBean getTaskExecutor()
     {
         return executorMBean;
