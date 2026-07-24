@@ -13,10 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -48,7 +46,6 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -58,8 +55,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
@@ -157,13 +154,7 @@ public abstract class AbstractGreatestLeast
         compareMethod = compareMethod.asType(methodType(boolean.class, compareMethod.type().wrap().parameterList()));
         for (int i = 0; i < javaTypes.size(); i++) {
             Parameter parameter = parameters.get(i);
-            BytecodeExpression invokeCompare = invokeDynamic(
-                    BOOTSTRAP_METHOD,
-                    ImmutableList.of(binder.bind(compareMethod).getBindingId()),
-                    "compare",
-                    boolean.class,
-                    parameter,
-                    value);
+            BytecodeExpression invokeCompare = invoke(binder.bind(compareMethod), "compare", parameter, value);
             body.append(new IfStatement()
                     .condition(isNull(parameter))
                     .ifTrue(new BytecodeBlock()
@@ -178,7 +169,7 @@ public abstract class AbstractGreatestLeast
 
         body.append(value.ret());
 
-        Class<?> clazz = defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
+        Class<?> clazz = defineHiddenClass(definition, Object.class, binder.getClassData());
         return methodHandle(clazz, method.getName(), javaTypes.toArray(new Class<?>[0]));
     }
 }

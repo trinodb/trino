@@ -40,7 +40,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.InputReferenceCompiler.InputReferenceNode;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,9 +52,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.OpCode.NOP;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
@@ -63,7 +62,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class BytecodeUtils
@@ -150,17 +150,26 @@ public final class BytecodeUtils
 
     public static BytecodeExpression loadConstant(CallSiteBinder callSiteBinder, Object constant, Class<?> type)
     {
-        Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
+        Binding binding = callSiteBinder.bind(constant, type);
         return loadConstant(binding);
+    }
+
+    /**
+     * Loads the method handle of a class data binding so a caller that pushes arguments onto
+     * the operand stack can place the handle below them and then invoke it exactly.
+     */
+    public static BytecodeExpression loadBindingHandle(Binding binding)
+    {
+        checkArgument(binding.getKind() == Binding.Kind.HANDLE, "binding %s is not a class data handle", binding);
+        return constantClassDataAt(toIntExact(binding.getBindingId()), MethodHandle.class);
     }
 
     public static BytecodeExpression loadConstant(Binding binding)
     {
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(binding.getBindingId()),
-                "constant_" + binding.getBindingId(),
-                binding.getType().returnType());
+        if (binding.getKind() == Binding.Kind.CONSTANT) {
+            return constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
+        }
+        return invoke(binding, "constant_" + binding.getBindingId());
     }
 
     public static BytecodeNode generateInvocation(
@@ -285,7 +294,14 @@ public final class BytecodeUtils
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
+        boolean classDataBinding = binding.getKind() == Binding.Kind.HANDLE;
         List<Class<?>> stackTypes = new ArrayList<>();
+        if (classDataBinding) {
+            // the handle sits below the arguments and is tracked as a stack type,
+            // so null shortcuts pop it together with the arguments
+            block.append(loadBindingHandle(binding));
+            stackTypes.add(MethodHandle.class);
+        }
         boolean instanceIsBound = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
@@ -348,7 +364,12 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, functionName));
+        if (classDataBinding) {
+            block.invokeVirtual(MethodHandle.class, "invokeExact", methodType.returnType(), methodType.parameterArray());
+        }
+        else {
+            block.append(invoke(binding, functionName));
+        }
 
         if (functionNullability.isReturnNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
@@ -446,8 +467,26 @@ public final class BytecodeUtils
 
     public static BytecodeExpression invoke(Binding binding, String name, List<BytecodeExpression> parameters)
     {
-        // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
+        return switch (binding.getKind()) {
+            case CONSTANT -> {
+                checkArgument(parameters.isEmpty(), "constant binding %s invoked with arguments", binding);
+                yield constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
+            }
+            case HANDLE -> {
+                // sites that push arguments onto the operand stack must load the handle below
+                // them with loadBindingHandle and invoke it directly, since a method handle
+                // receiver cannot be inserted under already pushed arguments
+                checkArgument(parameters.size() == binding.getType().parameterCount(), "arguments of class data binding %s must be passed explicitly", binding);
+                // the handle is a dynamic constant, so the JIT inlines through the exact
+                // invocation just like a constant call site produced by a bootstrap
+                yield loadBindingHandle(binding)
+                        .invoke(
+                                "invokeExact",
+                                binding.getType().returnType(),
+                                binding.getType().parameterList(),
+                                parameters.toArray(new BytecodeExpression[0]));
+            }
+        };
     }
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
@@ -480,6 +519,17 @@ public final class BytecodeUtils
         // TODO: clean up once try_cast is fixed
         Variable tempValue = scope.getOrCreateTempVariable(valueJavaType);
         Variable tempOutput = scope.getOrCreateTempVariable(BlockBuilder.class);
+        BytecodeBlock writeValue = new BytecodeBlock();
+        if (isClassDumpEnabled()) {
+            writeValue.comment("%s.%s(output, %s)", type.getTypeDescriptor(), methodName, valueJavaType.getSimpleName());
+        }
+        writeValue.putVariable(tempValue)
+                .putVariable(tempOutput)
+                .append(loadConstant(callSiteBinder.bind(type, Type.class)))
+                .getVariable(tempOutput)
+                .getVariable(tempValue)
+                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType);
+
         BytecodeBlock block = new BytecodeBlock()
                 .comment("if (wasNull)")
                 .append(new IfStatement()
@@ -489,14 +539,7 @@ public final class BytecodeUtils
                                 .pop(valueJavaType)
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
-                        .ifFalse(new BytecodeBlock()
-                                .comment("%s.%s(output, %s)", type.getTypeDescriptor(), methodName, valueJavaType.getSimpleName())
-                                .putVariable(tempValue)
-                                .putVariable(tempOutput)
-                                .append(loadConstant(callSiteBinder.bind(type, Type.class)))
-                                .getVariable(tempOutput)
-                                .getVariable(tempValue)
-                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
+                        .ifFalse(writeValue));
         scope.releaseTempVariableForReuse(tempOutput);
         scope.releaseTempVariableForReuse(tempValue);
         return block;

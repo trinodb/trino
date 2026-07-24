@@ -28,18 +28,16 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import java.lang.reflect.Method;
@@ -59,13 +57,14 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaCapture.LAMBDA_CAPTURE_METHOD;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
@@ -178,15 +177,9 @@ public final class LambdaBytecodeGenerator
                 .append(boxPrimitiveIfNecessary(scope, returnType))
                 .ret(returnType);
 
-        Handle lambdaAsmHandle = new Handle(
-                Opcodes.H_INVOKEVIRTUAL,
-                method.getThis().getType().getClassName(),
-                method.getName(),
-                method.getMethodDescriptor(),
-                false);
-
         return new CompiledLambda(
-                lambdaAsmHandle,
+                method.getName(),
+                getMethodType(method.getMethodDescriptor()),
                 method.getReturnType(),
                 method.getParameterTypes());
     }
@@ -221,8 +214,10 @@ public final class LambdaBytecodeGenerator
             captureVariableBuilder.add(valueVariable);
         }
 
+        // `this` is captured as Object: a hidden class cannot mention its own name in the
+        // invokedynamic descriptor, so the bootstrap re-casts the receiver via MethodHandle.asType
         List<BytecodeExpression> captureVariables = ImmutableList.<BytecodeExpression>builder()
-                .add(scope.getThis(), scope.getVariable("session"))
+                .add(scope.getThis().cast(Object.class), scope.getVariable("session"))
                 .addAll(captureVariableBuilder.build())
                 .build();
 
@@ -233,18 +228,70 @@ public final class LambdaBytecodeGenerator
                         .map(ParameterizedType::getAsmType)
                         .toArray(Type[]::new));
 
-        block.append(
-                invokeDynamic(
-                        LAMBDA_CAPTURE_METHOD,
-                        ImmutableList.of(
-                                getType(getSingleApplyMethod(lambdaInterface)),
-                                compiledLambda.getLambdaAsmHandle(),
-                                instantiatedMethodAsmType),
-                        "apply",
-                        type(lambdaInterface),
-                        captureVariables));
+        BytecodeExpression createLambda = invokeDynamic(
+                LAMBDA_CAPTURE_METHOD,
+                ImmutableList.of(
+                        getType(getSingleApplyMethod(lambdaInterface)),
+                        compiledLambda.getMethodName(),
+                        compiledLambda.getMethodAsmType(),
+                        instantiatedMethodAsmType),
+                "apply",
+                type(lambdaInterface),
+                captureVariables);
+
+        if (captureExpressions.isEmpty()) {
+            block.append(cachedLambda(context, compiledLambda, lambdaInterface, createLambda));
+        }
+        else {
+            block.append(createLambda);
+        }
         captureTempVariables.forEach(scope::releaseTempVariableForReuse);
         return block;
+    }
+
+    /**
+     * A lambda that captures nothing beyond the receiver and the session is the same instance
+     * for every evaluation of the class that builds it, but the call site allocates one on
+     * each execution, since it links to a constructor rather than to a singleton. Hold it in
+     * a field instead, so a projection over a page builds one lambda rather than one per
+     * position.
+     *
+     * <p>The field is read and written without synchronization. The classes this runs in
+     * already carry per-evaluation state, so an instance belongs to the single driver thread
+     * that evaluates it.
+     */
+    private static BytecodeNode cachedLambda(
+            BytecodeGeneratorContext context,
+            CompiledLambda compiledLambda,
+            Class<?> lambdaInterface,
+            BytecodeExpression createLambda)
+    {
+        Scope scope = context.getScope();
+        ClassDefinition classDefinition = context.getClassDefinition();
+        // the lambda method name is unique within the class, and two call sites of one lambda
+        // want the same instance, so they share the fields
+        FieldDefinition instanceField = declareOnce(classDefinition, compiledLambda.getMethodName() + "_instance", type(lambdaInterface));
+        FieldDefinition sessionField = declareOnce(classDefinition, compiledLambda.getMethodName() + "_session", type(ConnectorSession.class));
+
+        Variable thisVariable = scope.getThis();
+        Variable session = scope.getVariable("session");
+        return new BytecodeBlock()
+                .append(new IfStatement()
+                        .condition(notEqual(thisVariable.getField(sessionField), session))
+                        .ifTrue(new BytecodeBlock()
+                                .append(thisVariable.setField(instanceField, createLambda))
+                                .append(thisVariable.setField(sessionField, session))))
+                .append(thisVariable.getField(instanceField));
+    }
+
+    private static FieldDefinition declareOnce(ClassDefinition classDefinition, String name, ParameterizedType type)
+    {
+        for (FieldDefinition field : classDefinition.getFields()) {
+            if (field.getName().equals(name)) {
+                return field;
+            }
+        }
+        return classDefinition.declareField(a(PRIVATE), name, type);
     }
 
     public static Class<? extends Supplier<Object>> compileLambdaProvider(Lambda lambdaExpression, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, Class<?> lambdaInterface)
@@ -336,7 +383,7 @@ public final class LambdaBytecodeGenerator
         constructorBody.ret();
 
         //noinspection unchecked
-        return (Class<? extends Supplier<Object>>) defineClass(lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
+        return (Class<? extends Supplier<Object>>) defineHiddenClass(lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getClassData());
     }
 
     private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)
@@ -369,23 +416,31 @@ public final class LambdaBytecodeGenerator
     public static class CompiledLambda
     {
         // lambda method information
-        private final Handle lambdaAsmHandle;
+        private final String methodName;
+        private final Type methodAsmType;
         private final ParameterizedType returnType;
         private final List<ParameterizedType> parameterTypes;
 
         public CompiledLambda(
-                Handle lambdaAsmHandle,
+                String methodName,
+                Type methodAsmType,
                 ParameterizedType returnType,
                 List<ParameterizedType> parameterTypes)
         {
-            this.lambdaAsmHandle = requireNonNull(lambdaAsmHandle, "lambdaAsmHandle is null");
+            this.methodName = requireNonNull(methodName, "methodName is null");
+            this.methodAsmType = requireNonNull(methodAsmType, "methodAsmType is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
             this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
         }
 
-        public Handle getLambdaAsmHandle()
+        public String getMethodName()
         {
-            return lambdaAsmHandle;
+            return methodName;
+        }
+
+        public Type getMethodAsmType()
+        {
+            return methodAsmType;
         }
 
         public ParameterizedType getReturnType()

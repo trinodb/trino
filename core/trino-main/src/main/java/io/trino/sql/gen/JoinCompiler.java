@@ -83,7 +83,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
@@ -94,8 +93,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -181,7 +181,9 @@ public class JoinCompiler
 
     private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, OptionalInt sortChannel)
     {
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels, sortChannel);
+        // the same strategy is reachable through compilePagesHashStrategyFactory, so it is
+        // taken from the cache rather than compiled again into a second identical class
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = hashStrategies.getUnchecked(new CacheKey(types, outputChannels, joinChannels, sortChannel));
 
         OptionalInt singleBigintJoinChannel = OptionalInt.empty();
         if (enableSingleChannelBigintLookupSource) {
@@ -251,7 +253,7 @@ public class JoinCompiler
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
         generateIsSortChannelPositionNull(classDefinition, channelFields, sortChannel);
 
-        return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        return defineHiddenClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getClassData());
     }
 
     private static void generateConstructor(
@@ -341,8 +343,10 @@ public class JoinCompiler
 
             BytecodeExpression blockBuilderExpression = pageBuilder
                     .invoke("getBlockBuilder", BlockBuilder.class, add(outputChannelOffset, constantInt(pageBuilderOutputChannel)));
+            if (isClassDumpEnabled()) {
+                appendToBody.comment("pageBuilder.getBlockBuilder(outputChannelOffset + %s).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));", pageBuilderOutputChannel);
+            }
             appendToBody
-                    .comment("pageBuilder.getBlockBuilder(outputChannelOffset + %s).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));", pageBuilderOutputChannel)
                     .append(blockBuilderExpression.invoke(
                             "append",
                             void.class,
@@ -460,7 +464,7 @@ public class JoinCompiler
         return new IfStatement()
                 .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
                 .ifTrue(constantLong(0L))
-                .ifFalse(invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(callSiteBinder.bind(hashCodeOperator).getBindingId()), "hash", hashCodeOperator.type(), blockRef, blockPosition));
+                .ifFalse(invoke(callSiteBinder.bind(hashCodeOperator), "hash", blockRef, blockPosition));
     }
 
     private void generateRowIdenticalToRowMethod(
@@ -682,15 +686,7 @@ public class JoinCompiler
             BytecodeExpression rightBlockPosition)
     {
         MethodHandle identicalOperator = typeOperators.getIdenticalOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(identicalOperator).getBindingId()),
-                "identical",
-                identicalOperator.type(),
-                leftBlock,
-                leftBlockPosition,
-                rightBlock,
-                rightBlockPosition);
+        return invoke(callSiteBinder.bind(identicalOperator), "identical", leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
     private void generatePositionEqualsPositionMethod(
@@ -836,15 +832,7 @@ public class JoinCompiler
 
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(types.get(index), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-        BytecodeNode comparison = invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(comparisonOperator).getBindingId()),
-                "comparison",
-                long.class,
-                leftBlock,
-                leftBlockPosition,
-                rightBlock,
-                rightBlockPosition)
+        BytecodeNode comparison = invoke(callSiteBinder.bind(comparisonOperator), "comparison", leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)
                 .cast(int.class)
                 .ret();
 
@@ -902,15 +890,7 @@ public class JoinCompiler
             BytecodeExpression rightBlockPosition)
     {
         MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),
-                "equal",
-                equalOperator.type(),
-                leftBlock,
-                leftBlockPosition,
-                rightBlock,
-                rightBlockPosition);
+        return invoke(callSiteBinder.bind(equalOperator), "equal", leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
     @UsedByGeneratedCode

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.ParameterizedType;
@@ -100,7 +99,8 @@ import static io.trino.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.preGenerateLambdaExpression;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Arrays.stream;
@@ -176,7 +176,7 @@ public final class SqlRoutineCompiler
 
         declareConstructor(classDefinition, cachedInstanceBinder);
 
-        return defineClass(classDefinition, Object.class, callSiteBinder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
+        return defineHiddenClass(classDefinition, Object.class, callSiteBinder.getClassData());
     }
 
     private Map<Lambda, CompiledLambda> generateMethodsForLambda(
@@ -493,10 +493,13 @@ public final class SqlRoutineCompiler
                     compiledLambdaMap,
                     ImmutableList.of());
 
-            return new BytecodeBlock()
+            BytecodeBlock block = new BytecodeBlock()
                     .comment("boolean wasNull = false;")
-                    .putVariable(scope.getVariable("wasNull"), expression.type().getJavaType() == void.class)
-                    .comment("expression: " + expression)
+                    .putVariable(scope.getVariable("wasNull"), expression.type().getJavaType() == void.class);
+            if (isClassDumpEnabled()) {
+                block.comment("expression: " + expression);
+            }
+            return block
                     .append(expressionCompiler.compile(expression, scope))
                     .append(boxPrimitiveIfNecessary(scope, wrap(expression.type().getJavaType())));
         }
