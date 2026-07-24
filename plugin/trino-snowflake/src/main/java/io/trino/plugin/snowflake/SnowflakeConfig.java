@@ -14,6 +14,7 @@
 package io.trino.plugin.snowflake;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 
 import java.util.Optional;
@@ -25,6 +26,7 @@ public class SnowflakeConfig
     private String role;
     private String warehouse;
     private String httpProxy;
+    private String privateKey;
 
     public Optional<String> getAccount()
     {
@@ -84,6 +86,20 @@ public class SnowflakeConfig
     public SnowflakeConfig setHttpProxy(String httpProxy)
     {
         this.httpProxy = httpProxy;
+        return this;
+    }
+
+    public Optional<String> getPrivateKey()
+    {
+        return Optional.ofNullable(privateKey);
+    }
+
+    @Config("snowflake.connection-private-key")
+    @ConfigDescription("Base64-encoded PKCS#8 RSA private key for key-pair authentication")
+    @ConfigSecuritySensitive
+    public SnowflakeConfig setPrivateKey(String privateKey)
+    {
+        this.privateKey = privateKey;
         return this;
     }
 }

@@ -676,6 +676,7 @@ jobs:
           SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
           SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
           SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
           SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
@@ -685,6 +686,7 @@ jobs:
             -Dsnowflake.test.server.url="${SNOWFLAKE_URL}" \
             -Dsnowflake.test.server.user="${SNOWFLAKE_USER}" \
             -Dsnowflake.test.server.password="${SNOWFLAKE_PASSWORD}" \
+            -Dsnowflake.test.server.private-key="${SNOWFLAKE_PRIVATE_KEY}" \
             -Dsnowflake.test.server.database="${SNOWFLAKE_DATABASE}" \
             -Dsnowflake.test.server.role="${SNOWFLAKE_ROLE}" \
             -Dsnowflake.test.server.warehouse="${SNOWFLAKE_WAREHOUSE}"

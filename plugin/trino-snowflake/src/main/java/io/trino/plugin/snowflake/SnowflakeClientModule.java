@@ -35,12 +35,17 @@ import net.snowflake.client.api.driver.SnowflakeDriver;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class SnowflakeClientModule
@@ -72,6 +77,7 @@ public class SnowflakeClientModule
         snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
         snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
         snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
+        snowflakeConfig.getPrivateKey().ifPresent(privateKey -> properties.put("privateKey", parsePrivateKey(privateKey)));
 
         setOutputProperties(properties);
 
@@ -115,5 +121,18 @@ public class SnowflakeClientModule
         properties.setProperty("TIME_OUTPUT_FORMAT", "HH24:MI:SS.FF9");
         // Don't treat decimals as bigints as they may overflow
         properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "FALSE");
+    }
+
+    protected static PrivateKey parsePrivateKey(String privateKey)
+    {
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(privateKey);
+            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            return keyFactory.generatePrivate(keySpec);
+        }
+        catch (Exception e) {
+            throw new TrinoException(GENERIC_USER_ERROR, "Unable to parse provided private key", e);
+        }
     }
 }
