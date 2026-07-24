@@ -85,6 +85,35 @@ public class TestThreadPerDriverTaskExecutor
 
     @Test
     @Timeout(10)
+    public void testSplitsAcrossPipelines()
+            throws ExecutionException, InterruptedException
+    {
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(new TaskManagerConfig(), noopTracer(), testingVersionEmbedder());
+        executor.start();
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            // Splits from several pipelines are scheduled under distinct per-pipeline groups; all run.
+            ImmutableList.Builder<SplitRunner> splits = ImmutableList.builder();
+            for (int pipeline = 0; pipeline < 4; pipeline++) {
+                for (int i = 0; i < 5; i++) {
+                    splits.add(new TestingSplitRunner(pipeline, ImmutableList.of(_ -> Futures.immediateVoidFuture())));
+                }
+            }
+
+            List<ListenableFuture<Void>> done = executor.enqueueSplits(task, false, splits.build());
+            Futures.allAsList(done).get();
+
+            assertThat(done).hasSize(20);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(10)
     public void testBlocking()
             throws ExecutionException, InterruptedException
     {
@@ -187,6 +216,7 @@ public class TestThreadPerDriverTaskExecutor
     private static class TestingSplitRunner
             implements SplitRunner
     {
+        private final int pipelineId;
         private final List<Function<Duration, ListenableFuture<Void>>> invocations;
         private int invocation;
         private volatile boolean finished;
@@ -194,13 +224,19 @@ public class TestThreadPerDriverTaskExecutor
 
         public TestingSplitRunner(List<Function<Duration, ListenableFuture<Void>>> invocations)
         {
+            this(0, invocations);
+        }
+
+        public TestingSplitRunner(int pipelineId, List<Function<Duration, ListenableFuture<Void>>> invocations)
+        {
+            this.pipelineId = pipelineId;
             this.invocations = invocations;
         }
 
         @Override
         public final int getPipelineId()
         {
-            return 0;
+            return pipelineId;
         }
 
         @Override

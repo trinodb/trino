@@ -26,8 +26,10 @@ import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.spi.VersionEmbedder;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,6 +51,11 @@ class TaskEntry
 
     @GuardedBy("this")
     private final ConcurrencyController concurrency;
+
+    // One scheduling group per pipeline, nested under the task group, so drivers are scheduled
+    // fairly across pipelines and a pipeline can be donated priority as a whole.
+    @GuardedBy("this")
+    private final Map<Integer, Group> pipelineGroups = new HashMap<>();
 
     private volatile boolean destroyed;
 
@@ -138,13 +145,19 @@ class TaskEntry
     {
         int splitId = nextSplitId();
         ListenableFuture<Void> done = scheduler.submit(
-                group,
+                pipelineGroup(split.getPipelineId()),
                 splitId,
                 new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
         done.addListener(() -> splitDone(split), directExecutor());
         running.add(split);
 
         return done;
+    }
+
+    @GuardedBy("this")
+    private Group pipelineGroup(int pipelineId)
+    {
+        return pipelineGroups.computeIfAbsent(pipelineId, id -> scheduler.createGroup(group, "pipeline-" + id));
     }
 
     private synchronized void splitDone(SplitRunner split)
