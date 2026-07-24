@@ -25,6 +25,7 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
@@ -35,6 +36,7 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -54,6 +56,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
 import io.trino.type.TypeCoercion;
@@ -90,6 +93,7 @@ import static io.trino.spi.predicate.TupleDomain.strictUnion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -435,6 +439,11 @@ public final class DomainTranslator
 
         private ExtractionResult processComparison(Comparison node, Expression originalExpression, Boolean complement)
         {
+            Optional<Expression> decomposedRowComparison = tryDecomposeRowComparison(node);
+            if (decomposedRowComparison.isPresent()) {
+                return process(decomposedRowComparison.get(), complement);
+            }
+
             Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
             if (optionalNormalized.isEmpty()) {
                 return visitExpression(originalExpression, complement);
@@ -496,6 +505,54 @@ public final class DomainTranslator
                 return visitExpression(originalExpression, complement);
             }
             return visitExpression(originalExpression, complement);
+        }
+
+        /**
+         * Decompose a row comparison into per-field comparisons, e.g. {@code ROW(a, b) = ROW(1, 2)}
+         * into {@code a = 1 AND b = 2}. The two forms are equivalent, including their handling of
+         * NULL field values, and the per-field form allows extracting single-column domains, e.g.
+         * for multi-column IN predicates over partition keys.
+         */
+        private Optional<Expression> tryDecomposeRowComparison(Comparison node)
+        {
+            ComparisonOperator operator = node.operator();
+            if (operator != EQUAL && operator != NOT_EQUAL && operator != IDENTICAL) {
+                // ordering comparisons on rows are lexicographic and cannot be decomposed field-wise
+                return Optional.empty();
+            }
+
+            Optional<List<Expression>> left = rowComparisonFields(node.left());
+            Optional<List<Expression>> right = rowComparisonFields(node.right());
+            if (left.isEmpty() || right.isEmpty() || left.get().isEmpty() || left.get().size() != right.get().size()) {
+                return Optional.empty();
+            }
+
+            ImmutableList.Builder<Expression> fieldComparisons = ImmutableList.builder();
+            for (int field = 0; field < left.get().size(); field++) {
+                fieldComparisons.add(comparison(plannerContext.getMetadata(), operator, left.get().get(field), right.get().get(field)));
+            }
+            if (operator == NOT_EQUAL) {
+                // rows are not equal when any field pair is not equal
+                return Optional.of(or(fieldComparisons.build()));
+            }
+            return Optional.of(and(fieldComparisons.build()));
+        }
+
+        private static Optional<List<Expression>> rowComparisonFields(Expression expression)
+        {
+            if (expression instanceof Row row) {
+                return Optional.of(row.items());
+            }
+            if (expression instanceof Constant constant && constant.type() instanceof RowType rowType && constant.value() instanceof SqlRow sqlRow) {
+                ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+                List<RowType.Field> rowFields = rowType.getFields();
+                for (int field = 0; field < rowFields.size(); field++) {
+                    Type fieldType = rowFields.get(field).getType();
+                    fields.add(new Constant(fieldType, readNativeValue(fieldType, sqlRow.getRawFieldBlock(field), sqlRow.getRawIndex())));
+                }
+                return Optional.of(fields.build());
+            }
+            return Optional.empty();
         }
 
         /**
@@ -869,8 +926,9 @@ public final class DomainTranslator
             }
             ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
 
-            // preserve original IN predicate as remaining predicate
-            if (extractionResult.tupleDomain.isAll()) {
+            // preserve original IN predicate as remaining predicate, to avoid replacing it with the
+            // (potentially large) expansion into a disjunction
+            if (extractionResult.tupleDomain.isAll() || !extractionResult.remainingExpression.equals(TRUE)) {
                 Expression originalPredicate = node;
                 if (complement) {
                     originalPredicate = not(plannerContext.getMetadata(), originalPredicate);
