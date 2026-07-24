@@ -23,6 +23,16 @@ When available, Claude should prefer these over shell equivalents:
   with many overloaded names like `Metadata`, `Session`, `Block`.
 - `mcp__idea__rename_refactoring` for API renames — safer than text substitution.
 
+## Building
+
+Fastest full build and install:
+
+```bash
+./mvnw clean install -T 2C -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
+```
+
+It skips tests, Javadoc, and the airbase checks — run `./mvnw validate` before opening a PR.
+
 ## Working in a git worktree
 
 Builds share `~/.m2/repository`, so parallel agents in different worktrees overwrite each other's
