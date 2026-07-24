@@ -74,6 +74,7 @@ public final class EnvMultinodeAllConnectors
                         "singlestore",
                         "snowflake",
                         "sqlserver",
+                        "teradata",
                         "tpcds",
                         "trino_thrift")
                 .forEach(connector -> builder.addConnector(
