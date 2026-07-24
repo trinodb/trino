@@ -205,7 +205,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.netty.version>4.2.16.Final</dep.netty.version>
         <dep.okhttp.version>5.4.0</dep.okhttp.version>
-        <dep.okio.version>3.17.0</dep.okio.version>
+        <dep.okio.version>3.18.0</dep.okio.version>
         <dep.parquet.version>1.17.1</dep.parquet.version>
         <dep.protobuf.version>4.35.1</dep.protobuf.version>
         <dep.sis.version>1.6</dep.sis.version>
