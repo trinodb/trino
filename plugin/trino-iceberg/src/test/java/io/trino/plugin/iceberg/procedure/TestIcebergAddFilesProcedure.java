@@ -433,9 +433,9 @@ final class TestIcebergAddFilesProcedure
         // Move a file to the nested directory
         String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
         String fileName = Location.of(path).fileName();
-        Path tableLocation = dataDirectory.resolve("tpch").resolve(hiveTableName);
+        Path tableLocation = dataDirectory.resolve("tpch", hiveTableName);
         Files.createDirectory(tableLocation.resolve("nested"));
-        Files.move(tableLocation.resolve(fileName), tableLocation.resolve("nested").resolve(fileName));
+        Files.move(tableLocation.resolve(fileName), tableLocation.resolve("nested", fileName));
 
         assertQueryFails(
                 "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + tableLocation + "', 'ORC')",
