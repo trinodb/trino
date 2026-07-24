@@ -23,6 +23,7 @@ import jakarta.annotation.Nullable;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.PriorityQueue;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -128,7 +129,7 @@ public final class WorkProcessorUtils
                         }
                     }
                     else if (processor.isBlocked()) {
-                        return ProcessState.blocked(processor.getBlockedFuture());
+                        return ProcessState.blocked(processor.getBlockedFuture(), processor.getBlockedProducerPipeline());
                     }
                     else {
                         return ProcessState.yielded();
@@ -182,9 +183,9 @@ public final class WorkProcessorUtils
         }
     }
 
-    static <T> WorkProcessor<T> blocking(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier)
+    static <T> WorkProcessor<T> blocking(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier, OptionalInt blockedProducerPipeline)
     {
-        return create(new BlockingProcess<>(processor, futureSupplier), ProcessState.blocked(futureSupplier.get()));
+        return create(new BlockingProcess<>(processor, futureSupplier, blockedProducerPipeline), ProcessState.blocked(futureSupplier.get(), blockedProducerPipeline));
     }
 
     private static class BlockingProcess<T>
@@ -192,12 +193,14 @@ public final class WorkProcessorUtils
     {
         final WorkProcessor<T> processor;
         final Supplier<ListenableFuture<Void>> futureSupplier;
+        final OptionalInt blockedProducerPipeline;
         ProcessState<T> state;
 
-        BlockingProcess(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier)
+        BlockingProcess(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier, OptionalInt blockedProducerPipeline)
         {
             this.processor = requireNonNull(processor, "processor is null");
             this.futureSupplier = requireNonNull(futureSupplier, "futureSupplier is null");
+            this.blockedProducerPipeline = requireNonNull(blockedProducerPipeline, "blockedProducerPipeline is null");
         }
 
         @Override
@@ -213,7 +216,7 @@ public final class WorkProcessorUtils
                     // clear yielded state to continue computations in the next iteration
                     state = null;
                 }
-                return ProcessState.blocked(future);
+                return ProcessState.blocked(future, blockedProducerPipeline);
             }
 
             ProcessState<T> result = state;
@@ -267,7 +270,7 @@ public final class WorkProcessorUtils
         }
 
         if (processor.isBlocked()) {
-            return ProcessState.blocked(processor.getBlockedFuture());
+            return ProcessState.blocked(processor.getBlockedFuture(), processor.getBlockedProducerPipeline());
         }
 
         return ProcessState.yielded();
@@ -323,7 +326,7 @@ public final class WorkProcessorUtils
             }
 
             if (nestedProcessor.isBlocked()) {
-                return TransformationState.blocked(nestedProcessor.getBlockedFuture());
+                return TransformationState.blocked(nestedProcessor.getBlockedFuture(), nestedProcessor.getBlockedProducerPipeline());
             }
 
             return TransformationState.yielded();
@@ -349,7 +352,7 @@ public final class WorkProcessorUtils
                             }
                         }
                         else if (processor.isBlocked()) {
-                            return ProcessState.blocked(processor.getBlockedFuture());
+                            return ProcessState.blocked(processor.getBlockedFuture(), processor.getBlockedProducerPipeline());
                         }
                         else {
                             return ProcessState.yielded();
@@ -368,7 +371,7 @@ public final class WorkProcessorUtils
                     switch (state.getType()) {
                         case NEEDS_MORE_DATA -> {}
                         case BLOCKED -> {
-                            return ProcessState.blocked(state.getBlocked());
+                            return ProcessState.blocked(state.getBlocked(), state.getBlockedProducerPipeline());
                         }
                         case YIELD -> {
                             return ProcessState.yielded();
@@ -444,6 +447,13 @@ public final class WorkProcessorUtils
         {
             checkState(state.getType() == ProcessState.Type.BLOCKED, "Must be blocked to get blocked future");
             return state.getBlocked();
+        }
+
+        @Override
+        public OptionalInt getBlockedProducerPipeline()
+        {
+            checkState(state.getType() == ProcessState.Type.BLOCKED, "Must be blocked to get blocked producer pipeline");
+            return state.getBlockedProducerPipeline();
         }
 
         @Override
