@@ -1816,6 +1816,26 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    /**
+     * Redirects a view reference to a view in a different catalog. When the
+     * returned {@link Optional} is non-empty, the engine uses the returned
+     * catalog, schema, and view name to resolve the view in the target
+     * catalog, transparently to the caller.
+     * <p>
+     * This follows the same pattern as
+     * {@link #redirectTable(ConnectorSession, SchemaTableName)}, and is used
+     * for view reads and DDL (SELECT, SHOW CREATE VIEW, CREATE VIEW,
+     * DROP VIEW, ALTER VIEW RENAME, and COMMENT on views and view columns).
+     * <p>
+     * Connectors must not return a redirection for materialized views;
+     * redirection loops and excessive redirection chains are detected by the
+     * engine and surfaced as {@code VIEW_REDIRECTION_ERROR}.
+     */
+    default Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.empty();
+    }
+
     default OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         return OptionalInt.empty();

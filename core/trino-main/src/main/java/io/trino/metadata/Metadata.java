@@ -902,6 +902,11 @@ public interface Metadata
     RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Get the target view name after performing redirection. Returns {@link Optional#empty()} if the view is not redirected.
+     */
+    Optional<QualifiedObjectName> getRedirectedViewName(Session session, QualifiedObjectName viewName);
+
+    /**
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);

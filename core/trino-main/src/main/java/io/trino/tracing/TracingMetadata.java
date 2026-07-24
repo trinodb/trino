@@ -1655,6 +1655,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<QualifiedObjectName> getRedirectedViewName(Session session, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("getRedirectedViewName", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getRedirectedViewName(session, viewName);
+        }
+    }
+
+    @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         Span span = startSpan("getTableHandle", tableName);

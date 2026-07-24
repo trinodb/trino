@@ -56,6 +56,7 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("applyTableFunction", ConnectorSession.class, ConnectorTableFunctionHandle.class))
                     .add(ConnectorMetadata.class.getMethod("applyTableScanRedirect", ConnectorSession.class, ConnectorTableHandle.class))
                     .add(ConnectorMetadata.class.getMethod("redirectTable", ConnectorSession.class, SchemaTableName.class))
+                    .add(ConnectorMetadata.class.getMethod("redirectView", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("getMaxWriterTasks", ConnectorSession.class))
                     .add(ConnectorMetadata.class.getMethod("createBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, Optional.class, SaveMode.class, Map.class))
                     .add(ConnectorMetadata.class.getMethod("dropBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class))
