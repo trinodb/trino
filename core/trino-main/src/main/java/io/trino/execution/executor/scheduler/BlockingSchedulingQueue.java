@@ -127,6 +127,21 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
+    public long weightOf(G group, T task)
+    {
+        lock.lock();
+        try {
+            if (!root.containsGroup(List.of(group))) {
+                // The group may have been removed (and the task cancelled) concurrently.
+                return 0;
+            }
+            return root.weightOf(List.of(group, task));
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
     public boolean finish(G group, T task)
     {
         lock.lock();

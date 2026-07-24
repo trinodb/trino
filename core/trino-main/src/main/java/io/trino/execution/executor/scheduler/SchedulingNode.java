@@ -92,6 +92,8 @@ final class SchedulingNode<T>
     private State state;
     private long weight;
     private long uncommittedWeight; // leaf only
+    private Long donatedRank; // non-null while boosted: the donor's virtual runtime
+    private long boostAnchor; // natural weight when donatedRank was last set; boosted ordering accrues from here
 
     // internal nodes only
     private final Map<Object, SchedulingNode<T>> children = new HashMap<>();
@@ -216,6 +218,54 @@ final class SchedulingNode<T>
     public int getRunnableCount()
     {
         return runnableLeafCount();
+    }
+
+    /// The natural (non-boosted) ordering weight of the leaf at `path` — i.e. the donor's virtual
+    /// runtime, used as its urgency when it donates priority to a producer.
+    public long weightOf(List<Object> path)
+    {
+        return navigate(path).naturalWeight();
+    }
+
+    /// Donate priority to the leaf at `path` and every ancestor on its path by priority inheritance:
+    /// each is repositioned to the donor's virtual runtime `rank` (a lower rank — a more urgent
+    /// consumer — sorts earlier) and then accrues from there like any other node. Used to run a
+    /// producer a blocked consumer depends on ahead of fair order, avoiding priority inversion.
+    /// Because a boosted node competes from the donor's position rather than being pinned absolutely
+    /// ahead, it cannot starve the sibling work the consumer is ultimately waiting on. Reverse or
+    /// re-rank with [#setBoost] again, or [#clearBoost].
+    public void setBoost(List<Object> path, long rank)
+    {
+        applyBoost(path, 0, rank);
+    }
+
+    public void clearBoost(List<Object> path)
+    {
+        applyBoost(path, 0, null);
+    }
+
+    private void applyBoost(List<Object> path, int index, Long rank)
+    {
+        SchedulingNode<T> child = children.get(path.get(index));
+        if (child == null) {
+            // The producer (or an ancestor of it) has already finished; nothing to boost.
+            return;
+        }
+        if (rank != null && (child.donatedRank == null || !child.donatedRank.equals(rank))) {
+            // Anchor accrual at the current virtual runtime when the boost is first applied or
+            // re-ranked, so the node competes from the donor's position and advances from there.
+            child.boostAnchor = child.naturalWeight();
+        }
+        child.donatedRank = rank;
+        if (runnable.contains(child)) {
+            runnable.addOrReplace(child, child.orderingWeight());
+        }
+        if (baseline.contains(child)) {
+            baseline.addOrReplace(child, child.orderingWeight());
+        }
+        if (index < path.size() - 1) {
+            child.applyBoost(path, index + 1, rank);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -382,6 +432,17 @@ final class SchedulingNode<T>
     }
 
     private long orderingWeight()
+    {
+        if (donatedRank != null) {
+            // Priority inheritance: start at the donor's virtual runtime and accrue from there, so a
+            // boosted node competes with — rather than permanently preempts — its siblings. Pinning it
+            // absolutely ahead would let a busy producer starve the very work a blocked consumer waits on.
+            return donatedRank + (naturalWeight() - boostAnchor);
+        }
+        return naturalWeight();
+    }
+
+    private long naturalWeight()
     {
         return leaf ? weight + uncommittedWeight : weight;
     }
