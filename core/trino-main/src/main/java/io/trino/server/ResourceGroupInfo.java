@@ -45,6 +45,13 @@ public record ResourceGroupInfo(
         int numQueuedQueries,
         int numRunningQueries,
         int numEligibleSubGroups,
+        DataSize perQueryMemoryLimit,
+        Duration perQueryCpuLimit,
+        DataSize perQueryScanLimit,
+        int hardTotalDriverLimit,
+        int hardPlanningConcurrencyLimit,
+        int activeDrivers,
+        int planningQueries,
         Optional<List<ResourceGroupInfo>> subGroups,
         Optional<List<QueryStateInfo>> runningQueries)
 {
@@ -58,6 +65,9 @@ public record ResourceGroupInfo(
         requireNonNull(cpuUsage, "cpuUsage is null");
         requireNonNull(hardPhysicalDataScanLimit, "hardPhysicalDataScanLimit is null");
         requireNonNull(physicalInputDataUsage, "physicalInputDataUsage is null");
+        requireNonNull(perQueryMemoryLimit, "perQueryMemoryLimit is null");
+        requireNonNull(perQueryCpuLimit, "perQueryCpuLimit is null");
+        requireNonNull(perQueryScanLimit, "perQueryScanLimit is null");
         subGroups = subGroups.map(ImmutableList::copyOf);
         runningQueries = runningQueries.map(ImmutableList::copyOf);
     }
