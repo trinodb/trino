@@ -232,14 +232,14 @@ public class TestJsonSimplifiedAccessor
                 """))
                 .matches("VALUES VARCHAR '[\"a\",\"b\"]'");
 
-        // member values of mixed types are all collected; a JSON value has canonical (sorted) key
-        // order, so the members surface as v, w, x, y, z
+        // member values of mixed types are all collected in document order, so the members
+        // surface as x, y, z, w, v
         assertThat(assertions.query(
                 """
                 SELECT j.payload.*
                 FROM (VALUES (JSON '{"payload":{"x":"a","y":true,"z":1,"w":[2],"v":{"k":3}}}')) AS t(j)
                 """))
-                .matches("VALUES VARCHAR '[{\"k\":3},[2],\"a\",true,1]'");
+                .matches("VALUES VARCHAR '[\"a\",true,1,[2],{\"k\":3}]'");
     }
 
     @Test

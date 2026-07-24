@@ -19,6 +19,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
@@ -648,6 +650,9 @@ public abstract class AbstractTestType
         }
         if (type.getJavaType() == Variant.class) {
             return Variant.ofString(Slices.utf8Slice("_"));
+        }
+        if (type.getJavaType() == Json.class) {
+            return JsonItems.fromText(Slices.utf8Slice("\"_\""));
         }
         switch (type) {
             case ArrayType arrayType -> {

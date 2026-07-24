@@ -72,7 +72,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -153,7 +153,7 @@ public class BenchmarkJsonPathBinaryOperators
                     functionResolution.resolveFunction(
                             JSON_VALUE_FUNCTION_NAME,
                             fromTypes(ImmutableList.of(
-                                    JSON_2016,
+                                    JSON,
                                     jsonPath2016Type,
                                     JSON_NO_PARAMETERS_ROW_TYPE,
                                     VARCHAR,

@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
@@ -70,9 +71,25 @@ final class SliceData
     @Override
     public ValueBlock toBlock(Type desiredType)
     {
-        checkArgument(desiredType.getJavaType() == Slice.class, "type doesn't match: %s", desiredType);
-        Slice values = bytes == null ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(bytes);
         int numberOfRecords = numberOfRecords();
+        if (desiredType.getJavaType() != Slice.class) {
+            // The type has its own block representation (e.g. JSON); write each UTF-8 value through
+            // the type rather than assuming a plain variable-width block.
+            BlockBuilder builder = desiredType.createBlockBuilder(null, numberOfRecords);
+            int offset = 0;
+            for (int record = 0; record < numberOfRecords; record++) {
+                if (nulls != null && nulls[record]) {
+                    builder.appendNull();
+                }
+                else {
+                    int length = sizes == null ? 0 : sizes[record];
+                    desiredType.writeSlice(builder, length == 0 ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(bytes, offset, length));
+                    offset += length;
+                }
+            }
+            return builder.buildValueBlock();
+        }
+        Slice values = bytes == null ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(bytes);
         return new VariableWidthBlock(
                 numberOfRecords,
                 values,
@@ -142,7 +159,7 @@ final class SliceData
                 Slice value = type.getSlice(block, position);
                 if (sizes == null) {
                     sizes = new int[positions];
-                    int totalBytes = totalSliceBytes(block);
+                    int totalBytes = totalSliceBytes(block, type);
                     if (totalBytes > 0) {
                         bytes = new byte[totalBytes];
                     }
@@ -160,13 +177,14 @@ final class SliceData
         return create.apply(nulls, sizes, bytes);
     }
 
-    private static int totalSliceBytes(Block block)
+    private static int totalSliceBytes(Block block, Type type)
     {
         int totalBytes = 0;
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
         int positions = block.getPositionCount();
         for (int position = 0; position < positions; position++) {
-            totalBytes += variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
+            if (!block.isNull(position)) {
+                totalBytes += type.getSlice(block, position).length();
+            }
         }
         return totalBytes;
     }

@@ -18,10 +18,16 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.json.Json;
+import io.trino.json.JsonItemBuilder;
+import io.trino.json.JsonItemEncoding;
+import io.trino.json.JsonItems;
+import io.trino.json.TypedValue;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -39,6 +45,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
@@ -48,15 +55,21 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
+import io.trino.type.DecimalCasts;
 import io.trino.type.DoubleOperators;
 import io.trino.type.JsonType;
+import io.trino.type.NumberOperators;
+import io.trino.type.RealOperators;
 import io.trino.type.UnknownType;
 import io.trino.type.VarcharOperators;
 import jakarta.annotation.Nullable;
@@ -66,6 +79,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -77,12 +92,7 @@ import java.util.TreeMap;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -90,6 +100,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
@@ -103,6 +114,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
@@ -119,7 +131,6 @@ public final class JsonUtil
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
     // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
     // Be aware. Using it arbitrarily can produce invalid json (ordered by key is required in Trino).
-    private static final JsonMapper JSON_MAPPED_UNORDERED = new JsonMapper(createJsonFactory());
 
     private static final int MAX_JSON_LENGTH_IN_ERROR_MESSAGE = 10_000;
 
@@ -902,11 +913,318 @@ public final class JsonUtil
         return result;
     }
 
+    // ------------------------------------------------------------------------------------
+    // Converting an SQL/JSON item to an SQL value.
+    //
+    // SQL:2023 9.48 GR 4(b)(iii): an SQL/JSON item has a data type IDT, and the value of the
+    // conversion is CAST(X AS DT) where X is a variable of type IDT holding the item. So each
+    // of these delegates to the same cast the engine would run on the item's own SQL type —
+    // the JSON text form never enters into it.
+    // ------------------------------------------------------------------------------------
+
+    /// The scalar an item carries, or `null` for the SQL/JSON null. Arrays and objects have no
+    /// scalar value, so converting one to a scalar SQL type is an error.
+    private static TypedValue scalarOf(Json item, String targetType)
+            throws JsonCastException
+    {
+        if (item.isNull()) {
+            return null;
+        }
+        if (!item.isScalar()) {
+            throw new JsonCastException(format("Unexpected %s when cast to %s", item.kind(), targetType));
+        }
+        return item.materializeScalar();
+    }
+
+    private static JsonCastException cannotCast(TypedValue value, String targetType)
+    {
+        return new JsonCastException(format("Unexpected %s when cast to %s", value.type().getDisplayName(), targetType));
+    }
+
+    public static Slice itemAsVarchar(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.VARCHAR);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, value.getBooleanValue());
+            case VarcharType _ -> (Slice) value.getObjectValue();
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> utf8Slice(Long.toString(value.getLongValue()));
+            case DoubleType _ -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, value.getDoubleValue());
+            case RealType _ -> RealOperators.castToVarchar(UNBOUNDED_LENGTH, value.getLongValue());
+            case DecimalType decimalType -> decimalType.isShort()
+                    ? DecimalCasts.shortDecimalToVarchar(value.getLongValue(), decimalType.getScale(), UNBOUNDED_LENGTH)
+                    : DecimalCasts.longDecimalToVarchar((Int128) value.getObjectValue(), decimalType.getScale(), UNBOUNDED_LENGTH);
+            case NumberType _ -> NumberOperators.castToVarchar(UNBOUNDED_LENGTH, (TrinoNumber) value.getObjectValue());
+            case DateType _, TimeType _, TimeWithTimeZoneType _, TimestampType _, TimestampWithTimeZoneType _ -> utf8Slice(JsonItemEncoding.datetimeText(value));
+            default -> throw cannotCast(value, StandardTypes.VARCHAR);
+        };
+    }
+
+    public static Boolean itemAsBoolean(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.BOOLEAN);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> value.getBooleanValue();
+            case VarcharType _ -> VarcharOperators.castToBoolean((Slice) value.getObjectValue());
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> BigintOperators.castToBoolean(value.getLongValue());
+            case DoubleType _ -> DoubleOperators.castToBoolean(value.getDoubleValue());
+            case RealType _ -> RealOperators.castToBoolean(value.getLongValue());
+            case DecimalType decimalType -> decimalType.isShort()
+                    ? DecimalCasts.shortDecimalToBoolean(value.getLongValue(), decimalType.getPrecision(), decimalType.getScale(), 0)
+                    : DecimalCasts.longDecimalToBoolean((Int128) value.getObjectValue(), decimalType.getPrecision(), decimalType.getScale(), null);
+            // 9.48 GR 4(b)(iii)(1): no cast exists from NUMBER to BOOLEAN, so the item cannot
+            // be converted to the target type.
+            default -> throw cannotCast(value, StandardTypes.BOOLEAN);
+        };
+    }
+
+    public static Long itemAsBigint(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.BIGINT);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> BooleanOperators.castToBigint(value.getBooleanValue());
+            case VarcharType _ -> VarcharOperators.castToBigint((Slice) value.getObjectValue());
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> value.getLongValue();
+            case DoubleType _ -> DoubleOperators.castToBigint(value.getDoubleValue());
+            case RealType _ -> RealOperators.castToBigint(value.getLongValue());
+            case DecimalType decimalType -> decimalToBigint(value, decimalType);
+            case NumberType _ -> NumberOperators.castToBigint((TrinoNumber) value.getObjectValue());
+            default -> throw cannotCast(value, StandardTypes.BIGINT);
+        };
+    }
+
+    public static Long itemAsInteger(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.INTEGER);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> BooleanOperators.castToInteger(value.getBooleanValue());
+            case VarcharType _ -> VarcharOperators.castToInteger((Slice) value.getObjectValue());
+            case IntegerType _, SmallintType _, TinyintType _ -> value.getLongValue();
+            case BigintType _ -> BigintOperators.castToInteger(value.getLongValue());
+            case DoubleType _ -> DoubleOperators.castToInteger(value.getDoubleValue());
+            case RealType _ -> RealOperators.castToInteger(value.getLongValue());
+            case DecimalType decimalType -> BigintOperators.castToInteger(decimalToBigint(value, decimalType));
+            case NumberType _ -> NumberOperators.castToInteger((TrinoNumber) value.getObjectValue());
+            default -> throw cannotCast(value, StandardTypes.INTEGER);
+        };
+    }
+
+    public static Long itemAsSmallint(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.SMALLINT);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> BooleanOperators.castToSmallint(value.getBooleanValue());
+            case VarcharType _ -> VarcharOperators.castToSmallint((Slice) value.getObjectValue());
+            case SmallintType _, TinyintType _ -> value.getLongValue();
+            case BigintType _, IntegerType _ -> BigintOperators.castToSmallint(value.getLongValue());
+            case DoubleType _ -> DoubleOperators.castToSmallint(value.getDoubleValue());
+            case RealType _ -> RealOperators.castToSmallint(value.getLongValue());
+            case DecimalType decimalType -> BigintOperators.castToSmallint(decimalToBigint(value, decimalType));
+            case NumberType _ -> NumberOperators.castToSmallint((TrinoNumber) value.getObjectValue());
+            default -> throw cannotCast(value, StandardTypes.SMALLINT);
+        };
+    }
+
+    public static Long itemAsTinyint(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.TINYINT);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> BooleanOperators.castToTinyint(value.getBooleanValue());
+            case VarcharType _ -> VarcharOperators.castToTinyint((Slice) value.getObjectValue());
+            case TinyintType _ -> value.getLongValue();
+            case BigintType _, IntegerType _, SmallintType _ -> BigintOperators.castToTinyint(value.getLongValue());
+            case DoubleType _ -> DoubleOperators.castToTinyint(value.getDoubleValue());
+            case RealType _ -> RealOperators.castToTinyint(value.getLongValue());
+            case DecimalType decimalType -> BigintOperators.castToTinyint(decimalToBigint(value, decimalType));
+            case NumberType _ -> NumberOperators.castToTinyint((TrinoNumber) value.getObjectValue());
+            default -> throw cannotCast(value, StandardTypes.TINYINT);
+        };
+    }
+
+    public static Double itemAsDouble(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.DOUBLE);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> BooleanOperators.castToDouble(value.getBooleanValue());
+            case VarcharType _ -> VarcharOperators.castToDouble((Slice) value.getObjectValue());
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> (double) value.getLongValue();
+            case DoubleType _ -> value.getDoubleValue();
+            case RealType _ -> RealOperators.castToDouble(value.getLongValue());
+            case DecimalType decimalType -> decimalToDouble(value, decimalType);
+            case NumberType _ -> NumberOperators.castToDouble((TrinoNumber) value.getObjectValue());
+            default -> throw cannotCast(value, StandardTypes.DOUBLE);
+        };
+    }
+
+    public static Long itemAsReal(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.REAL);
+        if (value == null) {
+            return null;
+        }
+        // Each source casts straight to REAL. Going through DOUBLE first would round twice,
+        // and the two roundings do not agree: BIGINT 4611686293305294849 lands on 0x5e800001
+        // directly, but on 0x5e800000 via DOUBLE.
+        return switch (value.type()) {
+            case BooleanType _ -> BooleanOperators.castToReal(value.getBooleanValue());
+            case VarcharType _ -> VarcharOperators.castToReal((Slice) value.getObjectValue());
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> BigintOperators.castToReal(value.getLongValue());
+            case DoubleType _ -> DoubleOperators.castToReal(value.getDoubleValue());
+            case RealType _ -> value.getLongValue();
+            case DecimalType decimalType -> decimalType.isShort()
+                    ? DecimalCasts.shortDecimalToReal(value.getLongValue(), decimalType.getPrecision(), decimalType.getScale(), longTenToNth(decimalType.getScale()))
+                    : DecimalCasts.longDecimalToReal((Int128) value.getObjectValue(), decimalType.getPrecision(), decimalType.getScale(), Int128Math.powerOfTen(decimalType.getScale()));
+            case NumberType _ -> NumberOperators.castToReal((TrinoNumber) value.getObjectValue());
+            default -> throw cannotCast(value, StandardTypes.REAL);
+        };
+    }
+
+    public static TrinoNumber itemAsNumber(Json item)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, StandardTypes.NUMBER);
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case BooleanType _ -> TrinoNumber.from(value.getBooleanValue() ? BigDecimal.ONE : BigDecimal.ZERO);
+            case VarcharType _ -> VarcharOperators.castToNumber((Slice) value.getObjectValue());
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> TrinoNumber.from(BigDecimal.valueOf(value.getLongValue()));
+            case DoubleType _ -> DoubleOperators.castToNumber(value.getDoubleValue());
+            case RealType _ -> RealOperators.castToNumber(value.getLongValue());
+            case DecimalType decimalType -> TrinoNumber.from(javaDecimalOf(value, decimalType));
+            case NumberType _ -> (TrinoNumber) value.getObjectValue();
+            default -> throw cannotCast(value, StandardTypes.NUMBER);
+        };
+    }
+
+    /// The item as a `DECIMAL(precision, scale)`, rounding half-up to the target scale the way
+    /// the SQL cast does, and failing when the value does not fit the target precision.
+    private static BigDecimal itemAsJavaDecimal(Json item, int precision, int scale)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, "DECIMAL");
+        if (value == null) {
+            return null;
+        }
+        BigDecimal result = switch (value.type()) {
+            case BooleanType _ -> value.getBooleanValue() ? BigDecimal.ONE : BigDecimal.ZERO;
+            case VarcharType _ -> new BigDecimal(((Slice) value.getObjectValue()).toStringUtf8());
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> BigDecimal.valueOf(value.getLongValue());
+            case DoubleType _ -> BigDecimal.valueOf(value.getDoubleValue());
+            case RealType _ -> BigDecimal.valueOf(intBitsToFloat(toIntExact(value.getLongValue())));
+            case DecimalType decimalType -> javaDecimalOf(value, decimalType);
+            case NumberType _ -> numberAsJavaDecimal((TrinoNumber) value.getObjectValue());
+            default -> throw cannotCast(value, format("DECIMAL(%s,%s)", precision, scale));
+        };
+        result = result.setScale(scale, HALF_UP);
+        if (result.precision() > precision) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
+        }
+        return result;
+    }
+
+    public static Long itemAsShortDecimal(Json item, int precision, int scale)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, "DECIMAL");
+        if (value == null) {
+            return null;
+        }
+        // The inexact sources cast straight to DECIMAL rather than through a BigDecimal built
+        // here, so the rounding and the out-of-range errors are the cast's own.
+        return switch (value.type()) {
+            case DoubleType _ -> DecimalCasts.doubleToShortDecimal(value.getDoubleValue(), precision, scale, longTenToNth(scale));
+            case RealType _ -> DecimalCasts.realToShortDecimal(value.getLongValue(), precision, scale, longTenToNth(scale));
+            default -> itemAsJavaDecimal(item, precision, scale).unscaledValue().longValue();
+        };
+    }
+
+    public static Int128 itemAsLongDecimal(Json item, int precision, int scale)
+            throws JsonCastException
+    {
+        TypedValue value = scalarOf(item, "DECIMAL");
+        if (value == null) {
+            return null;
+        }
+        return switch (value.type()) {
+            case DoubleType _ -> DecimalCasts.doubleToLongDecimal(value.getDoubleValue(), precision, scale, Int128Math.powerOfTen(scale));
+            case RealType _ -> DecimalCasts.realToLongDecimal(value.getLongValue(), precision, scale, Int128Math.powerOfTen(scale));
+            default -> Int128.valueOf(itemAsJavaDecimal(item, precision, scale).unscaledValue());
+        };
+    }
+
+    private static BigDecimal numberAsJavaDecimal(TrinoNumber number)
+            throws JsonCastException
+    {
+        return switch (number.toBigDecimal()) {
+            case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> decimal;
+            case TrinoNumber.NotANumber _ -> throw new JsonCastException("Cannot cast NaN to DECIMAL");
+            case TrinoNumber.Infinity _ -> throw new JsonCastException("Cannot cast Infinity to DECIMAL");
+        };
+    }
+
+    private static BigDecimal javaDecimalOf(TypedValue value, DecimalType type)
+    {
+        BigInteger unscaled = type.isShort()
+                ? BigInteger.valueOf(value.getLongValue())
+                : ((Int128) value.getObjectValue()).toBigInteger();
+        return new BigDecimal(unscaled, type.getScale());
+    }
+
+    private static long decimalToBigint(TypedValue value, DecimalType type)
+    {
+        int precision = type.getPrecision();
+        int scale = type.getScale();
+        if (type.isShort()) {
+            return DecimalCasts.shortDecimalToBigint(value.getLongValue(), precision, scale, longTenToNth(scale));
+        }
+        return DecimalCasts.longDecimalToBigint((Int128) value.getObjectValue(), precision, scale, Int128Math.powerOfTen(scale));
+    }
+
+    private static double decimalToDouble(TypedValue value, DecimalType type)
+    {
+        int precision = type.getPrecision();
+        int scale = type.getScale();
+        if (type.isShort()) {
+            return DecimalCasts.shortDecimalToDouble(value.getLongValue(), precision, scale, longTenToNth(scale));
+        }
+        return DecimalCasts.longDecimalToDouble((Int128) value.getObjectValue(), precision, scale, Int128Math.powerOfTen(scale));
+    }
+
     // given a JSON parser, write to the BlockBuilder
     public interface BlockBuilderAppender
     {
-        void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException;
+        void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException;
 
         static BlockBuilderAppender createBlockBuilderAppender(Type type)
         {
@@ -945,10 +1263,7 @@ public final class JsonUtil
                 return new VarcharBlockBuilderAppender(type);
             }
             if (type instanceof JsonType) {
-                return (parser, blockBuilder) -> {
-                    String json = JSON_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
-                    JSON.writeSlice(blockBuilder, utf8Slice(json));
-                };
+                return (value, blockBuilder) -> JSON.writeObject(blockBuilder, value);
             }
             if (type instanceof ArrayType arrayType) {
                 return new ArrayBlockBuilderAppender(createBlockBuilderAppender(arrayType.getElementType()));
@@ -971,14 +1286,273 @@ public final class JsonUtil
         }
     }
 
-    private static class BooleanBlockBuilderAppender
-            implements BlockBuilderAppender
+    /// Casts JSON to a value by walking the Jackson token stream in place, without first
+    /// materializing the value-model tree. This restores the streaming shape the cast had before
+    /// the value model, so a raw-text JSON value (the common connector case) is not paid for with a
+    /// throwaway tree. Correctness stays anchored to [BlockBuilderAppender]: every scalar is either
+    /// converted by a token fast path that must be proven identical to the value-model conversion,
+    /// or materialized as a single item via [JsonItems#parseItem] and handed to the matching
+    /// value-model appender — so no cast semantics diverge.
+    public interface StreamingBlockBuilderAppender
     {
+        void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException;
+
+        /// Builds a streaming appender for `type`, or returns `null` when the type contains a shape
+        /// this path does not stream yet (row types), so the caller falls back to the value model.
+        static StreamingBlockBuilderAppender create(Type type)
+        {
+            if (type instanceof DoubleType) {
+                return new DoubleStreamingAppender();
+            }
+            if (type instanceof BigintType) {
+                return new BigintStreamingAppender();
+            }
+            if (type instanceof IntegerType) {
+                return new IntegerStreamingAppender();
+            }
+            if (type instanceof VarcharType) {
+                return new VarcharStreamingAppender(type);
+            }
+            if (type instanceof ArrayType arrayType) {
+                StreamingBlockBuilderAppender elementAppender = create(arrayType.getElementType());
+                return elementAppender == null ? null : new ArrayStreamingAppender(elementAppender);
+            }
+            if (type instanceof MapType mapType) {
+                StreamingBlockBuilderAppender valueAppender = create(mapType.getValueType());
+                if (valueAppender == null) {
+                    return null;
+                }
+                return new MapStreamingAppender(mapType.getKeyType(), BlockBuilderAppender.createBlockBuilderAppender(mapType.getKeyType()), valueAppender);
+            }
+            if (type instanceof RowType) {
+                return null;
+            }
+            return new ScalarStreamingAppender(BlockBuilderAppender.createBlockBuilderAppender(type));
+        }
+    }
+
+    /// Streams any scalar target by materializing the current item and reusing the value-model
+    /// conversion, so the result is identical to the tree path but the container above it never
+    /// allocated a tree. A non-scalar token here is a type error the value-model appender reports.
+    private static class ScalarStreamingAppender
+            implements StreamingBlockBuilderAppender
+    {
+        private final BlockBuilderAppender valueAppender;
+
+        ScalarStreamingAppender(BlockBuilderAppender valueAppender)
+        {
+            this.valueAppender = valueAppender;
+        }
+
         @Override
         public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
-            Boolean result = currentTokenAsBoolean(parser);
+            valueAppender.append(JsonItems.parseItem(parser), blockBuilder);
+        }
+    }
+
+    /// [Double] fast path: [JsonParser#getDoubleValue] on a numeric token yields the exact same
+    /// double as [#itemAsDouble] — both round the token's exact decimal value to the nearest double
+    /// once — so the DECIMAL/NUMBER materialization is skipped. Non-numeric tokens (null, boolean,
+    /// string, or a mistyped container) defer to the value-model conversion.
+    private static class DoubleStreamingAppender
+            implements StreamingBlockBuilderAppender
+    {
+        private final BlockBuilderAppender valueAppender = new DoubleBlockBuilderAppender();
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            JsonToken token = parser.currentToken();
+            if (token == JsonToken.VALUE_NUMBER_FLOAT || token == JsonToken.VALUE_NUMBER_INT) {
+                double value = parser.getDoubleValue();
+                // The value model encodes a JSON float as a decimal, which cannot carry a negative
+                // zero, so every zero casts to +0.0. Normalize here so a raw-text value casts to the
+                // same double as its typed-encoded form.
+                DOUBLE.writeDouble(blockBuilder, value == 0 ? 0.0 : value);
+            }
+            else {
+                valueAppender.append(JsonItems.parseItem(parser), blockBuilder);
+            }
+        }
+    }
+
+    /// [Bigint] fast path: an integer token that Jackson resolves to `int`/`long` casts to BIGINT
+    /// as exactly its `long` value — the same as [#itemAsBigint] on the typed item — so the
+    /// [TypedValue] is skipped. Wider integers, floats and other tokens defer to the value model.
+    private static class BigintStreamingAppender
+            implements StreamingBlockBuilderAppender
+    {
+        private final BlockBuilderAppender valueAppender = new BigintBlockBuilderAppender();
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            if (parser.currentToken() == JsonToken.VALUE_NUMBER_INT) {
+                JsonParser.NumberType numberType = parser.getNumberType();
+                if (numberType == JsonParser.NumberType.INT || numberType == JsonParser.NumberType.LONG) {
+                    BIGINT.writeLong(blockBuilder, parser.getLongValue());
+                    return;
+                }
+                // A wider integer falls through to the value model, which raises the same
+                // out-of-range error a typed-encoded value would.
+            }
+            valueAppender.append(JsonItems.parseItem(parser), blockBuilder);
+        }
+    }
+
+    /// [Integer] fast path: an integer token Jackson resolves to `int` is by definition within
+    /// INTEGER range and casts to that value — matching [#itemAsInteger]. Everything else (wider
+    /// integers that need the range check, floats, other tokens) defers to the value model.
+    private static class IntegerStreamingAppender
+            implements StreamingBlockBuilderAppender
+    {
+        private final BlockBuilderAppender valueAppender = new IntegerBlockBuilderAppender();
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            if (parser.currentToken() == JsonToken.VALUE_NUMBER_INT && parser.getNumberType() == JsonParser.NumberType.INT) {
+                INTEGER.writeLong(blockBuilder, parser.getLongValue());
+                return;
+            }
+            valueAppender.append(JsonItems.parseItem(parser), blockBuilder);
+        }
+    }
+
+    /// [Varchar] fast path: a JSON string is the varchar value verbatim, and an integer token that
+    /// fits `long` renders as its decimal string — both matching [#itemAsVarchar]. Floats (whose
+    /// canonical rendering differs from the raw token) and other tokens defer to the value model.
+    private static class VarcharStreamingAppender
+            implements StreamingBlockBuilderAppender
+    {
+        private final Type type;
+        private final BlockBuilderAppender valueAppender;
+
+        VarcharStreamingAppender(Type type)
+        {
+            this.type = type;
+            this.valueAppender = new VarcharBlockBuilderAppender(type);
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            JsonToken token = parser.currentToken();
+            if (token == JsonToken.VALUE_STRING) {
+                type.writeSlice(blockBuilder, utf8Slice(parser.getText()));
+                return;
+            }
+            if (token == JsonToken.VALUE_NUMBER_INT) {
+                JsonParser.NumberType numberType = parser.getNumberType();
+                if (numberType == JsonParser.NumberType.INT || numberType == JsonParser.NumberType.LONG) {
+                    type.writeSlice(blockBuilder, utf8Slice(Long.toString(parser.getLongValue())));
+                    return;
+                }
+            }
+            valueAppender.append(JsonItems.parseItem(parser), blockBuilder);
+        }
+    }
+
+    private static class ArrayStreamingAppender
+            implements StreamingBlockBuilderAppender
+    {
+        private final StreamingBlockBuilderAppender elementAppender;
+
+        ArrayStreamingAppender(StreamingBlockBuilderAppender elementAppender)
+        {
+            this.elementAppender = elementAppender;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            JsonToken token = parser.currentToken();
+            if (token == JsonToken.VALUE_NULL) {
+                blockBuilder.appendNull();
+                return;
+            }
+            if (token != JsonToken.START_ARRAY) {
+                throw new JsonCastException(format("Expected a json array, but got %s", token));
+            }
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                for (JsonToken element = parser.nextToken(); element != JsonToken.END_ARRAY; element = parser.nextToken()) {
+                    elementAppender.append(parser, elementBuilder);
+                }
+            });
+        }
+    }
+
+    private static class MapStreamingAppender
+            implements StreamingBlockBuilderAppender
+    {
+        private final Type keyType;
+        private final boolean varcharKey;
+        private final BlockBuilderAppender keyAppender;
+        private final StreamingBlockBuilderAppender valueAppender;
+
+        MapStreamingAppender(Type keyType, BlockBuilderAppender keyAppender, StreamingBlockBuilderAppender valueAppender)
+        {
+            this.keyType = keyType;
+            this.varcharKey = keyType instanceof VarcharType;
+            this.keyAppender = keyAppender;
+            this.valueAppender = valueAppender;
+        }
+
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            JsonToken token = parser.currentToken();
+            if (token == JsonToken.VALUE_NULL) {
+                blockBuilder.appendNull();
+                return;
+            }
+            if (token != JsonToken.START_OBJECT) {
+                throw new JsonCastException(format("Expected a json object, but got %s", token));
+            }
+            MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) blockBuilder;
+            mapBlockBuilder.strict();
+            try {
+                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    for (JsonToken field = parser.nextToken(); field != JsonToken.END_OBJECT; field = parser.nextToken()) {
+                        // An object key is a JSON string, and that is the item the key type
+                        // converts from — the same rule any other scalar goes through. A varchar
+                        // key is that string verbatim, so it writes straight through; any other key
+                        // type is cast from the string, carried as a scalar item with no byte encoding.
+                        Slice keyName = utf8Slice(parser.currentName());
+                        if (varcharKey) {
+                            keyType.writeSlice(keyBuilder, keyName);
+                        }
+                        else {
+                            keyAppender.append(new TypedValue(VarcharType.VARCHAR, keyName), keyBuilder);
+                        }
+                        parser.nextToken();
+                        valueAppender.append(parser, valueBuilder);
+                    }
+                });
+            }
+            catch (DuplicateMapKeyException e) {
+                throw new JsonCastException("Duplicate keys are not allowed");
+            }
+        }
+    }
+
+    private static class BooleanBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
+        {
+            Boolean result = itemAsBoolean(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -992,10 +1566,10 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Long result = currentTokenAsTinyint(parser);
+            Long result = itemAsTinyint(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -1009,10 +1583,10 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Long result = currentTokenAsInteger(parser);
+            Long result = itemAsInteger(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -1026,10 +1600,10 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Long result = currentTokenAsInteger(parser);
+            Long result = itemAsInteger(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -1043,10 +1617,10 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Long result = currentTokenAsBigint(parser);
+            Long result = itemAsBigint(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -1060,10 +1634,10 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Long result = currentTokenAsReal(parser);
+            Long result = itemAsReal(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -1077,10 +1651,10 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Double result = currentTokenAsDouble(parser);
+            Double result = itemAsDouble(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -1101,10 +1675,10 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Long result = currentTokenAsShortDecimal(parser, type.getPrecision(), type.getScale());
+            Long result = itemAsShortDecimal(value, type.getPrecision(), type.getScale());
 
             if (result == null) {
                 blockBuilder.appendNull();
@@ -1126,10 +1700,10 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Int128 result = currentTokenAsLongDecimal(parser, type.getPrecision(), type.getScale());
+            Int128 result = itemAsLongDecimal(value, type.getPrecision(), type.getScale());
 
             if (result == null) {
                 blockBuilder.appendNull();
@@ -1144,10 +1718,10 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            TrinoNumber result = currentTokenAsNumber(parser);
+            TrinoNumber result = itemAsNumber(value);
 
             if (result == null) {
                 blockBuilder.appendNull();
@@ -1169,10 +1743,10 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            Slice result = currentTokenAsVarchar(parser);
+            Slice result = itemAsVarchar(value);
             if (result == null) {
                 blockBuilder.appendNull();
             }
@@ -1193,20 +1767,19 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            if (value.isNull()) {
                 blockBuilder.appendNull();
                 return;
             }
-
-            if (parser.getCurrentToken() != START_ARRAY) {
-                throw new JsonCastException(format("Expected a json array, but got %s", parser.getText()));
+            if (!value.isArray()) {
+                throw new JsonCastException(format("Expected a json array, but got %s", describe(value)));
             }
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
-                while (parser.nextToken() != END_ARRAY) {
-                    elementAppender.append(parser, elementBuilder);
+                for (Json element : elements(value)) {
+                    elementAppender.append(element, elementBuilder);
                 }
             });
         }
@@ -1225,35 +1798,31 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            if (value.isNull()) {
                 blockBuilder.appendNull();
                 return;
             }
-
-            if (parser.getCurrentToken() != START_OBJECT) {
-                throw new JsonCastException(format("Expected a json object, but got %s", parser.getText()));
+            if (!value.isObject()) {
+                throw new JsonCastException(format("Expected a json object, but got %s", describe(value)));
             }
 
             MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) blockBuilder;
             mapBlockBuilder.strict();
             try {
-                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> appendMap(parser, keyBuilder, valueBuilder));
+                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    for (Map.Entry<String, Json> member : members(value)) {
+                        // An object key is a JSON string, and that is the item the key type
+                        // converts from — the same rule any other scalar goes through.
+                        keyAppender.append(JsonItemBuilder.encodeVarchar(utf8Slice(member.getKey())), keyBuilder);
+                        valueAppender.append(member.getValue(), valueBuilder);
+                    }
+                });
             }
             catch (DuplicateMapKeyException e) {
                 throw new JsonCastException("Duplicate keys are not allowed");
-            }
-        }
-
-        private void appendMap(JsonParser parser, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
-                throws IOException
-        {
-            while (parser.nextToken() != END_OBJECT) {
-                keyAppender.append(parser, keyBuilder);
-                parser.nextToken();
-                valueAppender.append(parser, valueBuilder);
             }
         }
     }
@@ -1271,20 +1840,77 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
+        public void append(Json value, BlockBuilder blockBuilder)
+                throws JsonCastException
         {
-            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            if (value.isNull()) {
                 blockBuilder.appendNull();
                 return;
             }
-
-            if (parser.getCurrentToken() != START_ARRAY && parser.getCurrentToken() != START_OBJECT) {
-                throw new JsonCastException(format("Expected a json array or object, but got %s", parser.getText()));
+            if (!value.isArray() && !value.isObject()) {
+                throw new JsonCastException(format("Expected a json array or object, but got %s", describe(value)));
             }
-
-            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> parseJsonToSingleRowBlock(parser, fieldBuilders, fieldAppenders, fieldNameToIndex));
+            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> appendRow(value, fieldBuilders, fieldAppenders, fieldNameToIndex));
         }
+    }
+
+    private static void appendRow(
+            Json value,
+            List<BlockBuilder> fieldBuilders,
+            BlockBuilderAppender[] fieldAppenders,
+            Optional<Map<String, Integer>> fieldNameToIndex)
+            throws JsonCastException
+    {
+        if (value.isArray()) {
+            List<Json> elements = elements(value);
+            if (elements.size() != fieldAppenders.length) {
+                throw new JsonCastException(format("Expected a json array with %s elements, but got %s", fieldAppenders.length, elements.size()));
+            }
+            for (int i = 0; i < fieldAppenders.length; i++) {
+                fieldAppenders[i].append(elements.get(i), fieldBuilders.get(i));
+            }
+            return;
+        }
+
+        if (fieldNameToIndex.isEmpty()) {
+            throw new JsonCastException("Cannot cast a JSON object to anonymous row type. Input must be a JSON array.");
+        }
+        boolean[] fieldWritten = new boolean[fieldAppenders.length];
+        for (Map.Entry<String, Json> member : members(value)) {
+            Integer fieldIndex = fieldNameToIndex.get().get(member.getKey().toLowerCase(Locale.ENGLISH));
+            if (fieldIndex == null) {
+                continue;
+            }
+            if (fieldWritten[fieldIndex]) {
+                throw new JsonCastException("Duplicate field: " + member.getKey().toLowerCase(Locale.ENGLISH));
+            }
+            fieldWritten[fieldIndex] = true;
+            fieldAppenders[fieldIndex].append(member.getValue(), fieldBuilders.get(fieldIndex));
+        }
+        for (int i = 0; i < fieldWritten.length; i++) {
+            if (!fieldWritten[i]) {
+                fieldBuilders.get(i).appendNull();
+            }
+        }
+    }
+
+    private static List<Json> elements(Json array)
+    {
+        ImmutableList.Builder<Json> elements = ImmutableList.builder();
+        array.forEachArrayElement(elements::add);
+        return elements.build();
+    }
+
+    private static List<Map.Entry<String, Json>> members(Json object)
+    {
+        ImmutableList.Builder<Map.Entry<String, Json>> members = ImmutableList.builder();
+        object.forEachObjectMember((key, member) -> members.add(new SimpleEntry<>(key, member)));
+        return members.build();
+    }
+
+    private static String describe(Json value)
+    {
+        return value.isScalar() ? value.scalarType().toString() : value.kind().toString();
     }
 
     public static Optional<Map<String, Integer>> getFieldNameToIndex(List<Field> rowFields)
@@ -1303,57 +1929,4 @@ public final class JsonUtil
     // TODO: Once CAST function supports cachedInstanceFactory or directly write to BlockBuilder,
     // JsonToRowCast::toRow can use RowBlockBuilderAppender::append to parse JSON and append to the block builder.
     // Thus there will be single call to this method, so this method can be inlined.
-    private static void parseJsonToSingleRowBlock(
-            JsonParser parser,
-            List<BlockBuilder> fieldBuilders,
-            BlockBuilderAppender[] fieldAppenders,
-            Optional<Map<String, Integer>> fieldNameToIndex)
-            throws IOException
-    {
-        if (parser.getCurrentToken() == START_ARRAY) {
-            for (int i = 0; i < fieldAppenders.length; i++) {
-                parser.nextToken();
-                fieldAppenders[i].append(parser, fieldBuilders.get(i));
-            }
-            if (parser.nextToken() != JsonToken.END_ARRAY) {
-                throw new JsonCastException(format("Expected json array ending, but got %s", parser.getText()));
-            }
-        }
-        else {
-            verify(parser.getCurrentToken() == START_OBJECT);
-            if (fieldNameToIndex.isEmpty()) {
-                throw new JsonCastException("Cannot cast a JSON object to anonymous row type. Input must be a JSON array.");
-            }
-            boolean[] fieldWritten = new boolean[fieldAppenders.length];
-            int numFieldsWritten = 0;
-
-            while (parser.nextToken() != JsonToken.END_OBJECT) {
-                if (parser.currentToken() != FIELD_NAME) {
-                    throw new JsonCastException(format("Expected a json field name, but got %s", parser.getText()));
-                }
-                String fieldName = parser.getText().toLowerCase(Locale.ENGLISH);
-                Integer fieldIndex = fieldNameToIndex.get().get(fieldName);
-                parser.nextToken();
-                if (fieldIndex != null) {
-                    if (fieldWritten[fieldIndex]) {
-                        throw new JsonCastException("Duplicate field: " + fieldName);
-                    }
-                    fieldWritten[fieldIndex] = true;
-                    numFieldsWritten++;
-                    fieldAppenders[fieldIndex].append(parser, fieldBuilders.get(fieldIndex));
-                }
-                else {
-                    parser.skipChildren();
-                }
-            }
-
-            if (numFieldsWritten != fieldAppenders.length) {
-                for (int i = 0; i < fieldWritten.length; i++) {
-                    if (!fieldWritten[i]) {
-                        fieldBuilders.get(i).appendNull();
-                    }
-                }
-            }
-        }
-    }
 }

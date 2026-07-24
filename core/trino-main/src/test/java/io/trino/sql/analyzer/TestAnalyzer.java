@@ -6732,6 +6732,42 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testJsonConstructorInputFormats()
+    {
+        analyze("SELECT JSON(json_column) FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON(json_column FORMAT JSON) FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON(json_column FORMAT JSON ENCODING UTF16) FROM (VALUES X'5B5D', X'7B7D') t(json_column)");
+
+        assertFails("SELECT JSON(1)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:13: Cannot read input of type integer as JSON using formatting JSON");
+    }
+
+    @Test
+    public void testJsonSerializeOutputTypeAndFormat()
+    {
+        analyze("SELECT JSON_SERIALIZE(json_column) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_SERIALIZE(json_column RETURNING char(5)) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_SERIALIZE(json_column RETURNING varbinary FORMAT JSON ENCODING UTF16) FROM (VALUES '-1', 'ala') t(json_column)");
+
+        analyze("SELECT JSON_SERIALIZE(json_column FORMAT JSON ENCODING UTF8 RETURNING varbinary FORMAT JSON ENCODING UTF32) FROM (VALUES X'5B5D', X'7B7D') t(json_column)");
+
+        assertFails("SELECT JSON_SERIALIZE(json_column RETURNING some_type(10)) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type(10)");
+
+        assertFails("SELECT JSON_SERIALIZE(json_column RETURNING double) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Invalid return type of function JSON_SERIALIZE: double");
+
+        assertFails("SELECT JSON_SERIALIZE(json_column RETURNING json) FROM (VALUES '-1', 'ala') t(json_column)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Invalid return type of function JSON_SERIALIZE: json");
+    }
+
+    @Test
     public void testJsonQueryQuotesBehavior()
     {
         analyze("SELECT JSON_QUERY( " +
@@ -6846,9 +6882,9 @@ public class TestAnalyzer
 
         analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITHOUT UNIQUE KEYS)");
 
-        assertFails("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITH UNIQUE KEYS)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+        // WITH UNIQUE KEYS is now allowed alongside FORMAT JSON; uniqueness is enforced
+        // recursively at runtime by JSON_OBJECT
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITH UNIQUE KEYS)");
     }
 
     @Test

@@ -637,9 +637,17 @@ primaryExpression
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
-    | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
+    | JSON '(' jsonValueExpression ')'                                                    #jsonConstructor
+    // JSON is currently non-reserved, so plain function-call syntax can also start with JSON.
+    // The semantic predicates prevent exactly the constructor shape JSON(...) from falling
+    // through to a generic function call, while qualified calls that merely start with a
+    // catalog or schema named json (e.g. json.schema.func(...)) keep parsing as calls.
+    // These predicates can be removed if and when JSON becomes a reserved identifier.
+    | {!(_input.LT(1).getType() == JSON && "(".equals(_input.LT(2).getText()))}?
+        processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
-    | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
+    | {!(_input.LT(1).getType() == JSON && "(".equals(_input.LT(2).getText()))}?
+        processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
     | qualifiedName '::' methodName '(' (argument (',' argument)*)? ')'                   #staticMethodCall
     | primaryExpression '.' methodName '(' (argument (',' argument)*)? ')'                #methodCall
@@ -695,6 +703,11 @@ primaryExpression
         (emptyBehavior=jsonQueryBehavior ON EMPTY)?
         (errorBehavior=jsonQueryBehavior ON ERROR)?
       ')'                                                                                 #jsonQuery
+    | JSON_SERIALIZE '('
+        jsonValueExpression
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+        (errorBehavior=jsonSerializeOnErrorBehavior ON ERROR)?
+      ')'                                                                                 #jsonSerialize
     | JSON_OBJECT '('
         (
           jsonObjectMember (',' jsonObjectMember)*
@@ -768,6 +781,11 @@ jsonQueryBehavior
     | NULL
     | EMPTY ARRAY
     | EMPTY OBJECT
+    ;
+
+jsonSerializeOnErrorBehavior
+    : ERROR
+    | NULL
     ;
 
 jsonObjectMember
@@ -1258,6 +1276,7 @@ JSON_ARRAY: 'JSON_ARRAY';
 JSON_EXISTS: 'JSON_EXISTS';
 JSON_OBJECT: 'JSON_OBJECT';
 JSON_QUERY: 'JSON_QUERY';
+JSON_SERIALIZE: 'JSON_SERIALIZE';
 JSON_TABLE: 'JSON_TABLE';
 JSON_VALUE: 'JSON_VALUE';
 KEEP: 'KEEP';

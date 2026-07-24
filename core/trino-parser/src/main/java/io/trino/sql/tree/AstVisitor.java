@@ -1247,7 +1247,17 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitJsonConstructor(JsonConstructor node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitJsonQuery(JsonQuery node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitJsonSerialize(JsonSerialize node, C context)
     {
         return visitExpression(node, context);
     }

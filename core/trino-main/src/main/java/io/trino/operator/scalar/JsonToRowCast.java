@@ -13,12 +13,10 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -43,8 +41,6 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
 import static io.trino.util.JsonUtil.canCastFromJson;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -53,9 +49,7 @@ public class JsonToRowCast
         extends SqlScalarFunction
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, Slice.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, Json.class);
 
     private JsonToRowCast()
     {
@@ -89,30 +83,22 @@ public class JsonToRowCast
     }
 
     @UsedByGeneratedCode
-    public static SqlRow toRow(RowType rowType, BlockBuilderAppender rowAppender, Slice json)
+    public static SqlRow toRow(RowType rowType, BlockBuilderAppender rowAppender, Json json)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
-            jsonParser.nextToken();
-            if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
-                if (jsonParser.nextToken() != null) {
-                    throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
-                }
+        try {
+            if (json.isNull()) {
                 return null;
             }
-
             BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
-            rowAppender.append(jsonParser, blockBuilder);
-            if (jsonParser.nextToken() != null) {
-                throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
-            }
+            rowAppender.append(json, blockBuilder);
             Block block = blockBuilder.build();
-            return rowType.getObject(block, 0);
+            return (SqlRow) rowType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(JsonItems.toText(json))), e);
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(JsonItems.toText(json))), e);
         }
     }
 }

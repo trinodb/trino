@@ -248,7 +248,7 @@ public class BigQueryStorageAvroPageSource
             else if (type.getJavaType() == Int128.class) {
                 writeObject(output, type, value);
             }
-            else if (javaType == Slice.class) {
+            else if (javaType == Slice.class || typeManager.isJsonType(type)) {
                 writeSlice(output, type, value);
             }
             else if (javaType == LongTimestampWithTimeZone.class) {

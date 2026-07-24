@@ -210,7 +210,7 @@ public class PinotSegmentPageSource
         else if (javaType.equals(double.class)) {
             writeDoubleBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
-        else if (javaType.equals(Slice.class)) {
+        else if (javaType.equals(Slice.class) || columnType.getBaseName().equalsIgnoreCase(StandardTypes.JSON)) {
             writeSliceBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else if (javaType.equals(Block.class)) {

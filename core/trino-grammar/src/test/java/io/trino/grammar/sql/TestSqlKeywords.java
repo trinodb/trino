@@ -159,6 +159,7 @@ public class TestSqlKeywords
                         "JSON_EXISTS",
                         "JSON_OBJECT",
                         "JSON_QUERY",
+                        "JSON_SERIALIZE",
                         "JSON_TABLE",
                         "JSON_VALUE",
                         "KEEP",

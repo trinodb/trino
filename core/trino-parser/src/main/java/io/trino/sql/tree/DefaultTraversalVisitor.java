@@ -1013,9 +1013,25 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitJsonConstructor(JsonConstructor node, C context)
+    {
+        process(node.getExpression(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitJsonQuery(JsonQuery node, C context)
     {
         process(node.getJsonPathInvocation(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitJsonSerialize(JsonSerialize node, C context)
+    {
+        process(node.getExpression(), context);
 
         return null;
     }

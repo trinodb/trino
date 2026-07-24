@@ -50,7 +50,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
+            <artifactId>trino-json</artifactId>
         </dependency>
 
         <dependency>
