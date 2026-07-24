@@ -30,8 +30,10 @@ import jakarta.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -54,6 +56,11 @@ class TaskEntry
 
     @GuardedBy("this")
     private final ConcurrencyController concurrency;
+
+    // One scheduling group per pipeline, nested under the task group, so drivers are scheduled
+    // fairly across pipelines and a pipeline can be donated priority as a whole.
+    @GuardedBy("this")
+    private final Map<Integer, Group> pipelineGroups = new HashMap<>();
 
     private volatile boolean destroyed;
 
@@ -260,9 +267,14 @@ class TaskEntry
     {
         int splitId = nextSplitId();
         return scheduler.submit(
-                group,
+                pipelineGroup(split.getPipelineId()),
                 splitId,
                 new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
+    }
+
+    private synchronized Group pipelineGroup(int pipelineId)
+    {
+        return pipelineGroups.computeIfAbsent(pipelineId, id -> scheduler.createGroup(group, "pipeline-" + id));
     }
 
     private void splitDone(SplitRunner split)
