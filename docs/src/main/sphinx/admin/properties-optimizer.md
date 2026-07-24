@@ -55,11 +55,11 @@ are in the grouping clause, the aggregation is pushed below the outer join. This
 is particularly useful for correlated scalar subqueries, which get rewritten to an aggregation
 over an outer join. For example:
 
-```
-SELECT * FROM item i
+```{try-sql}
+SELECT * FROM tpcds.tiny.item i
     WHERE i.i_current_price > (
-        SELECT AVG(j.i_current_price) FROM item j
-            WHERE i.i_category = j.i_category);
+        SELECT AVG(j.i_current_price) FROM tpcds.tiny.item j
+            WHERE i.i_category = j.i_category)
 ```
 
 Enabling this optimization can substantially speed up queries by reducing the

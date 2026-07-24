@@ -45,11 +45,11 @@ The argument `columns` is a descriptor without types.
 Example query using the orders table from the TPC-H dataset, provided by the
 [](/connector/tpch):
 
-```sql
+```{try-sql}
 SELECT *
 FROM TABLE(exclude_columns(
-                        input => TABLE(orders),
-                        columns => DESCRIPTOR(clerk, comment)));
+                        input => TABLE(tpch.tiny.orders),
+                        columns => DESCRIPTOR(clerk, comment)))
 ```
 
 The table function is useful for queries where you want to return nearly all
@@ -77,24 +77,24 @@ reachable by steps.
 
 Example query:
 
-```sql
+```{try-sql}
 SELECT *
 FROM TABLE(sequence(
                 start => 1000000,
                 stop => -2000000,
-                step => -3));
+                step => -3))
 ```
 
 The result of the `sequence` table function might not be ordered. If required,
 enforce ordering in the enclosing query:
 
-```sql
+```{try-sql}
 SELECT *
 FROM TABLE(sequence(
                 start => 0,
                 stop => 100,
                 step => 5))
-ORDER BY sequential_number;
+ORDER BY sequential_number
 ```
 
 ## Table function invocation

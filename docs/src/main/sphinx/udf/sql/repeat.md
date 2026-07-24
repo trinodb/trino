@@ -32,8 +32,9 @@ statements might not be processed at all.
 The following SQL UDF shows a UDF with a `REPEAT` statement that runs until
 the value of `a` is greater or equal to `10`.
 
-```sql
-FUNCTION test_repeat(a bigint)
+```{try-sql}
+WITH
+  FUNCTION test_repeat(a bigint)
   RETURNS bigint
   BEGIN
     REPEAT
@@ -42,21 +43,16 @@ FUNCTION test_repeat(a bigint)
     END REPEAT;
     RETURN a;
   END
+SELECT test_repeat(5)  AS five,
+       test_repeat(9)  AS nine,
+       test_repeat(10) AS ten,
+       test_repeat(11) AS eleven,
+       test_repeat(12) AS twelve
 ```
 
 Since `a` is also the input value and it is increased before the check the
 UDF always returns `10` for input values of `9` or less, and the input value
 + 1 for all higher values.
-
-Following are a couple of example invocations with result and explanation:
-
-```sql
-SELECT test_repeat(5); -- 10
-SELECT test_repeat(9); -- 10
-SELECT test_repeat(10); -- 11
-SELECT test_repeat(11); -- 12
-SELECT test_repeat(12); -- 13
-```
 
 Further examples of varying complexity that cover usage of the `REPEAT`
 statement in combination with other statements are available in the

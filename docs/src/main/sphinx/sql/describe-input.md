@@ -16,39 +16,20 @@ determined will appear as `unknown`.
 
 Prepare and describe a query with three parameters:
 
-```sql
+```{try-sql}
 PREPARE my_select1 FROM
-SELECT ? FROM nation WHERE regionkey = ? AND name < ?;
-```
-
-```sql
-DESCRIBE INPUT my_select1;
-```
-
-```text
- Position | Type
---------------------
-        0 | unknown
-        1 | bigint
-        2 | varchar
-(3 rows)
+SELECT ? FROM tpch.tiny.nation WHERE regionkey = ? AND name < ?;
+---
+DESCRIBE INPUT my_select1
 ```
 
 Prepare and describe a query with no parameters:
 
-```sql
+```{try-sql}
 PREPARE my_select2 FROM
-SELECT * FROM nation;
-```
-
-```sql
-DESCRIBE INPUT my_select2;
-```
-
-```text
- Position | Type
------------------
-(0 rows)
+SELECT * FROM tpch.tiny.nation;
+---
+DESCRIBE INPUT my_select2
 ```
 
 ## See also

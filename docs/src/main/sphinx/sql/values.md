@@ -25,13 +25,13 @@ using an `AS` clause with column aliases.
 
 Return a table with one column and three rows:
 
-```
+```{try-sql}
 VALUES 1, 2, 3
 ```
 
 Return a table with two columns and three rows:
 
-```
+```{try-sql}
 VALUES
     (1, 'a'),
     (2, 'b'),
@@ -40,7 +40,7 @@ VALUES
 
 Return table with column `id` and `name`:
 
-```
+```{try-sql}
 SELECT * FROM (
     VALUES
         (1, 'a'),
@@ -51,8 +51,8 @@ SELECT * FROM (
 
 Create a new table with column `id` and `name`:
 
-```
-CREATE TABLE example AS
+```{try-sql}
+CREATE TABLE memory.default.example AS
 SELECT * FROM (
     VALUES
         (1, 'a'),

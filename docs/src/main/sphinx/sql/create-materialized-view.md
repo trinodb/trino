@@ -152,14 +152,14 @@ AS
 
 Show defined materialized view properties for all catalogs:
 
-```
-SELECT * FROM system.metadata.materialized_view_properties;
+```{try-sql}
+SELECT * FROM system.metadata.materialized_view_properties
 ```
 
 Show metadata about the materialized views in all catalogs:
 
-```
-SELECT * FROM system.metadata.materialized_views;
+```{try-sql}
+SELECT * FROM system.metadata.materialized_views
 ```
 
 ## See also

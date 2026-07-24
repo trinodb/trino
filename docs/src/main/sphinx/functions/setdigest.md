@@ -20,7 +20,7 @@ The set digests are compared to each other to get an
 approximation of the similarity of their corresponding
 initial texts:
 
-```
+```{try-sql}
 WITH text_input(id, text) AS (
          VALUES
              (1, 'The quick brown fox jumps over the lazy dog'),
@@ -57,15 +57,7 @@ SELECT id1,
        intersection_cardinality(digest1, digest2) AS intersection_cardinality,
        jaccard_index(digest1, digest2)            AS jaccard_index
 FROM setdigest_side_by_side
-ORDER BY id1, id2;
-```
-
-```text
- id1 | id2 | intersection_cardinality | jaccard_index
------+-----+--------------------------+---------------
-   1 |   2 |                        0 |           0.0
-   1 |   3 |                        4 |           0.6
-   2 |   3 |                        0 |           0.0
+ORDER BY id1, id2
 ```
 
 The above result listing points out, as expected, that the texts
@@ -106,16 +98,16 @@ Composes all input values of `x` into a `setdigest`.
 
 Create a `setdigest` corresponding to a `bigint` array:
 
-```
+```{try-sql}
 SELECT make_set_digest(value)
-FROM (VALUES 1, 2, 3) T(value);
+FROM (VALUES 1, 2, 3) T(value)
 ```
 
 Create a `setdigest` corresponding to a `varchar` array:
 
-```
+```{try-sql}
 SELECT make_set_digest(value)
-FROM (VALUES 'Trino', 'SQL', 'on', 'everything') T(value);
+FROM (VALUES 'Trino', 'SQL', 'on', 'everything') T(value)
 ```
 :::
 
@@ -133,10 +125,9 @@ Returns the cardinality of the set digest from its internal
 
 Examples:
 
-```
+```{try-sql}
 SELECT cardinality(make_set_digest(value))
-FROM (VALUES 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5) T(value);
--- 5
+FROM (VALUES 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5) T(value)
 ```
 :::
 
@@ -147,10 +138,9 @@ Returns the estimation for the cardinality of the intersection of the two set di
 
 Examples:
 
-```
+```{try-sql}
 SELECT intersection_cardinality(make_set_digest(v1), make_set_digest(v2))
-FROM (VALUES (1, 1), (NULL, 2), (2, 3), (3, 4)) T(v1, v2);
--- 3
+FROM (VALUES (1, 1), (NULL, 2), (2, 3), (3, 4)) T(v1, v2)
 ```
 :::
 
@@ -162,10 +152,9 @@ the two set digests.
 
 Examples:
 
-```
+```{try-sql}
 SELECT jaccard_index(make_set_digest(v1), make_set_digest(v2))
-FROM (VALUES (1, 1), (NULL,2), (2, 3), (NULL, 4)) T(v1, v2);
--- 0.5
+FROM (VALUES (1, 1), (NULL,2), (2, 3), (NULL, 4)) T(v1, v2)
 ```
 :::
 
@@ -178,9 +167,8 @@ the internal `MinHash` structure belonging to `x`.
 
 Examples:
 
-```
+```{try-sql}
 SELECT hash_counts(make_set_digest(value))
-FROM (VALUES 1, 1, 1, 2, 2) T(value);
--- {19144387141682250=3, -2447670524089286488=2}
+FROM (VALUES 1, 1, 1, 2, 2) T(value)
 ```
 :::

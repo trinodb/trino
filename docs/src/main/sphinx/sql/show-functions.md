@@ -39,8 +39,8 @@ SHOW FUNCTIONS FROM example.default;
 
 List all functions with a name beginning with `array`:
 
-```sql
-SHOW FUNCTIONS LIKE 'array%';
+```{try-sql}
+SHOW FUNCTIONS LIKE 'array%'
 ```
 
 List all functions with a name beginning with `cf`:

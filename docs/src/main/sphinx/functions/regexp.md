@@ -45,8 +45,8 @@ with a few notable exceptions:
 :::{function} regexp_count(string, pattern) -> bigint
 Returns the number of occurrence of `pattern` in `string`:
 
-```
-SELECT regexp_count('1a 2b 14m', '\s*[a-z]+\s*'); -- 3
+```{try-sql}
+SELECT regexp_count('1a 2b 14m', '\s*[a-z]+\s*')
 ```
 :::
 
@@ -54,8 +54,8 @@ SELECT regexp_count('1a 2b 14m', '\s*[a-z]+\s*'); -- 3
 Returns the substring(s) matched by the regular expression `pattern`
 in `string`:
 
-```
-SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
+```{try-sql}
+SELECT regexp_extract_all('1a 2b 14m', '\d+')
 ```
 :::
 
@@ -65,8 +65,8 @@ SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
 Finds all occurrences of the regular expression `pattern` in `string`
 and returns the [capturing group number] `group`:
 
-```
-SELECT regexp_extract_all('1a 2b 14m', '(\d+)([a-z]+)', 2); -- ['a', 'b', 'm']
+```{try-sql}
+SELECT regexp_extract_all('1a 2b 14m', '(\d+)([a-z]+)', 2)
 ```
 :::
 
@@ -74,8 +74,8 @@ SELECT regexp_extract_all('1a 2b 14m', '(\d+)([a-z]+)', 2); -- ['a', 'b', 'm']
 Returns the first substring matched by the regular expression `pattern`
 in `string`:
 
-```
-SELECT regexp_extract('1a 2b 14m', '\d+'); -- 1
+```{try-sql}
+SELECT regexp_extract('1a 2b 14m', '\d+')
 ```
 :::
 
@@ -85,8 +85,8 @@ SELECT regexp_extract('1a 2b 14m', '\d+'); -- 1
 Finds the first occurrence of the regular expression `pattern` in
 `string` and returns the [capturing group number] `group`:
 
-```
-SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2); -- 'a'
+```{try-sql}
+SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2)
 ```
 :::
 
@@ -99,8 +99,8 @@ The `pattern` only needs to be contained within
 this performs a *contains* operation rather than a *match* operation. You can
 match the entire string by anchoring the pattern using `^` and `$`:
 
-```
-SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
+```{try-sql}
+SELECT regexp_like('1a 2b 14m', '\d+b')
 ```
 :::
 
@@ -108,8 +108,8 @@ SELECT regexp_like('1a 2b 14m', '\d+b'); -- true
 Returns the index of the first occurrence (counting from 1) of `pattern` in `string`.
 Returns -1 if not found:
 
-```
-SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b'); -- 8
+```{try-sql}
+SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b')
 ```
 :::
 
@@ -119,9 +119,9 @@ SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b'); -
 Returns the index of the first occurrence of `pattern` in `string`,
 starting from `start` (include `start`). Returns -1 if not found:
 
-```
-SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 5); -- 8
-SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12); -- 19
+```{try-sql}
+SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 5),
+       regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12)
 ```
 :::
 
@@ -131,10 +131,10 @@ SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12
 Returns the index of the nth `occurrence` of `pattern` in `string`,
 starting from `start` (include `start`). Returns -1 if not found:
 
-```
-SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 1); -- 19
-SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 2); -- 31
-SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 3); -- -1
+```{try-sql}
+SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 1),
+       regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 2),
+       regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12, 3)
 ```
 :::
 
@@ -142,8 +142,8 @@ SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12
 Removes every instance of the substring matched by the regular expression
 `pattern` from `string`:
 
-```
-SELECT regexp_replace('1a 2b 14m', '\d+[ab] '); -- '14m'
+```{try-sql}
+SELECT regexp_replace('1a 2b 14m', '\d+[ab] ')
 ```
 :::
 
@@ -156,8 +156,8 @@ referenced in `replacement` using `$g` for a numbered group or
 `${name}` for a named group. A dollar sign (`$`) may be included in the
 replacement by escaping it with a backslash (`\$`):
 
-```
-SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
+```{try-sql}
+SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 ')
 ```
 :::
 
@@ -170,8 +170,8 @@ Replaces every instance of the substring matched by the regular expression
 array. Capturing group numbers start at one; there is no group for the entire match
 (if you need this, surround the entire expression with parenthesis).
 
-```
-SELECT regexp_replace('new york', '(\w)(\w*)', x -> upper(x[1]) || lower(x[2])); --'New York'
+```{try-sql}
+SELECT regexp_replace('new york', '(\w)(\w*)', x -> upper(x[1]) || lower(x[2]))
 ```
 :::
 
@@ -179,8 +179,8 @@ SELECT regexp_replace('new york', '(\w)(\w*)', x -> upper(x[1]) || lower(x[2]));
 Splits `string` using the regular expression `pattern` and returns an
 array. Trailing empty strings are preserved:
 
-```
-SELECT regexp_split('1a 2b 14m', '\s*[a-z]+\s*'); -- [1, 2, 14, ]
+```{try-sql}
+SELECT regexp_split('1a 2b 14m', '\s*[a-z]+\s*')
 ```
 :::
 
