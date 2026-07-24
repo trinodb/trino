@@ -5,6 +5,7 @@ In this document you can find information about developing Trino.
 * [Trino organization](#trino-organization)
 * [Trino developer guide](#trino-developer-guide)
 * [Code style](#code-style)
+* [Building](#building)
 * [Branch-scoped local repository](#branch-scoped-local-repository)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
@@ -187,6 +188,18 @@ Your build may fail if:
 
 Many such errors may be fixed automatically by running the following:
 `./mvnw sortpom:sort`
+
+## Building
+
+The fastest way to build and install the whole project:
+
+```bash
+./mvnw clean install -T 2C -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
+```
+
+This builds with two threads per core, skips snapshot update checks, tests, Javadoc, and the
+airbase checks (checkstyle, modernizer, dependency analysis). Run `./mvnw validate` separately
+before opening a PR to get those checks back.
 
 ## Branch-scoped local repository
 
