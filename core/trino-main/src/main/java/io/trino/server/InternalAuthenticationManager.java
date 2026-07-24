@@ -66,6 +66,7 @@ public class InternalAuthenticationManager
     private static final Function<Instant, Instant> TOKEN_REUSE_THRESHOLD = instant -> instant.minus(5, MINUTES);
 
     private static final HeaderName TRINO_INTERNAL_BEARER = HeaderName.of("X-Trino-Internal-Bearer");
+    private static final String INTERNAL_USER = "<internal>";
 
     // A node reuses the same token for minutes at a time, so the number of distinct tokens in
     // flight is proportional to the cluster size. The bound only guards against pathological cases.
@@ -133,9 +134,9 @@ public class InternalAuthenticationManager
 
     public void handleInternalRequest(ContainerRequestContext request)
     {
-        String subject;
+        Identity identity;
         try {
-            subject = parseJwt(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER.toString()));
+            identity = authenticate(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER.toString()));
         }
         catch (JwtException e) {
             log.error(e, "Internal authentication failed");
@@ -156,9 +157,6 @@ public class InternalAuthenticationManager
             return;
         }
 
-        Identity identity = Identity.forUser("<internal>")
-                .withPrincipal(new InternalPrincipal(subject))
-                .build();
         setAuthenticatedIdentity(request, identity);
     }
 
@@ -205,19 +203,24 @@ public class InternalAuthenticationManager
      * the shared secret. Expiration is checked against the claim on every use rather than being
      * left to the cache, so a cached token stops being accepted the moment it expires.
      */
-    String parseJwt(String jwt)
+    Identity authenticate(String jwt)
     {
         VerifiedToken verified = verifiedTokens.getIfPresent(jwt);
         if (verified != null && Instant.now().isBefore(verified.expiration())) {
-            return verified.subject();
+            return verified.identity();
         }
 
         Claims claims = jwtParser.parseSignedClaims(jwt).getPayload();
+        // Identity is immutable, so a single instance can be shared by every request carrying this token
+        Identity identity = Identity.forUser(INTERNAL_USER)
+                .withPrincipal(new InternalPrincipal(claims.getSubject()))
+                .build();
+
         Date expiration = claims.getExpiration();
         if (expiration != null) {
-            verifiedTokens.put(jwt, new VerifiedToken(claims.getSubject(), expiration.toInstant()));
+            verifiedTokens.put(jwt, new VerifiedToken(identity, expiration.toInstant()));
         }
-        return claims.getSubject();
+        return identity;
     }
 
     private record InternalToken(Instant expiration, String token)
@@ -234,11 +237,11 @@ public class InternalAuthenticationManager
         }
     }
 
-    private record VerifiedToken(String subject, Instant expiration)
+    private record VerifiedToken(Identity identity, Instant expiration)
     {
         private VerifiedToken
         {
-            requireNonNull(subject, "subject is null");
+            requireNonNull(identity, "identity is null");
             requireNonNull(expiration, "expiration is null");
         }
     }

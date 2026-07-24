@@ -17,6 +17,8 @@ import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.Request;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.trino.server.security.InternalPrincipal;
+import io.trino.spi.security.Identity;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -38,18 +40,20 @@ class TestInternalAuthenticationManager
     {
         InternalAuthenticationManager manager = createManager(SHARED_SECRET, NODE_ID);
 
-        assertThat(manager.parseJwt(generateToken(manager))).isEqualTo(NODE_ID);
+        Identity identity = manager.authenticate(generateToken(manager));
+
+        assertThat(identity.getUser()).isEqualTo("<internal>");
+        assertThat(identity.getPrincipal()).contains(new InternalPrincipal(NODE_ID));
     }
 
     @Test
-    void testRepeatedVerificationOfSameTokenIsConsistent()
+    void testRepeatedVerificationOfSameTokenReusesIdentity()
     {
         InternalAuthenticationManager manager = createManager(SHARED_SECRET, NODE_ID);
         String token = generateToken(manager);
 
-        // the second call is served from the cache and must be indistinguishable from the first
-        assertThat(manager.parseJwt(token)).isEqualTo(NODE_ID);
-        assertThat(manager.parseJwt(token)).isEqualTo(NODE_ID);
+        // the second call is served from the cache and must return the very same identity
+        assertThat(manager.authenticate(token)).isSameAs(manager.authenticate(token));
     }
 
     @Test
@@ -58,7 +62,7 @@ class TestInternalAuthenticationManager
         String token = generateToken(createManager("other-shared-secret", NODE_ID));
         InternalAuthenticationManager manager = createManager(SHARED_SECRET, NODE_ID);
 
-        assertThatThrownBy(() -> manager.parseJwt(token))
+        assertThatThrownBy(() -> manager.authenticate(token))
                 .isInstanceOf(JwtException.class);
     }
 
@@ -68,9 +72,9 @@ class TestInternalAuthenticationManager
         InternalAuthenticationManager manager = createManager(SHARED_SECRET, NODE_ID);
 
         // repeated to verify that a rejected token is not cached and keeps being rejected
-        assertThatThrownBy(() -> manager.parseJwt("not-a-token"))
+        assertThatThrownBy(() -> manager.authenticate("not-a-token"))
                 .isInstanceOf(JwtException.class);
-        assertThatThrownBy(() -> manager.parseJwt("not-a-token"))
+        assertThatThrownBy(() -> manager.authenticate("not-a-token"))
                 .isInstanceOf(JwtException.class);
     }
 
@@ -82,7 +86,7 @@ class TestInternalAuthenticationManager
                 NODE_ID,
                 () -> Instant.now().minus(1, ChronoUnit.MINUTES));
 
-        assertThatThrownBy(() -> manager.parseJwt(generateToken(manager)))
+        assertThatThrownBy(() -> manager.authenticate(generateToken(manager)))
                 .isInstanceOf(ExpiredJwtException.class);
     }
 
@@ -96,9 +100,9 @@ class TestInternalAuthenticationManager
         String token = generateToken(manager);
 
         // populate the cache while the token is still valid
-        assertThat(manager.parseJwt(token)).isEqualTo(NODE_ID);
+        assertThat(manager.authenticate(token).getPrincipal()).contains(new InternalPrincipal(NODE_ID));
 
-        assertEventually(() -> assertThatThrownBy(() -> manager.parseJwt(token))
+        assertEventually(() -> assertThatThrownBy(() -> manager.authenticate(token))
                 .isInstanceOf(ExpiredJwtException.class));
     }
 
