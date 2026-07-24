@@ -283,6 +283,33 @@ implementation is used:
     actually encrypted. The equivalent catalog session property is
     `plaintext_files_allowed_for_encrypted_tables`.
   - `false`
+* - `aws.kms.region`
+  - AWS region for KMS. Required when `iceberg.encryption.kms-type` is `AWS`
+    and the region cannot be determined from the environment.
+  -
+* - `aws.kms.endpoint`
+  - KMS API endpoint URL. Use to override the default AWS KMS endpoint.
+  -
+* - `aws.kms.sts.region`
+  - AWS STS signing region for KMS authentication.
+  -
+* - `aws.kms.sts.endpoint`
+  - AWS STS endpoint for KMS authentication.
+  -
+* - `aws.kms.iam-role`
+  - ARN of an IAM role to assume when connecting to KMS.
+  -
+* - `aws.kms.external-id`
+  - External ID for the IAM role trust policy when connecting to KMS.
+  -
+* - `aws.kms.access-key`
+  - AWS access key for KMS authentication. When set,
+    `aws.kms.secret-key` must also be set.
+  -
+* - `aws.kms.secret-key`
+  - AWS secret key for KMS authentication. When set,
+    `aws.kms.access-key` must also be set.
+  -
 :::
 
 (iceberg-fte-support)=

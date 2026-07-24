@@ -18,8 +18,6 @@ import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
-import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
@@ -37,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V1;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
@@ -93,7 +92,7 @@ final class TestTrinoJdbcCatalog
         return new TrinoJdbcCatalog(
                 new CatalogName(CATALOG_NAME),
                 TESTING_TYPE_MANAGER,
-                new IcebergJdbcTableOperationsProvider(HDFS_FILE_SYSTEM_FACTORY, FILE_IO_FACTORY, jdbcClient, new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig())),
+                new IcebergJdbcTableOperationsProvider(HDFS_FILE_SYSTEM_FACTORY, FILE_IO_FACTORY, jdbcClient, ENCRYPTION_MANAGER_FACTORY),
                 jdbcCatalog,
                 jdbcClient,
                 HDFS_FILE_SYSTEM_FACTORY,

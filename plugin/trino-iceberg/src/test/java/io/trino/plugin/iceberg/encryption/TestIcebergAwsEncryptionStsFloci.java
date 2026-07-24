@@ -28,9 +28,11 @@ import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
 import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 
-final class TestIcebergAwsEncryptionFloci
+final class TestIcebergAwsEncryptionStsFloci
         extends BaseIcebergEncryptionFlociTest
 {
+    private static final String ROLE_ARN = "arn:aws:iam::000000000000:role/test";
+
     @Override
     protected String kmsKey()
     {
@@ -47,22 +49,27 @@ final class TestIcebergAwsEncryptionFloci
     protected KeyManagementClient kmsClient()
     {
         KeyManagementClient keyManagementClient = new AwsKeyManagementClient();
-        keyManagementClient.initialize(Map.of(
-                "kms.endpoint", hiveFlociDataLake.floci().endpoint().toString(),
-                "client.region", FLOCI_REGION,
-                "client.credentials-provider", StaticAwsCredentialsProvider.class.getName(),
-                "client.credentials-provider.access-key-id", FLOCI_ACCESS_KEY,
-                "client.credentials-provider.secret-access-key", FLOCI_SECRET_KEY));
+        keyManagementClient.initialize(ImmutableMap.<String, String>builder()
+                .put("kms.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                .put("client.region", FLOCI_REGION)
+                .put("client.credentials-provider", StaticAwsCredentialsProvider.class.getName())
+                .put("client.credentials-provider.access-key-id", FLOCI_ACCESS_KEY)
+                .put("client.credentials-provider.secret-access-key", FLOCI_SECRET_KEY)
+                .buildOrThrow());
         return keyManagementClient;
     }
 
     @Override
     protected Map<String, String> kmsProperties()
     {
+        String stsEndpoint = hiveFlociDataLake.floci().endpoint().toString();
         return ImmutableMap.<String, String>builder()
                 .put("iceberg.encryption.kms-type", "AWS")
                 .put("aws.kms.region", FLOCI_REGION)
-                .put("aws.kms.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                .put("aws.kms.endpoint", stsEndpoint)
+                .put("aws.kms.iam-role", ROLE_ARN)
+                .put("aws.kms.sts.region", FLOCI_REGION)
+                .put("aws.kms.sts.endpoint", stsEndpoint)
                 .put("aws.kms.access-key", FLOCI_ACCESS_KEY)
                 .put("aws.kms.secret-key", FLOCI_SECRET_KEY)
                 .buildOrThrow();
