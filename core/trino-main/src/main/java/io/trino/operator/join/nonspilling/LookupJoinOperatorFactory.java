@@ -31,6 +31,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -51,6 +52,7 @@ public class LookupJoinOperatorFactory
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends PartitionedLookupSourceFactory> joinBridgeManager;
+    private final OptionalInt buildPipeline;
 
     private boolean closed;
 
@@ -62,7 +64,8 @@ public class LookupJoinOperatorFactory
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
             JoinOperatorType joinOperatorType,
-            JoinProbeFactory joinProbeFactory)
+            JoinProbeFactory joinProbeFactory,
+            OptionalInt buildPipeline)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -72,6 +75,7 @@ public class LookupJoinOperatorFactory
         this.outputSingleMatch = joinOperatorType.isOutputSingleMatch();
         this.waitForBuild = joinOperatorType.isWaitForBuild();
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
+        this.buildPipeline = requireNonNull(buildPipeline, "buildPipeline is null");
 
         this.joinBridgeManager = lookupSourceFactoryManager;
         joinBridgeManager.incrementProbeFactoryCount();
@@ -104,6 +108,7 @@ public class LookupJoinOperatorFactory
         joinProbeFactory = other.joinProbeFactory;
         outerOperatorFactory = other.outerOperatorFactory;
         joinBridgeManager = other.joinBridgeManager;
+        buildPipeline = other.buildPipeline;
 
         closed = false;
         joinBridgeManager.incrementProbeFactoryCount();
@@ -149,7 +154,8 @@ public class LookupJoinOperatorFactory
                 joinProbeFactory,
                 joinBridgeManager::probeOperatorClosed,
                 operatorContext,
-                sourcePages);
+                sourcePages,
+                buildPipeline);
     }
 
     @Override

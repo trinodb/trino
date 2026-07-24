@@ -3056,7 +3056,7 @@ public class LocalExecutionPlanner
                                 // is reduced (e.g. by plan rule) with respect to default task concurrency
                                 taskConcurrency / partitionCount));
 
-                context.addDriverFactory(
+                int buildPipelineId = context.addDriverFactory(
                         false,
                         new PhysicalOperation(hashBuilderOperatorFactory, ImmutableMap.of(), buildSource),
                         buildContext);
@@ -3070,7 +3070,8 @@ public class LocalExecutionPlanner
                         node.getFilter().isPresent(),
                         probeTypes,
                         probeJoinChannels,
-                        Optional.of(probeOutputChannels));
+                        Optional.of(probeOutputChannels),
+                        OptionalInt.of(buildPipelineId));
             }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
