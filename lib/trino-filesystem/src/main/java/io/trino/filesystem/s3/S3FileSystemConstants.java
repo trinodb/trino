@@ -18,6 +18,7 @@ public final class S3FileSystemConstants
     public static final String EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY = "internal$s3_aws_access_key";
     public static final String EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY = "internal$s3_aws_secret_key";
     public static final String EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY = "internal$s3_aws_session_token";
+    public static final String EXTRA_CREDENTIALS_OBJECT_TAGS = "internal$s3_object_tags";
 
     private S3FileSystemConstants() {}
 }

@@ -14,7 +14,9 @@
 package io.trino.filesystem.s3;
 
 import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
+import com.google.common.collect.ImmutableSet;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -25,6 +27,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.net.URI;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
@@ -67,8 +71,15 @@ public class TestS3FileSystemS3Mock
                         .setRegion(Region.US_EAST_1.id())
                         .setPathStyleAccess(true)
                         .setStreamingPartSize(STREAMING_PART_SIZE)
-                        .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer),
+                        .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
+                        .setObjectTags("env=test,source=trino-test"),
                 new S3FileSystemStats());
+    }
+
+    @Override
+    protected boolean isObjectTaggingSupported()
+    {
+        return true;
     }
 
     @Test
@@ -96,5 +107,50 @@ public class TestS3FileSystemS3Mock
         // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2789
         assertThatThrownBy(super::testReadingEmptyFile)
                 .hasMessageContaining("Failed to open S3 file: s3://test-bucket/inputStream/");
+    }
+
+    @Test
+    void testObjectTagsPrefixFilter()
+            throws Exception
+    {
+        S3FileSystemFactory prefixFilterFactory = new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setAwsAccessKey("accesskey")
+                        .setAwsSecretKey("secretkey")
+                        .setEndpoint(S3_MOCK.getHttpEndpoint())
+                        .setRegion(Region.US_EAST_1.id())
+                        .setPathStyleAccess(true)
+                        .setStreamingPartSize(STREAMING_PART_SIZE)
+                        .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
+                        .setObjectTags("env=test")
+                        .setObjectTagsPrefixes(ImmutableSet.of("data/")),
+                new S3FileSystemStats());
+        try {
+            var fileSystem = prefixFilterFactory.create(ConnectorIdentity.ofUser("test"));
+            try (S3Client s3Client = createS3Client()) {
+                String taggedKey = "data/00000-0-uuid.parquet";
+                String untaggedKey = "metadata/00000-uuid.metadata.json";
+                byte[] contents = "test content".getBytes(UTF_8);
+
+                fileSystem.newOutputFile(getRootLocation().appendPath(taggedKey))
+                        .createOrOverwrite(contents);
+                fileSystem.newOutputFile(getRootLocation().appendPath(untaggedKey))
+                        .createOrOverwrite(contents);
+
+                var dataTagResponse = s3Client.getObjectTagging(r -> r.bucket(bucket()).key(taggedKey));
+                assertThat(dataTagResponse.tagSet()).isNotEmpty();
+
+                var metaTagResponse = s3Client.getObjectTagging(r -> r.bucket(bucket()).key(untaggedKey));
+                assertThat(metaTagResponse.tagSet()).isEmpty();
+
+                // Clean up
+                s3Client.deleteObject(delete -> delete.bucket(bucket()).key(taggedKey));
+                s3Client.deleteObject(delete -> delete.bucket(bucket()).key(untaggedKey));
+            }
+        }
+        finally {
+            prefixFilterFactory.destroy();
+        }
     }
 }

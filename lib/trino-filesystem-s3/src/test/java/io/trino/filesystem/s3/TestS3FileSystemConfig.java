@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -38,6 +39,7 @@ import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.STANDARD;
 import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.Aws4Signer;
 import static io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType.STANDARD_IA;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestS3FileSystemConfig
 {
@@ -79,7 +81,9 @@ public class TestS3FileSystemConfig
                 .setHttpProxyPassword(null)
                 .setHttpProxyPreemptiveBasicProxyAuth(false)
                 .setCrossRegionAccessEnabled(false)
-                .setApplicationId("Trino"));
+                .setApplicationId("Trino")
+                .setObjectTags(null)
+                .setObjectTagsPrefixes(ImmutableSet.of()));
     }
 
     private static void addCommonProperties(ImmutableMap.Builder<String, String> builder)
@@ -111,7 +115,9 @@ public class TestS3FileSystemConfig
                 .put("s3.http-proxy.password", "test")
                 .put("s3.http-proxy.preemptive-basic-auth", "true")
                 .put("s3.application-id", "application id")
-                .put("s3.cross-region-access", "true");
+                .put("s3.cross-region-access", "true")
+                .put("s3.object-tags", "key1=value1,key2=value2")
+                .put("s3.object-tags.prefixes", "data/,extra/");
     }
 
     private static S3FileSystemConfig setCommonConfig(S3FileSystemConfig config)
@@ -144,7 +150,9 @@ public class TestS3FileSystemConfig
                 .setHttpProxyPassword("test")
                 .setHttpProxyPreemptiveBasicProxyAuth(true)
                 .setCrossRegionAccessEnabled(true)
-                .setApplicationId("application id");
+                .setApplicationId("application id")
+                .setObjectTags("key1=value1,key2=value2")
+                .setObjectTagsPrefixes(ImmutableSet.of("data/", "extra/"));
     }
 
     @Test
@@ -323,5 +331,43 @@ public class TestS3FileSystemConfig
                         .setExternalId("external-id")
                         .setStsEndpoint("sts.example.com")
                         .setStsRegion("us-west-2"));
+    }
+
+    @Test
+    public void testObjectTagsTooManyTags()
+    {
+        assertFailsValidation(
+                new S3FileSystemConfig().setObjectTags("a=b,b=c,c=d,d=e,e=f,f=g,g=h,h=i,i=j,j=k,k=l"),
+                "objectTagsValid",
+                "s3.object-tags: maximum 10 tags per object, key max 128 chars, value max 256 chars",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testObjectTagsPrefixesWithoutTags()
+    {
+        assertFailsValidation(
+                new S3FileSystemConfig().setObjectTagsPrefixes(ImmutableSet.of("data/")),
+                "objectTagsPrefixesValid",
+                "s3.object-tags.prefixes is only meaningful when s3.object-tags is configured",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testObjectTagsPrefixesWithTags()
+    {
+        assertValidates(
+                new S3FileSystemConfig()
+                        .setObjectTags("env=prod")
+                        .setObjectTagsPrefixes(ImmutableSet.of("data/")));
+    }
+
+    @Test
+    public void testObjectTagsPrefixesEmpty()
+    {
+        S3FileSystemConfig config = new S3FileSystemConfig()
+                .setObjectTags("env=prod")
+                .setObjectTagsPrefixes(ImmutableSet.of());
+        assertThat(config.getObjectTagsPrefixes()).isEmpty();
     }
 }

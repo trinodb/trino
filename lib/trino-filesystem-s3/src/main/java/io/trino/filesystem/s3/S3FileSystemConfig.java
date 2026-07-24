@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
@@ -33,6 +34,7 @@ import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -177,6 +179,8 @@ public class S3FileSystemConfig
     private int maxErrorRetries = 20;
     private boolean crossRegionAccessEnabled;
     private String applicationId = "Trino";
+    private Map<String, String> objectTags = ImmutableMap.of();
+    private Set<String> objectTagsPrefixes = ImmutableSet.of();
 
     public String getAwsAccessKey()
     {
@@ -658,5 +662,53 @@ public class S3FileSystemConfig
     {
         this.applicationId = applicationId;
         return this;
+    }
+
+    @NotNull
+    public Map<String, String> getObjectTags()
+    {
+        return objectTags;
+    }
+
+    @Config("s3.object-tags")
+    @ConfigDescription("Key-value pairs to be added as S3 object tags on written objects. Format: key1=value1,key2=value2")
+    public S3FileSystemConfig setObjectTags(String objectTags)
+    {
+        this.objectTags = Splitter.on(',')
+                .omitEmptyStrings()
+                .trimResults()
+                .withKeyValueSeparator(Splitter.on('=').limit(2))
+                .split(nullToEmpty(objectTags));
+        return this;
+    }
+
+    @NotNull
+    public Set<String> getObjectTagsPrefixes()
+    {
+        return objectTagsPrefixes;
+    }
+
+    @Config("s3.object-tags.prefixes")
+    @ConfigDescription("Comma-separated list of S3 key substrings. If set, object tags are only applied to objects whose key contains one of these substrings. If empty, tags apply to all objects.")
+    public S3FileSystemConfig setObjectTagsPrefixes(Set<String> objectTagsPrefixes)
+    {
+        this.objectTagsPrefixes = ImmutableSet.copyOf(objectTagsPrefixes);
+        return this;
+    }
+
+    @AssertTrue(message = "s3.object-tags: maximum 10 tags per object, key max 128 chars, value max 256 chars")
+    public boolean isObjectTagsValid()
+    {
+        if (objectTags.size() > 10) {
+            return false;
+        }
+        return objectTags.entrySet().stream().allMatch(e ->
+                e.getKey().length() <= 128 && e.getValue().length() <= 256);
+    }
+
+    @AssertTrue(message = "s3.object-tags.prefixes is only meaningful when s3.object-tags is configured")
+    public boolean isObjectTagsPrefixesValid()
+    {
+        return objectTagsPrefixes.isEmpty() || !objectTags.isEmpty();
     }
 }
