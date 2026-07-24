@@ -689,7 +689,7 @@ public class TestIcebergSparkCompatibility
         if (storageFormat == StorageFormat.ORC) {
             // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
             assertThatThrownBy(() -> onSpark().executeQuery(format(select, sparkTableName)))
-                    .hasMessageContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
+                    .hasStackTraceContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
         }
         else {
             assertThat(onSpark().executeQuery(format(select, sparkTableName)))
@@ -727,7 +727,7 @@ public class TestIcebergSparkCompatibility
         if (storageFormat == StorageFormat.ORC) {
             // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
             assertThatThrownBy(() -> onSpark().executeQuery(format(selectNested, sparkTableName)))
-                    .hasMessageContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
+                    .hasStackTraceContaining("Missing ORC reader for field _struct");
         }
         else {
             assertThat(onSpark().executeQuery(format(selectNested, sparkTableName)))
