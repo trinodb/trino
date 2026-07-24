@@ -19,8 +19,13 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
 import jakarta.annotation.PreDestroy;
+import redis.clients.jedis.CommandArguments;
+import redis.clients.jedis.Connection;
 import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.Protocol;
 import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.util.SafeEncoder;
 
 import java.util.Map.Entry;
 import java.util.Set;
@@ -48,6 +53,8 @@ public class RedisClientManager
     private final boolean keyPrefixSchemaTable;
     private final int redisScanCount;
     private final Set<RedisClientConfigurator> clientConfigurators;
+    private final Set<HostAddress> seedNodes;
+    private final boolean clusterEnabled;
 
     @Inject
     RedisClientManager(RedisConnectorConfig redisConnectorConfig, Set<RedisClientConfigurator> clientConfigurators)
@@ -62,6 +69,13 @@ public class RedisClientManager
         this.keyPrefixSchemaTable = redisConnectorConfig.isKeyPrefixSchemaTable();
         this.redisScanCount = redisConnectorConfig.getRedisScanCount();
         this.clientConfigurators = ImmutableSet.copyOf(clientConfigurators);
+        this.seedNodes = redisConnectorConfig.getNodes();
+        this.clusterEnabled = redisConnectorConfig.isClusterEnabled();
+        if (this.clusterEnabled && this.redisDataBaseIndex != 0) {
+            throw new IllegalArgumentException(
+                    "redis.database-index must be 0 when redis.cluster.enabled=true. "
+                            + "Redis Cluster only supports database index 0.");
+        }
     }
 
     @PreDestroy
@@ -97,10 +111,61 @@ public class RedisClientManager
         return redisScanCount;
     }
 
+    public boolean isClusterEnabled()
+    {
+        return clusterEnabled;
+    }
+
     public RedisClient getClient(HostAddress host)
     {
         requireNonNull(host, "host is null");
         return clientCache.computeIfAbsent(host, this::createClient);
+    }
+
+    /**
+     * Discovers all master nodes in a Redis Cluster via the CLUSTER NODES command.
+     * Uses a low-level Connection to send the raw command, since clusterNodes() was
+     * removed from high-level Jedis 7.x clients.
+     * Only applicable when redis.cluster.enabled=true.
+     */
+    public Set<HostAddress> getClusterMasterNodes()
+    {
+        HostAddress seed = seedNodes.iterator().next();
+        DefaultJedisClientConfig.Builder configBuilder = DefaultJedisClientConfig.builder()
+                .connectionTimeoutMillis(toIntExact(redisConnectTimeout.toMillis()))
+                .socketTimeoutMillis(toIntExact(redisConnectTimeout.toMillis()));
+        if (redisUser != null && !redisUser.isEmpty()) {
+            configBuilder.user(redisUser);
+        }
+        if (redisPassword != null && !redisPassword.isEmpty()) {
+            configBuilder.password(redisPassword);
+        }
+        clientConfigurators.forEach(configurator -> configurator.configure(configBuilder));
+        try (Connection connection = new Connection(
+                new HostAndPort(seed.getHostText(), seed.getPort()),
+                configBuilder.build())) {
+            connection.sendCommand(new CommandArguments(Protocol.Command.CLUSTER).add("NODES"));
+            return parseClusterMasterNodes(SafeEncoder.encode((byte[]) connection.getOne()));
+        }
+    }
+
+    private static Set<HostAddress> parseClusterMasterNodes(String clusterNodes)
+    {
+        ImmutableSet.Builder<HostAddress> masters = ImmutableSet.builder();
+        for (String line : clusterNodes.split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            String[] parts = trimmed.split("\\s+");
+            // CLUSTER NODES format: <id> <ip:port@bus-port> <flags> ...
+            // flags field contains "master" for master nodes and "slave" for replicas
+            if (parts.length >= 3 && parts[2].contains("master") && !parts[2].contains("fail")) {
+                String hostPort = parts[1].split("@")[0];
+                masters.add(HostAddress.fromString(hostPort));
+            }
+        }
+        return masters.build();
     }
 
     private RedisClient createClient(HostAddress host)

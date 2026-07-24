@@ -76,6 +76,7 @@ public class RedisRecordCursor
     private final char keyDelimiter;
     private final boolean isKeyPrefixSchemaTable;
     private final int scanCount;
+    private final boolean clusterEnabled;
 
     private ScanResult<String> redisCursor;
     private List<String> keys;
@@ -106,6 +107,7 @@ public class RedisRecordCursor
         this.keyDelimiter = clientManager.getRedisKeyDelimiter();
         this.isKeyPrefixSchemaTable = clientManager.isKeyPrefixSchemaTable();
         this.scanCount = clientManager.getRedisScanCount();
+        this.clusterEnabled = clientManager.isClusterEnabled();
         this.scanParams = setScanParams();
         this.maxKeysPerFetch = clientManager.getRedisMaxKeysPerFetch();
         this.currentRowGroup = new LinkedList<>();
@@ -408,7 +410,24 @@ public class RedisRecordCursor
         hashValues = null;
 
         switch (split.getValueDataType()) {
-            case STRING -> stringValues = client.mget(currentKeys.toArray(new String[0]));
+            case STRING -> {
+                // In Redis Cluster, MGET fails with CROSSSLOT when keys hash to different slots.
+                // Scanned keys on a single master span many slots, so fetch each key individually
+                // via a pipeline of single-key GET commands. Standalone mode keeps the faster MGET.
+                if (clusterEnabled) {
+                    try (Pipeline pipeline = client.pipelined()) {
+                        for (String key : currentKeys) {
+                            pipeline.get(key);
+                        }
+                        stringValues = pipeline.syncAndReturnAll().stream()
+                                .map(String.class::cast)
+                                .collect(toList());
+                    }
+                }
+                else {
+                    stringValues = client.mget(currentKeys.toArray(new String[0]));
+                }
+            }
             case HASH -> {
                 try (Pipeline pipeline = client.pipelined()) {
                     for (String key : currentKeys) {

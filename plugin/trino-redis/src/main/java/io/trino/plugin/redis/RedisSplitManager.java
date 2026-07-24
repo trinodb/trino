@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.spi.HostAddress;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -43,6 +45,7 @@ public class RedisSplitManager
 {
     private final Set<HostAddress> nodes;
     private final RedisClientManager clientManager;
+    private final boolean clusterEnabled;
 
     private static final long REDIS_MAX_SPLITS = 100;
     private static final long REDIS_STRIDE_SPLITS = 100;
@@ -55,6 +58,7 @@ public class RedisSplitManager
         requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.nodes = ImmutableSet.copyOf(redisConnectorConfig.getNodes());
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
+        this.clusterEnabled = redisConnectorConfig.isClusterEnabled();
     }
 
     @Override
@@ -72,6 +76,30 @@ public class RedisSplitManager
 
         checkState(!nodes.isEmpty(), "No Redis nodes available");
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
+
+        // In cluster mode, discover master nodes automatically via CLUSTER NODES command
+        // and create one split per master so each worker scans one shard independently
+        if (clusterEnabled) {
+            if (redisTableHandle.keyDataFormat().equals("zset")) {
+                throw new TrinoException(NOT_SUPPORTED,
+                        "ZSET key format is not supported with redis.cluster.enabled=true. "
+                                + "A ZSET key resides on a single cluster node and cannot be split across shards.");
+            }
+            for (HostAddress node : clientManager.getClusterMasterNodes()) {
+                RedisSplit split = new RedisSplit(
+                        redisTableHandle.schemaName(),
+                        redisTableHandle.tableName(),
+                        redisTableHandle.keyDataFormat(),
+                        redisTableHandle.valueDataFormat(),
+                        redisTableHandle.keyName(),
+                        redisTableHandle.constraint(),
+                        0,
+                        -1,
+                        ImmutableList.of(node));
+                builder.add(split);
+            }
+            return new FixedSplitSource(builder.build());
+        }
 
         long numberOfKeys = 1;
         // when Redis keys are provides in a zset, create multiple

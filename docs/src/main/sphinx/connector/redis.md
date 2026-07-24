@@ -18,7 +18,7 @@ string and hash types are supported.
 Requirements for using the connector in a catalog to connect to a Redis data
 source are:
 
-- Redis 5.0.14 or higher (Redis Cluster is not supported)
+- Redis 5.0.14 or higher (Redis Cluster is supported with `redis.cluster.enabled=true`)
 - Network access, by default on port 6379, from the Trino coordinator and
   workers to Redis.
 
@@ -59,6 +59,7 @@ The following configuration properties are available:
 | `redis.database-index`              | Redis database index                                                                              |
 | `redis.user`                        | Redis server username                                                                             |
 | `redis.password`                    | Redis server password                                                                             |
+| `redis.cluster.enabled`             | Whether Redis cluster mode is enabled (default: `false`)                                          |
 | `redis.tls.enabled`                 | Whether TLS security is enabled                                                                   |
 | `redis.tls.keystore-path`           | Path to the {doc}`JKS </security/inspect-jks>` or PKCS12 key store file                           |
 | `redis.tls.keystore-password`       | Password for the key store                                                                        |
@@ -91,7 +92,26 @@ The `hostname:port` pair for the Redis server.
 
 This property is required; there is no default.
 
-Redis Cluster is not supported.
+### `redis.cluster.enabled`
+
+Enables Redis Cluster mode. When set to `true`, Trino automatically discovers all healthy
+master nodes by issuing a `CLUSTER NODES` command to the seed node specified in `redis.nodes`.
+One Trino split is created per master node, allowing each Trino worker to independently scan
+one Redis shard. This ensures complete data coverage across all cluster shards.
+
+Only a single seed node is required — all master nodes are discovered automatically:
+
+```text
+redis.cluster.enabled=true
+redis.nodes=any-seed-node:6379
+```
+
+The following constraints apply when `redis.cluster.enabled=true`:
+
+- `redis.database-index` must be `0` (Redis Cluster only supports database 0)
+- `zset` key format is not supported (a ZSET key resides on a single node and cannot be split)
+
+This property is optional; the default is `false` (standalone mode).
 
 ### `redis.scan-count`
 
