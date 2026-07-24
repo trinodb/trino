@@ -7,6 +7,9 @@ on:
       - closed
 
 # NOTE: Do not check out/execute code from the PR since a read-write token is present due to pull_request_target
+permissions:
+  contents: read
+
 jobs:
   cancel:
     runs-on: ubuntu-latest
