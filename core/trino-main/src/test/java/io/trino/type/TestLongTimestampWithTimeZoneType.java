@@ -28,8 +28,9 @@ import java.util.stream.Stream;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongTimestampWithTimeZoneType
@@ -114,58 +115,61 @@ public class TestLongTimestampWithTimeZoneType
 
     @ParameterizedTest
     @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
-    public void testPreviousValueEveryPrecision(int precision, long minValue, long maxValue, long step)
+    public void testPreviousValueEveryPrecision(int precision, int step)
     {
-        Type type = createTimestampType(precision);
+        Type type = createTimestampWithTimeZoneType(precision);
 
-        assertThat(type.getPreviousValue(minValue))
+        // there is no value before the minimum
+        assertThat(type.getPreviousValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY)))
                 .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(minValue + step))
-                .isEqualTo(Optional.of(minValue));
+        assertThat(type.getPreviousValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, step, UTC_KEY)))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY)));
 
-        assertThat(type.getPreviousValue(0L))
-                .isEqualTo(Optional.of(-step));
-        assertThat(type.getPreviousValue(123_456_789_000_000L))
-                .isEqualTo(Optional.of(123_456_789_000_000L - step));
+        // stepping down stays within the same millisecond (time zone doesn't matter for ordering)
+        assertThat(type.getPreviousValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, step * 5, getTimeZoneKeyForOffset(2))))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, step * 4, UTC_KEY)));
+        // stepping down crosses a millisecond boundary
+        assertThat(type.getPreviousValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 0, getTimeZoneKeyForOffset(2))))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1110, PICOSECONDS_PER_MILLISECOND - step, UTC_KEY)));
 
-        assertThat(type.getPreviousValue(maxValue - step))
-                .isEqualTo(Optional.of(maxValue - 2 * step));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(maxValue - step));
+        // near the maximum
+        assertThat(type.getPreviousValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOSECONDS_PER_MILLISECOND - step, UTC_KEY)))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOSECONDS_PER_MILLISECOND - 2 * step, UTC_KEY)));
     }
 
     @ParameterizedTest
     @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
-    public void testNextValueEveryPrecision(int precision, long minValue, long maxValue, long step)
+    public void testNextValueEveryPrecision(int precision, int step)
     {
-        Type type = createTimestampType(precision);
+        Type type = createTimestampWithTimeZoneType(precision);
 
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(minValue + step));
-        assertThat(type.getNextValue(minValue + step))
-                .isEqualTo(Optional.of(minValue + 2 * step));
-
-        assertThat(type.getNextValue(0L))
-                .isEqualTo(Optional.of(step));
-        assertThat(type.getNextValue(123_456_789_000_000L))
-                .isEqualTo(Optional.of(123_456_789_000_000L + step));
-
-        assertThat(type.getNextValue(maxValue - step))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
+        // there is no value after the maximum
+        assertThat(type.getNextValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOSECONDS_PER_MILLISECOND - step, UTC_KEY)))
                 .isEqualTo(Optional.empty());
+        assertThat(type.getNextValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOSECONDS_PER_MILLISECOND - 2 * step, UTC_KEY)))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOSECONDS_PER_MILLISECOND - step, UTC_KEY)));
+
+        // stepping up stays within the same millisecond (time zone doesn't matter for ordering)
+        assertThat(type.getNextValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, step * 4, getTimeZoneKeyForOffset(2))))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, step * 5, UTC_KEY)));
+        // stepping up crosses a millisecond boundary
+        assertThat(type.getNextValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1110, PICOSECONDS_PER_MILLISECOND - step, getTimeZoneKeyForOffset(2))))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 0, UTC_KEY)));
     }
 
     public static Stream<Arguments> testPreviousNextValueEveryPrecisionDataProvider()
     {
+        // LongTimestampWithTimeZoneType covers precisions 4..12; the step is the number of picoseconds per unit at that precision
         return Stream.of(
-                Arguments.of(0, Long.MIN_VALUE + 775808, Long.MAX_VALUE - 775807, 1_000_000L),
-                Arguments.of(1, Long.MIN_VALUE + 75808, Long.MAX_VALUE - 75807, 100_000L),
-                Arguments.of(2, Long.MIN_VALUE + 5808, Long.MAX_VALUE - 5807, 10_000L),
-                Arguments.of(3, Long.MIN_VALUE + 808, Long.MAX_VALUE - 807, 1_000L),
-                Arguments.of(4, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 100L),
-                Arguments.of(5, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 10L),
-                Arguments.of(6, Long.MIN_VALUE, Long.MAX_VALUE, 1L));
+                Arguments.of(4, 100_000_000),
+                Arguments.of(5, 10_000_000),
+                Arguments.of(6, 1_000_000),
+                Arguments.of(7, 100_000),
+                Arguments.of(8, 10_000),
+                Arguments.of(9, 1_000),
+                Arguments.of(10, 100),
+                Arguments.of(11, 10),
+                Arguments.of(12, 1));
     }
 
     @Test
