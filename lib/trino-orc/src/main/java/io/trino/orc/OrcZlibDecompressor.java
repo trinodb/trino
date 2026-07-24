@@ -37,8 +37,7 @@ class OrcZlibDecompressor
     public int decompress(byte[] input, int offset, int length, OutputBuffer output)
             throws OrcCorruptionException
     {
-        Inflater inflater = new Inflater(true);
-        try {
+        try (Inflater inflater = new Inflater(true)) {
             inflater.setInput(input, offset, length);
             byte[] buffer = output.initialize(Math.min(length * EXPECTED_COMPRESSION_RATIO, maxBufferSize));
 
@@ -63,9 +62,6 @@ class OrcZlibDecompressor
         }
         catch (DataFormatException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid compressed stream");
-        }
-        finally {
-            inflater.end();
         }
     }
 
