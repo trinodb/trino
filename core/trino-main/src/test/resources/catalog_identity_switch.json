@@ -1,0 +1,25 @@
+{
+    "impersonation": [
+        {
+            "original_user": "admin",
+            "new_user": ".*"
+        },
+        {
+            "original_user": "alice",
+            "new_user": "bob",
+            "reasons": ["VIEW_OWNER", "MATERIALIZED_VIEW_OWNER"],
+            "allow": false
+        },
+        {
+            "new_user": "charlie",
+            "reasons": ["IMPERSONATION", "ROW_FILTER", "COLUMN_MASK"],
+            "allow": false
+        },
+        {
+            "original_user": "alice",
+            "new_user": "dave",
+            "reasons": ["FUNCTION_OWNER"],
+            "allow": true
+        }
+    ]
+}

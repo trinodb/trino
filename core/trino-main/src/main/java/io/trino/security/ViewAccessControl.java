@@ -17,6 +17,8 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.ViewExpression;
 
 import java.util.List;
@@ -41,6 +43,12 @@ public class ViewAccessControl
     protected AccessControl delegate()
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+    {
+        delegate.checkCanSetEffectiveIdentity(identity, targetIdentity, reason);
     }
 
     @Override

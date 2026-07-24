@@ -16,6 +16,7 @@ package io.trino.plugin.base.security;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
 
 import java.util.Optional;
@@ -30,9 +31,22 @@ import static java.util.Objects.requireNonNullElse;
 
 public class ImpersonationRule
 {
+    public enum Reason
+    {
+        IMPERSONATION,
+        VIEW_OWNER,
+        MATERIALIZED_VIEW_OWNER,
+        FUNCTION_OWNER,
+        ROW_FILTER,
+        COLUMN_MASK,
+    }
+
+    private static final Set<Reason> DEFAULT_REASONS = ImmutableSet.of(Reason.IMPERSONATION);
+
     private final Optional<Pattern> originalUserPattern;
     private final Optional<Pattern> originalRolePattern;
     private final Pattern newUserPattern;
+    private final Set<Reason> reasons;
     private final boolean allow;
 
     @JsonCreator
@@ -40,16 +54,24 @@ public class ImpersonationRule
             @JsonProperty("original_user") @JsonAlias("originalUser") Optional<Pattern> originalUserPattern,
             @JsonProperty("original_role") Optional<Pattern> originalRolePattern,
             @JsonProperty("new_user") @JsonAlias("newUser") Pattern newUserPattern,
+            @JsonProperty("reasons") Optional<Set<Reason>> reasons,
             @JsonProperty("allow") Boolean allow)
     {
         this.originalUserPattern = requireNonNull(originalUserPattern, "originalUserPattern is null");
         this.originalRolePattern = requireNonNull(originalRolePattern, "originalRolePattern is null");
         this.newUserPattern = requireNonNull(newUserPattern, "newUserPattern is null");
+        this.reasons = ImmutableSet.copyOf(requireNonNull(reasons, "reasons is null").orElse(DEFAULT_REASONS));
+        if (this.reasons.isEmpty()) {
+            throw new TrinoException(CONFIGURATION_INVALID, "reasons in impersonation rule must not be empty");
+        }
         this.allow = requireNonNullElse(allow, TRUE);
     }
 
-    public Optional<Boolean> match(String originalUser, Set<String> originalRoles, String newUser)
+    public Optional<Boolean> match(String originalUser, Set<String> originalRoles, String newUser, Reason reason)
     {
+        if (!reasons.contains(reason)) {
+            return Optional.empty();
+        }
         Pattern replacedNewUserPattern = newUserPattern;
         if (originalUserPattern.isPresent()) {
             Matcher matcher = originalUserPattern.get().matcher(originalUser);

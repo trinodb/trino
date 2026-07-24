@@ -33,6 +33,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -108,6 +109,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEffectiveIdentity;
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
@@ -262,7 +264,7 @@ public class FileBasedSystemAccessControl
         }
 
         for (ImpersonationRule rule : impersonationRules.get()) {
-            Optional<Boolean> allowed = rule.match(identity.getUser(), identity.getEnabledRoles(), userName);
+            Optional<Boolean> allowed = rule.match(identity.getUser(), identity.getEnabledRoles(), userName, ImpersonationRule.Reason.IMPERSONATION);
             if (allowed.isPresent()) {
                 if (allowed.get()) {
                     return;
@@ -272,6 +274,35 @@ public class FileBasedSystemAccessControl
         }
 
         denyImpersonateUser(identity.getUser(), userName);
+    }
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+    {
+        if (impersonationRules.isEmpty()) {
+            return;
+        }
+
+        for (ImpersonationRule rule : impersonationRules.get()) {
+            Optional<Boolean> allowed = rule.match(identity.getUser(), identity.getEnabledRoles(), targetIdentity.getUser(), toImpersonationReason(reason));
+            if (allowed.isPresent()) {
+                if (allowed.get()) {
+                    return;
+                }
+                denySetEffectiveIdentity(identity.getUser(), targetIdentity.getUser());
+            }
+        }
+    }
+
+    private static ImpersonationRule.Reason toImpersonationReason(IdentitySwitchReason reason)
+    {
+        return switch (reason) {
+            case VIEW_OWNER -> ImpersonationRule.Reason.VIEW_OWNER;
+            case MATERIALIZED_VIEW_OWNER -> ImpersonationRule.Reason.MATERIALIZED_VIEW_OWNER;
+            case FUNCTION_OWNER -> ImpersonationRule.Reason.FUNCTION_OWNER;
+            case ROW_FILTER -> ImpersonationRule.Reason.ROW_FILTER;
+            case COLUMN_MASK -> ImpersonationRule.Reason.COLUMN_MASK;
+        };
     }
 
     @Override

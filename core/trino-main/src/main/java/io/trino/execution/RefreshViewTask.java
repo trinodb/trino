@@ -26,6 +26,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.ViewAccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -102,6 +103,7 @@ public class RefreshViewTask
             identity = Identity.from(owner)
                     .withGroups(groupProvider.getGroups(owner.getUser()))
                     .build();
+            accessControl.checkCanSetEffectiveIdentity(session.getOriginalIdentity(), identity, IdentitySwitchReason.VIEW_OWNER);
             // View owner does not need GRANT OPTION to grant access themselves
             if (!owner.getUser().equals(session.getIdentity().getUser())) {
                 viewAccessControl = new ViewAccessControl(accessControl);

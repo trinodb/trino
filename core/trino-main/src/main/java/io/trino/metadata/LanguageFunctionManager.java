@@ -42,6 +42,7 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
@@ -638,6 +639,8 @@ public class LanguageFunctionManager
                 Identity newIdentity = Identity.from(identity)
                         .withGroups(groupProvider.getGroups(identity.getUser()))
                         .build();
+
+                accessControl.checkCanSetEffectiveIdentity(session.getOriginalIdentity(), newIdentity, IdentitySwitchReason.FUNCTION_OWNER);
 
                 Session functionSession = createFunctionSession(newIdentity);
 

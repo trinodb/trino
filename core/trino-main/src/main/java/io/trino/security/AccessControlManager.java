@@ -50,6 +50,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.IdentitySwitchReason;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -286,6 +287,20 @@ public class AccessControlManager
         requireNonNull(userName, "userName is null");
 
         systemAuthorizationCheck(control -> control.checkCanImpersonateUser(identity, userName));
+    }
+
+    @Override
+    public void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(targetIdentity, "targetIdentity is null");
+        requireNonNull(reason, "reason is null");
+
+        if (identity.getUser().equals(targetIdentity.getUser())) {
+            return;
+        }
+
+        systemAuthorizationCheck(control -> control.checkCanSetEffectiveIdentity(identity, targetIdentity, reason));
     }
 
     @Override

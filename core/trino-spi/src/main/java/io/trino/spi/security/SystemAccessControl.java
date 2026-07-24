@@ -125,6 +125,18 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if {@code identity}, the authenticated identity of the query, is allowed to evaluate
+     * part of the query as {@code targetIdentity}, such as for SECURITY DEFINER views and functions
+     * or the explicit identity of row filters and column masks, as indicated by {@code reason}.
+     * Explicit user impersonation is handled by {@link #checkCanImpersonateUser} instead. Unlike
+     * most checks, this defaults to allowing the switch so that existing implementations are
+     * unaffected.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetEffectiveIdentity(Identity identity, Identity targetIdentity, IdentitySwitchReason reason) {}
+
+    /**
      * Check if the principal is allowed to be the specified user.
      *
      * @throws AccessDeniedException if not allowed
