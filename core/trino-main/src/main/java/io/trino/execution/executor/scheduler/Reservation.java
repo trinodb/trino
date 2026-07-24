@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 /**
  * <p>Semaphore-like structure that allows for tracking reservations to avoid double-reserving or double-releasing.</p>
  *
- * <p>Callers are expected to call {@link #reserve()} to acquire a slot, and then {@link #register(T)} to associate
+ * <p>Callers are expected to call {@link #tryReserve()} to acquire a slot, and then {@link #register(T)} to associate
  * an entity with the reservation.</p>
  *
  * <p>Upon completion, callers should call {@link #release(T)} to release the reservation.</p>
@@ -57,10 +57,9 @@ final class Reservation<T>
         return semaphore.availablePermits();
     }
 
-    public void reserve()
-            throws InterruptedException
+    public boolean tryReserve()
     {
-        semaphore.acquire();
+        return semaphore.tryAcquire();
     }
 
     public synchronized void register(T entry)
