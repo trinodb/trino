@@ -305,7 +305,7 @@ public class TestSplitPruning
         //        ('UTC', CAST('2017-07-01T00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE), '2017-07-01 00:00:00.000', '2017-06-30T19:00:00.000-0500'),
         //        ('UTC', CAST('9999-12-31T23:59:59.999 UTC' AS TIMESTAMP WITH TIME ZONE), '9999-12-31 23:59:59.999999999', '9999-12-31T17:59:59.999-0600'),
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = CAST('1952-04-03 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)", tableName),
+                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = CAST('1952-04-03 01:02:03.456789 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", tableName),
                 Set.of("1952-04-03 01:02:03.456789"),
                 1);
 
@@ -315,7 +315,7 @@ public class TestSplitPruning
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = ANY (VALUES CAST('1900-01-01 UTC' AS TIMESTAMP WITH TIME ZONE), CAST('1983-04-01 01:05:00.345 UTC' AS TIMESTAMP WITH TIME ZONE), CAST('1996-10-27 02:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE))", tableName),
+                format("SELECT col_2 FROM %s WHERE col_0 = 'UTC' AND col_1 = ANY (VALUES CAST('1900-01-01 UTC' AS TIMESTAMP WITH TIME ZONE), CAST('1983-04-01 01:05:00.345678 UTC' AS TIMESTAMP(6) WITH TIME ZONE), CAST('1996-10-27 02:05:00.987 UTC' AS TIMESTAMP WITH TIME ZONE))", tableName),
                 Set.of("1900-01-01 00:00:00.000", "1983-04-01 01:05:00.3456789", "1996-10-27 02:05:00.987"),
                 3);
 

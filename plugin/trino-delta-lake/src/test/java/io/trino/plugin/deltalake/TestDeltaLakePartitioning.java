@@ -62,7 +62,7 @@ public class TestDeltaLakePartitioning
                         "('p_float', 'real', '', ''), " +
                         "('p_double', 'double', '', ''), " +
                         "('p_date', 'date', '', ''), " +
-                        "('p_timestamp', 'timestamp(3) with time zone', '', ''), " +
+                        "('p_timestamp', 'timestamp(6) with time zone', '', ''), " +
                         "('t_string', 'varchar', '', ''), " +
                         "('t_byte', 'tinyint', '', ''), " +
                         "('t_short', 'smallint', '', ''), " +
@@ -73,7 +73,7 @@ public class TestDeltaLakePartitioning
                         "('t_float', 'real', '', ''), " +
                         "('t_double', 'double', '', ''), " +
                         "('t_date', 'date', '', ''), " +
-                        "('t_timestamp', 'timestamp(3) with time zone', '', ''), " +
+                        "('t_timestamp', 'timestamp(6) with time zone', '', ''), " +
                         "('t_phones', 'array(row(\"number\" varchar, \"label\" varchar))', '', ''), " +
                         "('t_address', 'row(\"street\" varchar, \"city\" varchar, \"state\" varchar, \"zip\" varchar)', '', '')");
     }
@@ -123,7 +123,7 @@ public class TestDeltaLakePartitioning
                         "3.1415927, " +
                         "3.141592653589793, " +
                         "DATE '2014-01-01', " +
-                        "'2014-01-01 23:00:01.123 UTC', " +
+                        "'2014-01-01 23:00:01.123456 UTC', " +
                         "'Bob', " +
                         "-77, " +
                         "23456, " +
@@ -134,7 +134,7 @@ public class TestDeltaLakePartitioning
                         "2.7182817, " +
                         "2.718281828459045, " +
                         "DATE '2020-01-01', " +
-                        "'2020-01-01 23:00:01.123 UTC', " +
+                        "'2020-01-01 23:00:01.123456 UTC', " +
                         "'123-555-0000', " +
                         "'100 Main St'" +
                         ")");
@@ -170,7 +170,7 @@ public class TestDeltaLakePartitioning
                         "REAL '3.1415927', " +
                         "DOUBLE '3.141592653589793', " +
                         "DATE '2014-01-01', " +
-                        "TIMESTAMP '2014-01-01 23:00:01.123 UTC', " +
+                        "TIMESTAMP '2014-01-01 23:00:01.123456 UTC', " +
                         "BIGINT '30', " +
                         "BIGINT '136080' " +
                         ")");
