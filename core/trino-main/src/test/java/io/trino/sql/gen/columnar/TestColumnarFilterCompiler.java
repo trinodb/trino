@@ -26,10 +26,12 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
@@ -163,5 +165,77 @@ public class TestColumnarFilterCompiler
                 block)));
         int[] output = new int[5];
         assertThat(filter.filterPositionsRange(SESSION, output, 0, 5, page)).isEqualTo(2);
+    }
+
+    @Test
+    public void testFilterTemplateReuse()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        // same structure with different constants shares one compiled template
+        assertThat(filterGreaterThan(compiler, layout, 2L)).isEqualTo(2);
+        assertThat(filterGreaterThan(compiler, layout, 0L)).isEqualTo(4);
+
+        // two lookups, one template stored on the first miss and hit by the second
+        assertThat(compiler.getFilterTemplateCache().getRequestCount()).isEqualTo(2);
+        assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(1);
+        assertThat(compiler.getFilterTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    @Test
+    public void testInFilterNotTemplated()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        // IN filters derive lookup sets and switch labels from the values, so they must
+        // not share templates; correctness across different value lists proves it
+        assertThat(filterIn(compiler, layout, 1L, 2L, 3L)).isEqualTo(3);
+        assertThat(filterIn(compiler, layout, 3L, 4L)).isEqualTo(2);
+        assertThat(filterIn(compiler, layout, 42L, 43L, 44L)).isEqualTo(0);
+        assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(0);
+    }
+
+    @Test
+    public void testGeneratedClassDescribesItself()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        ColumnarFilter first = compiler.generateFilter(
+                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 42L)), layout).orElseThrow().get();
+        // the second filter is defined from the cached template and must describe its own
+        // literal, not the literal of the compilation that created the template
+        ColumnarFilter second = compiler.generateFilter(
+                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 77L)), layout).orElseThrow().get();
+
+        assertThat(compiler.getFilterTemplateCache().getHitRate()).isEqualTo(0.5);
+        assertThat(first.toString()).startsWith("ColumnarFilter{").contains("42");
+        assertThat(second.toString()).contains("77").doesNotContain("42");
+    }
+
+    private static int filterGreaterThan(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, long value)
+    {
+        Expression expression = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, value));
+        return filterPositions(compiler, layout, expression);
+    }
+
+    private static int filterIn(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, Long... values)
+    {
+        Expression expression = new In(
+                new Reference(BIGINT, "$col_0"),
+                Arrays.stream(values)
+                        .map(value -> (Expression) new Constant(BIGINT, value))
+                        .collect(toImmutableList()));
+        return filterPositions(compiler, layout, expression);
+    }
+
+    private static int filterPositions(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, Expression expression)
+    {
+        ColumnarFilter filter = compiler.generateFilter(expression, layout).orElseThrow().get();
+        SourcePage page = filter.getInputChannels().getInputChannels(SourcePage.create(new Page(createLongSequenceBlock(0, 5))));
+        int[] output = new int[5];
+        return filter.filterPositionsRange(SESSION, output, 0, 5, page);
     }
 }

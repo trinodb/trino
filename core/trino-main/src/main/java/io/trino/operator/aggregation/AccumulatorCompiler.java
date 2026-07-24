@@ -78,6 +78,7 @@ import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -414,8 +415,10 @@ public final class AccumulatorCompiler
 
         // Get all parameter blocks
         for (int i = 0; i < parameterVariables.size(); i++) {
-            body.comment("%s = arguments.getBlock(%d);", parameterVariables.get(i).getName(), i)
-                    .append(parameterVariables.get(i).set(arguments.invoke("getBlock", Block.class, constantInt(i))));
+            if (isClassDumpEnabled()) {
+                body.comment("%s = arguments.getBlock(%d);", parameterVariables.get(i).getName(), i);
+            }
+            body.append(parameterVariables.get(i).set(arguments.invoke("getBlock", Block.class, constantInt(i))));
         }
 
         BytecodeBlock block = generateInputForLoop(
@@ -710,8 +713,10 @@ public final class AccumulatorCompiler
         Variable position = scope.declareVariable(int.class, "position");
         for (int i = 0; i < stateCount; i++) {
             AccumulatorStateDescriptor<?> stateDescriptor = stateFieldAndDescriptors.get(i).descriptor();
-            body.comment(format("scratchState_%s = stateFactory_%s.createSingleState();", i, i))
-                    .append(loadConstant(callSiteBinder, stateDescriptor.getFactory(), AccumulatorStateFactory.class))
+            if (isClassDumpEnabled()) {
+                body.comment(format("scratchState_%s = stateFactory_%s.createSingleState();", i, i));
+            }
+            body.append(loadConstant(callSiteBinder, stateDescriptor.getFactory(), AccumulatorStateFactory.class))
                     .invokeInterface(AccumulatorStateFactory.class, "createSingleState", AccumulatorState.class)
                     .checkCast(scratchStates.get(i).getType())
                     .putVariable(scratchStates.get(i));

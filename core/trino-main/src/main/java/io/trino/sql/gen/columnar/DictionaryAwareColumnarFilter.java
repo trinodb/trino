@@ -21,7 +21,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.min;
 import static java.lang.System.arraycopy;
+import static java.util.Arrays.fill;
 
 public final class DictionaryAwareColumnarFilter
         implements ColumnarFilter
@@ -29,7 +31,11 @@ public final class DictionaryAwareColumnarFilter
     private final ColumnarFilter columnarFilter;
 
     private Block lastInputDictionary;
-    private boolean[] lastOutputDictionary;
+    private boolean[] selectedEntries;
+    private boolean[] filteredEntries;
+    private boolean allEntriesFiltered;
+    private int[] entriesToFilter = new int[0];
+    private int[] selectedEntriesScratch = new int[0];
 
     public DictionaryAwareColumnarFilter(ColumnarFilter columnarFilter)
     {
@@ -52,7 +58,10 @@ public final class DictionaryAwareColumnarFilter
                 // Processing of dictionary failed, but we ignore the exception here
                 // and force reprocessing of the whole block using the normal code.
                 // The second pass may not fail due to filtering.
-                lastOutputDictionary = null;
+                // Entries are marked as filtered before they are filtered, so the state of a
+                // dictionary that threw is discarded rather than read as a filtered entry
+                // that nothing selected.
+                lastInputDictionary = null;
             }
         }
 
@@ -74,7 +83,10 @@ public final class DictionaryAwareColumnarFilter
                 // Processing of dictionary failed, but we ignore the exception here
                 // and force reprocessing of the whole block using the normal code.
                 // The second pass may not fail due to filtering.
-                lastOutputDictionary = null;
+                // Entries are marked as filtered before they are filtered, so the state of a
+                // dictionary that threw is discarded rather than read as a filtered entry
+                // that nothing selected.
+                lastInputDictionary = null;
             }
         }
 
@@ -90,8 +102,9 @@ public final class DictionaryAwareColumnarFilter
     private int processRle(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, RunLengthEncodedBlock runLengthEncodedBlock)
     {
         Block value = runLengthEncodedBlock.getValue();
-        boolean[] selectedPositionsMask = selectedDictionaryMask(session, value);
-        if (!selectedPositionsMask[0]) {
+        prepareDictionary(value, size);
+        filterAllEntries(session, value);
+        if (!selectedEntries[0]) {
             return 0;
         }
         arraycopy(activePositions, offset, outputPositions, 0, size);
@@ -101,8 +114,9 @@ public final class DictionaryAwareColumnarFilter
     private int processRle(ConnectorSession session, int[] outputPositions, int offset, int size, RunLengthEncodedBlock runLengthEncodedBlock)
     {
         Block value = runLengthEncodedBlock.getValue();
-        boolean[] selectedPositionsMask = selectedDictionaryMask(session, value);
-        if (!selectedPositionsMask[0]) {
+        prepareDictionary(value, size);
+        filterAllEntries(session, value);
+        if (!selectedEntries[0]) {
             return 0;
         }
         for (int index = 0; index < size; index++) {
@@ -113,43 +127,111 @@ public final class DictionaryAwareColumnarFilter
 
     private int processDictionary(ConnectorSession session, int[] outputPositions, int offset, int size, DictionaryBlock dictionaryBlock)
     {
-        boolean[] dictionaryMask = selectedDictionaryMask(session, dictionaryBlock.getDictionary());
+        Block dictionary = dictionaryBlock.getDictionary();
+        prepareDictionary(dictionary, size);
+        if (dictionary.getPositionCount() <= size) {
+            filterAllEntries(session, dictionary);
+        }
+        else {
+            int entryCount = 0;
+            for (int position = offset; position < offset + size; position++) {
+                int entry = dictionaryBlock.getId(position);
+                if (!filteredEntries[entry]) {
+                    filteredEntries[entry] = true;
+                    entriesToFilter[entryCount] = entry;
+                    entryCount++;
+                }
+            }
+            filterEntries(session, dictionary, entryCount);
+        }
+
         int selectedPositionsCount = 0;
         for (int position = offset; position < offset + size; position++) {
             outputPositions[selectedPositionsCount] = position;
-            selectedPositionsCount += dictionaryMask[dictionaryBlock.getId(position)] ? 1 : 0;
+            selectedPositionsCount += selectedEntries[dictionaryBlock.getId(position)] ? 1 : 0;
         }
         return selectedPositionsCount;
     }
 
     private int processDictionary(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, DictionaryBlock dictionaryBlock)
     {
-        boolean[] dictionaryMask = selectedDictionaryMask(session, dictionaryBlock.getDictionary());
+        Block dictionary = dictionaryBlock.getDictionary();
+        prepareDictionary(dictionary, size);
+        if (dictionary.getPositionCount() <= size) {
+            filterAllEntries(session, dictionary);
+        }
+        else {
+            int entryCount = 0;
+            for (int index = offset; index < offset + size; index++) {
+                int entry = dictionaryBlock.getId(activePositions[index]);
+                if (!filteredEntries[entry]) {
+                    filteredEntries[entry] = true;
+                    entriesToFilter[entryCount] = entry;
+                    entryCount++;
+                }
+            }
+            filterEntries(session, dictionary, entryCount);
+        }
+
         int selectedPositionsCount = 0;
         for (int index = offset; index < offset + size; index++) {
             int position = activePositions[index];
             outputPositions[selectedPositionsCount] = position;
-            selectedPositionsCount += dictionaryMask[dictionaryBlock.getId(position)] ? 1 : 0;
+            selectedPositionsCount += selectedEntries[dictionaryBlock.getId(position)] ? 1 : 0;
         }
         return selectedPositionsCount;
     }
 
-    private boolean[] selectedDictionaryMask(ConnectorSession session, Block dictionary)
+    private void prepareDictionary(Block dictionary, int blockPositionsCount)
     {
-        if (lastInputDictionary == dictionary) {
-            return lastOutputDictionary;
+        if (lastInputDictionary != dictionary) {
+            int positionCount = dictionary.getPositionCount();
+            selectedEntries = new boolean[positionCount];
+            filteredEntries = new boolean[positionCount];
+            allEntriesFiltered = false;
+            lastInputDictionary = dictionary;
         }
+        // an entry is filtered at most once, so a block never contributes more entries than it has positions
+        int maxEntries = min(blockPositionsCount, lastInputDictionary.getPositionCount());
+        if (entriesToFilter.length < maxEntries) {
+            entriesToFilter = new int[maxEntries];
+            selectedEntriesScratch = new int[maxEntries];
+        }
+    }
 
+    /**
+     * Filters every entry of the dictionary at once, which is what a dictionary no larger than
+     * the block that encodes it deserves: the block is about to look at most of the entries
+     * anyway, and one range filter beats collecting the entries first.
+     */
+    private void filterAllEntries(ConnectorSession session, Block dictionary)
+    {
+        if (allEntriesFiltered) {
+            return;
+        }
         int positionCount = dictionary.getPositionCount();
-        int[] selectedPositions = new int[positionCount];
-        int selectedPositionsCount = columnarFilter.filterPositionsRange(session, selectedPositions, 0, positionCount, SourcePage.create(dictionary));
-
-        boolean[] positionsMask = new boolean[positionCount];
-        for (int index = 0; index < selectedPositionsCount; index++) {
-            positionsMask[selectedPositions[index]] = true;
+        int[] selected = new int[positionCount];
+        int selectedCount = columnarFilter.filterPositionsRange(session, selected, 0, positionCount, SourcePage.create(dictionary));
+        for (int index = 0; index < selectedCount; index++) {
+            selectedEntries[selected[index]] = true;
         }
-        lastInputDictionary = dictionary;
-        lastOutputDictionary = positionsMask;
-        return positionsMask;
+        fill(filteredEntries, true);
+        allEntriesFiltered = true;
+    }
+
+    /**
+     * Filters the entries collected in {@code entriesToFilter}, which are the entries the block
+     * uses and nothing has filtered yet. A dictionary far larger than the block that encodes it
+     * costs only the entries the block puts in play, rather than one evaluation per entry.
+     */
+    private void filterEntries(ConnectorSession session, Block dictionary, int entryCount)
+    {
+        if (entryCount == 0) {
+            return;
+        }
+        int selectedCount = columnarFilter.filterPositionsList(session, selectedEntriesScratch, entriesToFilter, 0, entryCount, SourcePage.create(dictionary));
+        for (int index = 0; index < selectedCount; index++) {
+            selectedEntries[selectedEntriesScratch[index]] = true;
+        }
     }
 }

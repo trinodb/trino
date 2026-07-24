@@ -25,6 +25,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.gen.columnar.ColumnarFilter;
 import io.trino.sql.gen.columnar.DictionaryAwareColumnarFilter;
+import io.trino.sql.gen.columnar.IsNullColumnarFilter;
 import io.trino.testing.TestingSession;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -134,11 +135,64 @@ public class TestDictionaryAwareColumnarFilter
         // match some
         testFilter(createDictionaryBlockWithUnusedEntries(20, 100), DictionaryBlock.class);
 
-        // match none, blockSize must be > 1 to actually create a DictionaryBlock
-        testFilter(createDictionaryBlockWithUnusedEntries(20, 2), DictionaryBlock.class);
+        // A dictionary larger than the block is filtered one used entry at a time, so entries
+        // the block never references are never filtered and cannot fail it. The filter sees
+        // the dictionary rather than the block it would have fallen back to.
+        // blockSize must be > 1 to actually create a DictionaryBlock
+        testFilter(createDictionaryBlockWithUnusedEntries(20, 2), LongArrayBlock.class);
 
         // match all
         testFilter(DictionaryBlock.create(100, createLongsBlock(4, 5, -1), new int[100]), DictionaryBlock.class);
+    }
+
+    @Test
+    public void testFilterRequiringValueBlockNeverSeesDictionary()
+    {
+        // IsNullColumnarFilter casts the block it is given to ValueBlock, as do the other
+        // filters written against an unwrapped dictionary, so however a dictionary is filtered
+        // it must never be handed to them still wrapped
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(new IsNullColumnarFilter(new InputChannels(0)));
+
+        // Each block is backed by its own dictionary far larger than the block that encodes it.
+        // The first dictionary a filter sees says nothing, since it has no reason yet to treat
+        // one differently; a second dictionary that no earlier one justified is where a filter
+        // deciding to skip the dictionary would hand the wrapped block to the filter underneath.
+        for (int iteration = 0; iteration < 2; iteration++) {
+            Block block = createDictionaryBlock(1000, 10);
+            int[] outputPositions = new int[block.getPositionCount()];
+            int positionCount = block.getPositionCount();
+            assertThat(filter.filterPositionsRange(FULL_CONNECTOR_SESSION, outputPositions, 0, positionCount, SourcePage.create(block)))
+                    .isEqualTo(0);
+            assertThat(filter.filterPositionsList(FULL_CONNECTOR_SESSION, outputPositions, toPositionsList(0, positionCount), 0, positionCount, SourcePage.create(block)))
+                    .isEqualTo(0);
+        }
+    }
+
+    @Test
+    public void testLargeDictionaryFiltersOnlyTheEntriesTheBlockUses()
+    {
+        TestingDictionaryFilter columnarFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(columnarFilter);
+
+        // a dictionary far larger than the block that encodes it, using entries 0 to 9
+        Block block = createDictionaryBlock(1000, 10);
+        testFilter(filter, block, true, false);
+        assertThat(columnarFilter.getFilteredPositions()).isEqualTo(10);
+
+        // the entries filtered for the first block are not filtered again
+        testFilter(filter, block, true, false);
+        assertThat(columnarFilter.getFilteredPositions()).isEqualTo(10);
+    }
+
+    @Test
+    public void testSmallDictionaryIsFilteredWhole()
+    {
+        TestingDictionaryFilter columnarFilter = new TestingDictionaryFilter(true, LongArrayBlock.class);
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(columnarFilter);
+
+        // the block uses most of a dictionary it dwarfs, so every entry is filtered at once
+        testFilter(filter, createDictionaryBlock(20, 100), true, false);
+        assertThat(columnarFilter.getFilteredPositions()).isEqualTo(20);
     }
 
     private static Block createDictionaryBlock(int dictionarySize, int blockSize)
@@ -239,6 +293,7 @@ public class TestDictionaryAwareColumnarFilter
     {
         private final boolean selectRange;
         private Class<? extends Block> expectedType;
+        private int filteredPositions;
 
         public TestingDictionaryFilter(boolean selectRange, Class<? extends Block> expectedType)
         {
@@ -249,6 +304,15 @@ public class TestDictionaryAwareColumnarFilter
         public void setExpectedType(Class<? extends Block> expectedType)
         {
             this.expectedType = expectedType;
+        }
+
+        /**
+         * The number of positions this filter was asked to evaluate, which for a dictionary is
+         * the number of entries filtered.
+         */
+        public int getFilteredPositions()
+        {
+            return filteredPositions;
         }
 
         @Override
@@ -263,6 +327,7 @@ public class TestDictionaryAwareColumnarFilter
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
 
+            filteredPositions += size;
             int outputPositionsCount = 0;
             for (int position = offset; position < offset + size; position++) {
                 long value = BIGINT.getLong(block, position);
@@ -289,6 +354,7 @@ public class TestDictionaryAwareColumnarFilter
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
 
+            filteredPositions += size;
             int outputPositionsCount = 0;
             for (int index = offset; index < offset + size; index++) {
                 int position = activePositions[index];

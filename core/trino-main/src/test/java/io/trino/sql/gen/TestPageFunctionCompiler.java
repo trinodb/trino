@@ -55,6 +55,7 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -65,15 +66,18 @@ import org.junit.jupiter.api.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.slice.Slices.allocate;
@@ -96,7 +100,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.field;
@@ -353,6 +356,118 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testProjectionTemplateReuse()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(1);
+
+        // same structure with different constants shares one compiled template
+        Block first = project(compileAdd(compiler, 10), page, SelectedPositions.positionsRange(0, 1));
+        Block second = project(compileAdd(compiler, 99), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(first, 0)).isEqualTo(11);
+        assertThat(BIGINT.getLong(second, 0)).isEqualTo(100);
+
+        // two lookups, one template stored on the first miss and hit by the second
+        assertThat(compiler.getProjectionTemplateCache().getRequestCount()).isEqualTo(2);
+        assertThat(compiler.getProjectionTemplateCache().size()).isEqualTo(1);
+        assertThat(compiler.getProjectionTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    @Test
+    public void testTemplateAliasedLiterals()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(1);
+
+        // equal literals deduplicate into one class data slot in the template
+        Block aliased = project(compileAdd(compiler, 5, 5), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(aliased, 0)).isEqualTo(11);
+
+        // the same structure with unequal literals cannot use the aliased template
+        Block distinct = project(compileAdd(compiler, 5, 7), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(distinct, 0)).isEqualTo(13);
+
+        // equal literals fit the template again
+        Block aliasedAgain = project(compileAdd(compiler, 9, 9), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(BIGINT.getLong(aliasedAgain, 0)).isEqualTo(19);
+        assertThat(compiler.getProjectionTemplateCache().size()).isEqualTo(1);
+    }
+
+    @Test
+    public void testValueDependentFilterNotTemplated()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Page page = createPageWithDataAtChannel2(1, 2, 3, 4, 5, 6);
+
+        // IN filters derive switch labels and lookup sets from the values, so they must
+        // not share templates; correctness across different value lists proves it
+        assertThat(filterIn(compiler, page, 1L, 2L, 3L).size()).isEqualTo(3);
+        assertThat(filterIn(compiler, page, 4L, 5L, 6L).size()).isEqualTo(3);
+        assertThat(filterIn(compiler, page, 42L, 43L, 44L).size()).isEqualTo(0);
+        assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(0);
+    }
+
+    private static PageProjection compileAdd(PageFunctionCompiler compiler, long value)
+    {
+        return compiler.compileProjection(
+                call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        new Reference(BIGINT, "$col_0"),
+                        new Constant(BIGINT, value)),
+                LAYOUT,
+                Optional.empty()).get();
+    }
+
+    private static PageProjection compileAdd(PageFunctionCompiler compiler, long first, long second)
+    {
+        return compiler.compileProjection(
+                call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        call(FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                                new Reference(BIGINT, "$col_0"),
+                                new Constant(BIGINT, first)),
+                        new Constant(BIGINT, second)),
+                LAYOUT,
+                Optional.empty()).get();
+    }
+
+    private static SelectedPositions filterIn(PageFunctionCompiler compiler, Page page, Long... values)
+    {
+        Expression filter = new In(
+                new Reference(BIGINT, "$col_0"),
+                Arrays.stream(values)
+                        .map(value -> (Expression) new Constant(BIGINT, value))
+                        .collect(toImmutableList()));
+        PageFilter compiled = compiler.compileFilter(filter, LAYOUT, Optional.empty()).get();
+        SourcePage inputPage = compiled.getInputChannels().getInputChannels(SourcePage.create(page));
+        return compiled.filter(SESSION, inputPage);
+    }
+
+    @Test
+    public void testLambdaCapturingNothingIsHeldInAField()
+            throws ReflectiveOperationException
+    {
+        MapType mapType = new MapType(BIGINT, BIGINT, TYPE_OPERATORS);
+        ResolvedFunction mapFilter = FUNCTION_RESOLUTION.resolveFunction("map_filter", fromTypes(mapType, new FunctionType(ImmutableList.of(BIGINT, BIGINT), BOOLEAN)));
+        // the lambda body reads neither the enclosing row nor any captured value
+        Expression projection = call(
+                mapFilter,
+                new Reference(mapType, "$col_0"),
+                new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(BIGINT, "v")), new Constant(BOOLEAN, true)));
+
+        PageProjection compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(projection, ImmutableMap.of(new Symbol(mapType, "$col_0"), 0), Optional.empty())
+                .get();
+
+        Field workFactoryField = compiled.getClass().getDeclaredField("pageProjectionWorkFactory");
+        workFactoryField.setAccessible(true);
+        Class<?> workClass = ((MethodHandle) workFactoryField.get(compiled)).type().returnType();
+
+        // the lambda is built into a field of the class that evaluates it, rather than by
+        // every evaluation, so a projection over a page builds one lambda and not one per row
+        assertThat(workClass.getDeclaredFields())
+                .anyMatch(field -> field.getName().endsWith("_instance"));
+    }
+
+    @Test
     public void testProjectionCache()
     {
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
@@ -582,7 +697,10 @@ public class TestPageFunctionCompiler
         identity.getBody()
                 .append(identityValue.ret());
 
-        Class<?> hiddenClass = defineClass(classDefinition, Object.class, new DynamicClassLoader(TestPageFunctionCompiler.class.getClassLoader()));
+        // defined in a separate class loader so the tests exercise the per accessed class
+        // lookup anchors for types the engine loader cannot see
+        Class<?> hiddenClass = classGenerator(new DynamicClassLoader(TestPageFunctionCompiler.class.getClassLoader()))
+                .defineClass(classDefinition, Object.class);
         return new HiddenFunctions(
                 new HiddenType(hiddenClass),
                 insertArguments(constructorMethodHandle(hiddenClass, int.class), 0, 42),
