@@ -952,6 +952,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Optional<SchemaTableName> getMaterializedViewForStorageTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return icebergMetadata.getMaterializedViewForStorageTable(session, tableName);
+    }
+
+    @Override
     public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition materializedViewDefinition)
     {
         return icebergMetadata.getMaterializedViewProperties(session, viewName, materializedViewDefinition);

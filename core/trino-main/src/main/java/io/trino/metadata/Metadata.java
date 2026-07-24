@@ -856,6 +856,12 @@ public interface Metadata
      */
     Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
 
+    /**
+     * If the specified name identifies the backing storage table of a materialized view, returns the name of that
+     * materialized view; otherwise returns {@link Optional#empty()}.
+     */
+    Optional<QualifiedObjectName> getMaterializedViewForStorageTable(Session session, QualifiedObjectName tableName);
+
     Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName objectName, MaterializedViewDefinition materializedViewDefinition);
 
     /**

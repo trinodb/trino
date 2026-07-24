@@ -2195,6 +2195,15 @@ The Iceberg connector supports the {ref}`WHEN STALE <mv-when-stale>` clause in
 {doc}`/sql/create-materialized-view` to control the behavior when a materialized
 view is stale. 
 
+You can perform physical maintenance of the storage table with {ref}`ALTER TABLE
+EXECUTE <alter-table-execute>` by referencing the storage table directly as
+`"mv_name$materialized_view_storage"`. Only the `optimize`, `optimize_manifests`,
+`expire_snapshots`, and `remove_orphan_files` procedures are supported; other
+procedures are rejected because they would desynchronize the storage table from
+the materialized view. Running a procedure requires the privilege to refresh the
+materialized view, and preserves the metadata used to determine freshness, so a
+subsequent `REFRESH MATERIALIZED VIEW` can still be incremental.
+
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 

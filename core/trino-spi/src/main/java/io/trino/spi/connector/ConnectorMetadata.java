@@ -1759,6 +1759,17 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    /**
+     * If {@code tableName} identifies the backing storage table of a materialized view, returns the name of that
+     * materialized view; otherwise returns {@link Optional#empty()}. Used by the engine to authorize
+     * operations (e.g. {@code ALTER TABLE ... EXECUTE OPTIMIZE}) run against a materialized view storage table
+     * as being run against the materialized view itself.
+     */
+    default Optional<SchemaTableName> getMaterializedViewForStorageTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
     default Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition materializedViewDefinition)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
