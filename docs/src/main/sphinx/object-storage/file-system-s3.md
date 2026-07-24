@@ -198,6 +198,10 @@ The security mapping must provide one or more configuration settings:
   to override S3 endpoints on a per-bucket basis.
 - `region`: The S3 region to connect to. This optional property can be used
   to override S3 regions on a per-bucket basis.
+- `crossRegionAccessEnabled`: Enable cross-region access for S3 requests that
+  use this mapping.
+- `pathStyleAccess`: Enable path-style S3 access for requests that use this
+  mapping.
 
 The security mapping entries are processed in the order listed in the JSON configuration.
 Therefore, specific mappings must be specified before less specific mappings.
@@ -242,7 +246,9 @@ Example JSON configuration:
       "prefix": "s3://regional-bucket/",
       "iamRole": "arn:aws:iam::123456789101:role/regional-user",
       "endpoint": "https://bucket.vpce-1a2b3c4d-5e6f.s3.us-east-1.vpce.amazonaws.com",
-      "region": "us-east-1"
+      "region": "us-east-1",
+      "crossRegionAccessEnabled": true,
+      "pathStyleAccess": true
     },
     {
       "prefix": "s3://encrypted-bucket/",

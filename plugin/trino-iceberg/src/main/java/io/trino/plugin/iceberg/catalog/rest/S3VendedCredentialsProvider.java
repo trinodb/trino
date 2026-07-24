@@ -19,9 +19,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.iceberg.aws.AwsClientProperties.CLIENT_REGION;
 import static org.apache.iceberg.aws.AwsClientProperties.REFRESH_CREDENTIALS_ENABLED;
 import static org.apache.iceberg.aws.AwsClientProperties.REFRESH_CREDENTIALS_ENDPOINT;
 import static org.apache.iceberg.aws.s3.S3FileIOProperties.ACCESS_KEY_ID;
+import static org.apache.iceberg.aws.s3.S3FileIOProperties.CROSS_REGION_ACCESS_ENABLED;
+import static org.apache.iceberg.aws.s3.S3FileIOProperties.ENDPOINT;
+import static org.apache.iceberg.aws.s3.S3FileIOProperties.PATH_STYLE_ACCESS;
 import static org.apache.iceberg.aws.s3.S3FileIOProperties.SECRET_ACCESS_KEY;
 import static org.apache.iceberg.aws.s3.S3FileIOProperties.SESSION_TOKEN;
 
@@ -62,6 +66,10 @@ final class S3VendedCredentialsProvider
                 fileIoProperties.get(ACCESS_KEY_ID),
                 fileIoProperties.get(SECRET_ACCESS_KEY),
                 fileIoProperties.get(SESSION_TOKEN),
-                parseInstantEpochMillis(fileIoProperties, SESSION_TOKEN_EXPIRES_AT_MS));
+                parseInstantEpochMillis(fileIoProperties, SESSION_TOKEN_EXPIRES_AT_MS),
+                Optional.ofNullable(fileIoProperties.get(CLIENT_REGION)),
+                Optional.ofNullable(fileIoProperties.get(ENDPOINT)),
+                Optional.ofNullable(fileIoProperties.get(CROSS_REGION_ACCESS_ENABLED)),
+                Optional.ofNullable(fileIoProperties.get(PATH_STYLE_ACCESS)));
     }
 }

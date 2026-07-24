@@ -48,6 +48,8 @@ public final class S3SecurityMapping
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
     private final Optional<String> region;
+    private final Optional<Boolean> crossRegionAccessEnabled;
+    private final Optional<Boolean> pathStyleAccess;
 
     @JsonCreator
     public S3SecurityMapping(
@@ -65,7 +67,9 @@ public final class S3SecurityMapping
             @JsonProperty("secretKey") Optional<String> secretKey,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
             @JsonProperty("endpoint") Optional<String> endpoint,
-            @JsonProperty("region") Optional<String> region)
+            @JsonProperty("region") Optional<String> region,
+            @JsonProperty("crossRegionAccessEnabled") Optional<Boolean> crossRegionAccessEnabled,
+            @JsonProperty("pathStyleAccess") Optional<Boolean> pathStyleAccess)
     {
         this.user = user
                 .map(S3SecurityMapping::toPredicate)
@@ -109,6 +113,44 @@ public final class S3SecurityMapping
 
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
         this.region = requireNonNull(region, "region is null");
+        this.crossRegionAccessEnabled = requireNonNull(crossRegionAccessEnabled, "crossRegionAccessEnabled is null");
+        this.pathStyleAccess = requireNonNull(pathStyleAccess, "pathStyleAccess is null");
+    }
+
+    public S3SecurityMapping(
+            Optional<Pattern> user,
+            Optional<Pattern> group,
+            Optional<String> prefix,
+            Optional<String> iamRole,
+            Optional<String> roleSessionName,
+            Optional<List<String>> allowedIamRoles,
+            Optional<String> kmsKeyId,
+            Optional<List<String>> allowedKmsKeyIds,
+            Optional<String> sseCustomerKey,
+            Optional<List<String>> allowedSseCustomerKeys,
+            Optional<String> accessKey,
+            Optional<String> secretKey,
+            Optional<Boolean> useClusterDefault,
+            Optional<String> endpoint,
+            Optional<String> region)
+    {
+        this(user,
+                group,
+                prefix,
+                iamRole,
+                roleSessionName,
+                allowedIamRoles,
+                kmsKeyId,
+                allowedKmsKeyIds,
+                sseCustomerKey,
+                allowedSseCustomerKeys,
+                accessKey,
+                secretKey,
+                useClusterDefault,
+                endpoint,
+                region,
+                Optional.empty(),
+                Optional.empty());
     }
 
     boolean matches(ConnectorIdentity identity, S3Location location)
@@ -171,6 +213,16 @@ public final class S3SecurityMapping
     public Optional<String> region()
     {
         return region;
+    }
+
+    public Optional<Boolean> crossRegionAccessEnabled()
+    {
+        return crossRegionAccessEnabled;
+    }
+
+    public Optional<Boolean> pathStyleAccess()
+    {
+        return pathStyleAccess;
     }
 
     private static Predicate<S3Location> prefixPredicate(S3Location prefix)
