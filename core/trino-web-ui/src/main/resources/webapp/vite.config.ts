@@ -22,6 +22,12 @@ export default defineConfig((mode: ConfigEnv) => {
     return {
         base: '/ui',
         plugins: [stripWoffFallback(), react()],
+        resolve: {
+            // Force a single copy of React: resolution walks up from the importing file, so a stray
+            // node_modules under src/ would otherwise shadow ours and mix React versions in one tree
+            // (react-dom then fails at runtime with "Minified React error #525")
+            dedupe: ['react', 'react-dom'],
+        },
         server: {
             proxy: {
                 ['/ui/auth']: {
