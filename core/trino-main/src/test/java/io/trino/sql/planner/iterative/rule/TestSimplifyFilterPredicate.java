@@ -32,6 +32,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -40,7 +41,9 @@ import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -61,7 +64,7 @@ public class TestSimplifyFilterPredicate
     public void testSimplifyIfExpression()
     {
         // true result iff the condition is true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), TRUE, FALSE),
                         p.values(p.symbol("a"))))
@@ -71,7 +74,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), TRUE, new Constant(BOOLEAN, null)),
                         p.values(p.symbol("a"))))
@@ -81,7 +84,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is null or false
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), FALSE, TRUE),
                         p.values(p.symbol("a"))))
@@ -91,7 +94,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is null or false
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), new Constant(BOOLEAN, null), TRUE),
                         p.values(p.symbol("a"))))
@@ -101,7 +104,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // always true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), TRUE, TRUE),
                         p.values(p.symbol("a"))))
@@ -111,7 +114,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // always false
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), FALSE, FALSE),
                         p.values(p.symbol("a"))))
@@ -121,7 +124,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // both results equal
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -134,7 +137,7 @@ public class TestSimplifyFilterPredicate
         Call randomFunction = new Call(
                 tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
                 ImmutableList.of());
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(
                                 new Reference(BOOLEAN, "a"),
@@ -144,7 +147,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // always null (including the default) -> simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), new Constant(BOOLEAN, null)),
                         p.values(p.symbol("a"))))
@@ -154,7 +157,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true -> first branch
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(TRUE, new Reference(BOOLEAN, "a"), not(new Reference(BOOLEAN, "a"))),
                         p.values(p.symbol("a"))))
@@ -164,7 +167,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true -> second branch
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(FALSE, new Reference(BOOLEAN, "a"), not(new Reference(BOOLEAN, "a"))),
                         p.values(p.symbol("a"))))
@@ -174,7 +177,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true, no second branch -> the result is null, simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(FALSE, new Reference(BOOLEAN, "a")),
                         p.values(p.symbol("a"))))
@@ -184,7 +187,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // not known result (`b`) - cannot optimize
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         ifExpression(new Reference(BOOLEAN, "a"), TRUE, new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -195,7 +198,7 @@ public class TestSimplifyFilterPredicate
     public void testSimplifyNullIfExpression()
     {
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         nullIf(emptySymbolAllocator(), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -212,7 +215,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testSimplifySearchedCaseExpression()
     {
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
@@ -223,7 +226,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // all results true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
@@ -237,7 +240,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
@@ -251,7 +254,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true (including default null result)
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
@@ -265,7 +268,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // one result true, and remaining results not true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
@@ -275,11 +278,11 @@ public class TestSimplifyFilterPredicate
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), new Logical(OR, ImmutableList.of(new IsNull(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))), not(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))),
+                                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(new Reference(INTEGER, "a")), not(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), new Logical(OR, ImmutableList.of(new IsNull(new Reference(INTEGER, "a")), not(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))),
                                 values("a")));
 
         // first result true, and remaining results not true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
@@ -293,7 +296,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true, and default true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
@@ -305,18 +308,18 @@ public class TestSimplifyFilterPredicate
                         filter(
                                 new Logical(AND, ImmutableList.of(
                                         new Logical(OR, ImmutableList.of(
-                                                new IsNull(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
+                                                new IsNull(new Reference(INTEGER, "a")),
                                                 not(comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
                                         new Logical(OR, ImmutableList.of(
-                                                new IsNull(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
+                                                new IsNull(new Reference(INTEGER, "a")),
                                                 not(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))),
                                         new Logical(OR, ImmutableList.of(
-                                                new IsNull(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))),
+                                                new IsNull(new Reference(INTEGER, "a")),
                                                 not(comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))))),
                                 values("a")));
 
         // all conditions not true - return the default
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
@@ -330,7 +333,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all conditions not true, no default specified - return false
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
@@ -344,7 +347,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // not true conditions preceding true condition - return the result associated with the true condition
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
@@ -358,7 +361,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // remove not true condition and move the result associated with the first true condition to default
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
@@ -372,7 +375,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // move the result associated with the first true condition to default
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
@@ -390,7 +393,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // cannot remove any clause
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L)), new Reference(BOOLEAN, "a")),
@@ -403,7 +406,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testSimplifySimpleCaseExpression()
     {
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Match(
                                 new Reference(BOOLEAN, "a"),
@@ -415,7 +418,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // comparison with null returns null - no WHEN branch matches, return default value
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Match(
                                 new Constant(BOOLEAN, null),
@@ -430,7 +433,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Match(
                                 new Constant(BOOLEAN, null),
@@ -445,7 +448,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Match(
                                 new Reference(INTEGER, "a"),
@@ -460,7 +463,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all results not true
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Match(
                                 new Reference(INTEGER, "a"),
@@ -475,7 +478,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all results not true (including default null result)
-        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getPlannerContext()))
                 .on(p -> p.filter(
                         new Match(
                                 new Reference(INTEGER, "a"),
@@ -488,6 +491,159 @@ public class TestSimplifyFilterPredicate
                         filter(
                                 FALSE,
                                 values("a", "b")));
+    }
+
+    @Test
+    public void testSimplifyCaseCompare()
+    {
+        Expression aEqualsTo1IsIdenticalToTrue =
+                comparison(IDENTICAL, comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), TRUE);
+
+        // CASE WHEN a = 1 THEN 1 ELSE 0 END = 1
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(
+                        comparison(
+                                EQUAL,
+                                new Case(ImmutableList.of(
+                                        new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L))),
+                                        new Constant(INTEGER, 0L)),
+                                new Constant(INTEGER, 1L)),
+                        p.values(p.symbol("a", INTEGER))))
+                .matches(
+                        filter(
+                                aEqualsTo1IsIdenticalToTrue,
+                                values("a")));
+
+        // CASE WHEN a = 1 THEN 1 ELSE 0 END <> 0
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(
+                        comparison(
+                                NOT_EQUAL,
+                                new Case(
+                                        ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L))),
+                                        new Constant(INTEGER, 0L)),
+                                new Constant(INTEGER, 0L)),
+                        p.values(p.symbol("a", INTEGER))))
+                .matches(
+                        filter(
+                                aEqualsTo1IsIdenticalToTrue,
+                                values("a")));
+
+        Expression aEqualsTo1NotIdenticalToTrue =
+                not(comparison(IDENTICAL, comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), TRUE));
+
+        // CASE WHEN a = 1 THEN 1 ELSE 0 END = 0
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(
+                        comparison(
+                                EQUAL,
+                                new Case(ImmutableList.of(
+                                        new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L))),
+                                        new Constant(INTEGER, 0L)),
+                                new Constant(INTEGER, 0L)),
+                        p.values(p.symbol("a", INTEGER))))
+                .matches(
+                        filter(
+                                aEqualsTo1NotIdenticalToTrue,
+                                values("a")));
+
+        // CASE WHEN a = 1 THEN 1 ELSE 0 END <> 1
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(
+                        comparison(
+                                NOT_EQUAL,
+                                new Case(
+                                        ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L))),
+                                        new Constant(INTEGER, 0L)),
+                                new Constant(INTEGER, 1L)),
+                        p.values(p.symbol("a", INTEGER))))
+                .matches(
+                        filter(
+                                aEqualsTo1NotIdenticalToTrue,
+                                values("a")));
+
+        // CASE WHEN a = 1 THEN 1 WHEN a = 2 THEN 2 WHEN a = 3 THEN 3 WHEN a = 4 THEN 4 ELSE 0 END = 1
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(
+                        comparison(
+                                EQUAL,
+                                new Case(
+                                        ImmutableList.of(
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 2L)),
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 3L)), new Constant(INTEGER, 3L)),
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 4L)), new Constant(INTEGER, 4L))),
+                                        new Constant(INTEGER, 0L)),
+                                new Constant(INTEGER, 1L)),
+                        p.values(p.symbol("a", INTEGER))))
+                .matches(
+                        filter(
+                                comparison(
+                                        IDENTICAL,
+                                        comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                                        TRUE),
+                                values("a")));
+
+        // CASE WHEN a = 1 THEN 1 WHEN a = 2 THEN 2 WHEN a = 3 THEN 3 WHEN a = 4 THEN 4 ELSE 0 END = 2
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(
+                        comparison(
+                                EQUAL,
+                                new Case(
+                                        ImmutableList.of(
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 2L)),
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 3L)), new Constant(INTEGER, 3L)),
+                                                new WhenClause(comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 4L)), new Constant(INTEGER, 4L))),
+                                        new Constant(INTEGER, 0L)),
+                                new Constant(INTEGER, 2L)),
+                        p.values(p.symbol("a", INTEGER))))
+                .matches(
+                        filter(
+                                new Logical(AND,
+                                        ImmutableList.of(
+                                                not(comparison(IDENTICAL, comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)), TRUE)),
+                                                comparison(IDENTICAL, comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)), TRUE))),
+                                values("a")));
+    }
+
+    @Test
+    public void testNestedCaseCompare()
+    {
+        Expression expression = comparison(
+                NOT_EQUAL,
+                new Case(
+                        ImmutableList.of(
+                                new WhenClause(new IsNull(new Reference(BIGINT, "a")), new Constant(BIGINT, 0L))),
+                        new Case(
+                                ImmutableList.of(
+                                        new WhenClause(comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1001L)), new Constant(BIGINT, 1L))),
+                                new Constant(BIGINT, 0L))),
+                new Constant(BIGINT, 0L));
+
+        Expression stage1 = new Case(
+                ImmutableList.of(
+                        new WhenClause(new IsNull(new Reference(BIGINT, "a")), FALSE)),
+                comparison(
+                        IDENTICAL,
+                        comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1001L)),
+                        TRUE));
+
+        Expression stage2 = new Logical(AND,
+                ImmutableList.of(
+                        not(new IsNull(new Reference(BIGINT, "a"))),
+                        comparison(
+                                IDENTICAL,
+                                comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1001L)),
+                                TRUE)));
+
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(expression, p.values(p.symbol("a", BIGINT))))
+                .matches(filter(stage1, values("a")));
+
+        tester().assertThat(new SimplifyFilterPredicate(PLANNER_CONTEXT))
+                .on(p -> p.filter(stage1, p.values(p.symbol("a", BIGINT))))
+                .matches(filter(stage2, values("a")));
     }
 
     private static Expression not(Expression expression)
