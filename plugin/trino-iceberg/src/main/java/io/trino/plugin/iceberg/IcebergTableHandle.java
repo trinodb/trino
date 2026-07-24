@@ -77,6 +77,10 @@ public class IcebergTableHandle
     // ANALYZE only. Coordinator-only
     private final Optional<Boolean> forAnalyze;
 
+    // Coordinator-only - set when aggregation results were computed from table metadata at planning time.
+    // Such a scan produces exactly one empty row, over which the engine projects the precomputed constants.
+    private final boolean aggregationPushedDown;
+
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
@@ -141,6 +145,52 @@ public class IcebergTableHandle
             Set<IcebergColumnHandle> constraintColumns,
             Optional<Boolean> forAnalyze)
     {
+        this(schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                specId,
+                partitionSpecJsons,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                limit,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                tablePartitioning,
+                recordScannedFiles,
+                maxScannedFileSize,
+                constraintColumns,
+                forAnalyze,
+                false);
+    }
+
+    private IcebergTableHandle(
+            String schemaName,
+            String tableName,
+            TableType tableType,
+            OptionalLong snapshotId,
+            String tableSchemaJson,
+            OptionalInt specId,
+            Map<Integer, String> partitionSpecJsons,
+            int formatVersion,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            TupleDomain<IcebergColumnHandle> enforcedPredicate,
+            OptionalLong limit,
+            Set<IcebergColumnHandle> projectedColumns,
+            Optional<String> nameMappingJson,
+            String tableLocation,
+            Map<String, String> storageProperties,
+            Optional<IcebergTablePartitioning> tablePartitioning,
+            boolean recordScannedFiles,
+            Optional<DataSize> maxScannedFileSize,
+            Set<IcebergColumnHandle> constraintColumns,
+            Optional<Boolean> forAnalyze,
+            boolean aggregationPushedDown)
+    {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
@@ -165,6 +215,7 @@ public class IcebergTableHandle
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
+        this.aggregationPushedDown = aggregationPushedDown;
     }
 
     @JsonProperty
@@ -291,6 +342,12 @@ public class IcebergTableHandle
         return forAnalyze;
     }
 
+    @JsonIgnore
+    public boolean isAggregationPushedDown()
+    {
+        return aggregationPushedDown;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -401,6 +458,36 @@ public class IcebergTableHandle
                 forAnalyze);
     }
 
+    /**
+     * The returned handle represents a scan whose aggregation results were computed from table metadata
+     * at planning time. It produces exactly one empty row and reads no data files.
+     */
+    public IcebergTableHandle withAggregationPushedDown()
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                specId,
+                partitionSpecJsons,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                limit,
+                ImmutableSet.of(),
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                Optional.empty(),
+                recordScannedFiles,
+                maxScannedFileSize,
+                constraintColumns,
+                forAnalyze,
+                true);
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -413,6 +500,7 @@ public class IcebergTableHandle
 
         IcebergTableHandle that = (IcebergTableHandle) o;
         return recordScannedFiles == that.recordScannedFiles &&
+                aggregationPushedDown == that.aggregationPushedDown &&
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
                 tableType == that.tableType &&
@@ -455,7 +543,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                aggregationPushedDown);
     }
 
     @Override
@@ -473,6 +562,9 @@ public class IcebergTableHandle
                     .collect(joining(", ", "[", "]")));
         }
         limit.ifPresent(limit -> builder.append(" LIMIT ").append(limit));
+        if (aggregationPushedDown) {
+            builder.append(" aggregated from metadata");
+        }
         return builder.toString();
     }
 }

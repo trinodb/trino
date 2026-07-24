@@ -312,6 +312,17 @@ public class IcebergPageSourceProvider
                     filesTableSplit);
         }
 
+        if (connectorSplit instanceof IcebergAggregationSplit) {
+            // The aggregation results were computed from table metadata at planning time and live in a
+            // projection above this scan. Produce a single empty row for the projection to apply to.
+            // Any columns still requested here are unused leftovers of the rewrite, so null-fill them.
+            Block[] blocks = columns.stream()
+                    .map(IcebergColumnHandle.class::cast)
+                    .map(column -> column.getType().createBlockBuilder(null, 1).appendNull().build())
+                    .toArray(Block[]::new);
+            return new FixedPageSource(ImmutableList.of(new Page(1, blocks)));
+        }
+
         IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)

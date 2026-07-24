@@ -77,6 +77,8 @@ import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -139,6 +141,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.ArrayType;
@@ -175,10 +178,12 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotRef;
+import org.apache.iceberg.SnapshotSummary;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableProperties;
@@ -195,6 +200,10 @@ import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.exceptions.ValidationException;
+import org.apache.iceberg.expressions.AggregateEvaluator;
+import org.apache.iceberg.expressions.BoundAggregate;
+import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expression.Operation;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.expressions.Term;
@@ -310,6 +319,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshot
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
@@ -340,6 +350,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.checkFormatForProperty;
@@ -3615,6 +3626,9 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
+        if (table.isAggregationPushedDown()) {
+            return Optional.empty();
+        }
         if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
             return Optional.empty();
         }
@@ -3648,9 +3662,195 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        if (!isAggregationPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        IcebergTableHandle table = (IcebergTableHandle) handle;
+        if (table.isAggregationPushedDown()
+                || table.getTableType() != DATA
+                || table.getLimit().isPresent()
+                || !table.getUnenforcedPredicate().isAll()
+                || table.isRecordScannedFiles()
+                || table.getForAnalyze().orElse(false)) {
+            return Optional.empty();
+        }
+
+        // Only global aggregation can be answered from file statistics, which cannot produce per-group rows
+        if (groupingSets.size() != 1 || !getOnlyElement(groupingSets).isEmpty()) {
+            return Optional.empty();
+        }
+
+        // The enforced predicate is pushed into the manifest scan below. Metadata columns (e.g. "$path") are
+        // not part of the Iceberg schema, so a predicate on them cannot be evaluated by that scan.
+        TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
+        if (enforcedPredicate.isNone()) {
+            return Optional.empty();
+        }
+        if (enforcedPredicate.getDomains().orElseThrow().keySet().stream()
+                .anyMatch(column -> isMetadataColumnId(column.getId()))) {
+            return Optional.empty();
+        }
+
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        ImmutableList.Builder<Expression> aggregateExpressionsBuilder = ImmutableList.builder();
+        for (AggregateFunction aggregate : aggregates) {
+            Optional<Expression> aggregateExpression = toIcebergAggregate(schema, aggregate, assignments);
+            if (aggregateExpression.isEmpty()) {
+                return Optional.empty();
+            }
+            aggregateExpressionsBuilder.add(aggregateExpression.get());
+        }
+
+        AggregateEvaluator aggregateEvaluator;
+        try {
+            aggregateEvaluator = AggregateEvaluator.create(schema, aggregateExpressionsBuilder.build());
+        }
+        catch (ValidationException | IllegalArgumentException e) {
+            return Optional.empty();
+        }
+
+        if (table.getSnapshotId().isPresent()) {
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+            Snapshot snapshot = icebergTable.snapshot(table.getSnapshotId().getAsLong());
+            if (snapshot == null) {
+                return Optional.empty();
+            }
+            // Fast bail-out when the snapshot is known to contain delete files: row-level deletes make file statistics unusable
+            String totalDeleteFiles = snapshot.summary().get(SnapshotSummary.TOTAL_DELETE_FILES_PROP);
+            if (totalDeleteFiles != null && !totalDeleteFiles.equals("0")) {
+                return Optional.empty();
+            }
+
+            // ORC file statistics truncate timestamp bounds to millisecond precision, so they are not exact.
+            // Only Parquet is known to record exact timestamp bounds.
+            boolean requireParquetBounds = aggregateEvaluator.aggregates().stream()
+                    .filter(aggregate -> aggregate.op() == Operation.MIN || aggregate.op() == Operation.MAX)
+                    .map(BoundAggregate::type)
+                    .anyMatch(type -> type.typeId() == Type.TypeID.TIMESTAMP || type.typeId() == Type.TypeID.TIMESTAMP_NANO);
+
+            TableScan tableScan = icebergTable.newScan()
+                    .useSnapshot(snapshot.snapshotId())
+                    .filter(toIcebergExpression(enforcedPredicate))
+                    .includeColumnStats()
+                    .planWith(icebergPlanningExecutor);
+            try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
+                for (FileScanTask fileScanTask : fileScanTasks) {
+                    if (!fileScanTask.deletes().isEmpty()) {
+                        // Row-level deletes make file statistics unusable
+                        return Optional.empty();
+                    }
+                    if (requireParquetBounds && fileScanTask.file().format() != FileFormat.PARQUET) {
+                        return Optional.empty();
+                    }
+                    aggregateEvaluator.update(fileScanTask.file());
+                }
+            }
+            catch (IOException | UncheckedIOException | ValidationException e) {
+                log.debug(e, "Aggregation pushdown failed while scanning manifests for table %s", table.getSchemaTableName());
+                return Optional.empty();
+            }
+        }
+        // When the table has no snapshot it is empty, and the aggregators produce count() = 0 and NULL min/max
+
+        if (!aggregateEvaluator.allAggregatorsValid()) {
+            // Some data file is missing the statistics needed by at least one of the aggregations
+            return Optional.empty();
+        }
+
+        StructLike aggregationResult = aggregateEvaluator.result();
+        List<NestedField> resultFields = aggregateEvaluator.resultType().fields();
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        for (int i = 0; i < aggregates.size(); i++) {
+            Type resultType = resultFields.get(i).type();
+            Object icebergValue = aggregationResult.get(i, resultType.typeId().javaClass());
+            projections.add(new Constant(convertIcebergValueToTrino(resultType, icebergValue), aggregates.get(i).getOutputType()));
+        }
+
+        return Optional.of(new AggregationApplicationResult<>(
+                table.withAggregationPushedDown(),
+                projections.build(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                true));
+    }
+
+    private static Optional<Expression> toIcebergAggregate(Schema schema, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        if (aggregate.isDistinct() || !aggregate.getSortItems().isEmpty() || aggregate.getFilter().isPresent()) {
+            return Optional.empty();
+        }
+
+        String functionName = aggregate.getFunctionName();
+        if (functionName.equals("count") && aggregate.getArguments().isEmpty()) {
+            if (!BIGINT.equals(aggregate.getOutputType())) {
+                return Optional.empty();
+            }
+            return Optional.of(Expressions.countStar());
+        }
+
+        if (aggregate.getArguments().size() != 1 || !(getOnlyElement(aggregate.getArguments()) instanceof Variable variable)) {
+            return Optional.empty();
+        }
+        if (!(assignments.get(variable.getName()) instanceof IcebergColumnHandle column)) {
+            return Optional.empty();
+        }
+        // File statistics are recorded for top-level columns of the table schema only
+        if (!column.isBaseColumn() || isMetadataColumnId(column.getId())) {
+            return Optional.empty();
+        }
+        NestedField field = schema.findField(column.getId());
+        if (field == null || !field.type().isPrimitiveType()) {
+            return Optional.empty();
+        }
+        String columnName = schema.findColumnName(column.getId());
+        if (columnName == null || columnName.contains(".")) {
+            // A dot in a top-level column name is ambiguous with a nested field path in the name-based expression API
+            return Optional.empty();
+        }
+
+        return switch (functionName) {
+            case "count" -> Optional.of(Expressions.count(columnName));
+            case "min", "max" -> {
+                if (!aggregate.getOutputType().equals(column.getType()) || !isMinMaxPushdownSupported(field.type())) {
+                    yield Optional.empty();
+                }
+                if (functionName.equals("min")) {
+                    yield Optional.of(Expressions.min(columnName));
+                }
+                yield Optional.of(Expressions.max(columnName));
+            }
+            default -> Optional.empty();
+        };
+    }
+
+    private static boolean isMinMaxPushdownSupported(Type type)
+    {
+        return switch (type.typeId()) {
+            case BOOLEAN, INTEGER, LONG, DATE, TIME, TIMESTAMP, TIMESTAMP_NANO, DECIMAL -> true;
+            // FLOAT and DOUBLE are excluded because NaN handling in file statistics bounds is unreliable:
+            // some writers omit NaN from bounds while others (e.g. legacy Parquet writers) include it.
+            // STRING, BINARY and FIXED are excluded because their bounds may be truncated
+            // (see write.metadata.metrics.* table properties), and truncated bounds are not exact.
+            // UUID is excluded because Iceberg's UUID ordering is not verified to match Trino's comparison semantics.
+            default -> false;
+        };
+    }
+
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
+        if (table.isAggregationPushedDown()) {
+            return Optional.empty();
+        }
         UtcConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
         TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain()
                 .transformKeys(IcebergColumnHandle.class::cast);
@@ -3789,6 +3989,9 @@ public class IcebergMetadata
         if (!isProjectionPushdownEnabled(session)) {
             return Optional.empty();
         }
+        if (((IcebergTableHandle) handle).isAggregationPushedDown()) {
+            return Optional.empty();
+        }
 
         // Create projected column representations for supported sub expressions. Simple column references and chain of
         // dereferences on a variable are supported right now.
@@ -3887,6 +4090,12 @@ public class IcebergMetadata
 
         IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
 
+        if (originalHandle.isAggregationPushedDown()) {
+            // The scan produces exactly one row with the precomputed aggregation values
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(1))
+                    .build();
+        }
         if (originalHandle.isRecordScannedFiles()) {
             return TableStatistics.empty();
         }

@@ -94,6 +94,12 @@ public class IcebergSplitManager
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
+        if (table.isAggregationPushedDown()) {
+            // Aggregation results were computed from table metadata at planning time. The scan produces
+            // exactly one empty row, over which the engine projects the precomputed aggregation values.
+            return new FixedSplitSource(ImmutableList.of(new IcebergAggregationSplit()));
+        }
+
         if (table.getSnapshotId().isEmpty()) {
             if (table.isRecordScannedFiles()) {
                 return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());

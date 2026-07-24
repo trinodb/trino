@@ -95,6 +95,7 @@ public final class IcebergSessionProperties
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
+    private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE = "collect_extended_statistics_on_write";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
@@ -316,6 +317,11 @@ public final class IcebergSessionProperties
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Read only required fields from a row type",
                         icebergConfig.isProjectionPushdownEnabled(),
+                        false))
+                .add(booleanProperty(
+                        AGGREGATION_PUSHDOWN_ENABLED,
+                        "Answer MIN/MAX/COUNT aggregation queries from data file statistics instead of scanning data files",
+                        icebergConfig.isAggregationPushdownEnabled(),
                         false))
                 .add(dataSizeProperty(
                         IDLE_WRITER_MIN_FILE_SIZE,
@@ -587,6 +593,11 @@ public final class IcebergSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isAggregationPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static long getIdleWriterMinFileSize(ConnectorSession session)
