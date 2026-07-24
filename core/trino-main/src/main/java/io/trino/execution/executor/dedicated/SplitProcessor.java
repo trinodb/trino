@@ -25,11 +25,16 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.scheduler.Group;
 import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.tracing.TrinoAttributes;
 
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -45,13 +50,15 @@ class SplitProcessor
     private final int splitId;
     private final SplitRunner split;
     private final Tracer tracer;
+    private final IntFunction<Optional<Group>> producerPipelineGroup;
 
-    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer)
+    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer, IntFunction<Optional<Group>> producerPipelineGroup)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitId = splitId;
         this.split = requireNonNull(split, "split is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.producerPipelineGroup = requireNonNull(producerPipelineGroup, "producerPipelineGroup is null");
     }
 
     @Override
@@ -97,7 +104,7 @@ class SplitProcessor
                         else {
                             processSpan.addEvent("blocked");
                             processSpan.end();
-                            if (!context.block(blocked)) {
+                            if (!block(context, blocked)) {
                                 processSpan = null;
                                 return;
                             }
@@ -122,6 +129,21 @@ class SplitProcessor
             splitSpan.setAttribute(TrinoAttributes.SPLIT_START_TIME_NANOS, context.getStartNanos());
             splitSpan.end();
         }
+    }
+
+    /// Block, donating priority to the producer pipeline this split reports it is waiting on (its
+    /// group is created on demand if that pipeline has not scheduled a split yet); or block without a
+    /// donation when the split names no producer or the task is being torn down.
+    private boolean block(SchedulerContext context, ListenableFuture<Void> blocked)
+    {
+        OptionalInt producerPipeline = split.getBlockedProducerPipeline();
+        if (producerPipeline.isPresent()) {
+            Optional<Group> producerGroup = producerPipelineGroup.apply(producerPipeline.getAsInt());
+            if (producerGroup.isPresent()) {
+                return context.blockOnProducerPipelines(blocked, Set.of(producerGroup.get()));
+            }
+        }
+        return context.block(blocked);
     }
 
     private Span newSpan(Span parent, Span previous)
