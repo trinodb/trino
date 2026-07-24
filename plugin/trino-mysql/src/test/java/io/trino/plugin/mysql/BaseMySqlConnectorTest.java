@@ -196,7 +196,7 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
-    public void testCreateTableWithPrimaryKey()
+    public void testCreateTableWithLegacyPrimaryKey()
     {
         verifyCreateTableDefinition(
                 "(a bigint NOT NULL, b bigint, c bigint) WITH (primary_key = ARRAY['a'])",
