@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static java.util.Objects.requireNonNull;
 
@@ -56,8 +57,10 @@ public class KerberosContainer
 
     public static final String HOST_NAME = "kdc";
     public static final int KDC_PORT = 88;
+    public static final int OTHER_KDC_PORT = 89;
     // This must match the realm configured in the KDC image
     public static final String REALM = "TRINO.TEST";
+    public static final String OTHER_REALM = "OTHER.TRINO.TEST";
 
     private final List<PrincipalSpec> principals = new ArrayList<>();
 
@@ -69,7 +72,7 @@ public class KerberosContainer
     public KerberosContainer(String imageName)
     {
         super(DockerImageName.parse(imageName));
-        withExposedPorts(KDC_PORT);
+        withExposedPorts(KDC_PORT, OTHER_KDC_PORT);
         withCreateContainerCmdModifier(cmd -> cmd.withHostName(HOST_NAME));
         // Wait for KDC to be listening
         waitingFor(Wait.forListeningPort()
@@ -91,7 +94,18 @@ public class KerberosContainer
     {
         requireNonNull(principal, "principal is null");
         requireNonNull(keytabPath, "keytabPath is null");
-        principals.add(new PrincipalSpec(principal, keytabPath));
+        principals.add(new PrincipalSpec(principal, keytabPath, false));
+        return this;
+    }
+
+    /**
+     * Adds a principal in the KDC image's secondary realm.
+     */
+    public KerberosContainer withOtherRealmPrincipal(String principal, String keytabPath)
+    {
+        requireNonNull(principal, "principal is null");
+        requireNonNull(keytabPath, "keytabPath is null");
+        principals.add(new PrincipalSpec(principal, keytabPath, true));
         return this;
     }
 
@@ -100,9 +114,45 @@ public class KerberosContainer
     {
         super.start();
 
+        if (principals.stream().anyMatch(PrincipalSpec::otherRealm)) {
+            configureCrossRealmTrust();
+        }
+
         // Create principals after container is started
         for (PrincipalSpec spec : principals) {
-            createPrincipal(spec.principal(), spec.keytabPath());
+            createPrincipal(spec.principal(), spec.keytabPath(), spec.otherRealm());
+        }
+    }
+
+    private void configureCrossRealmTrust()
+    {
+        // A cross-realm TGT must have identical key material and key version in both realm databases.
+        String trustPrincipal = "krbtgt/" + REALM + "@" + OTHER_REALM;
+        String password = UUID.randomUUID().toString();
+
+        runKadmin("-r", REALM, "-q", "delprinc -force " + trustPrincipal);
+        runKadmin("-r", OTHER_REALM, "-d", "/var/kerberos/krb5kdc/principal-other", "-q", "delprinc -force " + trustPrincipal);
+        runKadmin("-r", REALM, "-q", "addprinc -pw " + password + " " + trustPrincipal);
+        runKadmin("-r", OTHER_REALM, "-d", "/var/kerberos/krb5kdc/principal-other", "-q", "addprinc -pw " + password + " " + trustPrincipal);
+    }
+
+    private void runKadmin(String... arguments)
+    {
+        List<String> command = new ArrayList<>();
+        command.add("/usr/sbin/kadmin.local");
+        command.addAll(List.of(arguments));
+        try {
+            ExecResult result = execInContainer(command.toArray(String[]::new));
+            if (result.getExitCode() != 0) {
+                throw new RuntimeException("Failed to configure KDC: " + result.getStderr());
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed to configure KDC", e);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while configuring KDC", e);
         }
     }
 
@@ -114,6 +164,11 @@ public class KerberosContainer
      */
     public void createPrincipal(String principal, String keytabPath)
     {
+        createPrincipal(principal, keytabPath, false);
+    }
+
+    private void createPrincipal(String principal, String keytabPath, boolean otherRealm)
+    {
         try {
             // Ensure the parent directory exists
             String parentDir = keytabPath.substring(0, keytabPath.lastIndexOf('/'));
@@ -124,12 +179,16 @@ public class KerberosContainer
 
             // Create the principal and keytab using the create_principal script
             // Note: The script adds the realm automatically, so don't include it in the principal
-            ExecResult result = execInContainer(
-                    "/usr/local/bin/create_principal",
-                    "-p",
-                    principal,
-                    "-k",
-                    keytabPath);
+            List<String> command = new ArrayList<>();
+            command.add("/usr/local/bin/create_principal");
+            if (otherRealm) {
+                command.add("-o");
+            }
+            command.add("-p");
+            command.add(principal);
+            command.add("-k");
+            command.add(keytabPath);
+            ExecResult result = execInContainer(command.toArray(String[]::new));
             if (result.getExitCode() != 0) {
                 throw new RuntimeException("Failed to create principal " + principal + ": " + result.getStderr());
             }
@@ -237,7 +296,11 @@ public class KerberosContainer
                    kdc = %s:%d
                    admin_server = %s
                  }
-               """.formatted(REALM, REALM, HOST_NAME, KDC_PORT, HOST_NAME);
+                 %s = {
+                   kdc = %s:%d
+                   admin_server = %s
+                 }
+               """.formatted(REALM, REALM, HOST_NAME, KDC_PORT, HOST_NAME, OTHER_REALM, HOST_NAME, OTHER_KDC_PORT, HOST_NAME);
     }
 
     /**
@@ -268,7 +331,20 @@ public class KerberosContainer
                    kdc = %s:%d
                    admin_server = %s
                  }
-               """.formatted(REALM, REALM, getHost(), getMappedPort(KDC_PORT), getHost());
+                 %s = {
+                   kdc = %s:%d
+                   admin_server = %s
+                 }
+               """.formatted(
+                REALM,
+                REALM,
+                getHost(),
+                getMappedPort(KDC_PORT),
+                getHost(),
+                OTHER_REALM,
+                getHost(),
+                getMappedPort(OTHER_KDC_PORT),
+                getHost());
     }
 
     /**
@@ -290,5 +366,5 @@ public class KerberosContainer
         return principal + "@" + REALM;
     }
 
-    private record PrincipalSpec(String principal, String keytabPath) {}
+    private record PrincipalSpec(String principal, String keytabPath, boolean otherRealm) {}
 }

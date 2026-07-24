@@ -23,6 +23,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
+
 abstract class AbstractTpcEnvironment
         extends ProductTestEnvironment
 {
@@ -48,15 +50,10 @@ abstract class AbstractTpcEnvironment
                 .withNetwork(network)
                 .withWorkerCount(1)
                 .withFile("/etc/trino/hdfs-site.xml", hadoop.getHdfsClientSiteXml())
-                .withCatalog("hive", Map.of(
-                        "connector.name", "hive",
-                        "hive.metastore.uri", hadoop.getHiveMetastoreUri(),
-                        "fs.hadoop.enabled", "true",
-                        "hive.config.resources", "/etc/trino/hdfs-site.xml",
-                        "hive.metastore-cache-ttl", "0s",
-                        "hive.hive-views.enabled", "true",
-                        "hive.parquet.time-zone", "UTC",
-                        "hive.rcfile.time-zone", "UTC"))
+                .withCatalog("hive", hiveCatalog(hadoop.getHiveMetastoreUri())
+                        .withHadoopFileSystem()
+                        .withCommonProperties()
+                        .build())
                 .withCatalog("tpch", Map.of("connector.name", "tpch"))
                 .withCatalog(sourceCatalog(), sourceCatalogProperties())
                 .build();

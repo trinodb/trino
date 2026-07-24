@@ -60,26 +60,25 @@ BUCKETS = [
         ("SuiteTls", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-basic", [
-        ("SuiteHiveBasic", AGGREGATE_LEGACY_SUITES),
-        ("SuiteHmsOnly", ("SuiteHmsOnly",)),
-        ("SuiteHiveStorageFormats", AGGREGATE_LEGACY_SUITES),
+        ("SuiteHiveBasic", LEGACY_COVERAGE_REMOVED),
+        ("SuiteHmsOnly", LEGACY_COVERAGE_REMOVED),
+        ("SuiteHiveStorageFormats", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-kerberos", [
-        ("SuiteHiveKerberos", AGGREGATE_LEGACY_SUITES),
-        ("SuiteHdfsImpersonation", AGGREGATE_LEGACY_SUITES),
-        ("SuiteTwoHives", AGGREGATE_LEGACY_SUITES),
-        ("SuiteHive4", ("SuiteHive4",)),
-        ("SuiteHudi", ("SuiteHudi",)),
+        ("SuiteHdfsImpersonation", LEGACY_COVERAGE_REMOVED),
+        ("SuiteTwoHives", LEGACY_COVERAGE_REMOVED),
+        ("SuiteHive4", LEGACY_COVERAGE_REMOVED),
+        ("SuiteHudi", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-transactional", [
-        ("SuiteHiveTransactional", ("SuiteHiveTransactional",)),
-        ("SuiteAuthorization", ("SuiteHiveTransactional",)),
+        ("SuiteHiveTransactional", LEGACY_COVERAGE_REMOVED),
+        ("SuiteAuthorization", LEGACY_COVERAGE_REMOVED),
         ("SuiteFaultTolerant", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-storage", [
-        ("SuiteHiveSpark", AGGREGATE_LEGACY_SUITES),
-        ("SuiteHiveAlluxioCaching", AGGREGATE_LEGACY_SUITES),
-        ("SuiteStorageFormatsDetailed", ("SuiteStorageFormatsDetailed",)),
+        ("SuiteHiveSpark", LEGACY_COVERAGE_REMOVED),
+        ("SuiteHiveAlluxioCaching", LEGACY_COVERAGE_REMOVED),
+        ("SuiteStorageFormatsDetailed", LEGACY_COVERAGE_REMOVED),
         ("SuiteParquet", ("SuiteParquet",)),
     ]),
     ("iceberg", [
@@ -87,7 +86,7 @@ BUCKETS = [
     ]),
     ("delta-lake", [
         ("SuiteDeltaLakeOss", ("SuiteDeltaLakeOss",)),
-        ("SuiteCompatibility", ("SuiteCompatibility",)),
+        ("SuiteCompatibility", LEGACY_COVERAGE_REMOVED),
     ]),
     ("cloud-object-store", [
         ("SuiteGcs", ("SuiteGcs",)),
