@@ -286,7 +286,9 @@ public class UnwrapDateTruncInComparison
                 LocalDate date = LocalDate.ofEpochDay((long) rangeStart);
                 LocalDate endExclusive = switch (rangeUnit) {
                     case HOUR, DAY -> throw new UnsupportedOperationException("Unsupported type and unit: %s, %s".formatted(type, rangeUnit));
+                    case WEEK -> date.plusWeeks(1);
                     case MONTH -> date.plusMonths(1);
+                    case QUARTER -> date.plusMonths(3);
                     case YEAR -> date.plusYears(1);
                 };
                 return endExclusive.toEpochDay() - 1;
@@ -301,7 +303,9 @@ public class UnwrapDateTruncInComparison
                     LocalDateTime endExclusive = switch (rangeUnit) {
                         case HOUR -> dateTime.plusHours(1);
                         case DAY -> dateTime.plusDays(1);
+                        case WEEK -> dateTime.plusWeeks(1);
                         case MONTH -> dateTime.plusMonths(1);
+                        case QUARTER -> dateTime.plusMonths(3);
                         case YEAR -> dateTime.plusYears(1);
                     };
                     verify(endExclusive.getNano() == 0, "Unexpected nanos in %s, value not rounded to %s", endExclusive, rangeUnit);
@@ -336,7 +340,9 @@ public class UnwrapDateTruncInComparison
     {
         HOUR,
         DAY,
+        WEEK,
         MONTH,
+        QUARTER,
         YEAR,
     }
 }

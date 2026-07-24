@@ -66,7 +66,9 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.DayOfWeek.MONDAY;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.TemporalAdjusters.previousOrSame;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -404,9 +406,18 @@ public final class UtcConstraintExtractor
                 periodStart = dateTime.toLocalDate().atStartOfDay().atZone(UTC);
                 nextPeriodStart = periodStart.plusDays(1);
             }
+            case "week" -> {
+                periodStart = dateTime.toLocalDate().with(previousOrSame(MONDAY)).atStartOfDay().atZone(UTC);
+                nextPeriodStart = periodStart.plusWeeks(1);
+            }
             case "month" -> {
                 periodStart = dateTime.toLocalDate().withDayOfMonth(1).atStartOfDay().atZone(UTC);
                 nextPeriodStart = periodStart.plusMonths(1);
+            }
+            case "quarter" -> {
+                int firstMonthOfQuarter = ((dateTime.getMonthValue() - 1) / 3) * 3 + 1;
+                periodStart = dateTime.toLocalDate().withMonth(firstMonthOfQuarter).withDayOfMonth(1).atStartOfDay().atZone(UTC);
+                nextPeriodStart = periodStart.plusMonths(3);
             }
             case "year" -> {
                 periodStart = dateTime.toLocalDate().withMonth(1).withDayOfMonth(1).atStartOfDay().atZone(UTC);
