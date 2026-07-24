@@ -284,13 +284,6 @@ public class ThreadPerDriverTaskExecutor
                 .sum();
     }
 
-    @Managed(description = "Scheduler executor")
-    @Nested
-    public ThreadPoolExecutorMBean getSchedulerExecutor()
-    {
-        return scheduler.getSchedulerExecutor();
-    }
-
     @Managed(description = "Task executor")
     @Nested
     public ThreadPoolExecutorMBean getTaskExecutor()
