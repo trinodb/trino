@@ -23,26 +23,72 @@ macOS:
 - [OrbStack](https://orbstack.dev/) (recommended)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop) (alternative)
 
+## Select the Trino server image
+
+Product tests start their dependencies with Testcontainers. Environments that query Trino, such as
+`MySqlEnvironment`, also start a Trino server container. Running Maven or an IDE test does not build that server image.
+
+The framework selects the Trino image from the `trino.product-tests.image` system property. If the property is absent,
+it uses `trinodb/trino:latest`. Outside CI, this normally resolves to a published image that does not contain changes
+from the current checkout. Building a local image does not select it automatically; always pass the property when
+testing local server or plugin changes.
+
+To package the current checkout and select its image:
+
+```bash
+case "$(docker info --format '{{.Architecture}}')" in
+  amd64|x86_64) architecture=amd64 ;;
+  arm64|aarch64) architecture=arm64 ;;
+  *) echo "Unsupported Docker architecture" >&2; exit 1 ;;
+esac
+version="$(./mvnw -f pom.xml --quiet help:evaluate \
+  -Dexpression=project.version -DforceStdout --raw-streams)"
+
+./mvnw -DskipTests -Dair.check.skip-all install
+core/docker/build.sh -a "${architecture}"
+
+export TRINO_PRODUCT_TESTS_IMAGE="trino:${version}-${architecture}"
+docker image inspect "${TRINO_PRODUCT_TESTS_IMAGE}" >/dev/null
+```
+
+Keep the same shell open for the commands below. Alternatively, replace `${TRINO_PRODUCT_TESTS_IMAGE}` with the
+printed image tag. When the current checkout does not affect Trino server or plugin behavior, the full build can be
+skipped with `export TRINO_PRODUCT_TESTS_IMAGE=trinodb/trino:latest`.
+
 ## Reproduce a CI failure locally
 
 Product tests are designed to run from an IDE first. In most cases, start by running the single failing test method.
 
 ### Running tests in IntelliJ
 
-The tests just work in IntelliJ, so just run as you would any other JUnit test. The framework will start the required
-docker environment for the test. If you have environment-related issues, check the "Common failure patterns" section
-below.
+Run a product test as a normal JUnit test. The framework starts the required Docker environment. To use an image built
+from the current checkout, add this VM option to the run configuration:
+
+```text
+-Dtrino.product-tests.image=trino:<project-version>-<architecture>
+```
+
+Use the value of `TRINO_PRODUCT_TESTS_IMAGE` from the build commands above. If you have environment-related issues,
+check the "Common failure patterns" section below.
 
 ### Running tests with Maven
 
 Use Surefire to run one test class or one test method:
 
 ```bash
-./mvnw -pl testing/trino-product-tests -Dair.check.skip-all -Dtest=TestMySqlSqlTests test
+./mvnw -pl testing/trino-product-tests \
+  -Dair.check.skip-all \
+  -Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}" \
+  -Dtest=TestMySqlSqlTests \
+  test
 ```
 
 ```bash
-./mvnw -pl testing/trino-product-tests -Dair.check.skip-all -Dtest=TestMySqlSqlTests#testInsert test
+./mvnw -pl testing/trino-product-tests \
+  -Dair.check.skip-all \
+  -Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}" \
+  -Dtest=TestMySqlSqlTests#testSelect \
+  test
 ```
 
 For single-test debugging, prefer IntelliJ run actions because they are faster to iterate on than suite runs.
@@ -52,19 +98,6 @@ If a fresh checkout fails test compilation with `cannot find symbol ... Flaky`, 
 ```bash
 ./mvnw -pl testing/trino-testing-services -DskipTests -Dair.check.skip-all install
 ```
-
-### Rebuild artifacts and Trino server image when needed
-
-If your branch changes Trino server/runtime code, rebuild first:
-
-```bash
-./mvnw -DskipTests -Dair.check.skip-all install
-(cd core/docker && ./build.sh)
-```
-
-This builds the Docker image for the Trino server from your local code. Product tests execute against that packaged
-server image inside the test Docker environment, so the server must be packaged before runtime changes can be tested.
-Because the server runs in-container, direct server debugging is usually harder than normal unit/integration tests.
 
 ### Running Suites (CI/maintainer workflow)
 
@@ -77,20 +110,13 @@ If you need to run a suite locally (for CI parity), use:
   -DskipTests \
   test-compile exec:java \
   -Dexec.classpathScope=test \
+  -Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}" \
   -Dexec.mainClass=io.trino.tests.product.suite.SuiteHiveBasic
 ```
 
-With explicit image override:
-
-```bash
-./mvnw -pl testing/trino-product-tests \
-  -Dair.check.skip-all \
-  -DskipTests \
-  test-compile exec:java \
-  -Dexec.classpathScope=test \
-  -Dexec.mainClass=io.trino.tests.product.suite.SuiteHiveBasic \
-  -Dtrino.product-tests.image=trino:dev
-```
+CI follows the same model: it builds the Maven artifacts, packages a Trino image from them, transfers that image to
+the product-test jobs, and passes it with `trino.product-tests.image`. Thus CI suites always test the checked-out
+revision rather than the published `trinodb/trino:latest` image.
 
 ## Intel-only and credential-gated environments
 
@@ -105,7 +131,8 @@ lanes, local debugging is limited; use a remote amd64 host for validation.
 ## Common failure patterns
 
 - Stale Trino image: tests run an older server image than your code changes.
-  Fix: run `./mvnw -DskipTests -Dair.check.skip-all install` and `(cd core/docker && ./build.sh)`.
+  Fix: rebuild the Maven artifacts and image, then pass the resulting tag with
+  `-Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}"`.
 - Missing credentials: cloud/SaaS env vars or secret files not present.
   Fix: check the lane credential requirements and ask maintainers in project channels for current setup details.
 - Wrong architecture: running Intel-only suite on ARM.
