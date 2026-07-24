@@ -29,6 +29,8 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.Reals.toReal;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class VarcharOperators
 {
@@ -192,7 +194,7 @@ public final class VarcharOperators
 
     private static long toShortExact(long value)
     {
-        if (value != (short) value) {
+        if (!isLongToShortExact(value)) {
             throw new ArithmeticException("short overflow");
         }
         return value;
@@ -200,7 +202,7 @@ public final class VarcharOperators
 
     private static long toByteExact(long value)
     {
-        if (value != (byte) value) {
+        if (!isLongToByteExact(value)) {
             throw new ArithmeticException("byte overflow");
         }
         return value;
