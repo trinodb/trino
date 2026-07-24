@@ -54,6 +54,7 @@ public class HiveMetadataFactory
     private final boolean deleteSchemaLocationsFallback;
     private final boolean translateHiveViews;
     private final boolean hiveViewsRunAsInvoker;
+    private final boolean trinoViewsRunAsInvoker;
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastoreFactory metastoreFactory;
@@ -120,6 +121,7 @@ public class HiveMetadataFactory
                 hiveConfig.isDeleteSchemaLocationsFallback(),
                 hiveConfig.isTranslateHiveViews(),
                 hiveConfig.isHiveViewsRunAsInvoker(),
+                hiveConfig.isTrinoViewsRunAsInvoker(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
                 hideDeltaLakeTables,
@@ -158,6 +160,7 @@ public class HiveMetadataFactory
             boolean deleteSchemaLocationsFallback,
             boolean translateHiveViews,
             boolean hiveViewsRunAsInvoker,
+            boolean trinoViewsRunAsInvoker,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
             boolean hideDeltaLakeTables,
@@ -186,6 +189,7 @@ public class HiveMetadataFactory
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.translateHiveViews = translateHiveViews;
         this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
+        this.trinoViewsRunAsInvoker = trinoViewsRunAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
@@ -259,6 +263,7 @@ public class HiveMetadataFactory
                 createsOfNonManagedTablesEnabled,
                 translateHiveViews,
                 hiveViewsRunAsInvoker,
+                trinoViewsRunAsInvoker,
                 hideDeltaLakeTables,
                 typeManager,
                 metadataProvider,
