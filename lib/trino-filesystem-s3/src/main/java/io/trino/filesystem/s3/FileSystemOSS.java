@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.rest;
+package io.trino.filesystem.s3;
 
-import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
+import com.google.inject.BindingAnnotation;
 
-sealed interface VendedCredentials
-        permits AzureVendedCredentials,
-                GcsVendedCredentials,
-                OssVendedCredentials,
-                S3VendedCredentials
-{
-    Map<String, String> toExtraCredentials();
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-    Optional<Instant> expiresAt();
-}
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@BindingAnnotation
+public @interface FileSystemOSS {}

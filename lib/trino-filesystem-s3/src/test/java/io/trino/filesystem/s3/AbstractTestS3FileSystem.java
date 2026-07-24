@@ -91,7 +91,7 @@ public abstract class AbstractTestS3FileSystem
     @Override
     protected final Location getRootLocation()
     {
-        return Location.of("s3://%s/".formatted(bucket()));
+        return Location.of("%s://%s/".formatted(scheme(), bucket()));
     }
 
     @Override
@@ -124,6 +124,11 @@ public abstract class AbstractTestS3FileSystem
     }
 
     protected void initEnvironment() {}
+
+    protected String scheme()
+    {
+        return "s3";
+    }
 
     protected abstract String bucket();
 

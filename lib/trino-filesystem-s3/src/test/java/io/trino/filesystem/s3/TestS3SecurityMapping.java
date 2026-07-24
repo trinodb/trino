@@ -60,6 +60,13 @@ public class TestS3SecurityMapping
                 credentials("AKIAxxxaccess", "iXbXxxxsecret")
                         .withKmsKeyId("kmsKey_10"));
 
+        // matches prefix with OSS-compatible scheme -- mapping provides credentials
+        assertMapping(
+                provider,
+                path("oss://foo/data/test.csv"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withKmsKeyId("kmsKey_10"));
+
         // matches prefix exactly -- mapping provides credentials
         assertMapping(
                 provider,
