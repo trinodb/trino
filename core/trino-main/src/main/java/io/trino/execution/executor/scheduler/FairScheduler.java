@@ -60,7 +60,7 @@ public final class FairScheduler
     private final ListeningExecutorService taskExecutor;
     private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
     private final ThreadPoolExecutorMBean executorMBean;
-    private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
+    private final BlockingSchedulingQueue queue = new BlockingSchedulingQueue();
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
 
@@ -153,6 +153,24 @@ public final class FairScheduler
             checkArgument(!closed, "Already closed");
 
             Group group = new Group(name);
+            queue.startGroup(group);
+
+            return group;
+        }
+        finally {
+            lifecycleLock.readLock().unlock();
+        }
+    }
+
+    /// Create a group nested under `parent`. Fairness is enforced at every level: children of
+    /// `parent` share `parent`'s slice, and tasks within this group share this group's.
+    public Group createGroup(Group parent, String name)
+    {
+        lifecycleLock.readLock().lock();
+        try {
+            checkArgument(!closed, "Already closed");
+
+            Group group = new Group(parent, name);
             queue.startGroup(group);
 
             return group;
