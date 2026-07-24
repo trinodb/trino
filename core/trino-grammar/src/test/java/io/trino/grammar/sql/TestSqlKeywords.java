@@ -105,6 +105,7 @@ public class TestSqlKeywords
                         "ERROR",
                         "ESCAPE",
                         "EXCEPT",
+                        "EXCLUDE",
                         "EXCLUDING",
                         "EXECUTE",
                         "EXISTS",

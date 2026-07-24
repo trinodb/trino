@@ -247,4 +247,41 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT * FROM (VALUES 0) t(a), LATERAL (SELECT t2.* from (VALUES 1, 2), LATERAL (SELECT t.*) t2(b))")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT * from (VALUES 2), LATERAL (SELECT t.*))")).matches("VALUES (0, 2, 0), (1, 2, 1)");
     }
+
+    @Test
+    void testSelectExclude()
+    {
+        // exclude a single column
+        assertThat(assertions.query("SELECT * (EXCLUDE (a)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (2, 3)");
+        assertThat(assertions.query("SELECT * (EXCLUDE (b)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 3)");
+        assertThat(assertions.query("SELECT * (EXCLUDE (c)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 2)");
+
+        assertThat(assertions.query("SELECT c, * (EXCLUDE (c)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (3, 1, 2)");
+        assertThat(assertions.query("SELECT * (EXCLUDE (c)), c FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 2, 3)");
+        assertThat(assertions.query("SELECT *, * (EXCLUDE (c)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 2, 3, 1, 2)");
+
+        // exclude a duplicate column
+        assertThat(assertions.query("SELECT * (EXCLUDE (c)) FROM (VALUES (1, 2, 3, 4)) t(a, b, c, c)"))
+                .matches("VALUES (1, 2)");
+
+        // exclude multiple columns
+        assertThat(assertions.query("SELECT * (EXCLUDE (a, b)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES 3");
+        assertThat(assertions.query("SELECT * (EXCLUDE (b, a)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES 3");
+
+        // qualified-asterisk variant
+        assertThat(assertions.query("SELECT t.* (EXCLUDE (a)) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (2, 3)");
+
+        // case insensitivity
+        assertThat(assertions.query("SELECT * (EXCLUDE (\"A\")) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (2, 3)");
+    }
 }
