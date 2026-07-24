@@ -710,13 +710,14 @@ public class LocalExecutionPlanner
             this.nextPipelineId = nextPipelineId;
         }
 
-        public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
+        /// @return the id of the pipeline the driver factory was assigned
+        public int addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
         {
             boolean inputDriver = context.isInputDriver();
             OptionalInt driverInstances = context.getDriverInstanceCount();
             List<OperatorFactory> operatorFactories = physicalOperation.getOperatorFactories();
             addLookupOuterDrivers(outputDriver, operatorFactories);
-            addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstances);
+            return addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstances);
         }
 
         private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
@@ -745,9 +746,11 @@ public class LocalExecutionPlanner
             }
         }
 
-        private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
+        private int addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
         {
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
+            int pipelineId = getNextPipelineId();
+            driverFactories.add(new DriverFactory(pipelineId, inputDriver, outputDriver, operatorFactories, driverInstances));
+            return pipelineId;
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -3769,7 +3772,7 @@ public class LocalExecutionPlanner
                 List<Symbol> expectedLayout = node.getInputs().get(i);
                 Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
 
-                context.addDriverFactory(
+                int sinkPipelineId = context.addDriverFactory(
                         false,
                         new PhysicalOperation(
                                 new LocalExchangeSinkOperatorFactory(
@@ -3780,6 +3783,8 @@ public class LocalExecutionPlanner
                                 ImmutableMap.of(),
                                 source),
                         subContext);
+                // Consumers reading this exchange donate priority to the pipeline that feeds it.
+                localExchange.addProducerPipeline(sinkPipelineId);
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan

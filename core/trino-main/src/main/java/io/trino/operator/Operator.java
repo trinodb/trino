@@ -16,6 +16,8 @@ package io.trino.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.Page;
 
+import java.util.OptionalInt;
+
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 public interface Operator
@@ -33,6 +35,15 @@ public interface Operator
     default ListenableFuture<Void> isBlocked()
     {
         return NOT_BLOCKED;
+    }
+
+    /// When this operator is blocked (see [#isBlocked()]), the id of the pipeline whose output it is
+    /// waiting on, if that producer is another pipeline in the same task. The scheduler donates
+    /// priority to that pipeline while this operator is blocked so the dependency clears sooner. Empty
+    /// when the block has no identifiable producer pipeline.
+    default OptionalInt getBlockedProducerPipeline()
+    {
+        return OptionalInt.empty();
     }
 
     /**
