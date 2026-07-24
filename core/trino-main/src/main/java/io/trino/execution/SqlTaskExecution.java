@@ -859,6 +859,16 @@ public class SqlTaskExecution
         }
 
         @Override
+        public List<Integer> getBlockedProducerPipelines()
+        {
+            Driver driver;
+            synchronized (this) {
+                driver = this.driver;
+            }
+            return driver == null ? List.of() : driver.getBlockedProducerPipelines();
+        }
+
+        @Override
         public void close()
         {
             Driver driver;

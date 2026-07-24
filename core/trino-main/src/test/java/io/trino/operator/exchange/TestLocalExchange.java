@@ -124,6 +124,29 @@ public class TestLocalExchange
     }
 
     @Test
+    public void testProducerPipelineRecording()
+    {
+        LocalExchange localExchange = new LocalExchange(
+                functionProvider,
+                SESSION,
+                8,
+                SINGLE_DISTRIBUTION,
+                BUCKET_COUNT,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                DataSize.ofBytes(retainedSizeOfPages(99)),
+                newSimpleAggregatedMemoryContext(),
+                HASH_COMPILER,
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
+
+        assertThat(localExchange.getProducerPipelines()).isEmpty();
+        localExchange.addProducerPipeline(3);
+        localExchange.addProducerPipeline(4); // a consumer can be fed by either source
+        assertThat(localExchange.getProducerPipelines()).containsExactly(3, 4);
+    }
+
+    @Test
     public void testGatherSingleWriter()
     {
         LocalExchange localExchange = new LocalExchange(

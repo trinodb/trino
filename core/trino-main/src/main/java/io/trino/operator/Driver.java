@@ -94,6 +94,11 @@ public class Driver
 
     private final AtomicReference<SettableFuture<Void>> driverBlockedFuture = new AtomicReference<>();
 
+    // The producer pipelines this driver last blocked on, resolved from its blocked operators on the
+    // driver thread under the lock so they can be read off-thread (for priority donation) as a plain
+    // field, without reaching into operator state from another thread.
+    private volatile List<Integer> blockedProducerPipelines = ImmutableList.of();
+
     private enum State
     {
         ALIVE, NEED_DESTRUCTION, DESTROYING, DESTROYED
@@ -477,11 +482,35 @@ public class Driver
                 for (Operator operator : blockedOperators) {
                     operator.getOperatorContext().recordBlocked(blocked);
                 }
+                blockedProducerPipelines = resolveBlockedProducerPipelines(blockedOperators);
                 return blocked;
             }
         }
 
+        blockedProducerPipelines = ImmutableList.of();
         return NOT_BLOCKED;
+    }
+
+    /// The producer pipelines the `blockedOperators` are waiting on (see
+    /// [Operator#getBlockedProducerPipelines()]), across all of them and without duplicates.
+    private static List<Integer> resolveBlockedProducerPipelines(List<Operator> blockedOperators)
+    {
+        if (blockedOperators.size() == 1) {
+            return blockedOperators.getFirst().getBlockedProducerPipelines();
+        }
+        ImmutableSet.Builder<Integer> pipelines = ImmutableSet.builder();
+        for (Operator operator : blockedOperators) {
+            pipelines.addAll(operator.getBlockedProducerPipelines());
+        }
+        return pipelines.build().asList();
+    }
+
+    /// When this driver last blocked, the producer pipelines its blocked operators were waiting on
+    /// (see [Operator#getBlockedProducerPipelines()]). Resolved on the driver thread under the lock;
+    /// this read is a plain volatile field access and never touches operator state.
+    public List<Integer> getBlockedProducerPipelines()
+    {
+        return blockedProducerPipelines;
     }
 
     @GuardedBy("exclusiveLock")

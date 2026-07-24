@@ -34,6 +34,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalInt;
@@ -89,6 +90,11 @@ public class LocalExchange
 
     @GuardedBy("this")
     private int nextSourceIndex;
+
+    // The pipelines that feed this exchange, recorded at plan time. A consumer blocked waiting for
+    // input can be fed by any of them, so it donates priority to all of them.
+    @GuardedBy("this")
+    private final List<Integer> producerPipelines = new ArrayList<>();
 
     public LocalExchange(
             PartitionFunctionProvider partitionFunctionProvider,
@@ -211,6 +217,17 @@ public class LocalExchange
     public int getBufferCount()
     {
         return sources.size();
+    }
+
+    /// Record a pipeline that feeds this exchange. Called at plan time, once for each source.
+    public synchronized void addProducerPipeline(int pipelineId)
+    {
+        producerPipelines.add(pipelineId);
+    }
+
+    public synchronized List<Integer> getProducerPipelines()
+    {
+        return ImmutableList.copyOf(producerPipelines);
     }
 
     public synchronized LocalExchangeSinkFactory createSinkFactory()

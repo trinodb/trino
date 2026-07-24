@@ -28,6 +28,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
+import io.trino.execution.executor.scheduler.Group;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -48,6 +49,7 @@ import java.util.function.Function;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -448,6 +450,97 @@ public class TestThreadPerDriverTaskExecutor
 
     @Test
     @Timeout(10)
+    public void testConsumerDonatesToEveryProducerPipeline()
+            throws ExecutionException, InterruptedException
+    {
+        int firstProducerPipeline = 1;
+        int secondProducerPipeline = 2;
+        int consumerPipeline = 3;
+
+        FairScheduler scheduler = FairScheduler.newInstance(4);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 3, 10, 8);
+        executor.start();
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            TestFuture input = new TestFuture();
+            // A consumer of a local exchange fed by two pipelines, neither of which has scheduled a split
+            SplitRunner consumer = new TestingSplitRunner(consumerPipeline, ImmutableList.of(firstProducerPipeline, secondProducerPipeline), ImmutableList.of(
+                    _ -> input,
+                    _ -> Futures.immediateVoidFuture()));
+
+            ListenableFuture<Void> consumerDone = executor.enqueueSplits(task, true, ImmutableList.of(consumer)).get(0);
+            input.awaitListenerAdded();
+
+            Group firstProducer = executor.pipelineGroup(taskId, firstProducerPipeline).orElseThrow();
+            Group secondProducer = executor.pipelineGroup(taskId, secondProducerPipeline).orElseThrow();
+            assertEventually(() -> {
+                assertThat(scheduler.pipelineBoostCount(firstProducer)).isEqualTo(1);
+                assertThat(scheduler.pipelineBoostCount(secondProducer)).isEqualTo(1);
+            });
+
+            input.set(null);
+            consumerDone.get();
+            assertThat(scheduler.pipelineBoostCount(firstProducer)).isZero();
+            assertThat(scheduler.pipelineBoostCount(secondProducer)).isZero();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testProbeDonatesToBuildPipeline()
+            throws ExecutionException, InterruptedException
+    {
+        int buildPipeline = 1;
+        int probePipeline = 2;
+
+        FairScheduler scheduler = FairScheduler.newInstance(4);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 3, 10, 8);
+        executor.start();
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            TestFuture buildGate = new TestFuture();
+            TestFuture lookupSource = new TestFuture();
+
+            // Build split: parks on a gate, so its pipeline group exists and is running.
+            SplitRunner build = new TestingSplitRunner(buildPipeline, ImmutableList.of(
+                    _ -> buildGate,
+                    _ -> Futures.immediateVoidFuture()));
+            // Probe split: blocks on the lookup source and names the build pipeline as its producer.
+            SplitRunner probe = new TestingSplitRunner(probePipeline, ImmutableList.of(buildPipeline), ImmutableList.of(
+                    _ -> lookupSource,
+                    _ -> Futures.immediateVoidFuture()));
+
+            ListenableFuture<Void> buildDone = executor.enqueueSplits(task, true, ImmutableList.of(build)).get(0);
+            buildGate.awaitListenerAdded();
+
+            ListenableFuture<Void> probeDone = executor.enqueueSplits(task, true, ImmutableList.of(probe)).get(0);
+            lookupSource.awaitListenerAdded();
+
+            // The probe's block donated priority to the whole build pipeline.
+            Group buildGroup = executor.pipelineGroup(taskId, buildPipeline).orElseThrow();
+            assertEventually(() -> assertThat(scheduler.pipelineBoostCount(buildGroup)).isEqualTo(1));
+
+            lookupSource.set(null);
+            probeDone.get();
+            assertThat(scheduler.pipelineBoostCount(buildGroup)).isZero();
+
+            buildGate.set(null);
+            buildDone.get();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(10)
     public void testBlocking()
             throws ExecutionException, InterruptedException
     {
@@ -551,6 +644,7 @@ public class TestThreadPerDriverTaskExecutor
             implements SplitRunner
     {
         private final int pipelineId;
+        private final List<Integer> blockedProducerPipelines;
         private final List<Function<Duration, ListenableFuture<Void>>> invocations;
         private int invocation;
         private volatile boolean finished;
@@ -563,7 +657,13 @@ public class TestThreadPerDriverTaskExecutor
 
         public TestingSplitRunner(int pipelineId, List<Function<Duration, ListenableFuture<Void>>> invocations)
         {
+            this(pipelineId, ImmutableList.of(), invocations);
+        }
+
+        public TestingSplitRunner(int pipelineId, List<Integer> blockedProducerPipelines, List<Function<Duration, ListenableFuture<Void>>> invocations)
+        {
             this.pipelineId = pipelineId;
+            this.blockedProducerPipelines = blockedProducerPipelines;
             this.invocations = invocations;
         }
 
@@ -571,6 +671,12 @@ public class TestThreadPerDriverTaskExecutor
         public final int getPipelineId()
         {
             return pipelineId;
+        }
+
+        @Override
+        public List<Integer> getBlockedProducerPipelines()
+        {
+            return blockedProducerPipelines;
         }
 
         @Override
