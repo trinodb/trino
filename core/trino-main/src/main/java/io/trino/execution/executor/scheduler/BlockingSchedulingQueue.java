@@ -17,11 +17,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/// Thread-safe wrapper around the (not thread-safe) [SchedulingNode] tree, exposing the flat
+/// `(group, task)` API the scheduler uses: a group is a depth-1 node and a task a leaf beneath it.
 @ThreadSafe
 final class BlockingSchedulingQueue<G, T>
 {
@@ -29,13 +32,13 @@ final class BlockingSchedulingQueue<G, T>
     private final Condition notEmpty = lock.newCondition();
 
     @GuardedBy("lock")
-    private final SchedulingQueue<G, T> queue = new SchedulingQueue<>();
+    private final SchedulingNode<T> root = new SchedulingNode<>();
 
     public void startGroup(G group)
     {
         lock.lock();
         try {
-            queue.startGroup(group);
+            root.startGroup(List.of(group));
         }
         finally {
             lock.unlock();
@@ -46,7 +49,7 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            return queue.finishGroup(group);
+            return root.finishGroup(List.of(group));
         }
         finally {
             lock.unlock();
@@ -57,11 +60,11 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            if (!queue.containsGroup(group)) {
+            if (!root.containsGroup(List.of(group))) {
                 return ImmutableSet.of();
             }
 
-            return queue.getTasks(group);
+            return root.getTasks(List.of(group));
         }
         finally {
             lock.unlock();
@@ -72,7 +75,7 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            return queue.finishAll();
+            return root.finishAll();
         }
         finally {
             lock.unlock();
@@ -83,11 +86,11 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            if (!queue.containsGroup(group)) {
+            if (!root.containsGroup(List.of(group))) {
                 return false;
             }
 
-            queue.enqueue(group, task, deltaWeight);
+            root.enqueue(List.of(group, task), deltaWeight);
             notEmpty.signal();
 
             return true;
@@ -101,11 +104,11 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            if (!queue.containsGroup(group)) {
+            if (!root.containsGroup(List.of(group))) {
                 return false;
             }
 
-            queue.block(group, task, deltaWeight);
+            root.block(List.of(group, task), deltaWeight);
             return true;
         }
         finally {
@@ -120,7 +123,7 @@ final class BlockingSchedulingQueue<G, T>
         try {
             T result;
             do {
-                result = queue.dequeue(expectedWeight);
+                result = root.dequeue(expectedWeight);
                 if (result == null) {
                     notEmpty.await();
                 }
@@ -138,11 +141,11 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            if (!queue.containsGroup(group)) {
+            if (!root.containsGroup(List.of(group))) {
                 return false;
             }
 
-            queue.finish(group, task);
+            root.finish(List.of(group, task));
             return true;
         }
         finally {
@@ -155,7 +158,7 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            return queue.toString();
+            return root.toString();
         }
         finally {
             lock.unlock();
@@ -166,7 +169,7 @@ final class BlockingSchedulingQueue<G, T>
     {
         lock.lock();
         try {
-            return queue.getRunnableCount();
+            return root.getRunnableCount();
         }
         finally {
             lock.unlock();
