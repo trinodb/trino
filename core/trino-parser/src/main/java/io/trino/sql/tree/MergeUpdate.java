@@ -31,13 +31,13 @@ public class MergeUpdate
     @Deprecated
     public MergeUpdate(Optional<Expression> expression, List<Assignment> assignments)
     {
-        super(Optional.empty(), expression);
+        super(Optional.empty(), MergeCaseKind.MATCHED, expression);
         this.assignments = ImmutableList.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
-    public MergeUpdate(NodeLocation location, Optional<Expression> expression, List<Assignment> assignments)
+    public MergeUpdate(NodeLocation location, MergeCaseKind mergeCaseKind, Optional<Expression> expression, List<Assignment> assignments)
     {
-        super(location, expression);
+        super(location, mergeCaseKind, expression);
         this.assignments = ImmutableList.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
@@ -83,7 +83,7 @@ public class MergeUpdate
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression, assignments);
+        return Objects.hash(mergeCaseKind, expression, assignments);
     }
 
     @Override
@@ -96,7 +96,8 @@ public class MergeUpdate
             return false;
         }
         MergeUpdate o = (MergeUpdate) obj;
-        return Objects.equals(expression, o.expression) &&
+        return mergeCaseKind == o.mergeCaseKind &&
+                Objects.equals(expression, o.expression) &&
                 Objects.equals(assignments, o.assignments);
     }
 
@@ -104,6 +105,7 @@ public class MergeUpdate
     public String toString()
     {
         return toStringHelper(this)
+                .add("mergeCaseKind", mergeCaseKind)
                 .add("expression", expression.orElse(null))
                 .add("assignments", assignments)
                 .omitNullValues()

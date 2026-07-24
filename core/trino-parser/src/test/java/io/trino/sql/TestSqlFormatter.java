@@ -38,7 +38,10 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
+import io.trino.sql.tree.MergeInsert;
+import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -691,7 +694,7 @@ public class TestSqlFormatter
                 new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
                 table(QualifiedName.of("changes")),
                 new BooleanLiteral(new NodeLocation(1, 1), "true"),
-                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), MergeCaseKind.MATCHED, Optional.empty())))))
                 .isEqualTo(
                         """
                         MERGE INTO t
@@ -707,7 +710,7 @@ public class TestSqlFormatter
                 new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
                 aliased(table(QualifiedName.of("changes")), "s"),
                 new BooleanLiteral(new NodeLocation(1, 1), "true"),
-                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), MergeCaseKind.MATCHED, Optional.empty())))))
                 .isEqualTo(
                         """
                         MERGE INTO t
@@ -761,6 +764,82 @@ public class TestSqlFormatter
     }
 
     @Test
+    void testMergeBySource()
+    {
+        NodeLocation loc = new NodeLocation(1, 1);
+
+        // WHEN NOT MATCHED BY SOURCE THEN DELETE — no predicate
+        assertThat(formatSql(new Merge(
+                loc,
+                new Table(loc, QualifiedName.of("t")),
+                table(QualifiedName.of("s")),
+                new BooleanLiteral(loc, "true"),
+                ImmutableList.of(new MergeDelete(loc, MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.empty())))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t
+                           USING s
+                           ON true
+                        WHEN NOT MATCHED BY SOURCE
+                           THEN DELETE\
+                        """);
+
+        // WHEN NOT MATCHED BY SOURCE AND <predicate> THEN DELETE
+        assertThat(formatSql(new Merge(
+                loc,
+                new Table(loc, QualifiedName.of("t")),
+                table(QualifiedName.of("s")),
+                new BooleanLiteral(loc, "true"),
+                ImmutableList.of(new MergeDelete(loc, MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.of(new BooleanLiteral(loc, "true")))))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t
+                           USING s
+                           ON true
+                        WHEN NOT MATCHED BY SOURCE AND true
+                           THEN DELETE\
+                        """);
+
+        // WHEN NOT MATCHED BY SOURCE THEN UPDATE SET col = 0
+        assertThat(formatSql(new Merge(
+                loc,
+                new Table(loc, QualifiedName.of("t")),
+                table(QualifiedName.of("s")),
+                new BooleanLiteral(loc, "true"),
+                ImmutableList.of(new MergeUpdate(
+                        loc,
+                        MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                        Optional.empty(),
+                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier("col"), new LongLiteral(loc, "0"))))))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t
+                           USING s
+                           ON true
+                        WHEN NOT MATCHED BY SOURCE
+                           THEN UPDATE SET
+                             col = 0\
+                        """);
+
+        // WHEN NOT MATCHED (BY TARGET) — explicit round-trip produces bare WHEN NOT MATCHED
+        assertThat(formatSql(new Merge(
+                loc,
+                new Table(loc, QualifiedName.of("t")),
+                table(QualifiedName.of("s")),
+                new BooleanLiteral(loc, "true"),
+                ImmutableList.of(new MergeInsert(
+                        Optional.empty(),
+                        ImmutableList.of(new Identifier("id")),
+                        ImmutableList.of(new LongLiteral(loc, "1")))))))
+                .isEqualTo(
+                        "MERGE INTO t\n" +
+                                "   USING s\n" +
+                                "   ON true\n" +
+                                "WHEN NOT MATCHED\n" +
+                                "   THEN INSERT (id)VALUES (1)");
+    }
+
+    @Test
     void testMergeWithBranch()
     {
         assertThat(formatSql(new Merge(
@@ -768,7 +847,7 @@ public class TestSqlFormatter
                 new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
                 aliased(table(QualifiedName.of("changes")), "c"),
                 new BooleanLiteral(new NodeLocation(1, 1), "true"),
-                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), MergeCaseKind.MATCHED, Optional.empty())))))
                 .isEqualTo(
                         """
                         MERGE INTO t@main
