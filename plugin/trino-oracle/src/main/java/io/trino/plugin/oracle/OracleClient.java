@@ -557,6 +557,10 @@ public class OracleClient
                     // Map decimal(p, s) with s>p, to decimal(s, s).
                     int precision = max(columnSize + max(-scale, 0), scale);
                     scale = max(scale, 0);
+                    if (precision == 0) {
+                        // Oracle JDBC returns columnSize=0 for NUMBER columns in stored/materialized views
+                        yield Optional.of(numberColumnMapping());
+                    }
                     if (precision <= Decimals.MAX_PRECISION) {
                         yield Optional.of(decimalColumnMapping(createDecimalType(precision, scale), UNNECESSARY));
                     }
