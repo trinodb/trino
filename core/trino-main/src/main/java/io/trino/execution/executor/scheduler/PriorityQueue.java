@@ -110,6 +110,12 @@ final class PriorityQueue<T>
         return priorities.isEmpty();
     }
 
+    public void clear()
+    {
+        queue.clear();
+        priorities.clear();
+    }
+
     public Set<T> values()
     {
         return priorities.keySet();
