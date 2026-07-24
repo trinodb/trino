@@ -244,6 +244,13 @@ final class S3FileSystem
     }
 
     @Override
+    public FileIterator listFilesByPrefix(Location location)
+            throws IOException
+    {
+        return listObjects(location, false, "", false);
+    }
+
+    @Override
     public FileIterator listFilesStartingFrom(Location location, String startingFrom)
             throws IOException
     {
@@ -361,8 +368,14 @@ final class S3FileSystem
     private FileIterator listObjects(Location location, boolean includeDirectoryObjects, String startingFrom)
             throws IOException
     {
+        return listObjects(location, includeDirectoryObjects, startingFrom, true);
+    }
+
+    private FileIterator listObjects(Location location, boolean includeDirectoryObjects, String startingFrom, boolean enforceDirectory)
+            throws IOException
+    {
         S3Location s3Location = new S3Location(location);
-        String keyPrefix = directoryKey(s3Location.key());
+        String keyPrefix = enforceDirectory ? directoryKey(s3Location.key()) : s3Location.key();
         ListObjectsV2Request.Builder request = listObjectsRequest(s3Location, keyPrefix);
 
         try {
