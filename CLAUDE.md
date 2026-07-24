@@ -23,6 +23,21 @@ When available, Claude should prefer these over shell equivalents:
   with many overloaded names like `Metadata`, `Session`, `Block`.
 - `mcp__idea__rename_refactoring` for API renames — safer than text substitution.
 
+## Working in a git worktree
+
+Builds share `~/.m2/repository`, so parallel agents in different worktrees overwrite each other's
+installed SNAPSHOTs and end up building against the wrong branch. `-DbranchScopedLocalRepo.enabled=true`
+keeps installed artifacts separate per branch:
+
+```bash
+./mvnw install -DskipTests -DbranchScopedLocalRepo.enabled=true
+```
+
+Off by default, and it only isolates builds that pass it — put the flag on the command line of
+every Maven command in that worktree, starting with a full `install`. When the work is finished,
+delete `~/.m2/repository/installed/<branch>/`. See
+[Branch-scoped local repository](.github/DEVELOPMENT.md#branch-scoped-local-repository).
+
 ## Java formatting
 
 Run `mvnd airstyle:format` after Java edits — the `airstyle-maven-plugin` (`io.airlift:airstyle-maven-plugin`)

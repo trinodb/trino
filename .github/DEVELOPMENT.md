@@ -5,6 +5,7 @@ In this document you can find information about developing Trino.
 * [Trino organization](#trino-organization)
 * [Trino developer guide](#trino-developer-guide)
 * [Code style](#code-style)
+* [Branch-scoped local repository](#branch-scoped-local-repository)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
 * [Building the Web UI](#building-the-web-ui)
@@ -186,6 +187,31 @@ Your build may fail if:
 
 Many such errors may be fixed automatically by running the following:
 `./mvnw sortpom:sort`
+
+## Branch-scoped local repository
+
+Builds from different branches share `~/.m2/repository` and overwrite each other's installed
+SNAPSHOTs, so a build can silently use jars from another branch. The
+[`branch-scoped-local-repository`](https://github.com/lenaschoenburg/branch-scoped-local-repository)
+extension in [`.mvn/extensions.xml`](../.mvn/extensions.xml) keeps installed artifacts separate per
+branch, so several checkouts or [git worktrees](https://git-scm.com/docs/git-worktree) can build
+and install in parallel without interfering.
+
+It is off by default; enable it per build:
+
+```bash
+./mvnw install -DskipTests -DbranchScopedLocalRepo.enabled=true
+```
+
+Before turning it on:
+
+* Pass the flag on the command line of every build in that checkout. Builds without it see the
+  unscoped artifacts instead.
+* The first build on a branch must be a full `install`, and third-party dependencies are
+  downloaded once more.
+* Worktrees on the same branch are still not isolated from each other.
+* Nothing prunes these artifacts, so delete `~/.m2/repository/installed/<branch>/` once the work on
+  a branch is finished.
 
 ## Additional IDE configuration
 
