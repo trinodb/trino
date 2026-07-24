@@ -179,6 +179,7 @@
             -XX:+UnlockDiagnosticVMOptions
             ${extraJavaVectorArgs}
             --sun-misc-unsafe-memory-access=allow
+            --enable-native-access=ALL-UNNAMED
             <!-- # Disable superfluous bootstrap logging in tests -->
             -Dairlift.quiet=true
         </air.test.jvm.additional-arguments.default>
@@ -685,6 +686,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>units</artifactId>
                 <version>1.13</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>vthreadtime</artifactId>
+                <version>1.0</version>
             </dependency>
 
             <dependency>
