@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.alluxio;
+package io.trino.blob.cache.alluxio;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.spi.cache.CacheKey;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,14 +27,14 @@ public class TestingCacheKeyProvider
     private final AtomicInteger cacheVersion = new AtomicInteger(0);
 
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile inputFile)
+    public Optional<CacheKey> getCacheKey(TrinoInputFile inputFile)
     {
         return Optional.of(testingCacheKeyForLocation(inputFile.location(), cacheVersion.get()));
     }
 
-    public static String testingCacheKeyForLocation(Location location, int generation)
+    public static CacheKey testingCacheKeyForLocation(Location location, int generation)
     {
-        return location.toString() + "-v" + generation;
+        return CacheKey.of(location.toString(), "v" + generation);
     }
 
     public void increaseCacheVersion()

@@ -16,12 +16,14 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.blob.cache.alluxio.AlluxioBlobCachePlugin;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.spi.Plugin;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
@@ -73,7 +75,7 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
         this.hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
         this.hiveFlociDataLake.start();
 
-        return IcebergQueryRunner.builder()
+        IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
@@ -97,13 +99,32 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
                                 .withSchemaName(schemaName)
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
                                 .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/" + schemaName + "'"))
-                                .build())
-                .build();
+                                .build());
+        getBlobCacheProperties().ifPresent(properties -> {
+            builder.withPlugin(getBlobCachePlugin());
+            builder.withBlobCache(getBlobCacheType(), properties);
+        });
+        return builder.build();
     }
 
     public Map<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.of();
+    }
+
+    protected String getBlobCacheType()
+    {
+        return "alluxio";
+    }
+
+    protected Plugin getBlobCachePlugin()
+    {
+        return new AlluxioBlobCachePlugin();
+    }
+
+    protected Optional<Map<String, String>> getBlobCacheProperties()
+    {
+        return Optional.empty();
     }
 
     @Override
