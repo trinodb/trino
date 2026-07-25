@@ -21,12 +21,13 @@ import static java.util.Objects.requireNonNull;
 
 public final class ColumnStatistics
 {
-    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty());
+    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty(), Optional.empty());
 
     private final Estimate nullsFraction;
     private final Estimate distinctValuesCount;
     private final Estimate dataSize;
     private final Optional<DoubleRange> range;
+    private final Optional<Histogram> histogram;
 
     public static ColumnStatistics empty()
     {
@@ -38,6 +39,16 @@ public final class ColumnStatistics
             Estimate distinctValuesCount,
             Estimate dataSize,
             Optional<DoubleRange> range)
+    {
+        this(nullsFraction, distinctValuesCount, dataSize, range, Optional.empty());
+    }
+
+    public ColumnStatistics(
+            Estimate nullsFraction,
+            Estimate distinctValuesCount,
+            Estimate dataSize,
+            Optional<DoubleRange> range,
+            Optional<Histogram> histogram)
     {
         this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
         if (!nullsFraction.isUnknown()) {
@@ -54,6 +65,7 @@ public final class ColumnStatistics
             throw new IllegalArgumentException(format("dataSize must be greater than or equal to 0: %s", dataSize.getValue()));
         }
         this.range = requireNonNull(range, "range is null");
+        this.histogram = requireNonNull(histogram, "histogram is null");
     }
 
     public Estimate getNullsFraction()
@@ -76,6 +88,11 @@ public final class ColumnStatistics
         return range;
     }
 
+    public Optional<Histogram> getHistogram()
+    {
+        return histogram;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -89,13 +106,14 @@ public final class ColumnStatistics
         return Objects.equals(nullsFraction, that.nullsFraction) &&
                 Objects.equals(distinctValuesCount, that.distinctValuesCount) &&
                 Objects.equals(dataSize, that.dataSize) &&
-                Objects.equals(range, that.range);
+                Objects.equals(range, that.range) &&
+                Objects.equals(histogram, that.histogram);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range);
+        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range, histogram);
     }
 
     @Override
@@ -106,6 +124,7 @@ public final class ColumnStatistics
                 ", distinctValuesCount=" + distinctValuesCount +
                 ", dataSize=" + dataSize +
                 ", range=" + range +
+                ", histogram=" + histogram +
                 '}';
     }
 
@@ -125,6 +144,7 @@ public final class ColumnStatistics
         private Estimate distinctValuesCount = Estimate.unknown();
         private Estimate dataSize = Estimate.unknown();
         private Optional<DoubleRange> range = Optional.empty();
+        private Optional<Histogram> histogram = Optional.empty();
 
         public Builder setNullsFraction(Estimate nullsFraction)
         {
@@ -156,9 +176,21 @@ public final class ColumnStatistics
             return this;
         }
 
+        public Builder setHistogram(Histogram histogram)
+        {
+            this.histogram = Optional.of(requireNonNull(histogram, "histogram is null"));
+            return this;
+        }
+
+        public Builder setHistogram(Optional<Histogram> histogram)
+        {
+            this.histogram = requireNonNull(histogram, "histogram is null");
+            return this;
+        }
+
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range);
+            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range, histogram);
         }
     }
 }
