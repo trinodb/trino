@@ -84,6 +84,39 @@ public abstract class BaseSqlServerConnectorTest
         };
     }
 
+    @Test
+    public void testVarcharEqualityJoinPushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_join_pad_space",
+                "(v varchar(10) COLLATE Latin1_General_CS_AS)",
+                List.of("'a'", "'a '"))) {
+            Session session = Session.builder(joinPushdownEnabled(getSession()))
+                    .setCatalogSessionProperty("sqlserver", "join_pushdown_strategy", "EAGER")
+                    .build();
+            assertThat(query(session, "SELECT l.v, r.v FROM " + table.getName() + " l JOIN " + table.getName() + " r ON l.v = r.v"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a'), ('a ', 'a ')")
+                    .joinIsNotFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testVarcharColumnComparisonPushdownIgnoresTrailingSpaces()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_varchar_cmp_pad_space",
+                "(a varchar(10) COLLATE Latin1_General_CS_AS, b varchar(10) COLLATE Latin1_General_CS_AS)",
+                List.of("'a', 'a'", "'a', 'a '", "'a ', 'a'"))) {
+            assertThat(query("SELECT a, b FROM " + table.getName() + " WHERE a = b"))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'a')")
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
