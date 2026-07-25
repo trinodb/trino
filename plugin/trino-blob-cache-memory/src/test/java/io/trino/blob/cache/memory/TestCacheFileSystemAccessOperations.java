@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.cache;
+package io.trino.blob.cache.memory;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
@@ -23,8 +23,8 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.memory.MemoryFileSystemCache;
-import io.trino.filesystem.memory.MemoryFileSystemCacheConfig;
+import io.trino.filesystem.cache.CacheFileSystem;
+import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.testing.TestingTelemetry;
@@ -56,9 +56,9 @@ public class TestCacheFileSystemAccessOperations
     void setUp()
     {
         tracingFileSystemFactory = new TracingFileSystemFactory(telemetry.getTracer(), new MemoryFileSystemFactory());
-        MemoryFileSystemCacheConfig configuration = new MemoryFileSystemCacheConfig()
+        MemoryBlobCacheConfig configuration = new MemoryBlobCacheConfig()
                 .setCacheTtl(new Duration(24, HOURS));
-        fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(TestingConnectorSession.SESSION), new MemoryFileSystemCache(configuration), new DefaultCacheKeyProvider());
+        fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(TestingConnectorSession.SESSION), new MemoryBlobCache(configuration), new DefaultCacheKeyProvider());
     }
 
     @AfterAll

@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -54,9 +55,16 @@ public class TestIcebergFlociParquetCachingConnectorSmokeTest
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
+                .buildOrThrow();
+    }
+
+    @Override
+    protected Optional<Map<String, String>> getBlobCacheProperties()
+    {
+        return Optional.of(ImmutableMap.<String, String>builder()
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
-                .buildOrThrow();
+                .buildOrThrow());
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import io.trino.blob.cache.alluxio.AlluxioBlobCachePlugin;
 import io.trino.filesystem.tracing.CacheFileSystemTraceUtils;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -48,11 +49,14 @@ public class TestDeltaLakeAlluxioCacheMutableTransactionLog
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("fs.cache.enabled", "true")
-                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                        .put("fs.cache.max-sizes", "100MB")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("delta.fs.cache.disable-transaction-log-caching", "true")
+                        .buildOrThrow())
+                .withPlugin(new AlluxioBlobCachePlugin())
+                .withBlobCache("alluxio", ImmutableMap.<String, String>builder()
+                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                        .put("fs.cache.max-sizes", "100MB")
                         .buildOrThrow())
                 .setWorkerCount(1)
                 .build();
