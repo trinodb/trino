@@ -17,8 +17,17 @@
     <dependencies>
         <dependency>
             <groupId>com.clickhouse</groupId>
+            <artifactId>clickhouse-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.clickhouse</groupId>
+            <artifactId>clickhouse-data</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
-            <classifier>all</classifier>
         </dependency>
 
         <dependency>
