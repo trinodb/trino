@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.Function;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -53,6 +54,7 @@ class TaskEntry
     private final VersionEmbedder versionEmbedder;
     private final Tracer tracer;
     private final DoubleSupplier utilization;
+    private final Function<TaskId, Optional<Group>> producerTaskGroup;
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
     @GuardedBy("this")
@@ -74,16 +76,25 @@ class TaskEntry
     @GuardedBy("this")
     private final Set<QueuedSplit> runningLeafSplits = new HashSet<>();
 
-    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
+    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization, Function<TaskId, Optional<Group>> producerTaskGroup)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
+        this.producerTaskGroup = requireNonNull(producerTaskGroup, "producerTaskGroup is null");
 
         this.group = scheduler.createGroup(taskId.toString());
         this.concurrency = new ConcurrencyController(initialConcurrency);
+    }
+
+    /// The scheduling group a consumer donates to when it depends on this task's output over an
+    /// exchange, or empty once the task is being torn down (its group subtree is gone). Boosting the
+    /// task group pulls every pipeline feeding this task's output ahead of fair order.
+    public synchronized Optional<Group> donationGroup()
+    {
+        return destroyed ? Optional.empty() : Optional.of(group);
     }
 
     public TaskId taskId()
@@ -270,7 +281,7 @@ class TaskEntry
         return scheduler.submit(
                 pipelineGroup(split.getPipelineId()),
                 splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, this::pipelineGroupForDonation)));
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, this::pipelineGroupForDonation, producerTaskGroup)));
     }
 
     private synchronized Group pipelineGroup(int pipelineId)
