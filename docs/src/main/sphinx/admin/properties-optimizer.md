@@ -106,6 +106,8 @@ for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strateg
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `8`
+- **Minimum value:** `2`
+- **Maximum value:** `62`
 - **Session property:** `max_reordered_joins`
 
 When optimizer.join-reordering-strategy is set to cost-based, this property determines
