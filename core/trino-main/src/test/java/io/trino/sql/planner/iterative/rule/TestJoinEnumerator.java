@@ -77,19 +77,16 @@ public class TestJoinEnumerator
     @Test
     public void testGeneratePartitions()
     {
-        assertThat(generatePartitions(4)).isEqualTo(ImmutableSet.of(
-                ImmutableSet.of(0),
-                ImmutableSet.of(0, 1),
-                ImmutableSet.of(0, 2),
-                ImmutableSet.of(0, 3),
-                ImmutableSet.of(0, 1, 2),
-                ImmutableSet.of(0, 1, 3),
-                ImmutableSet.of(0, 2, 3)));
+        // every subset containing the lowest node, except the full set
+        assertThat(generatePartitions(0b1111))
+                .containsExactly(0b0001, 0b0011, 0b0101, 0b0111, 0b1001, 0b1011, 0b1101);
 
-        assertThat(generatePartitions(3)).isEqualTo(ImmutableSet.of(
-                ImmutableSet.of(0),
-                ImmutableSet.of(0, 1),
-                ImmutableSet.of(0, 2)));
+        assertThat(generatePartitions(0b111))
+                .containsExactly(0b001, 0b011, 0b101);
+
+        // nodes outside the given set are not part of any partition
+        assertThat(generatePartitions(0b1110))
+                .containsExactly(0b0010, 0b0110, 0b1010);
     }
 
     @Test
@@ -107,9 +104,10 @@ public class TestJoinEnumerator
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
+                multiJoinNode.getSources(),
                 createContext(),
                 planTester.getPlannerContext());
-        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), ImmutableSet.copyOf(multiJoinNode.getOutputSymbols()), ImmutableSet.of(0));
+        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(0b11, ImmutableSet.copyOf(multiJoinNode.getOutputSymbols()), 0b01);
         assertThat(actual.getPlanNode()).isEmpty();
         assertThat(actual.getCost()).isEqualTo(PlanCostEstimate.infinite());
     }

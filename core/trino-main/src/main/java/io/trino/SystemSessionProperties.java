@@ -485,6 +485,9 @@ public final class SystemSessionProperties
                             if (intValue < 2) {
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
                             }
+                            if (intValue > 63) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be less than or equal to 63: %s", MAX_REORDERED_JOINS, intValue));
+                            }
                             return intValue;
                         },
                         value -> value),
