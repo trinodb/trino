@@ -55,8 +55,11 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -189,6 +192,8 @@ public class ReorderJoins
         private final List<Expression> residuals;
         // sources indexed by their position in the bit masks used to drive the enumeration
         private final List<PlanNode> sources;
+        // for each source, the mask of sources it can be joined with directly
+        private final long[] neighbors;
 
         @VisibleForTesting
         JoinEnumerator(CostComparator costComparator, Expression filter, LinkedHashSet<PlanNode> sources, Context context, PlannerContext plannerContext)
@@ -217,6 +222,53 @@ public class ReorderJoins
             this.allFilterInference = new EqualityInference(plannerContext, inferenceCandidates);
             this.sources = ImmutableList.copyOf(sources);
             checkArgument(this.sources.size() <= MAX_ENUMERATED_SOURCES, "too many sources to enumerate: %s", this.sources.size());
+            this.neighbors = buildJoinGraph(this.sources, allFilterInference);
+        }
+
+        /**
+         * Derives the join graph: two sources are adjacent when an equality is known between
+         * expressions over their symbols, which is what {@link #createJoin} needs to produce an
+         * equi-join clause. Every source referenced by an equivalence class is connected to every
+         * other one, because equality is transitive.
+         * <p>
+         * The graph is deliberately permissive: it connects sources whose symbols merely appear in
+         * the same class, even when no plain symbol-to-symbol equality can be derived across a
+         * particular cut. Over-approximating only costs a partition that is evaluated and rejected,
+         * whereas missing an edge would drop join orders from the search space.
+         * <p>
+         * No edge is missed because a derived equality only ever equates members of one equality
+         * class: whenever {@link #createJoin} can derive an equi-join clause between two sources,
+         * some class mentions a symbol of each, and this connects them.
+         */
+        @VisibleForTesting
+        static long[] buildJoinGraph(List<PlanNode> sources, EqualityInference inference)
+        {
+            Map<Symbol, Integer> sourceIndexes = new HashMap<>();
+            for (int index = 0; index < sources.size(); index++) {
+                for (Symbol symbol : sources.get(index).getOutputSymbols()) {
+                    Integer previous = sourceIndexes.put(symbol, index);
+                    checkState(previous == null, "symbol %s is produced by more than one source", symbol);
+                }
+            }
+
+            long[] neighbors = new long[sources.size()];
+            for (Collection<Expression> equalitySet : inference.getEqualitySets()) {
+                long referenced = 0;
+                for (Expression expression : equalitySet) {
+                    for (Symbol symbol : extractUnique(expression)) {
+                        Integer index = sourceIndexes.get(symbol);
+                        if (index != null) {
+                            referenced |= 1L << index;
+                        }
+                    }
+                }
+
+                for (long remaining = referenced; remaining != 0; remaining &= remaining - 1) {
+                    int index = Long.numberOfTrailingZeros(remaining);
+                    neighbors[index] |= referenced & ~(1L << index);
+                }
+            }
+            return neighbors;
         }
 
         public JoinEnumerationResult choose(List<Symbol> outputSymbols)
@@ -256,7 +308,7 @@ public class ReorderJoins
             if (bestResult == null) {
                 checkState(Long.bitCount(nodes) > 1, "sources size is less than or equal to one");
                 ImmutableList.Builder<JoinEnumerationResult> resultBuilder = ImmutableList.builder();
-                for (long partition : generatePartitions(nodes)) {
+                for (long partition : generatePartitions(nodes, neighbors)) {
                     JoinEnumerationResult result = createJoinAccordingToPartitioning(nodes, requiredOutputs, partition);
                     if (result.equals(UNKNOWN_COST_RESULT)) {
                         memo.put(nodes, result);
@@ -282,31 +334,82 @@ public class ReorderJoins
         }
 
         /**
-         * Generates all the ways of dividing {@code nodes} into two sets, each containing at least
-         * one node. Only the set containing the lowest node is returned; the other one is implied
-         * by the absent nodes. In order not to generate the inverse of any set, the lowest node is
-         * always kept in the returned one.
+         * Generates the ways of dividing {@code nodes} into two sets, each containing at least one
+         * node and each connected in the join graph. Only the set containing the lowest node is
+         * returned; the other one is implied by the absent nodes.
+         * <p>
+         * Requiring both sides to be connected does not remove any join order: a set of sources
+         * that is disconnected cannot be joined without a cross join at some level, and
+         * {@link #createJoin} rejects those with {@link #INFINITE_COST_RESULT}. Skipping them turns
+         * enumeration of all {@code 2^n} partitions of every subset into an enumeration of the
+         * connected subgraph pairs only, which for anything sparser than a clique is dramatically
+         * fewer. A clique — the shape that joining several tables on one shared key produces — is
+         * not improved at all.
+         * <p>
+         * Partitions are returned in ascending mask order, which is the order in which a plain
+         * enumeration of all subsets would have evaluated them.
          */
         @VisibleForTesting
-        static long[] generatePartitions(long nodes)
+        static long[] generatePartitions(long nodes, long[] neighbors)
         {
             checkArgument(Long.bitCount(nodes) > 1, "nodes must contain more than one node");
 
-            long lowest = Long.lowestOneBit(nodes);
-            long rest = nodes & ~lowest;
+            long seed = Long.lowestOneBit(nodes);
+            LongArrayList subgraphs = new LongArrayList();
+            subgraphs.add(seed);
+            expandConnectedSubgraphs(seed, seed, nodes, neighbors, subgraphs);
+
             LongArrayList partitions = new LongArrayList();
-            for (long subset = rest; ; subset = (subset - 1) & rest) {
-                if ((lowest | subset) != nodes) {
-                    partitions.add(lowest | subset);
-                }
-                if (subset == 0) {
-                    break;
+            for (int i = 0; i < subgraphs.size(); i++) {
+                long subgraph = subgraphs.getLong(i);
+                long complement = nodes & ~subgraph;
+                // the complement is reachable from the subgraph unless nodes itself is disconnected,
+                // which can only happen for the complete set of sources
+                if (complement != 0 && (neighborhood(subgraph, neighbors) & complement) != 0 && isConnected(complement, neighbors)) {
+                    partitions.add(subgraph);
                 }
             }
 
             long[] result = partitions.toLongArray();
             Arrays.sort(result);
             return result;
+        }
+
+        /**
+         * Grows a connected subgraph by every non-empty subset of its neighborhood, recursively.
+         * Nodes already offered as growth candidates are excluded from deeper levels, so that every
+         * connected subgraph containing the initial one is produced exactly once.
+         */
+        private static void expandConnectedSubgraphs(long subgraph, long excluded, long nodes, long[] neighbors, LongArrayList result)
+        {
+            long candidates = neighborhood(subgraph, neighbors) & nodes & ~excluded;
+            for (long subset = candidates; subset != 0; subset = (subset - 1) & candidates) {
+                result.add(subgraph | subset);
+            }
+            for (long subset = candidates; subset != 0; subset = (subset - 1) & candidates) {
+                expandConnectedSubgraphs(subgraph | subset, excluded | candidates, nodes, neighbors, result);
+            }
+        }
+
+        private static long neighborhood(long nodes, long[] neighbors)
+        {
+            long result = 0;
+            for (long remaining = nodes; remaining != 0; remaining &= remaining - 1) {
+                result |= neighbors[Long.numberOfTrailingZeros(remaining)];
+            }
+            return result & ~nodes;
+        }
+
+        @VisibleForTesting
+        static boolean isConnected(long nodes, long[] neighbors)
+        {
+            long reached = Long.lowestOneBit(nodes);
+            long frontier = reached;
+            while (frontier != 0) {
+                frontier = neighborhood(reached, neighbors) & nodes;
+                reached |= frontier;
+            }
+            return reached == nodes;
         }
 
         private static long allNodes(int count)

@@ -146,6 +146,15 @@ public class EqualityInference
     }
 
     /**
+     * Returns the classes of expressions known to be equal to each other, including expressions
+     * derived by substituting equal sub-expressions.
+     */
+    public Collection<Collection<Expression>> getEqualitySets()
+    {
+        return equalitySets.asMap().values();
+    }
+
+    /**
      * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
      * given the known equalities. Returns null if unsuccessful.
      */
