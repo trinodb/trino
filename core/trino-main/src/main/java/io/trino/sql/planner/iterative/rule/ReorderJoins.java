@@ -49,25 +49,24 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Sets.powerSet;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.trino.SystemSessionProperties.getMaxReorderedJoins;
@@ -93,12 +92,15 @@ import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toCollection;
 
 public class ReorderJoins
         implements Rule<JoinNode>
 {
     private static final Logger log = Logger.get(ReorderJoins.class);
+
+    // Join order enumeration is driven by 64-bit masks over the sources, so at most 63 of them
+    // can be reordered as one group. Larger groups are left in the order the query gives them.
+    private static final int MAX_ENUMERATED_SOURCES = 63;
 
     // We check that join distribution type is absent because we only want
     // to do this transformation once (reordered joins will have distribution type already set).
@@ -156,12 +158,17 @@ public class ReorderJoins
 
     private JoinEnumerationResult chooseJoinOrder(MultiJoinNode multiJoinNode, Context context)
     {
+        if (multiJoinNode.getSources().size() > MAX_ENUMERATED_SOURCES) {
+            return INFINITE_COST_RESULT;
+        }
+
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 costComparator,
                 multiJoinNode.getFilter(),
+                multiJoinNode.getSources(),
                 context,
                 plannerContext);
-        return joinEnumerator.choose(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
+        return joinEnumerator.choose(multiJoinNode.getOutputSymbols());
     }
 
     @VisibleForTesting
@@ -178,11 +185,13 @@ public class ReorderJoins
         private final Lookup lookup;
         private final Context context;
 
-        private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
+        private final Long2ObjectMap<JoinEnumerationResult> memo = new Long2ObjectOpenHashMap<>();
         private final List<Expression> residuals;
+        // sources indexed by their position in the bit masks used to drive the enumeration
+        private final List<PlanNode> sources;
 
         @VisibleForTesting
-        JoinEnumerator(CostComparator costComparator, Expression filter, Context context, PlannerContext plannerContext)
+        JoinEnumerator(CostComparator costComparator, Expression filter, LinkedHashSet<PlanNode> sources, Context context, PlannerContext plannerContext)
         {
             this.context = requireNonNull(context);
             this.session = requireNonNull(context.getSession(), "session is null");
@@ -206,12 +215,14 @@ public class ReorderJoins
 
             this.residuals = residuals.build();
             this.allFilterInference = new EqualityInference(plannerContext, inferenceCandidates);
+            this.sources = ImmutableList.copyOf(sources);
+            checkArgument(this.sources.size() <= MAX_ENUMERATED_SOURCES, "too many sources to enumerate: %s", this.sources.size());
         }
 
-        public JoinEnumerationResult choose(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
+        public JoinEnumerationResult choose(List<Symbol> outputSymbols)
         {
             JoinEnumerationResult result = chooseJoinOrder(
-                    sources,
+                    allNodes(sources.size()),
                     ImmutableSet.<Symbol>builder()
                             .addAll(outputSymbols)
                             .addAll(residuals.stream().flatMap(e -> extractAll(e).stream()).toList())
@@ -237,20 +248,18 @@ public class ReorderJoins
             return result;
         }
 
-        private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, Set<Symbol> requiredOutputs)
+        private JoinEnumerationResult chooseJoinOrder(long nodes, Set<Symbol> requiredOutputs)
         {
             context.checkTimeoutNotExhausted();
 
-            Set<PlanNode> multiJoinKey = ImmutableSet.copyOf(sources);
-            JoinEnumerationResult bestResult = memo.get(multiJoinKey);
+            JoinEnumerationResult bestResult = memo.get(nodes);
             if (bestResult == null) {
-                checkState(sources.size() > 1, "sources size is less than or equal to one");
+                checkState(Long.bitCount(nodes) > 1, "sources size is less than or equal to one");
                 ImmutableList.Builder<JoinEnumerationResult> resultBuilder = ImmutableList.builder();
-                Set<Set<Integer>> partitions = generatePartitions(sources.size());
-                for (Set<Integer> partition : partitions) {
-                    JoinEnumerationResult result = createJoinAccordingToPartitioning(sources, requiredOutputs, partition);
+                for (long partition : generatePartitions(nodes)) {
+                    JoinEnumerationResult result = createJoinAccordingToPartitioning(nodes, requiredOutputs, partition);
                     if (result.equals(UNKNOWN_COST_RESULT)) {
-                        memo.put(multiJoinKey, result);
+                        memo.put(nodes, result);
                         return result;
                     }
                     if (!result.equals(INFINITE_COST_RESULT)) {
@@ -260,12 +269,12 @@ public class ReorderJoins
 
                 List<JoinEnumerationResult> results = resultBuilder.build();
                 if (results.isEmpty()) {
-                    memo.put(multiJoinKey, INFINITE_COST_RESULT);
+                    memo.put(nodes, INFINITE_COST_RESULT);
                     return INFINITE_COST_RESULT;
                 }
 
                 bestResult = resultComparator.min(results);
-                memo.put(multiJoinKey, bestResult);
+                memo.put(nodes, bestResult);
             }
 
             bestResult.planNode.ifPresent(planNode -> log.debug("Least cost join was: %s", planNode));
@@ -273,48 +282,48 @@ public class ReorderJoins
         }
 
         /**
-         * This method generates all the ways of dividing totalNodes into two sets
-         * each containing at least one node. It will generate one set for each
-         * possible partitioning. The other partition is implied in the absent values.
-         * In order not to generate the inverse of any set, we always include the 0th
-         * node in our sets.
-         *
-         * @return A set of sets each of which defines a partitioning of totalNodes
+         * Generates all the ways of dividing {@code nodes} into two sets, each containing at least
+         * one node. Only the set containing the lowest node is returned; the other one is implied
+         * by the absent nodes. In order not to generate the inverse of any set, the lowest node is
+         * always kept in the returned one.
          */
         @VisibleForTesting
-        static Set<Set<Integer>> generatePartitions(int totalNodes)
+        static long[] generatePartitions(long nodes)
         {
-            checkArgument(totalNodes > 1, "totalNodes must be greater than 1");
-            Set<Integer> numbers = IntStream.range(0, totalNodes)
-                    .boxed()
-                    .collect(toImmutableSet());
-            return powerSet(numbers).stream()
-                    .filter(subSet -> subSet.contains(0))
-                    .filter(subSet -> subSet.size() < numbers.size())
-                    .collect(toImmutableSet());
+            checkArgument(Long.bitCount(nodes) > 1, "nodes must contain more than one node");
+
+            long lowest = Long.lowestOneBit(nodes);
+            long rest = nodes & ~lowest;
+            LongArrayList partitions = new LongArrayList();
+            for (long subset = rest; ; subset = (subset - 1) & rest) {
+                if ((lowest | subset) != nodes) {
+                    partitions.add(lowest | subset);
+                }
+                if (subset == 0) {
+                    break;
+                }
+            }
+
+            long[] result = partitions.toLongArray();
+            Arrays.sort(result);
+            return result;
+        }
+
+        private static long allNodes(int count)
+        {
+            return (1L << count) - 1;
         }
 
         @VisibleForTesting
-        JoinEnumerationResult createJoinAccordingToPartitioning(LinkedHashSet<PlanNode> sources, Set<Symbol> requiredOutputs, Set<Integer> partitioning)
+        JoinEnumerationResult createJoinAccordingToPartitioning(long nodes, Set<Symbol> requiredOutputs, long partitioning)
         {
-            List<PlanNode> sourceList = ImmutableList.copyOf(sources);
-            LinkedHashSet<PlanNode> leftSources = partitioning.stream()
-                    .map(sourceList::get)
-                    .collect(toCollection(LinkedHashSet::new));
-            LinkedHashSet<PlanNode> rightSources = sources.stream()
-                    .filter(source -> !leftSources.contains(source))
-                    .collect(toCollection(LinkedHashSet::new));
-            return createJoin(leftSources, rightSources, requiredOutputs);
+            return createJoin(partitioning, nodes & ~partitioning, requiredOutputs);
         }
 
-        private JoinEnumerationResult createJoin(LinkedHashSet<PlanNode> leftSources, LinkedHashSet<PlanNode> rightSources, Set<Symbol> requiredOutputs)
+        private JoinEnumerationResult createJoin(long leftSources, long rightSources, Set<Symbol> requiredOutputs)
         {
-            Set<Symbol> leftSymbols = leftSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
-                    .collect(toImmutableSet());
-            Set<Symbol> rightSymbols = rightSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
-                    .collect(toImmutableSet());
+            Set<Symbol> leftSymbols = outputSymbols(leftSources);
+            Set<Symbol> rightSymbols = outputSymbols(rightSources);
 
             List<Expression> joinPredicates = getJoinPredicates(leftSymbols, rightSymbols);
             List<EquiJoinClause> joinConditions = joinPredicates.stream()
@@ -399,10 +408,19 @@ public class ReorderJoins
             return joinPredicatesBuilder.build();
         }
 
-        private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, Set<Symbol> requiredOutputs)
+        private Set<Symbol> outputSymbols(long nodes)
         {
-            if (nodes.size() == 1) {
-                PlanNode planNode = getOnlyElement(nodes);
+            ImmutableSet.Builder<Symbol> symbols = ImmutableSet.builder();
+            for (long remaining = nodes; remaining != 0; remaining &= remaining - 1) {
+                symbols.addAll(sources.get(Long.numberOfTrailingZeros(remaining)).getOutputSymbols());
+            }
+            return symbols.build();
+        }
+
+        private JoinEnumerationResult getJoinSource(long nodes, Set<Symbol> requiredOutputs)
+        {
+            if (Long.bitCount(nodes) == 1) {
+                PlanNode planNode = sources.get(Long.numberOfTrailingZeros(nodes));
                 Set<Symbol> scope = ImmutableSet.copyOf(requiredOutputs);
                 Expression filter = combineConjuncts(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
                 if (!TRUE.equals(filter)) {
