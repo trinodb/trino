@@ -233,6 +233,7 @@ public class OptimizerConfig
     }
 
     @Min(2)
+    @Max(62)
     public int getMaxReorderedJoins()
     {
         return maxReorderedJoins;
