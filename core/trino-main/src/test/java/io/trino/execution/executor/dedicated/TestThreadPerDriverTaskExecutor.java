@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -334,7 +335,8 @@ public class TestThreadPerDriverTaskExecutor
                 testingVersionEmbedder(),
                 noopTracer(),
                 1,
-                () -> 0);
+                () -> 0,
+                _ -> Optional.empty());
         TestingSplitRunner failing = new CloseFailingSplitRunner();
         TestingSplitRunner pending = new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture()));
         ListenableFuture<Void> claimedDone = task.enqueueLeafSplit(failing);
@@ -466,7 +468,7 @@ public class TestThreadPerDriverTaskExecutor
 
             TestFuture input = new TestFuture();
             // A consumer of a local exchange fed by two pipelines, neither of which has scheduled a split
-            SplitRunner consumer = new TestingSplitRunner(consumerPipeline, ImmutableList.of(firstProducerPipeline, secondProducerPipeline), ImmutableList.of(
+            SplitRunner consumer = new TestingSplitRunner(consumerPipeline, ImmutableList.of(firstProducerPipeline, secondProducerPipeline), List.of(), ImmutableList.of(
                     _ -> input,
                     _ -> Futures.immediateVoidFuture()));
 
@@ -513,7 +515,7 @@ public class TestThreadPerDriverTaskExecutor
                     _ -> buildGate,
                     _ -> Futures.immediateVoidFuture()));
             // Probe split: blocks on the lookup source and names the build pipeline as its producer.
-            SplitRunner probe = new TestingSplitRunner(probePipeline, ImmutableList.of(buildPipeline), ImmutableList.of(
+            SplitRunner probe = new TestingSplitRunner(probePipeline, ImmutableList.of(buildPipeline), List.of(), ImmutableList.of(
                     _ -> lookupSource,
                     _ -> Futures.immediateVoidFuture()));
 
@@ -533,6 +535,54 @@ public class TestThreadPerDriverTaskExecutor
 
             buildGate.set(null);
             buildDone.get();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testDonatesToCoLocatedProducerTask()
+            throws ExecutionException, InterruptedException
+    {
+        FairScheduler scheduler = FairScheduler.newInstance(4);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 3, 10, 8);
+        executor.start();
+        try {
+            TaskId producerId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskId consumerId = new TaskId(new StageId("query", 2), 1, 1);
+            TaskHandle producer = executor.addTask(producerId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle consumer = executor.addTask(consumerId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            TestFuture producerGate = new TestFuture();
+            TestFuture consumerData = new TestFuture();
+
+            // Producer task's split parks, so its task group exists and it stays alive to be boosted.
+            SplitRunner producerSplit = new TestingSplitRunner(ImmutableList.of(
+                    _ -> producerGate,
+                    _ -> Futures.immediateVoidFuture()));
+            // Consumer task's split blocks and names the co-located producer task.
+            SplitRunner consumerSplit = new TestingSplitRunner(0, List.of(), List.of(producerId), ImmutableList.of(
+                    _ -> consumerData,
+                    _ -> Futures.immediateVoidFuture()));
+
+            ListenableFuture<Void> producerDone = executor.enqueueSplits(producer, true, ImmutableList.of(producerSplit)).get(0);
+            producerGate.awaitListenerAdded();
+
+            ListenableFuture<Void> consumerDone = executor.enqueueSplits(consumer, true, ImmutableList.of(consumerSplit)).get(0);
+            consumerData.awaitListenerAdded();
+
+            // The consumer's block donated priority to the co-located producer task's group.
+            Group producerGroup = executor.taskDonationGroup(producerId).orElseThrow();
+            assertEventually(() -> assertThat(scheduler.pipelineBoostCount(producerGroup)).isEqualTo(1));
+
+            consumerData.set(null);
+            consumerDone.get();
+            assertThat(scheduler.pipelineBoostCount(producerGroup)).isZero();
+
+            producerGate.set(null);
+            producerDone.get();
         }
         finally {
             executor.stop();
@@ -645,6 +695,7 @@ public class TestThreadPerDriverTaskExecutor
     {
         private final int pipelineId;
         private final List<Integer> blockedProducerPipelines;
+        private final List<TaskId> blockedProducerTasks;
         private final List<Function<Duration, ListenableFuture<Void>>> invocations;
         private int invocation;
         private volatile boolean finished;
@@ -657,13 +708,14 @@ public class TestThreadPerDriverTaskExecutor
 
         public TestingSplitRunner(int pipelineId, List<Function<Duration, ListenableFuture<Void>>> invocations)
         {
-            this(pipelineId, ImmutableList.of(), invocations);
+            this(pipelineId, ImmutableList.of(), List.of(), invocations);
         }
 
-        public TestingSplitRunner(int pipelineId, List<Integer> blockedProducerPipelines, List<Function<Duration, ListenableFuture<Void>>> invocations)
+        public TestingSplitRunner(int pipelineId, List<Integer> blockedProducerPipelines, List<TaskId> blockedProducerTasks, List<Function<Duration, ListenableFuture<Void>>> invocations)
         {
             this.pipelineId = pipelineId;
             this.blockedProducerPipelines = blockedProducerPipelines;
+            this.blockedProducerTasks = blockedProducerTasks;
             this.invocations = invocations;
         }
 
@@ -677,6 +729,12 @@ public class TestThreadPerDriverTaskExecutor
         public List<Integer> getBlockedProducerPipelines()
         {
             return blockedProducerPipelines;
+        }
+
+        @Override
+        public List<TaskId> getBlockedProducerTasks()
+        {
+            return blockedProducerTasks;
         }
 
         @Override

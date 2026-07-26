@@ -41,6 +41,15 @@ public interface SplitRunner
         return List.of();
     }
 
+    /// When [#processFor] last returned an unfinished blocked future, the ids of the producer tasks
+    /// this split is waiting on over an exchange (e.g. the upstream-stage tasks feeding an exchange
+    /// consumer). The scheduler donates priority to any that are co-located on this worker so they
+    /// drain sooner. Empty when the block has no identifiable producer tasks.
+    default List<TaskId> getBlockedProducerTasks()
+    {
+        return List.of();
+    }
+
     String getInfo();
 
     @Override

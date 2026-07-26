@@ -153,6 +153,31 @@ public class TestExchangeOperator
         waitForFinished(operator);
     }
 
+    @Test
+    public void testOperatorsShareProducerTasks()
+            throws Exception
+    {
+        ExchangeOperatorFactory operatorFactory = createExchangeOperatorFactory();
+        DriverContext firstDriver = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        DriverContext secondDriver = firstDriver.getPipelineContext().addDriverContext();
+        SourceOperator first = operatorFactory.createOperator(firstDriver);
+        SourceOperator second = operatorFactory.createOperator(secondDriver);
+        operatorFactory.noMoreOperators();
+
+        // splits are spread across the operators, but both read pages from every producer task
+        first.addSplit(newRemoteSplit(TASK_1_ID));
+        first.addSplit(newRemoteSplit(TASK_2_ID));
+        second.addSplit(newRemoteSplit(TASK_3_ID));
+
+        assertThat(first.getBlockedProducerTasks()).containsExactly(TASK_1_ID, TASK_2_ID, TASK_3_ID);
+        assertThat(second.getBlockedProducerTasks()).containsExactly(TASK_1_ID, TASK_2_ID, TASK_3_ID);
+
+        first.close();
+        second.close();
+    }
+
     private static Split newRemoteSplit(TaskId taskId)
     {
         return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)));
@@ -266,14 +291,7 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                directExchangeClientSupplier,
-                SERDE_FACTORY,
-                RetryPolicy.NONE,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
-                TYPES);
+        ExchangeOperatorFactory operatorFactory = createExchangeOperatorFactory();
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -282,6 +300,18 @@ public class TestExchangeOperator
         SourceOperator operator = operatorFactory.createOperator(driverContext);
         operatorFactory.noMoreOperators();
         return operator;
+    }
+
+    private ExchangeOperatorFactory createExchangeOperatorFactory()
+    {
+        return new ExchangeOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                directExchangeClientSupplier,
+                SERDE_FACTORY,
+                RetryPolicy.NONE,
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                TYPES);
     }
 
     private static List<Page> waitForPages(Operator operator, int expectedPageCount)

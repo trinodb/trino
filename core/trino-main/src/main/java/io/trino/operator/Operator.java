@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.TaskId;
 import io.trino.spi.Page;
 
 import java.util.List;
@@ -42,6 +43,15 @@ public interface Operator
     /// operator is blocked so the dependency clears sooner. Empty when the block has no identifiable
     /// producer pipeline.
     default List<Integer> getBlockedProducerPipelines()
+    {
+        return List.of();
+    }
+
+    /// When this operator is blocked (see [#isBlocked()]), the ids of the producer tasks it is waiting
+    /// on over an exchange (e.g. the upstream-stage tasks feeding an exchange source). The scheduler
+    /// donates priority to any that are co-located on this worker so they drain sooner. Empty when the
+    /// block has no identifiable producer tasks.
+    default List<TaskId> getBlockedProducerTasks()
     {
         return List.of();
     }

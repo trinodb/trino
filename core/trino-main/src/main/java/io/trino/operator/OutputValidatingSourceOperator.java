@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.TaskId;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -50,6 +51,12 @@ public class OutputValidatingSourceOperator
     public ListenableFuture<Void> isBlocked()
     {
         return delegate.isBlocked();
+    }
+
+    @Override
+    public List<TaskId> getBlockedProducerTasks()
+    {
+        return delegate.getBlockedProducerTasks();
     }
 
     @Override

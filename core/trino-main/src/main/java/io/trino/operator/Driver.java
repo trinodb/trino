@@ -26,6 +26,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
+import io.trino.execution.TaskId;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -98,6 +99,10 @@ public class Driver
     // driver thread under the lock so they can be read off-thread (for priority donation) as a plain
     // field, without reaching into operator state from another thread.
     private volatile List<Integer> blockedProducerPipelines = ImmutableList.of();
+
+    // The producer tasks this driver last blocked on over an exchange, resolved the same way, so a
+    // consumer can donate priority to co-located producer tasks.
+    private volatile List<TaskId> blockedProducerTasks = ImmutableList.of();
 
     private enum State
     {
@@ -483,11 +488,13 @@ public class Driver
                     operator.getOperatorContext().recordBlocked(blocked);
                 }
                 blockedProducerPipelines = resolveBlockedProducerPipelines(blockedOperators);
+                blockedProducerTasks = resolveBlockedProducerTasks(blockedOperators);
                 return blocked;
             }
         }
 
         blockedProducerPipelines = ImmutableList.of();
+        blockedProducerTasks = ImmutableList.of();
         return NOT_BLOCKED;
     }
 
@@ -505,12 +512,32 @@ public class Driver
         return pipelines.build().asList();
     }
 
+    /// The producer tasks the `blockedOperators` are waiting on over an exchange (see
+    /// [Operator#getBlockedProducerTasks()]), across all of them; the scheduler donates to whichever
+    /// are co-located.
+    private static List<TaskId> resolveBlockedProducerTasks(List<Operator> blockedOperators)
+    {
+        ImmutableList.Builder<TaskId> tasks = ImmutableList.builder();
+        for (Operator operator : blockedOperators) {
+            tasks.addAll(operator.getBlockedProducerTasks());
+        }
+        return tasks.build();
+    }
+
     /// When this driver last blocked, the producer pipelines its blocked operators were waiting on
     /// (see [Operator#getBlockedProducerPipelines()]). Resolved on the driver thread under the lock;
     /// this read is a plain volatile field access and never touches operator state.
     public List<Integer> getBlockedProducerPipelines()
     {
         return blockedProducerPipelines;
+    }
+
+    /// When this driver last blocked, the producer tasks its blocked operators were waiting on over an
+    /// exchange (see [Operator#getBlockedProducerTasks()]). Resolved on the driver thread under the
+    /// lock; this read is a plain volatile field access and never touches operator state.
+    public List<TaskId> getBlockedProducerTasks()
+    {
+        return blockedProducerTasks;
     }
 
     @GuardedBy("exclusiveLock")
