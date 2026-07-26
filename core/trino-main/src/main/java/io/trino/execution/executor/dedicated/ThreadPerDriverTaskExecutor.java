@@ -141,7 +141,8 @@ public class ThreadPerDriverTaskExecutor
                 versionEmbedder,
                 tracer,
                 initialSplitConcurrency,
-                utilizationSupplier);
+                utilizationSupplier,
+                this::taskDonationGroup);
         tasks.put(taskId, task);
         return task;
     }
@@ -163,6 +164,17 @@ public class ThreadPerDriverTaskExecutor
     {
         TaskEntry entry = tasks.get(taskId);
         return entry == null ? Optional.empty() : entry.pipelineGroupIfPresent(pipelineId);
+    }
+
+    /// The scheduling group a co-located producer task donates to, or empty when that task is not
+    /// running on this worker (a remote producer) or has already been torn down.
+    Optional<Group> taskDonationGroup(TaskId taskId)
+    {
+        TaskEntry entry;
+        synchronized (this) {
+            entry = tasks.get(taskId);
+        }
+        return entry == null ? Optional.empty() : entry.donationGroup();
     }
 
     @Override

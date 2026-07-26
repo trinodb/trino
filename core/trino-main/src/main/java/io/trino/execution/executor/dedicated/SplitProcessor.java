@@ -30,10 +30,11 @@ import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.tracing.TrinoAttributes;
 
+import java.util.LinkedHashSet;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
@@ -51,14 +52,16 @@ class SplitProcessor
     private final SplitRunner split;
     private final Tracer tracer;
     private final IntFunction<Optional<Group>> producerPipelineGroup;
+    private final Function<TaskId, Optional<Group>> producerTaskGroup;
 
-    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer, IntFunction<Optional<Group>> producerPipelineGroup)
+    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer, IntFunction<Optional<Group>> producerPipelineGroup, Function<TaskId, Optional<Group>> producerTaskGroup)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitId = splitId;
         this.split = requireNonNull(split, "split is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.producerPipelineGroup = requireNonNull(producerPipelineGroup, "producerPipelineGroup is null");
+        this.producerTaskGroup = requireNonNull(producerTaskGroup, "producerTaskGroup is null");
     }
 
     @Override
@@ -131,17 +134,20 @@ class SplitProcessor
         }
     }
 
-    /// Block, donating priority to the producer pipeline this split reports it is waiting on (its
-    /// group is created on demand if that pipeline has not scheduled a split yet); or block without a
-    /// donation when the split names no producer or the task is being torn down.
+    /// Block, donating priority to the producer groups this split reports it is waiting on: a
+    /// producer pipeline in its own task (created on demand if not scheduled yet) and the scheduling
+    /// group of any co-located producer task it reads from over an exchange. Blocks without a donation
+    /// when the split names no reachable producer or the task is being torn down.
     private boolean block(SchedulerContext context, ListenableFuture<Void> blocked)
     {
-        OptionalInt producerPipeline = split.getBlockedProducerPipeline();
-        if (producerPipeline.isPresent()) {
-            Optional<Group> producerGroup = producerPipelineGroup.apply(producerPipeline.getAsInt());
-            if (producerGroup.isPresent()) {
-                return context.blockOnProducerPipelines(blocked, Set.of(producerGroup.get()));
-            }
+        Set<Group> producers = new LinkedHashSet<>();
+        split.getBlockedProducerPipeline().ifPresent(pipeline ->
+                producerPipelineGroup.apply(pipeline).ifPresent(producers::add));
+        for (TaskId producerTask : split.getBlockedProducerTasks()) {
+            producerTaskGroup.apply(producerTask).ifPresent(producers::add);
+        }
+        if (!producers.isEmpty()) {
+            return context.blockOnProducerPipelines(blocked, producers);
         }
         return context.block(blocked);
     }
