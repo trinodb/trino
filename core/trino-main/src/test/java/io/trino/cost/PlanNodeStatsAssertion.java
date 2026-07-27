@@ -52,6 +52,14 @@ public class PlanNodeStatsAssertion
         return this;
     }
 
+    public PlanNodeStatsAssertion confidence(EstimateConfidence expected)
+    {
+        Assertions.assertThat(actual.getConfidence())
+                .describedAs("confidence mismatch")
+                .isEqualTo(expected);
+        return this;
+    }
+
     public PlanNodeStatsAssertion symbolStats(String symbolName, Consumer<SymbolStatsAssertion> symbolStatsAssertionConsumer)
     {
         return symbolStats(symbolName, DOUBLE, symbolStatsAssertionConsumer);

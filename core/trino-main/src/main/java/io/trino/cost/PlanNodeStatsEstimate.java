@@ -133,6 +133,19 @@ public class PlanNodeStatsEstimate
         return buildFrom(this).setOutputRowCount(mappingFunction.apply(outputRowCount)).build();
     }
 
+    /**
+     * Returns this estimate marked no more trustworthy than {@code confidence}. Rules call this
+     * where they fall back on a heuristic constant, so that the plans built on top of the result
+     * carry the fact that a guess went into it.
+     */
+    public PlanNodeStatsEstimate degradeConfidenceTo(EstimateConfidence confidence)
+    {
+        if (this.confidence.compareTo(confidence) <= 0) {
+            return this;
+        }
+        return buildFrom(this).setConfidence(confidence).build();
+    }
+
     public PlanNodeStatsEstimate mapSymbolColumnStatistics(Symbol symbol, Function<SymbolStatsEstimate, SymbolStatsEstimate> mappingFunction)
     {
         return buildFrom(this)
@@ -239,16 +252,6 @@ public class PlanNodeStatsEstimate
         public Builder setConfidence(EstimateConfidence confidence)
         {
             this.confidence = requireNonNull(confidence, "confidence is null");
-            return this;
-        }
-
-        /**
-         * Degrades the estimate to {@code confidence} when it is currently more trusted than that,
-         * for use where a rule knows only that it made one particular assumption.
-         */
-        public Builder degradeConfidenceTo(EstimateConfidence confidence)
-        {
-            this.confidence = EstimateConfidence.min(this.confidence, requireNonNull(confidence, "confidence is null"));
             return this;
         }
 

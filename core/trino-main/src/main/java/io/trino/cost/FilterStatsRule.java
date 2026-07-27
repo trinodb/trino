@@ -20,6 +20,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isDefaultFilterFactorEnabled;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.sql.planner.plan.Patterns.filter;
 
@@ -48,7 +49,9 @@ public class FilterStatsRule
         PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
         PlanNodeStatsEstimate estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), context.session());
         if (isDefaultFilterFactorEnabled(context.session()) && estimate.isOutputRowCountUnknown()) {
-            estimate = sourceStats.mapOutputRowCount(_ -> sourceStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
+            // the predicate could not be estimated, so the row count below is a guess
+            estimate = sourceStats.mapOutputRowCount(_ -> sourceStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT)
+                    .degradeConfidenceTo(LOW);
         }
         return Optional.of(estimate);
     }

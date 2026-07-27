@@ -34,6 +34,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getJoinMultiClauseIndependenceFactor;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.SymbolStatsEstimate.buildFrom;
@@ -166,7 +167,9 @@ public class JoinStatsRule
         PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session);
 
         if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {
-            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
+            // the non-equi filter could not be estimated, so its selectivity below is a guess
+            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT)
+                    .degradeConfidenceTo(LOW));
         }
 
         return filteredEquiJoinEstimate;
@@ -194,6 +197,8 @@ public class JoinStatsRule
         if (isNaN(outputRowCount)) {
             return PlanNodeStatsEstimate.unknown();
         }
+        // A clause on a key without a distinct value count cannot be estimated: filterStats then returns an
+        // unknown estimate, which carries LOW confidence, so the reduce below already degrades the result.
         EstimateConfidence confidence = knownEstimates.stream()
                 .map(estimate -> estimate.getEstimate().getConfidence())
                 .reduce(stats.getConfidence(), EstimateConfidence::min);
@@ -326,6 +331,10 @@ public class JoinStatsRule
 
         // limit the number of complement rows (to left row count) and account for remaining clauses
         result = result.mapOutputRowCount(rowCount -> min(leftStats.getOutputRowCount(), rowCount / Math.pow(UNKNOWN_FILTER_COEFFICIENT, numberOfRemainingClauses)));
+        if (numberOfRemainingClauses > 0) {
+            // the clauses other than the driving one were accounted for with a guessed selectivity
+            result = result.degradeConfidenceTo(LOW);
+        }
 
         return result;
     }
