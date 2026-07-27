@@ -70,6 +70,10 @@ public class JoinNode
     // stats and cost used for join reordering
     private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
 
+    // the concatenation of the two output symbol lists, which is asked for often enough that
+    // rebuilding it every time shows up in planning profiles
+    private final List<Symbol> outputSymbols;
+
     @JsonCreator
     public JoinNode(
             @JsonProperty("id") PlanNodeId id,
@@ -109,6 +113,10 @@ public class JoinNode
         this.spillable = spillable;
         this.dynamicFilters = ImmutableMap.copyOf(requireNonNull(dynamicFilters, "dynamicFilters is null"));
         this.reorderJoinStatsAndCost = requireNonNull(reorderJoinStatsAndCost, "reorderJoinStatsAndCost is null");
+        this.outputSymbols = ImmutableList.<Symbol>builder()
+                .addAll(this.leftOutputSymbols)
+                .addAll(this.rightOutputSymbols)
+                .build();
 
         Set<Symbol> leftSymbols = ImmutableSet.copyOf(left.getOutputSymbols());
         Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
@@ -232,10 +240,7 @@ public class JoinNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(leftOutputSymbols)
-                .addAll(rightOutputSymbols)
-                .build();
+        return outputSymbols;
     }
 
     @JsonProperty("distributionType")
