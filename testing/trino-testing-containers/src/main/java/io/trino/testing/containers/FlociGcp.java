@@ -13,6 +13,7 @@
  */
 package io.trino.testing.containers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
@@ -23,18 +24,24 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.security.GeneralSecurityException;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
+import java.util.Map;
 
 import static java.net.http.HttpRequest.BodyPublishers.ofString;
 import static java.net.http.HttpResponse.BodyHandlers.ofString;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class FlociGcp
         extends GenericContainer<FlociGcp>
 {
-    public static final String FLOCI_GCP_IMAGE = "floci/floci-gcp:0.3.0";
+    public static final String FLOCI_GCP_IMAGE = "floci/floci-gcp:trino-integration";
     public static final String FLOCI_GCP_PROJECT_ID = "floci-local";
 
     private static final String FLOCI_GCP_NETWORK_ALIAS = "floci-gcp";
     private static final int FLOCI_GCP_PORT = 4588;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public FlociGcp()
     {
@@ -52,6 +59,28 @@ public final class FlociGcp
     public URI getContainerEndpoint()
     {
         return URI.create("http://%s:%s".formatted(FLOCI_GCP_NETWORK_ALIAS, FLOCI_GCP_PORT));
+    }
+
+    public String getServiceAccountJson()
+    {
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(2048);
+            String privateKey = "-----BEGIN PRIVATE KEY-----\n%s\n-----END PRIVATE KEY-----\n".formatted(
+                    Base64.getMimeEncoder(64, "\n".getBytes(UTF_8))
+                            .encodeToString(keyPairGenerator.generateKeyPair().getPrivate().getEncoded()));
+            return OBJECT_MAPPER.writeValueAsString(Map.of(
+                    "type", "service_account",
+                    "project_id", FLOCI_GCP_PROJECT_ID,
+                    "private_key_id", "floci-gcp",
+                    "private_key", privateKey,
+                    "client_email", "floci-gcp@" + FLOCI_GCP_PROJECT_ID + ".iam.gserviceaccount.com",
+                    "client_id", "123456789",
+                    "token_uri", getEndpoint().resolve("/token").toString()));
+        }
+        catch (GeneralSecurityException | IOException e) {
+            throw new RuntimeException("Failed to create service account credentials", e);
+        }
     }
 
     public void createBucket(String bucketName)
