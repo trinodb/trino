@@ -100,6 +100,12 @@ public class ThreadPerDriverTaskExecutor
     @GuardedBy("this")
     private int runningLeafDrivers;
 
+    @GuardedBy("this")
+    private boolean scheduling;
+
+    @GuardedBy("this")
+    private boolean rescheduleNeeded;
+
     // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
     private final Consumer<TaskEntry> leafSplitDoneCallback = this::leafSplitDone;
 
@@ -213,9 +219,12 @@ public class ThreadPerDriverTaskExecutor
     @GuardedBy("this")
     private boolean scheduleLeafSplit(TaskEntry task)
     {
+        // Count the driver before starting it. A split that finishes immediately reports back
+        // from within dequeueAndRunLeafSplit, and that callback decrements this counter.
+        runningLeafDrivers++;
         boolean scheduled = task.dequeueAndRunLeafSplit(leafSplitDoneCallback);
-        if (scheduled) {
-            runningLeafDrivers++;
+        if (!scheduled) {
+            runningLeafDrivers--;
         }
         updateSchedulability(task);
 
@@ -267,7 +276,34 @@ public class ThreadPerDriverTaskExecutor
         scheduleMoreLeafSplits();
     }
 
+    /**
+     * A split that finishes as soon as it is started reports back on the thread that started it,
+     * which re-enters this method from inside the loops below. Rather than recursing, which is
+     * unbounded when many splits finish immediately, record that another pass is needed and let
+     * the in-progress call make it.
+     */
     private synchronized void scheduleMoreLeafSplits()
+    {
+        if (scheduling) {
+            rescheduleNeeded = true;
+            return;
+        }
+
+        scheduling = true;
+        try {
+            do {
+                rescheduleNeeded = false;
+                doScheduleMoreLeafSplits();
+            }
+            while (rescheduleNeeded);
+        }
+        finally {
+            scheduling = false;
+        }
+    }
+
+    @GuardedBy("this")
+    private void doScheduleMoreLeafSplits()
     {
         // Honor the per-task guarantee first, ignoring global capacity, as before.
         while (!belowGuarantee.isEmpty()) {

@@ -236,6 +236,40 @@ public class TestThreadPerDriverTaskExecutor
     }
 
     @Test
+    @Timeout(60)
+    public void testDriverAccountingSurvivesSplitsThatFinishImmediately()
+            throws ExecutionException, InterruptedException
+    {
+        // A split can finish before its completion listener is even attached, in which case the
+        // callback runs inline on the thread that started it and re-enters the executor. Driver
+        // counts have to come out even regardless.
+        FairScheduler scheduler = new FairScheduler(4, "Runner-%d", Ticker.systemTicker());
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 2, 3);
+        executor.start();
+
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskHandle task = executor.addTask(taskId, () -> 0, 1, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            // repeated rounds, so drift in the counts would show up as a later round stalling
+            for (int round = 0; round < 5; round++) {
+                List<SplitRunner> splits = new ArrayList<>();
+                for (int i = 0; i < 20; i++) {
+                    splits.add(new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture())));
+                }
+                Futures.allAsList(executor.enqueueSplits(task, false, splits)).get();
+            }
+
+            assertThat(executor.getTotalRunningLeafSplits())
+                    .describedAs("Running leaf splits once everything finished")
+                    .isEqualTo(0);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
     @Timeout(10)
     public void testConcurrencyAdjustmentIsRateLimited()
     {

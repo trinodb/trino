@@ -130,20 +130,30 @@ class TaskEntry
     /**
      * @return true if a split was scheduled; false if no splits are pending
      */
-    public synchronized boolean dequeueAndRunLeafSplit(Consumer<TaskEntry> doneCallback)
+    public boolean dequeueAndRunLeafSplit(Consumer<TaskEntry> doneCallback)
     {
-        QueuedSplit split = pending.poll();
-        if (split == null) {
-            return false;
+        QueuedSplit split;
+        ListenableFuture<Void> done;
+        synchronized (this) {
+            split = pending.poll();
+            if (split == null) {
+                return false;
+            }
+
+            done = runSplit(split.split());
+            // account for the driver before anything can observe it, since the split may already
+            // have finished by the time the listener below is attached
+            runningLeafSplits++;
         }
 
-        runSplit(split.split())
-                .addListener(() -> {
-                    leafSplitDone(split);
-                    doneCallback.accept(this);
-                }, directExecutor());
-
-        runningLeafSplits++;
+        // The listener runs inline when the split has already finished, and it calls back into
+        // the executor. Attaching it outside the monitor keeps that from happening while this
+        // lock is held, which would take the executor and task locks in the opposite order from
+        // the scheduling path and would re-enter the executor with stale driver counts.
+        done.addListener(() -> {
+            leafSplitDone(split);
+            doneCallback.accept(this);
+        }, directExecutor());
 
         return true;
     }
