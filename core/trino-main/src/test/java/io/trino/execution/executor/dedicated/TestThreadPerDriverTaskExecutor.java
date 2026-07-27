@@ -235,6 +235,39 @@ public class TestThreadPerDriverTaskExecutor
         }
     }
 
+    @Test
+    @Timeout(10)
+    public void testConcurrencyAdjustmentIsRateLimited()
+    {
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = new FairScheduler(4, "Runner-%d", ticker)) {
+            TaskEntry task = new TaskEntry(
+                    new TaskId(new StageId("query", 1), 1, 1),
+                    scheduler,
+                    testingVersionEmbedder(),
+                    noopTracer(),
+                    4,
+                    new Duration(100, MILLISECONDS),
+                    () -> 1.0, // fully utilized, so every permitted adjustment lowers the target
+                    ticker);
+
+            assertThat(task.targetConcurrency()).isEqualTo(4);
+
+            // ticks inside the adjustment interval are ignored no matter how many arrive
+            for (int i = 0; i < 10; i++) {
+                ticker.increment(5, MILLISECONDS);
+                task.updateConcurrency();
+            }
+            assertThat(task.targetConcurrency()).isEqualTo(4);
+
+            // crossing the interval permits exactly one adjustment
+            ticker.increment(60, MILLISECONDS);
+            task.updateConcurrency();
+            task.updateConcurrency();
+            assertThat(task.targetConcurrency()).isEqualTo(3);
+        }
+    }
+
     private static class TestFuture
             extends AbstractFuture<Void>
     {

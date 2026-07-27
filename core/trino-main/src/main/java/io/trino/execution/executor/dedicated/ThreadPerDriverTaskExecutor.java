@@ -61,9 +61,17 @@ public class ThreadPerDriverTaskExecutor
 {
     private static final Logger LOG = Logger.get(ThreadPerDriverTaskExecutor.class);
 
+    /**
+     * How often tasks are offered a chance to re-evaluate their target concurrency. Each task
+     * rate-limits itself to its own configured adjustment interval, so this only bounds how
+     * closely that interval can be followed.
+     */
+    private static final long CONCURRENCY_ADJUSTMENT_TICK_MILLIS = 50;
+
     private final FairScheduler scheduler;
     private final Tracer tracer;
     private final VersionEmbedder versionEmbedder;
+    private final Ticker ticker;
     private final int targetGlobalLeafDrivers;
     private final int minDriversPerTask;
     private final int maxDriversPerTask;
@@ -109,9 +117,16 @@ public class ThreadPerDriverTaskExecutor
     @VisibleForTesting
     public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler, int minDriversPerTask, int maxDriversPerTask, int targetGlobalLeafDrivers)
     {
+        this(tracer, versionEmbedder, scheduler, minDriversPerTask, maxDriversPerTask, targetGlobalLeafDrivers, Ticker.systemTicker());
+    }
+
+    @VisibleForTesting
+    public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler, int minDriversPerTask, int maxDriversPerTask, int targetGlobalLeafDrivers, Ticker ticker)
+    {
         this.scheduler = scheduler;
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
         this.minDriversPerTask = minDriversPerTask;
         this.maxDriversPerTask = maxDriversPerTask;
         this.targetGlobalLeafDrivers = targetGlobalLeafDrivers;
@@ -123,7 +138,7 @@ public class ThreadPerDriverTaskExecutor
     {
         scheduler.start();
         backgroundTasks.scheduleWithFixedDelay(this::reconcileAndScheduleMoreLeafSplits, 0, 100, TimeUnit.MILLISECONDS);
-        backgroundTasks.scheduleWithFixedDelay(this::adjustConcurrency, 0, 10, TimeUnit.MILLISECONDS);
+        backgroundTasks.scheduleWithFixedDelay(this::adjustConcurrency, 0, CONCURRENCY_ADJUSTMENT_TICK_MILLIS, TimeUnit.MILLISECONDS);
         backgroundTasks.scheduleWithFixedDelay(this::logDiagnostics, 0, 30, TimeUnit.SECONDS);
     }
 
@@ -152,7 +167,9 @@ public class ThreadPerDriverTaskExecutor
                 versionEmbedder,
                 tracer,
                 initialSplitConcurrency,
-                utilizationSupplier);
+                splitConcurrencyAdjustFrequency,
+                utilizationSupplier,
+                ticker);
         tasks.put(taskId, task);
         return task;
     }
