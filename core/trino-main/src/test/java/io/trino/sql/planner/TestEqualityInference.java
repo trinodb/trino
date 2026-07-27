@@ -93,6 +93,8 @@ public class TestEqualityInference
                 equals("a1", "b1"),
                 equals(new Reference(BIGINT, "a1"), add("a3", "b3")),
                 equals(new Reference(BIGINT, "b2"), add("a4", "b4")));
+        assertThat(inference.generateScopeEqualities(symbols("a1", "a2", "a3", "a4"))).containsExactlyElementsOf(partition.scopeEqualities());
+        assertThat(inference.generateScopeEqualities(symbols("b1", "b2", "b3", "b4"))).containsExactlyElementsOf(partition.scopeComplementEqualities());
     }
 
     @Test
