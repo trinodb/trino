@@ -30,6 +30,8 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.cost.EstimateConfidence.HIGH;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -38,10 +40,11 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeStatsEstimate
 {
     private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
-    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, ImmutableMap.of());
+    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, ImmutableMap.of(), LOW);
 
     private final double outputRowCount;
     private final PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+    private final EstimateConfidence confidence;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -51,16 +54,19 @@ public class PlanNodeStatsEstimate
     @JsonCreator
     public PlanNodeStatsEstimate(
             @JsonProperty("outputRowCount") double outputRowCount,
-            @JsonProperty("symbolStatistics") Map<Symbol, SymbolStatsEstimate> symbolStatistics)
+            @JsonProperty("symbolStatistics") Map<Symbol, SymbolStatsEstimate> symbolStatistics,
+            @JsonProperty("confidence") EstimateConfidence confidence)
     {
-        this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")));
+        this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")), confidence);
     }
 
-    private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
+    private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics, EstimateConfidence confidence)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.symbolStatistics = symbolStatistics;
+        // estimates serialized before confidence was tracked carry no value for it
+        this.confidence = confidence == null ? HIGH : confidence;
     }
 
     /**
@@ -146,12 +152,23 @@ public class PlanNodeStatsEstimate
         return isNaN(outputRowCount);
     }
 
+    /**
+     * Returns how much the engine trusts this estimate. The value accounts for every estimate
+     * this one was derived from, so it describes the whole subtree rather than a single node.
+     */
+    @JsonProperty
+    public EstimateConfidence getConfidence()
+    {
+        return confidence;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("outputRowCount", outputRowCount)
                 .add("symbolStatistics", symbolStatistics)
+                .add("confidence", confidence)
                 .toString();
     }
 
@@ -166,13 +183,14 @@ public class PlanNodeStatsEstimate
         }
         PlanNodeStatsEstimate that = (PlanNodeStatsEstimate) o;
         return Double.compare(outputRowCount, that.outputRowCount) == 0 &&
-                Objects.equals(symbolStatistics, that.symbolStatistics);
+                Objects.equals(symbolStatistics, that.symbolStatistics) &&
+                confidence == that.confidence;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(outputRowCount, symbolStatistics);
+        return Objects.hash(outputRowCount, symbolStatistics, confidence);
     }
 
     public static Builder builder()
@@ -182,28 +200,46 @@ public class PlanNodeStatsEstimate
 
     public static Builder buildFrom(PlanNodeStatsEstimate other)
     {
-        return new Builder(other.getOutputRowCount(), other.symbolStatistics);
+        return new Builder(other.getOutputRowCount(), other.symbolStatistics, other.confidence);
     }
 
     public static final class Builder
     {
         private double outputRowCount;
         private PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+        private EstimateConfidence confidence;
 
         public Builder()
         {
-            this(NaN, HashTreePMap.empty());
+            this(NaN, HashTreePMap.empty(), HIGH);
         }
 
-        private Builder(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
+        private Builder(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics, EstimateConfidence confidence)
         {
             this.outputRowCount = outputRowCount;
             this.symbolStatistics = symbolStatistics;
+            this.confidence = confidence;
         }
 
         public Builder setOutputRowCount(double outputRowCount)
         {
             this.outputRowCount = outputRowCount;
+            return this;
+        }
+
+        public Builder setConfidence(EstimateConfidence confidence)
+        {
+            this.confidence = requireNonNull(confidence, "confidence is null");
+            return this;
+        }
+
+        /**
+         * Degrades the estimate to {@code confidence} when it is currently more trusted than that,
+         * for use where a rule knows only that it made one particular assumption.
+         */
+        public Builder degradeConfidenceTo(EstimateConfidence confidence)
+        {
+            this.confidence = EstimateConfidence.min(this.confidence, requireNonNull(confidence, "confidence is null"));
             return this;
         }
 
@@ -227,7 +263,7 @@ public class PlanNodeStatsEstimate
 
         public PlanNodeStatsEstimate build()
         {
-            return new PlanNodeStatsEstimate(outputRowCount, symbolStatistics);
+            return new PlanNodeStatsEstimate(outputRowCount, symbolStatistics, confidence);
         }
     }
 }
