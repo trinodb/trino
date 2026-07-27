@@ -706,29 +706,42 @@ public class ReorderJoins
             Set<Symbol> rightSymbols = outputSymbols(rightSources);
 
             List<Expression> joinPredicates = getJoinPredicates(leftSources | rightSources, leftSymbols);
-            List<EquiJoinClause> joinConditions = joinPredicates.stream()
-                    .map(JoinEnumerator::asJoinEqualityCondition)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(equality -> toEquiJoinClause(equality, leftSymbols))
-                    .collect(toImmutableList());
+            // this runs for every candidate join, so it avoids decoding each predicate twice and
+            // keeps the stream machinery out of the way
+            ImmutableList.Builder<EquiJoinClause> joinConditionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> joinFiltersBuilder = ImmutableList.builder();
+            for (Expression predicate : joinPredicates) {
+                Optional<Comparison.Equal> equality = asJoinEqualityCondition(predicate);
+                if (equality.isPresent()) {
+                    joinConditionsBuilder.add(toEquiJoinClause(equality.get(), leftSymbols));
+                }
+                else {
+                    joinFiltersBuilder.add(predicate);
+                }
+            }
+            List<EquiJoinClause> joinConditions = joinConditionsBuilder.build();
             if (joinConditions.isEmpty()) {
                 return INFINITE_COST_RESULT;
             }
-            List<Expression> joinFilters = joinPredicates.stream()
-                    .filter(predicate -> !isJoinEqualityCondition(predicate))
-                    .collect(toImmutableList());
+            List<Expression> joinFilters = joinFiltersBuilder.build();
 
             Set<Symbol> requiredJoinSymbols = ImmutableSet.<Symbol>builder()
                     .addAll(requiredOutputs)
                     .addAll(extractUnique(joinPredicates))
                     .build();
 
-            JoinEnumerationResult leftResult = resolveSource.resolve(
-                    leftSources,
-                    requiredJoinSymbols.stream()
-                            .filter(leftSymbols::contains)
-                            .collect(toImmutableSet()));
+            ImmutableSet.Builder<Symbol> leftRequiredBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<Symbol> rightRequiredBuilder = ImmutableSet.builder();
+            for (Symbol symbol : requiredJoinSymbols) {
+                if (leftSymbols.contains(symbol)) {
+                    leftRequiredBuilder.add(symbol);
+                }
+                if (rightSymbols.contains(symbol)) {
+                    rightRequiredBuilder.add(symbol);
+                }
+            }
+
+            JoinEnumerationResult leftResult = resolveSource.resolve(leftSources, leftRequiredBuilder.build());
             if (leftResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
             }
@@ -737,11 +750,7 @@ public class ReorderJoins
             }
             PlanNode left = leftResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            JoinEnumerationResult rightResult = resolveSource.resolve(
-                    rightSources,
-                    requiredJoinSymbols.stream()
-                            .filter(rightSymbols::contains)
-                            .collect(toImmutableSet()));
+            JoinEnumerationResult rightResult = resolveSource.resolve(rightSources, rightRequiredBuilder.build());
             if (rightResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
             }
@@ -750,12 +759,8 @@ public class ReorderJoins
             }
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            List<Symbol> leftOutputSymbols = left.getOutputSymbols().stream()
-                    .filter(requiredOutputs::contains)
-                    .collect(toImmutableList());
-            List<Symbol> rightOutputSymbols = right.getOutputSymbols().stream()
-                    .filter(requiredOutputs::contains)
-                    .collect(toImmutableList());
+            List<Symbol> leftOutputSymbols = retainRequired(left.getOutputSymbols(), requiredOutputs);
+            List<Symbol> rightOutputSymbols = retainRequired(right.getOutputSymbols(), requiredOutputs);
 
             return setJoinNodeProperties(new JoinNode(
                     idAllocator.getNextId(),
@@ -771,6 +776,17 @@ public class ReorderJoins
                     Optional.empty(),
                     ImmutableMap.of(),
                     Optional.empty()));
+        }
+
+        private static List<Symbol> retainRequired(List<Symbol> symbols, Set<Symbol> requiredOutputs)
+        {
+            ImmutableList.Builder<Symbol> required = ImmutableList.builder();
+            for (Symbol symbol : symbols) {
+                if (requiredOutputs.contains(symbol)) {
+                    required.add(symbol);
+                }
+            }
+            return required.build();
         }
 
         private List<Expression> getJoinPredicates(long nodes, Set<Symbol> leftSymbols)
@@ -821,11 +837,6 @@ public class ReorderJoins
             return chooseJoinOrder(nodes, requiredOutputs);
         }
 
-        private static boolean isJoinEqualityCondition(Expression expression)
-        {
-            return asJoinEqualityCondition(expression).isPresent();
-        }
-
         private static Optional<Comparison.Equal> asJoinEqualityCondition(Expression expression)
         {
             if (matchComparison(expression) instanceof Comparison.Equal(Reference left, Reference right)) {
@@ -852,8 +863,10 @@ public class ReorderJoins
             }
             List<JoinEnumerationResult> possibleJoinNodes = getPossibleJoinNodes(joinNode, getJoinDistributionType(session));
             verify(!possibleJoinNodes.isEmpty(), "possibleJoinNodes is empty");
-            if (possibleJoinNodes.stream().anyMatch(UNKNOWN_COST_RESULT::equals)) {
-                return UNKNOWN_COST_RESULT;
+            for (JoinEnumerationResult possibleJoinNode : possibleJoinNodes) {
+                if (possibleJoinNode.equals(UNKNOWN_COST_RESULT)) {
+                    return UNKNOWN_COST_RESULT;
+                }
             }
             return resultComparator.min(possibleJoinNodes);
         }
@@ -862,31 +875,37 @@ public class ReorderJoins
         {
             checkArgument(joinNode.getType() == INNER, "unexpected join node type: %s", joinNode.getType());
 
+            // flipping builds a whole join node, so it is done once and shared by both distributions
+            JoinNode flipped = joinNode.flipChildren();
+
             if (joinNode.isCrossJoin()) {
-                return getPossibleJoinNodes(joinNode, REPLICATED);
+                return getPossibleJoinNodes(joinNode, flipped, REPLICATED);
             }
 
             return switch (distributionType) {
-                case PARTITIONED -> getPossibleJoinNodes(joinNode, PARTITIONED);
-                case BROADCAST -> getPossibleJoinNodes(joinNode, REPLICATED);
+                case PARTITIONED -> getPossibleJoinNodes(joinNode, flipped, PARTITIONED);
+                case BROADCAST -> getPossibleJoinNodes(joinNode, flipped, REPLICATED);
                 case AUTOMATIC -> ImmutableList.<JoinEnumerationResult>builder()
-                        .addAll(getPossibleJoinNodes(joinNode, PARTITIONED))
-                        .addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> canReplicate(node, context)))
+                        .addAll(getPossibleJoinNodes(joinNode, flipped, PARTITIONED))
+                        .addAll(getPossibleJoinNodes(joinNode, flipped, REPLICATED, node -> canReplicate(node, context)))
                         .build();
             };
         }
 
-        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, JoinNode flipped, DistributionType distributionType)
         {
-            return getPossibleJoinNodes(joinNode, distributionType, _ -> true);
+            return getPossibleJoinNodes(joinNode, flipped, distributionType, _ -> true);
         }
 
-        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, JoinNode flipped, DistributionType distributionType, Predicate<JoinNode> isAllowed)
         {
-            List<JoinNode> nodes = ImmutableList.of(
-                    joinNode.withDistributionType(distributionType),
-                    joinNode.flipChildren().withDistributionType(distributionType));
-            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
+            ImmutableList.Builder<JoinEnumerationResult> results = ImmutableList.builder();
+            for (JoinNode node : ImmutableList.of(joinNode.withDistributionType(distributionType), flipped.withDistributionType(distributionType))) {
+                if (isAllowed.test(node)) {
+                    results.add(createJoinEnumerationResult(node));
+                }
+            }
+            return results.build();
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(JoinNode joinNode)
