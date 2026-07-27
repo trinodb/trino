@@ -54,6 +54,17 @@ final class Gate
         }
     }
 
+    public boolean isOpen()
+    {
+        lock.lock();
+        try {
+            return open;
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
     public void awaitOpen()
             throws InterruptedException
     {

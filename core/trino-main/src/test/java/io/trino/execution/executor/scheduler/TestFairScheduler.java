@@ -244,6 +244,46 @@ public class TestFairScheduler
 
     @Test
     @Timeout(30)
+    public void testPausedSchedulerIsNotBypassed()
+            throws InterruptedException, ExecutionException
+    {
+        // pause() is not synchronous: a scheduler thread already parked in dequeue() is past the
+        // gate and can still hand out a slot. What must hold is that a task unblocking while
+        // paused does not resume itself, since that would skip the gate altogether.
+        try (FairScheduler scheduler = FairScheduler.newInstance(4)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch started = new CountDownLatch(1);
+            TestFuture blocked = new TestFuture();
+
+            ListenableFuture<Void> task = scheduler.submit(group, 1, context -> {
+                started.countDown();
+                context.block(blocked);
+            });
+
+            started.await();
+            blocked.awaitListenerAdded(); // the task is now parked in block()
+
+            scheduler.pause();
+            blocked.set(null);
+
+            // the counters are bumped as the resume path is chosen, before the task parks, so
+            // this waits for the decision itself rather than for the task to run
+            while (scheduler.getBypassedResumeCount() + scheduler.getScheduledResumeCount() == 0) {
+                Thread.onSpinWait();
+            }
+
+            assertThat(scheduler.getBypassedResumeCount())
+                    .describedAs("Bypassed resumes while paused")
+                    .isEqualTo(0);
+
+            scheduler.resume();
+            task.get();
+        }
+    }
+
+    @Test
+    @Timeout(30)
     public void testBypassDoesNotStarveRunnableTasks()
             throws InterruptedException, ExecutionException
     {

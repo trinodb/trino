@@ -317,6 +317,12 @@ public final class FairScheduler
      */
     private boolean tryResumeWithoutScheduler(TaskControl task)
     {
+        // The scheduler thread stops handing out slots while paused, so the bypass has to as
+        // well, otherwise pausing would no longer stop scheduling
+        if (!paused.isOpen()) {
+            return false;
+        }
+
         if (queue.getRunnableCount() > 0 || pendingStarts.get() > 0) {
             return false;
         }
