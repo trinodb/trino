@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Timeout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -43,6 +44,7 @@ import java.util.function.Function;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestThreadPerDriverTaskExecutor
@@ -270,6 +272,85 @@ public class TestThreadPerDriverTaskExecutor
     }
 
     @Test
+    @Timeout(30)
+    public void testStuckSplitDetection()
+            throws InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        FairScheduler scheduler = new FairScheduler(4, "Runner-%d", ticker);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, Integer.MAX_VALUE, ticker);
+        executor.start();
+
+        CountDownLatch release = new CountDownLatch(1);
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskHandle task = executor.addTask(taskId, () -> 0, 1, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            CountDownLatch processing = new CountDownLatch(1);
+            SplitRunner split = new TestingSplitRunner(ImmutableList.of(_ -> {
+                processing.countDown();
+                try {
+                    release.await();
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return Futures.immediateVoidFuture();
+            }));
+
+            executor.enqueueSplits(task, false, ImmutableList.of(split));
+            processing.await(); // the split now owns a thread inside processFor
+
+            assertThat(executor.getStuckSplitTaskIds(new Duration(1, MINUTES), _ -> true))
+                    .describedAs("Split has not been processing long enough to count as stuck")
+                    .isEmpty();
+
+            ticker.increment(2, MINUTES);
+
+            assertThat(executor.getStuckSplitTaskIds(new Duration(1, MINUTES), _ -> true))
+                    .describedAs("Stuck split task ids")
+                    .containsExactly(taskId);
+
+            assertThat(executor.getStuckSplitTaskIds(new Duration(1, MINUTES), _ -> false))
+                    .describedAs("Filter rejecting the split")
+                    .isEmpty();
+        }
+        finally {
+            release.countDown();
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testSplitThatKeepsReturningIsNotStuck()
+            throws ExecutionException, InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        FairScheduler scheduler = new FairScheduler(4, "Runner-%d", ticker);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, Integer.MAX_VALUE, ticker);
+        executor.start();
+
+        try {
+            TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
+            TaskHandle task = executor.addTask(taskId, () -> 0, 1, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            SplitRunner split = new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture()));
+            executor.enqueueSplits(task, false, ImmutableList.of(split)).get(0).get();
+
+            // however far time moves on, a split that finished holds no thread
+            ticker.increment(1, TimeUnit.HOURS);
+
+            assertThat(executor.getStuckSplitTaskIds(new Duration(1, MINUTES), _ -> true))
+                    .describedAs("Stuck split task ids")
+                    .isEmpty();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
     @Timeout(10)
     public void testConcurrencyAdjustmentIsRateLimited()
     {
@@ -283,6 +364,7 @@ public class TestThreadPerDriverTaskExecutor
                     4,
                     new Duration(100, MILLISECONDS),
                     () -> 1.0, // fully utilized, so every permitted adjustment lowers the target
+                    new ConcurrentSkipListSet<>(),
                     ticker);
 
             assertThat(task.targetConcurrency()).isEqualTo(4);

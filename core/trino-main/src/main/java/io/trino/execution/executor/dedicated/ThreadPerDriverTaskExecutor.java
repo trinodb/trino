@@ -15,7 +15,6 @@ package io.trino.execution.executor.dedicated;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -44,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -51,6 +51,7 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +100,13 @@ public class ThreadPerDriverTaskExecutor
 
     @GuardedBy("this")
     private int runningLeafDrivers;
+
+    /**
+     * Splits currently inside a processing call, and therefore owning a thread. A split that is
+     * making progress returns from that call every quantum, so anything lingering here for long
+     * is stuck.
+     */
+    private final Set<RunningSplitInfo> runningSplitInfos = new ConcurrentSkipListSet<>();
 
     @GuardedBy("this")
     private boolean scheduling;
@@ -175,6 +183,7 @@ public class ThreadPerDriverTaskExecutor
                 initialSplitConcurrency,
                 splitConcurrencyAdjustFrequency,
                 utilizationSupplier,
+                runningSplitInfos,
                 ticker);
         tasks.put(taskId, task);
         return task;
@@ -366,8 +375,11 @@ public class ThreadPerDriverTaskExecutor
     @Override
     public Set<TaskId> getStuckSplitTaskIds(Duration processingDurationThreshold, Predicate<RunningSplitInfo> filter)
     {
-        // TODO
-        return ImmutableSet.of();
+        return runningSplitInfos.stream()
+                .filter(splitInfo -> Duration.succinctNanos(ticker.read() - splitInfo.getStartTime()).compareTo(processingDurationThreshold) > 0)
+                .filter(filter)
+                .map(RunningSplitInfo::getTaskId)
+                .collect(toImmutableSet());
     }
 
     @Managed

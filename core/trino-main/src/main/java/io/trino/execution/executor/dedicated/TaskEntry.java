@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.execution.executor.scheduler.Group;
@@ -28,6 +29,7 @@ import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.spi.VersionEmbedder;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -52,6 +54,7 @@ class TaskEntry
     private final AtomicInteger nextSplitId = new AtomicInteger();
     private final Ticker ticker;
     private final long concurrencyAdjustmentIntervalNanos;
+    private final Collection<RunningSplitInfo> runningSplitInfos;
 
     @GuardedBy("this")
     private final ConcurrencyController concurrency;
@@ -78,8 +81,10 @@ class TaskEntry
             int initialConcurrency,
             Duration concurrencyAdjustmentInterval,
             DoubleSupplier utilization,
+            Collection<RunningSplitInfo> runningSplitInfos,
             Ticker ticker)
     {
+        this.runningSplitInfos = requireNonNull(runningSplitInfos, "runningSplitInfos is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
@@ -170,7 +175,7 @@ class TaskEntry
         ListenableFuture<Void> done = scheduler.submit(
                 group,
                 splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, runningSplitInfos, ticker)));
         done.addListener(() -> splitDone(split), directExecutor());
         running.add(split);
 
