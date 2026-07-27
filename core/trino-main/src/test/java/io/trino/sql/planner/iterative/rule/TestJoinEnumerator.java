@@ -61,6 +61,7 @@ import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.buildJoinGraph;
+import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.countPartitions;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.isConnected;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -127,6 +128,37 @@ public class TestJoinEnumerator
         assertThat(generatePartitions(0b1110, chain)).containsExactly(0b0010, 0b0110);
         // 0 and 3 are not adjacent, so they cannot be joined
         assertThat(generatePartitions(0b1001, chain)).isEmpty();
+    }
+
+    @Test
+    public void testCountPartitions()
+    {
+        // a chain is enumerated in cubic time, a clique in exponential time
+        assertThat(countPartitions(0b1111, graph(4, 0, 1, 1, 2, 2, 3), 1000)).isEqualTo(10);
+        assertThat(countPartitions(0b1111, clique(4), 1000)).isEqualTo(25);
+        assertThat(countPartitions((1L << 10) - 1, chain(10), 1_000_000)).isEqualTo(165);
+        assertThat(countPartitions((1L << 10) - 1, clique(10), 1_000_000)).isEqualTo(28501);
+    }
+
+    @Test
+    public void testCountPartitionsGivesUpOnceLimitIsExceeded()
+    {
+        // counting stops as soon as the limit is passed, rather than enumerating the whole space
+        assertThat(countPartitions((1L << 16) - 1, clique(16), 100)).isEqualTo(101);
+        assertThat(countPartitions((1L << 16) - 1, clique(16), 1000)).isEqualTo(1001);
+        // under the limit the count is exact
+        assertThat(countPartitions((1L << 16) - 1, chain(16), 1000)).isEqualTo(680);
+    }
+
+    @Test
+    public void testCountPartitionsDoesNotWalkTheSearchSpaceToGiveUp()
+    {
+        // a 40-source clique has 2^39 partitions at the top level alone: the count must stop at
+        // the limit instead of materializing them
+        assertThat(countPartitions((1L << 40) - 1, clique(40), 100)).isGreaterThan(100);
+        // a 40-source star generates exponentially many candidate subgraphs while yielding few
+        // partitions: the count must give up on the generation work, not only on the partitions
+        assertThat(countPartitions((1L << 40) - 1, star(40), 100)).isGreaterThan(100);
     }
 
     @Test
@@ -272,6 +304,29 @@ public class TestJoinEnumerator
                 return WarningCollector.NOOP;
             }
         };
+    }
+
+    private static long[] chain(int nodes)
+    {
+        long[] neighbors = new long[nodes];
+        for (int node = 0; node + 1 < nodes; node++) {
+            neighbors[node] |= 1L << (node + 1);
+            neighbors[node + 1] |= 1L << node;
+        }
+        return neighbors;
+    }
+
+    /**
+     * Builds the adjacency masks of a star: node 0 in the center, every other node a leaf.
+     */
+    private static long[] star(int nodes)
+    {
+        long[] neighbors = new long[nodes];
+        for (int leaf = 1; leaf < nodes; leaf++) {
+            neighbors[0] |= 1L << leaf;
+            neighbors[leaf] = 1L;
+        }
+        return neighbors;
     }
 
     private static long[] clique(int nodes)

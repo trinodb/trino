@@ -52,6 +52,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +64,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.LongPredicate;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,6 +74,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
+import static io.trino.SystemSessionProperties.getMaxEnumeratedJoinOrders;
 import static io.trino.SystemSessionProperties.getMaxReorderedJoins;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
@@ -177,6 +180,11 @@ public class ReorderJoins
     @VisibleForTesting
     static class JoinEnumerator
     {
+        // Generating a candidate subgraph is far cheaper than costing the join order it stands
+        // for, so the enumeration is allowed this many candidates per join order in the budget
+        // before the count gives up.
+        private static final long CANDIDATES_PER_PARTITION_LIMIT = 16;
+
         private final Session session;
         private final StatsProvider statsProvider;
         private final CostProvider costProvider;
@@ -190,10 +198,16 @@ public class ReorderJoins
 
         private final Long2ObjectMap<JoinEnumerationResult> memo = new Long2ObjectOpenHashMap<>();
         private final List<Expression> residuals;
+        // every symbol the filter mentions, so that a pre-joined source keeps the columns
+        // the joins above it still need
+        private final Set<Symbol> filterSymbols;
         // sources indexed by their position in the bit masks used to drive the enumeration
         private final List<PlanNode> sources;
         // for each source, the mask of sources it can be joined with directly
         private final long[] neighbors;
+        // set when the sources come from the greedy planner, which plans every equality within
+        // a source's scope into the source itself, as a join clause or a leaf filter
+        private final boolean sourcesPrejoined;
 
         @VisibleForTesting
         JoinEnumerator(CostComparator costComparator, Expression filter, LinkedHashSet<PlanNode> sources, Context context, PlannerContext plannerContext)
@@ -219,10 +233,35 @@ public class ReorderJoins
             }
 
             this.residuals = residuals.build();
+            this.filterSymbols = extractUnique(filter);
             this.allFilterInference = new EqualityInference(plannerContext, inferenceCandidates);
             this.sources = ImmutableList.copyOf(sources);
             checkArgument(this.sources.size() <= MAX_ENUMERATED_SOURCES, "too many sources to enumerate: %s", this.sources.size());
             this.neighbors = buildJoinGraph(this.sources, allFilterInference);
+            this.sourcesPrejoined = false;
+        }
+
+        /**
+         * Creates an enumerator over the simplified sources the greedy planner produced.
+         * Everything derived from the filter carries over, but none of the caches do: their keys
+         * are masks over the sources, so they mean something else under a different source list.
+         */
+        private JoinEnumerator(JoinEnumerator parent, List<PlanNode> sources)
+        {
+            this.context = parent.context;
+            this.session = parent.session;
+            this.statsProvider = parent.statsProvider;
+            this.costProvider = parent.costProvider;
+            this.plannerContext = parent.plannerContext;
+            this.resultComparator = parent.resultComparator;
+            this.idAllocator = parent.idAllocator;
+            this.lookup = parent.lookup;
+            this.residuals = parent.residuals;
+            this.filterSymbols = parent.filterSymbols;
+            this.allFilterInference = parent.allFilterInference;
+            this.sources = ImmutableList.copyOf(sources);
+            this.neighbors = buildJoinGraph(this.sources, allFilterInference);
+            this.sourcesPrejoined = true;
         }
 
         /**
@@ -273,12 +312,25 @@ public class ReorderJoins
 
         public JoinEnumerationResult choose(List<Symbol> outputSymbols)
         {
-            JoinEnumerationResult result = chooseJoinOrder(
-                    allNodes(sources.size()),
-                    ImmutableSet.<Symbol>builder()
-                            .addAll(outputSymbols)
-                            .addAll(residuals.stream().flatMap(e -> extractAll(e).stream()).toList())
-                            .build());
+            Set<Symbol> requiredOutputs = ImmutableSet.<Symbol>builder()
+                    .addAll(outputSymbols)
+                    .addAll(residuals.stream().flatMap(e -> extractAll(e).stream()).toList())
+                    .build();
+
+            long budget = getMaxEnumeratedJoinOrders(session);
+            JoinEnumerator enumerator = this;
+            if (!fitsBudget(sources.size(), neighbors, budget)) {
+                Optional<JoinEnumerator> simplified = simplifyToBudget(planGreedily(requiredOutputs), budget);
+                if (simplified.isEmpty()) {
+                    // nothing to simplify along fits the budget, so the enumeration cannot be kept
+                    // within it. Leaving the join order alone beats running until the optimizer
+                    // times out.
+                    return INFINITE_COST_RESULT;
+                }
+                enumerator = simplified.get();
+            }
+
+            JoinEnumerationResult result = enumerator.chooseJoinOrder(allNodes(enumerator.sources.size()), requiredOutputs);
 
             if (result.getPlanNode().isPresent()) {
                 PlanNode plan = result.getPlanNode().get();
@@ -298,6 +350,187 @@ public class ReorderJoins
             }
 
             return result;
+        }
+
+        /**
+         * Builds a join order greedily, at every step joining the pair of groups whose join is the
+         * cheapest, and returns the intermediate source lists, shortest last.
+         * <p>
+         * Pre-joining the pairs the greedy order is most confident about is how the search space is
+         * cut down when the full enumeration does not fit the budget: it gives up the join orders
+         * that separate those pairs, and enumerates everything else exhaustively.
+         */
+        private List<List<PlanNode>> planGreedily(Set<Symbol> requiredOutputs)
+        {
+            Set<Symbol> greedyOutputs = ImmutableSet.<Symbol>builder()
+                    .addAll(requiredOutputs)
+                    .addAll(filterSymbols)
+                    .build();
+
+            Map<Long, JoinEnumerationResult> plans = new HashMap<>();
+            Map<Long, PlanNode> groupSources = new HashMap<>();
+            LongArrayList groups = new LongArrayList();
+            for (int index = 0; index < sources.size(); index++) {
+                long group = 1L << index;
+                JoinEnumerationResult source = getJoinSource(group, restrictTo(greedyOutputs, group));
+                if (source.getPlanNode().isEmpty()) {
+                    return ImmutableList.of();
+                }
+                groups.add(group);
+                plans.put(group, source);
+                groupSources.put(group, source.getPlanNode().get());
+            }
+
+            ImmutableList.Builder<List<PlanNode>> simplifications = ImmutableList.builder();
+            // the required outputs are deliberately dropped: every group was planned with
+            // greedyOutputs restricted to it, which covers anything createJoin can ask for,
+            // because the symbols it adds all come from join predicates, and those are a
+            // subset of filterSymbols
+            SourceResolver resolver = (nodes, _) -> plans.get(nodes);
+            while (groups.size() > 1) {
+                JoinEnumerationResult best = null;
+                int bestLeft = -1;
+                int bestRight = -1;
+                for (int left = 0; left < groups.size(); left++) {
+                    long leftNeighborhood = neighborhood(groups.getLong(left), neighbors);
+                    for (int right = left + 1; right < groups.size(); right++) {
+                        if ((leftNeighborhood & groups.getLong(right)) == 0) {
+                            continue;
+                        }
+                        long merged = groups.getLong(left) | groups.getLong(right);
+                        JoinEnumerationResult candidate = createJoin(groups.getLong(left), groups.getLong(right), restrictTo(greedyOutputs, merged), resolver);
+                        if (candidate.getPlanNode().isPresent() && (best == null || resultComparator.compare(candidate, best) < 0)) {
+                            best = candidate;
+                            bestLeft = left;
+                            bestRight = right;
+                        }
+                    }
+                }
+                if (best == null) {
+                    // no pair can be joined, so the greedy order stops here. Whatever it managed to
+                    // merge is still usable for simplification.
+                    return simplifications.build();
+                }
+
+                long merged = groups.getLong(bestLeft) | groups.getLong(bestRight);
+                plans.put(merged, best);
+                groupSources.put(merged, best.getPlanNode().get());
+                // removeLong removes by index, not by value; the higher index goes first so that
+                // it is still valid when the lower one is removed
+                groups.removeLong(bestRight);
+                groups.removeLong(bestLeft);
+                groups.add(merged);
+
+                if (groups.size() > 1) {
+                    ImmutableList.Builder<PlanNode> simplified = ImmutableList.builder();
+                    for (int group = 0; group < groups.size(); group++) {
+                        simplified.add(groupSources.get(groups.getLong(group)));
+                    }
+                    simplifications.add(simplified.build());
+                }
+            }
+
+            return simplifications.build();
+        }
+
+        /**
+         * Returns an enumerator over the least simplified of {@code simplifications} whose
+         * enumeration fits within {@code budget}. Each one has a pair of sources pre-joined
+         * according to the greedy order, so this trades away join orders that the greedy plan
+         * considered unpromising rather than truncating the group at an arbitrary point.
+         */
+        private Optional<JoinEnumerator> simplifyToBudget(List<List<PlanNode>> simplifications, long budget)
+        {
+            for (List<PlanNode> simplifiedSources : simplifications) {
+                JoinEnumerator simplified = new JoinEnumerator(this, simplifiedSources);
+                if (fitsBudget(simplifiedSources.size(), simplified.neighbors, budget)) {
+                    return Optional.of(simplified);
+                }
+            }
+
+            // reached only when the greedy order stalled: run to completion it ends at two
+            // groups, which always fit. Nothing here can be enumerated within the budget.
+            return Optional.empty();
+        }
+
+        /**
+         * Checks whether enumerating a join graph stays within {@code budget}, without walking
+         * the search space when even the densest graph over as many sources would fit.
+         */
+        private static boolean fitsBudget(int sources, long[] neighbors, long budget)
+        {
+            return worstCasePartitionCount(sources) <= budget
+                    || countPartitions(allNodes(sources), neighbors, budget) <= budget;
+        }
+
+        /**
+         * The number of partitions {@link #countPartitions} finds for a clique, the densest join
+         * graph over the given number of sources: {@code C(n, k) * (2^(k-1) - 1)} summed over
+         * every subset size {@code k}, which comes to {@code (3^n - 2^(n+1) + 1) / 2}. No other
+         * graph over as many sources counts higher.
+         */
+        private static long worstCasePartitionCount(int sources)
+        {
+            if (sources > 39) {
+                // 3^40 does not fit in a long
+                return Long.MAX_VALUE;
+            }
+            long powerOfThree = 1;
+            for (int i = 0; i < sources; i++) {
+                powerOfThree *= 3;
+            }
+            return (powerOfThree - (2L << sources) + 1) / 2;
+        }
+
+        /**
+         * Counts the partitions the enumeration would cost, giving up as soon as {@code limit} is
+         * exceeded. Counting walks the same subsets as the enumeration but does no costing, so it
+         * is orders of magnitude cheaper than finding out by running it.
+         * <p>
+         * The count also comes out above {@code limit} when finding the partitions takes more
+         * than {@link #CANDIDATES_PER_PARTITION_LIMIT} candidate subgraphs per allowed partition.
+         * In graphs whose subgraphs mostly have disconnected complements, such as stars, the
+         * candidates dominate the enumeration cost even though few of them are partitions, and
+         * giving up on them here is what bounds both this count and the enumeration itself.
+         */
+        @VisibleForTesting
+        static long countPartitions(long nodes, long[] neighbors, long limit)
+        {
+            long[] partitions = new long[1];
+            long[] candidates = new long[1];
+            countPartitions(nodes, neighbors, limit, new LongOpenHashSet(), partitions, candidates);
+            return partitions[0];
+        }
+
+        private static boolean countPartitions(long nodes, long[] neighbors, long limit, LongOpenHashSet counted, long[] partitions, long[] candidates)
+        {
+            if (Long.bitCount(nodes) <= 1 || !counted.add(nodes)) {
+                return true;
+            }
+            return forEachPartitionCandidate(nodes, neighbors, subgraph -> {
+                candidates[0]++;
+                if (candidates[0] > CANDIDATES_PER_PARTITION_LIMIT * limit) {
+                    partitions[0] = Math.max(partitions[0], limit + 1);
+                    return false;
+                }
+                if (!isPartition(subgraph, nodes, neighbors)) {
+                    return true;
+                }
+                partitions[0]++;
+                if (partitions[0] > limit) {
+                    return false;
+                }
+                return countPartitions(subgraph, neighbors, limit, counted, partitions, candidates)
+                        && countPartitions(nodes & ~subgraph, neighbors, limit, counted, partitions, candidates);
+            });
+        }
+
+        private Set<Symbol> restrictTo(Set<Symbol> symbols, long nodes)
+        {
+            Set<Symbol> available = outputSymbols(nodes);
+            return symbols.stream()
+                    .filter(available::contains)
+                    .collect(toImmutableSet());
         }
 
         private JoinEnumerationResult chooseJoinOrder(long nodes, Set<Symbol> requiredOutputs)
@@ -344,7 +577,7 @@ public class ReorderJoins
          * enumeration of all {@code 2^n} partitions of every subset into an enumeration of the
          * connected subgraph pairs only, which for anything sparser than a clique is dramatically
          * fewer. A clique — the shape that joining several tables on one shared key produces — is
-         * not improved at all.
+         * not improved at all, and it is {@link #countPartitions} that keeps it in check.
          * <p>
          * Partitions are returned in ascending mask order, which is the order in which a plain
          * enumeration of all subsets would have evaluated them.
@@ -352,23 +585,13 @@ public class ReorderJoins
         @VisibleForTesting
         static long[] generatePartitions(long nodes, long[] neighbors)
         {
-            checkArgument(Long.bitCount(nodes) > 1, "nodes must contain more than one node");
-
-            long seed = Long.lowestOneBit(nodes);
-            LongArrayList subgraphs = new LongArrayList();
-            subgraphs.add(seed);
-            expandConnectedSubgraphs(seed, seed, nodes, neighbors, subgraphs);
-
             LongArrayList partitions = new LongArrayList();
-            for (int i = 0; i < subgraphs.size(); i++) {
-                long subgraph = subgraphs.getLong(i);
-                long complement = nodes & ~subgraph;
-                // the complement is reachable from the subgraph unless nodes itself is disconnected,
-                // which can only happen for the complete set of sources
-                if (complement != 0 && (neighborhood(subgraph, neighbors) & complement) != 0 && isConnected(complement, neighbors)) {
+            forEachPartitionCandidate(nodes, neighbors, subgraph -> {
+                if (isPartition(subgraph, nodes, neighbors)) {
                     partitions.add(subgraph);
                 }
-            }
+                return true;
+            });
 
             long[] result = partitions.toLongArray();
             Arrays.sort(result);
@@ -376,19 +599,49 @@ public class ReorderJoins
         }
 
         /**
+         * Offers every connected subgraph of {@code nodes} containing its lowest node to
+         * {@code consumer}, stopping as soon as the consumer returns {@code false}. These are the
+         * candidate halves of the partitions of {@code nodes}: the half with the lowest node is
+         * necessarily among them, and {@link #isPartition} tells which candidates qualify.
+         */
+        private static boolean forEachPartitionCandidate(long nodes, long[] neighbors, LongPredicate consumer)
+        {
+            checkArgument(Long.bitCount(nodes) > 1, "nodes must contain more than one node");
+
+            long seed = Long.lowestOneBit(nodes);
+            if (!consumer.test(seed)) {
+                return false;
+            }
+            return expandConnectedSubgraphs(seed, seed, nodes, neighbors, consumer);
+        }
+
+        private static boolean isPartition(long subgraph, long nodes, long[] neighbors)
+        {
+            long complement = nodes & ~subgraph;
+            // the complement is reachable from the subgraph unless nodes itself is disconnected,
+            // which can only happen for the complete set of sources
+            return complement != 0 && (neighborhood(subgraph, neighbors) & complement) != 0 && isConnected(complement, neighbors);
+        }
+
+        /**
          * Grows a connected subgraph by every non-empty subset of its neighborhood, recursively.
          * Nodes already offered as growth candidates are excluded from deeper levels, so that every
          * connected subgraph containing the initial one is produced exactly once.
          */
-        private static void expandConnectedSubgraphs(long subgraph, long excluded, long nodes, long[] neighbors, LongArrayList result)
+        private static boolean expandConnectedSubgraphs(long subgraph, long excluded, long nodes, long[] neighbors, LongPredicate consumer)
         {
             long candidates = neighborhood(subgraph, neighbors) & nodes & ~excluded;
             for (long subset = candidates; subset != 0; subset = (subset - 1) & candidates) {
-                result.add(subgraph | subset);
+                if (!consumer.test(subgraph | subset)) {
+                    return false;
+                }
             }
             for (long subset = candidates; subset != 0; subset = (subset - 1) & candidates) {
-                expandConnectedSubgraphs(subgraph | subset, excluded | candidates, nodes, neighbors, result);
+                if (!expandConnectedSubgraphs(subgraph | subset, excluded | candidates, nodes, neighbors, consumer)) {
+                    return false;
+                }
             }
+            return true;
         }
 
         private static long neighborhood(long nodes, long[] neighbors)
@@ -417,6 +670,16 @@ public class ReorderJoins
             return (1L << count) - 1;
         }
 
+        /**
+         * Produces the plan for a set of sources. The enumeration resolves it recursively, while the
+         * greedy planner looks it up among the groups it has already joined.
+         */
+        @FunctionalInterface
+        private interface SourceResolver
+        {
+            JoinEnumerationResult resolve(long nodes, Set<Symbol> requiredOutputs);
+        }
+
         @VisibleForTesting
         JoinEnumerationResult createJoinAccordingToPartitioning(long nodes, Set<Symbol> requiredOutputs, long partitioning)
         {
@@ -424,6 +687,11 @@ public class ReorderJoins
         }
 
         private JoinEnumerationResult createJoin(long leftSources, long rightSources, Set<Symbol> requiredOutputs)
+        {
+            return createJoin(leftSources, rightSources, requiredOutputs, this::getJoinSource);
+        }
+
+        private JoinEnumerationResult createJoin(long leftSources, long rightSources, Set<Symbol> requiredOutputs, SourceResolver resolveSource)
         {
             Set<Symbol> leftSymbols = outputSymbols(leftSources);
             Set<Symbol> rightSymbols = outputSymbols(rightSources);
@@ -447,7 +715,7 @@ public class ReorderJoins
                     .addAll(extractUnique(joinPredicates))
                     .build();
 
-            JoinEnumerationResult leftResult = getJoinSource(
+            JoinEnumerationResult leftResult = resolveSource.resolve(
                     leftSources,
                     requiredJoinSymbols.stream()
                             .filter(leftSymbols::contains)
@@ -458,10 +726,9 @@ public class ReorderJoins
             if (leftResult.equals(INFINITE_COST_RESULT)) {
                 return INFINITE_COST_RESULT;
             }
-
             PlanNode left = leftResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            JoinEnumerationResult rightResult = getJoinSource(
+            JoinEnumerationResult rightResult = resolveSource.resolve(
                     rightSources,
                     requiredJoinSymbols.stream()
                             .filter(rightSymbols::contains)
@@ -472,7 +739,6 @@ public class ReorderJoins
             if (rightResult.equals(INFINITE_COST_RESULT)) {
                 return INFINITE_COST_RESULT;
             }
-
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
             List<Symbol> leftOutputSymbols = left.getOutputSymbols().stream()
@@ -524,6 +790,12 @@ public class ReorderJoins
         {
             if (Long.bitCount(nodes) == 1) {
                 PlanNode planNode = sources.get(Long.numberOfTrailingZeros(nodes));
+                if (sourcesPrejoined) {
+                    // the greedy planner already planned every equality within this source's scope
+                    // into it, so deriving them again would stack a filter that repeats predicates
+                    // the source enforces
+                    return createJoinEnumerationResult(planNode);
+                }
                 Set<Symbol> scope = ImmutableSet.copyOf(requiredOutputs);
                 Expression filter = combineConjuncts(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
                 if (!TRUE.equals(filter)) {

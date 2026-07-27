@@ -102,6 +102,17 @@ original table order as much as possible. `AUTOMATIC` enumerates possible orders
 statistics-based cost estimation to determine the least cost order. If stats are not available, or if
 for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strategy is used.
 
+## `optimizer.max-enumerated-join-orders`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `10000`
+- **Session property:** `max_enumerated_join_orders`
+
+The maximum number of join orders that cost-based join reordering evaluates for one group of
+joins. When the query graph would require more, pairs of relations are pre-joined along a greedy
+join order until the enumeration fits, so that planning time is bounded by this budget rather
+than by the shape of the query.
+
 ## `optimizer.max-reordered-joins`
 
 - **Type:** {ref}`prop-type-integer`

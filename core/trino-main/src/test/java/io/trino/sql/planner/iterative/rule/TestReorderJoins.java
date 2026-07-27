@@ -45,6 +45,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.MAX_ENUMERATED_JOIN_ORDERS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -402,6 +403,99 @@ public class TestReorderJoins
                                                         .equiCriteria("A1", "B1")
                                                         .left(values("A1"))
                                                         .right(values("B1", "B2")))))));
+    }
+
+    @Test
+    public void testSimplifiesQueryGraphToFitEnumerationBudget()
+    {
+        // a budget of a single join order forces the greedy planner to pre-join the cheapest
+        // pair (A and B), leaving only the join with C to enumerate. The pre-joined pair already
+        // enforces its equality, so it must come out as a bare join with no filter stacked on top
+        assertReorderJoins()
+                .setSystemProperty(MAX_ENUMERATED_JOIN_ORDERS, "1")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(5)
+                        .addSymbolStatistics(ImmutableMap.of(
+                                new Symbol(BIGINT, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5),
+                                new Symbol(BIGINT, "B2"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
+                        .build())
+                .overrideStats("valuesC", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1000)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
+                        .build())
+                .on(p ->
+                        p.join(INNER,
+                                p.join(
+                                        INNER,
+                                        p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),
+                                        p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1", BIGINT), p.symbol("B2", BIGINT)),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                        ImmutableList.of(p.symbol("A1", BIGINT)),
+                                        ImmutableList.of(p.symbol("B1", BIGINT), p.symbol("B2", BIGINT)),
+                                        Optional.empty()),
+                                p.values(new PlanNodeId("valuesC"), 2, p.symbol("C1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.symbol("B2", BIGINT), p.symbol("C1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(),
+                                Optional.empty()))
+                .matches(
+                        project(
+                                join(INNER, builder -> builder
+                                        .equiCriteria("C1", "B2")
+                                        .left(values("C1"))
+                                        .right(
+                                                join(INNER, prejoined -> prejoined
+                                                        .equiCriteria("A1", "B1")
+                                                        .left(values("A1"))
+                                                        .right(values("B1", "B2")))))));
+    }
+
+    @Test
+    public void testDoesNotFireWhenGreedySimplificationStalls()
+    {
+        // valuesC and valuesD have row counts but no column statistics, so once A and B are
+        // pre-joined every remaining pair costs UNKNOWN and the greedy order stalls with three
+        // groups, more than the budget of one join order allows. The enumeration must not run
+        // over the too-large graph; the join order is left alone instead
+        assertReorderJoins()
+                .setSystemProperty(MAX_ENUMERATED_JOIN_ORDERS, "1")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(5)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
+                        .build())
+                .overrideStats("valuesC", PlanNodeStatsEstimate.builder().setOutputRowCount(100).build())
+                .overrideStats("valuesD", PlanNodeStatsEstimate.builder().setOutputRowCount(100).build())
+                .on(p ->
+                        p.join(INNER,
+                                p.join(
+                                        INNER,
+                                        p.join(
+                                                INNER,
+                                                p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),
+                                                p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1", BIGINT)),
+                                                ImmutableList.of(new EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                                ImmutableList.of(p.symbol("A1", BIGINT)),
+                                                ImmutableList.of(p.symbol("B1", BIGINT)),
+                                                Optional.empty()),
+                                        p.values(new PlanNodeId("valuesC"), 2, p.symbol("C1", BIGINT)),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("B1", BIGINT), p.symbol("C1", BIGINT))),
+                                        ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                        ImmutableList.of(p.symbol("C1", BIGINT)),
+                                        Optional.empty()),
+                                p.values(new PlanNodeId("valuesD"), 2, p.symbol("D1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.symbol("C1", BIGINT), p.symbol("D1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT)),
+                                ImmutableList.of(),
+                                Optional.empty()))
+                .doesNotFire();
     }
 
     @Test

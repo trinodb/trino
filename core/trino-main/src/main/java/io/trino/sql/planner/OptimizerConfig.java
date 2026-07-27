@@ -49,6 +49,7 @@ public class OptimizerConfig
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 8;
+    private int maxEnumeratedJoinOrders = 10_000;
     private int maxPrefetchedInformationSchemaPrefixes = 100;
 
     private boolean enableStatsCalculator = true;
@@ -243,6 +244,20 @@ public class OptimizerConfig
     public OptimizerConfig setMaxReorderedJoins(int maxReorderedJoins)
     {
         this.maxReorderedJoins = maxReorderedJoins;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxEnumeratedJoinOrders()
+    {
+        return maxEnumeratedJoinOrders;
+    }
+
+    @Config("optimizer.max-enumerated-join-orders")
+    @ConfigDescription("The maximum number of join orders to enumerate before simplifying the query graph in cost-based join reordering")
+    public OptimizerConfig setMaxEnumeratedJoinOrders(int maxEnumeratedJoinOrders)
+    {
+        this.maxEnumeratedJoinOrders = maxEnumeratedJoinOrders;
         return this;
     }
 
