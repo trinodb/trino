@@ -241,6 +241,20 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionsTableWithReservedKeywordColumnName()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partitions_reserved_keyword",
+                "(\"group\" varchar, \"order\" bigint, _date date) WITH (partitioning = ARRAY['_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, DATE '2024-01-01'), ('b', 2, DATE '2024-01-02')", 2);
+
+            assertQuery(
+                    "SELECT partition._date, record_count, data.\"group\".min, data.\"order\".max FROM \"" + table.getName() + "$partitions\"",
+                    "VALUES (DATE '2024-01-01', 1, 'a', 1), (DATE '2024-01-02', 1, 'b', 2)");
+        }
+    }
+
+    @Test
     public void testPartitionsTableOnDropColumn()
     {
         MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_drop_column$partitions\"");
