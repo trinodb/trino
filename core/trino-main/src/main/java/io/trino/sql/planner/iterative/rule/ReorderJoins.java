@@ -387,6 +387,10 @@ public class ReorderJoins
             // because the symbols it adds all come from join predicates, and those are a
             // subset of filterSymbols
             SourceResolver resolver = (nodes, _) -> plans.get(nodes);
+            // joining a pair only changes the candidates that involve one of its two groups, so the
+            // rest are kept rather than re-costed on every step. Groups are disjoint, so the union
+            // of a pair identifies it.
+            Map<Long, JoinEnumerationResult> candidates = new HashMap<>();
             while (groups.size() > 1) {
                 JoinEnumerationResult best = null;
                 int bestLeft = -1;
@@ -397,8 +401,11 @@ public class ReorderJoins
                         if ((leftNeighborhood & groups.getLong(right)) == 0) {
                             continue;
                         }
-                        long merged = groups.getLong(left) | groups.getLong(right);
-                        JoinEnumerationResult candidate = createJoin(groups.getLong(left), groups.getLong(right), restrictTo(greedyOutputs, merged), resolver);
+                        int leftGroup = left;
+                        int rightGroup = right;
+                        JoinEnumerationResult candidate = candidates.computeIfAbsent(
+                                groups.getLong(left) | groups.getLong(right),
+                                pair -> createJoin(groups.getLong(leftGroup), groups.getLong(rightGroup), restrictTo(greedyOutputs, pair), resolver));
                         if (candidate.getPlanNode().isPresent() && (best == null || resultComparator.compare(candidate, best) < 0)) {
                             best = candidate;
                             bestLeft = left;
@@ -420,6 +427,7 @@ public class ReorderJoins
                 groups.removeLong(bestRight);
                 groups.removeLong(bestLeft);
                 groups.add(merged);
+                candidates.keySet().removeIf(pair -> (pair & merged) != 0);
 
                 if (groups.size() > 1) {
                     ImmutableList.Builder<PlanNode> simplified = ImmutableList.builder();
