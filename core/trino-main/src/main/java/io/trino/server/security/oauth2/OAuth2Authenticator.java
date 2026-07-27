@@ -15,6 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.InternalCommunicationEncryption;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.UserMapping;
@@ -27,6 +28,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import java.net.URI;
 import java.sql.Date;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +37,7 @@ import static io.trino.server.security.UserMapping.createUserMapping;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getInitiateUri;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getTokenUri;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class OAuth2Authenticator
@@ -46,14 +49,18 @@ public class OAuth2Authenticator
     private final UserMapping userMapping;
     private final TokenPairSerializer tokenPairSerializer;
     private final TokenRefresher tokenRefresher;
+    private final InternalCommunicationEncryption internalCommunicationEncryption;
+    private final boolean tokenExchangeAllowed;
 
     @Inject
-    public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer)
+    public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer, InternalCommunicationEncryption internalCommunicationEncryption)
     {
         this.client = requireNonNull(client, "service is null");
         this.principalField = config.getPrincipalField();
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
+        this.internalCommunicationEncryption = requireNonNull(internalCommunicationEncryption, "internalCommunicationEncryption is null");
+        this.tokenExchangeAllowed = config.getTokenExchangeAllowed();
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
     }
 
@@ -80,6 +87,11 @@ public class OAuth2Authenticator
         }
         Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
         builder.withPrincipal(new BasicPrincipal(principal.get()));
+
+        if (tokenExchangeAllowed) {
+            byte[] encryptedAccessToken = internalCommunicationEncryption.encrypt(tokenPair.accessToken().getBytes(UTF_8));
+            builder.withExtraCredentials(Map.of("oauth_access_token", Base64.getEncoder().encodeToString(encryptedAccessToken)));
+        }
         return Optional.of(builder.build());
     }
 

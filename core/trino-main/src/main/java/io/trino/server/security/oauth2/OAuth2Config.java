@@ -50,6 +50,8 @@ public class OAuth2Config
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
     private Optional<String> domainHint = Optional.empty();
+    private boolean tokenExchangeAllowed;
+    private long tokenExchangeCacheMaxSize = 1024;
 
     public Optional<String> getStateKey()
     {
@@ -255,6 +257,32 @@ public class OAuth2Config
     public OAuth2Config setDomainHint(String domainHint)
     {
         this.domainHint = Optional.ofNullable(domainHint);
+        return this;
+    }
+
+    public boolean getTokenExchangeAllowed()
+    {
+        return tokenExchangeAllowed;
+    }
+
+    @ConfigDescription("Allow connectors to initiate an oauth2 token exchange")
+    @Config("http-server.authentication.oauth2.token-exchange.allowed")
+    public OAuth2Config setTokenExchangeAllowed(boolean allowed)
+    {
+        this.tokenExchangeAllowed = allowed;
+        return this;
+    }
+
+    public long getTokenExchangeCacheMaxSize()
+    {
+        return tokenExchangeCacheMaxSize;
+    }
+
+    @ConfigDescription("The maximum amount of protobuf descriptors to keep in memory")
+    @Config("http-server.authentication.oauth2.token-exchange.cache.max-size")
+    public OAuth2Config setTokenExchangeCacheMaxSize(long size)
+    {
+        this.tokenExchangeCacheMaxSize = size;
         return this;
     }
 }

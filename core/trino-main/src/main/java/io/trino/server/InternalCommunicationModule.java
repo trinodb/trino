@@ -36,5 +36,6 @@ public class InternalCommunicationModule
             configBinder(binder).bindConfigGlobalDefaults(NodeConfig.class, config -> config.setInternalAddressSource(IP_ENCODED_AS_HOSTNAME));
         }
         binder.bind(InternalAuthenticationManager.class).in(Scopes.SINGLETON);
+        binder.bind(InternalCommunicationEncryption.class).in(Scopes.SINGLETON);
     }
 }
