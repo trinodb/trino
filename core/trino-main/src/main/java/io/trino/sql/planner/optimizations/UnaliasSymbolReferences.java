@@ -389,7 +389,9 @@ public class UnaliasSymbolReferences
 
             Optional<PlanNodeStatsEstimate> statistics = node.getStatistics();
             PlanNodeStatsEstimate.Builder newStatistics = PlanNodeStatsEstimate.builder();
-            statistics.ifPresent(stats -> newStatistics.setOutputRowCount(stats.getOutputRowCount()));
+            statistics.ifPresent(stats -> newStatistics
+                    .setOutputRowCount(stats.getOutputRowCount())
+                    .setConfidence(stats.getConfidence()));
             Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
             node.getAssignments().forEach((symbol, handle) -> {
                 Symbol newSymbol = mapper.map(symbol);

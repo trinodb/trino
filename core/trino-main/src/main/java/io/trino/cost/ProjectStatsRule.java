@@ -49,7 +49,8 @@ public class ProjectStatsRule
     {
         PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
         PlanNodeStatsEstimate.Builder calculatedStats = PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(sourceStats.getOutputRowCount());
+                .setOutputRowCount(sourceStats.getOutputRowCount())
+                .setConfidence(sourceStats.getConfidence());
 
         for (Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
             calculatedStats.addSymbolStatistics(entry.getKey(), scalarStatsCalculator.calculate(entry.getValue(), sourceStats, context.session()));

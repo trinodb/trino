@@ -194,7 +194,10 @@ public class JoinStatsRule
         if (isNaN(outputRowCount)) {
             return PlanNodeStatsEstimate.unknown();
         }
-        return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedJoinClause(stats, knownEstimates)));
+        EstimateConfidence confidence = knownEstimates.stream()
+                .map(estimate -> estimate.getEstimate().getConfidence())
+                .reduce(stats.getConfidence(), EstimateConfidence::min);
+        return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedJoinClause(stats, knownEstimates), confidence));
     }
 
     private static Map<Symbol, SymbolStatsEstimate> intersectCorrelatedJoinClause(
@@ -373,7 +376,8 @@ public class JoinStatsRule
     private PlanNodeStatsEstimate crossJoinStats(JoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats)
     {
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount());
+                .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount())
+                .setConfidence(EstimateConfidence.min(leftStats.getConfidence(), rightStats.getConfidence()));
 
         node.getLeft().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, leftStats.getSymbolStatistics(symbol)));
         node.getRight().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, rightStats.getSymbolStatistics(symbol)));

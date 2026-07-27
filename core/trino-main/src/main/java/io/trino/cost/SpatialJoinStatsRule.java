@@ -51,7 +51,8 @@ public class SpatialJoinStatsRule
     private PlanNodeStatsEstimate crossJoinStats(SpatialJoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats)
     {
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount());
+                .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount())
+                .setConfidence(EstimateConfidence.min(leftStats.getConfidence(), rightStats.getConfidence()));
 
         node.getLeft().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, leftStats.getSymbolStatistics(symbol)));
         node.getRight().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, rightStats.getSymbolStatistics(symbol)));
