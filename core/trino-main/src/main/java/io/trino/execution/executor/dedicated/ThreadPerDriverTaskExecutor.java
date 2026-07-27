@@ -309,4 +309,16 @@ public class ThreadPerDriverTaskExecutor
     {
         return scheduler.getConcurrencyControlAvailableSlots();
     }
+
+    @Managed(description = "Unblocked splits that resumed without involving the scheduler thread")
+    public long getBypassedResumeCount()
+    {
+        return scheduler.getBypassedResumeCount();
+    }
+
+    @Managed(description = "Unblocked splits that had to go through the scheduler thread to resume")
+    public long getScheduledResumeCount()
+    {
+        return scheduler.getScheduledResumeCount();
+    }
 }

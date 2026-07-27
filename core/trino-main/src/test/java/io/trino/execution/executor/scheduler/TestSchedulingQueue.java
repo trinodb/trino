@@ -13,6 +13,7 @@
  */
 package io.trino.execution.executor.scheduler;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -319,5 +320,111 @@ public class TestSchedulingQueue
         queue.finishGroup("G1");
         assertThat(queue.containsGroup("G1")).isFalse();
         assertThat(queue.peek()).isEqualTo("T2.1");
+    }
+
+    @Test
+    public void testRunnableCount()
+    {
+        SchedulingQueue<String, String> queue = new SchedulingQueue<>();
+
+        queue.startGroup("G1");
+        queue.startGroup("G2");
+        assertThat(queue.getRunnableCount()).isEqualTo(0);
+
+        queue.enqueue("G1", "T1.1", 0);
+        queue.enqueue("G1", "T1.2", 0);
+        queue.enqueue("G2", "T2.1", 0);
+        assertThat(queue.getRunnableCount()).isEqualTo(3);
+
+        queue.dequeue(1);
+        assertThat(queue.getRunnableCount()).isEqualTo(2);
+
+        // blocking a running task doesn't change the runnable count
+        queue.block("G1", "T1.1", 1);
+        assertThat(queue.getRunnableCount()).isEqualTo(2);
+
+        queue.finish("G1", "T1.2");
+        assertThat(queue.getRunnableCount()).isEqualTo(1);
+
+        queue.finishGroup("G2");
+        assertThat(queue.getRunnableCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testUnblockToRunning()
+    {
+        SchedulingQueue<String, String> queue = new SchedulingQueue<>();
+
+        queue.startGroup("G1");
+        queue.enqueue("G1", "T1", 0);
+        assertThat(queue.dequeue(1)).isEqualTo("T1");
+        queue.block("G1", "T1", 1);
+        assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
+
+        assertThat(queue.unblockToRunning("G1", "T1", 1)).isTrue();
+        assertThat(queue.state("G1")).isEqualTo(State.RUNNING);
+        assertThat(queue.getRunnableCount()).isEqualTo(0);
+        assertThat(queue.peek()).isNull();
+    }
+
+    @Test
+    public void testUnblockToRunningRejectedWhenAnotherTaskIsRunnable()
+    {
+        SchedulingQueue<String, String> queue = new SchedulingQueue<>();
+
+        queue.startGroup("G1");
+        queue.startGroup("G2");
+
+        queue.enqueue("G1", "T1", 0);
+        assertThat(queue.dequeue(1)).isEqualTo("T1");
+        queue.block("G1", "T1", 1);
+
+        // a runnable task in an unrelated group must prevent the bypass, otherwise T1 would
+        // barge ahead of a task the scheduler would have picked instead
+        queue.enqueue("G2", "T2", 0);
+
+        assertThat(queue.unblockToRunning("G1", "T1", 1)).isFalse();
+        assertThat(queue.state("G1")).isEqualTo(State.BLOCKED);
+    }
+
+    @Test
+    public void testUnblockToRunningRejectedWhenSiblingIsRunnable()
+    {
+        SchedulingQueue<String, String> queue = new SchedulingQueue<>();
+
+        queue.startGroup("G1");
+        queue.enqueue("G1", "T1", 0);
+        queue.enqueue("G1", "T2", 0);
+        assertThat(queue.dequeue(1)).isEqualTo("T1");
+        queue.block("G1", "T1", 1);
+
+        assertThat(queue.unblockToRunning("G1", "T1", 1)).isFalse();
+        assertThat(queue.state("G1")).isEqualTo(State.RUNNABLE);
+    }
+
+    @Test
+    public void testUnblockToRunningLeavesSameStateAsEnqueueThenDequeue()
+    {
+        SchedulingQueue<String, String> bypass = new SchedulingQueue<>();
+        SchedulingQueue<String, String> regular = new SchedulingQueue<>();
+
+        for (SchedulingQueue<String, String> queue : ImmutableList.of(bypass, regular)) {
+            queue.startGroup("G1");
+            queue.startGroup("G2");
+            queue.enqueue("G1", "T1.1", 0);
+            queue.enqueue("G1", "T1.2", 0);
+            queue.enqueue("G2", "T2.1", 0);
+            assertThat(queue.dequeue(5)).isEqualTo("T1.1");
+            assertThat(queue.dequeue(5)).isEqualTo("T2.1");
+            assertThat(queue.dequeue(5)).isEqualTo("T1.2");
+            queue.block("G1", "T1.1", 3);
+        }
+
+        assertThat(bypass.unblockToRunning("G1", "T1.1", 5)).isTrue();
+
+        regular.enqueue("G1", "T1.1", 0);
+        assertThat(regular.dequeue(5)).isEqualTo("T1.1");
+
+        assertThat(bypass.toString()).isEqualTo(regular.toString());
     }
 }

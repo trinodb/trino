@@ -63,6 +63,27 @@ final class Reservation<T>
         semaphore.acquire();
     }
 
+    /**
+     * Non-blocking variant of {@link #reserve()}.
+     *
+     * @return true if a slot was acquired, in which case the caller must eventually either
+     *         {@link #register(T)} and {@link #release(T)} it, or hand it back via
+     *         {@link #releaseUnregistered()}
+     */
+    public boolean tryReserve()
+    {
+        return semaphore.tryAcquire();
+    }
+
+    /**
+     * Hands back a slot acquired via {@link #tryReserve()} that was never associated with an
+     * entity through {@link #register(T)}.
+     */
+    public void releaseUnregistered()
+    {
+        semaphore.release();
+    }
+
     public synchronized void register(T entry)
     {
         checkArgument(!reservations.contains(entry), "Already acquired: %s", entry);

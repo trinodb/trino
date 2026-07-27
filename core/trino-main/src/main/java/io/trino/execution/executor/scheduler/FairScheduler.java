@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -62,6 +63,9 @@ public final class FairScheduler
     private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
+
+    private final LongAdder bypassedResumeCount = new LongAdder();
+    private final LongAdder scheduledResumeCount = new LongAdder();
 
     private final Gate paused = new Gate(true);
 
@@ -260,7 +264,52 @@ public final class FairScheduler
         future.addListener(task::markUnblocked, MoreExecutors.directExecutor());
         task.awaitUnblock();
 
+        if (tryResumeWithoutScheduler(task)) {
+            bypassedResumeCount.increment();
+            return true;
+        }
+
+        scheduledResumeCount.increment();
         return makeRunnableAndAwait(task, 0);
+    }
+
+    /**
+     * Attempts to resume a just-unblocked task on its own thread, skipping the round trip
+     * through the scheduler thread. Drivers block and unblock far more often than they exhaust
+     * their quantum, and the regular path costs two context switches plus three lock
+     * acquisitions for each of those transitions even when the worker has spare capacity.
+     *
+     * <p>The bypass is only taken when there is nothing runnable waiting for a slot, so a task
+     * can never barge ahead of a task the scheduler would have picked instead. Both the
+     * runnable count and the slot acquisition are checked optimistically and re-validated by
+     * {@link BlockingSchedulingQueue#unblockToRunning}, which rejects the bypass if the
+     * situation changed; the caller then falls back to the regular path.</p>
+     *
+     * @return true if the task is now running and the caller may return to the driver
+     */
+    private boolean tryResumeWithoutScheduler(TaskControl task)
+    {
+        if (queue.getRunnableCount() > 0) {
+            return false;
+        }
+
+        if (!concurrencyControl.tryReserve()) {
+            return false;
+        }
+
+        if (!queue.unblockToRunning(task.group(), task, QUANTUM_NANOS)) {
+            concurrencyControl.releaseUnregistered();
+            return false;
+        }
+
+        concurrencyControl.register(task);
+
+        if (!task.transitionToRunning()) {
+            concurrencyControl.release(task);
+            return false;
+        }
+
+        return true;
     }
 
     private void runScheduler()
@@ -363,5 +412,23 @@ public final class FairScheduler
     public int getConcurrencyControlAvailableSlots()
     {
         return concurrencyControl.availableSlots();
+    }
+
+    /**
+     * Number of times an unblocked task resumed on its own thread without involving the
+     * scheduler thread. Compare against {@link #getScheduledResumeCount()} to see how often the
+     * bypass applies.
+     */
+    public long getBypassedResumeCount()
+    {
+        return bypassedResumeCount.sum();
+    }
+
+    /**
+     * Number of times an unblocked task had to go through the scheduler thread to resume.
+     */
+    public long getScheduledResumeCount()
+    {
+        return scheduledResumeCount.sum();
     }
 }

@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.trino.execution.executor.scheduler.State.BLOCKED;
 import static io.trino.execution.executor.scheduler.State.RUNNABLE;
 import static io.trino.execution.executor.scheduler.State.RUNNING;
@@ -84,6 +85,30 @@ final class SchedulingGroup<T>
         updateState();
 
         return task;
+    }
+
+    /**
+     * Whether {@link #unblockToRunning(Object, long)} can be applied to the given task.
+     */
+    public boolean canUnblockToRunning(T handle)
+    {
+        return runnableQueue.isEmpty() && blocked.contains(handle);
+    }
+
+    /**
+     * Moves a blocked task directly to the running state without passing through the
+     * runnable queue. Only legal when {@link #canUnblockToRunning(Object)} holds, i.e. when
+     * the group has no other runnable task that would have been picked ahead of this one.
+     * Under that precondition this is exactly {@link #enqueue(Object, long)} followed by
+     * {@link #dequeue(long)}, so weight accounting is identical to the regular path.
+     */
+    public void unblockToRunning(T handle, long expectedWeight)
+    {
+        checkArgument(canUnblockToRunning(handle), "Task cannot be unblocked directly to running: %s", handle);
+
+        enqueue(handle, 0);
+        T dequeued = dequeue(expectedWeight);
+        verify(dequeued == handle, "Dequeued unexpected task: %s", dequeued);
     }
 
     public void finish(T task)

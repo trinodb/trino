@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFairScheduler
@@ -201,6 +202,72 @@ public class TestFairScheduler
 
             scheduler.removeGroup(group);
             task1.get();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testUnblockedTaskResumesWithoutScheduler()
+            throws InterruptedException, ExecutionException
+    {
+        // With spare capacity and nothing runnable, an unblocked task must resume on its own
+        // thread rather than waiting for the scheduler thread to hand it a slot
+        try (FairScheduler scheduler = FairScheduler.newInstance(4)) {
+            Group group = scheduler.createGroup("G");
+
+            int blocks = 100;
+            AtomicInteger completed = new AtomicInteger();
+            ListenableFuture<Void> task = scheduler.submit(group, 1, context -> {
+                for (int i = 0; i < blocks; i++) {
+                    if (!context.block(immediateVoidFuture())) {
+                        return;
+                    }
+                }
+                completed.set(blocks);
+            });
+
+            task.get();
+
+            assertThat(completed.get()).isEqualTo(blocks);
+            assertThat(scheduler.getBypassedResumeCount() + scheduler.getScheduledResumeCount())
+                    .describedAs("Every block is accounted for as either a bypassed or scheduled resume")
+                    .isEqualTo(blocks);
+            assertThat(scheduler.getBypassedResumeCount())
+                    .describedAs("Bypassed resumes")
+                    .isPositive();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testBypassDoesNotStarveRunnableTasks()
+            throws InterruptedException, ExecutionException
+    {
+        // A task that blocks and unblocks in a tight loop must not monopolize the scheduler
+        // while another task is waiting to be scheduled
+        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch spinnerStarted = new CountDownLatch(1);
+            AtomicBoolean otherRan = new AtomicBoolean();
+
+            ListenableFuture<Void> spinner = scheduler.submit(group, 1, context -> {
+                spinnerStarted.countDown();
+                while (!otherRan.get()) {
+                    if (!context.block(immediateVoidFuture())) {
+                        return;
+                    }
+                }
+            });
+
+            spinnerStarted.await();
+
+            ListenableFuture<Void> other = scheduler.submit(group, 2, _ -> otherRan.set(true));
+
+            other.get();
+            spinner.get();
+
+            assertThat(otherRan.get()).isTrue();
         }
     }
 
