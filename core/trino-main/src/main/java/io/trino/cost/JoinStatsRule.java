@@ -33,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.SystemSessionProperties.getJoinMultiClauseIndependenceFactor;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.SymbolStatsEstimate.buildFrom;
@@ -165,7 +166,9 @@ public class JoinStatsRule
         PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session);
 
         if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {
-            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
+            // the non-equi filter could not be estimated, so its selectivity below is a guess
+            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT)
+                    .degradeConfidenceTo(LOW));
         }
 
         return filteredEquiJoinEstimate;
@@ -196,7 +199,22 @@ public class JoinStatsRule
         EstimateConfidence confidence = knownEstimates.stream()
                 .map(estimate -> estimate.getEstimate().getConfidence())
                 .reduce(stats.getConfidence(), EstimateConfidence::min);
+        if (hasUnknownDistinctValuesCount(stats, clauses)) {
+            // without a distinct value count for a key there is no basis for the join selectivity above
+            confidence = LOW;
+        }
         return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedJoinClause(stats, knownEstimates), confidence));
+    }
+
+    private static boolean hasUnknownDistinctValuesCount(PlanNodeStatsEstimate stats, Collection<EquiJoinClause> clauses)
+    {
+        for (EquiJoinClause clause : clauses) {
+            if (isNaN(stats.getSymbolStatistics(clause.getLeft()).getDistinctValuesCount())
+                    || isNaN(stats.getSymbolStatistics(clause.getRight()).getDistinctValuesCount())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Map<Symbol, SymbolStatsEstimate> intersectCorrelatedJoinClause(
@@ -325,6 +343,10 @@ public class JoinStatsRule
 
         // limit the number of complement rows (to left row count) and account for remaining clauses
         result = result.mapOutputRowCount(rowCount -> min(leftStats.getOutputRowCount(), rowCount / Math.pow(UNKNOWN_FILTER_COEFFICIENT, numberOfRemainingClauses)));
+        if (numberOfRemainingClauses > 0) {
+            // the clauses other than the driving one were accounted for with a guessed selectivity
+            result = result.degradeConfidenceTo(LOW);
+        }
 
         return result;
     }
