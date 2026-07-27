@@ -14,7 +14,8 @@
 package io.trino.plugin.ai.functions;
 
 import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotEmpty;
+import io.airlift.configuration.ConfigSecuritySensitive;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -23,6 +24,14 @@ public class OpenAiConfig
 {
     private URI endpoint = URI.create("https://api.openai.com");
     private String apiKey;
+    private String oauth2Audience;
+    private String oauth2Scope;
+
+    @AssertTrue(message = "Missing either ai.openai.api-key or (ai.openai.oauth2.audience and ai.openai.oauth2.scope)")
+    public boolean isApiKeyValid()
+    {
+        return apiKey != null || (oauth2Audience != null && oauth2Scope != null);
+    }
 
     @NotNull
     public URI getEndpoint()
@@ -37,16 +46,40 @@ public class OpenAiConfig
         return this;
     }
 
-    @NotEmpty
     public String getApiKey()
     {
         return apiKey;
     }
 
+    @ConfigSecuritySensitive
     @Config("ai.openai.api-key")
     public OpenAiConfig setApiKey(String apiKey)
     {
         this.apiKey = apiKey;
+        return this;
+    }
+
+    public String getOAuth2Audience()
+    {
+        return oauth2Audience;
+    }
+
+    @Config("ai.openai.oauth2.audience")
+    public OpenAiConfig setOAuth2Audience(String oauth2Audience)
+    {
+        this.oauth2Audience = oauth2Audience;
+        return this;
+    }
+
+    public String getOAuth2Scope()
+    {
+        return oauth2Scope;
+    }
+
+    @Config("ai.openai.oauth2.scope")
+    public OpenAiConfig setOAuth2Scope(String oauth2Scope)
+    {
+        this.oauth2Scope = oauth2Scope;
         return this;
     }
 }
