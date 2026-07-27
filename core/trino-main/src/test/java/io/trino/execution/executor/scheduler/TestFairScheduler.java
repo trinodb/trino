@@ -353,6 +353,73 @@ public class TestFairScheduler
     }
 
     @Test
+    @Timeout(30)
+    public void testCancelInterruptsRunningTask()
+            throws InterruptedException, ExecutionException
+    {
+        try (FairScheduler scheduler = FairScheduler.newInstance(2)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch started = new CountDownLatch(1);
+            AtomicBoolean interrupted = new AtomicBoolean();
+
+            ListenableFuture<Void> task = scheduler.submit(group, 1, _ -> {
+                started.countDown();
+                try {
+                    // long enough that only an interrupt can end it within the timeout
+                    Thread.sleep(60_000);
+                }
+                catch (InterruptedException e) {
+                    interrupted.set(true);
+                    Thread.currentThread().interrupt();
+                }
+            });
+
+            started.await();
+            scheduler.removeGroup(group);
+            task.get();
+
+            assertThat(interrupted.get())
+                    .describedAs("Running task was interrupted")
+                    .isTrue();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testCancelDoesNotInterruptBlockedTask()
+            throws InterruptedException, ExecutionException
+    {
+        // A parked task is released by the cancelled flag, so interrupting it would only risk
+        // leaving the flag set on a thread that has moved on to something else
+        try (FairScheduler scheduler = FairScheduler.newInstance(2)) {
+            Group group = scheduler.createGroup("G");
+
+            CountDownLatch started = new CountDownLatch(1);
+            TestFuture blocked = new TestFuture();
+            AtomicBoolean interrupted = new AtomicBoolean();
+
+            ListenableFuture<Void> task = scheduler.submit(group, 1, context -> {
+                started.countDown();
+                assertThat(context.block(blocked))
+                        .describedAs("Cancelled while blocking")
+                        .isFalse();
+                interrupted.set(Thread.currentThread().isInterrupted());
+            });
+
+            started.await();
+            blocked.awaitListenerAdded();
+
+            scheduler.removeGroup(group);
+            task.get();
+
+            assertThat(interrupted.get())
+                    .describedAs("Blocked task was interrupted")
+                    .isFalse();
+        }
+    }
+
+    @Test
     public void testCleanupAfterFinish()
             throws InterruptedException, ExecutionException
     {

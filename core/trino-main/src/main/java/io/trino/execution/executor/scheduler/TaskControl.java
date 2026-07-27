@@ -116,14 +116,15 @@ final class TaskControl
             cancelled = true;
             wakeup.signal();
 
-            // TODO: it should be possible to interrupt the thread, but
-            //       it appears that it's not safe to do so. It can cause the query
-            //       to get stuck (e.g., AbstractDistributedEngineOnlyQueries.testSelectiveLimit)
-            //
-            //       Thread thread = this.thread;
-            //       if (thread != null) {
-            //           thread.interrupt();
-            //       }
+            // Only interrupt while the task owns its thread. In every other state the thread is
+            // either parked in awaitReady()/awaitUnblock(), which the signal above releases, or
+            // it has finished and been handed back to the pool, where an interrupt would land on
+            // whatever unrelated split it picked up next. State is written under this same lock,
+            // so observing RUNNING here means the thread is inside the task's runner.
+            Thread thread = this.thread;
+            if (state == State.RUNNING && thread != null) {
+                thread.interrupt();
+            }
         }
         finally {
             lock.unlock();

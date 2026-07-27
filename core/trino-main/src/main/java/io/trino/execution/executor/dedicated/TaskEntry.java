@@ -109,10 +109,12 @@ class TaskEntry
             return;
         }
 
-        scheduler.removeGroup(group);
-
         destroyed = true;
 
+        // Close the splits before cancelling the group. Driver.close() records that it is the one
+        // interrupting the driver thread, and that record is what lets Driver.process() treat the
+        // interrupt as termination instead of failing the query with it. Cancelling first would
+        // let the interrupt arrive before the record exists.
         for (SplitRunner split : running) {
             split.close();
         }
@@ -123,6 +125,8 @@ class TaskEntry
             split.done.set(null);
         }
         pending.clear();
+
+        scheduler.removeGroup(group);
     }
 
     public synchronized ListenableFuture<Void> enqueueLeafSplit(SplitRunner split)

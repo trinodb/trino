@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 
@@ -83,8 +82,8 @@ public final class FairScheduler
 
     private final Gate paused = new Gate(true);
 
-    @GuardedBy("this")
-    private boolean closed;
+    // written under this monitor, read without it by runTask()
+    private volatile boolean closed;
 
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
     {
@@ -200,26 +199,36 @@ public final class FairScheduler
     {
         task.setThread(Thread.currentThread());
 
-        if (!makeRunnableAndAwait(task, 0)) {
-            return;
-        }
-
-        SchedulerContext context = new SchedulerContext(this, task);
         try {
-            runner.run(context);
-        }
-        catch (Exception e) {
-            LOG.error(e);
+            if (!makeRunnableAndAwait(task, 0)) {
+                return;
+            }
+
+            SchedulerContext context = new SchedulerContext(this, task);
+            try {
+                runner.run(context);
+            }
+            catch (Exception e) {
+                LOG.error(e);
+            }
+            finally {
+                // If the runner exited due to an exception in user code or
+                // normally (not in response to an interruption during blocking or yield),
+                // it must have had a semaphore permit reserved, so release it.
+                if (task.getState() == TaskControl.State.RUNNING) {
+                    concurrencyControl.release(task);
+                }
+                queue.finish(task.group(), task);
+                task.transitionToFinished();
+            }
         }
         finally {
-            // If the runner exited due to an exception in user code or
-            // normally (not in response to an interruption during blocking or yield),
-            // it must have had a semaphore permit reserved, so release it.
-            if (task.getState() == TaskControl.State.RUNNING) {
-                concurrencyControl.release(task);
+            // A cancellation interrupt can still be pending on this thread if nothing consumed it.
+            // Clear it so it cannot land on whatever split this pooled thread runs next, but keep
+            // it while shutting down, where interruption is how the pool is stopped.
+            if (Thread.interrupted() && closed) {
+                Thread.currentThread().interrupt();
             }
-            queue.finish(task.group(), task);
-            task.transitionToFinished();
         }
     }
 
