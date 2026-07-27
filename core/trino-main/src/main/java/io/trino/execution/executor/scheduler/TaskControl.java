@@ -48,8 +48,12 @@ final class TaskControl
     @GuardedBy("lock")
     private final Condition wakeup = lock.newCondition();
 
-    @GuardedBy("lock")
-    private boolean ready;
+    /**
+     * Written only while holding {@code lock}, so that it stays consistent with the wakeup
+     * condition, but declared volatile so {@link #isReady()} can read it without contending
+     * for the lock.
+     */
+    private volatile boolean ready;
 
     @GuardedBy("lock")
     private boolean blocked;
@@ -57,8 +61,12 @@ final class TaskControl
     @GuardedBy("lock")
     private boolean cancelled;
 
-    @GuardedBy("lock")
-    private State state;
+    /**
+     * Written only while holding {@code lock}, and only by the task thread, but declared
+     * volatile so {@link #getState()} can read it without contending for the lock. That read
+     * happens on every yield and every block, where it only serves to check a precondition.
+     */
+    private volatile State state;
 
     private volatile long periodStart;
     private final LongAdder startNanos = new LongAdder();
@@ -158,13 +166,7 @@ final class TaskControl
 
     public boolean isReady()
     {
-        lock.lock();
-        try {
-            return ready;
-        }
-        finally {
-            lock.unlock();
-        }
+        return ready;
     }
 
     /**
@@ -311,13 +313,7 @@ final class TaskControl
 
     public State getState()
     {
-        lock.lock();
-        try {
-            return state;
-        }
-        finally {
-            lock.unlock();
-        }
+        return state;
     }
 
     public long elapsed()
