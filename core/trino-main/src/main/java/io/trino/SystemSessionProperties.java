@@ -64,6 +64,7 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
+    public static final String LOW_CONFIDENCE_COST_MARGIN = "low_confidence_cost_margin";
     public static final String DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED = "determine_partition_count_for_write_enabled";
     public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
@@ -277,6 +278,15 @@ public final class SystemSessionProperties
                         optimizerConfig.getJoinMultiClauseIndependenceFactor(),
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
+                        value -> value),
+                new PropertyMetadata<>(
+                        LOW_CONFIDENCE_COST_MARGIN,
+                        "How much cheaper a plan derived from guessed statistics must be before it is preferred to one derived from reported statistics",
+                        DOUBLE,
+                        Double.class,
+                        optimizerConfig.getLowConfidenceCostMargin(),
+                        false,
+                        value -> validateDoubleRange(value, LOW_CONFIDENCE_COST_MARGIN, 1.0, Double.MAX_VALUE),
                         value -> value),
                 booleanProperty(
                         DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED,
@@ -1202,6 +1212,11 @@ public final class SystemSessionProperties
     public static double getJoinMultiClauseIndependenceFactor(Session session)
     {
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
+    }
+
+    public static double getLowConfidenceCostMargin(Session session)
+    {
+        return session.getSystemProperty(LOW_CONFIDENCE_COST_MARGIN, Double.class);
     }
 
     public static boolean isDeterminePartitionCountForWriteEnabled(Session session)

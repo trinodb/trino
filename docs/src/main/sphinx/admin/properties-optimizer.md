@@ -217,6 +217,24 @@ columns of the clauses in a join. A value of `0` results in the optimizer
 assuming that the columns of the join clauses are fully correlated and only
 the most selective clause drives the selectivity of the join.
 
+## `optimizer.low-confidence-cost-margin`
+
+- **Type:** {ref}`prop-type-double`
+- **Default value:** `1`
+- **Min allowed value:** `1`
+- **Session property:** `low_confidence_cost_margin`
+
+How much cheaper a plan whose cost was derived from guessed statistics must be
+before the optimizer prefers it to a plan derived from statistics the connector
+reported. An estimate is treated as guessed when a rule fell back on a default
+selectivity, joined on a column with no distinct value count, or read a table
+with no reported row count.
+
+Costs derived from guesses can be wrong by an unbounded factor, so a value
+above `1` keeps the optimizer from acting on a large apparent saving that the
+statistics do not actually support. A value of `1`, the default, compares all
+costs alike regardless of where they came from.
+
 ## `optimizer.non-estimatable-predicate-approximation.enabled`
 
 - **Type:** {ref}`prop-type-boolean`

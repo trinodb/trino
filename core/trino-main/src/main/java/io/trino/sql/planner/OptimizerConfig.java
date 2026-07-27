@@ -42,6 +42,7 @@ public class OptimizerConfig
     private double cpuCostWeight = 75;
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
+    private double lowConfidenceCostMargin = 1;
 
     private DataSize joinMaxBroadcastTableSize = DataSize.of(100, MEGABYTE);
     private JoinDistributionType joinDistributionType = JoinDistributionType.AUTOMATIC;
@@ -177,6 +178,20 @@ public class OptimizerConfig
     public OptimizerConfig setNetworkCostWeight(double networkCostWeight)
     {
         this.networkCostWeight = networkCostWeight;
+        return this;
+    }
+
+    @Min(1)
+    public double getLowConfidenceCostMargin()
+    {
+        return lowConfidenceCostMargin;
+    }
+
+    @Config("optimizer.low-confidence-cost-margin")
+    @ConfigDescription("How much cheaper a plan derived from guessed statistics must be before it is preferred to one derived from reported statistics")
+    public OptimizerConfig setLowConfidenceCostMargin(double lowConfidenceCostMargin)
+    {
+        this.lowConfidenceCostMargin = lowConfidenceCostMargin;
         return this;
     }
 
