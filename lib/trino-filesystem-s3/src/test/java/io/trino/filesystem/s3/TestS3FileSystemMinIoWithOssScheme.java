@@ -11,19 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.rest;
+package io.trino.filesystem.s3;
 
-import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
-
-sealed interface VendedCredentials
-        permits AzureVendedCredentials,
-                GcsVendedCredentials,
-                OssVendedCredentials,
-                S3VendedCredentials
+public class TestS3FileSystemMinIoWithOssScheme
+        extends TestS3FileSystemMinIo
 {
-    Map<String, String> toExtraCredentials();
+    private static final String BUCKET = "test-bucket-test-s3-file-system-minio-with-oss-scheme";
 
-    Optional<Instant> expiresAt();
+    @Override
+    protected String scheme()
+    {
+        return "oss";
+    }
+
+    @Override
+    protected String bucket()
+    {
+        return BUCKET;
+    }
 }

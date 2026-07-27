@@ -17,6 +17,7 @@ import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType;
 import io.trino.spi.security.ConnectorIdentity;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -63,10 +64,18 @@ record S3Context(
     public S3Context withCredentials(ConnectorIdentity identity)
     {
         if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
-            AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
+            AwsCredentialsProvider credentialsProvider;
+            if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)) {
+                credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
+                        identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
+                        identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
+                        identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
+            }
+            else {
+                credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(
+                        identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
+                        identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY)));
+            }
             return withCredentialsProviderOverride(credentialsProvider);
         }
         return this;

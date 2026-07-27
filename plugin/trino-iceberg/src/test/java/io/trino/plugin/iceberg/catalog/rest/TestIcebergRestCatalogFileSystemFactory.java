@@ -28,6 +28,7 @@ import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.aliyun.AliyunProperties;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
@@ -79,6 +80,71 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "test-access-key")
                 .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "test-secret-key")
                 .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "test-session-token");
+    }
+
+    @Test
+    void testOssVendedCredentialsWithSecretKey()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AliyunProperties.CLIENT_ACCESS_KEY_ID, "test-access-key",
+                AliyunProperties.CLIENT_ACCESS_KEY_SECRET, "test-secret-key");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("oss://bucket/path"));
+
+        assertOssExtraCredentials(capturedIdentity.get(), "test-access-key", "test-secret-key", Optional.empty());
+    }
+
+    @Test
+    void testOssVendedCredentialsWithSecurityToken()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AliyunProperties.CLIENT_ACCESS_KEY_ID, "test-access-key",
+                AliyunProperties.CLIENT_ACCESS_KEY_SECRET, "test-secret-key",
+                AliyunProperties.CLIENT_SECURITY_TOKEN, "test-security-token");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("oss://bucket/path"));
+
+        assertOssExtraCredentials(capturedIdentity.get(), "test-access-key", "test-secret-key", Optional.of("test-security-token"));
+    }
+
+    @Test
+    void testOssVendedCredentialsDisabled()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AliyunProperties.CLIENT_ACCESS_KEY_ID, "test-access-key",
+                AliyunProperties.CLIENT_ACCESS_KEY_SECRET, "test-secret-key",
+                AliyunProperties.CLIENT_SECURITY_TOKEN, "test-security-token");
+
+        ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
+        factory.create(originalIdentity, fileIoProperties);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials()).isEmpty();
     }
 
     @Test
@@ -283,6 +349,78 @@ final class TestIcebergRestCatalogFileSystemFactory
     }
 
     @Test
+    void testOssStorageCredentialsSinglePrefix()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "oss://bucket-a/",
+                ImmutableMap.of(
+                        AliyunProperties.CLIENT_ACCESS_KEY_ID, "key-a",
+                        AliyunProperties.CLIENT_ACCESS_KEY_SECRET, "secret-a",
+                        AliyunProperties.CLIENT_SECURITY_TOKEN, "token-a"));
+
+        IcebergRestCatalogFileSystem fileSystem = (IcebergRestCatalogFileSystem) factory.create(ConnectorIdentity.ofUser("test"), ImmutableMap.of());
+        fileSystem.setCredentials(ImmutableList.of(storageCredential));
+
+        fileSystem.newInputFile(Location.of("oss://bucket-a/path/file"));
+
+        assertOssExtraCredentials(capturedIdentity.get(), "key-a", "secret-a", Optional.of("token-a"));
+    }
+
+    @Test
+    void testOssStorageCredentialsDoNotUseS3Credentials()
+    {
+        IcebergRestCatalogFileSystemFactory factory = createFactory(_ -> new MockTrinoFileSystem(), true);
+
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "oss://bucket-a/",
+                ImmutableMap.of(
+                        S3FileIOProperties.ACCESS_KEY_ID, "key-a",
+                        S3FileIOProperties.SECRET_ACCESS_KEY, "secret-a",
+                        S3FileIOProperties.SESSION_TOKEN, "token-a"));
+
+        IcebergRestCatalogFileSystem fileSystem = (IcebergRestCatalogFileSystem) factory.create(ConnectorIdentity.ofUser("test"), ImmutableMap.of());
+        fileSystem.setCredentials(ImmutableList.of(storageCredential));
+
+        assertThatThrownBy(() -> fileSystem.newInputFile(Location.of("oss://bucket-a/path/file")))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("accessKey is null");
+    }
+
+    @Test
+    void testOssStorageCredentialsMergeRootProperties()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AliyunProperties.CLIENT_ACCESS_KEY_ID, "key-root",
+                AliyunProperties.CLIENT_ACCESS_KEY_SECRET, "secret-root");
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "oss://bucket-a/",
+                ImmutableMap.of(AliyunProperties.CLIENT_SECURITY_TOKEN, "token-a"));
+
+        IcebergRestCatalogFileSystem fileSystem = (IcebergRestCatalogFileSystem) factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        fileSystem.setCredentials(ImmutableList.of(storageCredential));
+
+        fileSystem.newInputFile(Location.of("oss://bucket-a/path/file"));
+
+        assertOssExtraCredentials(capturedIdentity.get(), "key-root", "secret-root", Optional.of("token-a"));
+    }
+
+    @Test
     void testS3StorageCredentialsSinglePrefixIcebergTableCredentials()
     {
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
@@ -305,6 +443,31 @@ final class TestIcebergRestCatalogFileSystemFactory
         fileSystem.newInputFile(Location.of("s3://bucket-a/path/file"));
 
         assertS3ExtraCredentials(capturedIdentity.get(), "key-a", "secret-a", "token-a");
+    }
+
+    @Test
+    void testOssStorageCredentialsSinglePrefixIcebergTableCredentials()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "oss://bucket-a/",
+                ImmutableMap.of(
+                        AliyunProperties.CLIENT_ACCESS_KEY_ID, "key-a",
+                        AliyunProperties.CLIENT_ACCESS_KEY_SECRET, "secret-a",
+                        AliyunProperties.CLIENT_SECURITY_TOKEN, "token-a"));
+
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of(storageCredential)));
+
+        fileSystem.newInputFile(Location.of("oss://bucket-a/path/file"));
+
+        assertOssExtraCredentials(capturedIdentity.get(), "key-a", "secret-a", Optional.of("token-a"));
     }
 
     @Test
@@ -530,6 +693,17 @@ final class TestIcebergRestCatalogFileSystemFactory
                         EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, accessKey,
                         EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, secretKey,
                         EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, sessionToken));
+    }
+
+    private static void assertOssExtraCredentials(ConnectorIdentity identity, String accessKey, String secretKey, Optional<String> securityToken)
+    {
+        assertThat(identity).isNotNull();
+        ImmutableMap.Builder<String, String> expected = ImmutableMap.<String, String>builder()
+                .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, accessKey)
+                .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, secretKey);
+        securityToken.ifPresent(token -> expected.put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, token));
+        assertThat(identity.getExtraCredentials())
+                .containsExactlyInAnyOrderEntriesOf(expected.buildOrThrow());
     }
 
     private static IcebergRestCatalogFileSystemFactory createFactory(TrinoFileSystemFactory delegate, boolean vendedCredentialsEnabled)

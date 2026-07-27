@@ -25,6 +25,7 @@ import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.aliyun.AliyunProperties;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
@@ -122,6 +123,7 @@ public class IcebergRestCatalogFileSystemFactory
         // Derive the vended credentials to load from the location scheme
         Optional<VendedCredentials> vendedCredentials = switch (location.scheme().get()) {
             case "s3", "s3a", "s3n" -> findVendedCredentialsForLocation(cached.s3VendedCredentialsProviders(), location);
+            case "oss" -> findVendedCredentialsForLocation(cached.ossVendedCredentialsProviders(), location);
             case "gs" -> findVendedCredentialsForLocation(cached.gcsVendedCredentialsProviders(), location);
             case "abfs", "abfss", "wasb", "wasbs" -> cached.azureVendedCredentialsProvider().map(AzureVendedCredentialsProvider::getCredentials);
             default -> throw new IllegalArgumentException("Unsupported location scheme for vended credentials: " + location);
@@ -149,6 +151,7 @@ public class IcebergRestCatalogFileSystemFactory
         return new VendedCredentialsCacheKey(
                 identity.getUser(),
                 createS3VendedCredentials(fileIoProperties, storageCredentials),
+                createOssVendedCredentials(fileIoProperties, storageCredentials),
                 createGcsVendedCredentials(fileIoProperties, storageCredentials),
                 createAzureVendedCredentials(fileIoProperties));
     }
@@ -170,6 +173,27 @@ public class IcebergRestCatalogFileSystemFactory
                 builder.put(
                         storageCredentials.prefix(),
                         S3VendedCredentialsProvider.createVendedCredentials(mergeConfigs(fileIoProperties, storageCredentials.config())));
+            }
+        }
+        return builder.buildKeepingLast();
+    }
+
+    private static Map<String, OssVendedCredentials> createOssVendedCredentials(Map<String, String> fileIoProperties, List<IcebergStorageCredentials> storageCredentialsList)
+    {
+        ImmutableMap.Builder<String, OssVendedCredentials> builder = ImmutableMap.builder();
+        // Root-prefix entries built from fileIoProperties — act as catch-all fallback, matching any OSS path
+        createVendedCredentialsIfPresent(
+                fileIoProperties,
+                () -> OssVendedCredentialsProvider.createVendedCredentials(fileIoProperties),
+                AliyunProperties.CLIENT_ACCESS_KEY_ID,
+                AliyunProperties.CLIENT_ACCESS_KEY_SECRET)
+                .ifPresent(vendedCredentials -> builder.put("oss", vendedCredentials));
+
+        for (IcebergStorageCredentials storageCredentials : storageCredentialsList) {
+            if (isOssPrefix(storageCredentials.prefix())) {
+                builder.put(
+                        storageCredentials.prefix(),
+                        OssVendedCredentialsProvider.createVendedCredentials(mergeConfigs(fileIoProperties, storageCredentials.config())));
             }
         }
         return builder.buildKeepingLast();
@@ -221,10 +245,11 @@ public class IcebergRestCatalogFileSystemFactory
     private CachedVendedCredentialsProviders createVendedCredentialsProviders(Map<String, String> fileIoProperties, List<IcebergStorageCredentials> storageCredentialsList)
     {
         ImmutableMap.Builder<String, S3VendedCredentialsProvider> s3ProvidersBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, OssVendedCredentialsProvider> ossProvidersBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, GcsVendedCredentialsProvider> gcsProvidersBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.builder();
 
-        // Root-prefix providers built from fileIoProperties — act as catch-all fallback, matching any S3/GCS path
+        // Root-prefix providers built from fileIoProperties — act as catch-all fallback, matching any S3/OSS/GCS path
         createVendedCredentialsProviderIfPresent(
                 fileIoProperties,
                 () -> new S3VendedCredentialsProvider(catalogProperties, fileIoProperties),
@@ -232,6 +257,12 @@ public class IcebergRestCatalogFileSystemFactory
                 S3FileIOProperties.SECRET_ACCESS_KEY,
                 S3FileIOProperties.SESSION_TOKEN)
                 .ifPresent(vendedCredentialsProvider -> s3ProvidersBuilder.put("s3", vendedCredentialsProvider));
+        createVendedCredentialsProviderIfPresent(
+                fileIoProperties,
+                () -> new OssVendedCredentialsProvider(catalogProperties, fileIoProperties),
+                AliyunProperties.CLIENT_ACCESS_KEY_ID,
+                AliyunProperties.CLIENT_ACCESS_KEY_SECRET)
+                .ifPresent(vendedCredentialsProvider -> ossProvidersBuilder.put("oss", vendedCredentialsProvider));
         createVendedCredentialsProviderIfPresent(
                 fileIoProperties,
                 () -> new GcsVendedCredentialsProvider(catalogProperties, fileIoProperties),
@@ -247,6 +278,9 @@ public class IcebergRestCatalogFileSystemFactory
             if (isS3Prefix(credentialPrefix)) {
                 s3ProvidersBuilder.put(credentialPrefix, new S3VendedCredentialsProvider(catalogProperties, mergeConfigs(fileIoProperties, storageCredentials.config())));
             }
+            else if (isOssPrefix(credentialPrefix)) {
+                ossProvidersBuilder.put(credentialPrefix, new OssVendedCredentialsProvider(catalogProperties, mergeConfigs(fileIoProperties, storageCredentials.config())));
+            }
             else if (isGcsPrefix(credentialPrefix)) {
                 gcsProvidersBuilder.put(credentialPrefix, new GcsVendedCredentialsProvider(catalogProperties, mergeConfigs(fileIoProperties, storageCredentials.config())));
             }
@@ -257,6 +291,7 @@ public class IcebergRestCatalogFileSystemFactory
 
         return new CachedVendedCredentialsProviders(
                 s3ProvidersBuilder.buildKeepingLast(),
+                ossProvidersBuilder.buildKeepingLast(),
                 gcsProvidersBuilder.buildKeepingLast(),
                 azureVendedCredentialsProvider,
                 extraCredentialsBuilder.buildOrThrow());
@@ -265,6 +300,7 @@ public class IcebergRestCatalogFileSystemFactory
     private record VendedCredentialsCacheKey(
             String user,
             Map<String, S3VendedCredentials> s3VendedCredentials,
+            Map<String, OssVendedCredentials> ossVendedCredentials,
             Map<String, GcsVendedCredentials> gcsVendedCredentials,
             Optional<AzureVendedCredentials> azureVendedCredentials)
     {
@@ -272,6 +308,7 @@ public class IcebergRestCatalogFileSystemFactory
         {
             requireNonNull(user, "user is null");
             s3VendedCredentials = ImmutableMap.copyOf(s3VendedCredentials);
+            ossVendedCredentials = ImmutableMap.copyOf(ossVendedCredentials);
             gcsVendedCredentials = ImmutableMap.copyOf(gcsVendedCredentials);
             requireNonNull(azureVendedCredentials, "azureVendedCredentials is null");
         }
@@ -279,6 +316,7 @@ public class IcebergRestCatalogFileSystemFactory
 
     private record CachedVendedCredentialsProviders(
             Map<String, S3VendedCredentialsProvider> s3VendedCredentialsProviders,
+            Map<String, OssVendedCredentialsProvider> ossVendedCredentialsProviders,
             Map<String, GcsVendedCredentialsProvider> gcsVendedCredentialsProviders,
             Optional<AzureVendedCredentialsProvider> azureVendedCredentialsProvider,
             Map<String, String> extraCredentials)
@@ -286,6 +324,7 @@ public class IcebergRestCatalogFileSystemFactory
         public CachedVendedCredentialsProviders
         {
             s3VendedCredentialsProviders = ImmutableMap.copyOf(s3VendedCredentialsProviders);
+            ossVendedCredentialsProviders = ImmutableMap.copyOf(ossVendedCredentialsProviders);
             gcsVendedCredentialsProviders = ImmutableMap.copyOf(gcsVendedCredentialsProviders);
             requireNonNull(azureVendedCredentialsProvider, "azureVendedCredentialsProvider is null");
             extraCredentials = ImmutableMap.copyOf(extraCredentials);
@@ -338,6 +377,11 @@ public class IcebergRestCatalogFileSystemFactory
     private static boolean isS3Prefix(String prefix)
     {
         return prefix.startsWith("s3://") || prefix.startsWith("s3a://") || prefix.startsWith("s3n://");
+    }
+
+    private static boolean isOssPrefix(String prefix)
+    {
+        return prefix.startsWith("oss://");
     }
 
     private static boolean isGcsPrefix(String prefix)
