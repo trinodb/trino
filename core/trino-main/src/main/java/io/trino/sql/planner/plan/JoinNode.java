@@ -48,6 +48,15 @@ import static java.util.Objects.requireNonNull;
 public class JoinNode
         extends PlanNode
 {
+    /**
+     * Join enumeration builds a candidate join for every pair of source sets it considers and keeps
+     * one of them, and checking the symbols line up is the largest single cost of doing so. The
+     * equi-clause and filter symbols are checked again by ValidateDependenciesChecker on the plan
+     * that is finally produced, so these run where they catch a planner bug rather than on every
+     * discarded candidate: under assertions, which surefire enables for every test run.
+     */
+    private static final boolean VALIDATE_SYMBOLS = JoinNode.class.desiredAssertionStatus();
+
     public enum DistributionType
     {
         PARTITIONED,
@@ -117,6 +126,53 @@ public class JoinNode
                 .addAll(this.rightOutputSymbols)
                 .build();
 
+        if (VALIDATE_SYMBOLS) {
+            validateSymbols(left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter);
+        }
+
+        if (distributionType.isPresent()) {
+            // The implementation of full outer join only works if the data is hash partitioned.
+            checkArgument(
+                    !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
+                    "%s join do not work with %s distribution type",
+                    type,
+                    distributionType.get());
+        }
+
+        if (!this.dynamicFilters.isEmpty()) {
+            Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
+            for (Symbol symbol : this.dynamicFilters.values()) {
+                checkArgument(rightSymbols.contains(symbol), "Right join input doesn't contain symbol for dynamic filter: %s", symbol);
+            }
+        }
+    }
+
+    public JoinNode flipChildren()
+    {
+        return new JoinNode(
+                getId(),
+                flipType(type),
+                right,
+                left,
+                flipJoinCriteria(criteria),
+                rightOutputSymbols,
+                leftOutputSymbols,
+                maySkipOutputDuplicates,
+                filter,
+                distributionType,
+                spillable,
+                ImmutableMap.of(), // dynamicFilters are invalid after flipping children
+                reorderJoinStatsAndCost);
+    }
+
+    private static void validateSymbols(
+            PlanNode left,
+            PlanNode right,
+            List<EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            Optional<Expression> filter)
+    {
         Set<Symbol> leftSymbols = ImmutableSet.copyOf(left.getOutputSymbols());
         Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
 
@@ -138,37 +194,6 @@ public class JoinNode
                                 rightSymbols.contains(equiJoinClause.getRight()),
                         "Equality join criteria should be normalized according to join sides: %s",
                         equiJoinClause));
-
-        if (distributionType.isPresent()) {
-            // The implementation of full outer join only works if the data is hash partitioned.
-            checkArgument(
-                    !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
-                    "%s join do not work with %s distribution type",
-                    type,
-                    distributionType.get());
-        }
-
-        for (Symbol symbol : dynamicFilters.values()) {
-            checkArgument(rightSymbols.contains(symbol), "Right join input doesn't contain symbol for dynamic filter: %s", symbol);
-        }
-    }
-
-    public JoinNode flipChildren()
-    {
-        return new JoinNode(
-                getId(),
-                flipType(type),
-                right,
-                left,
-                flipJoinCriteria(criteria),
-                rightOutputSymbols,
-                leftOutputSymbols,
-                maySkipOutputDuplicates,
-                filter,
-                distributionType,
-                spillable,
-                ImmutableMap.of(), // dynamicFilters are invalid after flipping children
-                reorderJoinStatsAndCost);
     }
 
     private static JoinType flipType(JoinType type)
