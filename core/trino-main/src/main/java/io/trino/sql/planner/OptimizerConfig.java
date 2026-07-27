@@ -50,6 +50,7 @@ public class OptimizerConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 8;
     private int maxEnumeratedJoinOrders = 10_000;
+    private boolean usePartitioningInJoinCost;
     private int maxPrefetchedInformationSchemaPrefixes = 100;
 
     private boolean enableStatsCalculator = true;
@@ -244,6 +245,19 @@ public class OptimizerConfig
     public OptimizerConfig setMaxReorderedJoins(int maxReorderedJoins)
     {
         this.maxReorderedJoins = maxReorderedJoins;
+        return this;
+    }
+
+    public boolean isUsePartitioningInJoinCost()
+    {
+        return usePartitioningInJoinCost;
+    }
+
+    @Config("optimizer.use-partitioning-in-join-cost")
+    @ConfigDescription("Do not charge a partitioned join for repartitioning an input that is already partitioned on its join keys")
+    public OptimizerConfig setUsePartitioningInJoinCost(boolean usePartitioningInJoinCost)
+    {
+        this.usePartitioningInJoinCost = usePartitioningInJoinCost;
         return this;
     }
 

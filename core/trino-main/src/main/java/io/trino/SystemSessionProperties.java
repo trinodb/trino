@@ -102,6 +102,7 @@ public final class SystemSessionProperties
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String MAX_ENUMERATED_JOIN_ORDERS = "max_enumerated_join_orders";
+    public static final String USE_PARTITIONING_IN_JOIN_COST = "use_partitioning_in_join_cost";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -484,6 +485,11 @@ public final class SystemSessionProperties
                             return intValue;
                         },
                         value -> value),
+                booleanProperty(
+                        USE_PARTITIONING_IN_JOIN_COST,
+                        "Do not charge a partitioned join for repartitioning an input that is already partitioned on its join keys",
+                        optimizerConfig.isUsePartitioningInJoinCost(),
+                        false),
                 integerProperty(
                         MAX_ENUMERATED_JOIN_ORDERS,
                         "The maximum number of join orders to enumerate before simplifying the query graph in cost-based join reordering",
@@ -1356,6 +1362,11 @@ public final class SystemSessionProperties
     public static int getMaxEnumeratedJoinOrders(Session session)
     {
         return session.getSystemProperty(MAX_ENUMERATED_JOIN_ORDERS, Integer.class);
+    }
+
+    public static boolean isUsePartitioningInJoinCost(Session session)
+    {
+        return session.getSystemProperty(USE_PARTITIONING_IN_JOIN_COST, Boolean.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)
