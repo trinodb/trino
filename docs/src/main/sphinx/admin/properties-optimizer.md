@@ -206,6 +206,19 @@ columns of the clauses in a join. A value of `0` results in the optimizer
 assuming that the columns of the join clauses are fully correlated and only
 the most selective clause drives the selectivity of the join.
 
+## `optimizer.use-partitioning-in-join-cost`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `false`
+- **Session property:** `use_partitioning_in_join_cost`
+
+When estimating the cost of a partitioned join, do not charge for repartitioning an
+input that is already partitioned on its join keys. An input keeps a useful
+partitioning when it comes from an upstream partitioned join whose surviving join
+keys are the ones this join partitions on, so no exchange is needed to repartition
+it. When set to `false`, the default, every partitioned join is charged for
+repartitioning both of its inputs.
+
 ## `optimizer.non-estimatable-predicate-approximation.enabled`
 
 - **Type:** {ref}`prop-type-boolean`

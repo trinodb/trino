@@ -63,6 +63,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.USE_PARTITIONING_IN_JOIN_COST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
@@ -247,6 +248,51 @@ public class TestCostCalculator
                 .network(0);
 
         assertCostHasUnknownComponentsForUnknownStats(join);
+    }
+
+    @Test
+    public void testPartitionedJoinCreditsInputAlreadyPartitionedOnItsKeys()
+    {
+        TableScanNode ts1 = tableScan("ts1", new Symbol(BIGINT, "k1"), new Symbol(BIGINT, "k2"));
+        TableScanNode ts2 = tableScan("ts2", new Symbol(BIGINT, "k1_0"), new Symbol(BIGINT, "k2_0"));
+        TableScanNode ts3 = tableScan("ts3", new Symbol(BIGINT, "j1"));
+
+        // the children differ only in what they leave the probe partitioned on: more than the
+        // parent's key for the first, exactly the parent's key for the second
+        JoinNode overSubsetOfPartitioning = join("join", join("child", ts1, ts2, JoinNode.DistributionType.PARTITIONED, "k1", "k1_0", "k2", "k2_0"), ts3, JoinNode.DistributionType.PARTITIONED, "k1", "j1");
+        JoinNode overWholePartitioning = join("join", join("child", ts1, ts2, JoinNode.DistributionType.PARTITIONED, "k1", "k1_0"), ts3, JoinNode.DistributionType.PARTITIONED, "k1", "j1");
+
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
+                "child", cpuCost(6000),
+                "ts3", cpuCost(1000));
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "join", statsEstimate(overSubsetOfPartitioning, 12000),
+                "child", statsEstimate(overSubsetOfPartitioning.getLeft(), 6000),
+                "ts3", statsEstimate(ts3, 1000));
+
+        Session creditPartitioning = Session.builder(session)
+                .setSystemProperty(USE_PARTITIONING_IN_JOIN_COST, "true")
+                .build();
+        PlanCostEstimate repartitioned = calculateCost(creditPartitioning, overSubsetOfPartitioning, costs, stats);
+        PlanCostEstimate keptPartitioned = calculateCost(creditPartitioning, overWholePartitioning, costs, stats);
+
+        // hash-partitioned on (k1, k2), rows equal on k1 alone can sit on different nodes, so
+        // only the second probe avoids the repartition of its 6000 bytes
+        assertThat(repartitioned.getNetworkCost() - keptPartitioned.getNetworkCost())
+                .isEqualTo(6000 * IS_NULL_OVERHEAD);
+
+        // without the session property both probes are charged for the repartition
+        PlanCostEstimate uncredited = calculateCost(session, overWholePartitioning, costs, stats);
+        assertThat(uncredited.getNetworkCost()).isEqualTo(repartitioned.getNetworkCost());
+    }
+
+    private PlanCostEstimate calculateCost(Session session, PlanNode node, Map<String, PlanCostEstimate> costs, Map<String, PlanNodeStatsEstimate> stats)
+    {
+        return costCalculatorWithEstimatedExchanges.calculateCost(
+                node,
+                planNode -> requireNonNull(stats.get(planNode.getId().toString()), "no stats for node"),
+                source -> requireNonNull(costs.get(source.getId().toString()), "no cost for source"),
+                session);
     }
 
     @Test
