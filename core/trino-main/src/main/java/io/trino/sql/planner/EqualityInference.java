@@ -276,6 +276,35 @@ public class EqualityInference
     }
 
     /**
+     * The equalities that fit entirely within the symbol scope.
+     */
+    public List<Expression> generateScopeEqualities(Set<Symbol> scope)
+    {
+        ImmutableList.Builder<Expression> equalities = ImmutableList.builder();
+        for (Collection<Expression> equalitySet : equalitySets.asMap().values()) {
+            Set<Expression> scopeExpressions = new LinkedHashSet<>();
+            for (Expression candidate : equalitySet) {
+                if (!derivedExpressions.contains(candidate)) {
+                    Expression rewritten = rewrite(candidate, scope::contains, false);
+                    if (rewritten != null) {
+                        scopeExpressions.add(rewritten);
+                    }
+                }
+            }
+            if (scopeExpressions.size() < 2) {
+                continue;
+            }
+            Expression canonical = getCanonical(scopeExpressions.stream());
+            for (Expression expression : scopeExpressions) {
+                if (!expression.equals(canonical)) {
+                    equalities.add(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, canonical, expression));
+                }
+            }
+        }
+        return equalities.build();
+    }
+
+    /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
     public static boolean isInferenceCandidate(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression expression)
