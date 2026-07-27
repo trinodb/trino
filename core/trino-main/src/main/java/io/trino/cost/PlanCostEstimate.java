@@ -20,6 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.cost.EstimateConfidence.HIGH;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
@@ -36,6 +37,7 @@ public final class PlanCostEstimate
     private final double maxMemoryWhenOutputting;
     private final double networkCost;
     private final LocalCostEstimate rootNodeLocalCostEstimate;
+    private final EstimateConfidence confidence;
 
     public static PlanCostEstimate infinite()
     {
@@ -61,13 +63,24 @@ public final class PlanCostEstimate
         this(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost, LocalCostEstimate.unknown());
     }
 
+    public PlanCostEstimate(
+            double cpuCost,
+            double maxMemory,
+            double maxMemoryWhenOutputting,
+            double networkCost,
+            LocalCostEstimate rootNodeLocalCostEstimate)
+    {
+        this(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost, rootNodeLocalCostEstimate, HIGH);
+    }
+
     @JsonCreator
     public PlanCostEstimate(
             @JsonProperty("cpuCost") double cpuCost,
             @JsonProperty("maxMemory") double maxMemory,
             @JsonProperty("maxMemoryWhenOutputting") double maxMemoryWhenOutputting,
             @JsonProperty("networkCost") double networkCost,
-            @JsonProperty("rootNodeLocalCostEstimate") LocalCostEstimate rootNodeLocalCostEstimate)
+            @JsonProperty("rootNodeLocalCostEstimate") LocalCostEstimate rootNodeLocalCostEstimate,
+            @JsonProperty("confidence") EstimateConfidence confidence)
     {
         checkArgument(!(cpuCost < 0), "cpuCost cannot be negative: %s", cpuCost);
         checkArgument(!(maxMemory < 0), "maxMemory cannot be negative: %s", maxMemory);
@@ -79,6 +92,8 @@ public final class PlanCostEstimate
         this.maxMemoryWhenOutputting = maxMemoryWhenOutputting;
         this.networkCost = networkCost;
         this.rootNodeLocalCostEstimate = requireNonNull(rootNodeLocalCostEstimate, "rootNodeLocalCostEstimate is null");
+        // costs serialized before confidence was tracked carry no value for it
+        this.confidence = confidence == null ? HIGH : confidence;
     }
 
     /**
@@ -137,6 +152,23 @@ public final class PlanCostEstimate
     }
 
     /**
+     * Returns how much the engine trusts the statistics this cost was derived from.
+     */
+    @JsonProperty
+    public EstimateConfidence getConfidence()
+    {
+        return confidence;
+    }
+
+    public PlanCostEstimate withConfidence(EstimateConfidence confidence)
+    {
+        if (this.confidence == confidence) {
+            return this;
+        }
+        return new PlanCostEstimate(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost, rootNodeLocalCostEstimate, confidence);
+    }
+
+    /**
      * Returns true if this cost has unknown components.
      */
     public boolean hasUnknownComponents()
@@ -153,6 +185,7 @@ public final class PlanCostEstimate
                 // maxMemoryWhenOutputting is not that useful in toString
                 .add("network", networkCost)
                 .add("rootNodeLocalCostEstimate", rootNodeLocalCostEstimate)
+                .add("confidence", confidence)
                 .toString();
     }
 
@@ -170,12 +203,13 @@ public final class PlanCostEstimate
                 Double.compare(that.maxMemory, maxMemory) == 0 &&
                 Double.compare(that.maxMemoryWhenOutputting, maxMemoryWhenOutputting) == 0 &&
                 Double.compare(that.networkCost, networkCost) == 0 &&
-                Objects.equals(rootNodeLocalCostEstimate, that.rootNodeLocalCostEstimate);
+                Objects.equals(rootNodeLocalCostEstimate, that.rootNodeLocalCostEstimate) &&
+                confidence == that.confidence;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost, rootNodeLocalCostEstimate);
+        return Objects.hash(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost, rootNodeLocalCostEstimate, confidence);
     }
 }
