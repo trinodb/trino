@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.cost.CostComparator;
@@ -187,6 +186,7 @@ public class ReorderJoins
         private final Context context;
 
         private final Long2ObjectMap<JoinEnumerationResult> memo = new Long2ObjectOpenHashMap<>();
+        private final Long2ObjectMap<EqualityInference> joinInferences = new Long2ObjectOpenHashMap<>();
         private final List<Expression> residuals;
         // sources indexed by their position in the bit masks used to drive the enumeration
         private final List<PlanNode> sources;
@@ -426,7 +426,7 @@ public class ReorderJoins
             Set<Symbol> leftSymbols = outputSymbols(leftSources);
             Set<Symbol> rightSymbols = outputSymbols(rightSources);
 
-            List<Expression> joinPredicates = getJoinPredicates(leftSymbols, rightSymbols);
+            List<Expression> joinPredicates = getJoinPredicates(leftSources | rightSources, leftSymbols);
             List<EquiJoinClause> joinConditions = joinPredicates.stream()
                     .map(JoinEnumerator::asJoinEqualityCondition)
                     .filter(Optional::isPresent)
@@ -496,17 +496,21 @@ public class ReorderJoins
                     Optional.empty()));
         }
 
-        private List<Expression> getJoinPredicates(Set<Symbol> leftSymbols, Set<Symbol> rightSymbols)
+        private List<Expression> getJoinPredicates(long nodes, Set<Symbol> leftSymbols)
         {
-            ImmutableList.Builder<Expression> joinPredicatesBuilder = ImmutableList.builder();
-
-            // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
-            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).scopeEqualities();
-            EqualityInference joinInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), joinEqualities);
-            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).scopeStraddlingEqualities());
+            return joinInference(nodes).generateEqualitiesPartitionedBy(leftSymbols).scopeStraddlingEqualities();
+        }
 
-            return joinPredicatesBuilder.build();
+        /**
+         * The equalities available to join a set of sources depend only on which sources are
+         * present, not on how they are split. Every partition of a set would otherwise re-derive
+         * them, and building an inference is far from free.
+         */
+        private EqualityInference joinInference(long nodes)
+        {
+            return joinInferences.computeIfAbsent(nodes, mask ->
+                    new EqualityInference(plannerContext, getCharVarcharCoercion(session), allFilterInference.generateEqualitiesPartitionedBy(outputSymbols(mask)).scopeEqualities()));
         }
 
         private Set<Symbol> outputSymbols(long nodes)
