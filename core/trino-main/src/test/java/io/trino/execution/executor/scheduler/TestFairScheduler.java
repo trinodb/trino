@@ -13,13 +13,17 @@
  */
 package io.trino.execution.executor.scheduler;
 
+import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.AbstractFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -268,6 +272,43 @@ public class TestFairScheduler
             spinner.get();
 
             assertThat(otherRan.get()).isTrue();
+        }
+    }
+
+    @Test
+    @Timeout(60)
+    public void testShardedScheduling()
+            throws InterruptedException, ExecutionException
+    {
+        int groups = 16;
+        int tasksPerGroup = 4;
+        int blocksPerTask = 10;
+
+        try (FairScheduler scheduler = FairScheduler.newInstance(4, 4, Ticker.systemTicker())) {
+            assertThat(scheduler.getShardCount()).isEqualTo(4);
+
+            AtomicInteger completed = new AtomicInteger();
+            List<ListenableFuture<Void>> tasks = new ArrayList<>();
+
+            for (int i = 0; i < groups; i++) {
+                Group group = scheduler.createGroup("G" + i);
+                for (int j = 0; j < tasksPerGroup; j++) {
+                    tasks.add(scheduler.submit(group, j, context -> {
+                        for (int k = 0; k < blocksPerTask; k++) {
+                            if (!context.block(immediateVoidFuture())) {
+                                return;
+                            }
+                        }
+                        completed.incrementAndGet();
+                    }));
+                }
+            }
+
+            Futures.allAsList(tasks).get();
+
+            assertThat(completed.get())
+                    .describedAs("Completed tasks")
+                    .isEqualTo(groups * tasksPerGroup);
         }
     }
 

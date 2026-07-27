@@ -87,7 +87,7 @@ public class ThreadPerDriverTaskExecutor
     {
         this(tracer,
                 versionEmbedder,
-                new FairScheduler(config.getMaxWorkerThreads(), "SplitRunner-%d", Ticker.systemTicker()),
+                new FairScheduler(config.getMaxWorkerThreads(), config.getSchedulerShards(), "SplitRunner-%d", Ticker.systemTicker()),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
                 config.getMinDrivers());
@@ -308,6 +308,12 @@ public class ThreadPerDriverTaskExecutor
     public int getConcurrencyControlAvailableSlots()
     {
         return scheduler.getConcurrencyControlAvailableSlots();
+    }
+
+    @Managed(description = "Number of independent partitions of the split scheduling queue")
+    public int getSchedulerShardCount()
+    {
+        return scheduler.getShardCount();
     }
 
     @Managed(description = "Unblocked splits that resumed without involving the scheduler thread")

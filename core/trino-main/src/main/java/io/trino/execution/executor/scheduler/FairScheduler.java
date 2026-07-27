@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -55,17 +56,30 @@ public final class FairScheduler
 
     public static final long QUANTUM_NANOS = TimeUnit.MILLISECONDS.toNanos(1000);
 
+    /**
+     * A single shard keeps fair-share ordering exact across all groups. See
+     * {@link ShardedSchedulingQueue} for what is given up by raising this.
+     */
+    public static final int DEFAULT_SHARDS = 1;
+
     private final ExecutorService schedulerExecutor;
     private final ThreadPoolExecutorMBean schedulerExecutorMBean;
     private final ListeningExecutorService taskExecutor;
     private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
     private final ThreadPoolExecutorMBean executorMBean;
-    private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
+    private final ShardedSchedulingQueue<Group, TaskControl> queue;
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
 
     private final LongAdder bypassedResumeCount = new LongAdder();
     private final LongAdder scheduledResumeCount = new LongAdder();
+
+    /**
+     * Tasks that a scheduler thread has dequeued but not yet handed a concurrency slot. They
+     * have already won a scheduling decision, so {@link #tryResumeWithoutScheduler} must not
+     * take a slot ahead of them.
+     */
+    private final AtomicInteger pendingStarts = new AtomicInteger();
 
     private final Gate paused = new Gate(true);
 
@@ -74,9 +88,15 @@ public final class FairScheduler
 
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
     {
+        this(maxConcurrentTasks, DEFAULT_SHARDS, threadNameFormat, ticker);
+    }
+
+    public FairScheduler(int maxConcurrentTasks, int shards, String threadNameFormat, Ticker ticker)
+    {
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
+        queue = new ShardedSchedulingQueue<>(shards);
 
         schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
         schedulerExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) schedulerExecutor);
@@ -93,14 +113,22 @@ public final class FairScheduler
 
     public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker)
     {
-        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
+        return newInstance(maxConcurrentTasks, DEFAULT_SHARDS, ticker);
+    }
+
+    public static FairScheduler newInstance(int maxConcurrentTasks, int shards, Ticker ticker)
+    {
+        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, shards, "fair-scheduler-runner-%d", ticker);
         scheduler.start();
         return scheduler;
     }
 
     public void start()
     {
-        schedulerExecutor.submit(this::runScheduler);
+        for (int i = 0; i < queue.shardCount(); i++) {
+            BlockingSchedulingQueue<Group, TaskControl> shard = queue.shard(i);
+            schedulerExecutor.submit(() -> runScheduler(shard));
+        }
     }
 
     public void pause()
@@ -289,7 +317,7 @@ public final class FairScheduler
      */
     private boolean tryResumeWithoutScheduler(TaskControl task)
     {
-        if (queue.getRunnableCount() > 0) {
+        if (queue.getRunnableCount() > 0 || pendingStarts.get() > 0) {
             return false;
         }
 
@@ -312,17 +340,27 @@ public final class FairScheduler
         return true;
     }
 
-    private void runScheduler()
+    private void runScheduler(BlockingSchedulingQueue<Group, TaskControl> shard)
     {
         while (true) {
             try {
                 paused.awaitOpen();
-                concurrencyControl.reserve();
-                TaskControl task = queue.dequeue(QUANTUM_NANOS);
 
-                concurrencyControl.register(task);
-                if (!task.markReady()) {
-                    concurrencyControl.release(task);
+                // Dequeue before reserving. Reserving first would let a scheduler thread sit on a
+                // concurrency slot while its shard has nothing to run, stranding that slot for as
+                // long as the shard stays idle.
+                TaskControl task = shard.dequeue(QUANTUM_NANOS);
+
+                pendingStarts.incrementAndGet();
+                try {
+                    concurrencyControl.reserve();
+                    concurrencyControl.register(task);
+                    if (!task.markReady()) {
+                        concurrencyControl.release(task);
+                    }
+                }
+                finally {
+                    pendingStarts.decrementAndGet();
                 }
             }
             catch (InterruptedException e) {
@@ -412,6 +450,11 @@ public final class FairScheduler
     public int getConcurrencyControlAvailableSlots()
     {
         return concurrencyControl.availableSlots();
+    }
+
+    public int getShardCount()
+    {
+        return queue.shardCount();
     }
 
     /**
