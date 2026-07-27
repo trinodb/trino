@@ -13,6 +13,7 @@
  */
 package io.trino.execution.executor.dedicated;
 
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
@@ -29,6 +30,7 @@ import io.trino.execution.executor.scheduler.FairScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
@@ -153,6 +155,80 @@ public class TestThreadPerDriverTaskExecutor
 
             splitDone.get();
             assertThat(split.isFinished()).isTrue();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(60)
+    public void testAllSplitsRunWhenGlobalCapacityIsScarce()
+            throws ExecutionException, InterruptedException
+    {
+        int taskCount = 8;
+        int splitsPerTask = 6;
+
+        FairScheduler scheduler = new FairScheduler(4, "Runner-%d", Ticker.systemTicker());
+        // guarantee 1 driver per task, cap each task at 2, and allow only 3 leaf drivers globally
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 2, 3);
+        executor.start();
+
+        try {
+            List<ListenableFuture<Void>> allDone = new ArrayList<>();
+            for (int i = 0; i < taskCount; i++) {
+                TaskId taskId = new TaskId(new StageId("query", 1), 1, i);
+                TaskHandle task = executor.addTask(taskId, () -> 0, 1, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+                List<SplitRunner> splits = new ArrayList<>();
+                for (int j = 0; j < splitsPerTask; j++) {
+                    splits.add(new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture())));
+                }
+                allDone.addAll(executor.enqueueSplits(task, false, splits));
+            }
+
+            // every split has to be handed a driver eventually, even though far more splits are
+            // queued than the worker can run at once
+            Futures.allAsList(allDone).get();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(60)
+    public void testPerTaskGuaranteeIgnoresGlobalTarget()
+            throws InterruptedException
+    {
+        int taskCount = 3;
+        int guaranteed = 2;
+
+        FairScheduler scheduler = new FairScheduler(16, "Runner-%d", Ticker.systemTicker());
+        // guarantee 2 drivers per task even though the global target is only 1
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, guaranteed, Integer.MAX_VALUE, 1);
+        executor.start();
+
+        try {
+            CountDownLatch running = new CountDownLatch(taskCount * guaranteed);
+
+            for (int i = 0; i < taskCount; i++) {
+                TaskId taskId = new TaskId(new StageId("query", 1), 1, i);
+                TaskHandle task = executor.addTask(taskId, () -> 0, 1, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+                List<SplitRunner> splits = new ArrayList<>();
+                for (int j = 0; j < 4; j++) {
+                    splits.add(new TestingSplitRunner(ImmutableList.of(_ -> {
+                        running.countDown();
+                        return new TestFuture(); // never completes, so the driver stays occupied
+                    })));
+                }
+                executor.enqueueSplits(task, false, splits);
+            }
+
+            assertThat(running.await(30, TimeUnit.SECONDS))
+                    .describedAs("Every task got its guaranteed drivers")
+                    .isTrue();
         }
         finally {
             executor.stop();

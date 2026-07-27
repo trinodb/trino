@@ -37,22 +37,21 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -73,6 +72,20 @@ public class ThreadPerDriverTaskExecutor
     @GuardedBy("this")
     private final Map<TaskId, TaskEntry> tasks = new HashMap<>();
 
+    /**
+     * Tasks with leaf splits waiting to run. Iteration order is the round-robin order used to
+     * hand out spare global capacity. Maintaining this incrementally keeps scheduling a single
+     * split independent of how many tasks the worker is running.
+     */
+    @GuardedBy("this")
+    private final Set<TaskEntry> pendingTasks = new LinkedHashSet<>();
+
+    /**
+     * Subset of {@link #pendingTasks} still below the per-task guarantee. Empty in steady state.
+     */
+    @GuardedBy("this")
+    private final Set<TaskEntry> belowGuarantee = new LinkedHashSet<>();
+
     @GuardedBy("this")
     private boolean closed;
 
@@ -80,7 +93,7 @@ public class ThreadPerDriverTaskExecutor
     private int runningLeafDrivers;
 
     // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
-    private final Runnable leafSplitDoneCallback = this::leafSplitDone;
+    private final Consumer<TaskEntry> leafSplitDoneCallback = this::leafSplitDone;
 
     @Inject
     public ThreadPerDriverTaskExecutor(TaskManagerConfig config, Tracer tracer, VersionEmbedder versionEmbedder)
@@ -109,7 +122,7 @@ public class ThreadPerDriverTaskExecutor
     public synchronized void start()
     {
         scheduler.start();
-        backgroundTasks.scheduleWithFixedDelay(this::scheduleMoreLeafSplits, 0, 100, TimeUnit.MILLISECONDS);
+        backgroundTasks.scheduleWithFixedDelay(this::reconcileAndScheduleMoreLeafSplits, 0, 100, TimeUnit.MILLISECONDS);
         backgroundTasks.scheduleWithFixedDelay(this::adjustConcurrency, 0, 10, TimeUnit.MILLISECONDS);
         backgroundTasks.scheduleWithFixedDelay(this::logDiagnostics, 0, 30, TimeUnit.SECONDS);
     }
@@ -150,6 +163,8 @@ public class ThreadPerDriverTaskExecutor
         TaskEntry entry = (TaskEntry) handle;
         synchronized (this) {
             tasks.remove(entry.taskId());
+            pendingTasks.remove(entry);
+            belowGuarantee.remove(entry);
         }
         if (!entry.isDestroyed()) {
             entry.destroy();
@@ -173,48 +188,96 @@ public class ThreadPerDriverTaskExecutor
             }
         }
 
+        updateSchedulability(entry);
         scheduleMoreLeafSplits();
         return futures;
     }
 
+    @GuardedBy("this")
     private boolean scheduleLeafSplit(TaskEntry task)
     {
         boolean scheduled = task.dequeueAndRunLeafSplit(leafSplitDoneCallback);
         if (scheduled) {
             runningLeafDrivers++;
         }
+        updateSchedulability(task);
 
         return scheduled;
     }
 
-    private synchronized void leafSplitDone()
+    private synchronized void leafSplitDone(TaskEntry task)
     {
         runningLeafDrivers--;
+        updateSchedulability(task);
+        scheduleMoreLeafSplits();
+    }
+
+    /**
+     * Brings the scheduling sets back in sync with a task whose pending queue or running driver
+     * count just changed. Membership in {@link #pendingTasks} is not reordered for a task that
+     * is already present, so a task keeps its place in the round-robin.
+     */
+    @GuardedBy("this")
+    private void updateSchedulability(TaskEntry task)
+    {
+        if (task.isDestroyed() || !task.hasPendingLeafSplits()) {
+            pendingTasks.remove(task);
+            belowGuarantee.remove(task);
+            return;
+        }
+
+        pendingTasks.add(task);
+        if (task.runningLeafSplits() < minDriversPerTask) {
+            belowGuarantee.add(task);
+        }
+        else {
+            belowGuarantee.remove(task);
+        }
+    }
+
+    /**
+     * Rebuilds the scheduling sets from the authoritative task map before scheduling. The sets
+     * are maintained incrementally on the hot path, so this runs only on the periodic tick and
+     * exists so that a missed update cannot leave a task with pending splits stuck forever.
+     * It also picks up tasks whose target concurrency was raised since the last tick.
+     */
+    private synchronized void reconcileAndScheduleMoreLeafSplits()
+    {
+        for (TaskEntry task : tasks.values()) {
+            updateSchedulability(task);
+        }
+
         scheduleMoreLeafSplits();
     }
 
     private synchronized void scheduleMoreLeafSplits()
     {
-        // schedule minimum guaranteed leaf drivers for each task
-        for (TaskEntry task : tasks.values()) {
-            int target = max(0, minDriversPerTask - task.runningLeafSplits());
-            for (int i = 0; i < target; i++) {
-                if (!scheduleLeafSplit(task)) {
-                    break;
-                }
+        // Honor the per-task guarantee first, ignoring global capacity, as before.
+        while (!belowGuarantee.isEmpty()) {
+            TaskEntry task = belowGuarantee.iterator().next();
+            if (!scheduleLeafSplit(task)) {
+                // nothing left to schedule for this task; updateSchedulability already dropped it
+                belowGuarantee.remove(task);
             }
         }
 
-        // schedule additional drivers up to the target global leaf drivers
-        Queue<TaskEntry> queue = new ArrayDeque<>(tasks.values());
-        int target = targetGlobalLeafDrivers - runningLeafDrivers;
-        for (int i = 0; i < target && !queue.isEmpty(); i++) {
-            TaskEntry task = queue.poll();
-            if (task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask)) {
-                scheduleLeafSplit(task);
-                if (task.hasPendingLeafSplits()) {
-                    queue.add(task);
-                }
+        // Then hand out spare global capacity round-robin. A task that is at its own concurrency
+        // limit is rotated to the back and skipped; once every task has been skipped in turn
+        // there is nothing left to place.
+        int skipped = 0;
+        while (runningLeafDrivers < targetGlobalLeafDrivers && skipped < pendingTasks.size()) {
+            TaskEntry task = pendingTasks.iterator().next();
+
+            if (task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask) && scheduleLeafSplit(task)) {
+                skipped = 0;
+            }
+            else {
+                skipped++;
+            }
+
+            // rotate to the back so the next spare slot goes to a different task
+            if (pendingTasks.remove(task)) {
+                pendingTasks.add(task);
             }
         }
     }

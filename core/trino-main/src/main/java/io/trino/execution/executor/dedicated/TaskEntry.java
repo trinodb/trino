@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -110,7 +111,7 @@ class TaskEntry
     /**
      * @return true if a split was scheduled; false if no splits are pending
      */
-    public synchronized boolean dequeueAndRunLeafSplit(Runnable doneCallback)
+    public synchronized boolean dequeueAndRunLeafSplit(Consumer<TaskEntry> doneCallback)
     {
         QueuedSplit split = pending.poll();
         if (split == null) {
@@ -120,7 +121,7 @@ class TaskEntry
         runSplit(split.split())
                 .addListener(() -> {
                     leafSplitDone(split);
-                    doneCallback.run();
+                    doneCallback.accept(this);
                 }, directExecutor());
 
         runningLeafSplits++;
