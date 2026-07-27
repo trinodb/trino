@@ -193,6 +193,32 @@ public class EqualityInference
      */
     public EqualityPartition generateEqualitiesPartitionedBy(Set<Symbol> scope)
     {
+        return generateEqualitiesPartitionedBy(scope, true, true, true);
+    }
+
+    /**
+     * The equalities that fit entirely within the symbol scope. Working out where the expressions
+     * outside the scope belong is most of the work, so callers that do not need it should say so.
+     */
+    public List<Expression> generateScopeEqualities(Set<Symbol> scope)
+    {
+        return generateEqualitiesPartitionedBy(scope, true, false, false).getScopeEqualities();
+    }
+
+    /**
+     * The equalities that straddle the symbol scope.
+     */
+    public List<Expression> generateScopeStraddlingEqualities(Set<Symbol> scope)
+    {
+        return generateEqualitiesPartitionedBy(scope, false, false, true).getScopeStraddlingEqualities();
+    }
+
+    private EqualityPartition generateEqualitiesPartitionedBy(Set<Symbol> scope, boolean withinScope, boolean outsideScope, boolean straddling)
+    {
+        // an expression only has to be placed on a side of the scope that something asked about
+        boolean placeWithinScope = withinScope || straddling;
+        boolean placeOutsideScope = outsideScope || straddling;
+
         ImmutableSet.Builder<Expression> scopeEqualities = ImmutableSet.builder();
         ImmutableSet.Builder<Expression> scopeComplementEqualities = ImmutableSet.builder();
         ImmutableSet.Builder<Expression> scopeStraddlingEqualities = ImmutableSet.builder();
@@ -207,32 +233,36 @@ public class EqualityInference
                 if (derivedExpressions.contains(candidate)) {
                     continue;
                 }
-                Expression scopeRewritten = rewrite(candidate, scope::contains, false);
+                Expression scopeRewritten = placeWithinScope ? rewrite(candidate, scope::contains, false) : null;
                 if (scopeRewritten != null) {
                     scopeExpressions.add(scopeRewritten);
                 }
-                Expression scopeComplementRewritten = rewrite(candidate, symbol -> !scope.contains(symbol), false);
+                Expression scopeComplementRewritten = placeOutsideScope ? rewrite(candidate, symbol -> !scope.contains(symbol), false) : null;
                 if (scopeComplementRewritten != null) {
                     scopeComplementExpressions.add(scopeComplementRewritten);
                 }
-                if (scopeRewritten == null && scopeComplementRewritten == null) {
+                if (straddling && scopeRewritten == null && scopeComplementRewritten == null) {
                     scopeStraddlingExpressions.add(candidate);
                 }
             }
             // Compile the equality expressions on each side of the scope
             Expression matchingCanonical = getCanonical(scopeExpressions.stream());
-            if (scopeExpressions.size() >= 2) {
+            if (withinScope && scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
                         .map(expression -> comparison(metadata, ComparisonOperator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
-            if (scopeComplementExpressions.size() >= 2) {
+            if (outsideScope && scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
                         .map(expression -> comparison(metadata, ComparisonOperator.EQUAL, complementCanonical, expression))
                         .forEach(scopeComplementEqualities::add);
+            }
+
+            if (!straddling) {
+                continue;
             }
 
             // Compile single equality between matching and complement scope.

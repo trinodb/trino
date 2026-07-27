@@ -792,7 +792,7 @@ public class ReorderJoins
         private List<Expression> getJoinPredicates(long nodes, Set<Symbol> leftSymbols)
         {
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
-            return joinInference(nodes).generateEqualitiesPartitionedBy(leftSymbols).getScopeStraddlingEqualities();
+            return joinInference(nodes).generateScopeStraddlingEqualities(leftSymbols);
         }
 
         /**
@@ -803,7 +803,7 @@ public class ReorderJoins
         private EqualityInference joinInference(long nodes)
         {
             return joinInferences.computeIfAbsent(nodes, mask ->
-                    new EqualityInference(plannerContext, allFilterInference.generateEqualitiesPartitionedBy(outputSymbols(mask)).getScopeEqualities()));
+                    new EqualityInference(plannerContext, allFilterInference.generateScopeEqualities(outputSymbols(mask))));
         }
 
         private Set<Symbol> outputSymbols(long nodes)
@@ -828,7 +828,7 @@ public class ReorderJoins
                     return createJoinEnumerationResult(planNode);
                 }
                 Set<Symbol> scope = ImmutableSet.copyOf(requiredOutputs);
-                Expression filter = combineConjuncts(allFilterInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
+                Expression filter = combineConjuncts(allFilterInference.generateScopeEqualities(scope));
                 if (!TRUE.equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
                 }
