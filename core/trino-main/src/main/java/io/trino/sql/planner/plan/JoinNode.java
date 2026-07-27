@@ -90,6 +90,34 @@ public class JoinNode
             @JsonProperty("dynamicFilters") Map<DynamicFilterId, Symbol> dynamicFilters,
             @JsonProperty("reorderJoinStatsAndCost") Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
     {
+        this(id, type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost, true);
+    }
+
+    /**
+     * Builds a join without checking that its output symbols line up with its sources. Nothing
+     * compares a join's output symbols against its sources except this constructor, so building a
+     * bad join otherwise fails only when the plan runs. The check therefore runs for every join a
+     * rule newly builds, but is skipped by the copy methods below, which only vary a node that has
+     * already passed it: during join enumeration those copies make up all but one of the join
+     * nodes each candidate builds, and ValidateDependenciesChecker re-checks the plan that is
+     * finally produced.
+     */
+    private JoinNode(
+            PlanNodeId id,
+            JoinType type,
+            PlanNode left,
+            PlanNode right,
+            List<EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            boolean maySkipOutputDuplicates,
+            Optional<Expression> filter,
+            Optional<DistributionType> distributionType,
+            Optional<Boolean> spillable,
+            Map<DynamicFilterId, Symbol> dynamicFilters,
+            Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
+            boolean validateSymbols)
+    {
         super(id);
         requireNonNull(type, "type is null");
         requireNonNull(left, "left is null");
@@ -118,6 +146,54 @@ public class JoinNode
                 .addAll(this.rightOutputSymbols)
                 .build();
 
+        if (validateSymbols) {
+            validateSymbols(left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter);
+        }
+
+        if (distributionType.isPresent()) {
+            // The implementation of full outer join only works if the data is hash partitioned.
+            checkArgument(
+                    !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
+                    "%s join do not work with %s distribution type",
+                    type,
+                    distributionType.get());
+        }
+
+        if (!this.dynamicFilters.isEmpty()) {
+            Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
+            for (Symbol symbol : this.dynamicFilters.values()) {
+                checkArgument(rightSymbols.contains(symbol), "Right join input doesn't contain symbol for dynamic filter: %s", symbol);
+            }
+        }
+    }
+
+    public JoinNode flipChildren()
+    {
+        return new JoinNode(
+                getId(),
+                flipType(type),
+                right,
+                left,
+                flipJoinCriteria(criteria),
+                rightOutputSymbols,
+                leftOutputSymbols,
+                maySkipOutputDuplicates,
+                filter,
+                distributionType,
+                spillable,
+                ImmutableMap.of(), // dynamicFilters are invalid after flipping children
+                reorderJoinStatsAndCost,
+                false);
+    }
+
+    private static void validateSymbols(
+            PlanNode left,
+            PlanNode right,
+            List<EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            Optional<Expression> filter)
+    {
         Set<Symbol> leftSymbols = ImmutableSet.copyOf(left.getOutputSymbols());
         Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
 
@@ -139,37 +215,6 @@ public class JoinNode
                                 rightSymbols.contains(equiJoinClause.getRight()),
                         "Equality join criteria should be normalized according to join sides: %s",
                         equiJoinClause));
-
-        if (distributionType.isPresent()) {
-            // The implementation of full outer join only works if the data is hash partitioned.
-            checkArgument(
-                    !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
-                    "%s join do not work with %s distribution type",
-                    type,
-                    distributionType.get());
-        }
-
-        for (Symbol symbol : dynamicFilters.values()) {
-            checkArgument(rightSymbols.contains(symbol), "Right join input doesn't contain symbol for dynamic filter: %s", symbol);
-        }
-    }
-
-    public JoinNode flipChildren()
-    {
-        return new JoinNode(
-                getId(),
-                flipType(type),
-                right,
-                left,
-                flipJoinCriteria(criteria),
-                rightOutputSymbols,
-                leftOutputSymbols,
-                maySkipOutputDuplicates,
-                filter,
-                distributionType,
-                spillable,
-                ImmutableMap.of(), // dynamicFilters are invalid after flipping children
-                reorderJoinStatsAndCost);
     }
 
     private static JoinType flipType(JoinType type)
@@ -288,7 +333,7 @@ public class JoinNode
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost);
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost, false);
     }
 
     public JoinNode withSpillable(boolean spillable)
@@ -303,7 +348,7 @@ public class JoinNode
 
     public JoinNode withReorderJoinStatsAndCost(PlanNodeStatsAndCostSummary statsAndCost)
     {
-        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost));
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost), false);
     }
 
     public JoinNode withoutDynamicFilters()
