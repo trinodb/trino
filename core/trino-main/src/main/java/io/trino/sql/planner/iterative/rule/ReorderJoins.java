@@ -187,6 +187,7 @@ public class ReorderJoins
 
         private final Long2ObjectMap<JoinEnumerationResult> memo = new Long2ObjectOpenHashMap<>();
         private final Long2ObjectMap<EqualityInference> joinInferences = new Long2ObjectOpenHashMap<>();
+        private final Long2ObjectMap<Set<Symbol>> outputSymbolsCache = new Long2ObjectOpenHashMap<>();
         private final List<Expression> residuals;
         // sources indexed by their position in the bit masks used to drive the enumeration
         private final List<PlanNode> sources;
@@ -515,11 +516,13 @@ public class ReorderJoins
 
         private Set<Symbol> outputSymbols(long nodes)
         {
-            ImmutableSet.Builder<Symbol> symbols = ImmutableSet.builder();
-            for (long remaining = nodes; remaining != 0; remaining &= remaining - 1) {
-                symbols.addAll(sources.get(Long.numberOfTrailingZeros(remaining)).getOutputSymbols());
-            }
-            return symbols.build();
+            return outputSymbolsCache.computeIfAbsent(nodes, mask -> {
+                ImmutableSet.Builder<Symbol> symbols = ImmutableSet.builder();
+                for (long remaining = mask; remaining != 0; remaining &= remaining - 1) {
+                    symbols.addAll(sources.get(Long.numberOfTrailingZeros(remaining)).getOutputSymbols());
+                }
+                return symbols.build();
+            });
         }
 
         private JoinEnumerationResult getJoinSource(long nodes, Set<Symbol> requiredOutputs)
