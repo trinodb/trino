@@ -32,6 +32,7 @@ import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
+import io.trino.filesystem.cache.local.NativeFileSystemCacheModule;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.local.LocalFileSystemConfig;
@@ -121,7 +122,10 @@ public class FileSystemModule
         newOptionalBinder(binder, MemoryFileSystemCache.class);
 
         if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(isCoordinator));
+            switch (config.getCacheType()) {
+                case ALLUXIO -> install(new AlluxioFileSystemCacheModule(isCoordinator));
+                case NATIVE -> install(new NativeFileSystemCacheModule(isCoordinator));
+            }
         }
         if (coordinatorFileCaching) {
             install(new MemoryFileSystemCacheModule(isCoordinator));

@@ -23,12 +23,19 @@ import static java.lang.System.getenv;
 @DefunctConfig("fs.alluxio.enabled")
 public class FileSystemConfig
 {
+    public enum CacheType
+    {
+        ALLUXIO,
+        NATIVE,
+    }
+
     private boolean hadoopEnabled;
     private boolean azureEnabled;
     private boolean s3Enabled;
     private boolean gcsEnabled;
     private boolean localEnabled;
     private boolean cacheEnabled;
+    private CacheType cacheType = CacheType.ALLUXIO;
 
     // Enable leak detection if configured or if running in a CI environment
     private boolean trackingEnabled = getenv("CONTINUOUS_INTEGRATION") != null;
@@ -106,6 +113,19 @@ public class FileSystemConfig
     public FileSystemConfig setCacheEnabled(boolean enabled)
     {
         this.cacheEnabled = enabled;
+        return this;
+    }
+
+    public CacheType getCacheType()
+    {
+        return cacheType;
+    }
+
+    @Config("fs.cache.type")
+    @ConfigDescription("File system cache implementation to use when file system cache is enabled")
+    public FileSystemConfig setCacheType(CacheType cacheType)
+    {
+        this.cacheType = cacheType;
         return this;
     }
 
