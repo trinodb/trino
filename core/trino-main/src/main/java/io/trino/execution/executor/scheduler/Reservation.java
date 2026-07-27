@@ -13,12 +13,8 @@
  */
 package io.trino.execution.executor.scheduler;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.Semaphore;
 
@@ -27,18 +23,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 /**
  * <p>Semaphore-like structure that allows for tracking reservations to avoid double-reserving or double-releasing.</p>
  *
- * <p>Callers are expected to call {@link #reserve()} to acquire a slot, and then {@link #register(T)} to associate
- * an entity with the reservation.</p>
+ * <p>Callers are expected to call {@link #reserve()} or {@link #tryReserve()} to acquire a slot,
+ * and then {@link #register(T)} to associate an entity with the reservation.</p>
  *
  * <p>Upon completion, callers should call {@link #release(T)} to release the reservation.</p>
+ *
+ * <p>Ownership is recorded on the entity itself rather than in a set held by this class, so that
+ * registering and releasing stay off any shared lock. They sit on the path of every block, yield
+ * and task start.</p>
  */
 @ThreadSafe
-final class Reservation<T>
+final class Reservation<T extends Reservable>
 {
     private final Semaphore semaphore;
-
-    @GuardedBy("this")
-    private final Set<T> reservations = new HashSet<>();
     private final int slots;
 
     public Reservation(int slots)
@@ -84,31 +81,23 @@ final class Reservation<T>
         semaphore.release();
     }
 
-    public synchronized void register(T entry)
+    public void register(T entry)
     {
-        checkArgument(!reservations.contains(entry), "Already acquired: %s", entry);
-        reservations.add(entry);
+        checkArgument(entry.tryMarkReserved(), "Already acquired: %s", entry);
     }
 
-    public synchronized void release(T entry)
+    public void release(T entry)
     {
-        checkArgument(reservations.contains(entry), "Already released: %s", entry);
-        reservations.remove(entry);
+        checkArgument(entry.tryMarkReleased(), "Already released: %s", entry);
 
         semaphore.release();
     }
 
-    public synchronized Set<T> reservations()
-    {
-        return ImmutableSet.copyOf(reservations);
-    }
-
     @Override
-    public synchronized String toString()
+    public String toString()
     {
         return new StringJoiner(", ", Reservation.class.getSimpleName() + "[", "]")
                 .add("semaphore=" + semaphore)
-                .add("reservations=" + reservations)
                 .toString();
     }
 }

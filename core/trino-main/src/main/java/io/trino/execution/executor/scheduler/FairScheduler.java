@@ -403,18 +403,11 @@ public final class FairScheduler
                 executor.getActiveCount(),
                 executor.getQueue().size()));
 
-        builder.append("Concurrency control: slots=%s, available=%s\n".formatted(
+        // The tasks holding a slot are exactly those the queue reports as RUNNING above
+        builder.append("Concurrency control: slots=%s, available=%s, pending starts=%s\n".formatted(
                 concurrencyControl.totalSlots(),
-                concurrencyControl.availableSlots()));
-
-        builder.append("Reservations:\n");
-        if (concurrencyControl.totalSlots() - concurrencyControl.availableSlots() == 1) {
-            builder.append("    (pending)\n");
-        }
-        concurrencyControl.reservations().forEach(reservation ->
-                builder.append("    ")
-                        .append(reservation)
-                        .append("\n"));
+                concurrencyControl.availableSlots(),
+                pendingStarts.get()));
 
         return builder.toString();
     }

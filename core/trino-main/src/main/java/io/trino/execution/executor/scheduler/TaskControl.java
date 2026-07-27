@@ -18,6 +18,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -30,10 +31,17 @@ import static java.util.Objects.requireNonNull;
  */
 @ThreadSafe
 final class TaskControl
+        implements Reservable
 {
     private final Group group;
     private final int id;
     private final Ticker ticker;
+
+    /**
+     * Whether this task currently holds a concurrency slot. Kept here rather than in a set
+     * inside {@link Reservation} so that acquiring and releasing a slot costs a single CAS.
+     */
+    private final AtomicBoolean reserved = new AtomicBoolean();
 
     private final Lock lock = new ReentrantLock();
 
@@ -74,6 +82,18 @@ final class TaskControl
     public int id()
     {
         return id;
+    }
+
+    @Override
+    public boolean tryMarkReserved()
+    {
+        return reserved.compareAndSet(false, true);
+    }
+
+    @Override
+    public boolean tryMarkReleased()
+    {
+        return reserved.compareAndSet(true, false);
     }
 
     public void setThread(Thread thread)
