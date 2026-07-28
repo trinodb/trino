@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.DynamicFilterSnapshot;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -153,7 +154,18 @@ public class TableChangesSplitSource
             String entryPath,
             Map<String, Optional<String>> canonicalPartitionValues)
     {
-        String path = Locations.appendPath(tableLocation, entryPath);
+        // Paths in add/cdc entries are RFC 2396 URIs and may be absolute for shallow-cloned
+        // tables, so decode them the same way the table scan does in
+        // DeltaLakeSplitManager.buildSplitPath. Appending the raw entry made the reader request
+        // percent-encoded object keys for partition values that require encoding.
+        URI uri = URI.create(entryPath);
+        String path;
+        if (uri.isAbsolute()) {
+            path = uri.getScheme() + ":" + uri.getSchemeSpecificPart();
+        }
+        else {
+            path = Locations.appendPath(tableLocation, uri.getPath());
+        }
         return new TableChangesSplit(
                 path,
                 length,
