@@ -25,6 +25,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.hive.metastore.thrift.ThriftHttpMetastoreConfig.AuthenticationMode.BEARER;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestThriftHttpMetastoreConfig
 {
@@ -56,5 +57,7 @@ public class TestThriftHttpMetastoreConfig
                 .setAuthenticationMode(BEARER);
 
         assertFullMapping(properties, expected);
+        assertThat(expected.getAdditionalHeaders())
+                .isEqualTo(ImmutableMap.of("key:1", "value,1", "key,2", "value:2"));
     }
 }

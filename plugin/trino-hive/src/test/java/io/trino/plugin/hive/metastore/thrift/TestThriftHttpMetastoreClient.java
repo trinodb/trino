@@ -18,18 +18,13 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
 import io.trino.hive.thrift.metastore.TableMeta;
-import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.metastore.thrift.TestingThriftHttpMetastoreServer.TestingThriftRequestsHandler;
 import io.trino.testing.TestingNodeManager;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.http.HttpHeaders;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -41,23 +36,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestThriftHttpMetastoreClient
 {
-    private static final AutoCloseableCloser closer = AutoCloseableCloser.create();
-
-    @BeforeAll
-    public static void setup()
-            throws Exception
-    {
-        File tempDir = Files.createTempDirectory(null).toFile();
-        tempDir.deleteOnExit();
-    }
-
-    @AfterAll
-    public static void tearDown()
-            throws Exception
-    {
-        closer.close();
-    }
-
     @Test
     public void testHttpThriftConnection()
             throws Exception

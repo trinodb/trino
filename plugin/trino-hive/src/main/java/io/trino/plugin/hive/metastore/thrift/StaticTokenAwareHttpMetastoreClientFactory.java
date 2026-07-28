@@ -46,7 +46,7 @@ public class StaticTokenAwareHttpMetastoreClientFactory
         requireNonNull(uri, "uri is null");
         String scheme = uri.getScheme();
         checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
-        checkArgument(scheme.equals("https") || scheme.equals("http"), "metastoreUri scheme must be http or https: %s", uri);
+        checkArgument(scheme.equalsIgnoreCase("https") || scheme.equalsIgnoreCase("http"), "metastoreUri scheme must be http or https: %s", uri);
         checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
         return uri;
     }
