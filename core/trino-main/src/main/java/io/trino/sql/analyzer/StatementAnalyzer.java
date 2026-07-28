@@ -1283,13 +1283,12 @@ class StatementAnalyzer
                     node,
                     "ALTER TABLE EXECUTE",
                     "table",
-                    table,
-                    tableName,
+                    new ExecuteTarget(table, tableName, tableName),
                     tableHandle,
                     procedureName,
                     node.getArguments(),
                     node.getWhere(),
-                    tableName,
+                    Optional.empty(),
                     scope);
         }
 
@@ -1314,41 +1313,53 @@ class StatementAnalyzer
                     node,
                     "ALTER MATERIALIZED VIEW EXECUTE",
                     "materialized view",
-                    new Table(storageName),
-                    storageTableName,
+                    new ExecuteTarget(node.getTable(), storageTableName, name),
                     storageTableHandle,
                     procedureName,
                     node.getArguments(),
                     node.getWhere(),
-                    name,
+                    Optional.of(view),
                     scope);
         }
+
+        // table: the table node to analyze for scope/authorization purposes; tableName: its name, used to resolve
+        // the catalog and procedure; updateTargetName: the name authorization (SELECT, row filters, column masks)
+        // is checked against, which for ALTER MATERIALIZED VIEW EXECUTE is the materialized view rather than its
+        // storage table. Grouped into a record so the two QualifiedObjectName fields can't be transposed at a
+        // call site.
+        private record ExecuteTarget(Table table, QualifiedObjectName tableName, QualifiedObjectName updateTargetName) {}
 
         private Scope analyzeTableExecute(
                 Node node,
                 String updateType,
                 String targetNoun,
-                Table table,
-                QualifiedObjectName tableName,
+                ExecuteTarget target,
                 TableHandle tableHandle,
                 String procedureName,
                 List<CallArgument> arguments,
                 Optional<Expression> where,
-                QualifiedObjectName updateTargetName,
+                Optional<MaterializedViewDefinition> materializedView,
                 Optional<Scope> scope)
         {
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+            if (!accessControl.getRowFilters(session.toSecurityContext(), target.updateTargetName()).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "%s is not supported for %s with row filter", updateType, targetNoun);
             }
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
+            if (!accessControl.getColumnMasks(session.toSecurityContext(), target.updateTargetName(), tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "%s is not supported for %s with column masks", updateType, targetNoun);
             }
 
-            Scope tableScope = analyze(table);
+            Scope tableScope;
+            if (materializedView.isPresent()) {
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), target.updateTargetName(), getBranchName(target.table()));
+                tableScope = createScopeForMaterializedView(target.table(), target.updateTargetName(), scope, materializedView.get(), Optional.of(tableHandle));
+            }
+            else {
+                tableScope = analyze(target.table());
+            }
 
-            String catalogName = tableName.catalogName();
+            String catalogName = target.tableName().catalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
             TableProcedureMetadata procedureMetadata = tableProceduresRegistry.resolve(catalogHandle, procedureName);
 
@@ -1377,14 +1388,14 @@ class StatementAnalyzer
                                     tableHandle,
                                     procedureName,
                                     tableProperties)
-                            .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableName));
+                            .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, target.tableName()));
 
             analysis.setTableExecuteReadsData(procedureMetadata.getExecutionMode().isReadsData());
             analysis.setTableExecuteHandle(executeHandle);
-            analysis.setTableExecuteTable(table);
+            analysis.setTableExecuteTable(target.table());
 
             analysis.setUpdateType(updateType);
-            analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), updateTargetName, Optional.of(table), Optional.empty());
+            analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), target.updateTargetName(), Optional.of(target.table()), Optional.empty());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("metric_name", VARCHAR), Field.newUnqualified("metric_value", BIGINT));
         }

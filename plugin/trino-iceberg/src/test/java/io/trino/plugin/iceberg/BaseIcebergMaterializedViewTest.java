@@ -1094,6 +1094,18 @@ public abstract class BaseIcebergMaterializedViewTest
                 "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE OPTIMIZE",
                 privilege(mvName, REFRESH_MATERIALIZED_VIEW));
 
+        // SELECT is checked against the materialized view's own name, matching the privilege required to read
+        // it, not against its (possibly hidden) storage table.
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE OPTIMIZE",
+                "Cannot select from columns .*",
+                privilege(mvName, SELECT_COLUMN));
+
+        // A grant or deny on the storage table's own synthetic name is irrelevant to this statement.
+        assertAccessAllowed(
+                "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE OPTIMIZE",
+                privilege(mvName + "$materialized_view_storage", SELECT_COLUMN));
+
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
     }
 
