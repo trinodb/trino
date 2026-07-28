@@ -15,12 +15,14 @@ package io.trino.sql.analyzer;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
@@ -29,6 +31,7 @@ import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionAnalysisException;
 import io.trino.metadata.OperatorNotFoundException;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCode;
@@ -190,12 +193,14 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -727,6 +732,40 @@ public class ExpressionAnalyzer
         return jsonOutputFunctions;
     }
 
+    private Set<Field> extractAccessibleFields(List<Field> fields)
+    {
+        ImmutableSet.Builder<Field> allowed = ImmutableSet.builder();
+
+        ListMultimap<QualifiedObjectName, Field> fieldsByTable = ArrayListMultimap.create();
+        for (Field field : fields) {
+            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
+                fieldsByTable.put(field.getOriginTable().get(), field);
+            }
+            else {
+                // Fields with no origin table (aliases, derived columns) are always allowed
+                allowed.add(field);
+            }
+        }
+
+        for (Entry<QualifiedObjectName, Collection<Field>> entry : fieldsByTable.asMap().entrySet()) {
+            QualifiedObjectName table = entry.getKey();
+            Collection<Field> tableFields = entry.getValue();
+            Set<String> accessibleColumns = accessControl.filterColumns(
+                            session.toSecurityContext(),
+                            table.catalogName(),
+                            ImmutableMap.of(
+                                    table.asSchemaTableName(), tableFields.stream()
+                                            .map(field -> field.getOriginColumnName().orElseThrow())
+                                            .collect(toImmutableSet())))
+                    .getOrDefault(table.asSchemaTableName(), ImmutableSet.of());
+            allowed.addAll(tableFields.stream()
+                    .filter(field -> accessibleColumns.contains(field.getOriginColumnName().orElseThrow()))
+                    .collect(toImmutableList()));
+        }
+
+        return allowed.build();
+    }
+
     private class Visitor
             extends AstVisitor<Type, Context>
     {
@@ -822,7 +861,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
-            ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(node.getValue()));
+            Scope scope = context.getScope();
+
+            // Lazy extraction to avoid unnecessary work
+            Supplier<Set<Field>> accessibleFields = () -> extractAccessibleFields(scope.collectSuggestionFields());
+            ResolvedField resolvedField = scope.resolveField(node, QualifiedName.of(node.getValue()), accessibleFields);
 
             if (context.isPatternRecognition()) {
                 labels.put(NodeRef.of(node), Optional.empty());
@@ -3663,7 +3706,7 @@ public class ExpressionAnalyzer
                 fieldToLambdaArgumentDeclaration.putAll(context.getFieldToLambdaArgumentDeclaration());
             }
             for (LambdaArgumentDeclaration lambdaArgument : lambdaArguments) {
-                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, QualifiedName.of(lambdaArgument.getName().getValue()));
+                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, QualifiedName.of(lambdaArgument.getName().getValue()), ImmutableSet::of);
                 fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
             }
 
