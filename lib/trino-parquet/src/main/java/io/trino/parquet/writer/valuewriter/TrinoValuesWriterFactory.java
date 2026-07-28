@@ -18,8 +18,6 @@ import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
-import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
-import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 
 import java.util.Optional;
 
@@ -61,14 +59,14 @@ public class TrinoValuesWriterFactory
     private ValuesWriter getFixedLenByteArrayValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
         // dictionary encoding was not enabled in PARQUET 1.0
-        return createBloomFilterValuesWriter(new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(path.getPrimitiveType().getTypeLength(), INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator())), bloomFilter);
+        return createBloomFilterValuesWriter(new FixedLenByteArrayPlainValuesWriter(path.getPrimitiveType().getTypeLength(), INITIAL_SLAB_SIZE), bloomFilter);
     }
 
     private ValuesWriter getBinaryValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
         ValuesWriter fallbackWriter;
         if (useDeltaLengthByteArrayEncoding) {
-            fallbackWriter = new ParquetValuesWriterAdapter(new DeltaLengthByteArrayValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
+            fallbackWriter = new DeltaLengthByteArrayValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
         }
         else {
             fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE);
@@ -90,7 +88,7 @@ public class TrinoValuesWriterFactory
 
     private ValuesWriter getInt96ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(12, INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
+        ValuesWriter fallbackWriter = new FixedLenByteArrayPlainValuesWriter(12, INITIAL_SLAB_SIZE);
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 

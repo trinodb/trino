@@ -30,9 +30,7 @@ import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFloatDict
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import org.apache.parquet.bytes.BytesInput;
-import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -749,7 +747,7 @@ public class TestDictionaryWriter
         // fixed-length fallback must emit unprefixed values, matching TrinoValuesWriterFactory
         return new DictionaryFallbackValuesWriter(
                 new PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryByteSize, length, getDictionaryEncoding(), getDictionaryEncoding()),
-                new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(length, initialSize, initialSize * 5, new DirectByteBufferAllocator())));
+                new FixedLenByteArrayPlainValuesWriter(length, initialSize));
     }
 
     private static DictionaryFallbackValuesWriter newPlainLongDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
