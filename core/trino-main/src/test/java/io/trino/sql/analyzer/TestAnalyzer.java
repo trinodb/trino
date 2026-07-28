@@ -415,6 +415,35 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testColumnNotFoundSuggestion()
+    {
+        // typo — one close match
+        assertFails("SELECT firs_name FROM (VALUES 1) t(first_name)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'firs_name' cannot be resolved. Did you mean 'first_name'?");
+
+        // typo — two close matches
+        assertFails("SELECT first_nme FROM (VALUES (1, 2)) t(first_name, first_line)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'first_nme' cannot be resolved. Did you mean 'first_name' or 'first_line'?");
+
+        // typo — three close matches, capped at 3
+        assertFails("SELECT first_nme FROM (VALUES (1, 2, 3, 4)) t(first_name, first_line, first_lime, first_nine)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessageMatching("line 1:8: Column 'first_nme' cannot be resolved\\. Did you mean 'first_n.+', 'first_.+' or 'first_.+'\\?");
+
+        // no close match — no suggestion appended
+        assertFails("SELECT xyz FROM (VALUES 1) t(first_name)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'xyz' cannot be resolved");
+
+        // suggestion from outer scope of a correlated subquery
+        assertFails("SELECT (SELECT first_nme FROM (VALUES 1) t(x)) FROM (VALUES 1) u(first_name)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:16: Column 'first_nme' cannot be resolved. Did you mean 'first_name'?");
+    }
+
+    @Test
     public void testHavingReferencesOutputAlias()
     {
         assertFails("SELECT sum(a) x FROM t1 HAVING x > 5")
@@ -7403,7 +7432,7 @@ public class TestAnalyzer
 
         assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)")
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:8: Column 'column' cannot be resolved");
+                .hasMessageStartingWith("line 1:8: Column 'column' cannot be resolved");
 
         assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)")
                 .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
