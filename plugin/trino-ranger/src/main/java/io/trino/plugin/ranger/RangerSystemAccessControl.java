@@ -39,6 +39,7 @@ import org.apache.ranger.plugin.audit.RangerDefaultAuditHandler;
 import org.apache.ranger.plugin.model.RangerPolicy;
 import org.apache.ranger.plugin.model.RangerServiceDef;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
+import org.apache.ranger.plugin.policyengine.RangerAccessResource;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 import org.apache.ranger.plugin.service.RangerBasePlugin;
 
@@ -46,7 +47,6 @@ import java.io.File;
 import java.net.URL;
 import java.security.Principal;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -521,12 +521,18 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        List<RangerTrinoResource> errorResources = new ArrayList<>();
-        for (RangerTrinoResource resource : RangerTrinoResource.forColumns(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName(), columns)) {
-            if (!hasPermission(resource, context, SELECT, "SelectFromColumns")) {
-                errorResources.add(resource);
-            }
-        }
+        Collection<RangerAccessRequest> requests = RangerTrinoResource.forColumns(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName(), columns)
+                .stream()
+                .map(resource -> createAccessRequest(resource, context, SELECT, "SelectFromColumns"))
+                .collect(Collectors.toList());
+
+        List<RangerAccessResource> errorResources = rangerPlugin.isAccessAllowed(requests)
+                .stream()
+                .filter(request -> !request.getIsAllowed())
+                .map(RangerAccessResult::getAccessRequest)
+                .map(RangerAccessRequest::getResource)
+                .toList();
+
         if (!errorResources.isEmpty()) {
             List<String> errorColumns = errorResources.stream()
                     .map(resource -> resource.getAsMap().get(RangerTrinoResource.KEY_COLUMN))
