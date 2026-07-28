@@ -27,10 +27,12 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.roundExact;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.roundToNearest;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static java.lang.Math.incrementExact;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimestampWithTimeZoneCast
@@ -44,7 +46,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
-        long epochMillis = scaleEpochMicrosToMillis(round(timestamp, 3));
+        long epochMillis = scaleEpochMicrosToMillis(roundEpochMicrosExact(timestamp, 3));
         epochMillis = round(epochMillis, (int) (3 - targetPrecision));
         return toShort(session, epochMillis);
     }
@@ -56,7 +58,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp timestamp)
     {
-        long epochMillis = scaleEpochMicrosToMillis(round(timestamp.getEpochMicros(), (int) (6 - targetPrecision)));
+        long epochMillis = scaleEpochMicrosToMillis(roundEpochMicrosExact(timestamp.getEpochMicros(), (int) (6 - targetPrecision)));
         return toShort(session, epochMillis);
     }
 
@@ -69,7 +71,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             @SqlType("timestamp(sourcePrecision)") long epochMicros)
     {
         if (sourcePrecision > targetPrecision) {
-            epochMicros = round(epochMicros, (int) (6 - targetPrecision));
+            epochMicros = roundEpochMicrosExact(epochMicros, (int) (6 - targetPrecision));
         }
 
         return toLong(session, epochMicros, 0);
@@ -91,20 +93,44 @@ public final class TimestampToTimestampWithTimeZoneCast
         int picosOfMicro = timestamp.getPicosOfMicro();
 
         if (targetPrecision < 6) {
-            epochMicros = round(epochMicros, (int) (6 - targetPrecision));
+            epochMicros = roundEpochMicrosExact(epochMicros, (int) (6 - targetPrecision));
             picosOfMicro = 0;
         }
         else if (targetPrecision == 6) {
             if (roundToNearest(picosOfMicro, PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
-                epochMicros++;
+                epochMicros = incrementEpochMicrosExact(epochMicros);
             }
             picosOfMicro = 0;
         }
         else {
             picosOfMicro = (int) round(picosOfMicro, (int) (12 - targetPrecision));
+            if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
+                epochMicros = incrementEpochMicrosExact(epochMicros);
+                picosOfMicro = 0;
+            }
         }
 
         return toLong(session, epochMicros, picosOfMicro);
+    }
+
+    private static long roundEpochMicrosExact(long epochMicros, int magnitude)
+    {
+        try {
+            return roundExact(epochMicros, magnitude);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp with time zone: " + epochMicros + " microseconds", e);
+        }
+    }
+
+    private static long incrementEpochMicrosExact(long epochMicros)
+    {
+        try {
+            return incrementExact(epochMicros);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp with time zone: " + epochMicros + " microseconds", e);
+        }
     }
 
     private static long toShort(ConnectorSession session, long epochMillis)
@@ -119,7 +145,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             return packDateTimeWithZone(epochMillis, session.getTimeZoneKey());
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp with time zone: " + epochMillis, e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp with time zone: " + epochMillis + " milliseconds", e);
         }
     }
 

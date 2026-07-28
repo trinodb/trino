@@ -1475,17 +1475,46 @@ public class TestTimestamp
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556 Pacific/Apia'");
 
+        // source > target, round up carries into the next microsecond
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999995' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000 Pacific/Apia'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999999' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000 Pacific/Apia'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999995' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:57.000000 Pacific/Apia'");
+
         // 5-digit year in the future
         assertThat(assertions.expression("CAST(TIMESTAMP '12001-05-01 12:34:56' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56 Pacific/Apia'");
 
         // 5-digit year in the past
         assertThat(assertions.expression("CAST(TIMESTAMP '-12001-05-01 12:34:56' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56 Pacific/Apia'");
 
+        // Rounding towards the negative side of zero
+        assertThat(assertions.expression("CAST(TIMESTAMP '1969-12-31 23:59:59.5555' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '1969-12-31 23:59:59.556 Pacific/Apia'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1969-12-31 23:59:59.5554' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '1969-12-31 23:59:59.555 Pacific/Apia'");
+
         // Overflow
         assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
-                .hasMessage("Out of range for timestamp with time zone: 3819379822496000");
+                .hasMessage("Out of range for timestamp with time zone: 3819379822496000 milliseconds");
         assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
-                .hasMessage("Out of range for timestamp with time zone: -3943693439888000");
+                .hasMessage("Out of range for timestamp with time zone: -3943693439888000 milliseconds");
+
+        // Rounding the maximum timestamp value up must not silently overflow (https://github.com/trinodb/trino/issues/30496)
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807999' AS TIMESTAMP(6) WITH TIME ZONE)")::evaluate)
+                .hasMessage("Out of range for timestamp with time zone: 9223372036854775807 microseconds");
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807' AS TIMESTAMP(5) WITH TIME ZONE)")::evaluate)
+                .hasMessage("Out of range for timestamp with time zone: 9223372036854775807 microseconds");
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807999' AS TIMESTAMP(3) WITH TIME ZONE)")::evaluate)
+                .hasMessage("Out of range for timestamp with time zone: 9223372036854775807 microseconds");
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807' AS TIMESTAMP(3) WITH TIME ZONE)")::evaluate)
+                .hasMessage("Out of range for timestamp with time zone: 9223372036854775807 microseconds");
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807999999' AS TIMESTAMP(9) WITH TIME ZONE)")::evaluate)
+                .hasMessage("Out of range for timestamp with time zone: 9223372036854775807 microseconds");
+
+        // Rounding near the range limits succeeds when the rounded value is still representable. The negative
+        // limit cannot overflow: no literal earlier than -290308-12-21 19:59:06 parses, and every parseable
+        // value rounds to a representable result. Values this far from the epoch cannot be materialized as
+        // TIMESTAMP WITH TIME ZONE output, so cast back to TIMESTAMP to observe the result.
+        assertThat(assertions.expression("CAST(CAST(TIMESTAMP '+294247-01-10 04:00:54.775807999' AS TIMESTAMP(4) WITH TIME ZONE) AS TIMESTAMP(4))")).matches("TIMESTAMP '+294247-01-10 04:00:54.7758'");
+        assertThat(assertions.expression("CAST(CAST(TIMESTAMP '+294247-01-10 04:00:54.775807' AS TIMESTAMP(4) WITH TIME ZONE) AS TIMESTAMP(4))")).matches("TIMESTAMP '+294247-01-10 04:00:54.7758'");
+        assertThat(assertions.expression("CAST(CAST(TIMESTAMP '-290308-12-21 19:59:06.000001' AS TIMESTAMP(4) WITH TIME ZONE) AS TIMESTAMP(4))")).matches("TIMESTAMP '-290308-12-21 19:59:06.0000'");
     }
 
     @Test
@@ -2009,6 +2038,28 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(CAST(TIMESTAMP '2020-05-10 12:34:56.555555' AS TIMESTAMP(3)) AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-10 12:34:56.556000'");
         assertThat(assertions.expression("CAST(CAST(TIMESTAMP '2020-05-10 12:34:56.555555' AS TIMESTAMP(6)) AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-10 12:34:56.555555'");
         assertThat(assertions.expression("CAST(CAST(TIMESTAMP '2020-05-10 12:34:56.555' AS TIMESTAMP(0)) AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-10 12:34:57.000'");
+    }
+
+    @Test
+    public void testPrecisionReducingCastNearRangeLimits()
+    {
+        // Rounding the maximum timestamp value up must not silently overflow (https://github.com/trinodb/trino/issues/30496)
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807' AS TIMESTAMP(3))")::evaluate)
+                .hasMessage("Out of range for timestamp: 9223372036854775807 microseconds");
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807999' AS TIMESTAMP(6))")::evaluate)
+                .hasMessage("Out of range for timestamp: 9223372036854775807 microseconds");
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807999999' AS TIMESTAMP(9))")::evaluate)
+                .hasMessage("Out of range for timestamp: 9223372036854775807 microseconds");
+
+        // Rounding succeeds when the rounded value is still representable. The negative limit cannot overflow:
+        // no literal earlier than -290308-12-21 19:59:06 parses, and every parseable value rounds to a
+        // representable result.
+        assertThat(assertions.expression("CAST(TIMESTAMP '+294247-01-10 04:00:54.775807' AS TIMESTAMP(4))")).matches("TIMESTAMP '+294247-01-10 04:00:54.7758'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '-290308-12-21 19:59:06.000001' AS TIMESTAMP(4))")).matches("TIMESTAMP '-290308-12-21 19:59:06.0000'");
+
+        // Rounding towards the negative side of zero
+        assertThat(assertions.expression("CAST(TIMESTAMP '1969-12-31 23:59:59.5555' AS TIMESTAMP(3))")).matches("TIMESTAMP '1969-12-31 23:59:59.556'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1969-12-31 23:59:59.5554' AS TIMESTAMP(3))")).matches("TIMESTAMP '1969-12-31 23:59:59.555'");
     }
 
     @Test

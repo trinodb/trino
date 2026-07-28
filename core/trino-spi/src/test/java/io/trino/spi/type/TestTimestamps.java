@@ -15,12 +15,42 @@ package io.trino.spi.type;
 
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static io.trino.spi.type.Timestamps.roundExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestTimestamps
 {
+    @Test
+    public void testRoundExact()
+    {
+        // agrees with round() wherever round() does not overflow
+        for (int magnitude = 0; magnitude <= 6; magnitude++) {
+            for (long value : new long[] {0, 1, -1, 499, 500, 501, -499, -500, -501, 999999, -999999, 44444, -55556, 1234567890123L, -1234567890123L}) {
+                assertThat(roundExact(value, magnitude))
+                        .as("value %s, magnitude %s", value, magnitude)
+                        .isEqualTo(round(value, magnitude));
+            }
+        }
+
+        // ties round half-up toward positive infinity
+        assertThat(roundExact(150, 2)).isEqualTo(200);
+        assertThat(roundExact(-150, 2)).isEqualTo(-100);
+        assertThat(roundExact(-151, 2)).isEqualTo(-200);
+
+        // rounding near the long range limits succeeds when the result is representable
+        assertThat(roundExact(Long.MAX_VALUE, 2)).isEqualTo(9223372036854775800L);
+        assertThat(roundExact(Long.MIN_VALUE, 2)).isEqualTo(-9223372036854775800L);
+
+        // rounding fails instead of wrapping when the result exceeds the long range
+        assertThatThrownBy(() -> roundExact(Long.MAX_VALUE, 1)).isExactlyInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> roundExact(Long.MAX_VALUE, 3)).isExactlyInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> roundExact(Long.MIN_VALUE, 1)).isExactlyInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> roundExact(Long.MIN_VALUE, 3)).isExactlyInstanceOf(ArithmeticException.class);
+    }
+
     @Test
     public void testRoundDiv()
     {

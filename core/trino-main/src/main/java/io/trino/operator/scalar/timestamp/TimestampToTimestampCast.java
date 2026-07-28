@@ -13,18 +13,22 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.roundExact;
 import static io.trino.type.DateTimes.roundToNearest;
+import static java.lang.Math.incrementExact;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimestampCast
@@ -44,7 +48,7 @@ public final class TimestampToTimestampCast
             return epochMicros;
         }
 
-        return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
+        return roundEpochMicrosExact(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -62,11 +66,11 @@ public final class TimestampToTimestampCast
     {
         long epochMicros = value.getEpochMicros();
         if (targetPrecision < MAX_SHORT_PRECISION) {
-            return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
+            return roundEpochMicrosExact(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
         }
 
         if (roundToNearest(value.getPicosOfMicro(), PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
-            epochMicros++;
+            epochMicros = incrementEpochMicrosExact(epochMicros);
         }
 
         return epochMicros;
@@ -81,9 +85,29 @@ public final class TimestampToTimestampCast
         long epochMicros = value.getEpochMicros();
         int picosOfMicro = (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision));
         if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
-            epochMicros++;
+            epochMicros = incrementEpochMicrosExact(epochMicros);
             picosOfMicro = 0;
         }
         return new LongTimestamp(epochMicros, picosOfMicro);
+    }
+
+    private static long roundEpochMicrosExact(long epochMicros, int magnitude)
+    {
+        try {
+            return roundExact(epochMicros, magnitude);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp: " + epochMicros + " microseconds", e);
+        }
+    }
+
+    private static long incrementEpochMicrosExact(long epochMicros)
+    {
+        try {
+            return incrementExact(epochMicros);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp: " + epochMicros + " microseconds", e);
+        }
     }
 }

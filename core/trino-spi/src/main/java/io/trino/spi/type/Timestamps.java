@@ -75,6 +75,30 @@ public class Timestamps
     }
 
     /**
+     * Like {@link #round(long, int)}, but fails with {@link ArithmeticException} when the rounded
+     * value does not fit in a long, instead of silently wrapping around.
+     */
+    public static long roundExact(long value, int magnitude)
+    {
+        long factor = POWERS_OF_TEN[magnitude];
+        if (factor == 1) {
+            return value;
+        }
+
+        // Round the quotient rather than the value so that only results that truly exceed the long
+        // range overflow. Ties round half-up toward positive infinity, matching round().
+        long quotient = value / factor;
+        long remainder = value % factor;
+        if (remainder * 2 >= factor) {
+            quotient = Math.incrementExact(quotient);
+        }
+        else if (-remainder * 2 > factor) {
+            quotient = Math.decrementExact(quotient);
+        }
+        return Math.multiplyExact(quotient, factor);
+    }
+
+    /**
      * Rescales a value of the given precision to another precision by adding 0s or truncating.
      */
     static long rescale(long value, int fromPrecision, int toPrecision)

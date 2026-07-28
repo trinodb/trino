@@ -21,6 +21,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.POWERS_OF_TEN;
 import static io.trino.spi.type.Timestamps.formatTimestamp;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
@@ -58,7 +59,8 @@ public final class SqlTimestamp
             if (picosOfMicro != 0) {
                 throw new IllegalArgumentException(format("Expected picosOfMicro to be 0 for precision %s: %s", precision, picosOfMicro));
             }
-            if (round(epochMicros, 6 - precision) != epochMicros) {
+            // Check divisibility directly: round() wraps around near the range limits and would reject valid values
+            if (epochMicros % POWERS_OF_TEN[6 - precision] != 0) {
                 throw new IllegalArgumentException(format("Expected 0s for digits beyond precision %s: epochMicros = %s", precision, epochMicros));
             }
         }

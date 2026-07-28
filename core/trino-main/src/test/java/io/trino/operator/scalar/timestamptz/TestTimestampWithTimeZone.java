@@ -444,6 +444,25 @@ public class TestTimestampWithTimeZone
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
 
+        // Long precision literals outside the packed epochMillis range are rejected as well (https://github.com/trinodb/trino/issues/30496)
+        assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '+73326-09-11 20:14:45.2480 UTC'")::evaluate)
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '+73326-09-11 20:14:45.2480 UTC' is not a valid TIMESTAMP literal");
+        assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '-69387-04-22 03:45:14.7510 UTC'")::evaluate)
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '-69387-04-22 03:45:14.7510 UTC' is not a valid TIMESTAMP literal");
+        assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '+294247-01-10 04:00:54.775999999999 UTC'")::evaluate)
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '+294247-01-10 04:00:54.775999999999 UTC' is not a valid TIMESTAMP literal");
+
+        // The range limits themselves are valid
+        assertThat(assertions.expression("TIMESTAMP '+73326-09-11 20:14:45.2470 UTC'"))
+                .hasType(createTimestampWithTimeZoneType(4))
+                .isEqualTo(timestampWithTimeZone(4, 73326, 9, 11, 20, 14, 45, 247_000_000_000L, getTimeZoneKey("UTC")));
+        assertThat(assertions.expression("TIMESTAMP '-69387-04-22 03:45:14.7520 UTC'"))
+                .hasType(createTimestampWithTimeZoneType(4))
+                .isEqualTo(timestampWithTimeZone(4, -69387, 4, 22, 3, 45, 14, 752_000_000_000L, getTimeZoneKey("UTC")));
+
         // missing space after day
         assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '2020-13-01-12'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
@@ -1761,6 +1780,12 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999995 Asia/Kathmandu' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999999995 Asia/Kathmandu' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:57.0000000000'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999995 Asia/Kathmandu' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:57.00000000000'");
+
+        // Rounding at the range limits of TIMESTAMP WITH TIME ZONE, which lie well within the TIMESTAMP
+        // range (https://github.com/trinodb/trino/issues/30496)
+        assertThat(assertions.expression("CAST(TIMESTAMP '+73326-09-11 20:14:45.2470 UTC' AS TIMESTAMP(0))")).matches("TIMESTAMP '+73326-09-11 20:14:45'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '+73326-09-11 20:14:45.2470 UTC' AS TIMESTAMP(9))")).matches("TIMESTAMP '+73326-09-11 20:14:45.247000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '-69387-04-22 03:45:14.7520 UTC' AS TIMESTAMP(3))")).matches("TIMESTAMP '-69387-04-22 03:45:14.752'");
     }
 
     @Test

@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -20,16 +21,19 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.round;
-import static io.trino.type.DateTimes.roundToNearest;
+import static io.trino.spi.type.Timestamps.roundExact;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.DateTimes.toEpochMicros;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static java.lang.Math.incrementExact;
 
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToTimestampCast
@@ -61,19 +65,23 @@ public final class TimestampWithTimeZoneToTimestampCast
                 .convertUTCToLocal(timestamp.getEpochMillis());
         int picosOfMilli = timestamp.getPicosOfMilli();
 
+        // Round in the (millis, picos of milli) domain before converting to micros, so that a value
+        // whose rounded result is representable does not overflow the conversion
+        if (targetPrecision < 3) {
+            // The positive sub-millisecond fraction cannot affect rounding at a grain of 10ms or more
+            epochMillis = roundEpochMillisExact(epochMillis, (int) (3 - targetPrecision));
+            picosOfMilli = 0;
+        }
+        else {
+            picosOfMilli = (int) round(picosOfMilli, (int) (12 - targetPrecision));
+            if (picosOfMilli == PICOSECONDS_PER_MILLISECOND) {
+                epochMillis = incrementEpochMillisExact(epochMillis);
+                picosOfMilli = 0;
+            }
+        }
+
         // Convert to micros
-        long epochMicros = toEpochMicros(epochMillis, picosOfMilli);
-        int picosOfMicro = picosOfMilli % PICOSECONDS_PER_MICROSECOND;
-
-        // Round
-        if (targetPrecision < 6) {
-            epochMicros = round(epochMicros, (int) (6 - targetPrecision));
-        }
-        else if (roundToNearest(picosOfMicro, PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
-            epochMicros++;
-        }
-
-        return epochMicros;
+        return toEpochMicrosExact(epochMillis, picosOfMilli);
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -99,17 +107,46 @@ public final class TimestampWithTimeZoneToTimestampCast
                 .convertUTCToLocal(timestamp.getEpochMillis());
         int picosOfMilli = timestamp.getPicosOfMilli();
 
-        // Convert to micros
-        long epochMicros = toEpochMicros(epochMillis, picosOfMilli);
-        int picosOfMicro = picosOfMilli % PICOSECONDS_PER_MICROSECOND;
-
-        // Round
-        picosOfMicro = (int) round(picosOfMicro, (int) (12 - targetPrecision));
-        if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
-            epochMicros++;
-            picosOfMicro = 0;
+        // Round in the (millis, picos of milli) domain before converting to micros, so that a value
+        // whose rounded result is representable does not overflow the conversion
+        picosOfMilli = (int) round(picosOfMilli, (int) (12 - targetPrecision));
+        if (picosOfMilli == PICOSECONDS_PER_MILLISECOND) {
+            epochMillis = incrementEpochMillisExact(epochMillis);
+            picosOfMilli = 0;
         }
 
-        return new LongTimestamp(epochMicros, picosOfMicro);
+        // Convert to micros
+        long epochMicros = toEpochMicrosExact(epochMillis, picosOfMilli);
+        return new LongTimestamp(epochMicros, picosOfMilli % PICOSECONDS_PER_MICROSECOND);
+    }
+
+    private static long roundEpochMillisExact(long epochMillis, int magnitude)
+    {
+        try {
+            return roundExact(epochMillis, magnitude);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp: " + epochMillis + " milliseconds", e);
+        }
+    }
+
+    private static long incrementEpochMillisExact(long epochMillis)
+    {
+        try {
+            return incrementExact(epochMillis);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp: " + epochMillis + " milliseconds", e);
+        }
+    }
+
+    private static long toEpochMicrosExact(long epochMillis, int picosOfMilli)
+    {
+        try {
+            return toEpochMicros(epochMillis, picosOfMilli);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp: " + epochMillis + " milliseconds", e);
+        }
     }
 }

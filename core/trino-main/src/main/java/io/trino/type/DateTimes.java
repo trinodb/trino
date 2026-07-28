@@ -55,6 +55,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static java.lang.Math.addExact;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
@@ -287,7 +288,7 @@ public final class DateTimes
 
     public static long toEpochMicros(long epochMillis, int picosOfMilli)
     {
-        return scaleEpochMillisToMicros(epochMillis) + picosOfMilli / 1_000_000;
+        return addExact(scaleEpochMillisToMicros(epochMillis), picosOfMilli / PICOSECONDS_PER_MICROSECOND);
     }
 
     public static long roundToNearest(long value, long bound)
@@ -600,8 +601,19 @@ public final class DateTimes
 
         ZoneId zoneId = ZoneId.of(timezone);
         long epochSecond = toEpochSecond(year, month, day, hour, minute, second, zoneId);
+        TimeZoneKey timeZoneKey = getTimeZoneKey(timezone);
+        long fractionInPicos = rescale(Long.parseLong(fraction), fraction.length(), 12);
 
-        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(epochSecond, rescale(Long.parseLong(fraction), fraction.length(), 12), getTimeZoneKey(timezone));
+        try {
+            // The engine representation packs epochMillis together with the zone key, so values whose
+            // epochMillis does not fit the packed encoding are not representable
+            DateTimeEncoding.packDateTimeWithZone(addExact(multiplyExact(epochSecond, (long) MILLISECONDS_PER_SECOND), fractionInPicos / PICOSECONDS_PER_MILLISECOND), timeZoneKey);
+        }
+        catch (ArithmeticException | IllegalArgumentException e) {
+            throw new IllegalArgumentException(format("TIMESTAMP WITH TIME ZONE '%s' is out of range", value), e);
+        }
+
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(epochSecond, fractionInPicos, timeZoneKey);
     }
 
     private static long toEpochSecond(String year, String month, String day, String hour, String minute, String second, ZoneId zoneId)
