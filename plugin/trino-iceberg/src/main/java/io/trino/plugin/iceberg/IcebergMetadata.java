@@ -1658,14 +1658,12 @@ public class IcebergMetadata
         if (!sortOrder.isSorted()) {
             return new SortFieldInfo(SortOrder.unsorted().orderId(), ImmutableList.of());
         }
-        Set<Integer> allFieldIds = TypeUtil.indexNameById(schema.asStruct()).keySet();
-
         ImmutableList.Builder<TrinoSortField> sortFields = ImmutableList.builder();
         for (SortField sortField : sortOrder.fields()) {
             if (!sortField.transform().isIdentity()) {
                 continue;
             }
-            if (!allFieldIds.contains(sortField.sourceId())) {
+            if (schema.accessorForField(sortField.sourceId()) == null) {
                 continue;
             }
 

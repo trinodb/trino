@@ -1644,6 +1644,81 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSortedByNestedField()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+
+        // Verify 1-level nesting
+        try (TestTable table = newTrinoTable(
+                "test_sorted_by_nested_field",
+                "(id INT, row_t ROW(other VARCHAR, name VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY[ '\"row_t.name\"' ])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    // other field contains reverse-ordered values to ensure the sort check targets the correct (name) field
+                    "INSERT INTO " + table.getName() + "(id, row_t) " +
+                            "SELECT id, ROW(CONCAT('r', LPAD(CAST(501 - id AS VARCHAR), 3, '0')), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0'))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.name")).isTrue();
+            }
+            assertThat(query("SELECT id, row_t.name FROM " + table.getName()))
+                    .matches("SELECT CAST(id AS integer), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')) FROM UNNEST(sequence(1, 500)) AS t(id)");
+        }
+
+        // Verify 2-level nesting
+        try (TestTable table = newTrinoTable(
+                "test_sorted_by_deeply_nested_field",
+                "(id INT, outer_t ROW(other VARCHAR, inner_t ROW(other VARCHAR, name VARCHAR))) WITH (format = '" + format.name() + "', sorted_by = ARRAY[ '\"outer_t.inner_t.name\"' ])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    // other fields contain reverse-ordered values to ensure the sort check targets the correct (name) field
+                    "INSERT INTO " + table.getName() + "(id, outer_t) " +
+                            "SELECT id, ROW(CONCAT('r', LPAD(CAST(501 - id AS VARCHAR), 3, '0')), ROW(CONCAT('r', LPAD(CAST(501 - id AS VARCHAR), 3, '0')), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "outer_t.inner_t.name")).isTrue();
+            }
+            assertThat(query("SELECT id, outer_t.inner_t.name FROM " + table.getName()))
+                    .matches("SELECT CAST(id AS integer), CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')) FROM UNNEST(sequence(1, 500)) AS t(id)");
+        }
+
+        // Verify NULL values in the sort field are handled
+        try (TestTable table = newTrinoTable(
+                "test_sorted_by_nested_field_with_nulls",
+                "(id INT, row_t ROW(name VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY['\"row_t.name\"'])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    "INSERT INTO " + table.getName() + "(id, row_t) " +
+                            "SELECT id, IF(id % 100 = 0, NULL, ROW(CONCAT('v', LPAD(CAST(id AS VARCHAR), 3, '0')))) " +
+                            "FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.name")).isTrue();
+            }
+            assertThat(query("SELECT count(*) FROM " + table.getName() + " WHERE row_t IS NULL"))
+                    .matches("VALUES BIGINT '5'");
+            assertThat(query("SELECT count(*) FROM " + table.getName() + " WHERE row_t.name IS NOT NULL"))
+                    .matches("VALUES BIGINT '495'");
+        }
+
+        // Uses tpch.tiny.lineitem (60k rows) to force spilling through temp files
+        try (TestTable table = newTrinoTable(
+                "test_sorted_nested_spill",
+                "(orderkey BIGINT, row_t ROW(comment VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY['\"row_t.comment\"'])")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " SELECT orderkey, ROW(comment) FROM tpch.tiny.lineitem",
+                    "VALUES 60175");
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted((String) filePath, "row_t.comment")).isTrue();
+            }
+        }
+    }
+
+    @Test
     public void testSortingDisabled()
     {
         Session withSortingDisabled = Session.builder(getSession())
@@ -1751,6 +1826,20 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessage("Cannot drop sort field: row_t.comment");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSortingOnNonStructNestedField()
+    {
+        String tableName = "test_non_struct_sort_" + randomNameSuffix();
+        assertThat(query("CREATE TABLE " + tableName + " (arr ARRAY(VARCHAR)) WITH (sorted_by = ARRAY['\"arr.element\"'])")).failure()
+                .hasMessage("Column not found: arr.element");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.key\"'])")).failure()
+                .hasMessage("Column not found: m.key");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.value\"'])")).failure()
+                .hasMessage("Column not found: m.value");
+        assertThat(query("CREATE TABLE " + tableName + " (arrs ARRAY(ROW(x VARCHAR))) WITH (sorted_by = ARRAY['\"arrs.element.x\"'])")).failure()
+                .hasMessage("Column not found: arrs.element.x");
     }
 
     @Test
