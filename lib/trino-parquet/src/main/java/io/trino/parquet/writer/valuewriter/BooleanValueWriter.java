@@ -19,7 +19,6 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.block.Bitmap.getBits;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class BooleanValueWriter
         extends PrimitiveValueWriter
@@ -34,7 +33,7 @@ public class BooleanValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        boolean value = BOOLEAN.getBoolean(block, 0);
+        boolean value = ((BitArrayBlock) block).getBoolean(0);
         if (valuesWriter instanceof TrinoBooleanPlainValuesWriter packedWriter) {
             long bits = 0;
             if (value) {
@@ -57,7 +56,8 @@ public class BooleanValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        if (block instanceof BitArrayBlock bitArrayBlock && valuesWriter instanceof TrinoBooleanPlainValuesWriter packedWriter) {
+        BitArrayBlock bitArrayBlock = (BitArrayBlock) block;
+        if (valuesWriter instanceof TrinoBooleanPlainValuesWriter packedWriter) {
             writeBitArrayBlock(bitArrayBlock, packedWriter, statistics);
             return;
         }
@@ -65,7 +65,7 @@ public class BooleanValueWriter
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                boolean value = BOOLEAN.getBoolean(block, i);
+                boolean value = bitArrayBlock.getBoolean(i);
                 valuesWriter.writeBoolean(value);
                 statistics.updateStats(value);
             }
@@ -77,11 +77,12 @@ public class BooleanValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        BitArrayBlock bitArrayBlock = (BitArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             if (!mayHaveNull || !block.isNull(position)) {
-                boolean value = BOOLEAN.getBoolean(block, position);
+                boolean value = bitArrayBlock.getBoolean(position);
                 valuesWriter.writeBoolean(value);
                 statistics.updateStats(value);
             }

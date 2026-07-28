@@ -13,25 +13,17 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
-
-public class Int64ShortDecimalValueWriter
+public class TinyintValueWriter
         extends PrimitiveValueWriter
 {
-    private final DecimalType decimalType;
-
-    public Int64ShortDecimalValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public TinyintValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.decimalType = (DecimalType) requireNonNull(type, "type is null");
-        checkArgument(this.decimalType.isShort(), "type is not a short decimal");
     }
 
     @Override
@@ -39,11 +31,12 @@ public class Int64ShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        ByteArrayBlock byteArrayBlock = (ByteArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!mayHaveNull || !block.isNull(i)) {
-                long value = decimalType.getLong(block, i);
-                valuesWriter.writeLong(value);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!mayHaveNull || !block.isNull(position)) {
+                int value = byteArrayBlock.getByte(position);
+                valuesWriter.writeInteger(value);
                 statistics.updateStats(value);
             }
         }
@@ -54,9 +47,9 @@ public class Int64ShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        long value = decimalType.getLong(block, 0);
+        int value = ((ByteArrayBlock) block).getByte(0);
         for (int i = 0; i < count; i++) {
-            valuesWriter.writeLong(value);
+            valuesWriter.writeInteger(value);
         }
         statistics.updateStats(value);
     }
@@ -66,12 +59,13 @@ public class Int64ShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        ByteArrayBlock byteArrayBlock = (ByteArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                long value = decimalType.getLong(block, position);
-                valuesWriter.writeLong(value);
+                int value = byteArrayBlock.getByte(position);
+                valuesWriter.writeInteger(value);
                 statistics.updateStats(value);
             }
         }

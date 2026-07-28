@@ -13,22 +13,17 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
-
-import static java.util.Objects.requireNonNull;
 
 public class BigintValueWriter
         extends PrimitiveValueWriter
 {
-    private final Type type;
-
-    public BigintValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public BigintValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
@@ -36,10 +31,11 @@ public class BigintValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!mayHaveNull || !block.isNull(i)) {
-                long value = type.getLong(block, i);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!mayHaveNull || !block.isNull(position)) {
+                long value = longArrayBlock.getLong(position);
                 valuesWriter.writeLong(value);
                 statistics.updateStats(value);
             }
@@ -51,7 +47,7 @@ public class BigintValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        long value = type.getLong(block, 0);
+        long value = ((LongArrayBlock) block).getLong(0);
         for (int i = 0; i < count; i++) {
             valuesWriter.writeLong(value);
         }
@@ -63,11 +59,12 @@ public class BigintValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                long value = type.getLong(block, position);
+                long value = longArrayBlock.getLong(position);
                 valuesWriter.writeLong(value);
                 statistics.updateStats(value);
             }

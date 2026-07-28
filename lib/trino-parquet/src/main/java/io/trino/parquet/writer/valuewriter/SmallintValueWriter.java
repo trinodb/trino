@@ -13,16 +13,15 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static io.trino.spi.type.DateType.DATE;
-
-public class DateValueWriter
+public class SmallintValueWriter
         extends PrimitiveValueWriter
 {
-    public DateValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
+    public SmallintValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
     }
@@ -32,10 +31,11 @@ public class DateValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        ShortArrayBlock shortArrayBlock = (ShortArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!mayHaveNull || !block.isNull(position)) {
-                int value = DATE.getInt(block, position);
+                int value = shortArrayBlock.getShort(position);
                 valuesWriter.writeInteger(value);
                 statistics.updateStats(value);
             }
@@ -47,7 +47,7 @@ public class DateValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        int value = DATE.getInt(block, 0);
+        int value = ((ShortArrayBlock) block).getShort(0);
         for (int i = 0; i < count; i++) {
             valuesWriter.writeInteger(value);
         }
@@ -59,11 +59,12 @@ public class DateValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        ShortArrayBlock shortArrayBlock = (ShortArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < length; i++) {
-            int position = positions[offset + i];
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                int value = DATE.getInt(block, position);
+                int value = shortArrayBlock.getShort(position);
                 valuesWriter.writeInteger(value);
                 statistics.updateStats(value);
             }

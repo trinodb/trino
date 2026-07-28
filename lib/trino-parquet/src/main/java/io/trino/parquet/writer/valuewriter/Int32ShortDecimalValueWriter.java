@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -26,13 +27,11 @@ import static java.util.Objects.requireNonNull;
 public class Int32ShortDecimalValueWriter
         extends PrimitiveValueWriter
 {
-    private final DecimalType decimalType;
-
     public Int32ShortDecimalValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.decimalType = (DecimalType) requireNonNull(type, "type is null");
-        checkArgument(this.decimalType.getPrecision() <= 9, "decimalType precision %s must be <= 9", this.decimalType.getPrecision());
+        DecimalType decimalType = (DecimalType) requireNonNull(type, "type is null");
+        checkArgument(decimalType.getPrecision() <= 9, "decimalType precision %s must be <= 9", decimalType.getPrecision());
     }
 
     @Override
@@ -40,10 +39,11 @@ public class Int32ShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                int value = toIntExact(decimalType.getLong(block, i));
+                int value = toIntExact(longArrayBlock.getLong(i));
                 valuesWriter.writeInteger(value);
                 statistics.updateStats(value);
             }
@@ -55,7 +55,7 @@ public class Int32ShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        int value = toIntExact(decimalType.getLong(block, 0));
+        int value = toIntExact(((LongArrayBlock) block).getLong(0));
         for (int i = 0; i < count; i++) {
             valuesWriter.writeInteger(value);
         }
@@ -67,11 +67,12 @@ public class Int32ShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                int value = toIntExact(decimalType.getLong(block, position));
+                int value = toIntExact(longArrayBlock.getLong(position));
                 valuesWriter.writeInteger(value);
                 statistics.updateStats(value);
             }

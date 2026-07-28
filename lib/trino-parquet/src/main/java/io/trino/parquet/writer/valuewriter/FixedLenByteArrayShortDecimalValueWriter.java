@@ -15,6 +15,7 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -28,13 +29,11 @@ import static java.util.Objects.requireNonNull;
 public class FixedLenByteArrayShortDecimalValueWriter
         extends PrimitiveValueWriter
 {
-    private final DecimalType decimalType;
-
     public FixedLenByteArrayShortDecimalValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.decimalType = (DecimalType) requireNonNull(type, "type is null");
-        checkArgument(this.decimalType.isShort(), "type is not a short decimal");
+        DecimalType decimalType = (DecimalType) requireNonNull(type, "type is null");
+        checkArgument(decimalType.isShort(), "type is not a short decimal");
         checkArgument(
                 parquetType.getTypeLength() > 0 && parquetType.getTypeLength() <= Long.BYTES,
                 "Type length %s must be in range 1-%s",
@@ -47,13 +46,14 @@ public class FixedLenByteArrayShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         byte[] buffer = new byte[getTypeLength()];
-        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                long value = decimalType.getLong(block, i);
+                long value = longArrayBlock.getLong(i);
                 storeLongIntoBuffer(value, buffer);
                 valuesWriter.writeBytes(reusedSlice);
                 statistics.updateStats(reusedBinary);
@@ -67,9 +67,9 @@ public class FixedLenByteArrayShortDecimalValueWriter
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
         byte[] buffer = new byte[getTypeLength()];
-        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         Slice reusedSlice = Slices.wrappedBuffer(buffer);
-        long value = decimalType.getLong(block, 0);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+        long value = ((LongArrayBlock) block).getLong(0);
         storeLongIntoBuffer(value, buffer);
         for (int i = 0; i < count; i++) {
             valuesWriter.writeBytes(reusedSlice);
@@ -82,14 +82,15 @@ public class FixedLenByteArrayShortDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         byte[] buffer = new byte[getTypeLength()];
-        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                long value = decimalType.getLong(block, position);
+                long value = longArrayBlock.getLong(position);
                 storeLongIntoBuffer(value, buffer);
                 valuesWriter.writeBytes(reusedSlice);
                 statistics.updateStats(reusedBinary);

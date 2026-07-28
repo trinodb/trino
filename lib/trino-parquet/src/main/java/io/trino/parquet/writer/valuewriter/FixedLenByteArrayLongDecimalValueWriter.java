@@ -15,6 +15,7 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -23,22 +24,17 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
-import java.math.BigInteger;
-
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static java.util.Objects.requireNonNull;
 
 public class FixedLenByteArrayLongDecimalValueWriter
         extends PrimitiveValueWriter
 {
-    private final DecimalType decimalType;
-
     public FixedLenByteArrayLongDecimalValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.decimalType = (DecimalType) requireNonNull(type, "type is null");
-        checkArgument(!this.decimalType.isShort(), "type is not a long decimal");
+        DecimalType decimalType = (DecimalType) requireNonNull(type, "type is null");
+        checkArgument(!decimalType.isShort(), "type is not a long decimal");
         checkArgument(
                 parquetType.getTypeLength() > 0 && parquetType.getTypeLength() <= Int128.SIZE,
                 "Type length %s must be in range 1-%s",
@@ -51,12 +47,16 @@ public class FixedLenByteArrayLongDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!mayHaveNull || !block.isNull(i)) {
-                byte[] bytes = readBytes(block, i);
-                valuesWriter.writeBytes(Slices.wrappedBuffer(bytes));
-                statistics.updateStats(Binary.fromConstantByteArray(bytes));
+        byte[] buffer = new byte[getTypeLength()];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!mayHaveNull || !block.isNull(position)) {
+                storeInt128IntoBuffer(int128ArrayBlock, position, buffer);
+                valuesWriter.writeBytes(reusedSlice);
+                statistics.updateStats(reusedBinary);
             }
         }
     }
@@ -66,12 +66,14 @@ public class FixedLenByteArrayLongDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        byte[] bytes = readBytes(block, 0);
-        Slice slice = Slices.wrappedBuffer(bytes);
+        byte[] buffer = new byte[getTypeLength()];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+        storeInt128IntoBuffer((Int128ArrayBlock) block, 0, buffer);
         for (int i = 0; i < count; i++) {
-            valuesWriter.writeBytes(slice);
+            valuesWriter.writeBytes(reusedSlice);
         }
-        statistics.updateStats(Binary.fromConstantByteArray(bytes));
+        statistics.updateStats(reusedBinary);
     }
 
     @Override
@@ -79,21 +81,36 @@ public class FixedLenByteArrayLongDecimalValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
+        byte[] buffer = new byte[getTypeLength()];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                byte[] bytes = readBytes(block, position);
-                valuesWriter.writeBytes(Slices.wrappedBuffer(bytes));
-                statistics.updateStats(Binary.fromConstantByteArray(bytes));
+                storeInt128IntoBuffer(int128ArrayBlock, position, buffer);
+                valuesWriter.writeBytes(reusedSlice);
+                statistics.updateStats(reusedBinary);
             }
         }
     }
 
-    private byte[] readBytes(ValueBlock block, int position)
+    /**
+     * Stores the two's complement value big-endian, truncated to the buffer length. The decimal
+     * precision guarantees that the discarded leading bytes are sign extension.
+     */
+    private static void storeInt128IntoBuffer(Int128ArrayBlock block, int position, byte[] buffer)
     {
-        Int128 decimal = (Int128) decimalType.getObject(block, position);
-        BigInteger bigInteger = decimal.toBigInteger();
-        return paddingBigInteger(bigInteger, getTypeLength());
+        long high = block.getInt128High(position);
+        long low = block.getInt128Low(position);
+        int length = buffer.length;
+        int lowByteCount = Math.min(length, Long.BYTES);
+        for (int i = 0; i < lowByteCount; i++) {
+            buffer[length - 1 - i] = (byte) (low >> (Byte.SIZE * i));
+        }
+        for (int i = Long.BYTES; i < length; i++) {
+            buffer[length - 1 - i] = (byte) (high >> (Byte.SIZE * (i - Long.BYTES)));
+        }
     }
 }

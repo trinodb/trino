@@ -13,24 +13,20 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
-import static java.util.Objects.requireNonNull;
 
 public class TimestampMillisValueWriter
         extends PrimitiveValueWriter
 {
-    private final Type type;
-
-    public TimestampMillisValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public TimestampMillisValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
@@ -38,10 +34,11 @@ public class TimestampMillisValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                long scaledValue = floorDiv(type.getLong(block, i), MICROSECONDS_PER_MILLISECOND);
+                long scaledValue = floorDiv(longArrayBlock.getLong(i), MICROSECONDS_PER_MILLISECOND);
                 valuesWriter.writeLong(scaledValue);
                 statistics.updateStats(scaledValue);
             }
@@ -53,7 +50,7 @@ public class TimestampMillisValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        long scaledValue = floorDiv(type.getLong(block, 0), MICROSECONDS_PER_MILLISECOND);
+        long scaledValue = floorDiv(((LongArrayBlock) block).getLong(0), MICROSECONDS_PER_MILLISECOND);
         for (int i = 0; i < count; i++) {
             valuesWriter.writeLong(scaledValue);
         }
@@ -65,11 +62,12 @@ public class TimestampMillisValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                long scaledValue = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
+                long scaledValue = floorDiv(longArrayBlock.getLong(position), MICROSECONDS_PER_MILLISECOND);
                 valuesWriter.writeLong(scaledValue);
                 statistics.updateStats(scaledValue);
             }

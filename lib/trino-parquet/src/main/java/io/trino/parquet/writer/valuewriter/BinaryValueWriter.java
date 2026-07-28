@@ -15,22 +15,17 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.VariableWidthBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static java.util.Objects.requireNonNull;
-
 public class BinaryValueWriter
         extends PrimitiveValueWriter
 {
-    private final Type type;
-
-    public BinaryValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public BinaryValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
@@ -38,11 +33,12 @@ public class BinaryValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
 
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                Slice slice = type.getSlice(block, i);
+                Slice slice = variableWidthBlock.getSlice(i);
                 valuesWriter.writeBytes(slice);
                 // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
@@ -56,7 +52,7 @@ public class BinaryValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        Slice slice = type.getSlice(block, 0);
+        Slice slice = ((VariableWidthBlock) block).getSlice(0);
         // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
         // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
         Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
@@ -71,12 +67,13 @@ public class BinaryValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
 
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                Slice slice = type.getSlice(block, position);
+                Slice slice = variableWidthBlock.getSlice(position);
                 // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
                 Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
