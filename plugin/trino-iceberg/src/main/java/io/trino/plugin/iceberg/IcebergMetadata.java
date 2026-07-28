@@ -901,7 +901,7 @@ public class IcebergMetadata
         SchemaTableName baseName = new SchemaTableName(tableName.getSchemaName(), name);
         try {
             return getMaterializedView(session, baseName)
-                    .flatMap(_ -> catalog.getMaterializedViewStorageTable(session, baseName))
+                    .map(definition -> loadMaterializedViewStorageTable(session, baseName, definition))
                     .or(() -> Optional.of(catalog.loadTable(session, baseName)));
         }
         catch (TableNotFoundException e) {
@@ -911,6 +911,24 @@ public class IcebergMetadata
             // avoid dealing with non Iceberg tables
             return Optional.empty();
         }
+    }
+
+    private BaseTable loadMaterializedViewStorageTable(ConnectorSession session, SchemaTableName materializedViewName, ConnectorMaterializedViewDefinition definition)
+    {
+        SchemaTableName storageTableName = getMaterializedViewStorageTableName(materializedViewName, definition);
+        // With iceberg.materialized-views.hide-storage-table disabled the storage table is a regular, separately-named Iceberg table.
+        if (!isMaterializedViewStorage(storageTableName.getTableName())) {
+            return catalog.loadTable(session, storageTableName);
+        }
+        return catalog.getMaterializedViewStorageTable(session, materializedViewName)
+                .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, "Storage table metadata not found for materialized view " + materializedViewName));
+    }
+
+    private static SchemaTableName getMaterializedViewStorageTableName(SchemaTableName materializedViewName, ConnectorMaterializedViewDefinition materializedViewDefinition)
+    {
+        return materializedViewDefinition.getStorageTable()
+                .map(CatalogSchemaTableName::getSchemaTableName)
+                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
     }
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
@@ -1770,7 +1788,41 @@ public class IcebergMetadata
             Map<String, Object> executeProperties,
             RetryMode retryMode)
     {
-        IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;
+        return internalGetTableHandleForExecute(
+                session,
+                accessControl,
+                (IcebergTableHandle) connectorTableHandle,
+                procedureName,
+                executeProperties,
+                false);
+    }
+
+    @Override
+    public Optional<ConnectorTableExecuteHandle> getMaterializedViewTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            ConnectorTableHandle connectorTableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
+    {
+        return internalGetTableHandleForExecute(
+                session,
+                accessControl,
+                (IcebergTableHandle) connectorTableHandle,
+                procedureName,
+                executeProperties,
+                true);
+    }
+
+    private Optional<ConnectorTableExecuteHandle> internalGetTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            IcebergTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            boolean isMaterializedViewExecute)
+    {
         checkArgument(tableHandle.getTableType() == DATA, "Cannot execute table procedure %s on non-DATA table: %s", procedureName, tableHandle.getTableType());
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
         if (tableHandle.getSnapshotId().isPresent() && (tableHandle.getSnapshotId().orElseThrow() != icebergTable.currentSnapshot().snapshotId())) {
@@ -1785,7 +1837,8 @@ public class IcebergMetadata
             throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
         }
 
-        if (isMaterializedViewStorage(tableHandle.getSchemaTableName().getTableName()) && !MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES.contains(procedureId)) {
+        boolean isExecutedOnMaterializedViewStorageTable = isMaterializedViewStorage(tableHandle.getSchemaTableName().getTableName()) || isMaterializedViewExecute;
+        if (isExecutedOnMaterializedViewStorageTable && !MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES.contains(procedureId)) {
             throw new TrinoException(NOT_SUPPORTED, "Table procedure %s is not supported on a materialized view storage table".formatted(procedureName));
         }
 
@@ -4178,9 +4231,7 @@ public class IcebergMetadata
             return new MaterializedViewFreshness(STALE, Optional.empty());
         }
 
-        SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
-                .map(CatalogSchemaTableName::getSchemaTableName)
-                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
+        SchemaTableName storageTableName = getMaterializedViewStorageTableName(materializedViewName, materializedViewDefinition.get());
 
         Table icebergTable = catalog.loadTable(session, storageTableName);
         Optional<Snapshot> currentSnapshot = Optional.ofNullable(icebergTable.currentSnapshot());

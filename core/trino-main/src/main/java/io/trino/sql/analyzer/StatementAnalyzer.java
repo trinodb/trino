@@ -1353,7 +1353,7 @@ class StatementAnalyzer
             Scope tableScope;
             if (materializedView.isPresent()) {
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), target.updateTargetName(), getBranchName(target.table()));
-                tableScope = createScopeForMaterializedView(target.table(), target.updateTargetName(), scope, materializedView.get(), Optional.of(tableHandle));
+                tableScope = createScopeForMaterializedViewStorageTableExecute(target.table(), target.updateTargetName(), scope, tableHandle);
             }
             else {
                 tableScope = analyze(target.table());
@@ -1382,13 +1382,19 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters());
 
-            TableExecuteHandle executeHandle =
+            TableExecuteHandle executeHandle = materializedView.isPresent() ?
+                    metadata.getMaterializedViewTableHandleForExecute(
+                            session,
+                            tableHandle,
+                            procedureName,
+                            tableProperties)
+                    .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, target.tableName())) :
                     metadata.getTableHandleForExecute(
-                                    session,
-                                    tableHandle,
-                                    procedureName,
-                                    tableProperties)
-                            .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, target.tableName()));
+                            session,
+                            tableHandle,
+                            procedureName,
+                            tableProperties)
+                    .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on materialized view '%s'", procedureName, target.tableName()));
 
             analysis.setTableExecuteReadsData(procedureMetadata.getExecutionMode().isReadsData());
             analysis.setTableExecuteHandle(executeHandle);
@@ -2708,6 +2714,21 @@ class StatementAnalyzer
                     view.getColumns(),
                     freshStorageTable,
                     true);
+        }
+
+        private Scope createScopeForMaterializedViewStorageTableExecute(Table table, QualifiedObjectName viewName, Optional<Scope> scope, TableHandle storageTable)
+        {
+            TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
+            List<Field> outputFields = analyzeTableOutputFields(table, viewName, tableSchema, columnHandles);
+
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .build();
+            analyzeFiltersAndMasks(table, viewName, new RelationType(outputFields), accessControlScope);
+            analysis.registerTable(table, Optional.of(storageTable), viewName, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.empty());
+
+            return createAndAssignScope(table, scope, outputFields);
         }
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)

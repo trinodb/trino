@@ -158,6 +158,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<TableExecuteHandle> getMaterializedViewTableHandleForExecute(Session session, TableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Set<ColumnHandle> getColumnHandlesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
         throw new UnsupportedOperationException();

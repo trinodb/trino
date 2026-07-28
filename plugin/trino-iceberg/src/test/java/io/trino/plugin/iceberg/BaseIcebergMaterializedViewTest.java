@@ -1112,24 +1112,59 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testUnsafeProcedureRejectedOnMaterializedView()
     {
+        testUnsafeProcedureRejectedOnMaterializedView(getSession());
+    }
+
+    @Test
+    public void testUnsafeProcedureRejectedOnMaterializedViewWithVisibleStorageTable()
+    {
+        // With iceberg.materialized-views.hide-storage-table disabled, the storage table is a plain
+        // "st_<uuid>"-named table rather than "<mv>$materialized_view_storage", so the connector cannot
+        // recognize it as materialized view storage by name alone; the engine must still signal that the
+        // procedure was reached through ALTER MATERIALIZED VIEW EXECUTE. iceberg_legacy_mv is set up (sharing
+        // the same underlying storage as the default catalog) exactly for this case.
+        testUnsafeProcedureRejectedOnMaterializedView(Session.builder(getSession())
+                .setCatalog("iceberg_legacy_mv")
+                .build());
+    }
+
+    private void testUnsafeProcedureRejectedOnMaterializedView(Session session)
+    {
         String mvName = "test_unsafe_procedure_mv_" + randomNameSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM base_table1");
-        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+        assertUpdate(session, "CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM base_table1");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW " + mvName, 6);
 
         // Procedures that would change the storage table's logical contents or desync it from the materialized view
         // are rejected; only physical maintenance is allowed.
         assertQueryFails(
+                session,
                 "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE DROP_EXTENDED_STATS",
                 "Table procedure DROP_EXTENDED_STATS is not supported on a materialized view storage table");
 
-        long snapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + mvName + "$snapshots\" ORDER BY committed_at LIMIT 1");
+        long snapshotId = (long) computeScalar(session, "SELECT snapshot_id FROM \"" + mvName + "$snapshots\" ORDER BY committed_at LIMIT 1");
         assertQueryFails(
+                session,
                 "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE ROLLBACK_TO_SNAPSHOT(" + snapshotId + ")",
                 "Table procedure ROLLBACK_TO_SNAPSHOT is not supported on a materialized view storage table");
 
         assertQueryFails(
+                session,
                 "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE ADD_FILES_FROM_TABLE(schema_name => CURRENT_SCHEMA, table_name => 'base_table1')",
                 "Table procedure ADD_FILES_FROM_TABLE is not supported on a materialized view storage table");
+
+        assertUpdate(session, "DROP MATERIALIZED VIEW " + mvName);
+    }
+
+    @Test
+    public void testUnallowedProcedureRejectedOnHiddenStorageTableByName()
+    {
+        String mvName = "test_unsafe_procedure_storage_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM base_table1");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 6);
+
+        assertQueryFails(
+                "ALTER TABLE \"" + mvName + "$materialized_view_storage\" EXECUTE DROP_EXTENDED_STATS",
+                "Table procedure DROP_EXTENDED_STATS is not supported on a materialized view storage table");
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
     }
@@ -1167,6 +1202,41 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE " + sourceTable);
+    }
+
+    @Test
+    public void testOptimizeMaterializedViewWithVisibleStorageTable()
+    {
+        // With iceberg.materialized-views.hide-storage-table disabled the storage table is a plain "st_<uuid>" table
+        // rather than "<mv>$materialized_view_storage". OPTIMIZE must still compact it through ALTER MATERIALIZED VIEW
+        // EXECUTE; format version 3 additionally exercises the row-lineage columns the storage-table scan must expose.
+        Session session = Session.builder(getSession())
+                .setCatalog("iceberg_legacy_mv")
+                .setSystemProperty("task_min_writer_count", "1")
+                .build();
+        String sourceTable = "test_optimize_legacy_src_" + randomNameSuffix();
+        String mvName = "test_optimize_legacy_mv_" + randomNameSuffix();
+        assertUpdate(session, "CREATE TABLE " + sourceTable + " (key integer, value varchar) WITH (format_version = 3)");
+        assertUpdate(session, "CREATE MATERIALIZED VIEW " + mvName + " WITH (format_version = 3) AS SELECT * FROM " + sourceTable);
+
+        // Populate across several refreshes so the storage table ends up with multiple data files.
+        assertUpdate(session, "INSERT INTO " + sourceTable + " VALUES (1, 'a')", 1);
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertUpdate(session, "INSERT INTO " + sourceTable + " VALUES (2, 'b')", 1);
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertUpdate(session, "INSERT INTO " + sourceTable + " VALUES (3, 'c')", 1);
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertThat((long) computeScalar(session, "SELECT count(*) FROM \"" + mvName + "$files\"")).isGreaterThan(1L);
+
+        assertQuerySucceeds(session, "ALTER MATERIALIZED VIEW " + mvName + " EXECUTE OPTIMIZE");
+
+        // The storage table is compacted to a single file and its contents are preserved.
+        assertThat((long) computeScalar(session, "SELECT count(*) FROM \"" + mvName + "$files\"")).isEqualTo(1L);
+        assertThat(query(session, "SELECT * FROM " + mvName))
+                .matches("VALUES (1, CAST('a' AS varchar)), (2, CAST('b' AS varchar)), (3, CAST('c' AS varchar))");
+
+        assertUpdate(session, "DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate(session, "DROP TABLE " + sourceTable);
     }
 
     @Test

@@ -536,6 +536,12 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method boolean io.trino.spi.spool.SpoolingManager::isRecoverableException(java.io.IOException)</new>
                                 </item>
+                                <!-- Added getMaterializedViewTableHandleForExecute for ALTER MATERIALIZED VIEW EXECUTE; default throws NOT_SUPPORTED -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorTableExecuteHandle&gt; io.trino.spi.connector.ConnectorMetadata::getMaterializedViewTableHandleForExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorAccessControl, io.trino.spi.connector.ConnectorTableHandle, java.lang.String, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, io.trino.spi.connector.RetryMode)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
