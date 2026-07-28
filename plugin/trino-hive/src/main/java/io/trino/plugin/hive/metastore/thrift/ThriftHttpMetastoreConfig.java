@@ -100,8 +100,8 @@ public class ThriftHttpMetastoreConfig
             Map<String, String> temp = new HashMap<>();
             if (httpHeaders != null) {
                 for (String kv : httpHeaders.split(headersDelim)) {
-                    String key = kv.split(kvDelim, 2)[0].trim();
-                    String val = kv.split(kvDelim, 2)[1].trim();
+                    String key = unescape(kv.split(kvDelim, 2)[0].trim());
+                    String val = unescape(kv.split(kvDelim, 2)[1].trim());
                     temp.put(key, val);
                 }
                 this.additionalHeaders = ImmutableMap.copyOf(temp);
@@ -112,5 +112,10 @@ public class ThriftHttpMetastoreConfig
                     "Value provided is %s", httpHeaders), e);
         }
         return this;
+    }
+
+    private static String unescape(String value)
+    {
+        return value.replace("\\:", ":").replace("\\,", ",");
     }
 }
