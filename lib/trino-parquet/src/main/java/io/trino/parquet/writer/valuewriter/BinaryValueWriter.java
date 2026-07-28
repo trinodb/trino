@@ -53,13 +53,12 @@ public class BinaryValueWriter
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
         Slice slice = ((VariableWidthBlock) block).getSlice(0);
-        // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
-        // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-        Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
         for (int i = 0; i < count; i++) {
             valuesWriter.writeBytes(slice);
         }
-        statistics.updateStats(binary);
+        // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
+        // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
+        statistics.updateStats(Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()));
     }
 
     @Override
@@ -74,11 +73,10 @@ public class BinaryValueWriter
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
                 Slice slice = variableWidthBlock.getSlice(position);
+                valuesWriter.writeBytes(slice);
                 // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-                Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
-                valuesWriter.writeBytes(slice);
-                statistics.updateStats(binary);
+                statistics.updateStats(Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()));
             }
         }
     }

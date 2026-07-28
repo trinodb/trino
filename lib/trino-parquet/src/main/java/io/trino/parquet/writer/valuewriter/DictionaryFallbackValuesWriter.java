@@ -221,9 +221,9 @@ public class DictionaryFallbackValuesWriter
     }
 
     @VisibleForTesting
-    public org.apache.parquet.column.values.ValuesWriter getFallBackWriter()
+    public ValuesWriter getFallBackWriter()
     {
-        return ((ParquetValuesWriterAdapter) fallBackWriter).getDelegate();
+        return fallBackWriter;
     }
 
     private void checkFallback()
