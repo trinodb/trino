@@ -1752,6 +1752,20 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSortingOnNonStructNestedField()
+    {
+        String tableName = "test_non_struct_sort_" + randomNameSuffix();
+        assertThat(query("CREATE TABLE " + tableName + " (arr ARRAY(VARCHAR)) WITH (sorted_by = ARRAY['\"arr.element\"'])")).failure()
+                .hasMessage("Column not found: arr.element");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.key\"'])")).failure()
+                .hasMessage("Column not found: m.key");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.value\"'])")).failure()
+                .hasMessage("Column not found: m.value");
+        assertThat(query("CREATE TABLE " + tableName + " (arrs ARRAY(ROW(x VARCHAR))) WITH (sorted_by = ARRAY['\"arrs.element.x\"'])")).failure()
+                .hasMessage("Column not found: arrs.element.x");
+    }
+
+    @Test
     public void testDroppingSortColumn()
     {
         try (TestTable table = newTrinoTable(

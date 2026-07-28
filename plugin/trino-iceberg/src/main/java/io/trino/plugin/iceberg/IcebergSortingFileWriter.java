@@ -40,8 +40,9 @@ public final class IcebergSortingFileWriter
     private final IcebergFileWriter outputWriter;
     private final SortingFileWriter sortingFileWriter;
     private final int originalChannelCount;
-    // Per sort field: index path within the page block hierarchy to the leaf block
-    private final List<List<Integer>> sortIndexPaths;
+    // Per sort field: index path within the page block hierarchy to the leaf block.
+    // Depth-1 paths (size == 1) are top-level columns that need no extraction.
+    private final List<List<Integer>> nestedSortIndexPaths;
 
     public IcebergSortingFileWriter(
             TrinoFileSystem fileSystem,
@@ -57,12 +58,16 @@ public final class IcebergSortingFileWriter
     {
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.originalChannelCount = types.size();
-        this.sortIndexPaths = ImmutableList.copyOf(sortIndexPaths);
 
-        // Determine leaf type for each sort field by walking the type hierarchy along the index path
+        // Depth-1 paths are already top-level channels; only truly nested paths need extraction.
+        this.nestedSortIndexPaths = sortIndexPaths.stream()
+                .filter(path -> path.size() > 1)
+                .collect(toImmutableList());
+
+        // Determine leaf type for each truly nested sort field
         ImmutableList.Builder<Type> expandedTypes = ImmutableList.builder();
         expandedTypes.addAll(types);
-        for (List<Integer> indexPath : sortIndexPaths) {
+        for (List<Integer> indexPath : nestedSortIndexPaths) {
             Type type = types.get(indexPath.getFirst());
             for (int i = 1; i < indexPath.size(); i++) {
                 type = type.getTypeParameters().get(indexPath.get(i));
@@ -71,19 +76,30 @@ public final class IcebergSortingFileWriter
         }
         List<Type> allTypes = expandedTypes.build();
 
-        // Sort channels are the appended projected columns
-        List<Integer> sortChannels = IntStream.range(originalChannelCount, allTypes.size())
-                .boxed()
-                .collect(toImmutableList());
+        // Sort channels: depth-1 paths use their existing channel index; nested paths use appended channels.
+        ImmutableList.Builder<Integer> sortChannels = ImmutableList.builder();
+        int appendedIndex = originalChannelCount;
+        for (List<Integer> indexPath : sortIndexPaths) {
+            if (indexPath.size() == 1) {
+                sortChannels.add(indexPath.getFirst());
+            }
+            else {
+                sortChannels.add(appendedIndex++);
+            }
+        }
+
+        FileWriter wrappedWriter = nestedSortIndexPaths.isEmpty()
+                ? outputWriter
+                : new StrippingFileWriter(outputWriter, originalChannelCount);
 
         this.sortingFileWriter = new SortingFileWriter(
                 fileSystem,
                 tempFilePrefix,
-                new StrippingFileWriter(outputWriter, originalChannelCount),
+                wrappedWriter,
                 maxMemory,
                 maxOpenTempFiles,
                 allTypes,
-                sortChannels,
+                sortChannels.build(),
                 sortOrders,
                 pageSorter,
                 typeOperators);
@@ -133,16 +149,16 @@ public final class IcebergSortingFileWriter
 
     private Page expandPage(Page page)
     {
-        if (sortIndexPaths.isEmpty()) {
+        if (nestedSortIndexPaths.isEmpty()) {
             return page;
         }
 
-        Block[] blocks = new Block[originalChannelCount + sortIndexPaths.size()];
+        Block[] blocks = new Block[originalChannelCount + nestedSortIndexPaths.size()];
         for (int i = 0; i < originalChannelCount; i++) {
             blocks[i] = page.getBlock(i);
         }
-        for (int i = 0; i < sortIndexPaths.size(); i++) {
-            List<Integer> indexPath = sortIndexPaths.get(i);
+        for (int i = 0; i < nestedSortIndexPaths.size(); i++) {
+            List<Integer> indexPath = nestedSortIndexPaths.get(i);
             Block block = page.getBlock(indexPath.getFirst());
             for (int depth = 1; depth < indexPath.size(); depth++) {
                 block = getRowFieldsFromBlock(block).get(indexPath.get(depth));

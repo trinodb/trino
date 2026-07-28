@@ -19,10 +19,8 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.SortOrderBuilder;
-import org.apache.iceberg.types.TypeUtil;
 
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -59,10 +57,8 @@ public final class SortFieldUtils
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid " + SORTED_BY_PROPERTY + " definition", e);
         }
 
-        Set<Integer> allFieldIds = TypeUtil.indexNameById(schema.asStruct()).keySet();
-
         for (SortField field : sortOrder.fields()) {
-            if (!allFieldIds.contains(field.sourceId())) {
+            if (schema.accessorForField(field.sourceId()) == null) {
                 throw new TrinoException(COLUMN_NOT_FOUND, "Column not found: " + schema.findColumnName(field.sourceId()));
             }
         }

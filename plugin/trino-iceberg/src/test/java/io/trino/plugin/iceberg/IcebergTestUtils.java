@@ -175,24 +175,8 @@ public final class IcebergTestUtils
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE,
                     RuntimeException::new)) {
-                Comparable<Object> previousMax = null;
-                for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                    Block topBlock = page.getBlock(0);
-                    for (int position = 0; position < topBlock.getPositionCount(); position++) {
-                        Comparable<Object> current = drillToLeaf(topBlock, position, pathParts, leafType);
-                        if (current == null) {
-                            // nulls don't participate in the ordering check — reset watermark
-                            previousMax = null;
-                            continue;
-                        }
-                        if (previousMax != null && previousMax.compareTo(current) > 0) {
-                            return false;
-                        }
-                        previousMax = current;
-                    }
-                }
+                return checkSortOrder(recordReader::nextPage, pathParts, leafType);
             }
-            return true;
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -207,7 +191,6 @@ public final class IcebergTestUtils
         };
     }
 
-    @SuppressWarnings("unchecked")
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
         try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
@@ -236,24 +219,8 @@ public final class IcebergTestUtils
                     parquetMetadata,
                     List.of(columnType),
                     List.of(topLevelColumnName))) {
-                Comparable<Object> previousMax = null;
-                for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
-                    Block topBlock = page.getBlock(0);
-                    for (int position = 0; position < topBlock.getPositionCount(); position++) {
-                        Comparable<Object> current = drillToLeaf(topBlock, position, pathParts, leafType);
-                        if (current == null) {
-                            // nulls don't participate in the ordering check — reset watermark
-                            previousMax = null;
-                            continue;
-                        }
-                        if (previousMax != null && previousMax.compareTo(current) > 0) {
-                            return false;
-                        }
-                        previousMax = current;
-                    }
-                }
+                return checkSortOrder(parquetReader::nextPage, pathParts, leafType);
             }
-            return true;
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -268,6 +235,40 @@ public final class IcebergTestUtils
         };
     }
 
+    // Checks NULLS FIRST ascending order across all pages from the supplier.
+    // Returns false if any non-null value is followed by a smaller value, or if a null follows a non-null.
+    @SuppressWarnings("unchecked")
+    private static boolean checkSortOrder(PageSupplier pageSupplier, String[] pathParts, Type leafType)
+            throws IOException
+    {
+        Comparable<Object> previousMax = null;
+        boolean seenNonNull = false;
+        for (SourcePage page = pageSupplier.nextPage(); page != null; page = pageSupplier.nextPage()) {
+            Block topBlock = page.getBlock(0);
+            for (int position = 0; position < topBlock.getPositionCount(); position++) {
+                Comparable<Object> current = drillToLeaf(topBlock, position, pathParts, leafType);
+                if (current == null) {
+                    if (seenNonNull) {
+                        return false;
+                    }
+                    continue;
+                }
+                seenNonNull = true;
+                if (previousMax != null && previousMax.compareTo(current) > 0) {
+                    return false;
+                }
+                previousMax = current;
+            }
+        }
+        return true;
+    }
+
+    @FunctionalInterface
+    private interface PageSupplier
+    {
+        SourcePage nextPage() throws IOException;
+    }
+
     // Drills into nested RowBlocks per position, returning null if any level is null.
     // Each intermediate RowType is a single-field wrapper built in checkOrcFileSorting/checkParquetFileSorting,
     // so the field index is always 0 at each level.
@@ -278,7 +279,7 @@ public final class IcebergTestUtils
             if (block.isNull(position)) {
                 return null;
             }
-            block = ((RowBlock) block).getFieldBlock(0);
+            block = RowBlock.getRowFieldsFromBlock(block).get(0);
         }
         if (block.isNull(position)) {
             return null;

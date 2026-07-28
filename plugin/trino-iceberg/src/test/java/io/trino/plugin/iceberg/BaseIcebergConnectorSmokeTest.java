@@ -620,6 +620,18 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertThat(query("SELECT count(*) FROM " + table.getName() + " WHERE row_t.name IS NOT NULL"))
                     .matches("VALUES BIGINT '495'");
         }
+
+        // Uses tpch.tiny.lineitem (60k rows) to force spilling through temp files
+        try (TestTable table = newTrinoTable(
+                "test_sorted_nested_spill",
+                "(orderkey BIGINT, row_t ROW(comment VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY['\"row_t.comment\"'])")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " SELECT orderkey, ROW(comment) FROM tpch.tiny.lineitem",
+                    "VALUES 60175");
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted(Location.of((String) filePath), "row_t.comment")).isTrue();
+            }
+        }
     }
 
     @Test
