@@ -13,12 +13,12 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 
 public class TimestampTzMillisValueWriter
         extends PrimitiveValueWriter
@@ -33,10 +33,11 @@ public class TimestampTzMillisValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                long millis = unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, i));
+                long millis = unpackMillisUtc(longArrayBlock.getLong(i));
                 valuesWriter.writeLong(millis);
                 statistics.updateStats(millis);
             }
@@ -48,7 +49,7 @@ public class TimestampTzMillisValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        long millis = unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, 0));
+        long millis = unpackMillisUtc(((LongArrayBlock) block).getLong(0));
         for (int i = 0; i < count; i++) {
             valuesWriter.writeLong(millis);
         }
@@ -60,11 +61,12 @@ public class TimestampTzMillisValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                long millis = unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position));
+                long millis = unpackMillisUtc(longArrayBlock.getLong(position));
                 valuesWriter.writeLong(millis);
                 statistics.updateStats(millis);
             }

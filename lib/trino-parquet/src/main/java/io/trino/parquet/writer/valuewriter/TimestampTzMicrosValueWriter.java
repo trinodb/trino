@@ -13,12 +13,12 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
@@ -36,10 +36,11 @@ public class TimestampTzMicrosValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        Fixed12Block fixed12Block = (Fixed12Block) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                long micros = toMicros(block, i);
+                long micros = toMicros(fixed12Block, i);
                 valuesWriter.writeLong(micros);
                 statistics.updateStats(micros);
             }
@@ -51,7 +52,7 @@ public class TimestampTzMicrosValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        long micros = toMicros(block, 0);
+        long micros = toMicros((Fixed12Block) block, 0);
         for (int i = 0; i < count; i++) {
             valuesWriter.writeLong(micros);
         }
@@ -63,21 +64,22 @@ public class TimestampTzMicrosValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        Fixed12Block fixed12Block = (Fixed12Block) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                long micros = toMicros(block, position);
+                long micros = toMicros(fixed12Block, position);
                 valuesWriter.writeLong(micros);
                 statistics.updateStats(micros);
             }
         }
     }
 
-    private static long toMicros(ValueBlock block, int position)
+    private static long toMicros(Fixed12Block block, int position)
     {
-        LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, position);
-        return (timestamp.getEpochMillis() * MICROSECONDS_PER_MILLISECOND) +
-                roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MICROSECOND);
+        long epochMillis = unpackMillisUtc(block.getFixed12First(position));
+        return (epochMillis * MICROSECONDS_PER_MILLISECOND) +
+                roundDiv(block.getFixed12Second(position), PICOSECONDS_PER_MICROSECOND);
     }
 }

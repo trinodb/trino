@@ -15,8 +15,9 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
@@ -74,7 +75,7 @@ public class Int96TimestampValueWriter
         if (timestampType.isShort()) {
             for (int position = 0; position < block.getPositionCount(); position++) {
                 if (!mayHaveNull || !block.isNull(position)) {
-                    readShortTimestampAndWriteToBuffer(block, position, buffer);
+                    readShortTimestampAndWriteToBuffer((LongArrayBlock) block, position, buffer);
 
                     valuesWriter.writeBytes(reusedSlice);
                     statistics.updateStats(reusedBinary);
@@ -84,7 +85,7 @@ public class Int96TimestampValueWriter
         else {
             for (int position = 0; position < block.getPositionCount(); position++) {
                 if (!mayHaveNull || !block.isNull(position)) {
-                    readLongTimestampAndWriteToBuffer(block, position, buffer);
+                    readLongTimestampAndWriteToBuffer((Fixed12Block) block, position, buffer);
 
                     valuesWriter.writeBytes(reusedSlice);
                     statistics.updateStats(reusedBinary);
@@ -102,10 +103,10 @@ public class Int96TimestampValueWriter
         Slice reusedSlice = Slices.wrappedBuffer(buffer);
         Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         if (timestampType.isShort()) {
-            readShortTimestampAndWriteToBuffer(block, 0, buffer);
+            readShortTimestampAndWriteToBuffer((LongArrayBlock) block, 0, buffer);
         }
         else {
-            readLongTimestampAndWriteToBuffer(block, 0, buffer);
+            readLongTimestampAndWriteToBuffer((Fixed12Block) block, 0, buffer);
         }
 
         for (int i = 0; i < count; i++) {
@@ -128,7 +129,7 @@ public class Int96TimestampValueWriter
             for (int index = 0; index < length; index++) {
                 int position = positions[offset + index];
                 if (!mayHaveNull || !block.isNull(position)) {
-                    readShortTimestampAndWriteToBuffer(block, position, buffer);
+                    readShortTimestampAndWriteToBuffer((LongArrayBlock) block, position, buffer);
 
                     valuesWriter.writeBytes(reusedSlice);
                     statistics.updateStats(reusedBinary);
@@ -139,7 +140,7 @@ public class Int96TimestampValueWriter
             for (int index = 0; index < length; index++) {
                 int position = positions[offset + index];
                 if (!mayHaveNull || !block.isNull(position)) {
-                    readLongTimestampAndWriteToBuffer(block, position, buffer);
+                    readLongTimestampAndWriteToBuffer((Fixed12Block) block, position, buffer);
 
                     valuesWriter.writeBytes(reusedSlice);
                     statistics.updateStats(reusedBinary);
@@ -148,21 +149,20 @@ public class Int96TimestampValueWriter
         }
     }
 
-    private void readShortTimestampAndWriteToBuffer(ValueBlock block, int position, byte[] buffer)
+    private void readShortTimestampAndWriteToBuffer(LongArrayBlock block, int position, byte[] buffer)
     {
-        long epochMicros = timestampType.getLong(block, position);
+        long epochMicros = block.getLong(position);
         long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
         int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND;
 
         convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
     }
 
-    private void readLongTimestampAndWriteToBuffer(ValueBlock block, int position, byte[] buffer)
+    private void readLongTimestampAndWriteToBuffer(Fixed12Block block, int position, byte[] buffer)
     {
-        LongTimestamp timestamp = (LongTimestamp) timestampType.getObject(block, position);
-        long epochMicros = timestamp.getEpochMicros();
+        long epochMicros = block.getFixed12First(position);
         // This should divide exactly because timestamp precision is <= 9
-        int nanosOfMicro = timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND;
+        int nanosOfMicro = block.getFixed12Second(position) / PICOSECONDS_PER_NANOSECOND;
         long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
         int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
 

@@ -26,6 +26,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
@@ -124,30 +125,56 @@ final class TestPrimitiveValueWriter
         }
     }
 
+    @Test
+    void testDictionaryBlockRegionMatchesValueBlock()
+            throws IOException
+    {
+        int regionOffset = 2;
+        int regionLength = 5;
+        for (TestCase testCase : testCases()) {
+            for (int maxDictionaryPageSize : MAX_DICTIONARY_PAGE_SIZES) {
+                List<Object> dictionaryValues = new ArrayList<>(testCase.values());
+                dictionaryValues.add(null);
+                int[] ids = {2, 0, 3, 1, 1, 3, 2, 0};
+                Block regionBlock = DictionaryBlock.create(ids.length, createBlock(testCase.trinoType(), dictionaryValues), ids)
+                        .getRegion(regionOffset, regionLength);
+                assertThat(regionBlock).isInstanceOf(DictionaryBlock.class);
+                assertThat(((DictionaryBlock) regionBlock).getRawIdsOffset()).isEqualTo(regionOffset);
+                List<Object> expandedValues = Arrays.stream(ids, regionOffset, regionOffset + regionLength).mapToObj(dictionaryValues::get).toList();
+                assertWritesMatch(testCase, maxDictionaryPageSize, regionBlock, createBlock(testCase.trinoType(), expandedValues));
+            }
+        }
+    }
+
     private static void assertWritesMatch(TestCase testCase, int maxDictionaryPageSize, Block actualBlock, Block expectedBlock)
             throws IOException
     {
-        byte[] actualBytes;
-        Statistics<?> actualStatistics;
-        try (PrimitiveValueWriter writer = createValueWriter(testCase, maxDictionaryPageSize)) {
-            writer.write(actualBlock);
-            actualBytes = writer.getBytes().toByteArray();
-            actualStatistics = writer.getStatistics();
-        }
+        WriteResult actual = write(testCase, maxDictionaryPageSize, actualBlock);
+        WriteResult expected = write(testCase, maxDictionaryPageSize, expectedBlock);
 
-        byte[] expectedBytes;
-        Statistics<?> expectedStatistics;
-        try (PrimitiveValueWriter writer = createValueWriter(testCase, maxDictionaryPageSize)) {
-            writer.write(expectedBlock);
-            expectedBytes = writer.getBytes().toByteArray();
-            expectedStatistics = writer.getStatistics();
+        assertThat(actual.pageBytes()).describedAs("%s", testCase).isEqualTo(expected.pageBytes());
+        assertThat(actual.dictionarySize()).describedAs("%s", testCase).isEqualTo(expected.dictionarySize());
+        assertThat(actual.dictionaryBytes()).describedAs("%s", testCase).isEqualTo(expected.dictionaryBytes());
+        assertThat(actual.statistics().hasNonNullValue()).describedAs("%s", testCase).isEqualTo(expected.statistics().hasNonNullValue());
+        if (expected.statistics().hasNonNullValue()) {
+            assertThat(actual.statistics().getMinBytes()).describedAs("%s", testCase).isEqualTo(expected.statistics().getMinBytes());
+            assertThat(actual.statistics().getMaxBytes()).describedAs("%s", testCase).isEqualTo(expected.statistics().getMaxBytes());
         }
+    }
 
-        assertThat(actualBytes).describedAs("%s", testCase).isEqualTo(expectedBytes);
-        assertThat(actualStatistics.hasNonNullValue()).describedAs("%s", testCase).isEqualTo(expectedStatistics.hasNonNullValue());
-        if (expectedStatistics.hasNonNullValue()) {
-            assertThat(actualStatistics.getMinBytes()).describedAs("%s", testCase).isEqualTo(expectedStatistics.getMinBytes());
-            assertThat(actualStatistics.getMaxBytes()).describedAs("%s", testCase).isEqualTo(expectedStatistics.getMaxBytes());
+    private static WriteResult write(TestCase testCase, int maxDictionaryPageSize, Block block)
+            throws IOException
+    {
+        try (PrimitiveValueWriter writer = createValueWriter(testCase, maxDictionaryPageSize)) {
+            writer.write(block);
+            // the data page is taken before the dictionary page, matching PrimitiveColumnWriter
+            byte[] pageBytes = writer.getBytes().toByteArray();
+            Statistics<?> statistics = writer.getStatistics();
+            DictionaryPage dictionaryPage = writer.toDictPageAndClose();
+            if (dictionaryPage == null) {
+                return new WriteResult(pageBytes, statistics, 0, new byte[0]);
+            }
+            return new WriteResult(pageBytes, statistics, dictionaryPage.getDictionarySize(), dictionaryPage.getBytes().toByteArray());
         }
     }
 
@@ -258,6 +285,9 @@ final class TestPrimitiveValueWriter
         Arrays.fill(bytes, (byte) seed);
         return wrappedBuffer(bytes);
     }
+
+    // dictionarySize is 0 and dictionaryBytes empty when the writer is not dictionary encoded
+    private record WriteResult(byte[] pageBytes, Statistics<?> statistics, int dictionarySize, byte[] dictionaryBytes) {}
 
     private record TestCase(Type trinoType, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone, List<Object> values)
     {

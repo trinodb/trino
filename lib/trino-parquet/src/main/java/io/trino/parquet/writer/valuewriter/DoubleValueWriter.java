@@ -13,11 +13,12 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static io.trino.spi.type.DoubleType.DOUBLE;
+import static java.lang.Double.longBitsToDouble;
 
 public class DoubleValueWriter
         extends PrimitiveValueWriter
@@ -32,10 +33,11 @@ public class DoubleValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                double value = DOUBLE.getDouble(block, i);
+                double value = longBitsToDouble(longArrayBlock.getLong(i));
                 valuesWriter.writeDouble(value);
                 statistics.updateStats(value);
             }
@@ -47,7 +49,7 @@ public class DoubleValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
-        double value = DOUBLE.getDouble(block, 0);
+        double value = longBitsToDouble(((LongArrayBlock) block).getLong(0));
         for (int i = 0; i < count; i++) {
             valuesWriter.writeDouble(value);
         }
@@ -59,11 +61,12 @@ public class DoubleValueWriter
     {
         ValuesWriter valuesWriter = getValuesWriter();
         Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int index = 0; index < length; index++) {
             int position = positions[offset + index];
             if (!mayHaveNull || !block.isNull(position)) {
-                double value = DOUBLE.getDouble(block, position);
+                double value = longBitsToDouble(longArrayBlock.getLong(position));
                 valuesWriter.writeDouble(value);
                 statistics.updateStats(value);
             }
