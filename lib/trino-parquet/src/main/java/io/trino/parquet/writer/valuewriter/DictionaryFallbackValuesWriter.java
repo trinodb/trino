@@ -183,6 +183,14 @@ public class DictionaryFallbackValuesWriter
     }
 
     @Override
+    public void writeBytes(Slice base, int offset, int length)
+    {
+        rawDataByteSize += length + Integer.BYTES;
+        currentWriter.writeBytes(base, offset, length);
+        checkFallback();
+    }
+
+    @Override
     public void writeInteger(int value)
     {
         rawDataByteSize += Integer.BYTES;

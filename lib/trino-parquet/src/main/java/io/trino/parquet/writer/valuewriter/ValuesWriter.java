@@ -79,6 +79,11 @@ public abstract class ValuesWriter
         throw new UnsupportedOperationException(getClass().getName());
     }
 
+    public void writeBytes(Slice base, int offset, int length)
+    {
+        writeBytes(base.slice(offset, length));
+    }
+
     public void writeBytes(Slice value)
     {
         throw new UnsupportedOperationException(getClass().getName());

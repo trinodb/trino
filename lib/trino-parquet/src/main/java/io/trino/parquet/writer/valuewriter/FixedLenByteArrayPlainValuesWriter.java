@@ -78,6 +78,13 @@ public final class FixedLenByteArrayPlainValuesWriter
     }
 
     @Override
+    public void writeBytes(Slice base, int offset, int valueLength)
+    {
+        checkArgument(valueLength == length, "Fixed binary size %s does not match field type length %s", valueLength, length);
+        sliceOutput.writeBytes(base, offset, valueLength);
+    }
+
+    @Override
     public String memUsageString(String prefix)
     {
         return format("%s FixedLenByteArrayPlainValuesWriter %d bytes", prefix, sliceOutput.getRetainedSize());

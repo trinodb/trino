@@ -87,6 +87,13 @@ public final class DeltaLengthByteArrayValuesWriter
     }
 
     @Override
+    public void writeBytes(Slice base, int offset, int length)
+    {
+        lengthWriter.writeInteger(length);
+        sliceOutput.writeBytes(base, offset, length);
+    }
+
+    @Override
     public String memUsageString(String prefix)
     {
         return lengthWriter.memUsageString(format("%s DeltaLengthByteArrayValuesWriter %d bytes", prefix, sliceOutput.getRetainedSize()));
