@@ -639,7 +639,8 @@ public abstract class DictionaryValuesWriter
                 PlainValuesWriter dictionaryEncoder = new PlainValuesWriter(lastUsedDictionaryByteSize);
                 // write only the part of the dict that we used
                 for (int i = 0; i < lastUsedDictionarySize; i++) {
-                    dictionaryEncoder.writeDouble(Double.longBitsToDouble(dictionaryValues.getLong(i)));
+                    // PLAIN encoding of a double is its raw little-endian bits
+                    dictionaryEncoder.writeLong(dictionaryValues.getLong(i));
                 }
                 return dictPage(dictionaryEncoder.getBytes());
             }
@@ -792,7 +793,8 @@ public abstract class DictionaryValuesWriter
                 PlainValuesWriter dictionaryEncoder = new PlainValuesWriter(lastUsedDictionaryByteSize);
                 // write only the part of the dict that we used
                 for (int i = 0; i < lastUsedDictionarySize; i++) {
-                    dictionaryEncoder.writeFloat(Float.intBitsToFloat(dictionaryValues.getInt(i)));
+                    // PLAIN encoding of a float is its raw little-endian bits
+                    dictionaryEncoder.writeInteger(dictionaryValues.getInt(i));
                 }
                 return dictPage(dictionaryEncoder.getBytes());
             }
