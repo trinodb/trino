@@ -397,6 +397,21 @@ public class TestUnwrapCastInComparison
             validate(session, operator, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.123456789123'", "timestamp(12) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
         }
 
+        // Precision-reducing casts round, so they are not injective and must not be unwrapped (https://github.com/trinodb/trino/issues/30496)
+        // 2026-07-25 00:00:00 UTC is 2026-07-25 13:00:00 in Pacific/Apia; the sub-microsecond values round onto the literal
+        for (String operator : COMPARISON_OPERATORS) {
+            validate(session, operator, "timestamp(9)", "TIMESTAMP '2026-07-26 03:00:00'", "timestamp(6) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'");
+            validate(session, operator, "timestamp(9)", "TIMESTAMP '2026-07-25 13:00:00.000000400'", "timestamp(6) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'");
+            validate(session, operator, "timestamp(9)", "TIMESTAMP '2026-07-25 13:00:00.000000500'", "timestamp(6) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'");
+            validate(session, operator, "timestamp(12)", "TIMESTAMP '2026-07-25 13:00:00.000000000123'", "timestamp(6) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'");
+            validate(session, operator, "timestamp(6)", "TIMESTAMP '2026-07-25 13:00:00.000040'", "timestamp(4) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'");
+            validate(session, operator, "timestamp(6)", "TIMESTAMP '2026-07-25 13:00:00.400000'", "timestamp(0) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'");
+        }
+
+        validateBetween(session, "timestamp(9)", "TIMESTAMP '2026-07-25 13:00:00.000000400'", "timestamp(6) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'", "TIMESTAMP '2026-07-26 00:00:00 UTC'");
+        validateBetween(session, "timestamp(9)", "TIMESTAMP '2026-07-25 13:00:00.000000500'", "timestamp(6) with time zone", "TIMESTAMP '2026-07-24 00:00:00 UTC'", "TIMESTAMP '2026-07-25 00:00:00 UTC'");
+        validateBetween(session, "timestamp(6)", "TIMESTAMP '2026-07-25 13:00:00.000040'", "timestamp(4) with time zone", "TIMESTAMP '2026-07-25 00:00:00 UTC'", "TIMESTAMP '2026-07-26 00:00:00 UTC'");
+
         validateBetween(session, "timestamp(3)", "TIMESTAMP '2020-07-03 01:23:45.123'", "timestamp(3) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
         validateBetween(session, "timestamp(3)", "TIMESTAMP '2020-07-03 01:23:45.123'", "timestamp(3) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
         validateBetween(session, "timestamp(6)", "TIMESTAMP '2020-07-03 01:23:45.123456'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");

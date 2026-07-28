@@ -52,6 +52,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -632,6 +633,28 @@ public class TestUnwrapCastInComparison
         // maximum precision
         testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "2020-10-26 12:02:18.123456789321"))));
         testUnwrap(losAngelesSession, "timestamp(12)", "a > TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "2020-10-26 04:02:18.123456789321"))));
+
+        // A precision-reducing cast rounds, so it is not injective and must not be unwrapped (https://github.com/trinodb/trino/issues/30496)
+        testUnwrap(
+                warsawSession,
+                "timestamp(9)",
+                "CAST(a AS timestamp(6) with time zone) > TIMESTAMP '2026-07-25 00:00:00 UTC'",
+                comparison(GREATER_THAN, new Cast(new Reference(createTimestampType(9), "a"), createTimestampWithTimeZoneType(6)), new Constant(createTimestampWithTimeZoneType(6), DateTimes.parseTimestampWithTimeZone(6, "2026-07-25 00:00:00.000000 UTC"))));
+        testUnwrap(
+                warsawSession,
+                "timestamp(9)",
+                "CAST(a AS timestamp(6) with time zone) = TIMESTAMP '2026-07-25 00:00:00 UTC'",
+                comparison(EQUAL, new Cast(new Reference(createTimestampType(9), "a"), createTimestampWithTimeZoneType(6)), new Constant(createTimestampWithTimeZoneType(6), DateTimes.parseTimestampWithTimeZone(6, "2026-07-25 00:00:00.000000 UTC"))));
+        testUnwrap(
+                warsawSession,
+                "timestamp(9)",
+                "CAST(a AS timestamp(6) with time zone) < TIMESTAMP '2026-07-25 00:00:00 UTC'",
+                comparison(LESS_THAN, new Cast(new Reference(createTimestampType(9), "a"), createTimestampWithTimeZoneType(6)), new Constant(createTimestampWithTimeZoneType(6), DateTimes.parseTimestampWithTimeZone(6, "2026-07-25 00:00:00.000000 UTC"))));
+        testUnwrap(
+                warsawSession,
+                "timestamp(6)",
+                "CAST(a AS timestamp(4) with time zone) > TIMESTAMP '2026-07-25 00:00:00 UTC'",
+                comparison(GREATER_THAN, new Cast(new Reference(createTimestampType(6), "a"), createTimestampWithTimeZoneType(4)), new Constant(createTimestampWithTimeZoneType(4), DateTimes.parseTimestampWithTimeZone(4, "2026-07-25 00:00:00.0000 UTC"))));
 
         // DST forward -- Warsaw changed clock 1h forward on 2020-03-29T01:00 UTC (2020-03-29T02:00 local time)
         // Note that in given session input TIMESTAMP values  2020-03-29 02:31 and 2020-03-29 03:31 produce the same value 2020-03-29 01:31 UTC (conversion is not monotonic)
