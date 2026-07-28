@@ -20,7 +20,6 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
-import org.apache.parquet.column.values.plain.PlainValuesWriter;
 
 import java.util.Optional;
 
@@ -72,20 +71,20 @@ public class TrinoValuesWriterFactory
             fallbackWriter = new ParquetValuesWriterAdapter(new DeltaLengthByteArrayValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
         }
         else {
-            fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
+            fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE);
         }
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt32ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE);
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt64ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE);
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
@@ -97,13 +96,13 @@ public class TrinoValuesWriterFactory
 
     private ValuesWriter getDoubleValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE);
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getFloatValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = new ParquetValuesWriterAdapter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()));
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE);
         return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 

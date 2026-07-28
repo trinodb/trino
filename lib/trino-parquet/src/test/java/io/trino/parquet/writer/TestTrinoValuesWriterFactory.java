@@ -23,6 +23,7 @@ import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFloatDict
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.ParquetValuesWriterAdapter;
+import io.trino.parquet.writer.valuewriter.PlainValuesWriter;
 import io.trino.parquet.writer.valuewriter.TrinoBooleanPlainValuesWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.parquet.writer.valuewriter.ValuesWriter;
@@ -30,7 +31,6 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
-import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.junit.jupiter.api.Test;
 
