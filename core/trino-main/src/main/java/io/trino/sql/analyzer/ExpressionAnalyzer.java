@@ -5049,24 +5049,51 @@ public class ExpressionAnalyzer
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             Type columnType,
-            Expression defaultLiteral)
+            Expression expression)
     {
-        if (!(defaultLiteral instanceof Literal literal)) {
-            throw new IllegalArgumentException("Unsupported default expression: " + defaultLiteral);
-        }
+        validateDefaultExpression(expression, columnType);
 
         try {
             ExpressionAnalyzer constantAnalyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, warningCollector);
-            Type literalType = constantAnalyzer.analyze(literal, Scope.create());
-            Object value = evaluateConstant(literal, literalType, parameters, plannerContext, session, accessControl);
+            Type expressionType = constantAnalyzer.analyze(expression, Scope.create());
 
-            if (!literalType.equals(columnType)) {
-                checkDefaultColumnValue(session, plannerContext, value, columnType, literalType);
+            Object value = evaluateConstant(expression, expressionType, parameters, plannerContext, session, accessControl);
+            if (!expressionType.equals(columnType)) {
+                checkDefaultColumnValue(session, plannerContext, value, columnType, expressionType);
             }
         }
         catch (RuntimeException e) {
-            throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, literal, e, "'%s' is not a valid %s literal", literal, columnType.getDisplayName().toUpperCase(ENGLISH));
+            throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, expression, e, "'%s' is not a valid %s literal", expression, columnType.getDisplayName().toUpperCase(ENGLISH));
         }
+    }
+
+    public static void validateDefaultExpression(Expression expression, Type columnType)
+    {
+        if (expression instanceof Literal ||
+                expression instanceof CurrentDate ||
+                expression instanceof CurrentTime ||
+                expression instanceof CurrentTimestamp ||
+                expression instanceof LocalTime ||
+                expression instanceof LocalTimestamp) {
+            return;
+        }
+        if (expression instanceof CurrentUser || expression instanceof CurrentCatalog || expression instanceof CurrentSchema) {
+            // The length shall be at least 128 characters, as required by the SQL standard
+            if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < 128) ||
+                    (columnType instanceof CharType charType && charType.getLength() < 128)) {
+                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
+            }
+            return;
+        }
+        if (expression instanceof CurrentPath) {
+            // The length shall be at least 1031 characters, as required by the SQL standard
+            if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < 1031) ||
+                    (columnType instanceof CharType charType && charType.getLength() < 1031)) {
+                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_PATH requires at least 1031 length");
+            }
+            return;
+        }
+        throw new IllegalArgumentException("Unsupported default expression: " + expression);
     }
 
     private static void checkDefaultColumnValue(Session session, PlannerContext plannerContext, Object value, Type type, Type literalType)
