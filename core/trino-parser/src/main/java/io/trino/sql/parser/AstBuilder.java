@@ -918,7 +918,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.tableName),
                 getQualifiedName(context.columnName),
-                (Expression) visit(context.literal()),
+                (Expression) visit(context.defaultOption()),
                 context.EXISTS() != null);
     }
 
@@ -3424,10 +3424,17 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (DataType) visit(context.type()),
-                visitIfPresent(context.literal(), Expression.class),
+                visitIfPresent(context.defaultOption(), Expression.class),
                 nullable,
                 properties,
                 comment);
+    }
+
+    @Override
+    public Node visitDefaultOption(SqlBaseParser.DefaultOptionContext context)
+    {
+        checkArgument(context.getChildCount() == 1, "Default option context must have one child");
+        return visit(context.getChild(0));
     }
 
     @Override

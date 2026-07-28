@@ -95,7 +95,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ALTER COLUMN columnName=qualifiedName SET DEFAULT literal      #setDefaultValue
+        ALTER COLUMN columnName=qualifiedName
+        SET DEFAULT defaultOption                                      #setDefaultValue
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=qualifiedName DROP DEFAULT             #dropDefaultValue
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
@@ -254,7 +255,56 @@ tableElement
     ;
 
 columnDefinition
-    : qualifiedName type (DEFAULT literal)? (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : qualifiedName type (DEFAULT defaultOption)? (NOT NULL)? (COMMENT string)? (WITH properties)?
+    ;
+
+defaultOption
+    : literal
+    | currentDate
+    | currentTime
+    | currentTimestamp
+    | localTime
+    | localTimestamp
+    | currentUser
+    | currentCatalog
+    | currentSchema
+    | currentPath
+    ;
+
+currentDate
+    : CURRENT_DATE
+    ;
+
+currentTime
+    : CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?
+    ;
+
+currentTimestamp
+    : CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?
+    ;
+
+localTime
+    : LOCALTIME ('(' precision=INTEGER_VALUE ')')?
+    ;
+
+localTimestamp
+    : LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?
+    ;
+
+currentUser
+    : CURRENT_USER
+    ;
+
+currentCatalog
+    : CURRENT_CATALOG
+    ;
+
+currentSchema
+    : CURRENT_SCHEMA
+    ;
+
+currentPath
+    : CURRENT_PATH
     ;
 
 likeClause
@@ -665,15 +715,15 @@ primaryExpression
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
     | base=primaryExpression '.' stringField=string                                       #stringLiteralDereference
-    | name=CURRENT_DATE                                                                   #currentDate
-    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
-    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
-    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #localTime
-    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #localTimestamp
-    | name=CURRENT_USER                                                                   #currentUser
-    | name=CURRENT_CATALOG                                                                #currentCatalog
-    | name=CURRENT_SCHEMA                                                                 #currentSchema
-    | name=CURRENT_PATH                                                                   #currentPath
+    | currentDate                                                                         #currentDates
+    | currentTime                                                                         #currentTimes
+    | currentTimestamp                                                                    #currentTimestamps
+    | localTime                                                                           #localTimes
+    | localTimestamp                                                                      #localTimestamps
+    | currentUser                                                                         #currentUsers
+    | currentCatalog                                                                      #currentCatalogs
+    | currentSchema                                                                       #currentSchemas
+    | currentPath                                                                         #currentPaths
     | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
         trimSource=valueExpression ')'                                                    #trim
     | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
