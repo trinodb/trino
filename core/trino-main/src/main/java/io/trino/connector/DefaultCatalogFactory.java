@@ -186,6 +186,7 @@ public class DefaultCatalogFactory
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
                         accessControl,
                         catalogHandle.getCatalogName().toString(),
+                        catalogHandle,
                         catalogConnector.getPageSourceProviderFactory()));
 
         return new CatalogConnector(
