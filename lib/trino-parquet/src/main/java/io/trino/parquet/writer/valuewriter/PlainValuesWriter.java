@@ -87,6 +87,13 @@ public final class PlainValuesWriter
     }
 
     @Override
+    public void writeBytes(Slice base, int offset, int length)
+    {
+        sliceOutput.writeInt(length);
+        sliceOutput.writeBytes(base, offset, length);
+    }
+
+    @Override
     public void writeInteger(int value)
     {
         sliceOutput.writeInt(value);

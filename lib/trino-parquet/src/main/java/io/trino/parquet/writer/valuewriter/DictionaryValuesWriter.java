@@ -320,7 +320,13 @@ public abstract class DictionaryValuesWriter
         @Override
         public void writeBytes(Slice value)
         {
-            addEncodedValue(putIfAbsent(value));
+            addEncodedValue(putIfAbsent(value, 0, value.length()));
+        }
+
+        @Override
+        public void writeBytes(Slice base, int offset, int length)
+        {
+            addEncodedValue(putIfAbsent(base, offset, length));
         }
 
         // serialized size contribution of one distinct value
@@ -330,20 +336,19 @@ public abstract class DictionaryValuesWriter
             return 4L + valueLength;
         }
 
-        private int putIfAbsent(Slice value)
+        private int putIfAbsent(Slice value, int valueOffset, int length)
         {
             if (table == null) {
                 allocateStorage();
             }
-            int length = value.length();
-            int hash = hash(value, length);
-            int slot = findSlot(value, length, hash);
+            int hash = hash(value, valueOffset, length);
+            int slot = findSlot(value, valueOffset, length, hash);
             long entry = table[slot];
             if ((int) entry != 0) {
                 return (int) entry - 1;
             }
             int id = dictionarySize;
-            dictionaryData.writeBytes(value);
+            dictionaryData.writeBytes(value, valueOffset, length);
             offsets[id + 1] = dictionaryData.size();
             table[slot] = ((long) hash << 32) | (id + 1);
             dictionaryByteSize += entrySize(length);
@@ -366,24 +371,24 @@ public abstract class DictionaryValuesWriter
         }
 
         // multiplicative word-at-a-time hash; cheaper than XxHash64 on short values, mixed to spread the low bits used for the slot index
-        private static int hash(Slice value, int length)
+        private static int hash(Slice value, int valueOffset, int length)
         {
             long accumulator = length;
             int index = 0;
             for (; index + Long.BYTES <= length; index += Long.BYTES) {
-                accumulator = (accumulator ^ value.getLong(index)) * HASH_MULTIPLIER;
+                accumulator = (accumulator ^ value.getLong(valueOffset + index)) * HASH_MULTIPLIER;
             }
             if (index < length) {
                 long tail = 0;
                 for (int shift = 0; index < length; index++, shift += Byte.SIZE) {
-                    tail |= (value.getByte(index) & 0xFFL) << shift;
+                    tail |= (value.getByte(valueOffset + index) & 0xFFL) << shift;
                 }
                 accumulator = (accumulator ^ tail) * HASH_MULTIPLIER;
             }
             return (int) mix(accumulator);
         }
 
-        private int findSlot(Slice value, int length, int hash)
+        private int findSlot(Slice value, int valueOffset, int length, int hash)
         {
             Slice dictionarySlice = dictionaryData.getUnderlyingSlice();
             int slot = hash & hashMask;
@@ -395,7 +400,7 @@ public abstract class DictionaryValuesWriter
                 if ((int) (entry >>> 32) == hash) {
                     int id = (int) entry - 1;
                     int start = offsets[id];
-                    if (value.equals(0, length, dictionarySlice, start, offsets[id + 1] - start)) {
+                    if (value.equals(valueOffset, length, dictionarySlice, start, offsets[id + 1] - start)) {
                         return slot;
                     }
                 }
