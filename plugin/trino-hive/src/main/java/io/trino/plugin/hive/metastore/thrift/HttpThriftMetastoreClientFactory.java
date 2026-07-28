@@ -20,6 +20,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.apachehttpclient.v5_2.ApacheHttpClientTelemetry;
 import io.trino.spi.NodeManager;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.io.BasicHttpClientConnectionManager;
 import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
@@ -28,6 +29,7 @@ import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.config.Lookup;
 import org.apache.hc.core5.http.config.RegistryBuilder;
+import org.apache.hc.core5.io.CloseMode;
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -113,6 +115,15 @@ public class HttpThriftMetastoreClientFactory
         }
         httpClientBuilder.addRequestInterceptorFirst((httpRequest, _, _) -> additionalHeaders.forEach(httpRequest::addHeader));
         httpClientBuilder.setDefaultRequestConfig(RequestConfig.custom().setResponseTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS).build());
-        return new THttpClient(uri.toString(), httpClientBuilder.build());
+        CloseableHttpClient httpClient = httpClientBuilder.build();
+        return new THttpClient(uri.toString(), httpClient)
+        {
+            @Override
+            public void close()
+            {
+                super.close();
+                httpClient.close(CloseMode.GRACEFUL);
+            }
+        };
     }
 }
