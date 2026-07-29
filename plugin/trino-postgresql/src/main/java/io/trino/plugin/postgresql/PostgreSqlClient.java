@@ -89,6 +89,7 @@ import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -155,6 +156,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -501,6 +503,7 @@ public class PostgreSqlClient
                             Optional.empty());
                     Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                    Optional<String> defaultValue = getColumnDefaultValue(resultSet, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -510,6 +513,7 @@ public class PostgreSqlClient
                                 .setJdbcTypeHandle(typeHandle)
                                 .setColumnType(columnMapping.get().getType())
                                 .setNullable(nullable)
+                                .setDefaultValue(defaultValue)
                                 .setComment(comment)
                                 .build());
                     }
@@ -533,6 +537,55 @@ public class PostgreSqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    protected Optional<String> getColumnDefaultValue(ResultSet resultSet, JdbcTypeHandle typeHandle)
+            throws SQLException
+    {
+        String value = emptyToNull(resultSet.getString("COLUMN_DEF"));
+        return switch (typeHandle.jdbcType()) {
+            case Types.VARCHAR -> {
+                if (value != null && value.startsWith("'") && value.endsWith("'::character varying")) {
+                    yield Optional.of(value.substring(0, value.length() - 19));
+                }
+                yield Optional.empty();
+            }
+            case Types.CHAR -> {
+                if (value != null && value.startsWith("'") && value.endsWith("'::bpchar")) {
+                    yield Optional.of(value.substring(0, value.length() - 8));
+                }
+                yield Optional.empty();
+            }
+            case Types.SMALLINT, Types.INTEGER, Types.BIGINT -> {
+                if (value != null && value.matches("-?\\d+")) {
+                    yield Optional.of(value);
+                }
+                yield Optional.empty();
+            }
+            default -> Optional.empty();
+        };
+    }
+
+    @Override
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    {
+        if (column.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
+        StringBuilder sb = new StringBuilder()
+                .append(quoted(columnName))
+                .append(" ")
+                .append(toWriteMapping(session, column.getType()).getDataType());
+        if (!column.isNullable()) {
+            sb.append(" NOT NULL");
+        }
+        Optional<String> defaultValue = column.getDefaultValue();
+        if (defaultValue.isPresent()) {
+            sb.append(" DEFAULT ");
+            sb.append(defaultValue.get());
+        }
+        return sb.toString();
     }
 
     @Override

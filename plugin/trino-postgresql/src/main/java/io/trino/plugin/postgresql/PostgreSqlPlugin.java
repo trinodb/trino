@@ -13,15 +13,37 @@
  */
 package io.trino.plugin.postgresql;
 
-import io.trino.plugin.jdbc.JdbcPlugin;
+import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
+import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+
+import java.util.function.Supplier;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class PostgreSqlPlugin
-        extends JdbcPlugin
+        implements Plugin
 {
+    private final String name;
+    private final Supplier<Module> module;
+
     public PostgreSqlPlugin()
     {
-        super("postgresql", () -> combine(new PostgreSqlClientModule(), new PostgreSqlConnectionFactoryModule()));
+        this.name = "postgresql";
+        this.module = () -> combine(new PostgreSqlClientModule(), new PostgreSqlConnectionFactoryModule());
+    }
+
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
+    {
+        return ImmutableList.of(new PostgreSqlConnectorFactory(
+                name,
+                () -> combine(
+                        new CredentialProviderModule(),
+                        new ExtraCredentialsBasedIdentityCacheMappingModule(),
+                        module.get())));
     }
 }
