@@ -23,6 +23,8 @@ import io.trino.connector.MockConnectorFactory.ApplyProjection;
 import io.trino.connector.MockConnectorFactory.ApplyTableFunction;
 import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import io.trino.connector.MockConnectorFactory.ApplyTopN;
+import io.trino.connector.MockConnectorFactory.BeginCreateTable;
+import io.trino.connector.MockConnectorFactory.CreateTable;
 import io.trino.connector.MockConnectorFactory.ListRoleGrants;
 import io.trino.spi.Page;
 import io.trino.spi.RefreshType;
@@ -170,6 +172,8 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout;
+    private final MockConnectorFactory.CreateTable createTable;
+    private final MockConnectorFactory.BeginCreateTable beginCreateTable;
     private final BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges;
@@ -227,6 +231,8 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout,
+            CreateTable createTable,
+            BeginCreateTable beginCreateTable,
             BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType,
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges,
@@ -283,6 +289,8 @@ public class MockConnector
         this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
+        this.createTable = requireNonNull(createTable, "createTable is null");
+        this.beginCreateTable = requireNonNull(beginCreateTable, "beginCreateTable is null");
         this.getSupportedType = requireNonNull(getSupportedType, "getSupportedType is null");
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
@@ -643,7 +651,10 @@ public class MockConnector
         }
 
         @Override
-        public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode) {}
+        public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
+        {
+            createTable.apply(session, tableMetadata, saveMode);
+        }
 
         @Override
         public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
@@ -852,7 +863,7 @@ public class MockConnector
         @Override
         public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
         {
-            return new MockConnectorOutputTableHandle(tableMetadata.getTable());
+            return beginCreateTable.apply(session, tableMetadata, layout, retryMode, replace);
         }
 
         @Override
