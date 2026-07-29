@@ -240,6 +240,7 @@ import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampCast
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.operator.scalar.timestamptz.ToUnixTime;
+import io.trino.operator.scalar.timestamptz.ToUnixTimeNanos;
 import io.trino.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timetz.CurrentTime;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneOperators;
@@ -733,6 +734,7 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timestamptz.DateFormat.class)
                 .scalar(io.trino.operator.scalar.timestamptz.FormatDateTime.class)
                 .scalar(ToUnixTime.class)
+                .scalar(ToUnixTimeNanos.class)
                 .scalar(io.trino.operator.scalar.timestamptz.LastDayOfMonth.class)
                 .scalar(AtTimeZone.class)
                 .scalar(AtTimeZoneWithOffset.class)
