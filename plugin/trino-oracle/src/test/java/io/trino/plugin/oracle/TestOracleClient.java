@@ -66,7 +66,9 @@ public class TestOracleClient
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
 
-    private static final ConnectorSession SESSION = TestingConnectorSession.SESSION;
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new OracleSessionProperties(new OracleConfig()).getSessionProperties())
+            .build();
 
     @Test
     public void testTypedNullWriteMapping()

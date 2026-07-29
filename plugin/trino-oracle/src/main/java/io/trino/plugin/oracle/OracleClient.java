@@ -190,6 +190,8 @@ public class OracleClient
     public static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
 
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
+    // Oracle JDBC reports columnSize=0 for NUMBER expressions (e.g. COUNT(*), SUM(), EXTRACT(...)) in passthrough queries
+    private static final int EXPRESSION_NUMBER_COLUMN_SIZE = 0;
 
     private static final int TRINO_BIGINT_TYPE = 832_424_001;
 
@@ -551,16 +553,12 @@ public class OracleClient
             case OracleTypes.NUMBER -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();
-                if (columnSize != PRECISION_OF_UNSPECIFIED_NUMBER) {
+                if (columnSize != PRECISION_OF_UNSPECIFIED_NUMBER && columnSize != EXPRESSION_NUMBER_COLUMN_SIZE) {
                     int scale = decimalDigits;
                     // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                     // Map decimal(p, s) with s>p, to decimal(s, s).
                     int precision = max(columnSize + max(-scale, 0), scale);
                     scale = max(scale, 0);
-                    if (precision == 0) {
-                        // Oracle JDBC reports precision=0 for certain NUMBER expressions (e.g. COUNT(*) in passthrough queries)
-                        yield Optional.of(numberColumnMapping());
-                    }
                     if (precision <= Decimals.MAX_PRECISION) {
                         yield Optional.of(decimalColumnMapping(createDecimalType(precision, scale), UNNECESSARY));
                     }
