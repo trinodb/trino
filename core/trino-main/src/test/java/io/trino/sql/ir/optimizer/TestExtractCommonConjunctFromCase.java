@@ -87,6 +87,59 @@ final class TestExtractCommonConjunctFromCase
     }
 
     @Test
+    void preservesRepeatedNonDeterministicConjunctInBranch()
+    {
+        assertThat(optimize(new Case(
+                ImmutableList.of(new WhenClause(CONDITION, new Logical(AND, ImmutableList.of(SHARED, NON_DETERMINISTIC, NON_DETERMINISTIC)))),
+                SHARED)))
+                .isEqualTo(Optional.of(new Logical(AND, ImmutableList.of(
+                        SHARED,
+                        new Case(
+                                ImmutableList.of(new WhenClause(CONDITION, new Logical(AND, ImmutableList.of(NON_DETERMINISTIC, NON_DETERMINISTIC)))),
+                                TRUE)))));
+    }
+
+    @Test
+    void removesEveryOccurrenceOfExtractedConjunct()
+    {
+        assertThat(optimize(new Case(
+                ImmutableList.of(new WhenClause(CONDITION, new Logical(AND, ImmutableList.of(SHARED, SHARED, OTHER)))),
+                SHARED)))
+                .isEqualTo(Optional.of(new Logical(AND, ImmutableList.of(
+                        SHARED,
+                        new Case(
+                                ImmutableList.of(new WhenClause(CONDITION, OTHER)),
+                                TRUE)))));
+    }
+
+    @Test
+    void extractsEveryCommonConjunct()
+    {
+        assertThat(optimize(new Case(
+                ImmutableList.of(new WhenClause(CONDITION, new Logical(AND, ImmutableList.of(SHARED, OTHER, THIRD)))),
+                Logical.and(THIRD, SHARED))))
+                .isEqualTo(Optional.of(new Logical(AND, ImmutableList.of(
+                        SHARED,
+                        THIRD,
+                        new Case(
+                                ImmutableList.of(new WhenClause(CONDITION, OTHER)),
+                                TRUE)))));
+    }
+
+    @Test
+    void leavesFailingConjunctInBranchWhenAnotherConjunctIsExtracted()
+    {
+        assertThat(optimize(new Case(
+                ImmutableList.of(new WhenClause(CONDITION, Logical.and(SHARED, MAY_FAIL))),
+                Logical.and(SHARED, MAY_FAIL))))
+                .isEqualTo(Optional.of(new Logical(AND, ImmutableList.of(
+                        SHARED,
+                        new Case(
+                                ImmutableList.of(new WhenClause(CONDITION, MAY_FAIL)),
+                                MAY_FAIL)))));
+    }
+
+    @Test
     void doesNotFireWhenNoConjunctIsCommonToAllBranches()
     {
         assertThat(optimize(new Case(
