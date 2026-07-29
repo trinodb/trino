@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -29,8 +31,12 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.types.Types;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,8 +55,10 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -71,6 +79,7 @@ public abstract class BaseIcebergSystemTables
     private final IcebergFileFormat format;
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     protected BaseIcebergSystemTables(IcebergFileFormat format)
     {
@@ -86,6 +95,7 @@ public abstract class BaseIcebergSystemTables
                 .build();
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
         return queryRunner;
     }
 
@@ -270,6 +280,37 @@ public abstract class BaseIcebergSystemTables
     public void testFilesTableOnDropColumn()
     {
         assertQuery("SELECT sum(record_count) FROM test_schema.\"test_table_drop_column$files\"", "VALUES 6");
+    }
+
+    @Test
+    public void testFilesAndPartitionsTableWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$files\"").getRowCount()).isEqualTo(0);
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$partitions\"").getRowCount()).isEqualTo(0);
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    // Create the table with the Iceberg API so that it has no snapshot (Trino CREATE TABLE would add an empty one)
+    private void createTableWithoutSnapshot(SchemaTableName tableName)
+    {
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "_bigint", Types.LongType.get()),
+                Types.NestedField.optional(2, "_date", Types.DateType.get()));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        tableName,
+                        schema,
+                        PartitionSpec.builderFor(schema).identity("_date").build(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, tableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
     }
 
     @Test
