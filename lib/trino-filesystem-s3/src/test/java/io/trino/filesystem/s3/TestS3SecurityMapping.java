@@ -297,6 +297,20 @@ public class TestS3SecurityMapping
                 credentials("AKIAxxxaccess", "iXbXxxxsecret")
                         .withRegion("us-west-2"));
 
+        // matches prefix -- mapping provides credentials and enables cross-region access
+        assertMapping(
+                provider,
+                path("s3://crossregionbucket/bar"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withCrossRegionAccessEnabled(true));
+
+        // matches prefix -- mapping provides credentials and enables path-style access
+        assertMapping(
+                provider,
+                path("s3://pathstylebucket/bar"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withPathStyleAccess(true));
+
         // matches role session name
         assertMapping(
                 provider,
@@ -695,6 +709,16 @@ public class TestS3SecurityMapping
         public MappingResult withRegion(String region)
         {
             return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, Optional.of(region), crossRegionAccessEnabled, pathStyleAccess);
+        }
+
+        public MappingResult withCrossRegionAccessEnabled(boolean crossRegionAccessEnabled)
+        {
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, region, Optional.of(crossRegionAccessEnabled), pathStyleAccess);
+        }
+
+        public MappingResult withPathStyleAccess(boolean pathStyleAccess)
+        {
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, region, crossRegionAccessEnabled, Optional.of(pathStyleAccess));
         }
 
         public MappingResult withRoleSessionName(String roleSessionName)
