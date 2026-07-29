@@ -21,6 +21,7 @@ import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
 
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_OBJECT_TAGS;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultIcebergFileSystemFactory
@@ -59,7 +60,7 @@ public class DefaultIcebergFileSystemFactory
                 .withConnectorRole(identity.getConnectorRole())
                 .withExtraCredentials(ImmutableMap.<String, String>builder()
                         .putAll(identity.getExtraCredentials())
-                        .put("internal$s3_object_tags", objectTags)
+                        .put(EXTRA_CREDENTIALS_OBJECT_TAGS, objectTags)
                         .buildOrThrow())
                 .build();
     }

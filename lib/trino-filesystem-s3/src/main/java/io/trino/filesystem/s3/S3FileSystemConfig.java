@@ -689,21 +689,21 @@ public class S3FileSystemConfig
     }
 
     @Config("s3.object-tags.prefixes")
-    @ConfigDescription("Comma-separated list of S3 key substrings. If set, object tags are only applied to objects whose key contains one of these substrings. If empty, tags apply to all objects.")
+    @ConfigDescription("Comma-separated list of S3 key substrings. If set, object tags are only applied to objects whose key starts with a configured prefix or contains it at a path-segment boundary (preceded by '/'). If empty, tags apply to all objects.")
     public S3FileSystemConfig setObjectTagsPrefixes(Set<String> objectTagsPrefixes)
     {
         this.objectTagsPrefixes = ImmutableSet.copyOf(objectTagsPrefixes);
         return this;
     }
 
-    @AssertTrue(message = "s3.object-tags: maximum 10 tags per object, key max 128 chars, value max 256 chars")
+    @AssertTrue(message = "s3.object-tags: maximum 10 tags per object, key max 128 chars and must be non-empty, value max 256 chars")
     public boolean isObjectTagsValid()
     {
         if (objectTags.size() > 10) {
             return false;
         }
         return objectTags.entrySet().stream().allMatch(e ->
-                e.getKey().length() <= 128 && e.getValue().length() <= 256);
+                !e.getKey().isEmpty() && e.getKey().length() <= 128 && e.getValue().length() <= 256);
     }
 
     @AssertTrue(message = "s3.object-tags.prefixes is only meaningful when s3.object-tags is configured")

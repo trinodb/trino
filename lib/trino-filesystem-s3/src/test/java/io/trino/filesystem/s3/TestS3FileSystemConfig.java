@@ -339,7 +339,7 @@ public class TestS3FileSystemConfig
         assertFailsValidation(
                 new S3FileSystemConfig().setObjectTags("a=b,b=c,c=d,d=e,e=f,f=g,g=h,h=i,i=j,j=k,k=l"),
                 "objectTagsValid",
-                "s3.object-tags: maximum 10 tags per object, key max 128 chars, value max 256 chars",
+                "s3.object-tags: maximum 10 tags per object, key max 128 chars and must be non-empty, value max 256 chars",
                 AssertTrue.class);
     }
 

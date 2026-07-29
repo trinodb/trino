@@ -21,6 +21,7 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemConstants;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
@@ -328,7 +329,7 @@ public class IcebergRestCatalogFileSystemFactory
                 .withConnectorRole(identity.getConnectorRole())
                 .withExtraCredentials(ImmutableMap.<String, String>builder()
                         .putAll(identity.getExtraCredentials())
-                        .put("internal$s3_object_tags", objectTags)
+                        .put(S3FileSystemConstants.EXTRA_CREDENTIALS_OBJECT_TAGS, objectTags)
                         .buildOrThrow())
                 .build();
     }

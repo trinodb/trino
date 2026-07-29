@@ -124,6 +124,7 @@ record S3Context(
                 .split(nullToEmpty(tags));
         checkArgument(parsed.size() <= 10, "Maximum 10 object tags allowed");
         parsed.forEach((key, value) -> {
+            checkArgument(!key.isEmpty(), "Object tag key must not be empty");
             checkArgument(key.length() <= 128, "Object tag key too long: %s", key);
             checkArgument(value.length() <= 256, "Object tag value too long for key '%s': %s", key, value);
         });
