@@ -157,7 +157,7 @@ final class S3FileSystemLoader
         try {
             return clientResources.get(mapping, () -> {
                 S3Client client = clientFactory.create(mapping);
-                return new S3ClientResources(client, createS3PreSigner(config, client));
+                return new S3ClientResources(client, createS3PreSigner(config, client, mapping));
             });
         }
         catch (ExecutionException e) {
