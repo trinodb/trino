@@ -64,7 +64,7 @@ public class StsAwsCredentialProvider
             return new StsAwsCredentialProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(properties.get(AWS_IAM_ROLE))
-                            .roleSessionName(AWS_IAM_ROLE_SESSION_NAME)
+                            .roleSessionName(properties.get(AWS_IAM_ROLE_SESSION_NAME))
                             .externalId(properties.get(AWS_ROLE_EXTERNAL_ID)))
                     .stsClient(createStsClient(
                             properties.get(AWS_STS_ENDPOINT),
