@@ -30,10 +30,7 @@ import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainFloatDict
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
 import org.apache.parquet.bytes.BytesInput;
-import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
-import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -185,7 +182,7 @@ public class TestDictionaryWriter
         DictionaryFallbackValuesWriter fallbackValuesWriter = newPlainBinaryDictionaryValuesWriter(10000, 10000);
         writeDistinct(count, fallbackValuesWriter, "a");
         long dictionaryAllocatedSize = fallbackValuesWriter.getInitialWriter().getAllocatedSize();
-        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(dictionaryAllocatedSize);
+        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(dictionaryAllocatedSize + fallbackValuesWriter.getFallBackWriter().getAllocatedSize());
         // not efficient so falls back
         BytesInput bytes1 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
         writeRepeated(count, fallbackValuesWriter, "b");
@@ -737,7 +734,7 @@ public class TestDictionaryWriter
 
     private static DictionaryFallbackValuesWriter plainFallBack(DictionaryValuesWriter dictionaryValuesWriter, int initialSize)
     {
-        return new DictionaryFallbackValuesWriter(dictionaryValuesWriter, new ParquetValuesWriterAdapter(new PlainValuesWriter(initialSize, initialSize * 5, new DirectByteBufferAllocator())));
+        return new DictionaryFallbackValuesWriter(dictionaryValuesWriter, new PlainValuesWriter(initialSize));
     }
 
     private static DictionaryFallbackValuesWriter newPlainBinaryDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)
@@ -750,7 +747,7 @@ public class TestDictionaryWriter
         // fixed-length fallback must emit unprefixed values, matching TrinoValuesWriterFactory
         return new DictionaryFallbackValuesWriter(
                 new PlainFixedLenArrayDictionaryValuesWriter(maxDictionaryByteSize, length, getDictionaryEncoding(), getDictionaryEncoding()),
-                new ParquetValuesWriterAdapter(new FixedLenByteArrayPlainValuesWriter(length, initialSize, initialSize * 5, new DirectByteBufferAllocator())));
+                new FixedLenByteArrayPlainValuesWriter(length, initialSize));
     }
 
     private static DictionaryFallbackValuesWriter newPlainLongDictionaryValuesWriter(int maxDictionaryByteSize, int initialSize)

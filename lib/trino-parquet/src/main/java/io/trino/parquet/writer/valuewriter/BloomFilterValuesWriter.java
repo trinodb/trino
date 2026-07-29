@@ -125,10 +125,10 @@ public class BloomFilterValuesWriter
     }
 
     @Override
-    public void writeBytes(Binary v)
+    public void writeBytes(Slice base, int offset, int length)
     {
-        writer.writeBytes(v);
-        bloomFilter.insertHash(bloomFilter.hash(v));
+        writer.writeBytes(base, offset, length);
+        bloomFilter.insertHash(bloomFilter.hash(Binary.fromReusedByteArray(base.byteArray(), base.byteArrayOffset() + offset, length)));
     }
 
     @Override

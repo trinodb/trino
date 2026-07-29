@@ -19,7 +19,6 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -184,11 +183,10 @@ public class DictionaryFallbackValuesWriter
     }
 
     @Override
-    public void writeBytes(Binary value)
+    public void writeBytes(Slice base, int offset, int length)
     {
-        // For raw data, length(4 bytes int) is stored, followed by the binary content itself
-        rawDataByteSize += value.length() + Integer.BYTES;
-        currentWriter.writeBytes(value);
+        rawDataByteSize += length + Integer.BYTES;
+        currentWriter.writeBytes(base, offset, length);
         checkFallback();
     }
 
@@ -231,9 +229,9 @@ public class DictionaryFallbackValuesWriter
     }
 
     @VisibleForTesting
-    public org.apache.parquet.column.values.ValuesWriter getFallBackWriter()
+    public ValuesWriter getFallBackWriter()
     {
-        return ((ParquetValuesWriterAdapter) fallBackWriter).getDelegate();
+        return fallBackWriter;
     }
 
     private void checkFallback()

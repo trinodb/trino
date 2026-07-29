@@ -14,38 +14,79 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.block.Block;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static java.util.Objects.requireNonNull;
-
 public class BinaryValueWriter
         extends PrimitiveValueWriter
 {
-    private final Type type;
-
-    public BinaryValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public BinaryValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+
+        Slice rawSlice = variableWidthBlock.getRawSlice();
+        byte[] rawByteArray = rawSlice.byteArray();
+        int rawByteArrayOffset = rawSlice.byteArrayOffset();
+
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                Slice slice = type.getSlice(block, i);
-                valuesWriter.writeBytes(slice);
+                int sliceOffset = variableWidthBlock.getRawSliceOffset(i);
+                int sliceLength = variableWidthBlock.getSliceLength(i);
+                valuesWriter.writeBytes(rawSlice, sliceOffset, sliceLength);
                 // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-                statistics.updateStats(Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()));
+                statistics.updateStats(Binary.fromReusedByteArray(rawByteArray, rawByteArrayOffset + sliceOffset, sliceLength));
+            }
+        }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        Slice slice = ((VariableWidthBlock) block).getSlice(0);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeBytes(slice);
+        }
+        // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
+        // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
+        statistics.updateStats(Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()));
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+
+        Slice rawSlice = variableWidthBlock.getRawSlice();
+        byte[] rawByteArray = rawSlice.byteArray();
+        int rawByteArrayOffset = rawSlice.byteArrayOffset();
+
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                int sliceOffset = variableWidthBlock.getRawSliceOffset(position);
+                int sliceLength = variableWidthBlock.getSliceLength(position);
+                valuesWriter.writeBytes(rawSlice, sliceOffset, sliceLength);
+                // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
+                // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
+                statistics.updateStats(Binary.fromReusedByteArray(rawByteArray, rawByteArrayOffset + sliceOffset, sliceLength));
             }
         }
     }

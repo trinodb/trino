@@ -13,17 +13,16 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.multiplyExact;
-import static java.util.Objects.requireNonNull;
 
 public class TimestampTzNanosValueWriter
         extends PrimitiveValueWriter
@@ -34,23 +33,54 @@ public class TimestampTzNanosValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        Fixed12Block fixed12Block = (Fixed12Block) block;
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                long nanos = toNanos((LongTimestampWithTimeZone) TIMESTAMP_TZ_NANOS.getObject(block, i));
+                long nanos = toNanos(fixed12Block, i);
                 valuesWriter.writeLong(nanos);
                 statistics.updateStats(nanos);
             }
         }
     }
 
-    private static long toNanos(LongTimestampWithTimeZone timestamp)
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
     {
-        return multiplyExact(timestamp.getEpochMillis(), NANOSECONDS_PER_MILLISECOND) +
-                roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND);
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        long nanos = toNanos((Fixed12Block) block, 0);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeLong(nanos);
+        }
+        statistics.updateStats(nanos);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                long nanos = toNanos(fixed12Block, position);
+                valuesWriter.writeLong(nanos);
+                statistics.updateStats(nanos);
+            }
+        }
+    }
+
+    private static long toNanos(Fixed12Block block, int position)
+    {
+        long epochMillis = unpackMillisUtc(block.getFixed12First(position));
+        return multiplyExact(epochMillis, NANOSECONDS_PER_MILLISECOND) +
+                roundDiv(block.getFixed12Second(position), PICOSECONDS_PER_NANOSECOND);
     }
 }

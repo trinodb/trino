@@ -41,6 +41,8 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -59,6 +61,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -749,6 +752,63 @@ public class TestParquetWriter
             }
         }
         assertThat(readBackBuilder.build()).isEqualTo(sliceValues);
+    }
+
+    @Test
+    public void testLongDecimalRoundTrip()
+            throws Exception
+    {
+        // long decimals are stored as FIXED_LEN_BYTE_ARRAY of ceil(precision) bytes, from 9 bytes at precision 19 up to 16 bytes at precision 38
+        for (int precision = 19; precision <= Decimals.MAX_PRECISION; precision++) {
+            DecimalType decimalType = DecimalType.createDecimalType(precision, 0);
+            List<Int128> values = longDecimalBoundaryValues(precision);
+
+            List<Type> types = ImmutableList.of(decimalType);
+            List<String> columnNames = ImmutableList.of("column");
+            BlockBuilder blockBuilder = decimalType.createBlockBuilder(null, values.size());
+            for (Int128 value : values) {
+                decimalType.writeObject(blockBuilder, value);
+            }
+
+            ParquetDataSource dataSource = new TestingParquetDataSource(
+                    writeParquetFile(
+                            ParquetWriterOptions.builder().build(),
+                            types,
+                            columnNames,
+                            ImmutableList.of(new Page(blockBuilder.build()))),
+                    ParquetReaderOptions.defaultOptions());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+            ImmutableList.Builder<Int128> readBackBuilder = ImmutableList.builder();
+            try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+                SourcePage page;
+                while ((page = reader.nextPage()) != null) {
+                    Block block = page.getBlock(0);
+                    for (int position = 0; position < page.getPositionCount(); position++) {
+                        readBackBuilder.add((Int128) decimalType.getObject(block, position));
+                    }
+                }
+            }
+            assertThat(readBackBuilder.build()).describedAs("precision %s", precision).isEqualTo(values);
+        }
+    }
+
+    private static List<Int128> longDecimalBoundaryValues(int precision)
+    {
+        BigInteger max = BigInteger.TEN.pow(precision).subtract(BigInteger.ONE);
+        return Stream.of(
+                        BigInteger.ZERO,
+                        BigInteger.ONE,
+                        BigInteger.ONE.negate(),
+                        max,
+                        max.negate(),
+                        max.shiftRight(1),
+                        max.shiftRight(1).negate(),
+                        BigInteger.valueOf(Long.MAX_VALUE).min(max),
+                        BigInteger.valueOf(Long.MIN_VALUE).max(max.negate()),
+                        BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE).min(max))
+                .map(Int128::valueOf)
+                .collect(toImmutableList());
     }
 
     public static Stream<Arguments> testWriteBloomFiltersParams()
