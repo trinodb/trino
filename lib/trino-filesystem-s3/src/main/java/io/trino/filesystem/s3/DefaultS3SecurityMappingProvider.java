@@ -79,8 +79,8 @@ final class DefaultS3SecurityMappingProvider
                 getSseCustomerKey(mapping, identity),
                 mapping.endpoint(),
                 mapping.region(),
-                Optional.empty(),
-                Optional.empty()));
+                mapping.crossRegionAccessEnabled(),
+                mapping.pathStyleAccess()));
     }
 
     private Optional<String> selectRole(S3SecurityMapping mapping, ConnectorIdentity identity)
