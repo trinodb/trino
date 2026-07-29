@@ -13,10 +13,12 @@
  */
 package io.trino.filesystem.s3;
 
+import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.UriLocation;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -371,6 +373,58 @@ final class TestS3FileSystemLoaderWithCredentialsMapper
 
         Map<Optional<S3SecurityMappingResult>, ?> clientsCache = getClientsCache();
         assertThat(clientsCache).hasSize(2);
+    }
+
+    @Test
+    void testPreSignedUriUsesMappingSpecificPathStyleAccess()
+            throws Exception
+    {
+        ConnectorIdentity identity = ConnectorIdentity.ofUser("test-user");
+        Location location = Location.of("s3://test-bucket/path");
+
+        S3SecurityMappingResult pathStyleMapping = new S3SecurityMappingResult(
+                Optional.of(AwsSessionCredentials.create("access1", "secret1", "token1")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of("us-east-1"),
+                Optional.empty(),
+                Optional.of(true));
+
+        S3SecurityMappingResult virtualHostedMapping = new S3SecurityMappingResult(
+                Optional.of(AwsSessionCredentials.create("access1", "secret1", "token1")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of("us-east-1"),
+                Optional.empty(),
+                Optional.of(false));
+
+        TrinoFileSystemFactory factory = loader.apply(location);
+
+        credentialsMapper.setMapping(pathStyleMapping);
+        TrinoFileSystem pathStyleFileSystem = factory.create(identity);
+
+        credentialsMapper.setMapping(virtualHostedMapping);
+        TrinoFileSystem virtualHostedFileSystem = factory.create(identity);
+
+        Optional<UriLocation> pathStyleUri = pathStyleFileSystem.preSignedUri(location, new Duration(1, TimeUnit.MINUTES));
+        Optional<UriLocation> virtualHostedUri = virtualHostedFileSystem.preSignedUri(location, new Duration(1, TimeUnit.MINUTES));
+
+        assertThat(pathStyleUri).isPresent();
+        assertThat(virtualHostedUri).isPresent();
+
+        UriLocation pathStyleUriLocation = pathStyleUri.orElseThrow();
+        UriLocation virtualHostedUriLocation = virtualHostedUri.orElseThrow();
+
+        assertThat(pathStyleUriLocation.uri().getPath()).isEqualTo("/test-bucket/path");
+        assertThat(pathStyleUriLocation.uri().getHost()).doesNotStartWith("test-bucket.");
+        assertThat(virtualHostedUriLocation.uri().getPath()).isEqualTo("/path");
+        assertThat(virtualHostedUriLocation.uri().getHost()).startsWith("test-bucket.");
     }
 
     @Test
