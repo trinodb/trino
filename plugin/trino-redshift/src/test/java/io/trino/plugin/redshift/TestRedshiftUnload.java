@@ -38,6 +38,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.IAM_ROLE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -154,6 +155,8 @@ final class TestRedshiftUnload
     @Test
     void testUnloadWithDynamicFilter()
     {
+        executeInRedshiftWithRetry("ANALYZE " + TEST_SCHEMA + ".nation");
+
         // Dynamic filter applied to the UNLOAD (probe) side of a join must not fail when attaching the predicate to the split
         String query = "SELECT n.name FROM nation n JOIN nation r ON n.nationkey = r.regionkey WHERE r.name = 'ALGERIA'";
         assertQuery(query, "VALUES ('ALGERIA')");
