@@ -14,8 +14,6 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
@@ -107,6 +105,9 @@ public class ExtractCommonConjunctFromCase
 
     private static Expression removeConjuncts(Expression expression, Set<Expression> removed)
     {
-        return combineConjuncts(Sets.difference(ImmutableSet.copyOf(extractConjuncts(expression)), removed));
+        // Repeated non-deterministic conjuncts are semantically distinct, so every occurrence must survive
+        return combineConjuncts(extractConjuncts(expression).stream()
+                .filter(conjunct -> !removed.contains(conjunct))
+                .collect(toImmutableList()));
     }
 }
