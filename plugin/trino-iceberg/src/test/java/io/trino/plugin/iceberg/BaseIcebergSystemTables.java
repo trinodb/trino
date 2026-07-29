@@ -55,6 +55,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
@@ -70,6 +71,7 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -290,6 +292,27 @@ public abstract class BaseIcebergSystemTables
         try {
             assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$files\"").getRowCount()).isEqualTo(0);
             assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$partitions\"").getRowCount()).isEqualTo(0);
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataTablesWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_metadata_tables_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            for (TableType tableType : TableType.values()) {
+                if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                    continue;
+                }
+                String metadataTable = tableNameWithType(tableName.getTableName(), tableType);
+                assertThatCode(() -> computeActual("SELECT * FROM test_schema.\"" + metadataTable + "\""))
+                        .describedAs(tableType.name())
+                        .doesNotThrowAnyException();
+            }
         }
         finally {
             catalog.dropTable(SESSION, tableName);
