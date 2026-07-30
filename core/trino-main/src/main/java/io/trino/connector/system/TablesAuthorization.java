@@ -95,7 +95,7 @@ public class TablesAuthorization
                     schemaTableName.getSchemaName(),
                     schemaTableName.getTableName(),
                     trinoPrincipal.getType().toString(),
-                    trinoPrincipal.getName());
+                    trinoPrincipal.getPrincipalName());
         }
         return table.build().cursor();
     }

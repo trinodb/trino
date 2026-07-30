@@ -228,7 +228,7 @@ public class TrinoHiveCatalog
         Database.Builder database = Database.builder()
                 .setDatabaseName(namespace)
                 .setOwnerType(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getType()))
-                .setOwnerName(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getName()));
+                .setOwnerName(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getPrincipalName()));
 
         properties.forEach((property, value) -> {
             switch (property) {
