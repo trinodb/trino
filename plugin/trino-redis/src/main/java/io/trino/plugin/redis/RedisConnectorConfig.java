@@ -52,6 +52,7 @@ public class RedisConnectorConfig
     private boolean hideInternalColumns = true;
     private boolean keyPrefixSchemaTable;
     private boolean tlsEnabled;
+    private boolean clusterEnabled;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -257,6 +258,19 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setTlsEnabled(boolean tlsEnabled)
     {
         this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public boolean isClusterEnabled()
+    {
+        return clusterEnabled;
+    }
+
+    @Config("redis.cluster.enabled")
+    @ConfigDescription("Whether Redis cluster mode is enabled. When true, each cluster master node is scanned independently")
+    public RedisConnectorConfig setClusterEnabled(boolean clusterEnabled)
+    {
+        this.clusterEnabled = clusterEnabled;
         return this;
     }
 
