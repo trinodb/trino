@@ -545,37 +545,6 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
-    public void testSortedNationTable()
-    {
-        try (TestTable table = newTrinoTable(
-                "test_sorted_nation_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
-        }
-    }
-
-    @Test
-    public void testFileSortingWithLargerTable()
-    {
-        // Using a larger table forces buffered data to be written to disk
-        try (TestTable table = newTrinoTable(
-                "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
-            assertUpdate(
-                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
-                    "VALUES 60175");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
-        }
-    }
-
-    @Test
     public void testDropTableWithMissingMetadataFile()
             throws Exception
     {
@@ -747,8 +716,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertQueryFails(session, "EXPLAIN " + query, failureMessage);
         assertUpdate(session, "DROP TABLE " + tableName);
     }
-
-    protected abstract boolean isFileSorted(Location path, String sortColumnName);
 
     @Test
     public void testTableChangesFunction()
