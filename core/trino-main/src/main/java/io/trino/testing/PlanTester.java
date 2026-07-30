@@ -81,6 +81,7 @@ import io.trino.execution.SessionPropertyEvaluator;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.admission.AdmissionPolicyManager;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -551,7 +552,8 @@ public class PlanTester
                 new HandleResolver(),
                 exchangeManagerRegistry,
                 spoolingManagerRegistry,
-                cacheManagerRegistry);
+                cacheManagerRegistry,
+                new AdmissionPolicyManager());
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);

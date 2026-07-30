@@ -20,6 +20,7 @@ module trino.spi {
     requires jdk.incubator.vector;
 
     exports io.trino.spi;
+    exports io.trino.spi.admission;
     exports io.trino.spi.block;
     exports io.trino.spi.catalog;
     exports io.trino.spi.cache;
