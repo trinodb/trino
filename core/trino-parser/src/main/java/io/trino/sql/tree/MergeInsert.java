@@ -31,14 +31,14 @@ public class MergeInsert
     @Deprecated
     public MergeInsert(Optional<Expression> expression, List<Identifier> columns, List<Expression> values)
     {
-        super(Optional.empty(), expression);
+        super(Optional.empty(), MergeCaseKind.NOT_MATCHED_BY_TARGET, expression);
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
     }
 
     public MergeInsert(NodeLocation location, Optional<Expression> expression, List<Identifier> columns, List<Expression> values)
     {
-        super(location, expression);
+        super(location, MergeCaseKind.NOT_MATCHED_BY_TARGET, expression);
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
     }
@@ -84,7 +84,7 @@ public class MergeInsert
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression, columns, values);
+        return Objects.hash(mergeCaseKind, expression, columns, values);
     }
 
     @Override
@@ -97,7 +97,8 @@ public class MergeInsert
             return false;
         }
         MergeInsert o = (MergeInsert) obj;
-        return Objects.equals(expression, o.expression) &&
+        return mergeCaseKind == o.mergeCaseKind &&
+                Objects.equals(expression, o.expression) &&
                 Objects.equals(columns, o.columns) &&
                 Objects.equals(values, o.values);
     }
@@ -106,6 +107,7 @@ public class MergeInsert
     public String toString()
     {
         return toStringHelper(this)
+                .add("mergeCaseKind", mergeCaseKind)
                 .add("expression", expression.orElse(null))
                 .add("columns", columns)
                 .add("values", values)

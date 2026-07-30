@@ -138,6 +138,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
@@ -4714,6 +4715,7 @@ public class TestSqlParser
                                 ImmutableList.of(
                                         new MergeUpdate(
                                                 location(4, 1),
+                                                MergeCaseKind.MATCHED,
                                                 Optional.of(new Predicated(
                                                         location(4, 27),
                                                         new DereferenceExpression(
@@ -4736,6 +4738,7 @@ public class TestSqlParser
                                                         new MergeUpdate.Assignment(new Identifier(location(7, 5), "ts", false), new CurrentTimestamp(location(7, 10), Optional.empty())))),
                                         new MergeDelete(
                                                 location(8, 1),
+                                                MergeCaseKind.MATCHED,
                                                 Optional.of(new Predicated(
                                                         location(8, 27),
                                                         new DereferenceExpression(
@@ -4792,7 +4795,175 @@ public class TestSqlParser
                                 new Identifier(location(2, 20), "c", false),
                                 null),
                         new BooleanLiteral(location(3, 6), "true"),
-                        ImmutableList.of(new MergeDelete(location(4, 1), Optional.empty()))));
+                        ImmutableList.of(new MergeDelete(location(4, 1), MergeCaseKind.MATCHED, Optional.empty()))));
+    }
+
+    @Test
+    public void testMergeNotMatchedBySource()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+        // The target relation, source relation and ON predicate are identical across every case below
+        AliasedRelation target = new AliasedRelation(
+                new Table(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "target", false)))),
+                new Identifier(location(1, 19), "t", false),
+                null);
+        AliasedRelation source = new AliasedRelation(
+                location(1, 27),
+                new Table(location(1, 27), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 27), "source", false)))),
+                new Identifier(location(1, 34), "s", false),
+                null);
+        Predicated onPredicate = new Predicated(
+                location(1, 44),
+                new DereferenceExpression(location(1, 39), new Identifier(location(1, 39), "t", false), new Identifier(location(1, 41), "id", false)),
+                new ComparisonPredicate(
+                        location(1, 44),
+                        ComparisonPredicate.Operator.EQUAL,
+                        new DereferenceExpression(location(1, 46), new Identifier(location(1, 46), "s", false), new Identifier(location(1, 48), "id", false))));
+
+        // WHEN NOT MATCHED BY SOURCE THEN DELETE
+        assertThat(statement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE THEN DELETE
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        target,
+                        source,
+                        onPredicate,
+                        ImmutableList.of(new MergeDelete(location(2, 1), MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.empty()))));
+
+        // WHEN NOT MATCHED BY SOURCE AND <predicate> THEN DELETE
+        assertThat(statement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE AND t.active = true THEN DELETE
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        target,
+                        source,
+                        onPredicate,
+                        ImmutableList.of(new MergeDelete(
+                                location(2, 1),
+                                MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                Optional.of(new Predicated(
+                                        location(2, 41),
+                                        new DereferenceExpression(location(2, 32), new Identifier(location(2, 32), "t", false), new Identifier(location(2, 34), "active", false)),
+                                        new ComparisonPredicate(location(2, 41), ComparisonPredicate.Operator.EQUAL, new BooleanLiteral(location(2, 43), "true"))))))));
+
+        // WHEN NOT MATCHED BY SOURCE THEN UPDATE
+        assertThat(statement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE THEN UPDATE SET archived = true
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        target,
+                        source,
+                        onPredicate,
+                        ImmutableList.of(new MergeUpdate(
+                                location(2, 1),
+                                MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                Optional.empty(),
+                                ImmutableList.of(new MergeUpdate.Assignment(new Identifier(location(2, 44), "archived", false), new BooleanLiteral(location(2, 55), "true")))))));
+
+        // WHEN NOT MATCHED BY SOURCE AND <predicate> THEN UPDATE
+        assertThat(statement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE AND t.active = false THEN UPDATE SET archived = true
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        target,
+                        source,
+                        onPredicate,
+                        ImmutableList.of(new MergeUpdate(
+                                location(2, 1),
+                                MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                Optional.of(new Predicated(
+                                        location(2, 41),
+                                        new DereferenceExpression(location(2, 32), new Identifier(location(2, 32), "t", false), new Identifier(location(2, 34), "active", false)),
+                                        new ComparisonPredicate(location(2, 41), ComparisonPredicate.Operator.EQUAL, new BooleanLiteral(location(2, 43), "false")))),
+                                ImmutableList.of(new MergeUpdate.Assignment(new Identifier(location(2, 65), "archived", false), new BooleanLiteral(location(2, 76), "true")))))));
+
+        // Explicit BY TARGET qualifier is equivalent to bare WHEN NOT MATCHED
+        assertThat(statement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY TARGET THEN INSERT (id) VALUES (s.id)
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        target,
+                        source,
+                        onPredicate,
+                        ImmutableList.of(new MergeInsert(
+                                location(2, 1),
+                                Optional.empty(),
+                                ImmutableList.of(new Identifier(location(2, 41), "id", false)),
+                                ImmutableList.of(new DereferenceExpression(location(2, 53), new Identifier(location(2, 53), "s", false), new Identifier(location(2, 55), "id", false)))))));
+
+        // All three clause kinds together
+        assertThat(statement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN MATCHED THEN UPDATE SET value = s.value
+                WHEN NOT MATCHED BY TARGET THEN INSERT (id, value) VALUES (s.id, s.value)
+                WHEN NOT MATCHED BY SOURCE THEN DELETE
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        target,
+                        source,
+                        onPredicate,
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        location(2, 1),
+                                        MergeCaseKind.MATCHED,
+                                        Optional.empty(),
+                                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier(location(2, 30), "value", false), new DereferenceExpression(location(2, 38), new Identifier(location(2, 38), "s", false), new Identifier(location(2, 40), "value", false))))),
+                                new MergeInsert(
+                                        location(3, 1),
+                                        Optional.empty(),
+                                        ImmutableList.of(new Identifier(location(3, 41), "id", false), new Identifier(location(3, 45), "value", false)),
+                                        ImmutableList.of(
+                                                new DereferenceExpression(location(3, 60), new Identifier(location(3, 60), "s", false), new Identifier(location(3, 62), "id", false)),
+                                                new DereferenceExpression(location(3, 66), new Identifier(location(3, 66), "s", false), new Identifier(location(3, 68), "value", false)))),
+                                new MergeDelete(location(4, 1), MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.empty()))));
+
+        // Multiple BY SOURCE clauses with different predicates, evaluated in declaration order
+        assertThat(statement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE AND t.status = 'new' THEN UPDATE SET archived = false
+                WHEN NOT MATCHED BY SOURCE THEN DELETE
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        target,
+                        source,
+                        onPredicate,
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        location(2, 1),
+                                        MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                        Optional.of(new Predicated(
+                                                location(2, 41),
+                                                new DereferenceExpression(location(2, 32), new Identifier(location(2, 32), "t", false), new Identifier(location(2, 34), "status", false)),
+                                                new ComparisonPredicate(location(2, 41), ComparisonPredicate.Operator.EQUAL, new StringLiteral(location(2, 43), "new")))),
+                                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier(location(2, 65), "archived", false), new BooleanLiteral(location(2, 76), "false")))),
+                                new MergeDelete(location(3, 1), MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.empty()))));
+
+        // WHEN NOT MATCHED BY SOURCE THEN INSERT must be rejected at parse time
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE THEN INSERT (id) VALUES (s.id)
+                """))
+                .isInstanceOf(ParsingException.class);
     }
 
     @Test

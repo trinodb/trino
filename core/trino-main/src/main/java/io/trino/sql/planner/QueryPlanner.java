@@ -65,6 +65,7 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.planner.plan.GroupIdNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -94,6 +95,7 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
@@ -108,6 +110,7 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
@@ -158,6 +161,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.trino.sql.analyzer.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
@@ -167,6 +171,7 @@ import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.LogicalPlanner.noTruncationCast;
@@ -183,6 +188,7 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.WindowFrame.Type.GROUPS;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
+import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
@@ -980,6 +986,26 @@ class QueryPlanner
                 planWithUniqueId.getFieldMappings(),
                 outerContext);
 
+        // Block 4: push BY SOURCE predicates onto the target scan.
+        // When every MERGE clause is BY SOURCE and every such clause carries an AND predicate,
+        // the disjunction (P1 OR P2 OR ... OR Pn) is a safe pre-join filter on the target side:
+        // any target row that satisfies none of the predicates has no BY SOURCE action, and
+        // — because there are no MATCHED or BY TARGET clauses — it cannot be involved in any
+        // other action either.  Filtering it out before the join avoids a full target-table scan
+        // (analogous to the Spark regression tracked as SPARK-49933).
+        //
+        // Safety argument for the LEFT OUTER join produced by BY SOURCE-only MERGE:
+        //   * Excluded target rows fail all Pi → no BY SOURCE action.
+        //   * There are no MATCHED clauses → no missed UPDATE/DELETE on matched pairs.
+        //   * There are no BY TARGET clauses → source rows that would have matched an excluded
+        //     target row are simply discarded by the LEFT join rather than triggering an INSERT.
+        //
+        // The optimization is deliberately withheld when MATCHED or BY TARGET clauses are
+        // present: in those cases, filtering target rows pre-join can suppress MATCHED actions
+        // or promote source rows to spurious BY TARGET rows.
+        planWithPresentColumn = applyBySourcePredicatePushdown(
+                merge.getMergeCases(), planWithPresentColumn, mergeAnalysis);
+
         RelationPlan source = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(merge.getSource());
 
@@ -991,8 +1017,24 @@ class QueryPlanner
                 source.getFieldMappings(),
                 outerContext);
 
+        // Project a "source_present" marker onto the source side (symmetric to "present" on the target).
+        // After a LEFT or FULL OUTER join, this becomes NULL for target-only rows (NOT MATCHED BY SOURCE).
+        Assignments.Builder sourcePresentProjections = Assignments.builder();
+        sourcePresentProjections.putIdentities(sourcePlanWithUniqueId.getRoot().getOutputSymbols());
+        Symbol sourcePresentColumn = symbolAllocator.newSymbol("source_present", BOOLEAN);
+        sourcePresentProjections.put(sourcePresentColumn, TRUE);
+        RelationPlan sourcePlanWithPresentColumn = new RelationPlan(
+                new ProjectNode(idAllocator.getNextId(), sourcePlanWithUniqueId.getRoot(), sourcePresentProjections.build()),
+                source.getScope(),
+                sourcePlanWithUniqueId.getFieldMappings(),
+                outerContext);
+
+        // The join type is derived by the analyzer from the set of WHEN clause kinds present.
+        // RIGHT for MATCHED/BY TARGET only (backward compat); LEFT for BY SOURCE only;
+        // FULL for both BY TARGET and BY SOURCE.
+        Join.Type joinType = toAstJoinType(mergeAnalysis.getRequiredJoinType());
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithUniqueId, analysis.getSubqueries(merge)); // TODO: ir
+                .planJoin(merge.getPredicate(), joinType, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithPresentColumn, analysis.getSubqueries(merge)); // TODO: ir
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
@@ -1066,10 +1108,19 @@ class QueryPlanner
             // Add the merge case number, needed by MarkDistinct
             rowBuilder.add(new Constant(INTEGER, (long) caseNumber));
 
-            Expression condition = presentColumn.toSymbolReference();
-            if (mergeCase instanceof MergeInsert) {
-                condition = new IsNull(presentColumn.toSymbolReference());
-            }
+            // Condition selects rows belonging to this clause's category:
+            //   MATCHED            – both target and source rows are present
+            //   NOT_MATCHED_BY_TARGET – only source row present (target IS NULL)
+            //   NOT_MATCHED_BY_SOURCE – only target row present (source IS NULL)
+            Expression condition = switch (mergeCase.getMergeCaseKind()) {
+                case MergeCaseKind.MATCHED -> and(
+                        not(metadata, new IsNull(presentColumn.toSymbolReference())),
+                        not(metadata, new IsNull(sourcePresentColumn.toSymbolReference())));
+                // target absent; source is always present when target is absent
+                case MergeCaseKind.NOT_MATCHED_BY_TARGET -> new IsNull(presentColumn.toSymbolReference());
+                // source absent; target is always present when source is absent
+                case MergeCaseKind.NOT_MATCHED_BY_SOURCE -> new IsNull(sourcePresentColumn.toSymbolReference());
+            };
 
             if (casePredicate.isPresent()) {
                 condition = and(
@@ -1084,8 +1135,9 @@ class QueryPlanner
                 assignments.putIdentity(targetUniqueIdSymbol);
                 assignments.putIdentity(sourceUniqueIdSymbol);
                 assignments.putIdentity(presentColumn);
+                assignments.putIdentity(sourcePresentColumn);
                 assignments.putIdentity(rowIdSymbol);
-                assignments.putIdentities(sourcePlanWithUniqueId.getFieldMappings());
+                assignments.putIdentities(sourcePlanWithPresentColumn.getFieldMappings());
                 subPlan = subPlan.withNewRoot(new ProjectNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
@@ -1116,10 +1168,11 @@ class QueryPlanner
             projectionAssignmentsBuilder.putIdentity(symbol);
         }
 
-        // Assigns a unique id to each joined row
-        // The target table unique_id for matches, and the source table unique_id for non-matches
-        // Avoid the scenario where unique_id values become null after right join due to unmatched rows.
-        // It can improve performance and parallelism when handling non-matches in a mark distinct operation.
+        // Assigns a unique id to each joined row.
+        // For MATCHED rows: target unique_id is used.
+        // For NOT MATCHED BY TARGET rows: target unique_id is NULL (outer join), source unique_id is used.
+        // For NOT MATCHED BY SOURCE rows: source unique_id is NULL (outer join), target unique_id is used.
+        // Coalesce ensures a non-null value for all three categories, which improves MarkDistinct performance.
         Symbol uniqueIdSymbol = symbolAllocator.newSymbol("unique_id", BIGINT);
         Expression uniqueIdExpression = new Coalesce(targetUniqueIdSymbol.toSymbolReference(), sourceUniqueIdSymbol.toSymbolReference());
 
@@ -1262,6 +1315,99 @@ class QueryPlanner
             return DELETE_OPERATION_NUMBER;
         }
         throw new IllegalArgumentException("Unrecognized MergeCase: " + mergeCase);
+    }
+
+    /**
+     * Applies a pre-join filter on the target side when it is safe to do so.
+     *
+     * <p>Safe condition: every MERGE clause is {@code NOT MATCHED BY SOURCE} and carries
+     * an explicit {@code AND} predicate that is deterministic and subquery-free.  With only
+     * BY SOURCE clauses the join is LEFT OUTER, so source rows that would have matched a
+     * filtered-out target row are silently discarded by the join rather than triggering any
+     * action.
+     *
+     * <p>Returns the original plan unchanged when MATCHED or BY TARGET clauses are present,
+     * when any BY SOURCE clause is unconditional, when any predicate is non-deterministic
+     * (the predicate is also evaluated in the post-join CASE condition, and both evaluations
+     * must agree), or when any predicate contains a subquery (subqueries are planned only for
+     * the post-join CASE condition, so they cannot be rewritten into the pre-join filter).
+     */
+    private RelationPlan applyBySourcePredicatePushdown(
+            List<MergeCase> mergeCases,
+            RelationPlan targetPlan,
+            MergeAnalysis mergeAnalysis)
+    {
+        boolean allBySource = mergeCases.stream()
+                .allMatch(c -> c.getMergeCaseKind() == MergeCaseKind.NOT_MATCHED_BY_SOURCE);
+        if (!allBySource) {
+            return targetPlan;
+        }
+
+        boolean allHavePredicates = mergeCases.stream()
+                .allMatch(c -> c.getExpression().isPresent());
+        if (!allHavePredicates) {
+            return targetPlan;
+        }
+
+        boolean allPushable = mergeCases.stream()
+                .map(mergeCase -> mergeCase.getExpression().orElseThrow())
+                .allMatch(predicate -> isDeterministic(predicate, call -> analysis.getResolvedFunction(call).orElseThrow())
+                        && preOrder(predicate).noneMatch(SubqueryExpression.class::isInstance));
+        if (!allPushable) {
+            return targetPlan;
+        }
+
+        // BY SOURCE predicates are analyzed in the join scope (target + source fields), but the
+        // target plan only carries target-side symbols.  Build a TranslationMap that covers the
+        // full join scope so field references resolve correctly.  The analyzer guarantees BY SOURCE
+        // predicates reference only target columns, so source-side positions are never accessed;
+        // they are filled with BOOLEAN placeholder symbols that exist only to satisfy the
+        // TranslationMap field-count invariant.
+        List<Symbol> targetFieldMappings = targetPlan.getFieldMappings();
+        int sourcePlaceholderCount = mergeAnalysis.getJoinScope().getRelationType().getAllFieldCount()
+                - mergeAnalysis.getTargetTableScope().getRelationType().getAllFieldCount();
+
+        ImmutableList.Builder<Symbol> joinScopeSymbols = ImmutableList.builder();
+        joinScopeSymbols.addAll(targetFieldMappings);
+        for (int i = 0; i < sourcePlaceholderCount; i++) {
+            joinScopeSymbols.add(symbolAllocator.newSymbol("_bySourcePlaceholder", BOOLEAN));
+        }
+
+        TranslationMap translationMap = new TranslationMap(
+                outerContext,
+                mergeAnalysis.getJoinScope(),
+                analysis,
+                lambdaDeclarationToSymbolMap,
+                joinScopeSymbols.build(),
+                ImmutableMap.of(),
+                session,
+                plannerContext,
+                symbolAllocator);
+        PlanBuilder targetPlanBuilder = new PlanBuilder(translationMap, targetPlan.getRoot());
+
+        List<Expression> translatedPredicates = mergeCases.stream()
+                .map(c -> targetPlanBuilder.rewrite(c.getExpression().orElseThrow()))
+                .collect(toImmutableList());
+
+        return new RelationPlan(
+                new FilterNode(idAllocator.getNextId(), targetPlan.getRoot(), or(translatedPredicates)),
+                mergeAnalysis.getTargetTableScope(),
+                targetPlan.getFieldMappings(),
+                outerContext);
+    }
+
+    /**
+     * Maps the analyzer-supplied {@link JoinType} (planner-plan enum) to the
+     * AST {@link Join.Type} that {@link RelationPlanner#planJoin} expects.
+     */
+    private static Join.Type toAstJoinType(JoinType joinType)
+    {
+        return switch (joinType) {
+            case INNER -> Join.Type.INNER;
+            case LEFT -> Join.Type.LEFT;
+            case RIGHT -> Join.Type.RIGHT;
+            case FULL -> Join.Type.FULL;
+        };
     }
 
     public static Optional<PartitioningScheme> createMergePartitioningScheme(
