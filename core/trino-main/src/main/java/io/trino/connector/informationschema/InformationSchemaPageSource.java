@@ -318,9 +318,9 @@ public class InformationSchemaPageSource
         List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
         for (GrantInfo grant : grants) {
             addRecord(
-                    grant.getGrantor().map(TrinoPrincipal::getName).orElse(null),
+                    grant.getGrantor().map(TrinoPrincipal::getPrincipalName).orElse(null),
                     grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
-                    grant.getGrantee().getName(),
+                    grant.getGrantee().getPrincipalName(),
                     grant.getGrantee().getType().toString(),
                     prefix.getCatalogName(),
                     grant.getSchemaTableName().getSchemaName(),
@@ -357,7 +357,7 @@ public class InformationSchemaPageSource
         Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
         for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), catalogName)) {
             addRecord(
-                    grant.getGrantee().getName(),
+                    grant.getGrantee().getPrincipalName(),
                     grant.getGrantee().getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");

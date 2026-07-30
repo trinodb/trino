@@ -1404,7 +1404,7 @@ public class DeltaLakeMetadata
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(Optional.of(owner.getType()))
-                .setOwnerName(Optional.of(owner.getName()))
+                .setOwnerName(Optional.of(owner.getPrincipalName()))
                 .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, queryId))
                 .build();
 
