@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.jdbc.jmx;
 
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -516,6 +518,18 @@ public final class StatisticsAwareJdbcClient
     public String quoted(RemoteTableName remoteTableName)
     {
         return delegate().quoted(remoteTableName);
+    }
+
+    @Override
+    public IdentifierMapping getIdentifierMapping()
+    {
+        return delegate().getIdentifierMapping();
+    }
+
+    @Override
+    public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
+    {
+        return delegate().getRemoteIdentifiers(connection);
     }
 
     @Override

@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.TrinoException;
@@ -268,6 +270,10 @@ public interface JdbcClient
     String quoted(String name);
 
     String quoted(RemoteTableName remoteTableName);
+
+    IdentifierMapping getIdentifierMapping();
+
+    RemoteIdentifiers getRemoteIdentifiers(Connection connection);
 
     Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle);
 
