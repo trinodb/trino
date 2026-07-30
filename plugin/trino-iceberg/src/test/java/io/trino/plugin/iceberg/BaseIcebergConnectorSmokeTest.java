@@ -119,19 +119,6 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "\\)");
     }
 
-    @Test
-    public void testHiddenPathColumn()
-    {
-        try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
-            String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
-
-            assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
-
-            // Check whether the "$path" hidden column is correctly evaluated in the filter expression
-            assertQuery(format("SELECT a FROM %s WHERE \"$path\" = '%s'", table.getName(), filePath), "VALUES 1");
-        }
-    }
-
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(120)

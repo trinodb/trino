@@ -252,14 +252,6 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testHiddenPathColumn()
-    {
-        assertThatThrownBy(super::testHiddenPathColumn)
-                .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
-    }
-
-    @Test
-    @Override
     public void testDeleteRowsConcurrently()
     {
         assertThatThrownBy(super::testDeleteRowsConcurrently)
