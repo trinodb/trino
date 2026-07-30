@@ -67,6 +67,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/dynamodb">
+        <artifact id="${project.groupId}:trino-dynamodb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/elasticsearch">
         <artifact id="${project.groupId}:trino-elasticsearch:zip:${project.version}">
             <unpack />
