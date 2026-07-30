@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
-import io.trino.filesystem.Location;
 import org.apache.iceberg.FileFormat;
 import org.junit.jupiter.api.AfterAll;
 
@@ -27,7 +26,6 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 
 public class TestIcebergFlociParquetCachingConnectorSmokeTest
         extends BaseIcebergFlociConnectorSmokeTest
@@ -65,11 +63,5 @@ public class TestIcebergFlociParquetCachingConnectorSmokeTest
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
                 .buildOrThrow());
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
     }
 }

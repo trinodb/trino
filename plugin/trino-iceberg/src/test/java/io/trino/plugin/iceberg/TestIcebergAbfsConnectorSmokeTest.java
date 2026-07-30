@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.trino.filesystem.Location;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -31,7 +30,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
@@ -156,12 +154,6 @@ public class TestIcebergAbfsConnectorSmokeTest
     protected void deleteDirectory(String location)
     {
         hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-rm", "-f", "-r", location);
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 
     private static String formatAbfsUrl(String container, String account, String bucketName)
