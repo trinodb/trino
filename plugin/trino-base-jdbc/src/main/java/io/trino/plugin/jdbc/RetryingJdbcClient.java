@@ -15,6 +15,8 @@ package io.trino.plugin.jdbc;
 
 import com.google.inject.Inject;
 import dev.failsafe.RetryPolicy;
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
@@ -519,6 +521,37 @@ public class RetryingJdbcClient
     {
         // there should be no remote database interaction
         return delegate.quoted(remoteTableName);
+    }
+
+    @Override
+    public IdentifierMapping getIdentifierMapping()
+    {
+        return delegate.getIdentifierMapping();
+    }
+
+    @Override
+    public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
+    {
+        return delegate.getRemoteIdentifiers(connection);
+    }
+
+    @Override
+    public Optional<String> getRemoteSchemaName(Optional<String> remoteSchemaName)
+    {
+        return delegate.getRemoteSchemaName(remoteSchemaName);
+    }
+
+    @Override
+    public RemoteTableName getRemoteTableName(RemoteTableName remoteTableName)
+    {
+        return delegate.getRemoteTableName(remoteTableName);
+    }
+
+    @Override
+    public String getTableRemoteSchemaName(ResultSet resultSet)
+            throws SQLException
+    {
+        return delegate.getTableRemoteSchemaName(resultSet);
     }
 
     @Override
