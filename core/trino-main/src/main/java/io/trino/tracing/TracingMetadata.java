@@ -1906,7 +1906,7 @@ public class TracingMetadata
                     entity.entityKind(),
                     entity.name(),
                     grantee.getType(),
-                    grantee.getName(),
+                    grantee.getPrincipalName(),
                     privileges.stream().map(EntityPrivilege::name).collect(Collectors.joining("-")),
                     grantOption ? "-grantOption" : "");
             span.setAttribute(TrinoAttributes.PRIVILEGE_GRANT, grant);
