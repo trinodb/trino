@@ -240,6 +240,10 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testSortedNationTable() {}
 
     @Test
+    @Override // BaseIcebergConnectorSmokeTest.isFileSorted method is unsupported
+    public void testSortedByNestedField() {}
+
+    @Test
     @Override // The TrinoFileSystem.deleteFile is unsupported
     public void testFileSortingWithLargerTable() {}
 

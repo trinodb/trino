@@ -1739,9 +1739,32 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['\"row_t\".\"comment\"'])"))
                 .failure().hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
-        assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
-                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])"))
-                .failure().hasMessageContaining("Column not found: row_t.comment");
+
+        assertUpdate("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("sorted_by = ARRAY['\"row_t.comment\" ASC NULLS FIRST']");
+
+        assertThat(query("ALTER TABLE " + tableName + " DROP COLUMN row_t")).failure()
+                .hasMessage("Failed to drop column: Cannot find source column for sort field: identity(5) ASC NULLS FIRST");
+        assertThat(query("ALTER TABLE " + tableName + " DROP COLUMN row_t.comment")).failure()
+                .hasMessage("Cannot drop sort field: row_t.comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSortingOnNonStructNestedField()
+    {
+        String tableName = "test_non_struct_sort_" + randomNameSuffix();
+        assertThat(query("CREATE TABLE " + tableName + " (arr ARRAY(VARCHAR)) WITH (sorted_by = ARRAY['\"arr.element\"'])")).failure()
+                .hasMessage("Column not found: arr.element");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.key\"'])")).failure()
+                .hasMessage("Column not found: m.key");
+        assertThat(query("CREATE TABLE " + tableName + " (m MAP(VARCHAR, VARCHAR)) WITH (sorted_by = ARRAY['\"m.value\"'])")).failure()
+                .hasMessage("Column not found: m.value");
+        assertThat(query("CREATE TABLE " + tableName + " (arrs ARRAY(ROW(x VARCHAR))) WITH (sorted_by = ARRAY['\"arrs.element.x\"'])")).failure()
+                .hasMessage("Column not found: arrs.element.x");
     }
 
     @Test

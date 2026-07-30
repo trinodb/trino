@@ -444,6 +444,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testSortedByNestedField()
+    {
+        assertThatThrownBy(super::testSortedByNestedField)
+                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Test
+    @Override
     public void testFileSortingWithLargerTable()
     {
         assertThatThrownBy(super::testFileSortingWithLargerTable)
