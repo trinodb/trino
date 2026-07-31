@@ -76,6 +76,7 @@ public class TestQueryManagerConfig
                 .setDispatcherQueryPoolSize(Integer.toString(max(50, Runtime.getRuntime().availableProcessors() * 10)))
                 .setQueryMaxScanPhysicalBytes(null)
                 .setQueryMaxWritePhysicalSize(null)
+                .setQueryMaxOutputRows(null)
                 .setRequiredWorkers(1)
                 .setRequiredWorkersMaxWait(new Duration(5, MINUTES))
                 .setRetryPolicy(RetryPolicy.NONE)
@@ -162,6 +163,7 @@ public class TestQueryManagerConfig
                 .put("query.dispatcher-query-pool-size", "151")
                 .put("query.max-scan-physical-bytes", "1kB")
                 .put("query.max-write-physical-size", "1TB")
+                .put("query.max-output-rows", "123456")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
                 .put("retry-policy", "QUERY")
@@ -245,6 +247,7 @@ public class TestQueryManagerConfig
                 .setDispatcherQueryPoolSize("151")
                 .setQueryMaxScanPhysicalBytes(DataSize.of(1, KILOBYTE))
                 .setQueryMaxWritePhysicalSize(DataSize.of(1, TERABYTE))
+                .setQueryMaxOutputRows(123456L)
                 .setRequiredWorkers(333)
                 .setRequiredWorkersMaxWait(new Duration(33, MINUTES))
                 .setRetryPolicy(RetryPolicy.QUERY)
@@ -309,6 +312,17 @@ public class TestQueryManagerConfig
                         .setRetryPolicy(RetryPolicy.QUERY),
                 "retryPolicyAllowed",
                 "Selected retry policy not present in retry-policy.allowed list",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testQueryMaxOutputRowsValidation()
+    {
+        assertFailsValidation(
+                new QueryManagerConfig()
+                        .setQueryMaxOutputRows(0L),
+                "queryMaxOutputRowsValid",
+                "query.max-output-rows must be greater than zero",
                 AssertTrue.class);
     }
 }

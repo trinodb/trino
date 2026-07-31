@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.ExceededCpuLimitException;
+import io.trino.ExceededOutputLimitException;
 import io.trino.ExceededScanLimitException;
 import io.trino.ExceededWriteLimitException;
 import io.trino.Session;
@@ -79,6 +80,7 @@ public class QueryManager
     private final Duration maxQueryCpuTime;
     private final Optional<DataSize> maxQueryScanPhysicalBytes;
     private final Optional<DataSize> maxQueryWritePhysicalSize;
+    private final Optional<Long> maxQueryOutputRows;
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
@@ -95,6 +97,7 @@ public class QueryManager
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
         this.maxQueryWritePhysicalSize = queryManagerConfig.getQueryMaxWritePhysicalSize();
+        this.maxQueryOutputRows = queryManagerConfig.getQueryMaxOutputRows();
 
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
@@ -136,6 +139,13 @@ public class QueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query write bytes limits");
+            }
+
+            try {
+                enforceOutputLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query output rows limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -449,5 +459,16 @@ public class QueryManager
                 }
             });
         }
+    }
+
+    private void enforceOutputLimits()
+    {
+        maxQueryOutputRows.ifPresent(outputLimit -> {
+            for (QueryExecution query : queryTracker.getAllQueries()) {
+                if (query.getQueryInfo().getQueryStats().getOutputPositions() > outputLimit) {
+                    query.fail(new ExceededOutputLimitException(outputLimit));
+                }
+            }
+        });
     }
 }
