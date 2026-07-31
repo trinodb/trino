@@ -34,8 +34,8 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.CodePointsType;
+import io.trino.util.Soundex;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-import org.apache.commons.codec.language.Soundex;
 
 import java.text.Normalizer;
 import java.util.OptionalInt;
@@ -1059,7 +1059,7 @@ public final class StringFunctions
     public static Slice soundex(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         try {
-            return utf8Slice(Soundex.US_ENGLISH.encode(slice.toStringUtf8()));
+            return Soundex.soundex(slice);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

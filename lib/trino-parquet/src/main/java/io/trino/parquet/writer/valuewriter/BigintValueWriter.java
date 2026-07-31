@@ -13,33 +13,58 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
-
-import static java.util.Objects.requireNonNull;
 
 public class BigintValueWriter
         extends PrimitiveValueWriter
 {
-    private final Type type;
-
-    public BigintValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public BigintValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!mayHaveNull || !block.isNull(i)) {
-                long value = type.getLong(block, i);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!mayHaveNull || !block.isNull(position)) {
+                long value = longArrayBlock.getLong(position);
+                valuesWriter.writeLong(value);
+                statistics.updateStats(value);
+            }
+        }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        long value = ((LongArrayBlock) block).getLong(0);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeLong(value);
+        }
+        statistics.updateStats(value);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                long value = longArrayBlock.getLong(position);
                 valuesWriter.writeLong(value);
                 statistics.updateStats(value);
             }

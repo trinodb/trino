@@ -75,12 +75,12 @@ public final class SimpleIntervalQualifier
         if (field instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
             return field.name() +
                     "(" +
-                    (precision.isPresent() ? precision.getAsInt() : "_") +
+                    (precision.isPresent() ? precision.orElseThrow() : "_") +
                     ", " +
-                    fractionalPrecision.getAsInt() +
+                    fractionalPrecision.orElseThrow() +
                     ")";
         }
 
-        return field.name() + (precision.isPresent() ? "(" + precision.getAsInt() + ")" : "");
+        return field.name() + (precision.isPresent() ? "(" + precision.orElseThrow() + ")" : "");
     }
 }

@@ -30,6 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Collections.emptySet;
@@ -74,7 +75,13 @@ public final class ExtractCommonPredicatesExpressionRewriter
 
             // Prefer AND LogicalBinaryExpression at the root if possible
             if (context.isRootNode() && simplified instanceof Logical value && value.operator() == OR) {
-                return distributeIfPossible(value);
+                Expression distributed = distributeIfPossible(value);
+                if (logical.operator() == AND && distributed instanceof Logical result && result.operator() == AND) {
+                    // Factoring a root AND only to distribute it back into an AND is ineffective
+                    // and may reorder predicates.
+                    return logical;
+                }
+                return distributed;
             }
 
             return simplified;
@@ -143,7 +150,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
                 newBaseExpressions = Math.multiplyExact(subPredicates.stream()
                         .mapToInt(Set::size)
                         .reduce(Math::multiplyExact)
-                        .getAsInt(), subPredicates.size());
+                        .orElseThrow(), subPredicates.size());
             }
             catch (ArithmeticException e) {
                 // Integer overflow from multiplication means there are too many expressions

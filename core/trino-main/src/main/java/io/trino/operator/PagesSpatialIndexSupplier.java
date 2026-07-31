@@ -126,10 +126,10 @@ public class PagesSpatialIndexSupplier
 
             double radius = 0.0;
             if (constantRadius.isPresent()) {
-                radius = constantRadius.getAsDouble();
+                radius = constantRadius.orElseThrow();
             }
             else if (radiusChannel.isPresent()) {
-                radius = DOUBLE.getDouble(channels.get(radiusChannel.getAsInt()).get(blockIndex), blockPosition);
+                radius = DOUBLE.getDouble(channels.get(radiusChannel.orElseThrow()).get(blockIndex), blockPosition);
             }
 
             if (radius < 0) {
@@ -140,7 +140,7 @@ public class PagesSpatialIndexSupplier
 
             int partition = -1;
             if (partitionChannel.isPresent()) {
-                Block partitionBlock = channels.get(partitionChannel.getAsInt()).get(blockIndex);
+                Block partitionBlock = channels.get(partitionChannel.orElseThrow()).get(blockIndex);
                 partition = INTEGER.getInt(partitionBlock, blockPosition);
             }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.hive;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
@@ -367,7 +366,7 @@ public abstract class BaseTestAvroSchemaEvolution
 
     private void insertData(String tableName, int rowNumber, String... sqlValues)
     {
-        String columnValues = Joiner.on(", ").join(sqlValues) +
+        String columnValues = String.join(", ", sqlValues) +
                 (varcharPartitionColumns.isEmpty() ? "" : ", " + getPartitionsAsListString(partitionColumn -> "'" + partitionColumn + "_" + rowNumber + "'"));
         onTrino().executeQuery(format("INSERT INTO %s VALUES (%s)", tableName, columnValues));
     }

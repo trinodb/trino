@@ -695,7 +695,7 @@ public abstract class BaseFailureRecoveryTest
             MaterializedResult expectedQueryResult = expected.getQueryResult();
             OptionalInt failureStageId = getFailureStageId(() -> expectedQueryResult);
             ExecutionResult actual = executeActual(failureStageId);
-            int failedTasksCount = getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks();
+            int failedTasksCount = getStageStats(actual.getQueryResult(), failureStageId.orElseThrow()).getFailedTasks();
             if (expectTaskFailures) {
                 assertThat(failedTasksCount).withFailMessage("expected some task failures").isGreaterThan(0);
             }

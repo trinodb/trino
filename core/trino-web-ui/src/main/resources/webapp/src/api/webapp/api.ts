@@ -86,6 +86,21 @@ export interface WorkerStatusInfo {
     uptime: string
 }
 
+export interface WorkerStackLine {
+    file: string
+    line: number
+    className: string
+    method: string
+}
+
+export interface WorkerThreadInfo {
+    id: number
+    name: string
+    state: string
+    lockOwnerId: number | null
+    stackTrace: WorkerStackLine[]
+}
+
 export interface QueryStats {
     analysisTime: string
     blockedDrivers: number
@@ -376,6 +391,10 @@ export async function workerApi(): Promise<ApiResponse<Worker[]>> {
 
 export async function workerStatusApi(nodeId: string): Promise<ApiResponse<WorkerStatusInfo>> {
     return await api.get<WorkerStatusInfo>(`/ui/api/worker/${nodeId}/status`)
+}
+
+export async function workerThreadApi(nodeId: string): Promise<ApiResponse<WorkerThreadInfo[]>> {
+    return await api.get<WorkerThreadInfo[]>(`/ui/api/worker/${nodeId}/thread`)
 }
 
 export async function workerTaskApi(nodeId: string, taskId: string): Promise<ApiResponse<WorkerTaskInfo>> {

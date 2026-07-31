@@ -552,7 +552,10 @@ public final class HttpPageBufferClient
             {
                 assertNotHoldsLock(HttpPageBufferClient.this);
 
-                log.error("Request to delete %s failed %s", location, t);
+                // Cancellations are caused by close() cancelling an in-flight request before sending
+                // a new delete request. Other failures are either retried with backoff or propagated
+                // through the client callback below, so none of them deserve a log entry here.
+                log.debug("Request to delete %s failed %s", location, t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
                     String message = format(
                             "Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",

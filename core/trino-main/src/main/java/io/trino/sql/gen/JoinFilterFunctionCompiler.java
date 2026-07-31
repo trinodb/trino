@@ -68,7 +68,7 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
@@ -140,7 +140,7 @@ public class JoinFilterFunctionCompiler
                         .add("leftBlocksSize", leftBlocksSize)
                         .toString());
 
-        return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        return defineHiddenClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getClassData());
     }
 
     private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize)

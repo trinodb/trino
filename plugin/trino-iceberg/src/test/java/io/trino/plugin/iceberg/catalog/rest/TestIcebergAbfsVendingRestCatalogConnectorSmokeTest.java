@@ -48,13 +48,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.OffsetDateTime;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -348,15 +345,6 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
                 .hasMessageContaining("Table location should not exist");
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
-    {
-        if (format == PARQUET) {
-            return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
-        }
-        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 
     @Override

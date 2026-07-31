@@ -1779,7 +1779,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (!outputBufferStatus.exchangeSinkInstanceHandleUpdateRequired()) {
                     return;
                 }
-                long remoteVersion = outputBufferStatus.outputBuffersVersion().getAsLong();
+                long remoteVersion = outputBufferStatus.outputBuffersVersion().orElseThrow();
                 while (true) {
                     long localVersion = respondedToVersion.get();
                     if (remoteVersion <= localVersion) {

@@ -15,7 +15,6 @@ package io.trino.exchange;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.execution.QueryManager;
@@ -79,7 +78,7 @@ public class ExchangeMetricsCollector
 
     public void register(QueryId queryId, Exchange exchange)
     {
-        registry.computeIfAbsent(queryId, _ -> Sets.newConcurrentHashSet())
+        registry.computeIfAbsent(queryId, _ -> ConcurrentHashMap.newKeySet())
                 .add(exchange);
     }
 

@@ -40,7 +40,6 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.delete.DeleteFile;
-import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
@@ -77,6 +76,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -289,7 +289,7 @@ class TestIcebergPageSourceProvider
                 TESTING_TYPE_MANAGER,
                 ParquetFooterCache.noop(),
                 Optional.of(blocksHashFactory),
-                new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig()));
+                ENCRYPTION_MANAGER_FACTORY);
     }
 
     private static class TestingParquetFooterCache

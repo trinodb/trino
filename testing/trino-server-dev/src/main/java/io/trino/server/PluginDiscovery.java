@@ -15,7 +15,6 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
-import org.objectweb.asm.ClassReader;
 import org.sonatype.aether.artifact.Artifact;
 
 import java.io.File;
@@ -25,6 +24,9 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassModel;
+import java.lang.classfile.constantpool.ClassEntry;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
@@ -106,23 +108,22 @@ final class PluginDiscovery
     private static List<String> classInterfaces(String name, ClassLoader classLoader)
     {
         ImmutableList.Builder<String> list = ImmutableList.builder();
-        ClassReader reader = readClass(name, classLoader);
-        for (String binaryName : reader.getInterfaces()) {
-            list.add(javaName(binaryName));
+        ClassModel classModel = readClass(name, classLoader);
+        for (ClassEntry interfaceEntry : classModel.interfaces()) {
+            list.add(javaName(interfaceEntry.asInternalName()));
         }
-        if (reader.getSuperName() != null) {
-            list.addAll(classInterfaces(javaName(reader.getSuperName()), classLoader));
-        }
+        classModel.superclass()
+                .ifPresent(superclass -> list.addAll(classInterfaces(javaName(superclass.asInternalName()), classLoader)));
         return list.build();
     }
 
-    private static ClassReader readClass(String name, ClassLoader classLoader)
+    private static ClassModel readClass(String name, ClassLoader classLoader)
     {
         try (InputStream in = classLoader.getResourceAsStream(binaryName(name) + CLASS_FILE_SUFFIX)) {
             if (in == null) {
                 throw new RuntimeException("Failed to read class: " + name);
             }
-            return new ClassReader(in.readAllBytes());
+            return ClassFile.of().parse(in.readAllBytes());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

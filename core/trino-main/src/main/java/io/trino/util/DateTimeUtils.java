@@ -75,7 +75,7 @@ public final class DateTimeUtils
 
         OptionalInt days = parseIfIso8601DateFormat(value);
         if (days.isPresent()) {
-            return days.getAsInt();
+            return days.orElseThrow();
         }
         // only the fallback formatter needs the value as a String
         return toIntExact(TimeUnit.MILLISECONDS.toDays(DATE_FORMATTER.parseMillis(value.toStringUtf8())));
@@ -110,7 +110,7 @@ public final class DateTimeUtils
             return OptionalInt.empty();
         }
 
-        LocalDate date = LocalDate.of(year.getAsInt(), month.getAsInt(), day.getAsInt());
+        LocalDate date = LocalDate.of(year.orElseThrow(), month.orElseThrow(), day.orElseThrow());
         return OptionalInt.of(toIntExact(date.toEpochDay()));
     }
 

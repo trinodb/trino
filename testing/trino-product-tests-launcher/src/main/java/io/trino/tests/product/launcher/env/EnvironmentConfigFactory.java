@@ -14,7 +14,7 @@
 package io.trino.tests.product.launcher.env;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.inject.Inject;
 
 import java.util.List;
@@ -42,6 +42,6 @@ public class EnvironmentConfigFactory
 
     public List<String> listConfigs()
     {
-        return Ordering.natural().sortedCopy(configurations.keySet());
+        return ImmutableSortedSet.copyOf(configurations.keySet()).asList();
     }
 }

@@ -63,7 +63,7 @@ public final class DeltaLakeComputedStatistics
                         && lowercaseToColumnsHandles.containsKey(stats.getKey().getColumnName()))
                 .map(stats -> Map.entry(lowercaseToColumnsHandles.get(stats.getKey().getColumnName()).basePhysicalColumnName(), getBigintValue(stats.getValue())))
                 .filter(stats -> stats.getValue().isPresent())
-                .map(nonNullCount -> Map.entry(nonNullCount.getKey(), rowCount - nonNullCount.getValue().getAsLong()))
+                .map(nonNullCount -> Map.entry(nonNullCount.getKey(), rowCount - nonNullCount.getValue().orElseThrow()))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 

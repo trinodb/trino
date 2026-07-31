@@ -80,6 +80,7 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -160,7 +161,7 @@ public class TestOrcPageSourceMemoryTracking
     public void setUp()
             throws Exception
     {
-        tempFile = File.createTempFile("trino_test_orc_page_source_memory_tracking", "orc");
+        tempFile = Files.createTempFile("trino_test_orc_page_source_memory_tracking", "orc").toFile();
         verify(tempFile.delete());
         testPreparer = new TestPreparer(tempFile.getAbsolutePath());
     }
@@ -364,7 +365,7 @@ public class TestOrcPageSourceMemoryTracking
             columnBuilder.add(dataColumns[i]);
         }
         List<TestColumn> testColumns = columnBuilder.build();
-        File tempFile = File.createTempFile("trino_test_orc_page_source_max_read_bytes", "orc");
+        File tempFile = Files.createTempFile("trino_test_orc_page_source_max_read_bytes", "orc").toFile();
         verify(tempFile.delete());
 
         TestPreparer testPreparer = new TestPreparer(tempFile.getAbsolutePath(), testColumns, rowCount, rowCount);

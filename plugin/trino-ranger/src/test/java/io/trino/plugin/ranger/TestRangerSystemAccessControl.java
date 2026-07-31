@@ -64,6 +64,7 @@ final class TestRangerSystemAccessControl
     private static final CatalogSchemaRoutineName FUNC_ALICE_SCH1_FUNC1 = new CatalogSchemaRoutineName(CATALOG_ALICE, "sch1", "func1");
     private static final CatalogSchemaName SCHEMA_USER_BOB = new CatalogSchemaName(CATALOG_USER_HOME, "bob_schema");
     private static final CatalogSchemaTableName TABLE_USER_BOB_TBL1 = new CatalogSchemaTableName(CATALOG_USER_HOME, SCHEMA_USER_BOB.getSchemaName(), "tbl1");
+    private static final CatalogSchemaTableName TABLE_USER_SCH1_TBL1 = new CatalogSchemaTableName(CATALOG_USER_HOME, "sch1", "tbl1");
 
     @BeforeAll
     public static void setUpBeforeClass()
@@ -222,7 +223,10 @@ final class TestRangerSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanRenameColumn(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetColumnComment(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanShowColumns(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), ImmutableSet.of())).isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Cannot select from table tbl1");
+        assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_USER_SCH1_TBL1, ImmutableSet.of("id", "name", "time"))).isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Cannot select from columns [id, name] in table or view tbl1");
         assertThatThrownBy(() -> accessControlManager.checkCanUpdateTableColumns(context(BOB), TABLE_ALICE_SCH1_TBL1, Optional.empty(), Collections.emptySet())).isInstanceOf(AccessDeniedException.class);
     }
 

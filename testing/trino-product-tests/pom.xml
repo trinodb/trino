@@ -35,16 +35,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp-tls</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp-urlconnection</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -66,11 +56,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -88,34 +73,6 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.github.jeschkies</groupId>
-            <artifactId>loki-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
-            <exclusions>
-                <!-- Product tests only use the Thrift metastore client classes from trino-hive.
-                     Exclude the connector runtime's heavy transitive dependencies (cloud filesystems,
-                     Alluxio cache with RocksDB and gRPC, Coral, fastutil) which are never used at
-                     test runtime and would otherwise dominate the test classpath size. -->
-                <exclusion>
-                    <groupId>io.trino</groupId>
-                    <artifactId>trino-filesystem-manager</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.trino.coral</groupId>
-                    <artifactId>coral</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>it.unimi.dsi</groupId>
-                    <artifactId>fastutil</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -146,11 +103,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hive</groupId>
-            <artifactId>hive-thrift</artifactId>
         </dependency>
 
         <dependency>
@@ -186,17 +138,13 @@
 
         <dependency>
             <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-column</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-common</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.thrift</groupId>
-            <artifactId>libthrift</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -260,7 +208,6 @@
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
-            <classifier>all</classifier>
             <scope>runtime</scope>
         </dependency>
 
@@ -345,8 +292,32 @@
         </dependency>
 
         <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-tls</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-urlconnection</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.jeschkies</groupId>
+            <artifactId>loki-client</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -359,6 +330,12 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-column</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -486,6 +463,9 @@
                         <ignoredUnusedDeclaredDependency>org.apache.kafka:kafka-clients</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
+                        <!-- The analyzer sees only direct test usages, but legacy Loki and MinIO clients require this
+                             in the packaged runtime. -->
+                        <ignoredNonTestScopedDependency>com.squareup.okhttp3:okhttp-jvm</ignoredNonTestScopedDependency>
                         <!-- Legacy product tests execute test classes from the test runtime classpath, so Kafka must be
                              available at runtime even though the analyzer classifies it as test-only. -->
                         <ignoredNonTestScopedDependency>org.apache.kafka:kafka-clients</ignoredNonTestScopedDependency>

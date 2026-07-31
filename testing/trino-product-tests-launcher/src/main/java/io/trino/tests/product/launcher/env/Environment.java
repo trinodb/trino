@@ -45,6 +45,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -694,7 +695,7 @@ public final class Environment
             YAMLMapper yamlMapper = new YAMLMapper();
             File tempFile;
             try {
-                tempFile = File.createTempFile("tempto-configured-features-", ".yaml");
+                tempFile = Files.createTempFile("tempto-configured-features-", ".yaml").toFile();
                 yamlMapper.writeValue(tempFile,
                         Map.of("databases",
                                 Map.of("trino",

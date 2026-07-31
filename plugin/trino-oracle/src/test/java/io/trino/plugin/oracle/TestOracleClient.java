@@ -17,10 +17,12 @@ import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import oracle.jdbc.OracleTypes;
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Optional;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -88,6 +91,24 @@ public class TestOracleClient
         testTypedNullWriteMapping(TIMESTAMP_NANOS, "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF9')", Types.VARCHAR);
         testTypedNullWriteMapping(TIMESTAMP_TZ_MILLIS, "?", OracleTypes.TIMESTAMPTZ);
         testTypedNullWriteMapping(DATE, "TO_DATE(?, 'SYYYY-MM-DD')", Types.VARCHAR);
+    }
+
+    @Test
+    public void testNumberColumnWithZeroPrecisionMapsToNumberType()
+    {
+        // Oracle JDBC can return columnSize=0, decimalDigits=0 for NUMBER columns in stored views
+        // and materialized views. This must not throw "DECIMAL precision must be in range [1, 38]: 0".
+        JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                OracleTypes.NUMBER,
+                Optional.of("NUMBER"),
+                Optional.of(0),
+                Optional.of(0),
+                Optional.empty(),
+                Optional.empty());
+        assertThat(CLIENT.toColumnMapping(SESSION, null, typeHandle))
+                .isPresent()
+                .get()
+                .satisfies(mapping -> assertThat(mapping.getType()).isEqualTo(NumberType.NUMBER));
     }
 
     private void testTypedNullWriteMapping(Type type, String bindExpression, int nullJdbcType)

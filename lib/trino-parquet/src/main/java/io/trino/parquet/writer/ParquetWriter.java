@@ -236,7 +236,7 @@ public class ParquetWriter
         ParquetWriteValidation writeValidation = validationBuilder.get().build();
         try {
             checkState(footerReadSize.isPresent(), "footer has not been written");
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, DataSize.ofBytes(footerReadSize.getAsInt()), Optional.empty(), Optional.of(writeValidation), Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, DataSize.ofBytes(footerReadSize.orElseThrow()), Optional.empty(), Optional.of(writeValidation), Optional.empty());
             try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
                 for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     // fully load the page

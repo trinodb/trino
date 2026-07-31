@@ -20,7 +20,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
@@ -119,7 +118,7 @@ public class TrinoConnection
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<List<String>> path = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<String> authorizationUser = new AtomicReference<>();
-    private final Set<ClientSelectedRole> originalRoles = Sets.newConcurrentHashSet();
+    private final Set<ClientSelectedRole> originalRoles = ConcurrentHashMap.newKeySet();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));

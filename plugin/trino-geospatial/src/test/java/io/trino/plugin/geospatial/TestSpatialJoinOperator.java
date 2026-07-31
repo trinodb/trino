@@ -447,7 +447,7 @@ public class TestSpatialJoinOperator
 
         RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, DOUBLE))
                 .row(stPoint(0, 0), "0_0", 1.5);
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(buildDriver, (build, probe, r) -> build.distance(probe) <= r.getAsDouble(), OptionalInt.of(2), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(buildDriver, (build, probe, r) -> build.distance(probe) <= r.orElseThrow(), OptionalInt.of(2), Optional.empty(), buildPages);
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(stPoint(0, 1), "0_1");
@@ -484,7 +484,7 @@ public class TestSpatialJoinOperator
                 .row(stPoint(3, 0), "3_0", 1.5)
                 .pageBreak()
                 .row(stPoint(10, 0), "10_0", 1.5);
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.distance(probe) <= r.getAsDouble(), OptionalInt.of(2), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.distance(probe) <= r.orElseThrow(), OptionalInt.of(2), Optional.empty(), buildPages);
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(stPoint(0, 1), "0_1")
@@ -519,7 +519,7 @@ public class TestSpatialJoinOperator
                 .row(srid("POINT Z (1 0 200)"), "1_0", 1.5)
                 .row(srid("POINT Z (3 0 300)"), "3_0", 1.5)
                 .row(srid("POINT Z (10 0 400)"), "10_0", 1.5);
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.distance(probe) <= r.getAsDouble(), OptionalInt.of(2), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.distance(probe) <= r.orElseThrow(), OptionalInt.of(2), Optional.empty(), buildPages);
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(srid("POINT Z (0 1 -100)"), "0_1")

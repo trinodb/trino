@@ -79,7 +79,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -266,7 +266,7 @@ public class ColumnarFilterCompiler
     static Class<? extends ColumnarFilter> createClassInstance(CallSiteBinder binder, ClassDefinition classDefinition)
     {
         try {
-            return defineClass(classDefinition, ColumnarFilter.class, binder.getBindings(), ColumnarFilterCompiler.class.getClassLoader());
+            return defineHiddenClass(classDefinition, ColumnarFilter.class, binder.getClassData());
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {

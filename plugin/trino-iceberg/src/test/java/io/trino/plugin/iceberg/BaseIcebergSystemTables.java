@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -29,8 +31,12 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.types.Types;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -44,12 +50,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -57,9 +67,11 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -69,6 +81,7 @@ public abstract class BaseIcebergSystemTables
     private final IcebergFileFormat format;
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     protected BaseIcebergSystemTables(IcebergFileFormat format)
     {
@@ -84,6 +97,7 @@ public abstract class BaseIcebergSystemTables
                 .build();
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
         return queryRunner;
     }
 
@@ -222,6 +236,37 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionsTableWithManyColumns()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/30311: the data column builds one
+        // ROW(min, max, null_count, nan_count) per column, and packing those fields into partial row
+        // constructors by a fixed count exceeded the 64KB JVM method size limit for bulky field types
+        String columns = IntStream.rangeClosed(1, 121)
+                .mapToObj(column -> "col_%03d timestamp(6) with time zone".formatted(column))
+                .collect(joining(", "));
+
+        try (TestTable table = newTrinoTable("test_partitions_many_columns", "(" + columns + ")")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (col_001) VALUES TIMESTAMP '2022-01-01 12:00:00.000000 UTC'", 1);
+            assertThat(computeActual("SELECT data FROM \"" + table.getName() + "$partitions\"").getRowCount())
+                    .isEqualTo(1);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableWithReservedKeywordColumnName()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partitions_reserved_keyword",
+                "(\"group\" varchar, \"order\" bigint, _date date) WITH (partitioning = ARRAY['_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('a', 1, DATE '2024-01-01'), ('b', 2, DATE '2024-01-02')", 2);
+
+            assertQuery(
+                    "SELECT partition._date, record_count, data.\"group\".min, data.\"order\".max FROM \"" + table.getName() + "$partitions\"",
+                    "VALUES (DATE '2024-01-01', 1, 'a', 1), (DATE '2024-01-02', 1, 'b', 2)");
+        }
+    }
+
+    @Test
     public void testPartitionsTableOnDropColumn()
     {
         MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_drop_column$partitions\"");
@@ -237,6 +282,58 @@ public abstract class BaseIcebergSystemTables
     public void testFilesTableOnDropColumn()
     {
         assertQuery("SELECT sum(record_count) FROM test_schema.\"test_table_drop_column$files\"", "VALUES 6");
+    }
+
+    @Test
+    public void testFilesAndPartitionsTableWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$files\"").getRowCount()).isEqualTo(0);
+            assertThat(computeActual("SELECT * FROM test_schema.\"test_table_without_snapshot$partitions\"").getRowCount()).isEqualTo(0);
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    @Test
+    public void testMetadataTablesWithoutSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("test_schema", "test_metadata_tables_without_snapshot");
+        createTableWithoutSnapshot(tableName);
+        try {
+            for (TableType tableType : TableType.values()) {
+                if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                    continue;
+                }
+                String metadataTable = tableNameWithType(tableName.getTableName(), tableType);
+                assertThatCode(() -> computeActual("SELECT * FROM test_schema.\"" + metadataTable + "\""))
+                        .describedAs(tableType.name())
+                        .doesNotThrowAnyException();
+            }
+        }
+        finally {
+            catalog.dropTable(SESSION, tableName);
+        }
+    }
+
+    // Create the table with the Iceberg API so that it has no snapshot (Trino CREATE TABLE would add an empty one)
+    private void createTableWithoutSnapshot(SchemaTableName tableName)
+    {
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "_bigint", Types.LongType.get()),
+                Types.NestedField.optional(2, "_date", Types.DateType.get()));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        tableName,
+                        schema,
+                        PartitionSpec.builderFor(schema).identity("_date").build(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, tableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
     }
 
     @Test

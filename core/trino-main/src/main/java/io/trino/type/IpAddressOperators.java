@@ -43,7 +43,7 @@ public final class IpAddressOperators
     {
         byte[] address;
         try {
-            address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
+            address = InetAddress.ofLiteral(slice.toStringUtf8()).getAddress();
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());

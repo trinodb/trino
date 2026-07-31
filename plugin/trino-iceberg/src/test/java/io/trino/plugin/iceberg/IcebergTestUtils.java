@@ -49,6 +49,7 @@ import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
+import io.trino.plugin.iceberg.encryption.PlaintextEncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.block.Block;
@@ -105,6 +106,8 @@ public final class IcebergTestUtils
             newDirectExecutorService());
 
     public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
+
+    public static final EncryptionManagerFactory ENCRYPTION_MANAGER_FACTORY = new PlaintextEncryptionManagerFactory();
 
     private IcebergTestUtils() {}
 

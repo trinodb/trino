@@ -68,12 +68,12 @@ public final class TrinoProductTestContainer
     private TrinoProductTestContainer() {}
 
     /**
-     * Creates a JDBC connection to the given Trino container using the default user "test".
+     * Creates a JDBC connection to the given Trino container using the default user "hive".
      */
     public static Connection createConnection(TrinoContainer container)
             throws SQLException
     {
-        return createConnection(container, "test");
+        return createConnection(container, "hive");
     }
 
     /**
@@ -184,6 +184,7 @@ public final class TrinoProductTestContainer
         private final Map<String, Map<String, String>> catalogs = new HashMap<>();
         private Network network;
         private String networkAlias;
+        private String hdfsSiteXml;
 
         private Builder() {}
 
@@ -245,6 +246,25 @@ public final class TrinoProductTestContainer
         }
 
         /**
+         * Configures the container with HDFS client settings.
+         * <p>
+         * The XML should be obtained from {@link HadoopContainer#getHdfsClientSiteXml()}
+         * to ensure consistent HDFS configuration across containers.
+         * <p>
+         * Example:
+         * <pre>
+         * .withHdfsConfiguration(hadoop.getHdfsClientSiteXml())
+         * </pre>
+         *
+         * @param hdfsSiteXml HDFS configuration XML from HadoopContainer
+         */
+        public Builder withHdfsConfiguration(String hdfsSiteXml)
+        {
+            this.hdfsSiteXml = requireNonNull(hdfsSiteXml, "hdfsSiteXml is null");
+            return this;
+        }
+
+        /**
          * Builds and returns a configured TrinoContainer.
          */
         public TrinoContainer build()
@@ -274,6 +294,13 @@ public final class TrinoProductTestContainer
                         "/etc/trino/catalog/" + catalogName + ".properties");
             }
 
+            // Add HDFS configuration if provided
+            if (hdfsSiteXml != null) {
+                container.withCopyToContainer(
+                        Transferable.of(hdfsSiteXml),
+                        "/etc/trino/hdfs-site.xml");
+            }
+
             // Apply network if specified
             if (network != null) {
                 container.withNetwork(network);
@@ -287,7 +314,7 @@ public final class TrinoProductTestContainer
                     Wait.forHttp("/v1/info")
                             .forPort(8080)
                             .forStatusCode(200)
-                            .withStartupTimeout(Duration.ofMinutes(2)));
+                            .withStartupTimeout(Duration.ofSeconds(90)));
 
             return container;
         }

@@ -951,7 +951,7 @@ public class ClickHouseClient
                 ipAddressType,
                 (resultSet, columnIndex) -> {
                     // copied from IpAddressOperators.castFromVarcharToIpAddress
-                    byte[] address = InetAddresses.forString(resultSet.getString(columnIndex)).getAddress();
+                    byte[] address = InetAddress.ofLiteral(resultSet.getString(columnIndex)).getAddress();
 
                     byte[] bytes;
                     if (address.length == 4) {

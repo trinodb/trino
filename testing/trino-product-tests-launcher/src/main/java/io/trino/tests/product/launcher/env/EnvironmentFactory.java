@@ -13,7 +13,7 @@
  */
 package io.trino.tests.product.launcher.env;
 
-import com.google.common.collect.Ordering;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.inject.Inject;
 
 import java.io.PrintStream;
@@ -44,6 +44,6 @@ public final class EnvironmentFactory
 
     public List<String> list()
     {
-        return Ordering.natural().sortedCopy(environmentProviders.keySet());
+        return ImmutableSortedSet.copyOf(environmentProviders.keySet()).asList();
     }
 }

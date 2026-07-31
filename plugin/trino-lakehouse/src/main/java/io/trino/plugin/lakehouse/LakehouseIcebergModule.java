@@ -46,9 +46,7 @@ import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
 import io.trino.plugin.iceberg.delete.DefaultDeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
-import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
-import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
-import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionModule;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -62,8 +60,7 @@ public class LakehouseIcebergModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(IcebergConfig.class);
-        configBinder(binder).bindConfig(IcebergEncryptionConfig.class);
-        binder.bind(EncryptionManagerFactory.class).to(DefaultEncryptionManagerFactory.class).in(Scopes.SINGLETON);
+        install(new IcebergEncryptionModule());
 
         binder.bind(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);

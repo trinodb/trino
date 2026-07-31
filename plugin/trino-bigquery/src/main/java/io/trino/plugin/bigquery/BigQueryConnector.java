@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -47,6 +48,7 @@ public class BigQueryConnector
     private final Set<ConnectorTableFunction> connectorTableFunctions;
     private final Set<Procedure> procedures;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> schemaProperties;
 
     @Inject
     public BigQueryConnector(
@@ -57,7 +59,8 @@ public class BigQueryConnector
             BigQueryPageSinkProvider pageSinkProvider,
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<Procedure> procedures,
-            Set<SessionPropertiesProvider> sessionPropertiesProviders)
+            Set<SessionPropertiesProvider> sessionPropertiesProviders,
+            BigQuerySchemaProperties schemaProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -69,6 +72,7 @@ public class BigQueryConnector
         this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
+        this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null").schemaProperties());
     }
 
     @Override
@@ -129,6 +133,12 @@ public class BigQueryConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSchemaProperties()
+    {
+        return schemaProperties;
     }
 
     @Override

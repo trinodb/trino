@@ -21,10 +21,9 @@ import io.trino.plugin.eventlistener.kafka.producer.KafkaProducerFactory;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.Nullable;
 
 public class KafkaEventListener
         implements EventListener

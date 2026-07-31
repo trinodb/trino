@@ -79,6 +79,11 @@ public class CatalogTableAccessControlRule
         return tableAccessControlRule.canSelectColumns(columnNames);
     }
 
+    public Set<String> getDeniedColumns(Set<String> columnNames)
+    {
+        return tableAccessControlRule.getDeniedColumns(columnNames);
+    }
+
     public Optional<ViewExpression> getColumnMask(String catalog, String schema, String column)
     {
         return tableAccessControlRule.getColumnMask(catalog, schema, column);

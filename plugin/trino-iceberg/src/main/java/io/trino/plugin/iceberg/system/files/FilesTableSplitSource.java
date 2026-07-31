@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.FileIO;
@@ -71,16 +72,20 @@ public final class FilesTableSplitSource
         snapshotId.ifPresent(scan::useSnapshot);
         List<ConnectorSplit> splits = new ArrayList<>();
 
-        try (FileIO fileIO = icebergTable.io()) {
-            for (ManifestFile manifestFile : scan.snapshot().allManifests(fileIO)) {
-                splits.add(new FilesTableSplit(
-                        TrinoManifestFile.from(manifestFile),
-                        schemaJson,
-                        metadataSchemaJson,
-                        partitionSpecsByIdJson,
-                        partitionColumnType,
-                        boundsColumnType,
-                        Optional.ofNullable(icebergTable.properties().get(ENCRYPTION_TABLE_KEY))));
+        // A table with no snapshot has no manifests to scan
+        Snapshot snapshot = scan.snapshot();
+        if (snapshot != null) {
+            try (FileIO fileIO = icebergTable.io()) {
+                for (ManifestFile manifestFile : snapshot.allManifests(fileIO)) {
+                    splits.add(new FilesTableSplit(
+                            TrinoManifestFile.from(manifestFile),
+                            schemaJson,
+                            metadataSchemaJson,
+                            partitionSpecsByIdJson,
+                            partitionColumnType,
+                            boundsColumnType,
+                            Optional.ofNullable(icebergTable.properties().get(ENCRYPTION_TABLE_KEY))));
+                }
             }
         }
 

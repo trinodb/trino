@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.encryption;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.aws.AwsKeyManagementClient;
 import org.apache.iceberg.encryption.KeyManagementClient;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -53,5 +54,17 @@ final class TestIcebergAwsEncryptionFloci
                 "client.credentials-provider.access-key-id", FLOCI_ACCESS_KEY,
                 "client.credentials-provider.secret-access-key", FLOCI_SECRET_KEY));
         return keyManagementClient;
+    }
+
+    @Override
+    protected Map<String, String> kmsProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("iceberg.encryption.kms-type", "AWS")
+                .put("aws.kms.region", FLOCI_REGION)
+                .put("aws.kms.endpoint", hiveFlociDataLake.floci().endpoint().toString())
+                .put("aws.kms.access-key", FLOCI_ACCESS_KEY)
+                .put("aws.kms.secret-key", FLOCI_SECRET_KEY)
+                .buildOrThrow();
     }
 }

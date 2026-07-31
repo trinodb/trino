@@ -93,7 +93,7 @@ public class IcebergAvroPageSource
         // skip these fields when they exist in the file but are not being projected
         Map<Integer, Object> idToConstant = new HashMap<>();
         if (fileFirstRowId.isPresent()) {
-            idToConstant.put(ROW_ID.fieldId(), fileFirstRowId.getAsLong());
+            idToConstant.put(ROW_ID.fieldId(), fileFirstRowId.orElseThrow());
             idToConstant.put(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), dataSequenceNumber.orElseThrow(() ->
                     new IllegalArgumentException("dataSequenceNumber is required when fileFirstRowId is present")));
         }

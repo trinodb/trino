@@ -454,6 +454,23 @@ public abstract class BaseOracleConnectorTest
                 .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
+    @Test
+    public void testNativeQueryMaterializedViewNumberZeroPrecision()
+    {
+        // Oracle JDBC reports precision=0 for COUNT(*) result columns in passthrough queries,
+        // unlike regular NUMBER columns in table metadata which use 127 as the "unspecified" sentinel.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        String viewName = getUser() + ".test_mv_num_" + randomNameSuffix();
+        onRemoteDatabase().execute("CREATE MATERIALIZED VIEW " + viewName + " BUILD IMMEDIATE AS SELECT COUNT(*) AS col FROM dual");
+        try {
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT count(*) FROM " + viewName + "'))"))
+                    .matches("VALUES NUMBER '1'");
+        }
+        finally {
+            onRemoteDatabase().execute("DROP MATERIALIZED VIEW " + viewName);
+        }
+    }
+
     @Override
     protected TestTable simpleTable()
     {

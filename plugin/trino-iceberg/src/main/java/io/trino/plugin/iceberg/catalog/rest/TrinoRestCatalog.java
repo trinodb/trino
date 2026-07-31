@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
@@ -134,6 +133,7 @@ public class TrinoRestCatalog
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
     private final boolean viewEndpointsEnabled;
+    private final boolean serverAssignedTableLocationEnabled;
 
     private final Cache<SchemaTableName, BaseTable> tableCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -153,7 +153,8 @@ public class TrinoRestCatalog
             boolean caseInsensitiveNameMatching,
             Cache<Namespace, Namespace> remoteNamespaceMappingCache,
             Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache,
-            boolean viewEndpointsEnabled)
+            boolean viewEndpointsEnabled,
+            boolean serverAssignedTableLocationEnabled)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
@@ -169,6 +170,7 @@ public class TrinoRestCatalog
         this.remoteNamespaceMappingCache = requireNonNull(remoteNamespaceMappingCache, "remoteNamespaceMappingCache is null");
         this.remoteTableMappingCache = requireNonNull(remoteTableMappingCache, "remoteTableMappingCache is null");
         this.viewEndpointsEnabled = viewEndpointsEnabled;
+        this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
     }
 
     @Override
@@ -643,6 +645,10 @@ public class TrinoRestCatalog
     @Override
     public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (serverAssignedTableLocationEnabled) {
+            return null;
+        }
+
         String tableName = createLocationForTable(schemaTableName.getTableName());
 
         Map<String, Object> properties = loadNamespaceMetadata(session, schemaTableName.getSchemaName());
@@ -1018,7 +1024,7 @@ public class TrinoRestCatalog
             if (identifier.name().equalsIgnoreCase(tableIdentifier.name())) {
                 if (matchingTable != null) {
                     throw new TrinoException(NOT_SUPPORTED, "Duplicate table names are not supported with Iceberg REST catalog: "
-                            + Joiner.on(", ").join(matchingTable, identifier.name()));
+                            + matchingTable + ", " + identifier.name());
                 }
                 matchingTable = identifier;
             }
@@ -1051,7 +1057,7 @@ public class TrinoRestCatalog
             if (identifier.name().equalsIgnoreCase(tableIdentifier.name())) {
                 if (matchingView != null) {
                     throw new TrinoException(NOT_SUPPORTED, "Duplicate view names are not supported with Iceberg REST catalog: "
-                            + Joiner.on(", ").join(matchingView.name(), identifier.name()));
+                            + String.join(", ", matchingView.name(), identifier.name()));
                 }
                 matchingView = identifier;
             }

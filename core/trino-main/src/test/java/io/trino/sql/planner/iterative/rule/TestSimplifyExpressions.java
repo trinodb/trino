@@ -65,6 +65,7 @@ import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
+import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -270,6 +271,18 @@ public class TestSimplifyExpressions
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A55"), new Reference(BOOLEAN, "A56"))),
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A57"), new Reference(BOOLEAN, "A58"))),
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "A59"), new Reference(BOOLEAN, "A60"))))));
+    }
+
+    @Test
+    public void testExtractCommonPredicatesIsIdempotent()
+    {
+        Reference first = new Reference(BOOLEAN, "a");
+        Reference second = new Reference(BOOLEAN, "b");
+        Reference remaining = new Reference(BOOLEAN, "c");
+        Expression conjunction = new Logical(AND, ImmutableList.of(first, second));
+
+        assertExtractCommonPredicatesIsIdempotent(new Logical(OR, ImmutableList.of(conjunction, remaining)));
+        assertExtractCommonPredicatesIsIdempotent(new Logical(OR, ImmutableList.of(remaining, conjunction)));
     }
 
     @Test
@@ -533,6 +546,12 @@ public class TestSimplifyExpressions
     {
         Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getMetadata(), emptySymbolAllocator(), PLANNER_CONTEXT.getExpressionOptimizer()));
         assertThat(simplified).isEqualTo(normalize(expected));
+    }
+
+    private static void assertExtractCommonPredicatesIsIdempotent(Expression expression)
+    {
+        Expression rewritten = extractCommonPredicates(expression);
+        assertThat(extractCommonPredicates(rewritten)).isEqualTo(rewritten);
     }
 
     @Test

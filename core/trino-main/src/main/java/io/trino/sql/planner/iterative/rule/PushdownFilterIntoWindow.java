@@ -101,7 +101,7 @@ public class PushdownFilterIntoWindow
             return Result.empty();
         }
 
-        if (upperBound.getAsInt() <= 0) {
+        if (upperBound.orElseThrow() <= 0) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
         TopNRankingNode newSource = new TopNRankingNode(
@@ -110,10 +110,10 @@ public class PushdownFilterIntoWindow
                 windowNode.getSpecification(),
                 rankingType.get(),
                 rankingSymbol,
-                upperBound.getAsInt(),
+                upperBound.orElseThrow(),
                 false);
 
-        if (!allRowNumberValuesInDomain(tupleDomain, rankingSymbol, upperBound.getAsInt())) {
+        if (!allRowNumberValuesInDomain(tupleDomain, rankingSymbol, upperBound.orElseThrow())) {
             return Result.ofPlanNode(new FilterNode(node.getId(), newSource, node.getPredicate()));
         }
 

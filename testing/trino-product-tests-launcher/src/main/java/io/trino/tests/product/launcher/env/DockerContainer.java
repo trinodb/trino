@@ -186,7 +186,7 @@ public class DockerContainer
     {
         checkState(lastStartUpCommenceTimeNanos.isPresent(), "Container did not commence starting");
         checkState(lastStartFinishTimeNanos.isPresent(), "Container not started");
-        return Duration.succinctNanos(lastStartFinishTimeNanos.getAsLong() - lastStartUpCommenceTimeNanos.getAsLong()).convertToMostSuccinctTimeUnit();
+        return Duration.succinctNanos(lastStartFinishTimeNanos.orElseThrow() - lastStartUpCommenceTimeNanos.orElseThrow()).convertToMostSuccinctTimeUnit();
     }
 
     @Override
@@ -263,13 +263,13 @@ public class DockerContainer
         if (result.getExitCode() == 0) {
             return result.getStdout();
         }
-        String fullCommand = Joiner.on(" ").join(command);
+        String fullCommand = String.join(" ", command);
         throw new RuntimeException(format("Could not execute command '%s' in container %s: %s", fullCommand, logicalName, result.getStderr()));
     }
 
     public ExecResult execCommandForResult(String... command)
     {
-        String fullCommand = Joiner.on(" ").join(command);
+        String fullCommand = String.join(" ", command);
         if (!isRunning()) {
             throw new RuntimeException(format("Could not execute command '%s' in stopped container %s", fullCommand, logicalName));
         }

@@ -6410,7 +6410,7 @@ class StatementAnalyzer
                     checkState(count instanceof Parameter, "unexpected FETCH FIRST rowCount: %s", count.getClass().getSimpleName());
                     OptionalLong providedValue = analyzeParameterAsRowCount((Parameter) count, scope, "FETCH FIRST");
                     if (providedValue.isPresent()) {
-                        rowCount = providedValue.getAsLong();
+                        rowCount = providedValue.orElseThrow();
                     }
                 }
             }

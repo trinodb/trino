@@ -39,6 +39,7 @@ import org.apache.ranger.plugin.audit.RangerDefaultAuditHandler;
 import org.apache.ranger.plugin.model.RangerPolicy;
 import org.apache.ranger.plugin.model.RangerServiceDef;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
+import org.apache.ranger.plugin.policyengine.RangerAccessResource;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 import org.apache.ranger.plugin.service.RangerBasePlugin;
 
@@ -47,16 +48,17 @@ import java.net.URL;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.ranger.RangerTrinoAccessType.ALTER;
 import static io.trino.plugin.ranger.RangerTrinoAccessType.CREATE;
 import static io.trino.plugin.ranger.RangerTrinoAccessType.DELETE;
@@ -102,6 +104,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
+import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
@@ -198,7 +201,9 @@ public class RangerSystemAccessControl
             return queryOwners;
         }
 
-        return queryOwners.stream().filter(not(toExclude::contains)).collect(Collectors.toList());
+        return queryOwners.stream()
+                .filter(not(toExclude::contains))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -278,7 +283,9 @@ public class RangerSystemAccessControl
             return catalogs;
         }
 
-        return catalogs.stream().filter(not(toExclude::contains)).collect(Collectors.toSet());
+        return catalogs.stream()
+                .filter(not(toExclude::contains))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -339,7 +346,9 @@ public class RangerSystemAccessControl
             return schemaNames;
         }
 
-        return schemaNames.stream().filter(not(toExclude::contains)).collect(Collectors.toSet());
+        return schemaNames.stream()
+                .filter(not(toExclude::contains))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -458,7 +467,9 @@ public class RangerSystemAccessControl
             return tableNames;
         }
 
-        return tableNames.stream().filter(not(toExclude::contains)).collect(Collectors.toSet());
+        return tableNames.stream()
+                .filter(not(toExclude::contains))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -512,9 +523,29 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        for (RangerTrinoResource resource : RangerTrinoResource.forColumns(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName(), columns)) {
-            if (!hasPermission(resource, context, SELECT, "SelectFromColumns")) {
-                denySelectColumns(table.getSchemaTableName().getTableName(), columns);
+        Collection<RangerAccessRequest> requests = RangerTrinoResource.forColumns(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName(), columns)
+                .stream()
+                .map(resource -> createAccessRequest(resource, context, SELECT, "SelectFromColumns"))
+                .collect(toImmutableList());
+
+        List<RangerAccessResource> errorResources = rangerPlugin.isAccessAllowed(requests)
+                .stream()
+                .filter(request -> !request.getIsAllowed())
+                .map(RangerAccessResult::getAccessRequest)
+                .map(RangerAccessRequest::getResource)
+                .collect(toImmutableList());
+
+        if (!errorResources.isEmpty()) {
+            List<String> errorColumns = errorResources.stream()
+                    .map(resource -> resource.getAsMap().get(RangerTrinoResource.KEY_COLUMN))
+                    .filter(Objects::nonNull)
+                    .map(Object::toString)
+                    .collect(toImmutableList());
+            if (errorColumns.isEmpty()) {
+                denySelectTable(table.getSchemaTableName().getTableName());
+            }
+            else {
+                denySelectColumns(table.getSchemaTableName().getTableName(), errorColumns);
             }
         }
     }
@@ -548,7 +579,9 @@ public class RangerSystemAccessControl
             return columns;
         }
 
-        return columns.stream().filter(not(toExclude::contains)).collect(Collectors.toSet());
+        return columns.stream()
+                .filter(not(toExclude::contains))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -772,7 +805,9 @@ public class RangerSystemAccessControl
             return functionNames;
         }
         else {
-            return functionNames.stream().filter(not(toExclude::contains)).collect(Collectors.toSet());
+            return functionNames.stream()
+                    .filter(not(toExclude::contains))
+                    .collect(toImmutableSet());
         }
     }
 
@@ -782,7 +817,7 @@ public class RangerSystemAccessControl
         RangerAccessResult result = getRowFilterResult(createAccessRequest(createTableResource(tableName), context, SELECT, "getRowFilters"));
 
         if (!isRowFilterEnabled(result)) {
-            return Collections.emptyList();
+            return ImmutableList.of();
         }
 
         String filter = result.getFilterExpr();

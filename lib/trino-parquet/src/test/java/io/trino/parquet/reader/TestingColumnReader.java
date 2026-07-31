@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Longs;
+import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.DictionaryPage;
@@ -61,6 +62,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.airlift.log.Level.ERROR;
 import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
 import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
@@ -124,6 +126,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestingColumnReader
 {
+    static {
+        Logging logging = Logging.initialize();
+        // Tests intentionally store small precision decimals as INT64, which Parquet warns about on every write
+        logging.setLevel("org.apache.parquet.schema", ERROR);
+    }
+
     private static final Map<Type, Class<? extends Block>> BLOCK_CLASSES = ImmutableMap.<Type, Class<? extends Block>>builder()
             .put(BooleanType.BOOLEAN, BitArrayBlock.class)
             .put(BIGINT, LongArrayBlock.class)

@@ -400,7 +400,7 @@ public class TableWriterOperator
     {
         long physicalWrittenDataSize = getTaskContext().getPhysicalWrittenDataSize();
         OptionalInt writerCount = getTaskContext().getMaxWriterCount();
-        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.getAsInt()) {
+        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.orElseThrow()) {
             return;
         }
         pageSink.closeIdleWriters();
