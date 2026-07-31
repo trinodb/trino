@@ -577,7 +577,7 @@ public class TestCassandraConnectorTest
         String materializedViewName = "test_insert_into_mv" + randomNameSuffix();
         onCassandra("CREATE MATERIALIZED VIEW tpch." + materializedViewName + " AS " +
                 "SELECT * FROM tpch.nation " +
-                "WHERE nationkey IS NOT NULL " +
+                "WHERE id IS NOT NULL AND nationkey IS NOT NULL " +
                 "PRIMARY KEY (id, nationkey)");
 
         assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
@@ -1249,8 +1249,8 @@ public class TestCassandraConnectorTest
                 ImmutableList.of("1, 10, 100", "2, 20, 200", "3, 30, 300"))) {
             String mvName = "test_clustering_mv" + randomNameSuffix();
             onCassandra("CREATE MATERIALIZED VIEW tpch." + mvName + " AS " +
-                    "SELECT * FROM " + table.getTableName() + " WHERE id IS NOT NULL " +
-                    "PRIMARY KEY (id, key) " +
+                    "SELECT * FROM " + table.getTableName() + " WHERE id IS NOT NULL AND key IS NOT NULL " +
+                    "PRIMARY KEY (key, id) " +
                     "WITH CLUSTERING ORDER BY (id DESC)");
 
             assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
@@ -1779,7 +1779,7 @@ public class TestCassandraConnectorTest
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
                 .failure()
                 .hasMessage("Cannot get column definition")
-                .hasStackTraceContaining("unconfigured table");
+                .hasStackTraceContaining("does not exist");
     }
 
     @Test
@@ -1847,7 +1847,7 @@ public class TestCassandraConnectorTest
     @Test
     void testExecuteProcedureWithInvalidQuery()
     {
-        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*no viable alternative at input.*");
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*(no viable alternative at input|mismatched input '<EOF>' expecting K_FROM).*");
         assertQueryFails("CALL system.execute('invalid')", "(?s).*no viable alternative at input.*");
     }
 
@@ -1866,13 +1866,13 @@ public class TestCassandraConnectorTest
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(48);
+        return OptionalInt.of(222);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
+        assertThat(e).hasMessageContaining("Table name must not be more than 222 characters long");
     }
 
     @Test
