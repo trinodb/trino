@@ -118,6 +118,8 @@ public class InCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
+        // the switch labels and lookup sets are derived from the constant values
+        generatorContext.getCallSiteBinder().markValueDependent();
         Type type = valueExpression.type();
         Class<?> javaType = type.getJavaType();
 

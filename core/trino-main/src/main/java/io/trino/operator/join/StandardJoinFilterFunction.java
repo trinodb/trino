@@ -48,4 +48,10 @@ public class StandardJoinFilterFunction
 
         return filterFunction.filter(pagePosition, pages.isEmpty() ? EMPTY_PAGE : pages.get(pageIndex), rightPosition, rightPage);
     }
+
+    @Override
+    public String toString()
+    {
+        return filterFunction.toString();
+    }
 }

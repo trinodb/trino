@@ -114,6 +114,7 @@ import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
@@ -243,8 +244,10 @@ public final class StateCompiler
 
         Type type = getSerializedType(fields);
 
-        body.comment("return %s", type.getTypeDescriptor())
-                .append(constantType(callSiteBinder, type))
+        if (isClassDumpEnabled()) {
+            body.comment("return %s", type.getTypeDescriptor());
+        }
+        body.append(constantType(callSiteBinder, type))
                 .retObject();
     }
 

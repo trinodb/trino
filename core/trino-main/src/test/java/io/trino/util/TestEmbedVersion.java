@@ -39,7 +39,7 @@ public class TestEmbedVersion
                 }).run())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Zonky zonk")
-                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___");
+                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___Runnable.run");
     }
 
     @Test
@@ -59,7 +59,7 @@ public class TestEmbedVersion
                 }).call())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Zonky zonk")
-                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___")
+                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___Callable.call")
                 .hasNoCause();
 
         assertThatThrownBy(() ->
@@ -68,7 +68,7 @@ public class TestEmbedVersion
                 }).call())
                 .isInstanceOf(IOException.class)
                 .hasMessage("a checked exception")
-                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___")
+                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___Callable.call")
                 .hasNoCause();
     }
 }

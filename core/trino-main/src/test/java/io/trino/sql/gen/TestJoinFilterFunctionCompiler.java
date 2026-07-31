@@ -13,12 +13,14 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -28,8 +30,10 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,6 +141,48 @@ public class TestJoinFilterFunctionCompiler
         // Different positions → cache miss, two compilations
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getRequestCount()).isEqualTo(2);
         assertThat(compiler.getJoinFilterFunctionFactoryStats().getLoadCount()).isEqualTo(2);
+    }
+
+    @Test
+    public void testFilterTemplateReuse()
+    {
+        JoinFilterFunctionCompiler compiler = new JoinFilterFunctionCompiler(
+                FUNCTION_RESOLUTION.getPlannerContext().getFunctionManager(),
+                FUNCTION_RESOLUTION.getMetadata(),
+                FUNCTION_RESOLUTION.getPlannerContext().getTypeManager());
+
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "left_col"), 0,
+                new Symbol(BIGINT, "right_col"), 1);
+
+        // same structure with different constants shares one compiled template
+        // left[0]=10 > 3 + right[0]=3 → true; 10 > 8 + 3 → false
+        assertThat(filterWithThreshold(compiler, layout, 3)).isTrue();
+        assertThat(filterWithThreshold(compiler, layout, 8)).isFalse();
+
+        // two lookups, one template stored on the first miss and hit by the second
+        assertThat(compiler.getJoinFilterTemplateCache().getRequestCount()).isEqualTo(2);
+        assertThat(compiler.getJoinFilterTemplateCache().size()).isEqualTo(1);
+        assertThat(compiler.getJoinFilterTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    private static boolean filterWithThreshold(JoinFilterFunctionCompiler compiler, Map<Symbol, Integer> layout, long threshold)
+    {
+        // left_col > threshold + right_col
+        Expression filter = comparison(
+                GREATER_THAN,
+                new Reference(BIGINT, "left_col"),
+                call(
+                        FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        new Constant(BIGINT, threshold),
+                        new Reference(BIGINT, "right_col")));
+        JoinFilterFunctionFactory factory = compiler.compileJoinFilterFunction(filter, layout, 1);
+
+        Page leftPage = createLongBlockPage(10);
+        Page rightPage = createLongBlockPage(3);
+        LongArrayList addresses = new LongArrayList(new long[] {0});
+        JoinFilterFunction filterFunction = factory.create(SESSION, addresses, List.of(leftPage));
+        return filterFunction.filter(0, 0, rightPage);
     }
 
     private static Page createLongBlockPage(long... values)

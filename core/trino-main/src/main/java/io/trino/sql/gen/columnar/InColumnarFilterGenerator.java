@@ -41,6 +41,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassTemplateCache;
 import io.trino.sql.gen.InCodeGenerator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -142,14 +143,22 @@ public class InColumnarFilterGenerator
         useSwitchCase = useSwitchCaseGeneration(valueType, expressions);
     }
 
-    public Class<? extends ColumnarFilter> generateColumnarFilter()
+    public Class<? extends ColumnarFilter> generateColumnarFilter(ClassTemplateCache<ColumnarFilter> templates, Expression filter)
     {
+        return createClassInstance(templates, filter, this::defineFilterClass);
+    }
+
+    private ClassDefinition defineFilterClass(CallSiteBinder callSiteBinder)
+    {
+        // the bound lookup set and any switch labels derive from the constant values, so
+        // the generated class cannot serve as a template for other IN lists
+        callSiteBinder.markValueDependent();
+
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(ColumnarFilter.class.getSimpleName() + "_in", Optional.empty()),
                 type(Object.class),
                 type(ColumnarFilter.class));
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         FieldDefinition inputChannelsField = generateGetInputChannels(classDefinition);
         generateConstructor(classDefinition, inputChannelsField);
@@ -169,7 +178,7 @@ public class InColumnarFilterGenerator
                 layout,
                 (scope, position, result) -> generateSetContainsCall(callSiteBinder, scope, constantValuesSet, constant, position, result));
 
-        return createClassInstance(callSiteBinder, classDefinition);
+        return classDefinition;
     }
 
     private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition inputChannelsField)
