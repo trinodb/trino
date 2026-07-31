@@ -98,11 +98,12 @@ public class ClientCredentialsAuthenticator
             return null;
         }
 
-        tokenExpiry = Instant.EPOCH;
-
+        // The cached token used for this request was rejected by the server, so a fresh token is required.
+        // Capture it so refreshToken can detect whether another thread has already refreshed it.
+        String rejectedToken = cachedToken;
         ChallengeHints hints = extractFromChallenge(response);
         try {
-            String token = getValidToken(hints);
+            String token = refreshToken(rejectedToken, hints);
             return withBearerToken(response.request(), token);
         }
         catch (IOException e) {
@@ -147,15 +148,14 @@ public class ClientCredentialsAuthenticator
         return new ChallengeHints(Optional.empty(), Optional.empty());
     }
 
-    private String getValidToken(ChallengeHints hints)
+    private String refreshToken(@Nullable String rejectedToken, ChallengeHints hints)
             throws IOException
     {
-        if (cachedToken != null && Instant.now().isBefore(tokenExpiry)) {
-            return cachedToken;
-        }
         lock.lock();
         try {
-            if (cachedToken != null && Instant.now().isBefore(tokenExpiry)) {
+            // Another thread may have refreshed the token while we waited for the lock.
+            // If the cached token is no longer the rejected one, reuse it.
+            if (cachedToken != null && !cachedToken.equals(rejectedToken)) {
                 return cachedToken;
             }
             String tokenEndpoint = hints.tokenEndpoint()
