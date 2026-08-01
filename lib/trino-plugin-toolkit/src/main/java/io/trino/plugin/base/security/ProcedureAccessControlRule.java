@@ -30,7 +30,7 @@ public class ProcedureAccessControlRule
 {
     private final Set<ProcedurePrivilege> privileges;
     private final IdentityMatcher identityMatcher;
-    private final Optional<Pattern> schemaRegex;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
     private final Optional<Pattern> procedureRegex;
 
     @JsonCreator
@@ -39,19 +39,19 @@ public class ProcedureAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex,
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern,
             @JsonProperty("procedure") Optional<Pattern> procedureRegex)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
         this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
-        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
+        this.schemaPattern = requireNonNull(schemaPattern, "schemaPattern is null");
         this.procedureRegex = requireNonNull(procedureRegex, "procedureRegex is null");
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, SchemaRoutineName procedureName)
     {
         return identityMatcher.matches(user, roles, groups) &&
-                schemaRegex.map(regex -> regex.matcher(procedureName.getSchemaName()).matches()).orElse(true) &&
+                schemaPattern.map(pattern -> pattern.matches(user, procedureName.getSchemaName())).orElse(true) &&
                 procedureRegex.map(regex -> regex.matcher(procedureName.getRoutineName()).matches()).orElse(true);
     }
 
@@ -70,7 +70,7 @@ public class ProcedureAccessControlRule
         if (privileges.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaRegex));
+        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaPattern));
     }
 
     Set<ProcedurePrivilege> getPrivileges()
@@ -83,9 +83,9 @@ public class ProcedureAccessControlRule
         return identityMatcher;
     }
 
-    Optional<Pattern> getSchemaRegex()
+    Optional<UserSubstitutingPattern> getSchemaPattern()
     {
-        return schemaRegex;
+        return schemaPattern;
     }
 
     public enum ProcedurePrivilege

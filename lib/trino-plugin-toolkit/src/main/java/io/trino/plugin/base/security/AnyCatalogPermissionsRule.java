@@ -16,23 +16,22 @@ package io.trino.plugin.base.security;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 public class AnyCatalogPermissionsRule
 {
     private final IdentityMatcher identityMatcher;
-    private final Optional<Pattern> catalogRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
 
-    public AnyCatalogPermissionsRule(IdentityMatcher identityMatcher, Optional<Pattern> catalogRegex)
+    public AnyCatalogPermissionsRule(IdentityMatcher identityMatcher, Optional<UserSubstitutingPattern> catalogPattern)
     {
         this.identityMatcher = identityMatcher;
-        this.catalogRegex = catalogRegex;
+        this.catalogPattern = catalogPattern;
     }
 
     public boolean match(String user, Set<String> roles, Set<String> groups, String catalog)
     {
         return identityMatcher.matches(user, roles, groups) &&
-                catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true);
+                catalogPattern.map(pattern -> pattern.matches(user, catalog)).orElse(true);
     }
 
     @Override
@@ -46,22 +45,12 @@ public class AnyCatalogPermissionsRule
         }
         AnyCatalogPermissionsRule that = (AnyCatalogPermissionsRule) o;
         return identityMatcher.equals(that.identityMatcher) &&
-                patternEquals(catalogRegex, that.catalogRegex);
-    }
-
-    private static boolean patternEquals(Optional<Pattern> left, Optional<Pattern> right)
-    {
-        if (left.isEmpty() || right.isEmpty()) {
-            return left.isEmpty() == right.isEmpty();
-        }
-        Pattern leftPattern = left.get();
-        Pattern rightPattern = right.get();
-        return leftPattern.pattern().equals(rightPattern.pattern()) && leftPattern.flags() == rightPattern.flags();
+                Objects.equals(catalogPattern, that.catalogPattern);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(identityMatcher, catalogRegex);
+        return Objects.hash(identityMatcher, catalogPattern);
     }
 }

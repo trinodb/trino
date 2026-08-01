@@ -32,7 +32,7 @@ public class CatalogSessionPropertyAccessControlRule
             Optional.empty(),
             Optional.empty());
 
-    private final Optional<Pattern> catalogRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
     private final SessionPropertyAccessControlRule sessionPropertyAccessControlRule;
 
     @JsonCreator
@@ -42,15 +42,15 @@ public class CatalogSessionPropertyAccessControlRule
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("property") Optional<Pattern> propertyRegex,
-            @JsonProperty("catalog") Optional<Pattern> catalogRegex)
+            @JsonProperty("catalog") Optional<UserSubstitutingPattern> catalogPattern)
     {
         this.sessionPropertyAccessControlRule = new SessionPropertyAccessControlRule(allow, userRegex, roleRegex, groupRegex, propertyRegex);
-        this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+        this.catalogPattern = requireNonNull(catalogPattern, "catalogPattern is null");
     }
 
     public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, String catalog, String property)
     {
-        if (!catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true)) {
+        if (!catalogPattern.map(pattern -> pattern.matches(user, catalog)).orElse(true)) {
             return Optional.empty();
         }
         return sessionPropertyAccessControlRule.match(user, roles, groups, property);
@@ -63,6 +63,6 @@ public class CatalogSessionPropertyAccessControlRule
         }
         return Optional.of(new AnyCatalogPermissionsRule(
                 sessionPropertyAccessControlRule.getIdentityMatcher(),
-                catalogRegex));
+                catalogPattern));
     }
 }

@@ -36,12 +36,12 @@ public class CatalogFunctionAccessControlRule
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.of(Pattern.compile("system")),
-            Optional.of(Pattern.compile("builtin")),
+            Optional.of(UserSubstitutingPattern.of("system")),
+            Optional.of(UserSubstitutingPattern.of("builtin")),
             Optional.empty(),
             ImmutableSet.of());
 
-    private final Optional<Pattern> catalogRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
     private final FunctionAccessControlRule functionAccessControlRule;
 
     @JsonCreator
@@ -50,23 +50,23 @@ public class CatalogFunctionAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("catalog") Optional<Pattern> catalogRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex,
+            @JsonProperty("catalog") Optional<UserSubstitutingPattern> catalogPattern,
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern,
             @JsonProperty("function") Optional<Pattern> tableFunctionRegex,
             @JsonProperty("function_kinds") @JsonAlias("functionKinds") Set<FunctionKind> functionKinds)
     {
-        this(catalogRegex, new FunctionAccessControlRule(privileges, userRegex, roleRegex, groupRegex, schemaRegex, tableFunctionRegex, functionKinds));
+        this(catalogPattern, new FunctionAccessControlRule(privileges, userRegex, roleRegex, groupRegex, schemaPattern, tableFunctionRegex, functionKinds));
     }
 
-    private CatalogFunctionAccessControlRule(Optional<Pattern> catalogRegex, FunctionAccessControlRule functionAccessControlRule)
+    private CatalogFunctionAccessControlRule(Optional<UserSubstitutingPattern> catalogPattern, FunctionAccessControlRule functionAccessControlRule)
     {
-        this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+        this.catalogPattern = requireNonNull(catalogPattern, "catalogPattern is null");
         this.functionAccessControlRule = requireNonNull(functionAccessControlRule, "functionAccessControlRule is null");
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, CatalogSchemaRoutineName functionName)
     {
-        if (!catalogRegex.map(regex -> regex.matcher(functionName.getCatalogName()).matches()).orElse(true)) {
+        if (!catalogPattern.map(pattern -> pattern.matches(user, functionName.getCatalogName())).orElse(true)) {
             return false;
         }
         return functionAccessControlRule.matches(user, roles, groups, functionName.getSchemaRoutineName());
@@ -79,7 +79,7 @@ public class CatalogFunctionAccessControlRule
         }
         return Optional.of(new AnyCatalogPermissionsRule(
                 functionAccessControlRule.getIdentityMatcher(),
-                catalogRegex));
+                catalogPattern));
     }
 
     Optional<AnyCatalogSchemaPermissionsRule> toAnyCatalogSchemaPermissionsRule()
@@ -89,8 +89,8 @@ public class CatalogFunctionAccessControlRule
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
                 functionAccessControlRule.getIdentityMatcher(),
-                catalogRegex,
-                functionAccessControlRule.getSchemaRegex()));
+                catalogPattern,
+                functionAccessControlRule.getSchemaPattern()));
     }
 
     public boolean canExecuteFunction()

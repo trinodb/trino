@@ -1287,6 +1287,127 @@ public abstract class BaseFileBasedSystemAccessControlTest
     }
 
     @Test
+    public void testUserSubstitutionForFilterCatalogs()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // {user} in the catalog field
+        Set<String> allCatalogs = ImmutableSet.of("alice_catalog", "bob_catalog", "sandbox", "other");
+        assertThat(accessControl.filterCatalogs(ALICE, allCatalogs)).isEqualTo(ImmutableSet.of("alice_catalog", "sandbox"));
+        assertThat(accessControl.filterCatalogs(BOB, allCatalogs)).isEqualTo(ImmutableSet.of("bob_catalog", "sandbox"));
+    }
+
+    @Test
+    public void testUserSubstitutionForCheckCanShowSchemas()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // {user} in the catalog field
+        accessControl.checkCanShowSchemas(ALICE, "alice_catalog");
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "bob_catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testUserSubstitutionInTableRulesUsingCatalogField()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("alice_catalog", "any", "any"), Optional.empty(), ImmutableSet.of());
+        assertAccessDenied(
+                () -> accessControl.checkCanSelectFromColumns(BOB, new CatalogSchemaTableName("alice_catalog", "any", "any"), Optional.empty(), ImmutableSet.of()),
+                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testUserSubstitutionForFilterSchemas()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // {user} in the schema field
+        assertThat(accessControl.filterSchemas(ALICE, "sandbox", ImmutableSet.of("alice", "bob", "other"))).isEqualTo(ImmutableSet.of("alice"));
+        assertThat(accessControl.filterSchemas(BOB, "sandbox", ImmutableSet.of("alice", "bob", "other"))).isEqualTo(ImmutableSet.of("bob"));
+    }
+
+    @Test
+    public void testUserSubstitutionInSchemaRules()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        accessControl.checkCanCreateSchema(ALICE, new CatalogSchemaName("sandbox", "alice"), ImmutableMap.of());
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(ALICE, new CatalogSchemaName("sandbox", "bob"), ImmutableMap.of()), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testUserSubstitutionInTableRulesUsingSchemaField()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        CatalogSchemaTableName aliceSandboxTable = new CatalogSchemaTableName("sandbox", "alice", "some_table");
+        CatalogSchemaTableName bobSandboxTable = new CatalogSchemaTableName("sandbox", "bob", "some_table");
+        accessControl.checkCanCreateTable(ALICE, aliceSandboxTable, Map.of());
+        accessControl.checkCanSelectFromColumns(ALICE, aliceSandboxTable, Optional.empty(), ImmutableSet.of());
+        accessControl.checkCanInsertIntoTable(ALICE, aliceSandboxTable, Optional.empty());
+        accessControl.checkCanDropTable(ALICE, aliceSandboxTable);
+        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(ALICE, bobSandboxTable, Optional.empty(), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, bobSandboxTable, Optional.empty()), INSERT_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testUserSubstitutionInFunctionRules()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // {user} in the catalog field of function rules
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("alice_catalog", "any", "some_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("sandbox", "any", "some_function"))).isFalse();
+    }
+
+    @Test
+    public void testUserSubstitutionInProcedureRules()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // {user} in the schema field of procedure rules
+        accessControl.checkCanExecuteProcedure(ALICE, new CatalogSchemaRoutineName("sandbox", "alice", "some_procedure"));
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(ALICE, new CatalogSchemaRoutineName("sandbox", "bob", "some_procedure")),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testUserSubstitutionInCatalogSessionPropertyRules()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // {user} in the catalog field of session property rules
+        accessControl.checkCanSetCatalogSessionProperty(ALICE, "alice_catalog", "some_property");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetCatalogSessionProperty(ALICE, "sandbox", "some_property"),
+                SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testUserSubstitutionMatchesUserNameLiterally()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-user-substitution.json");
+
+        // user names containing regex metacharacters are matched literally
+        SystemSecurityContext dashedUser = new SystemSecurityContext(Identity.ofUser("a-user"), queryId, queryStart);
+        accessControl.checkCanCreateSchema(dashedUser, new CatalogSchemaName("sandbox", "a-user"), ImmutableMap.of());
+        assertThat(accessControl.filterSchemas(dashedUser, "sandbox", ImmutableSet.of("a-user", "other"))).isEqualTo(ImmutableSet.of("a-user"));
+    }
+
+    @Test
     public void testSchemaRulesForCheckCanShowTables()
             throws Exception
     {

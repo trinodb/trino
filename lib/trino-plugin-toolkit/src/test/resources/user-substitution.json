@@ -1,0 +1,31 @@
+{
+    "schemas": [
+        {
+            "schema": "^{user}$",
+            "owner": true
+        }
+    ],
+    "tables": [
+        {
+            "schema": "^{user}$",
+            "privileges": ["SELECT", "INSERT", "OWNERSHIP"]
+        },
+        {
+            "schema": "shared",
+            "table": "^{user}_.*$",
+            "privileges": ["SELECT"]
+        }
+    ],
+    "functions": [
+        {
+            "schema": "^{user}$",
+            "privileges": ["EXECUTE"]
+        }
+    ],
+    "procedures": [
+        {
+            "schema": "^{user}$",
+            "privileges": ["EXECUTE"]
+        }
+    ]
+}

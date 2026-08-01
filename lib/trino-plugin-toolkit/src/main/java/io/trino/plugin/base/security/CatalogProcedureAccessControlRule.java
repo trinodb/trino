@@ -34,11 +34,11 @@ public class CatalogProcedureAccessControlRule
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.of(Pattern.compile("system")),
-            Optional.of(Pattern.compile("builtin")),
+            Optional.of(UserSubstitutingPattern.of("system")),
+            Optional.of(UserSubstitutingPattern.of("builtin")),
             Optional.empty());
 
-    private final Optional<Pattern> catalogRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
     private final ProcedureAccessControlRule procedureAccessControlRule;
 
     @JsonCreator
@@ -47,22 +47,22 @@ public class CatalogProcedureAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("catalog") Optional<Pattern> catalogRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex,
+            @JsonProperty("catalog") Optional<UserSubstitutingPattern> catalogPattern,
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern,
             @JsonProperty("procedure") Optional<Pattern> procedureRegex)
     {
-        this(catalogRegex, new ProcedureAccessControlRule(privileges, userRegex, roleRegex, groupRegex, schemaRegex, procedureRegex));
+        this(catalogPattern, new ProcedureAccessControlRule(privileges, userRegex, roleRegex, groupRegex, schemaPattern, procedureRegex));
     }
 
-    private CatalogProcedureAccessControlRule(Optional<Pattern> catalogRegex, ProcedureAccessControlRule procedureAccessControlRule)
+    private CatalogProcedureAccessControlRule(Optional<UserSubstitutingPattern> catalogPattern, ProcedureAccessControlRule procedureAccessControlRule)
     {
-        this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+        this.catalogPattern = requireNonNull(catalogPattern, "catalogPattern is null");
         this.procedureAccessControlRule = requireNonNull(procedureAccessControlRule, "procedureAccessControlRule is null");
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, CatalogSchemaRoutineName procedureName)
     {
-        if (!catalogRegex.map(regex -> regex.matcher(procedureName.getCatalogName()).matches()).orElse(true)) {
+        if (!catalogPattern.map(pattern -> pattern.matches(user, procedureName.getCatalogName())).orElse(true)) {
             return false;
         }
         return procedureAccessControlRule.matches(user, roles, groups, procedureName.getSchemaRoutineName());
@@ -75,7 +75,7 @@ public class CatalogProcedureAccessControlRule
         }
         return Optional.of(new AnyCatalogPermissionsRule(
                 procedureAccessControlRule.getIdentityMatcher(),
-                catalogRegex));
+                catalogPattern));
     }
 
     Optional<AnyCatalogSchemaPermissionsRule> toAnyCatalogSchemaPermissionsRule()
@@ -85,8 +85,8 @@ public class CatalogProcedureAccessControlRule
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
                 procedureAccessControlRule.getIdentityMatcher(),
-                catalogRegex,
-                procedureAccessControlRule.getSchemaRegex()));
+                catalogPattern,
+                procedureAccessControlRule.getSchemaPattern()));
     }
 
     public boolean canExecuteProcedure()
