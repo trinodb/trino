@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.testing.containers.environment.Row.row;
+import static io.trino.tests.product.ConfiguredFeatures.assertDefaultConnectors;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -36,6 +37,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TestHiveViewCompatibility
 {
     private static final String SOURCE_TABLE = "hive_view_compat_source";
+
+    @Test
+    void testConfiguredConnectors(CompatibilityEnvironment env)
+    {
+        assertDefaultConnectors(env, "hive", "iceberg");
+    }
 
     @Test
     void testSelectOnView(CompatibilityEnvironment env)
