@@ -16,26 +16,25 @@ package io.trino.plugin.base.security;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 public class AnyCatalogSchemaPermissionsRule
 {
     private final IdentityMatcher identityMatcher;
-    private final Optional<Pattern> catalogRegex;
-    private final Optional<Pattern> schemaRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
 
-    public AnyCatalogSchemaPermissionsRule(IdentityMatcher identityMatcher, Optional<Pattern> catalogRegex, Optional<Pattern> schemaRegex)
+    public AnyCatalogSchemaPermissionsRule(IdentityMatcher identityMatcher, Optional<UserSubstitutingPattern> catalogPattern, Optional<UserSubstitutingPattern> schemaPattern)
     {
         this.identityMatcher = identityMatcher;
-        this.catalogRegex = catalogRegex;
-        this.schemaRegex = schemaRegex;
+        this.catalogPattern = catalogPattern;
+        this.schemaPattern = schemaPattern;
     }
 
     public boolean match(String user, Set<String> roles, Set<String> groups, String catalogName, String schemaName)
     {
         return identityMatcher.matches(user, roles, groups) &&
-                catalogRegex.map(regex -> regex.matcher(catalogName).matches()).orElse(true) &&
-                schemaRegex.map(regex -> regex.matcher(schemaName).matches()).orElse(true);
+                catalogPattern.map(pattern -> pattern.matches(user, catalogName)).orElse(true) &&
+                schemaPattern.map(pattern -> pattern.matches(user, schemaName)).orElse(true);
     }
 
     @Override
@@ -49,23 +48,13 @@ public class AnyCatalogSchemaPermissionsRule
         }
         AnyCatalogSchemaPermissionsRule that = (AnyCatalogSchemaPermissionsRule) o;
         return identityMatcher.equals(that.identityMatcher) &&
-                patternEquals(catalogRegex, that.catalogRegex) &&
-                patternEquals(schemaRegex, that.schemaRegex);
-    }
-
-    private static boolean patternEquals(Optional<Pattern> left, Optional<Pattern> right)
-    {
-        if (left.isEmpty() || right.isEmpty()) {
-            return left.isEmpty() == right.isEmpty();
-        }
-        Pattern leftPattern = left.get();
-        Pattern rightPattern = right.get();
-        return leftPattern.pattern().equals(rightPattern.pattern()) && leftPattern.flags() == rightPattern.flags();
+                Objects.equals(catalogPattern, that.catalogPattern) &&
+                Objects.equals(schemaPattern, that.schemaPattern);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(identityMatcher, catalogRegex, schemaRegex);
+        return Objects.hash(identityMatcher, catalogPattern, schemaPattern);
     }
 }

@@ -164,6 +164,33 @@ visible. Specifically:
   on any nested table or function.
 - `table`: Visible if the user has any permissions on the table.
 
+(system-file-auth-user-substitution)=
+#### User substitution
+
+The `catalog`, `schema`, and `table` fields of the catalog, schema, table,
+function, procedure, and catalog session property rules support the `{user}`
+placeholder. Before a rule is matched, every
+occurrence of `{user}` in these fields is replaced with the name of the
+current user. The user name is matched literally, so user names containing
+regular expression metacharacters, such as `.` or `-`, do not change the
+meaning of the pattern.
+
+```json
+{
+  "tables": [
+    {
+      "catalog": "sandbox",
+      "schema": "^{user}$",
+      "privileges": ["SELECT", "INSERT", "DELETE", "UPDATE", "OWNERSHIP", "GRANT_SELECT"]
+    }
+  ]
+}
+```
+
+Patterns that do not contain the `{user}` placeholder are validated when the
+rules are loaded, so any other use of `{` and `}` that is not a valid regular
+expression is still reported as an error at startup.
+
 #### Catalog rules
 
 Each catalog rule is composed of the following fields:
@@ -837,6 +864,8 @@ order from top to bottom:
 
 The user is granted the privileges from the first matching rule. All regexes
 default to `.*` if not specified.
+The `schema` and `table` fields support the `{user}` placeholder as described in
+[user substitution](system-file-auth-user-substitution).
 
 #### Schema rules
 

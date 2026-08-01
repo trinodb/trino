@@ -1,0 +1,10 @@
+{
+    "tables": [
+        {
+            "schema": "^{admin}$",
+            "privileges": [
+                "SELECT"
+            ]
+        }
+    ]
+}

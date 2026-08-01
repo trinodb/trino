@@ -51,8 +51,8 @@ public class TableAccessControlRule
     private final Optional<String> filter;
     private final Optional<ExpressionEnvironment> filterEnvironment;
     private final IdentityMatcher identityMatcher;
-    private final Optional<Pattern> schemaRegex;
-    private final Optional<Pattern> tableRegex;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
+    private final Optional<UserSubstitutingPattern> tablePattern;
 
     @JsonCreator
     public TableAccessControlRule(
@@ -63,8 +63,8 @@ public class TableAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex,
-            @JsonProperty("table") Optional<Pattern> tableRegex)
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern,
+            @JsonProperty("table") Optional<UserSubstitutingPattern> tablePattern)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
         this.columnConstraints = Maps.uniqueIndex(columns.orElse(ImmutableList.of()), ColumnConstraint::getName);
@@ -75,15 +75,15 @@ public class TableAccessControlRule
         this.filter = requireNonNull(filter, "filter is null");
         this.filterEnvironment = requireNonNull(filterEnvironment, "filterEnvironment is null");
         this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
-        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
-        this.tableRegex = requireNonNull(tableRegex, "tableRegex is null");
+        this.schemaPattern = requireNonNull(schemaPattern, "schemaPattern is null");
+        this.tablePattern = requireNonNull(tablePattern, "tablePattern is null");
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, SchemaTableName table)
     {
         return identityMatcher.matches(user, roles, groups) &&
-                schemaRegex.map(regex -> regex.matcher(table.getSchemaName()).matches()).orElse(true) &&
-                tableRegex.map(regex -> regex.matcher(table.getTableName()).matches()).orElse(true);
+                schemaPattern.map(pattern -> pattern.matches(user, table.getSchemaName())).orElse(true) &&
+                tablePattern.map(pattern -> pattern.matches(user, table.getTableName())).orElse(true);
     }
 
     public Set<String> getRestrictedColumns()
@@ -129,7 +129,7 @@ public class TableAccessControlRule
         if (privileges.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaRegex));
+        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaPattern));
     }
 
     Set<TablePrivilege> getPrivileges()
@@ -142,9 +142,9 @@ public class TableAccessControlRule
         return identityMatcher;
     }
 
-    Optional<Pattern> getSchemaRegex()
+    Optional<UserSubstitutingPattern> getSchemaPattern()
     {
-        return schemaRegex;
+        return schemaPattern;
     }
 
     public enum TablePrivilege

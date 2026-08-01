@@ -16,23 +16,22 @@ package io.trino.plugin.base.security;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 public class AnySchemaPermissionsRule
 {
     private final IdentityMatcher identityMatcher;
-    private final Optional<Pattern> schemaRegex;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
 
-    public AnySchemaPermissionsRule(IdentityMatcher identityMatcher, Optional<Pattern> schemaRegex)
+    public AnySchemaPermissionsRule(IdentityMatcher identityMatcher, Optional<UserSubstitutingPattern> schemaPattern)
     {
         this.identityMatcher = identityMatcher;
-        this.schemaRegex = schemaRegex;
+        this.schemaPattern = schemaPattern;
     }
 
     public boolean match(String user, Set<String> roles, Set<String> groups, String schemaName)
     {
         return identityMatcher.matches(user, roles, groups) &&
-                schemaRegex.map(regex -> regex.matcher(schemaName).matches()).orElse(true);
+                schemaPattern.map(pattern -> pattern.matches(user, schemaName)).orElse(true);
     }
 
     @Override
@@ -46,22 +45,12 @@ public class AnySchemaPermissionsRule
         }
         AnySchemaPermissionsRule that = (AnySchemaPermissionsRule) o;
         return identityMatcher.equals(that.identityMatcher) &&
-                patternEquals(schemaRegex, that.schemaRegex);
-    }
-
-    private static boolean patternEquals(Optional<Pattern> left, Optional<Pattern> right)
-    {
-        if (left.isEmpty() || right.isEmpty()) {
-            return left.isEmpty() == right.isEmpty();
-        }
-        Pattern leftPattern = left.get();
-        Pattern rightPattern = right.get();
-        return leftPattern.pattern().equals(rightPattern.pattern()) && leftPattern.flags() == rightPattern.flags();
+                Objects.equals(schemaPattern, that.schemaPattern);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(identityMatcher, schemaRegex);
+        return Objects.hash(identityMatcher, schemaPattern);
     }
 }

@@ -33,7 +33,7 @@ public class SchemaAccessControlRule
 
     private final boolean owner;
     private final IdentityMatcher identityMatcher;
-    private final Optional<Pattern> schemaRegex;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
 
     @JsonCreator
     public SchemaAccessControlRule(
@@ -41,17 +41,17 @@ public class SchemaAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex)
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern)
     {
         this.owner = owner;
         this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
-        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
+        this.schemaPattern = requireNonNull(schemaPattern, "schemaPattern is null");
     }
 
     public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, String schema)
     {
         if (identityMatcher.matches(user, roles, groups) &&
-                schemaRegex.map(regex -> regex.matcher(schema).matches()).orElse(true)) {
+                schemaPattern.map(pattern -> pattern.matches(user, schema)).orElse(true)) {
             return Optional.of(owner);
         }
         return Optional.empty();
@@ -62,7 +62,7 @@ public class SchemaAccessControlRule
         if (!owner) {
             return Optional.empty();
         }
-        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaRegex));
+        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaPattern));
     }
 
     boolean isOwner()
@@ -75,8 +75,8 @@ public class SchemaAccessControlRule
         return identityMatcher;
     }
 
-    Optional<Pattern> getSchemaRegex()
+    Optional<UserSubstitutingPattern> getSchemaPattern()
     {
-        return schemaRegex;
+        return schemaPattern;
     }
 }
