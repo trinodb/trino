@@ -33,10 +33,7 @@ public class GcsAccessTokenAuth
     {
         String accessToken = nullToEmpty(identity.getExtraCredentials().get(GCS_OAUTH_KEY));
         try (ByteArrayInputStream inputStream = new ByteArrayInputStream(accessToken.getBytes(UTF_8))) {
-            GoogleCredentials credentials = GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES);
-            if (credentials != null) {
-                builder.setCredentials(credentials);
-            }
+            builder.setCredentials(GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES));
         }
     }
 }
