@@ -201,7 +201,7 @@
 
         <dependency>
             <groupId>net.snowflake</groupId>
-            <artifactId>snowflake-jdbc</artifactId>
+            <artifactId>snowflake-jdbc-thin</artifactId>
         </dependency>
 
         <dependency>
@@ -255,6 +255,14 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-snowflake</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- The uber jar bundles unshaded Conscrypt 2.5.2 classes that break TLS in
+                         Google Cloud libraries; replaced with snowflake-jdbc-thin -->
+                    <groupId>net.snowflake</groupId>
+                    <artifactId>snowflake-jdbc</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -929,11 +937,7 @@
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                        <ignoredResourcePattern>org/conscrypt/conscrypt.properties</ignoredResourcePattern>
                     </ignoredResourcePatterns>
-                    <ignoredClassPatterns>
-                        <ignoredClassPattern>org.conscrypt.*</ignoredClassPattern>
-                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
             <plugin>
