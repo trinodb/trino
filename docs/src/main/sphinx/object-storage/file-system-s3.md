@@ -32,6 +32,10 @@ support:
   - Enable cross region access. Defaults to `false`.
 * - `s3.path-style-access`
   - Use path-style access for all requests to S3
+* - `s3.expect-continue-enabled`
+  - Enable the HTTP expect-continue handshake for S3 PUT requests. Defaults to
+    `true`. Set to `false` for S3-compatible storage systems that reject
+    requests using this handshake.
 * - `s3.storage-class`
   - S3 storage class to use while writing data. Defaults to `STANDARD`. Other allowed
     values are: `STANDARD_IA`, `INTELLIGENT_TIERING`, `REDUCED_REDUNDANCY`, `ONEZONE_IA`,
