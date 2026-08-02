@@ -24,12 +24,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -77,43 +71,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-product-tests-groups</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-kafka</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-ldap</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-runner</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka-clients</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.github.luben</groupId>
-                    <artifactId>zstd-jni</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -124,11 +82,6 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
         </dependency>
 
         <dependency>
@@ -236,7 +189,6 @@
             <artifactId>snappy-java</artifactId>
             <scope>runtime</scope>
         </dependency>
-
         <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>databricks-jdbc</artifactId>
@@ -325,6 +277,12 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -506,39 +464,6 @@
                             </artifactItems>
                         </configuration>
                     </execution>
-                    <!-- The JUnit migration makes concurrent test scoped, but the legacy TestNG listener
-                         still needs it in the packaged test runtime until the legacy framework is removed. -->
-                    <execution>
-                        <id>copy-legacy-product-test-runtime-dependencies</id>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <skip>false</skip>
-                            <includeArtifactIds>concurrent</includeArtifactIds>
-                            <includeScope>test</includeScope>
-                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>copy-runtime-classpath</id>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <!-- The product test launcher mounts this directory together with the module jar
-                                 into the tests container and runs the tests with a wildcard classpath.
-                                 This replaces the former shaded executable uber-jar, which was slow to build
-                                 and rebuilt from scratch on every invocation. -->
-                            <!-- This execution packages the test runtime classpath, it is not a check.
-                                 Override the airbase plugin-level skip so it still runs with -Dair.check.skip-all. -->
-                            <skip>false</skip>
-                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                            <includeScope>runtime</includeScope>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
 
@@ -560,15 +485,10 @@
                     </systemPropertyVariables>
                 </configuration>
                 <dependencies>
-                    <!-- allow both JUnit and TestNG -->
+                    <!-- JUnit platform provider for framework sanity tests in this module -->
                     <dependency>
                         <groupId>org.apache.maven.surefire</groupId>
                         <artifactId>surefire-junit-platform</artifactId>
-                        <version>${dep.plugin.surefire.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-testng</artifactId>
                         <version>${dep.plugin.surefire.version}</version>
                     </dependency>
                 </dependencies>
