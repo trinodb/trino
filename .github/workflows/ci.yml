@@ -1256,33 +1256,47 @@ jobs:
           failed_suites=()
           for suite in ${{ matrix.suites }}; do
             log_file="logs/${suite}.log"
+            availability_env=""
             required_env=()
             case "${suite}" in
               SuiteGcs)
+                availability_env=GCP_CREDENTIALS_KEY
                 required_env+=(GCP_CREDENTIALS_KEY GCP_STORAGE_BUCKET)
                 ;;
               SuiteAzure)
+                availability_env=ABFS_ACCESS_KEY
                 required_env+=(ABFS_CONTAINER ABFS_ACCOUNT ABFS_ACCESS_KEY)
                 ;;
               SuiteSnowflake)
+                availability_env=SNOWFLAKE_PASSWORD
                 required_env+=(SNOWFLAKE_URL SNOWFLAKE_USER SNOWFLAKE_PASSWORD SNOWFLAKE_DATABASE SNOWFLAKE_ROLE SNOWFLAKE_WAREHOUSE)
                 ;;
               SuiteDeltaLakeDatabricks133)
+                availability_env=DATABRICKS_TOKEN
                 required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_133_JDBC_URL)
                 ;;
               SuiteDeltaLakeDatabricks143)
+                availability_env=DATABRICKS_TOKEN
                 required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_143_JDBC_URL)
                 ;;
               SuiteDeltaLakeDatabricks154)
+                availability_env=DATABRICKS_TOKEN
                 required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_154_JDBC_URL)
                 ;;
               SuiteDeltaLakeDatabricks164)
+                availability_env=DATABRICKS_TOKEN
                 required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_164_JDBC_URL)
                 ;;
               SuiteDeltaLakeDatabricks173)
+                availability_env=DATABRICKS_TOKEN
                 required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_173_JDBC_URL)
                 ;;
             esac
+
+            if [ -n "${availability_env}" ] && [ -z "${!availability_env:-}" ] && [ -z "${CI_SKIP_SECRETS_PRESENCE_CHECKS:-}" ]; then
+              echo "${suite}: SKIPPED (missing availability credential: ${availability_env})"
+              continue
+            fi
 
             missing_env=()
             for env_name in "${required_env[@]}"; do
@@ -1291,7 +1305,9 @@ jobs:
               fi
             done
             if [ "${#missing_env[@]}" -gt 0 ]; then
-              echo "${suite}: SKIPPED (missing env: ${missing_env[*]})"
+              echo "Missing required env: ${missing_env[*]}" > "${log_file}"
+              failed=1
+              failed_suites+=("${suite}")
               continue
             fi
 
