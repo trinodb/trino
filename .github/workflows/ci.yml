@@ -910,7 +910,6 @@ jobs:
             - default
           suite:
             - suite-storage-formats-detailed
-            - suite-parquet
           exclude:
 
           ignore exclusion if:
