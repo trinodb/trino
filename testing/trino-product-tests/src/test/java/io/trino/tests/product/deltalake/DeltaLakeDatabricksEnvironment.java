@@ -223,7 +223,10 @@ public class DeltaLakeDatabricksEnvironment
     public Connection createDatabricksConnection()
             throws SQLException
     {
-        return DriverManager.getConnection(databricksJdbcUrl(), databricksLogin(), databricksToken());
+        return DriverManager.getConnection(
+                appendJdbcOption(databricksJdbcUrl(), "SocketTimeout=120"),
+                databricksLogin(),
+                databricksToken());
     }
 
     @Override
