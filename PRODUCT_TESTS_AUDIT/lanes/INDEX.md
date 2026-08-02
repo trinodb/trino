@@ -1,0 +1,136 @@
+# Lane Index
+
+Lane audit files grouped by migration section.
+
+- [Mysql Mariadb](mysql-mariadb.md)
+    - Primary class migrations: `5`
+    - Audited methods: `15`
+    - Status counts: verified `3`, intentional difference `12`, needs follow-up `0`
+- [Postgresql](postgresql.md)
+    - Primary class migrations: `2`
+    - Audited methods: `8`
+    - Status counts: verified `0`, intentional difference `8`, needs follow-up `0`
+- [Sql Server](sql-server.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Cassandra](cassandra.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Clickhouse](clickhouse.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Blackhole](blackhole.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Kafka](kafka.md)
+    - Primary class migrations: `9`
+    - Audited methods: `27`
+    - Status counts: verified `20`, intentional difference `7`, needs follow-up `0`
+- [Ldap](ldap.md)
+    - Primary class migrations: `4`
+    - Audited methods: `38`
+    - Status counts: verified `30`, intentional difference `8`, needs follow-up `0`
+- [Jdbc](jdbc.md)
+    - Primary class migrations: `2`
+    - Audited methods: `20`
+    - Status counts: verified `20`, intentional difference `0`, needs follow-up `0`
+- [Jdbc Oauth2](jdbc-oauth2.md)
+    - Primary class migrations: `2`
+    - Audited methods: `5`
+    - Status counts: verified `5`, intentional difference `0`, needs follow-up `0`
+- [Jdbc Kerberos](jdbc-kerberos.md)
+    - Primary class migrations: `1`
+    - Audited methods: `4`
+    - Status counts: verified `4`, intentional difference `0`, needs follow-up `0`
+- [Clients](clients.md)
+    - Primary class migrations: `2`
+    - Audited methods: `30`
+    - Status counts: verified `24`, intentional difference `6`, needs follow-up `0`
+- [Tls](tls.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Exasol](exasol.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Loki](loki.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Functions](functions.md)
+    - Primary class migrations: `1`
+    - Audited methods: `5`
+    - Status counts: verified `5`, intentional difference `0`, needs follow-up `0`
+- [Tpch](tpch.md)
+    - Primary class migrations: `0`
+    - Audited methods: `0`
+    - Status counts: verified `0`, intentional difference `0`, needs follow-up `0`
+- [Tpcds](tpcds.md)
+    - Primary class migrations: `0`
+    - Audited methods: `0`
+    - Status counts: verified `0`, intentional difference `0`, needs follow-up `0`
+- [Ranger](ranger.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Fault Tolerant](fault-tolerant.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [All Connectors Smoke](all-connectors-smoke.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Ignite](ignite.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Snowflake](snowflake.md)
+    - Primary class migrations: `1`
+    - Audited methods: `1`
+    - Status counts: verified `1`, intentional difference `0`, needs follow-up `0`
+- [Hive](hive.md)
+    - Primary class migrations: `58`
+    - Audited methods: `657`
+    - Status counts: verified `547`, intentional difference `110`, needs follow-up `0`
+- [Hive4](hive4.md)
+    - Primary class migrations: `0`
+    - Audited methods: `0`
+    - Status counts: verified `0`, intentional difference `0`, needs follow-up `0`
+- [Hudi](hudi.md)
+    - Primary class migrations: `1`
+    - Audited methods: `11`
+    - Status counts: verified `11`, intentional difference `0`, needs follow-up `0`
+- [Iceberg](iceberg.md)
+    - Primary class migrations: `12`
+    - Audited methods: `186`
+    - Status counts: verified `139`, intentional difference `47`, needs follow-up `0`
+- [Delta Lake](delta-lake.md)
+    - Primary class migrations: `31`
+    - Audited methods: `198`
+    - Status counts: verified `191`, intentional difference `7`, needs follow-up `0`
+- [Compatibility](compatibility.md)
+    - Primary class migrations: `0`
+    - Audited methods: `5`
+    - Status counts: verified `5`, intentional difference `0`, needs follow-up `0`
+- [Gcs](gcs.md)
+    - Primary class migrations: `3`
+    - Audited methods: `13`
+    - Status counts: verified `13`, intentional difference `0`, needs follow-up `0`
+- [Azure](azure.md)
+    - Primary class migrations: `5`
+    - Audited methods: `20`
+    - Status counts: verified `20`, intentional difference `0`, needs follow-up `0`
+- [Databricks](databricks.md)
+    - Primary class migrations: `5`
+    - Audited methods: `18`
+    - Status counts: verified `18`, intentional difference `0`, needs follow-up `0`
+- [Parquet](parquet.md)
+    - Primary class migrations: `5`
+    - Audited methods: `7`
+    - Status counts: verified `2`, intentional difference `5`, needs follow-up `0`
