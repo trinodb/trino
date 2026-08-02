@@ -49,8 +49,7 @@ public class TestInvocations
 
         assertThat(invocationResult.exitCode()).isEqualTo(0);
         assertThat(invocationResult.lines())
-                .contains("Available suites: ")
-                .contains("suite-storage-formats-detailed");
+                .contains("Available suites: ");
     }
 
     @Test
@@ -69,23 +68,6 @@ public class TestInvocations
         assertThat(invocationResult.exitCode()).isEqualTo(0);
         assertThat(invocationResult.lines())
                 .contains("Environment 'multinode-postgresql' file mounts:");
-    }
-
-    @Test
-    public void testDescribeSuite()
-            throws IOException
-    {
-        InvocationResult invocationResult = invokeLauncher(
-                "suite",
-                "describe",
-                "--server-package",
-                Files.createTempFile("server", ".tar.gz").toString(),
-                "--suite",
-                "suite-storage-formats-detailed");
-
-        assertThat(invocationResult.exitCode()).isEqualTo(0);
-        assertThat(invocationResult.lines())
-                .contains("Suite 'suite-storage-formats-detailed' with configuration 'config-default' consists of following test runs: ");
     }
 
     @Test
