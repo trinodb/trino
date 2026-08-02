@@ -147,6 +147,7 @@ public class S3FileSystemConfig
     private String endpoint;
     private String region;
     private boolean pathStyleAccess;
+    private boolean expectContinueEnabled = true;
     private StorageClassType storageClass = StorageClassType.STANDARD;
     private String iamRole;
     private String roleSessionName = "trino-filesystem";
@@ -237,6 +238,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setPathStyleAccess(boolean pathStyleAccess)
     {
         this.pathStyleAccess = pathStyleAccess;
+        return this;
+    }
+
+    public boolean isExpectContinueEnabled()
+    {
+        return expectContinueEnabled;
+    }
+
+    @Config("s3.expect-continue-enabled")
+    @ConfigDescription("Enable HTTP expect-continue handshake for S3 PUT requests; disable for S3-compatible gateways that reject it")
+    public S3FileSystemConfig setExpectContinueEnabled(boolean expectContinueEnabled)
+    {
+        this.expectContinueEnabled = expectContinueEnabled;
         return this;
     }
 
