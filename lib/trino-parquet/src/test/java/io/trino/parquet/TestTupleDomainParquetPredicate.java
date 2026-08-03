@@ -502,6 +502,33 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testDoubleWithFloatColumn()
+            throws Exception
+    {
+        // A column widened from REAL to DOUBLE keeps its physical FLOAT statistics in every file written before the change
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(FLOAT, "FloatColumn");
+
+        float minimum = 4.3f;
+        float maximum = 40.3f;
+
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(minimum, maximum), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+
+        assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(minimum)))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) minimum, true)), true));
+
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(FLOAT).named("test_float"),
+                BoundaryOrder.UNORDERED,
+                asList(false),
+                asList(0L),
+                toFloatByteBufferList(minimum),
+                toFloatByteBufferList(maximum));
+        assertThat(getDomain(DOUBLE, 200, columnIndex, ID, columnDescriptor, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+    }
+
+    @Test
     public void testStatisticsAreIgnoredWhenTypeDoesNotMatchColumn()
             throws Exception
     {
@@ -546,6 +573,7 @@ public class TestTupleDomainParquetPredicate
         assertThat(isStatisticsDecodableAs(INTEGER, primitiveType(INT64))).isTrue();
         assertThat(isStatisticsDecodableAs(REAL, primitiveType(FLOAT))).isTrue();
         assertThat(isStatisticsDecodableAs(DOUBLE, primitiveType(PrimitiveTypeName.DOUBLE))).isTrue();
+        assertThat(isStatisticsDecodableAs(DOUBLE, primitiveType(FLOAT))).isTrue();
         assertThat(isStatisticsDecodableAs(createUnboundedVarcharType(), primitiveType(BINARY))).isTrue();
         assertThat(isStatisticsDecodableAs(createDecimalType(5, 2), primitiveType(INT64))).isTrue();
         assertThat(isStatisticsDecodableAs(createDecimalType(38, 2), primitiveType(FIXED_LEN_BYTE_ARRAY))).isTrue();
@@ -1057,6 +1085,20 @@ public class TestTupleDomainParquetPredicate
         return new LongTimestamp(
                 start.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
                 toIntExact(round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * (long) PICOSECONDS_PER_NANOSECOND, toIntExact(TimestampType.MAX_PRECISION - precision))));
+    }
+
+    private static List<ByteBuffer> toFloatByteBufferList(Float... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (Float value : values) {
+            if (value == null) {
+                buffers.add(ByteBuffer.allocate(0));
+            }
+            else {
+                buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(Float.floatToIntBits(value))));
+            }
+        }
+        return buffers;
     }
 
     private static List<ByteBuffer> toByteBufferList(Long... values)

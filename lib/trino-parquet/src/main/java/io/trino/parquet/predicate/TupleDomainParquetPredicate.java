@@ -439,10 +439,11 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE)) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Double min = (Double) minimums.get(i);
-                Double max = (Double) maximums.get(i);
+                // isStatisticsDecodableAs leaves only double and float here, and every float widens to double exactly
+                double min = ((Number) minimums.get(i)).doubleValue();
+                double max = ((Number) maximums.get(i)).doubleValue();
 
-                if (min.isNaN() || max.isNaN()) {
+                if (Double.isNaN(min) || Double.isNaN(max)) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
@@ -537,7 +538,10 @@ public class TupleDomainParquetPredicate
             return primitiveType == PrimitiveTypeName.FLOAT;
         }
         if (type.equals(DOUBLE)) {
-            return primitiveType == PrimitiveTypeName.DOUBLE;
+            // ColumnReaderFactory widens a float column to double unconditionally, so the bounds converted here are
+            // exactly the values the reader produces. Whether an int column is readable as double instead depends on
+            // its logical annotation, so its statistics are left unused rather than made to depend on the same check
+            return primitiveType == PrimitiveTypeName.DOUBLE || primitiveType == PrimitiveTypeName.FLOAT;
         }
         if (type instanceof VarcharType) {
             // Only UTF-8 bytes sort the way the varchar values produced by the reader do. Numeric to varchar
