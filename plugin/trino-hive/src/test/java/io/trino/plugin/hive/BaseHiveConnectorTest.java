@@ -5912,6 +5912,26 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testParquetPredicateOnWidenedColumnType()
+    {
+        // The connector cannot express ALTER TABLE ... CHANGE COLUMN float -> double, so reach the same state
+        // through an external table declaring double over a Parquet file that physically stores float
+        assertUpdate("CREATE TABLE test_widened_column_source (c real) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO test_widened_column_source VALUES REAL '1.5', REAL '2.5'", 2);
+        String tableLocation = getTableLocation("test_widened_column_source");
+
+        String widenedTableName = "test_widened_column_double";
+        assertUpdate(format("CREATE TABLE %s (c double) WITH (format = 'PARQUET', external_location = '%s')", widenedTableName, tableLocation));
+
+        // reading the column works, only the pushed-down predicate is affected
+        assertQuery("SELECT c FROM " + widenedTableName, "VALUES 1.5, 2.5");
+        assertQuery("SELECT c FROM " + widenedTableName + " WHERE c = DOUBLE '1.5'", "VALUES 1.5");
+
+        assertUpdate("DROP TABLE " + widenedTableName);
+        assertUpdate("DROP TABLE test_widened_column_source");
+    }
+
+    @Test
     public void testParquetWithMissingColumns()
     {
         Session sessionUsingColumnIndex = Session.builder(getSession())

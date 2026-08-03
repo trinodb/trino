@@ -70,6 +70,8 @@ import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static io.trino.parquet.predicate.TupleDomainParquetPredicate.getDomain;
+import static io.trino.parquet.predicate.TupleDomainParquetPredicate.isBloomFilterCompatible;
+import static io.trino.parquet.predicate.TupleDomainParquetPredicate.isStatisticsDecodableAs;
 import static io.trino.spi.predicate.Domain.all;
 import static io.trino.spi.predicate.Domain.create;
 import static io.trino.spi.predicate.Domain.notNull;
@@ -93,6 +95,8 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.NaN;
@@ -498,6 +502,110 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testStatisticsAreIgnoredWhenTypeDoesNotMatchColumn()
+            throws Exception
+    {
+        // BOOLEAN over INT32
+        assertThat(getDomain(createColumnDescriptor(INT32, "IntColumn"), BOOLEAN, 10, intColumnStats(0, 1), ID, UTC))
+                .isEqualTo(notNull(BOOLEAN));
+        // BIGINT over FLOAT
+        assertThat(getDomain(createColumnDescriptor(FLOAT, "FloatColumn"), BIGINT, 10, floatColumnStats(1.0f, 2.0f), ID, UTC))
+                .isEqualTo(notNull(BIGINT));
+        // REAL over DOUBLE, the reverse of a widening
+        assertThat(getDomain(createColumnDescriptor(PrimitiveTypeName.DOUBLE, "DoubleColumn"), REAL, 10, doubleColumnStats(1, 2), ID, UTC))
+                .isEqualTo(notNull(REAL));
+        // DOUBLE over an integer column, whose readability depends on a logical annotation these statistics do not check
+        assertThat(getDomain(createColumnDescriptor(INT32, "IntColumn"), DOUBLE, 10, intColumnStats(3, 42), ID, UTC))
+                .isEqualTo(notNull(DOUBLE));
+        assertThat(getDomain(createColumnDescriptor(INT64, "LongColumn"), DOUBLE, 10, longColumnStats(1L << 60, (1L << 60) + 1), ID, UTC))
+                .isEqualTo(notNull(DOUBLE));
+        // VARCHAR over FLOAT, never converted because the numeric order is not the lexicographic one
+        assertThat(getDomain(createColumnDescriptor(FLOAT, "FloatColumn"), createUnboundedVarcharType(), 10, floatColumnStats(1.0f, 2.0f), ID, UTC))
+                .isEqualTo(notNull(createUnboundedVarcharType()));
+        // VARCHAR over a DECIMAL annotated BINARY, which produces a Slice of two's complement bytes rather than text
+        assertThat(getDomain(createColumnDescriptor(BINARY, decimalType(2, 10), "DecimalColumn"), createUnboundedVarcharType(), 10, binaryColumnStats(0L, 100L), ID, UTC))
+                .isEqualTo(notNull(createUnboundedVarcharType()));
+        // DECIMAL over FLOAT
+        assertThat(getDomain(createColumnDescriptor(FLOAT, "FloatColumn"), createDecimalType(5, 2), 10, floatColumnStats(1.0f, 2.0f), ID, UTC))
+                .isEqualTo(notNull(createDecimalType(5, 2)));
+
+        // the dictionary entry point has no exception handling of its own, so a mismatch escaped it uncaught
+        assertThat(getDomain(createUnboundedVarcharType(), floatDictionaryDescriptor(1.0f)))
+                .isEqualTo(all(createUnboundedVarcharType()));
+        assertThat(getDomain(BOOLEAN, doubleDictionaryDescriptor(1, 2)))
+                .isEqualTo(all(BOOLEAN));
+    }
+
+    @Test
+    public void testStatisticsDecodableAs()
+    {
+        // pairs the decoders produce, including the two widenings which have always worked and must keep working
+        assertThat(isStatisticsDecodableAs(BOOLEAN, primitiveType(PrimitiveTypeName.BOOLEAN))).isTrue();
+        assertThat(isStatisticsDecodableAs(BIGINT, primitiveType(INT32))).isTrue();
+        assertThat(isStatisticsDecodableAs(BIGINT, primitiveType(INT64))).isTrue();
+        assertThat(isStatisticsDecodableAs(INTEGER, primitiveType(INT64))).isTrue();
+        assertThat(isStatisticsDecodableAs(REAL, primitiveType(FLOAT))).isTrue();
+        assertThat(isStatisticsDecodableAs(DOUBLE, primitiveType(PrimitiveTypeName.DOUBLE))).isTrue();
+        assertThat(isStatisticsDecodableAs(createUnboundedVarcharType(), primitiveType(BINARY))).isTrue();
+        assertThat(isStatisticsDecodableAs(createDecimalType(5, 2), primitiveType(INT64))).isTrue();
+        assertThat(isStatisticsDecodableAs(createDecimalType(38, 2), primitiveType(FIXED_LEN_BYTE_ARRAY))).isTrue();
+        assertThat(isStatisticsDecodableAs(createTimestampType(3), primitiveType(INT96))).isTrue();
+
+        assertThat(isStatisticsDecodableAs(BOOLEAN, primitiveType(INT32))).isFalse();
+        assertThat(isStatisticsDecodableAs(BIGINT, primitiveType(FLOAT))).isFalse();
+        assertThat(isStatisticsDecodableAs(INTEGER, primitiveType(BINARY))).isFalse();
+        assertThat(isStatisticsDecodableAs(REAL, primitiveType(PrimitiveTypeName.DOUBLE))).isFalse();
+        // whether an int column is readable as double depends on its logical annotation, which these do not check
+        assertThat(isStatisticsDecodableAs(DOUBLE, primitiveType(INT32))).isFalse();
+        assertThat(isStatisticsDecodableAs(DOUBLE, primitiveType(INT64))).isFalse();
+        assertThat(isStatisticsDecodableAs(createUnboundedVarcharType(), primitiveType(INT32))).isFalse();
+        assertThat(isStatisticsDecodableAs(createUnboundedVarcharType(), primitiveType(FIXED_LEN_BYTE_ARRAY))).isFalse();
+        assertThat(isStatisticsDecodableAs(createUnboundedVarcharType(), primitiveType(BINARY, decimalType(2, 10)))).isFalse();
+        assertThat(isStatisticsDecodableAs(createDecimalType(5, 2), primitiveType(FLOAT))).isFalse();
+        assertThat(isStatisticsDecodableAs(createTimestampType(3), primitiveType(INT32))).isFalse();
+
+        // types getDomain has no branch for keep producing a domain covering all values, so they are not rejected here
+        assertThat(isStatisticsDecodableAs(VARBINARY, primitiveType(BINARY))).isTrue();
+        assertThat(isStatisticsDecodableAs(UUID, primitiveType(FIXED_LEN_BYTE_ARRAY))).isTrue();
+    }
+
+    @Test
+    public void testBloomFilterCompatible()
+    {
+        // the filter is hashed at the physical width, so only an exact width correspondence can be looked up
+        assertThat(isBloomFilterCompatible(INTEGER, primitiveType(INT32))).isTrue();
+        assertThat(isBloomFilterCompatible(TINYINT, primitiveType(INT32))).isTrue();
+        assertThat(isBloomFilterCompatible(SMALLINT, primitiveType(INT32))).isTrue();
+        assertThat(isBloomFilterCompatible(DATE, primitiveType(INT32))).isTrue();
+        assertThat(isBloomFilterCompatible(BIGINT, primitiveType(INT64))).isTrue();
+        assertThat(isBloomFilterCompatible(DOUBLE, primitiveType(PrimitiveTypeName.DOUBLE))).isTrue();
+        assertThat(isBloomFilterCompatible(REAL, primitiveType(FLOAT))).isTrue();
+
+        // stricter than the statistics rule, because int and long hash a different number of bytes
+        assertThat(isBloomFilterCompatible(BIGINT, primitiveType(INT32))).isFalse();
+        assertThat(isBloomFilterCompatible(INTEGER, primitiveType(INT64))).isFalse();
+        assertThat(isBloomFilterCompatible(DOUBLE, primitiveType(FLOAT))).isFalse();
+        assertThat(isBloomFilterCompatible(DOUBLE, primitiveType(INT32))).isFalse();
+        assertThat(isBloomFilterCompatible(REAL, primitiveType(PrimitiveTypeName.DOUBLE))).isFalse();
+
+        // a Binary is hashed by its bytes alone, so both byte array physical types can be looked up
+        assertThat(isBloomFilterCompatible(createUnboundedVarcharType(), primitiveType(BINARY))).isTrue();
+        assertThat(isBloomFilterCompatible(createUnboundedVarcharType(), primitiveType(FIXED_LEN_BYTE_ARRAY))).isTrue();
+        assertThat(isBloomFilterCompatible(VARBINARY, primitiveType(BINARY))).isTrue();
+        assertThat(isBloomFilterCompatible(UUID, primitiveType(FIXED_LEN_BYTE_ARRAY))).isTrue();
+        assertThat(isBloomFilterCompatible(UUID, primitiveType(BINARY))).isTrue();
+        assertThat(isBloomFilterCompatible(VARBINARY, primitiveType(INT32))).isFalse();
+        assertThat(isBloomFilterCompatible(UUID, primitiveType(INT64))).isFalse();
+        // the reader renders such a column as text, so the predicate never holds the stored bytes
+        assertThat(isBloomFilterCompatible(createUnboundedVarcharType(), primitiveType(BINARY, decimalType(2, 10)))).isFalse();
+
+        // checkInBloomFilter keeps the row group for every type it does not handle
+        assertThat(isBloomFilterCompatible(createDecimalType(5, 2), primitiveType(INT64))).isTrue();
+        assertThat(isBloomFilterCompatible(createTimestampType(3), primitiveType(INT96))).isTrue();
+        assertThat(isBloomFilterCompatible(BOOLEAN, primitiveType(PrimitiveTypeName.BOOLEAN))).isTrue();
+    }
+
+    @Test
     public void testDate()
             throws ParquetCorruptionException
     {
@@ -816,6 +924,16 @@ public class TestTupleDomainParquetPredicate
                                 range(BIGINT, 4L, true, 15L, true),
                                 range(BIGINT, 9L, true, 10L, true)),
                         true));
+    }
+
+    private static PrimitiveType primitiveType(PrimitiveTypeName typeName)
+    {
+        return new PrimitiveType(REQUIRED, typeName, "column");
+    }
+
+    private static PrimitiveType primitiveType(PrimitiveTypeName typeName, LogicalTypeAnnotation annotation)
+    {
+        return new PrimitiveType(REQUIRED, typeName, "column").withLogicalTypeAnnotation(annotation);
     }
 
     private ColumnDescriptor createColumnDescriptor(PrimitiveTypeName typeName, String columnName)

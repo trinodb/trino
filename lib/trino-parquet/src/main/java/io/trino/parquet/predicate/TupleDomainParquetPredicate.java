@@ -53,6 +53,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
 import java.io.Serializable;
@@ -134,6 +135,12 @@ public class TupleDomainParquetPredicate
         for (ColumnDescriptor column : columns) {
             Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
             if (effectivePredicateDomain == null) {
+                continue;
+            }
+
+            // neither the column index nor the dictionary can be interpreted as the type of the domain either,
+            // so reading them would only cost filesystem reads and decoding
+            if (!isStatisticsDecodableAs(effectivePredicateDomain.getType(), column.getPrimitiveType())) {
                 continue;
             }
 
@@ -258,6 +265,12 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // the filter hashes values at the physical width of the column, so a predicate of a different
+            // type never matches it and the row group would be eliminated even when it holds matching rows
+            if (!isBloomFilterCompatible(effectivePredicateDomain.getType(), column.getPrimitiveType())) {
+                continue;
+            }
+
             Optional<Collection<Object>> discreteValues = extractDiscreteValues(domainCompactionThreshold, effectivePredicateDomain.getValues());
             // values are not discrete, so bloom filter isn't helpful
             if (discreteValues.isEmpty()) {
@@ -345,6 +358,11 @@ public class TupleDomainParquetPredicate
             DateTimeZone timeZone)
     {
         checkArgument(minimums.size() == maximums.size(), "Expected minimums and maximums to have the same size");
+
+        if (!isStatisticsDecodableAs(type, column.getPrimitiveType())) {
+            // The statistics cannot be interpreted as the column type in the table schema, so they cannot narrow the domain
+            return Domain.create(ValueSet.all(type), hasNullValue);
+        }
 
         if (type.equals(BOOLEAN)) {
             boolean hasTrueValues = minimums.stream().anyMatch(value -> (boolean) value) || maximums.stream().anyMatch(value -> (boolean) value);
@@ -490,6 +508,49 @@ public class TupleDomainParquetPredicate
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
+    }
+
+    /**
+     * Statistics, column indexes and dictionaries are decoded according to the physical type of the column in
+     * the file, while the domain being narrowed carries the type from the table schema. Schema evolution makes
+     * the two disagree, and the decoded values then cannot be interpreted as the type of the domain.
+     */
+    @VisibleForTesting
+    public static boolean isStatisticsDecodableAs(Type type, PrimitiveType parquetType)
+    {
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+        if (type.equals(BOOLEAN)) {
+            return primitiveType == PrimitiveTypeName.BOOLEAN;
+        }
+        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+            // asLong accepts both, and isStatisticsOverflow discards values which do not fit the Trino type
+            return primitiveType == PrimitiveTypeName.INT32 || primitiveType == INT64;
+        }
+        if (type instanceof DecimalType) {
+            // getShortDecimal and getLongDecimal decode a Slice or an integral value, rescaling through the decimal annotation
+            return primitiveType == PrimitiveTypeName.INT32
+                    || primitiveType == INT64
+                    || primitiveType == PrimitiveTypeName.BINARY
+                    || primitiveType == PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
+        }
+        if (type.equals(REAL)) {
+            return primitiveType == PrimitiveTypeName.FLOAT;
+        }
+        if (type.equals(DOUBLE)) {
+            return primitiveType == PrimitiveTypeName.DOUBLE;
+        }
+        if (type instanceof VarcharType) {
+            // Only UTF-8 bytes sort the way the varchar values produced by the reader do. Numeric to varchar
+            // coercions are not order preserving, and the two's complement bytes of a decimal mean something else
+            return primitiveType == PrimitiveTypeName.BINARY
+                    && !(parquetType.getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation);
+        }
+        if (type instanceof TimestampType) {
+            // both decode to a type the timestamp branch handles; it checks the annotation and the unit itself
+            return primitiveType == INT96 || primitiveType == INT64;
+        }
+        // any other type has no branch above and already produces a domain covering all values
+        return true;
     }
 
     private static long getShortDecimal(Object value, DecimalType columnType, ColumnDescriptor column)
@@ -722,6 +783,45 @@ public class TupleDomainParquetPredicate
         }
 
         return true;
+    }
+
+    /**
+     * Mirrors the dispatch of {@link #checkInBloomFilter}. parquet-mr builds a bloom filter by hashing values at the
+     * physical width of the column, so a lookup performed as a type of a different width can never find a value that
+     * is present. Binary values are hashed by their bytes alone, which makes the two byte array physical types
+     * equivalent, except where the reader turns those bytes into something else, as it does for a decimal column
+     * read as varchar.
+     */
+    @VisibleForTesting
+    public static boolean isBloomFilterCompatible(Type type, PrimitiveType parquetType)
+    {
+        PrimitiveTypeName primitiveType = parquetType.getPrimitiveTypeName();
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == DATE) {
+            return primitiveType == PrimitiveTypeName.INT32;
+        }
+        if (type == BIGINT) {
+            return primitiveType == INT64;
+        }
+        if (type == DOUBLE) {
+            return primitiveType == PrimitiveTypeName.DOUBLE;
+        }
+        if (type == REAL) {
+            return primitiveType == PrimitiveTypeName.FLOAT;
+        }
+        if (type instanceof VarcharType) {
+            // the reader renders a decimal column as text, so the stored bytes are not the ones the predicate holds
+            return isByteArray(primitiveType) && !(parquetType.getLogicalTypeAnnotation() instanceof DecimalLogicalTypeAnnotation);
+        }
+        if (type instanceof VarbinaryType || type instanceof UuidType) {
+            return isByteArray(primitiveType);
+        }
+        // checkInBloomFilter keeps the row group for every other type
+        return true;
+    }
+
+    private static boolean isByteArray(PrimitiveTypeName primitiveType)
+    {
+        return primitiveType == PrimitiveTypeName.BINARY || primitiveType == PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
     }
 
     private static Optional<Collection<Object>> extractDiscreteValues(int domainCompactionThreshold, ValueSet valueSet)
