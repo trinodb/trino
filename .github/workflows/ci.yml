@@ -6,6 +6,10 @@ on:
   repository_dispatch:
     types: [test-with-secrets-command]
 
+# Default for all jobs; jobs that need more declare their own permissions block, which fully replaces this one.
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
@@ -80,6 +84,8 @@ jobs:
           annotations: true
 
   path-filters:
+    permissions:
+      pull-requests: read # to list changed files of the PR
     runs-on: ubuntu-latest
     outputs:
       ci: ${{ steps.filter.outputs.ci }}
@@ -98,6 +104,9 @@ jobs:
             non_docs: '!docs/**'
 
   maven-checks:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     runs-on: ubuntu-latest
     name: maven-checks ${{ matrix.java-version }}
     strategy:
@@ -143,6 +152,9 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "maven-checks ${{ matrix.java-version }}"
 
   artifact-checks:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -242,6 +254,9 @@ jobs:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
   error-prone-checks:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -278,6 +293,9 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "error-prone-checks"
 
   test-jdbc-compatibility:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -326,6 +344,9 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "test-jdbc-compatibility"
 
   test-other-modules:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -420,6 +441,12 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "test-other-modules"
 
   build-test-matrix:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure, read run info in update-check
+      checks: write # to update the PR check for test-with-secrets runs (update-check)
+      contents: read
+      issues: write # to comment on the PR for test-with-secrets runs (update-check)
+      pull-requests: read # to read the PR head SHA in update-check
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -545,6 +572,13 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "build-test-matrix"
 
   test:
+    name: ${{ matrix.name != '' && matrix.name || format('test ({0}, {1})', matrix.modules, matrix.profile) }}
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure, read run info in update-check
+      checks: write # to update the PR check for test-with-secrets runs (update-check)
+      contents: read
+      issues: write # to comment on the PR for test-with-secrets runs (update-check)
+      pull-requests: read # to read the PR head SHA in update-check
     runs-on: 'ubuntu-latest'
     needs: build-test-matrix
     if: needs.build-test-matrix.outputs.matrix != '{}'
@@ -875,6 +909,9 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "test (${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }})"
 
   build-pt:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
@@ -957,6 +994,12 @@ jobs:
         run: .github/bin/cancel-merge-queue-workflow.sh "build-pt"
 
   pt:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure, read run info in update-check
+      checks: write # to update the PR check for test-with-secrets runs (update-check)
+      contents: read
+      issues: write # to comment on the PR for test-with-secrets runs (update-check)
+      pull-requests: read # to read the PR head SHA in update-check
     runs-on: 'ubuntu-latest'
     name: pt (${{ matrix.bucket }})
     if: needs.build-pt.outputs.matrix != '{}'

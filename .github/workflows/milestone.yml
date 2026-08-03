@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
 
+permissions:
+  contents: read
+  issues: write # to create milestones and set them on merged PRs
+  pull-requests: write
+
 defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
