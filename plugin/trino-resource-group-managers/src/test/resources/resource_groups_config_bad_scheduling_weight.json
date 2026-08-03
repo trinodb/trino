@@ -1,0 +1,15 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "hardConcurrencyLimit": 1,
+      "maxQueued": 1,
+      "schedulingWeight": 0
+    }
+  ],
+  "selectors": [
+    {
+      "group": "global"
+    }
+  ]
+}

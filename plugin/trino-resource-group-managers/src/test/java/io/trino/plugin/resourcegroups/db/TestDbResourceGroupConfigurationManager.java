@@ -45,6 +45,7 @@ import java.util.regex.Pattern;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.resourcegroups.InternalResourceGroup.DEFAULT_WEIGHT;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
+import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -220,6 +221,49 @@ public class TestDbResourceGroupConfigurationManager
             MILLISECONDS.sleep(500);
         }
         while (!globalSub.isDisabled());
+    }
+
+    @Test
+    public void testReconfiguringQueryPriorityGroupResetsInheritedChildren()
+    {
+        H2DaoProvider daoProvider = setup("test_query_priority_reconfig");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "query_priority", null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(3, "nested", "3MB", 2, 1, 1, null, null, null, null, null, null, 2L, ENVIRONMENT);
+        dao.insertSelector(2, 1, null, null, null, null, null, null, null, null, null);
+
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        InternalResourceGroup global = new InternalResourceGroup("global", (_, _) -> {}, directExecutor());
+        manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
+        InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
+        manager.configure(sub, new SelectionContext<>(sub.getId(), new ResourceGroupIdTemplate("global.sub")));
+        InternalResourceGroup nested = sub.getOrCreateSubGroup("nested");
+        manager.configure(nested, new SelectionContext<>(nested.getId(), new ResourceGroupIdTemplate("global.sub.nested")));
+
+        assertThat(global.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(sub.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(nested.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+
+        dao.updateResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, null, null, null, null, null, ENVIRONMENT);
+        manager.load();
+        assertThat(global.getSchedulingPolicy()).isEqualTo(WEIGHTED);
+        assertThat(sub.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(nested.getSchedulingPolicy()).isEqualTo(FAIR);
+
+        dao.updateResourceGroup(2, "sub", "2MB", 4, 3, 3, "weighted", 6, null, null, null, null, 1L, ENVIRONMENT);
+        manager.load();
+        assertThat(sub.getSchedulingPolicy()).isEqualTo(WEIGHTED);
+        assertThat(sub.getSchedulingWeight()).isEqualTo(6);
+
+        dao.updateResourceGroup(2, "sub", "2MB", 4, 3, 3, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        manager.load();
+        assertThat(sub.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(sub.getSchedulingWeight()).isEqualTo(DEFAULT_WEIGHT);
+        manager.destroy();
     }
 
     @Test

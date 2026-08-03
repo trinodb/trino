@@ -37,6 +37,7 @@ import static io.trino.plugin.resourcegroups.TestingResourceGroups.groupIdTempla
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.managerSpec;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.resourceGroupSpec;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.selectorSpec;
+import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,6 +57,7 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_group_id.json", "Invalid resource group name. 'glo.bal' contains a '.'");
         assertFails("resource_groups_config_bad_soft_memory_limit.json", "softMemoryLimit percentage is over 100%");
         assertFails("resource_groups_config_bad_weighted_scheduling_policy.json", "Must specify scheduling weight for all sub-groups of 'requests' or none of them");
+        assertFails("resource_groups_config_bad_scheduling_weight.json", "schedulingWeight must be positive");
         assertFails("resource_groups_config_unused_field.json", "Unknown property at line 8:6: maxFoo");
         assertFails(
                 "resource_groups_config_bad_query_priority_scheduling_policy.json",
@@ -223,7 +225,7 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(global.getMaxQueuedQueries()).isEqualTo(1000);
         assertThat(global.getHardConcurrencyLimit()).isEqualTo(100);
         assertThat(global.getSchedulingPolicy()).isEqualTo(WEIGHTED);
-        assertThat(global.getSchedulingWeight()).isEqualTo(0);
+        assertThat(global.getSchedulingWeight()).isEqualTo(1);
         assertThat(global.getJmxExport()).isTrue();
 
         ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
@@ -232,7 +234,7 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(sub.getSoftMemoryLimitBytes()).isEqualTo(DataSize.of(2, MEGABYTE).toBytes());
         assertThat(sub.getHardConcurrencyLimit()).isEqualTo(3);
         assertThat(sub.getMaxQueuedQueries()).isEqualTo(4);
-        assertThat(sub.getSchedulingPolicy()).isNull();
+        assertThat(sub.getSchedulingPolicy()).isEqualTo(FAIR);
         assertThat(sub.getSchedulingWeight()).isEqualTo(5);
         assertThat(sub.getJmxExport()).isFalse();
         assertThat(sub.getHardPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, MEGABYTE).toBytes());

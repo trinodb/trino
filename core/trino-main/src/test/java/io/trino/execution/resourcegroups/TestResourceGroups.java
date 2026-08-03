@@ -166,6 +166,11 @@ public class TestResourceGroups
         assertThat(root.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
         assertThat(root.getOrCreateSubGroup("1").getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
         assertThat(root.getOrCreateSubGroup("2").getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+
+        root.setSchedulingPolicy(FAIR);
+        assertThat(root.getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(root.getOrCreateSubGroup("1").getSchedulingPolicy()).isEqualTo(FAIR);
+        assertThat(root.getOrCreateSubGroup("2").getSchedulingPolicy()).isEqualTo(FAIR);
     }
 
     @Test

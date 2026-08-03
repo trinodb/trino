@@ -38,6 +38,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
+import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
+import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.isEqual;
@@ -45,6 +47,8 @@ import static java.util.function.Predicate.isEqual;
 public abstract class AbstractResourceConfigurationManager
         implements ResourceGroupConfigurationManager<ResourceGroupIdTemplate>
 {
+    private static final int DEFAULT_SCHEDULING_WEIGHT = 1;
+
     @GuardedBy("memoryPoolFraction")
     private final Map<ResourceGroup, Double> memoryPoolFraction = new HashMap<>();
     @GuardedBy("memoryPoolFraction")
@@ -215,8 +219,14 @@ public abstract class AbstractResourceConfigurationManager
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setSoftConcurrencyLimit(match.getSoftConcurrencyLimit().orElse(match.getHardConcurrencyLimit()));
         group.setHardConcurrencyLimit(match.getHardConcurrencyLimit());
-        match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
-        match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
+        if (match.getSchedulingPolicy().isPresent()) {
+            group.setSchedulingPolicy(match.getSchedulingPolicy().get());
+        }
+        else if (group.getSchedulingPolicy() != QUERY_PRIORITY || group.getId().getParent().isEmpty()) {
+            // A child of a query-priority group inherits that policy. The parent resets inherited policies when it changes.
+            group.setSchedulingPolicy(FAIR);
+        }
+        group.setSchedulingWeight(match.getSchedulingWeight().orElse(DEFAULT_SCHEDULING_WEIGHT));
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
         match.getSoftCpuLimit().map(Duration::toMillis).map(java.time.Duration::ofMillis).ifPresent(group::setSoftCpuLimit);
         match.getHardCpuLimit().map(Duration::toMillis).map(java.time.Duration::ofMillis).ifPresent(group::setHardCpuLimit);

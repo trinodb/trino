@@ -571,13 +571,25 @@ public class InternalResourceGroup
     @Override
     public void setSchedulingPolicy(SchedulingPolicy policy)
     {
+        setSchedulingPolicy(policy, true);
+    }
+
+    private void setSchedulingPolicy(SchedulingPolicy policy, boolean checkPriority)
+    {
         synchronized (root) {
             if (policy == schedulingPolicy) {
                 return;
             }
 
-            if (parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
+            if (checkPriority && parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
                 checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
+            }
+
+            if (policy != QUERY_PRIORITY && schedulingPolicy == QUERY_PRIORITY) {
+                // Sub groups inherit query-priority scheduling from their parent.
+                for (InternalResourceGroup group : subGroups.values()) {
+                    group.setSchedulingPolicy(FAIR, false);
+                }
             }
 
             // Switch to the appropriate queue implementation to implement the desired policy
