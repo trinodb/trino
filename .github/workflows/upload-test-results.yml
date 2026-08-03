@@ -1,7 +1,9 @@
 name: Upload test results
 
 on:
-  workflow_run:
+  # Safe despite running with access to secrets: no code from the triggering workflow is
+  # checked out or executed, downloaded artifacts are only processed as data
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: ["ci", "docs"]
     types:
       - completed

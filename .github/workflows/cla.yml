@@ -1,7 +1,9 @@
 name: CLA
 
 on:
-  pull_request_target:
+  # Safe despite the read-write token: no code from the PR is checked out or executed,
+  # the checkout below is pinned to github.workflow_sha
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
