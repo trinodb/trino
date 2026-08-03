@@ -131,6 +131,7 @@ import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.operator.scalar.ConcatWsFunction;
 import io.trino.operator.scalar.DataSizeFunctions;
 import io.trino.operator.scalar.DateTimeFunctions;
+import io.trino.operator.scalar.DivideRoundToScale;
 import io.trino.operator.scalar.EmptyMapConstructor;
 import io.trino.operator.scalar.FailureFunction;
 import io.trino.operator.scalar.FormatNumberFunction;
@@ -537,6 +538,7 @@ public final class SystemFunctionBundle
                 .scalars(featuresConfig.isLegacyVarcharToCharCoercion() ? LegacyCharToVarcharCast.class : CharToVarcharCast.class)
                 .scalars(LuhnCheckFunction.class)
                 .scalar(DecimalOperators.Negation.class)
+                .scalars(DivideRoundToScale.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayElementAtFunction.class)
