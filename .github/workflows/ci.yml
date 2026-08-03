@@ -59,7 +59,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: airlift/github-actions/check-commit-messages@1652e24519f5c7cec59d841070bf9beffadabdf9 # v1
+      - uses: airlift/github-actions/check-commit-messages@1652e24519f5c7cec59d841070bf9beffadabdf9
         with:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
