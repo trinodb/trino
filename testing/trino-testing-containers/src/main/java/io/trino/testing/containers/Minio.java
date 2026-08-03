@@ -17,25 +17,24 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import com.google.common.reflect.ClassPath;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import io.trino.testing.minio.MinioClient;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.SECONDS;
-import static java.util.regex.Matcher.quoteReplacement;
 
 public class Minio
         extends BaseTestContainer
@@ -116,49 +115,25 @@ public class Minio
 
     public void createBucket(String bucketName)
     {
-        createBucket(bucketName, false);
-    }
-
-    public void createBucket(String bucketName, boolean objectLock)
-    {
-        try (MinioClient minioClient = createMinioClient()) {
-            // use retry loop for minioClient.makeBucket as minio container tends to return "Server not initialized, please try again" error
-            // for some time after starting up
+        try (S3Client client = createS3Client()) {
+            // MinIO can return "Server not initialized, please try again" for some time after the container starts.
             RetryPolicy<Object> retryPolicy = RetryPolicy.builder()
                     .withMaxDuration(Duration.of(2, MINUTES))
                     .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
                     .withDelay(Duration.of(10, SECONDS))
                     .build();
-            Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName, objectLock));
+            Failsafe.with(retryPolicy).run(() -> client.createBucket(builder -> builder.bucket(bucketName)));
         }
     }
 
-    public void copyResources(String resourcePath, String bucketName, String target)
+    private S3Client createS3Client()
     {
-        try (MinioClient minioClient = createMinioClient()) {
-            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(getClass().getClassLoader())
-                    .getResources()) {
-                if (resourceInfo.getResourceName().startsWith(resourcePath)) {
-                    String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(target));
-                    minioClient.putObject(bucketName, resourceInfo.asByteSource().read(), fileName);
-                }
-            }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    public void writeFile(byte[] contents, String bucketName, String path)
-    {
-        try (MinioClient minioClient = createMinioClient()) {
-            minioClient.putObject(bucketName, contents, path);
-        }
-    }
-
-    public MinioClient createMinioClient()
-    {
-        return new MinioClient(getMinioAddress(), MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
+        return S3Client.builder()
+                .endpointOverride(URI.create(getMinioAddress()))
+                .region(Region.of(MINIO_REGION))
+                .forcePathStyle(true)
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD)))
+                .build();
     }
 
     public static class Builder

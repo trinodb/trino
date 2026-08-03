@@ -20,7 +20,6 @@ import io.trino.testing.containers.SparkHudiContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
-import io.trino.testing.minio.MinioClient;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
@@ -234,20 +233,6 @@ public class HiveHudiRedirectionsEnvironment
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute Hive update: " + sql, e);
         }
-    }
-
-    // MinIO access
-
-    /**
-     * Creates a MinioClient for direct access to the MinIO (S3-compatible) storage.
-     * <p>
-     * The client should be closed when no longer needed to release resources.
-     *
-     * @return a new MinioClient
-     */
-    public MinioClient createMinioClient()
-    {
-        return minio.createMinioClient();
     }
 
     /**

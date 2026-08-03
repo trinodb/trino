@@ -19,7 +19,6 @@ import io.trino.testing.containers.Minio;
 import io.trino.testing.containers.MultiNodeTrinoCluster;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
-import io.trino.testing.minio.MinioClient;
 import org.testcontainers.containers.Network;
 
 import java.sql.Connection;
@@ -206,18 +205,6 @@ public class MultinodeHive4Environment
     public String runOnHive(String sql)
     {
         return hiveServer.runOnHive(sql);
-    }
-
-    // MinIO access
-
-    /**
-     * Creates a MinioClient for direct access to the MinIO (S3-compatible) storage.
-     *
-     * @return a new MinioClient
-     */
-    public MinioClient createMinioClient()
-    {
-        return minio.createMinioClient();
     }
 
     /**

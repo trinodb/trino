@@ -82,11 +82,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-testing-containers</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
         </dependency>
 
@@ -317,6 +312,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing-kafka</artifactId>
             <scope>test</scope>
         </dependency>
@@ -475,6 +476,11 @@
                         <ignoredUnusedDeclaredDependency>org.apache.kafka:kafka-clients</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
+                        <!-- Main product tests use Glue model exceptions and clients whose transitive runtime types
+                             come from auth, aws-core, and regions, even though the analyzer only detects direct test usages. -->
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:auth</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:aws-core</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:regions</ignoredNonTestScopedDependency>
                         <!-- Legacy product tests execute test classes from the test runtime classpath, so Kafka must be
                              available at runtime even though the analyzer classifies it as test-only. -->
                         <ignoredNonTestScopedDependency>org.apache.kafka:kafka-clients</ignoredNonTestScopedDependency>
