@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
+import static io.trino.plugin.hive.metastore.MetastoreInvocations.filterInvocations;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
@@ -36,6 +37,7 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.TableType.ALL_ENTRIES;
 import static io.trino.plugin.iceberg.TableType.ALL_MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -49,7 +51,9 @@ import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
+import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
@@ -418,6 +422,47 @@ public class TestIcebergMetastoreAccessOperations
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
                 .containsExactly(DATA, HISTORY, METADATA_LOG_ENTRIES, SNAPSHOTS, ALL_MANIFESTS, MANIFESTS, PARTITIONS, FILES, ALL_ENTRIES, ENTRIES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
+    }
+
+    @Test
+    public void testSelectOnNonExistentTable()
+    {
+        assertQueryFails(
+                "SELECT * FROM test_non_existent",
+                ".*Table 'iceberg.tpch.test_non_existent' does not exist");
+        assertMultisetsEqual(
+                filterInvocations(getDistributedQueryRunner().getSpans()),
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .build());
+
+        String tableName = "test_non_existent";
+        for (TableType tableType : TableType.values()) {
+            if (tableType == TableType.DATA || tableType == TableType.MATERIALIZED_VIEW_STORAGE) {
+                continue;
+            }
+            String metadataTable = tableNameWithType(tableName, tableType);
+            assertThat(query("SELECT * FROM \"" + metadataTable + "\""))
+                    .describedAs(tableType.name())
+                    .failure().hasMessageMatching(".* Table 'iceberg.tpch.\"" + tableName + "\\$" + tableType.name().toLowerCase(ENGLISH) + "\"' does not exist");
+            assertMultisetsEqual(
+                    filterInvocations(getDistributedQueryRunner().getSpans()),
+                    ImmutableMultiset.<MetastoreMethod>builder()
+                            .add(GET_DATABASE)
+                            .addCopies(GET_TABLE, 2)
+                            .build());
+        }
+
+        // select from $materialized_view_storage
+        assertQueryFails(
+                "SELECT * FROM \"test_non_existent$materialized_view_storage\"",
+                ".*Table 'tpch.test_non_existent\\$materialized_view_storage' not found");
+        assertMultisetsEqual(
+                filterInvocations(getDistributedQueryRunner().getSpans()),
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 2)
+                        .build());
     }
 
     @Test
