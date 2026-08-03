@@ -13,6 +13,7 @@ Black Hole      <connector/blackhole>
 Cassandra       <connector/cassandra>
 ClickHouse      <connector/clickhouse>
 Delta Lake      <connector/delta-lake>
+Doris           <connector/doris>
 Druid           <connector/druid>
 DuckDB          <connector/duckdb>
 Elasticsearch   <connector/elasticsearch>

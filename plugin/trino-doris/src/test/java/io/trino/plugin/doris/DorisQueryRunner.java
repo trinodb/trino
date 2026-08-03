@@ -1,0 +1,94 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.doris;
+
+import io.airlift.log.Logger;
+import io.trino.plugin.base.util.Closables;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
+
+public final class DorisQueryRunner
+{
+    private DorisQueryRunner() {}
+
+    public static Builder builder(TestingDorisEnvironment environment)
+    {
+        return new Builder(environment);
+    }
+
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private final TestingDorisEnvironment environment;
+        private final Map<String, String> connectorProperties = new HashMap<>();
+
+        private Builder(TestingDorisEnvironment environment)
+        {
+            super(testSessionBuilder()
+                    .setCatalog("doris")
+                    .setSchema("tiny")
+                    .build());
+            this.environment = requireNonNull(environment, "environment is null");
+        }
+
+        public Builder addConnectorProperty(String key, String value)
+        {
+            connectorProperties.put(key, value);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new TestingDorisPlugin(environment.createModule()));
+
+                Map<String, String> properties = new HashMap<>();
+                properties.put("doris.jdbc-url", "jdbc:mysql://127.0.0.1:9030");
+                properties.putAll(connectorProperties);
+
+                queryRunner.createCatalog("doris", "doris", properties);
+                return queryRunner;
+            }
+            catch (Throwable t) {
+                Closables.closeAllSuppress(t, queryRunner);
+                throw t;
+            }
+        }
+    }
+
+    static void main()
+            throws Exception
+    {
+        QueryRunner queryRunner = builder(new TestingDorisEnvironment())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
+
+        Logger log = Logger.get(DorisQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    }
+}
