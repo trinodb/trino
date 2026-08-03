@@ -683,7 +683,7 @@ public class FileBasedSystemAccessControl
                 denySelectTable(table.toString(), branch);
             }
             else {
-                denySelectColumns(table.toString(), deniedColumns, branch.orElse(null));
+                denySelectColumns(table.toString(), branch, deniedColumns);
             }
         }
     }
