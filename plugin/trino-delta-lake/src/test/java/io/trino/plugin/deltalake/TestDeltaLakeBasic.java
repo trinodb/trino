@@ -3048,6 +3048,22 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testInsertOnLocalFilesystem()
+    {
+        // The file metastore places tables under catalogDir, so the table location uses a file:// URI
+        String tableName = "test_insert_local_filesystem_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR)");
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (1, VARCHAR 'a'), (2, VARCHAR 'b')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     private static ProtocolEntry loadProtocolEntry(long entryNumber, Path tableLocation)
             throws IOException
     {
