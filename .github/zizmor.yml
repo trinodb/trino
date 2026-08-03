@@ -1,0 +1,16 @@
+# Configuration for zizmor, the GitHub Actions security scanner: https://zizmor.sh/
+# Rules disabled here are off for the whole repository; findings accepted case by case
+# are instead suppressed inline with "# zizmor: ignore[rule-name]" comments in the workflows.
+rules:
+  # Flags every ${{ }} expression interpolated into a run: script, regardless of whether the
+  # value is attacker-controlled. The interpolations used here read trusted contexts only
+  # (event name, matrix values, secrets), so this audit produces only false positives.
+  template-injection:
+    disable: true
+  # Requires every action to be pinned to a commit SHA. Third-party actions are SHA-pinned,
+  # but actions authored by GitHub itself (actions/*) are trusted at version tags and kept
+  # current by Dependabot, which this rule's default policy does not allow.
+  unpinned-uses:
+    config:
+      policies:
+        actions/*: ref-pin

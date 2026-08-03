@@ -60,6 +60,25 @@ jobs:
         with:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
+  zizmor:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        with:
+          inputs: .github
+          # Version of the zizmor tool to install and run
+          version: 1.29.0
+          # Fail the job and annotate the PR instead of reporting to GitHub Advanced Security
+          advanced-security: false
+          annotations: true
+
   path-filters:
     runs-on: ubuntu-latest
     outputs:
@@ -1214,6 +1233,7 @@ jobs:
       - test
       - test-jdbc-compatibility
       - test-other-modules
+      - zizmor
     steps:
       - name: "Check results"
         run: |
@@ -1231,3 +1251,4 @@ jobs:
           echo '${{ needs.test.result }}' | grep -xE 'success|skipped' || { echo 'Job "test" failed' >&2; exit 1; }
           echo '${{ needs.test-jdbc-compatibility.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-jdbc-compatibility" failed' >&2; exit 1; }
           echo '${{ needs.test-other-modules.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-other-modules" failed' >&2; exit 1; }
+          echo '${{ needs.zizmor.result }}' | grep -xE 'success|skipped' || { echo 'Job "zizmor" failed' >&2; exit 1; }
