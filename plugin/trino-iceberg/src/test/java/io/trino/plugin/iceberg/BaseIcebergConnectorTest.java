@@ -4974,6 +4974,41 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSplitPruningForAtTimeZoneFilterOnPartitionColumn()
+    {
+        String tableName = "test_split_pruning_at_timezone";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        // disable writes redistribution to have predictable number of files written per partition (one).
+        Session noRedistributeWrites = Session.builder(getSession())
+                .setSystemProperty("redistribute_writes", "false")
+                .build();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, zone VARCHAR, ts TIMESTAMP(6) WITH TIME ZONE) WITH (partitioning = ARRAY['month(ts)'])");
+        assertUpdate(noRedistributeWrites, "INSERT INTO " + tableName + " VALUES " +
+                "(1, 'UTC', TIMESTAMP '2025-01-15 10:00:00.000000 UTC'), " +
+                "(2, 'Asia/Jerusalem', TIMESTAMP '2025-02-15 10:00:00.000000 UTC'), " +
+                "(3, 'America/New_York', TIMESTAMP '2025-03-15 10:00:00.000000 UTC')", 3);
+
+        // sanity check that table contains exactly one file per month partition
+        assertThat(computeScalar("SELECT count(*) FROM \"" + tableName + "$files\"")).isEqualTo(3L);
+
+        verifySplitCount("SELECT * FROM " + tableName, 3);
+
+        // at_timezone changes only the zone a value is rendered in, never the instant, so comparisons
+        // over it prune partitions exactly like comparisons on the column itself
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, 'UTC') = TIMESTAMP '2025-01-15 10:00:00.000000 UTC'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, 'Asia/Jerusalem') < TIMESTAMP '2025-02-01 00:00:00.000000 UTC'", 1);
+        // the zone argument may be a column, as in views exposing each row's timestamp in its own zone
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) = TIMESTAMP '2025-01-15 10:00:00.000000 UTC'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) BETWEEN TIMESTAMP '2025-02-01 00:00:00.000000 UTC' AND TIMESTAMP '2025-02-28 00:00:00.000000 UTC'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE at_timezone(ts, zone) < TIMESTAMP '2020-01-01 00:00:00.000000 UTC'", 0);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testAllAvailableTypes()
     {
         assertUpdate("CREATE TABLE test_all_types (" +
