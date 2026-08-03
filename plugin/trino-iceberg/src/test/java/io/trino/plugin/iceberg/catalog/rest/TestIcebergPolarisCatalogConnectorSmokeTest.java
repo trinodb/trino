@@ -27,7 +27,6 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -149,10 +148,11 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        try (MinioClient minioClient = polarisCatalog.minio().createMinioClient()) {
-            String prefix = "s3://" + bucketName + "/";
-            String key = location.substring(prefix.length());
-            return !minioClient.listObjects(bucketName, key).isEmpty();
+        try {
+            return fileSystem.directoryExists(Location.of(location)).orElse(false);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
