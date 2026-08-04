@@ -156,6 +156,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorTableExecuteHandle> getMaterializedViewTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+    {
+        Span span = startSpan("getMaterializedViewTableHandleForExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getMaterializedViewTableHandleForExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
+        }
+    }
+
+    @Override
     public Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
     {
         Span span = startSpan("getColumnHandlesForTableExecute", tableHandle);

@@ -136,6 +136,7 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
@@ -5115,6 +5116,29 @@ public class TestSqlParser
                                         location(1, 50),
                                         new Identifier(location(1, 46), "age", false),
                                         new ComparisonPredicate(location(1, 50), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 52), "17"))))));
+    }
+
+    @Test
+    public void testMaterializedViewExecute()
+    {
+        Table mv = new Table(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "foo", false))));
+        Identifier procedure = new Identifier(location(1, 37), "bar", false);
+
+        assertThat(statement("ALTER MATERIALIZED VIEW foo EXECUTE bar"))
+                .isEqualTo(new MaterializedViewExecute(location(1, 1), mv, procedure, ImmutableList.of(), Optional.empty()));
+        assertThat(statement("ALTER MATERIALIZED VIEW foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17")).isEqualTo(
+                new MaterializedViewExecute(
+                        location(1, 1),
+                        mv,
+                        procedure,
+                        ImmutableList.of(
+                                new CallArgument(location(1, 41), Optional.of(new Identifier(location(1, 41), "bah", false)), new LongLiteral(location(1, 48), "1")),
+                                new CallArgument(location(1, 51), Optional.of(new Identifier(location(1, 51), "wuh", false)), new StringLiteral(location(1, 58), "clap"))),
+                        Optional.of(
+                                new Predicated(
+                                        location(1, 76),
+                                        new Identifier(location(1, 72), "age", false),
+                                        new ComparisonPredicate(location(1, 76), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 78), "17"))))));
     }
 
     @Test

@@ -96,6 +96,7 @@ import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LoopStatement;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
@@ -1918,20 +1919,31 @@ public final class SqlFormatter
         @Override
         protected Void visitTableExecute(TableExecute node, Integer indent)
         {
-            builder.append("ALTER TABLE ");
-            builder.append(formatName(node.getTable().getName()));
+            return formatExecute(indent, "ALTER TABLE ", node.getTable().getName(), node.getProcedureName(), node.getArguments(), node.getWhere());
+        }
+
+        @Override
+        protected Void visitMaterializedViewExecute(MaterializedViewExecute node, Integer indent)
+        {
+            return formatExecute(indent, "ALTER MATERIALIZED VIEW ", node.getName(), node.getProcedureName(), node.getArguments(), node.getWhere());
+        }
+
+        private Void formatExecute(Integer indent, String keyword, QualifiedName name, Identifier procedureName, List<CallArgument> arguments, Optional<Expression> where)
+        {
+            builder.append(keyword);
+            builder.append(formatName(name));
             builder.append(" EXECUTE ");
-            builder.append(formatName(node.getProcedureName()));
-            if (!node.getArguments().isEmpty()) {
+            builder.append(formatName(procedureName));
+            if (!arguments.isEmpty()) {
                 builder.append("(");
-                formatCallArguments(indent, node.getArguments());
+                formatCallArguments(indent, arguments);
                 builder.append(")");
             }
-            node.getWhere().ifPresent(where -> builder
+            where.ifPresent(whereExpression -> builder
                     .append("\n")
                     .append(indentString(indent))
                     .append("WHERE ")
-                    .append(formatExpression(where)));
+                    .append(formatExpression(whereExpression)));
             return null;
         }
 

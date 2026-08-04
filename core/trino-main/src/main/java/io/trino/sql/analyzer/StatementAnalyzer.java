@@ -195,6 +195,7 @@ import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -1278,60 +1279,135 @@ class StatementAnalyzer
                     tableName,
                     procedureName);
 
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with row filter");
+            return analyzeTableExecute(
+                    node,
+                    "ALTER TABLE EXECUTE",
+                    "table",
+                    new ExecuteTarget(table, tableName, tableName),
+                    tableHandle,
+                    procedureName,
+                    node.getArguments(),
+                    node.getWhere(),
+                    Optional.empty(),
+                    scope);
+        }
+
+        @Override
+        protected Scope visitMaterializedViewExecute(MaterializedViewExecute node, Optional<Scope> scope)
+        {
+            QualifiedObjectName name = createQualifiedObjectName(session, node, node.getName());
+            MaterializedViewDefinition view = metadata.getMaterializedView(session, name)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Materialized view '%s' does not exist", name));
+            String procedureName = node.getProcedureName().getCanonicalValue();
+
+            accessControl.checkCanExecuteTableProcedure(session.toSecurityContext(), name, procedureName);
+
+            QualifiedName storageName = getMaterializedViewStorageTableName(view)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Storage table for materialized view '%s' does not exist", name));
+            QualifiedObjectName storageTableName = createQualifiedObjectName(session, node, storageName);
+            checkStorageTableNotRedirected(storageTableName);
+            TableHandle storageTableHandle = metadata.getTableHandle(session, storageTableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", storageTableName));
+
+            return analyzeTableExecute(
+                    node,
+                    "ALTER MATERIALIZED VIEW EXECUTE",
+                    "materialized view",
+                    new ExecuteTarget(node.getTable(), storageTableName, name),
+                    storageTableHandle,
+                    procedureName,
+                    node.getArguments(),
+                    node.getWhere(),
+                    Optional.of(view),
+                    scope);
+        }
+
+        // table: the table node to analyze for scope/authorization purposes; tableName: its name, used to resolve
+        // the catalog and procedure; updateTargetName: the name authorization (SELECT, row filters, column masks)
+        // is checked against, which for ALTER MATERIALIZED VIEW EXECUTE is the materialized view rather than its
+        // storage table. Grouped into a record so the two QualifiedObjectName fields can't be transposed at a
+        // call site.
+        private record ExecuteTarget(Table table, QualifiedObjectName tableName, QualifiedObjectName updateTargetName) {}
+
+        private Scope analyzeTableExecute(
+                Node node,
+                String updateType,
+                String targetNoun,
+                ExecuteTarget target,
+                TableHandle tableHandle,
+                String procedureName,
+                List<CallArgument> arguments,
+                Optional<Expression> where,
+                Optional<MaterializedViewDefinition> materializedView,
+                Optional<Scope> scope)
+        {
+            if (!accessControl.getRowFilters(session.toSecurityContext(), target.updateTargetName()).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "%s is not supported for %s with row filter", updateType, targetNoun);
             }
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with column masks");
+            if (!accessControl.getColumnMasks(session.toSecurityContext(), target.updateTargetName(), tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "%s is not supported for %s with column masks", updateType, targetNoun);
             }
 
-            Scope tableScope = analyze(table);
+            Scope tableScope;
+            if (materializedView.isPresent()) {
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), target.updateTargetName(), getBranchName(target.table()));
+                tableScope = createScopeForMaterializedViewStorageTableExecute(target.table(), target.updateTargetName(), scope, tableHandle);
+            }
+            else {
+                tableScope = analyze(target.table());
+            }
 
-            String catalogName = tableName.catalogName();
+            String catalogName = target.tableName().catalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
             TableProcedureMetadata procedureMetadata = tableProceduresRegistry.resolve(catalogHandle, procedureName);
 
             // analyze WHERE
-            if (!procedureMetadata.getExecutionMode().supportsFilter() && node.getWhere().isPresent()) {
+            if (!procedureMetadata.getExecutionMode().supportsFilter() && where.isPresent()) {
                 throw semanticException(NOT_SUPPORTED, node, "WHERE not supported for procedure %s", procedureName);
             }
-            node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
+            where.ifPresent(whereExpression -> analyzeWhere(node, tableScope, whereExpression));
 
             // analyze arguments
 
-            List<Property> arguments = processTableExecuteArguments(node, procedureMetadata, scope);
+            List<Property> properties = processTableExecuteArguments(node, arguments, procedureMetadata, scope);
             Map<String, Object> tableProperties = tableProceduresPropertyManager.getProperties(
                     catalogName,
                     catalogHandle,
                     procedureName,
-                    arguments,
+                    properties,
                     session,
                     plannerContext,
                     accessControl,
                     analysis.getParameters());
 
-            TableExecuteHandle executeHandle =
+            TableExecuteHandle executeHandle = materializedView.isPresent() ?
+                    metadata.getMaterializedViewTableHandleForExecute(
+                            session,
+                            tableHandle,
+                            procedureName,
+                            tableProperties)
+                    .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, target.tableName())) :
                     metadata.getTableHandleForExecute(
-                                    session,
-                                    tableHandle,
-                                    procedureName,
-                                    tableProperties)
-                            .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableName));
+                            session,
+                            tableHandle,
+                            procedureName,
+                            tableProperties)
+                    .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on materialized view '%s'", procedureName, target.tableName()));
 
             analysis.setTableExecuteReadsData(procedureMetadata.getExecutionMode().isReadsData());
             analysis.setTableExecuteHandle(executeHandle);
+            analysis.setTableExecuteTable(target.table());
 
-            analysis.setUpdateType("ALTER TABLE EXECUTE");
-            analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
+            analysis.setUpdateType(updateType);
+            analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), target.updateTargetName(), Optional.of(target.table()), Optional.empty());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("metric_name", VARCHAR), Field.newUnqualified("metric_value", BIGINT));
         }
 
-        private List<Property> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
+        private List<Property> processTableExecuteArguments(Node node, List<CallArgument> arguments, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
         {
-            List<CallArgument> arguments = node.getArguments();
             Predicate<CallArgument> hasName = argument -> argument.getName().isPresent();
             boolean anyNamed = arguments.stream().anyMatch(hasName);
             boolean allNamed = arguments.stream().allMatch(hasName);
@@ -2638,6 +2714,21 @@ class StatementAnalyzer
                     view.getColumns(),
                     freshStorageTable,
                     true);
+        }
+
+        private Scope createScopeForMaterializedViewStorageTableExecute(Table table, QualifiedObjectName viewName, Optional<Scope> scope, TableHandle storageTable)
+        {
+            TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
+            List<Field> outputFields = analyzeTableOutputFields(table, viewName, tableSchema, columnHandles);
+
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .build();
+            analyzeFiltersAndMasks(table, viewName, new RelationType(outputFields), accessControlScope);
+            analysis.registerTable(table, Optional.of(storageTable), viewName, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.empty());
+
+            return createAndAssignScope(table, scope, outputFields);
         }
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)

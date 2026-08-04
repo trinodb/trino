@@ -364,6 +364,33 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<TableExecuteHandle> getMaterializedViewTableHandleForExecute(Session session, TableHandle tableHandle, String procedure, Map<String, Object> executeProperties)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableHandle, "tableHandle is null");
+        requireNonNull(procedure, "procedure is null");
+        requireNonNull(executeProperties, "executeProperties is null");
+
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+        Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getMaterializedViewTableHandleForExecute(
+                session.toConnectorSession(catalogHandle),
+                new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName().toString()),
+                tableHandle.connectorHandle(),
+                procedure,
+                executeProperties,
+                getRetryPolicy(session).getRetryMode());
+
+        return executeHandle.map(handle -> new TableExecuteHandle(
+                catalogHandle,
+                tableHandle.transaction(),
+                tableHandle.connectorHandle(),
+                handle));
+    }
+
+    @Override
     public Set<ColumnHandle> getColumnHandlesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
         CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
