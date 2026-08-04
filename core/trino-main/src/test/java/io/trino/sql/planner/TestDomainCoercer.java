@@ -19,6 +19,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Range.greaterThan;
@@ -27,11 +28,13 @@ import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.Reals.toReal;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -181,6 +184,46 @@ public class TestDomainCoercer
     {
         assertThatThrownBy(() -> applySaturatedCasts(Domain.singleValue(INTEGER, 10L), BIGINT))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    public void testVarcharToChar()
+    {
+        // Values without trailing spaces are representable in char and must be preserved.
+        // Dynamic filters on CAST(char_column AS varchar) join keys rely on this translation;
+        // dropping the values would prune matching rows.
+        assertThat(applySaturatedCasts(
+                multipleValues(createVarcharType(10), ImmutableList.of(utf8Slice("I"), utf8Slice("P"))),
+                createCharType(10)))
+                .isEqualTo(multipleValues(createCharType(10), ImmutableList.of(utf8Slice("I"), utf8Slice("P"))));
+
+        // No char value casts back to a varchar with trailing spaces
+        assertThat(applySaturatedCasts(
+                multipleValues(createVarcharType(10), ImmutableList.of(utf8Slice("I "))),
+                createCharType(10)))
+                .isEqualTo(Domain.none(createCharType(10)));
+
+        // Truncation to the char length
+        assertThat(applySaturatedCasts(
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(createVarcharType(10), utf8Slice("abcde"))), false),
+                createCharType(3)))
+                .isEqualTo(Domain.create(ValueSet.ofRanges(lessThanOrEqual(createCharType(3), utf8Slice("abc"))), false));
+
+        // An upper bound with trailing spaces floors to the char value with the trailing spaces
+        // trimmed, which is the greatest char value whose cast back does not exceed the bound.
+        // Flooring below it (e.g. to '123' + U+001F) would exclude char '123', whose cast back
+        // ('123') satisfies the original predicate.
+        assertThat(applySaturatedCasts(
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(createVarcharType(10), utf8Slice("123 "))), false),
+                createCharType(4)))
+                .isEqualTo(Domain.create(ValueSet.ofRanges(lessThanOrEqual(createCharType(4), utf8Slice("123"))), false));
+
+        // A lower bound with trailing spaces has no exact char preimage, so the range is widened
+        // to be exclusive of the floor
+        assertThat(applySaturatedCasts(
+                Domain.create(ValueSet.ofRanges(greaterThanOrEqual(createVarcharType(10), utf8Slice("123 "))), false),
+                createCharType(4)))
+                .isEqualTo(Domain.create(ValueSet.ofRanges(greaterThan(createCharType(4), utf8Slice("123"))), false));
     }
 
     private static Domain applySaturatedCasts(Domain domain, Type coercedValueType)

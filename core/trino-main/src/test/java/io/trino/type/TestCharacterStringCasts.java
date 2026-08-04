@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.operator.scalar.LegacyVarcharToCharSaturatedFloorCast;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,8 +22,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.scalar.CharacterStringCasts.varcharToCharSaturatedFloorCast;
 import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
+import static io.trino.operator.scalar.VarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -188,71 +189,128 @@ public class TestCharacterStringCasts
     @Test
     public void testVarcharToCharSaturatedFloorCast()
     {
-        String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
-        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
-        String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
-
-        assertThat(varcharToCharSaturatedFloorCast(
-                5L,
-                utf8Slice("123" + new String(Character.toChars(0xE000))))).isEqualTo(utf8Slice("123" + new String(Character.toChars(0xD7FF)) + maxCodePoint));
-
-        // Truncation
+        // Truncation: a strict prefix is always smaller than the original value
         assertThat(varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("12345"))).isEqualTo(utf8Slice("1234"));
 
-        // Size fits, preserved
+        // Values without trailing spaces are representable in char(y) and cast back to varchar unchanged, so they are their own floor
         assertThat(varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("1234"))).isEqualTo(utf8Slice("1234"));
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("123"))).isEqualTo(utf8Slice("123"));
+        assertThat(varcharToCharSaturatedFloorCast(
+                10L,
+                utf8Slice("I"))).isEqualTo(utf8Slice("I"));
         assertThat(varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("123" + NON_BMP_CHARACTER))).isEqualTo(utf8Slice("123" + NON_BMP_CHARACTER));
         assertThat(varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("12" + NON_BMP_CHARACTER + "3"))).isEqualTo(utf8Slice("12" + NON_BMP_CHARACTER + "3"));
+        assertThat(varcharToCharSaturatedFloorCast(
+                5L,
+                utf8Slice("123" + new String(Character.toChars(0xE000))))).isEqualTo(utf8Slice("123" + new String(Character.toChars(0xE000))));
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12\0"))).isEqualTo(utf8Slice("12\0"));
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice(""))).isEqualTo(utf8Slice(""));
+
+        // A varchar with trailing spaces floors to the char value equal to it with the trailing
+        // spaces trimmed: in char ordering values compare as if space-padded, so e.g. char '123'
+        // (logically '123 ') is greater than any char '123<c>' with c below space, and it casts
+        // back to '123', which does not exceed the input
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("123 "))).isEqualTo(utf8Slice("123"));
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12 "))).isEqualTo(utf8Slice("12"));
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("1  "))).isEqualTo(utf8Slice("1"));
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice(" "))).isEqualTo(utf8Slice(""));
+
+        // Truncation that leaves a trailing space
+        assertThat(varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("123 5"))).isEqualTo(utf8Slice("123"));
+    }
+
+    @Test
+    public void testLegacyVarcharToCharSaturatedFloorCast()
+    {
+        String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
+        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
+        String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
+
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
+                5L,
+                utf8Slice("123" + new String(Character.toChars(0xE000))))).isEqualTo(utf8Slice("123" + new String(Character.toChars(0xD7FF)) + maxCodePoint));
+
+        // Truncation
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12345"))).isEqualTo(utf8Slice("1234"));
+
+        // Size fits, preserved
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("1234"))).isEqualTo(utf8Slice("1234"));
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("123" + NON_BMP_CHARACTER))).isEqualTo(utf8Slice("123" + NON_BMP_CHARACTER));
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
+                4L,
+                utf8Slice("12" + NON_BMP_CHARACTER + "3"))).isEqualTo(utf8Slice("12" + NON_BMP_CHARACTER + "3"));
 
         // Size fits, preserved except char(4) representation has trailing spaces removed
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("123 "))).isEqualTo(utf8Slice("123"));
 
         // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), so last character needs decrementing
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("123"))).isEqualTo(utf8Slice("122" + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("12 "))).isEqualTo(utf8Slice("12" + codePointBeforeSpace + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("1  "))).isEqualTo(utf8Slice("1 " + codePointBeforeSpace + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice(" "))).isEqualTo(utf8Slice(codePointBeforeSpace + maxCodePoint + maxCodePoint + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("12" + NON_BMP_CHARACTER))).isEqualTo(utf8Slice("12" + nonBmpCharacterMinusOne + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("1" + NON_BMP_CHARACTER + "3"))).isEqualTo(utf8Slice("1" + NON_BMP_CHARACTER + "2" + maxCodePoint));
 
         // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), previous to last needs decrementing since last is \0
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("12\0"))).isEqualTo(utf8Slice("11" + maxCodePoint + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("1\0"))).isEqualTo(utf8Slice("0" + maxCodePoint + maxCodePoint + maxCodePoint));
 
         // Smaller than any char(4) casted back to varchar, so the result is lowest char(4) possible
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("\0"))).isEqualTo(utf8Slice("\0\0\0\0"));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice("\0\0"))).isEqualTo(utf8Slice("\0\0\0\0"));
-        assertThat(varcharToCharSaturatedFloorCast(
+        assertThat(LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast(
                 4L,
                 utf8Slice(""))).isEqualTo(utf8Slice("\0\0\0\0"));
     }
