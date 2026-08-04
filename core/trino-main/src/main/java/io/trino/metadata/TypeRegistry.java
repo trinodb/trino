@@ -101,6 +101,7 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.type.MapParametricType.MAP;
 import static io.trino.type.RowParametricType.ROW;
+import static io.trino.type.SafeReRegexpType.SAFE_RE_REGEXP;
 import static io.trino.type.TDigestType.TDIGEST;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.type.setdigest.SetDigestType.SET_DIGEST;
@@ -148,6 +149,7 @@ public final class TypeRegistry
         addType(P4_HYPER_LOG_LOG);
         addType(JONI_REGEXP);
         addType(new Re2JRegexpType(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
+        addType(SAFE_RE_REGEXP);
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
         addType(JSON_2016);
